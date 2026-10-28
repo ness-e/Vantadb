@@ -33,8 +33,7 @@ describe("API-01: QueryResult::Write.node_id > 2^53 exacto (string|bigint)", () 
     // — prebuilt/stale WASM without the fix: bigint (still exact)
     // — an f64/number would be silent precision loss and must never appear.
     expect(typeof nodeId).not.toBe("number");
-    const exact =
-      typeof nodeId === "bigint" ? nodeId : BigInt(nodeId as string);
+    const exact = typeof nodeId === "bigint" ? nodeId : BigInt(nodeId as string);
     expect(exact).toBe(BIG);
     // The id must survive a JSON round-trip (the actual wire constraint).
     const asJson = { node_id: nodeId.toString() };

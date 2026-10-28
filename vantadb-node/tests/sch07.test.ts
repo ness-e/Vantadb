@@ -82,9 +82,9 @@ describe("SCH-07: v2 fields + temporal/quarantine params (node)", () => {
       expect(page.records).toHaveLength(1);
 
       // Inverted window → core boundary rejection (never silently swapped).
-      await expect(
-        db.list("s7", { valid_window: { from_ms: 10, to_ms: 1 } }),
-      ).rejects.toThrow(/valid_window/);
+      await expect(db.list("s7", { valid_window: { from_ms: 10, to_ms: 1 } })).rejects.toThrow(
+        /valid_window/,
+      );
 
       // Bad shape → napi trust-boundary rejection.
       await expect(

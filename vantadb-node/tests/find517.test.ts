@@ -37,9 +37,7 @@ describe("FIND-517: an empty store does not pre-reserve 64 MB per level", () => 
 
   /** Size of every LSM segment file of a store. */
   const segmentSizes = (dir: string): number[] =>
-    [0, 1, 2, 3].map((level) =>
-      statSync(join(dir, "data", `vstore_L${level}.vanta`)).size
-    );
+    [0, 1, 2, 3].map((level) => statSync(join(dir, "data", `vstore_L${level}.vanta`)).size);
 
   it("reserves a low-MB amount per level on an empty store", async () => {
     const dir = tmp("default");
@@ -84,7 +82,7 @@ describe("FIND-517: an empty store does not pre-reserve 64 MB per level", () => 
 
   it("rejects a non-positive reserve_bytes", async () => {
     await expect(VantaDb.connect(tmp("bad"), { reserve_bytes: 0 })).rejects.toThrow(
-      /reserve_bytes/
+      /reserve_bytes/,
     );
   });
 

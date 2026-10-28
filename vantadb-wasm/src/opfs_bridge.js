@@ -14,7 +14,7 @@ export async function openFile(dirHandle, path, create) {
   try {
     return await dirHandle.getFileHandle(path, { create });
   } catch (e) {
-    if (!create && e.name === 'NotFoundError') {
+    if (!create && e.name === "NotFoundError") {
       return null;
     }
     throw e;
@@ -52,7 +52,7 @@ export async function writeFile(handle, data) {
  */
 export async function appendFile(handle, data) {
   const writable = await handle.createWritable({ keepExistingData: true });
-  await writable.write({ type: 'write', data, position: (await handle.getFile()).size });
+  await writable.write({ type: "write", data, position: (await handle.getFile()).size });
   await writable.close();
 }
 
@@ -79,7 +79,7 @@ export function spawnOpfsWorker() {
         self.__opfsWorkerHandler = handler;
       };`,
     ],
-    { type: 'application/javascript' },
+    { type: "application/javascript" },
   );
   return new Worker(URL.createObjectURL(blob));
 }
@@ -116,14 +116,14 @@ export function registerAutoSave(db, options = {}) {
       // Call the WASM try_auto_save method
       await db.try_auto_save();
     } catch (e) {
-      console.warn('[vantadb] auto-save failed:', e);
+      console.warn("[vantadb] auto-save failed:", e);
     } finally {
       isSaving = false;
     }
   };
 
   const handleVisibilityChange = () => {
-    if (document.visibilityState === 'hidden') {
+    if (document.visibilityState === "hidden") {
       // Debounce: wait for debounceMs before attempting save
       if (debounceTimer) {
         clearTimeout(debounceTimer);
@@ -145,20 +145,20 @@ export function registerAutoSave(db, options = {}) {
     // Note: try_auto_save handles the actual save internally, so we just
     // need to ensure the promise has a chance to run.
     // We await with a short timeout to give it a chance.
-    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 100));
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 100));
     await Promise.race([savePromise, timeoutPromise]);
 
     // If save didn't complete, we can't do much more in pagehide
     // The differential persist cache will retry on next load
   };
 
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  window.addEventListener('pagehide', handlePageHide);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("pagehide", handlePageHide);
 
   // Return unregister function
   return () => {
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-    window.removeEventListener('pagehide', handlePageHide);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.removeEventListener("pagehide", handlePageHide);
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
@@ -171,7 +171,7 @@ export function registerAutoSave(db, options = {}) {
  * @param {Function} unregister - The function returned by registerAutoSave
  */
 export function unregisterAutoSave(unregister) {
-  if (typeof unregister === 'function') {
+  if (typeof unregister === "function") {
     unregister();
   }
 }
@@ -181,6 +181,6 @@ export function unregisterAutoSave(unregister) {
 // the DuckDB-WASM glue pattern (`@duckdb/duckdb-wasm` registers its worker
 // creator as a module side effect). Guarded to browser contexts to avoid
 // polluting Node / jsdom test environments.
-if (typeof window !== 'undefined' && typeof globalThis !== 'undefined') {
+if (typeof window !== "undefined" && typeof globalThis !== "undefined") {
   globalThis.spawnOpfsWorker = spawnOpfsWorker;
 }

@@ -43,9 +43,7 @@ describe("FIND-79: importRecords strict (no soft try/catch)", () => {
   });
 
   it("re-import of existing keys reports updated (core parity)", () => {
-    const report = db.importRecords([
-      { namespace: "f79_rt", key: "k1", payload: "v1b" },
-    ]);
+    const report = db.importRecords([{ namespace: "f79_rt", key: "k1", payload: "v1b" }]);
     expect(report.inserted).toBe(0);
     expect(report.updated).toBe(1);
     expect(report.errors).toBe(0);
@@ -99,9 +97,7 @@ describe("FIND-79: importRecords strict (no soft try/catch)", () => {
   });
 
   it("system subclient delegates with identical report", () => {
-    const report = db.system.importRecords([
-      { namespace: "f79_sys", key: "s", payload: "v" },
-    ]);
+    const report = db.system.importRecords([{ namespace: "f79_sys", key: "s", payload: "v" }]);
     expect(report.inserted).toBe(1);
     expect(report.errors).toBe(0);
     expect(db.get({ namespace: "f79_sys", key: "s" })!.payload).toBe("v");
@@ -110,9 +106,9 @@ describe("FIND-79: importRecords strict (no soft try/catch)", () => {
   it("throws DbError when closed", () => {
     const tmp = Client.create();
     tmp.close();
-    expect(() =>
-      tmp.importRecords([{ namespace: "f79_c", key: "k", payload: "v" }]),
-    ).toThrow(DbError);
+    expect(() => tmp.importRecords([{ namespace: "f79_c", key: "k", payload: "v" }])).toThrow(
+      DbError,
+    );
   });
 });
 
@@ -129,9 +125,7 @@ describe("FIND-79: FS-backed portability pins platform error (DEFER e2e)", () =>
 
   it("exportAll rejects with platform IO error (WASM has no std::fs)", () => {
     db.put({ namespace: "f79_exp", key: "k", payload: "v" });
-    expect(() => db.exportAll(tmpPath("backup.jsonl"))).toThrow(
-      /operation not supported/i,
-    );
+    expect(() => db.exportAll(tmpPath("backup.jsonl"))).toThrow(/operation not supported/i);
   });
 
   it("exportNamespace rejects with platform IO error", () => {
@@ -153,9 +147,7 @@ describe("FIND-79: FS-backed portability pins platform error (DEFER e2e)", () =>
   });
 
   it("reindexHnswFromText rejects with platform IO error", () => {
-    expect(() => db.reindexHnswFromText("f79_exp")).toThrow(
-      /operation not supported/i,
-    );
+    expect(() => db.reindexHnswFromText("f79_exp")).toThrow(/operation not supported/i);
   });
 
   it("system subclient delegates export/import/reindex identically", () => {

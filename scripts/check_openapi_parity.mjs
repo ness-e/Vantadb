@@ -133,7 +133,9 @@ function main() {
     const onlyRs = [...methods].filter((m) => !yMethods.has(m));
     const onlyYaml = [...yMethods].filter((m) => !methods.has(m));
     if (onlyRs.length || onlyYaml.length) {
-      methodDiffs.push(`${p}: rs=[${[...methods].sort().join(",")}] yaml=[${[...yMethods].sort().join(",")}]`);
+      methodDiffs.push(
+        `${p}: rs=[${[...methods].sort().join(",")}] yaml=[${[...yMethods].sort().join(",")}]`,
+      );
     }
   }
   for (const p of yamlPaths.keys()) {
@@ -142,7 +144,9 @@ function main() {
 
   const v2Count = [...rsMap.keys()].filter((p) => p.startsWith("/api/v2/")).length;
   const opCount = rsRoutes.reduce((n, r) => n + r.methods.length, 0);
-  console.log(`Router (src/server/router.rs): ${rsMap.size} paths, ${opCount} operations (${v2Count} paths under /api/v2/*)`);
+  console.log(
+    `Router (src/server/router.rs): ${rsMap.size} paths, ${opCount} operations (${v2Count} paths under /api/v2/*)`,
+  );
   console.log(`OpenAPI (docs/api/openapi.yaml): ${yamlPaths.size} paths`);
 
   let ok = true;

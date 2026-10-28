@@ -35,7 +35,9 @@ function addMessage(role, content, memories = null) {
     const ul = document.createElement("ul");
     for (const m of memories) {
       const li = document.createElement("li");
-      li.innerHTML = `<strong>${escapeHtml(m.key)}</strong> — ${escapeHtml(m.payload)} <span class="score">(score: ${m.score.toFixed(3)})</span>`;
+      li.innerHTML = `<strong>${escapeHtml(m.key)}</strong> — ${escapeHtml(
+        m.payload,
+      )} <span class="score">(score: ${m.score.toFixed(3)})</span>`;
       ul.appendChild(li);
     }
     det.appendChild(ul);
@@ -74,10 +76,15 @@ async function handleMessage() {
   try {
     const vector = await embedFn(text);
     db.put({ namespace: NAMESPACE, key: `msg-${Date.now()}`, payload: text, vector: [vector] });
-    const hits = db.search({ namespace: NAMESPACE, query_vector: vector, top_k: 5, distance_metric: "Cosine" });
+    const hits = db.search({
+      namespace: NAMESPACE,
+      query_vector: vector,
+      top_k: 5,
+      distance_metric: "Cosine",
+    });
     const memories = (hits ?? [])
-      .filter(h => h.score > SIMILARITY_THRESHOLD)
-      .map(h => ({ key: h.record.key, payload: h.record.payload, score: h.score }));
+      .filter((h) => h.score > SIMILARITY_THRESHOLD)
+      .map((h) => ({ key: h.record.key, payload: h.record.payload, score: h.score }));
 
     addMessage("agent", generateResponse(text, memories), memories);
     setStatus("ready", "Memory saved");
@@ -106,7 +113,9 @@ input.addEventListener("input", () => {
 
 async function initEmbedder() {
   try {
-    const { pipeline } = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.0");
+    const { pipeline } = await import(
+      "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.0"
+    );
     const extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
       quantized: true,
     });
@@ -121,7 +130,7 @@ async function initEmbedder() {
       const dim = 384;
       let hash = 0;
       for (let i = 0; i < text.length; i++) {
-        hash = ((hash << 5) - hash) + text.charCodeAt(i);
+        hash = (hash << 5) - hash + text.charCodeAt(i);
         hash |= 0;
       }
       const seed = Math.abs(hash);
@@ -152,9 +161,12 @@ async function boot() {
     sendBtn.disabled = false;
     setStatus("ready", usingMock ? "Ready (mock embedder)" : "Ready");
     input.focus();
-    addMessage("system", usingMock
-      ? "Transformers.js failed to load. Using deterministic mock embeddings for demo purposes."
-      : "VantaDB connected with OPFS persistence. Your memories will persist across sessions.");
+    addMessage(
+      "system",
+      usingMock
+        ? "Transformers.js failed to load. Using deterministic mock embeddings for demo purposes."
+        : "VantaDB connected with OPFS persistence. Your memories will persist across sessions.",
+    );
   } catch (err) {
     setStatus("error", `Init failed: ${err.message || err}`);
     addMessage("system", `Failed to initialize: ${err.message || err}`);

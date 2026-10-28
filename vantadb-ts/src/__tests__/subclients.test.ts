@@ -66,8 +66,12 @@ describe("Sub-client shape", () => {
 describe("db.memory delegates to flat memory methods", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("memory.put returns the identical record as flat put", () => {
     const viaFlat = db.put({ namespace: "sc_mem", key: "flat", payload: "v" });
@@ -124,8 +128,12 @@ describe("db.memory delegates to flat memory methods", () => {
 describe("db.graph delegates to flat graph methods", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("graph.insertNode + getNode round-trip", () => {
     db.graph.insertNode(900, "sub-client node");
@@ -182,8 +190,12 @@ describe("db.graph delegates to flat graph methods", () => {
 describe("db.system delegates to flat system methods", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("system.capabilities returns the same shape as flat capabilities", () => {
     const caps = db.system.capabilities();
@@ -201,8 +213,16 @@ describe("db.system delegates to flat system methods", () => {
     expect(runClient).toThrow(DbError);
     let flatMsg = "";
     let clientMsg = "";
-    try { runFlat(); } catch (e) { flatMsg = (e as DbError).message; }
-    try { runClient(); } catch (e) { clientMsg = (e as DbError).message; }
+    try {
+      runFlat();
+    } catch (e) {
+      flatMsg = (e as DbError).message;
+    }
+    try {
+      runClient();
+    } catch (e) {
+      clientMsg = (e as DbError).message;
+    }
     expect(clientMsg).toBe(flatMsg);
   });
 

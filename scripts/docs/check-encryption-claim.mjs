@@ -29,46 +29,46 @@
 //   1 = GATE FAILED - the claim and the code disagree
 //   2 = cannot evaluate (files unreadable) - NOT a pass
 
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 const ROOT = process.cwd();
 
 // The files that carry the claim. They must agree with each other AND with
 // `docs/user/operations/CONFIGURATION.md` (the `encryption_key` row).
-const CLAIM_FILES = ['SECURITY.md', 'src/crypto.rs'];
-const REFERENCE_DOC = 'docs/user/operations/CONFIGURATION.md';
+const CLAIM_FILES = ["SECURITY.md", "src/crypto.rs"];
+const REFERENCE_DOC = "docs/user/operations/CONFIGURATION.md";
 
 // How the code says "the storage files are still plaintext". Any of these
 // qualifiers makes the claim honest; none of them -> the claim is unqualified.
 const NEGATIVE_QUALIFIERS = [
-  'not encrypted at rest yet',
-  'are not encrypted at rest',
-  'not encrypted at rest',
-  'remain plaintext',
-  'stay plaintext',
-  'still plaintext',
-  'siguen en claro',
-  'no estan cifrados en reposo',
-  'no está cifrado en reposo',
-  'not yet applied to core storage',
+  "not encrypted at rest yet",
+  "are not encrypted at rest",
+  "not encrypted at rest",
+  "remain plaintext",
+  "stay plaintext",
+  "still plaintext",
+  "siguen en claro",
+  "no estan cifrados en reposo",
+  "no está cifrado en reposo",
+  "not yet applied to core storage",
 ];
 
 // The marker the implementation (ADR-0057, wave W6) must flip when the wiring
 // is complete. Absent = not wired.
-const WIRED_MARKER = 'ENCRYPTION_AT_REST_WIRED';
+const WIRED_MARKER = "ENCRYPTION_AT_REST_WIRED";
 const WIRED_TRUE = /ENCRYPTION_AT_REST_WIRED\s*(?::\s*bool\s*)?=\s*true|ADR-0057 W6/;
 
 function read(rel) {
   const p = join(ROOT, rel);
   if (!existsSync(p)) return null;
-  return readFileSync(p, 'utf8');
+  return readFileSync(p, "utf8");
 }
 
 /** Is the feature actually wired into the core storage write paths? */
 function wiredState() {
   // The marker may live in src/crypto.rs or in the registry module next to it.
-  const candidates = ['src/crypto.rs', 'src/crypto/registry.rs', 'src/crypto/mod.rs'];
+  const candidates = ["src/crypto.rs", "src/crypto/registry.rs", "src/crypto/mod.rs"];
   for (const rel of candidates) {
     const t = read(rel);
     if (t && WIRED_TRUE.test(t)) return { wired: true, markerIn: rel };
@@ -92,21 +92,21 @@ function evaluate() {
   for (const rel of CLAIM_FILES) {
     const t = read(rel);
     if (t === null) {
-      problems.push({ file: rel, reason: 'unreadable' });
+      problems.push({ file: rel, reason: "unreadable" });
       continue;
     }
     files[rel] = { honest: isHonest(t) };
   }
   const ref = read(REFERENCE_DOC);
   if (ref === null) {
-    problems.push({ file: REFERENCE_DOC, reason: 'unreadable' });
+    problems.push({ file: REFERENCE_DOC, reason: "unreadable" });
   } else {
     files[REFERENCE_DOC] = { honest: isHonest(ref) };
   }
 
   const { wired, markerIn } = wiredState();
 
-  if (problems.length) return { ok: false, wired, markerIn, files, problems, claim: 'unreadable' };
+  if (problems.length) return { ok: false, wired, markerIn, files, problems, claim: "unreadable" };
 
   const unqualified = Object.entries(files)
     .filter(([, v]) => !v.honest)
@@ -119,30 +119,33 @@ function evaluate() {
       markerIn,
       files,
       problems: [],
-      claim: 'unqualified-while-not-wired',
+      claim: "unqualified-while-not-wired",
       detail: unqualified,
     };
   }
-  if (wired && files['SECURITY.md'].honest) {
+  if (wired && files["SECURITY.md"].honest) {
     return {
       ok: false,
       wired,
       markerIn,
       files,
       problems: [],
-      claim: 'stale-negative-while-wired',
-      detail: ['SECURITY.md'],
+      claim: "stale-negative-while-wired",
+      detail: ["SECURITY.md"],
     };
   }
-  return { ok: true, wired, markerIn, files, problems: [], claim: 'consistent' };
+  return { ok: true, wired, markerIn, files, problems: [], claim: "consistent" };
 }
 
 function selfTest() {
   const cases = [
-    { text: 'the core storage files **are not encrypted at rest yet**', expect: true },
-    { text: 'WAL/HNSW/VantaFile/backend-KV/snapshots remain plaintext today', expect: true },
-    { text: '- **AES-256-GCM at-rest encryption** behind the `encryption` feature flag.', expect: false },
-    { text: 'the core storage files are not encrypted at rest yet (FIND-249)', expect: true },
+    { text: "the core storage files **are not encrypted at rest yet**", expect: true },
+    { text: "WAL/HNSW/VantaFile/backend-KV/snapshots remain plaintext today", expect: true },
+    {
+      text: "- **AES-256-GCM at-rest encryption** behind the `encryption` feature flag.",
+      expect: false,
+    },
+    { text: "the core storage files are not encrypted at rest yet (FIND-249)", expect: true },
   ];
   let fail = 0;
   for (const c of cases) {
@@ -157,42 +160,49 @@ function selfTest() {
 }
 
 const args = process.argv.slice(2);
-if (args.includes('--self-test')) {
+if (args.includes("--self-test")) {
   process.exit(selfTest() ? 0 : 1);
 }
 
 const res = evaluate();
 
-if (args.includes('--json')) {
+if (args.includes("--json")) {
   console.log(JSON.stringify(res, null, 2));
   process.exit(res.ok ? 0 : 1);
 }
 
 if (res.ok) {
   console.log(
-    `encryption claim: OK (${res.wired ? 'wired - la doc describe la capacidad real' : 'not wired - la doc dice que el storage sigue en claro'})`,
+    `encryption claim: OK (${
+      res.wired
+        ? "wired - la doc describe la capacidad real"
+        : "not wired - la doc dice que el storage sigue en claro"
+    })`,
   );
   process.exit(0);
 }
 
-if (res.claim === 'unreadable') {
-  console.error('encryption claim: GATE FAILED - no se pudo leer: ' + res.problems.map((p) => p.file).join(', '));
+if (res.claim === "unreadable") {
+  console.error(
+    "encryption claim: GATE FAILED - no se pudo leer: " +
+      res.problems.map((p) => p.file).join(", "),
+  );
   process.exit(2);
 }
-if (res.claim === 'unqualified-while-not-wired') {
+if (res.claim === "unqualified-while-not-wired") {
   console.error(
-    'encryption claim: GATE FAILED - el cifrado en reposo NO esta cableado, pero estos ficheros\n' +
-      'afirman cifrado en reposo sin el matiz que lo desmiente (P0 FIND-407):\n' +
-      res.detail.map((f) => `  - ${f}`).join('\n') +
-      '\n  Redaccion honesta de referencia: docs/user/operations/CONFIGURATION.md (encryption_key)',
+    "encryption claim: GATE FAILED - el cifrado en reposo NO esta cableado, pero estos ficheros\n" +
+      "afirman cifrado en reposo sin el matiz que lo desmiente (P0 FIND-407):\n" +
+      res.detail.map((f) => `  - ${f}`).join("\n") +
+      "\n  Redaccion honesta de referencia: docs/user/operations/CONFIGURATION.md (encryption_key)",
   );
   process.exit(1);
 }
 console.error(
-  'encryption claim: GATE FAILED - el cifrado en reposo YA esta cableado (' +
-    (res.markerIn ?? 'marcador') +
-    ') pero la doc sigue diciendo que no lo esta (claim falsa inversa, riesgo R-12 de ADR-0057):\n' +
-    res.detail.map((f) => `  - ${f}`).join('\n') +
-    '\n  Enmenda la doc hacia delante: describe la capacidad real y su alcance exacto (ADR-0057 §5.3).',
+  "encryption claim: GATE FAILED - el cifrado en reposo YA esta cableado (" +
+    (res.markerIn ?? "marcador") +
+    ") pero la doc sigue diciendo que no lo esta (claim falsa inversa, riesgo R-12 de ADR-0057):\n" +
+    res.detail.map((f) => `  - ${f}`).join("\n") +
+    "\n  Enmenda la doc hacia delante: describe la capacidad real y su alcance exacto (ADR-0057 §5.3).",
 );
 process.exit(1);

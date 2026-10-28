@@ -53,7 +53,18 @@
         "quarantined_by": { "type": ["string", "null"] },
         "quarantine_review_due_ms": { "type": ["integer", "null"] }
       },
-      "required": ["namespace", "key", "payload", "metadata", "created_at_ms", "updated_at_ms", "version", "node_id", "vector", "expires_at_ms"],
+      "required": [
+        "namespace",
+        "key",
+        "payload",
+        "metadata",
+        "created_at_ms",
+        "updated_at_ms",
+        "version",
+        "node_id",
+        "vector",
+        "expires_at_ms"
+      ],
       "additionalProperties": false
     },
     "MemorySearchHit": {
@@ -112,7 +123,15 @@
         "mmr": { "type": ["object", "null"] },
         "cursor": { "type": ["string", "null"] }
       },
-      "required": ["namespace", "query_vector", "filters", "text_query", "top_k", "distance_metric", "explain"],
+      "required": [
+        "namespace",
+        "query_vector",
+        "filters",
+        "text_query",
+        "top_k",
+        "distance_metric",
+        "explain"
+      ],
       "additionalProperties": false
     },
     "SearchHit": {
@@ -142,7 +161,20 @@
         "tier": { "type": "string" },
         "is_alive": { "type": "boolean" }
       },
-      "required": ["id", "fields", "vector", "vector_dimensions", "edges", "confidence_score", "importance", "hits", "last_accessed", "epoch", "tier", "is_alive"],
+      "required": [
+        "id",
+        "fields",
+        "vector",
+        "vector_dimensions",
+        "edges",
+        "confidence_score",
+        "importance",
+        "hits",
+        "last_accessed",
+        "epoch",
+        "tier",
+        "is_alive"
+      ],
       "additionalProperties": false
     },
     "EdgeRecord": {

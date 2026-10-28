@@ -76,7 +76,12 @@ describe("WIRE-03: query_sparse + text-only + advanced filters (node)", () => {
   it("text-only search with empty query_vector returns BM25 hits", async () => {
     const db = await VantaDb.connect(tmp("text-only"));
     try {
-      await db.put({ namespace: "ns", key: "t1", payload: "the quick brown fox jumps", vector: [1, 0] });
+      await db.put({
+        namespace: "ns",
+        key: "t1",
+        payload: "the quick brown fox jumps",
+        vector: [1, 0],
+      });
       await db.put({ namespace: "ns", key: "t2", payload: "lazy dogs sleep", vector: [0, 1] });
 
       const hits = await db.search({

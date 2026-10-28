@@ -169,10 +169,7 @@ export interface NativeClientBinding {
     inputOrNamespace: DeleteByFilterInput | string,
     filter?: FilterSpec,
   ): Promise<bigint>;
-  count(
-    inputOrNamespace?: CountInput | string,
-    filters?: FilterSpec | null,
-  ): Promise<bigint>;
+  count(inputOrNamespace?: CountInput | string, filters?: FilterSpec | null): Promise<bigint>;
 
   // Maintenance & Metrics (FIND-359)
   compactLayout(): Promise<bigint>;
@@ -199,9 +196,7 @@ const NATIVE_CODE_PREFIX = /^(VANTADB_[A-Z0-9_]+): ([\s\S]*)$/;
 export function wrapNativeError(e: unknown, context: string): DbError {
   if (e instanceof DbError) return e;
   const message = e instanceof Error ? e.message : String(e);
-  const details = e instanceof Error
-    ? { name: e.name, stack: e.stack }
-    : { original: e };
+  const details = e instanceof Error ? { name: e.name, stack: e.stack } : { original: e };
   const match = NATIVE_CODE_PREFIX.exec(message);
   if (match && (Object.values(ERROR_CODES) as readonly string[]).includes(match[1])) {
     return new DbError(match[1], `${context}: ${match[2]}`, details, { cause: e });
@@ -223,7 +218,7 @@ function normalizeMetadataForNative(
   const out: import("vantadb-node").VantaMetadata = {};
   for (const [k, v] of Object.entries(input)) {
     if (v === null) {
-      out[k] = 'Null';
+      out[k] = "Null";
     } else if (v instanceof Date) {
       // WIRE-03 (review R1): `MetadataInput` accepts `Date` (py↔js parity with
       // `datetime`); normalize to the tagged DateTime wire form.
@@ -246,17 +241,21 @@ function normalizeMetadataForNative(
       // Assume already a tagged Value (e.g., { String: "..." })
       // Check if it matches native VantaValue variants
       const vv = v as Record<string, unknown>;
-      if ('String' in vv && typeof vv.String === 'string') out[k] = { String: vv.String };
-      else if ('Int' in vv && typeof vv.Int === 'number') out[k] = { Int: vv.Int };
-      else if ('Float' in vv && typeof vv.Float === 'number') out[k] = { Float: vv.Float };
-      else if ('Bool' in vv && typeof vv.Bool === 'boolean') out[k] = { Bool: vv.Bool };
-      else if ('DateTime' in vv && typeof vv.DateTime === 'string') out[k] = { DateTime: vv.DateTime };
-      else if ('ListString' in vv && Array.isArray(vv.ListString)) out[k] = { ListString: vv.ListString };
-      else if ('ListInt' in vv && Array.isArray(vv.ListInt)) out[k] = { ListInt: vv.ListInt };
-      else if ('ListFloat' in vv && Array.isArray(vv.ListFloat)) out[k] = { ListFloat: vv.ListFloat };
-      else if ('ListBool' in vv && Array.isArray(vv.ListBool)) out[k] = { ListBool: vv.ListBool };
-      else if ('ListDateTime' in vv && Array.isArray(vv.ListDateTime)) out[k] = { ListDateTime: vv.ListDateTime };
-      else if ('Null' in vv) out[k] = 'Null';
+      if ("String" in vv && typeof vv.String === "string") out[k] = { String: vv.String };
+      else if ("Int" in vv && typeof vv.Int === "number") out[k] = { Int: vv.Int };
+      else if ("Float" in vv && typeof vv.Float === "number") out[k] = { Float: vv.Float };
+      else if ("Bool" in vv && typeof vv.Bool === "boolean") out[k] = { Bool: vv.Bool };
+      else if ("DateTime" in vv && typeof vv.DateTime === "string")
+        out[k] = { DateTime: vv.DateTime };
+      else if ("ListString" in vv && Array.isArray(vv.ListString))
+        out[k] = { ListString: vv.ListString };
+      else if ("ListInt" in vv && Array.isArray(vv.ListInt)) out[k] = { ListInt: vv.ListInt };
+      else if ("ListFloat" in vv && Array.isArray(vv.ListFloat))
+        out[k] = { ListFloat: vv.ListFloat };
+      else if ("ListBool" in vv && Array.isArray(vv.ListBool)) out[k] = { ListBool: vv.ListBool };
+      else if ("ListDateTime" in vv && Array.isArray(vv.ListDateTime))
+        out[k] = { ListDateTime: vv.ListDateTime };
+      else if ("Null" in vv) out[k] = "Null";
       else {
         throw new DbError(
           ERROR_CODES.VALIDATION_ERROR,
@@ -288,9 +287,9 @@ function normalizeMetadataForNative(
  * - `connect` is an async factory; the WASM wrapper's sync `connect` has no
  *   native equivalent.
  *
-  * Platform fallback: the native `.node` binary is platform-specific. If it is
-  * not present for the current platform (e.g. a browser bundle), calling any
-  * method throws a `DbError` with a canonical `VANTADB_*` code and a clear
+ * Platform fallback: the native `.node` binary is platform-specific. If it is
+ * not present for the current platform (e.g. a browser bundle), calling any
+ * method throws a `DbError` with a canonical `VANTADB_*` code and a clear
  * message — browsers should use the WASM wrapper (`vantadb.ts`) instead.
  */
 export class NativeVantaDB implements NativeClientBinding {
@@ -326,7 +325,10 @@ export class NativeVantaDB implements NativeClientBinding {
    * @throws {DbError} If the native binding is unavailable for this platform
    *   or the engine fails to open.
    */
-  static async connect(path: string = ":memory:", options?: NativeConnectOptions): Promise<NativeVantaDB> {
+  static async connect(
+    path: string = ":memory:",
+    options?: NativeConnectOptions,
+  ): Promise<NativeVantaDB> {
     try {
       const { VantaDb } = await import("vantadb-node");
       const inner = await VantaDb.connect(path, options ?? undefined);
@@ -407,8 +409,10 @@ export class NativeVantaDB implements NativeClientBinding {
         // native path). Erased cast: `Record<number, number>` public shape vs
         // the node `.d.ts` string-key wire — zero runtime change.
         sparse_vector:
-          (input.sparse_vector as unknown as Record<string, number> | null | undefined) ?? undefined,
-        metadata: input.metadata !== undefined ? normalizeMetadataForNative(input.metadata) : undefined,
+          (input.sparse_vector as unknown as Record<string, number> | null | undefined) ??
+          undefined,
+        metadata:
+          input.metadata !== undefined ? normalizeMetadataForNative(input.metadata) : undefined,
       };
       return _mapRecord(await this.inner.put(wire));
     });
@@ -485,7 +489,8 @@ export class NativeVantaDB implements NativeClientBinding {
     return this._native("list", async () => {
       const { namespace, ...options } = input;
       const wire = {
-        filters: options.filters !== undefined ? normalizeMetadataForNative(options.filters) : undefined,
+        filters:
+          options.filters !== undefined ? normalizeMetadataForNative(options.filters) : undefined,
         limit: options.limit,
         // FIND-125 (updated EGO-01): `ListOptions.cursor` is `string | number`
         // (union of both backends — WASM emits decimal strings); napi accepts
@@ -531,13 +536,15 @@ export class NativeVantaDB implements NativeClientBinding {
     }
     return {
       ...buildSearchRequestBase(request, explain),
-      filters: request.filters !== undefined ? normalizeMetadataForNative(request.filters) : undefined,
+      filters:
+        request.filters !== undefined ? normalizeMetadataForNative(request.filters) : undefined,
       text_query: request.text_query ?? undefined,
       // WIRE-03: sparse query passthrough. The node `.d.ts` types the wire as
       // `Record<string, number>` (JS object keys are strings); the public SDK
       // type is `Record<number, number>` (same shape MemoryInput.sparse_vector
       // documents). Erased cast: zero runtime change.
-      query_sparse: (request.query_sparse as unknown as Record<string, number> | null | undefined) ?? undefined,
+      query_sparse:
+        (request.query_sparse as unknown as Record<string, number> | null | undefined) ?? undefined,
       // SCH-04: opt-in confidence filter passthrough (ADR-046 §D2).
       min_confidence: request.min_confidence ?? undefined,
       // FIND-412: ADR-028 flag — hide records replaced by a newer one.
@@ -693,11 +700,7 @@ export class NativeVantaDB implements NativeClientBinding {
    * @param key - Record key.
    * @param version - Version number (1-based).
    */
-  async getVersion(
-    namespace: string,
-    key: string,
-    version: number,
-  ): Promise<MemoryRecord | null> {
+  async getVersion(namespace: string, key: string, version: number): Promise<MemoryRecord | null> {
     this.ensureOpen();
     return this._native("getVersion", async () => {
       const raw = await this.inner.getVersion(namespace, key, version);
@@ -744,7 +747,10 @@ export class NativeVantaDB implements NativeClientBinding {
         content,
         vector,
         fields: fields
-          ? (normalizeMetadataForNative(fields as MetadataInput) as Record<string, import("vantadb-node").VantaValue>)
+          ? (normalizeMetadataForNative(fields as MetadataInput) as Record<
+              string,
+              import("vantadb-node").VantaValue
+            >)
           : undefined,
       };
     }
@@ -813,8 +819,13 @@ export class NativeVantaDB implements NativeClientBinding {
   async getEdges(nodeId: string | number | bigint): Promise<GraphEdgeRecord[]> {
     this.ensureOpen();
     return this._native("getEdges", async () => {
-      if (typeof (this.inner as unknown as { getEdges?: (id: string) => Promise<GraphEdgeRecord[]> }).getEdges === "function") {
-        return await (this.inner as unknown as { getEdges: (id: string) => Promise<GraphEdgeRecord[]> }).getEdges(String(nodeId));
+      if (
+        typeof (this.inner as unknown as { getEdges?: (id: string) => Promise<GraphEdgeRecord[]> })
+          .getEdges === "function"
+      ) {
+        return await (
+          this.inner as unknown as { getEdges: (id: string) => Promise<GraphEdgeRecord[]> }
+        ).getEdges(String(nodeId));
       }
       const node = await this.inner.getNode(String(nodeId));
       return node?.edges ?? [];
@@ -827,8 +838,13 @@ export class NativeVantaDB implements NativeClientBinding {
   async findNodesByLabel(label: string): Promise<string[]> {
     this.ensureOpen();
     return this._native("findNodesByLabel", async () => {
-      if (typeof (this.inner as unknown as { findNodesByLabel?: (lbl: string) => Promise<string[]> }).findNodesByLabel === "function") {
-        return await (this.inner as unknown as { findNodesByLabel: (lbl: string) => Promise<string[]> }).findNodesByLabel(label);
+      if (
+        typeof (this.inner as unknown as { findNodesByLabel?: (lbl: string) => Promise<string[]> })
+          .findNodesByLabel === "function"
+      ) {
+        return await (
+          this.inner as unknown as { findNodesByLabel: (lbl: string) => Promise<string[]> }
+        ).findNodesByLabel(label);
       }
       return [];
     });
@@ -844,9 +860,7 @@ export class NativeVantaDB implements NativeClientBinding {
   ): Promise<string[]> {
     this.ensureOpen();
     const strRoots = roots.map((r) => String(r));
-    return this._native("graphBfs", () =>
-      this.inner.graphBfs(strRoots, maxDepth, direction),
-    );
+    return this._native("graphBfs", () => this.inner.graphBfs(strRoots, maxDepth, direction));
   }
 
   /**
@@ -859,9 +873,7 @@ export class NativeVantaDB implements NativeClientBinding {
   ): Promise<string[]> {
     this.ensureOpen();
     const strRoots = roots.map((r) => String(r));
-    return this._native("graphDfs", () =>
-      this.inner.graphDfs(strRoots, maxDepth, direction),
-    );
+    return this._native("graphDfs", () => this.inner.graphDfs(strRoots, maxDepth, direction));
   }
 
   /**
@@ -870,9 +882,7 @@ export class NativeVantaDB implements NativeClientBinding {
   async graphTopologicalSort(roots: (string | number | bigint)[]): Promise<string[]> {
     this.ensureOpen();
     const strRoots = roots.map((r) => String(r));
-    return this._native("graphTopologicalSort", () =>
-      this.inner.graphTopologicalSort(strRoots),
-    );
+    return this._native("graphTopologicalSort", () => this.inner.graphTopologicalSort(strRoots));
   }
 
   /**
@@ -881,9 +891,7 @@ export class NativeVantaDB implements NativeClientBinding {
   async graphIsDag(roots: (string | number | bigint)[]): Promise<boolean> {
     this.ensureOpen();
     const strRoots = roots.map((r) => String(r));
-    return this._native("graphIsDag", () =>
-      this.inner.graphIsDag(strRoots),
-    );
+    return this._native("graphIsDag", () => this.inner.graphIsDag(strRoots));
   }
 
   /**
@@ -908,9 +916,7 @@ export class NativeVantaDB implements NativeClientBinding {
   async graphDegree(roots: (string | number | bigint)[]): Promise<DegreeEntry[]> {
     this.ensureOpen();
     const strRoots = roots.map((r) => String(r));
-    return this._native("graphDegree", () =>
-      this.inner.graphDegree(strRoots),
-    );
+    return this._native("graphDegree", () => this.inner.graphDegree(strRoots));
   }
 
   /**
@@ -927,23 +933,13 @@ export class NativeVantaDB implements NativeClientBinding {
       if (
         typeof (
           this.inner as unknown as {
-            graphShortestPath?: (
-              s: string,
-              t: string,
-              d: number,
-              dir: string,
-            ) => Promise<string[]>;
+            graphShortestPath?: (s: string, t: string, d: number, dir: string) => Promise<string[]>;
           }
         ).graphShortestPath === "function"
       ) {
         return await (
           this.inner as unknown as {
-            graphShortestPath: (
-              s: string,
-              t: string,
-              d: number,
-              dir: string,
-            ) => Promise<string[]>;
+            graphShortestPath: (s: string, t: string, d: number, dir: string) => Promise<string[]>;
           }
         ).graphShortestPath(String(sourceId), String(targetId), maxDepth, direction);
       }
@@ -1047,10 +1043,7 @@ export class NativeVantaDB implements NativeClientBinding {
   /**
    * Search with an explicit dense-vector index backend override.
    */
-  async searchWithMethod(
-    request: SearchRequest,
-    method?: string | null,
-  ): Promise<SearchHit[]> {
+  async searchWithMethod(request: SearchRequest, method?: string | null): Promise<SearchHit[]> {
     this.ensureOpen();
     return this._native("searchWithMethod", async () => {
       const raw: unknown[] = await this.inner.searchWithMethod(

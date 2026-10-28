@@ -37,18 +37,26 @@
 //   1 = at least one internal link is broken, or the wikilink budget is exceeded
 //   2 = bad usage
 
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { join, dirname, relative, sep, resolve as pathResolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { buildTargetSet, listDocs, parseFrontmatter, proseOf, segment, WIKI_LINK, MD_LINK } from './lib.mjs';
+import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { join, dirname, relative, sep, resolve as pathResolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  buildTargetSet,
+  listDocs,
+  parseFrontmatter,
+  proseOf,
+  segment,
+  WIKI_LINK,
+  MD_LINK,
+} from "./lib.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const DOCS = join(ROOT, 'docs');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const DOCS = join(ROOT, "docs");
 
 const ARGS = new Set(process.argv.slice(2));
-const JSON_OUT = ARGS.has('--json');
-const INCLUDE_ARCHIVE = ARGS.has('--all');
-const FAIL_WIKILINKS = !ARGS.has('--no-wikilinks');
+const JSON_OUT = ARGS.has("--json");
+const INCLUDE_ARCHIVE = ARGS.has("--all");
+const FAIL_WIKILINKS = !ARGS.has("--no-wikilinks");
 
 /**
  * Broken internal Markdown links, tolerated.
@@ -64,10 +72,10 @@ const FAIL_WIKILINKS = !ARGS.has('--no-wikilinks');
  * documents that did not exist, links inside code spans, or frozen history.
  */
 const BROKEN_MD_BUDGET = Number(
-  (process.argv.find((a) => a.startsWith('--max-broken=')) ?? '').split('=')[1] || 0,
+  (process.argv.find((a) => a.startsWith("--max-broken=")) ?? "").split("=")[1] || 0,
 );
 const WIKILINK_BUDGET = Number(
-  (process.argv.find((a) => a.startsWith('--max-wikilinks=')) ?? '').split('=')[1] || 20,
+  (process.argv.find((a) => a.startsWith("--max-wikilinks=")) ?? "").split("=")[1] || 20,
 );
 
 /**
@@ -91,7 +99,7 @@ const WIKILINK_BUDGET = Number(
 // Frozen history is never repaired, so it is not part of the gate. Same
 // rationale as the .github/markdownlint-cli2.yaml `ignores` block.
 const ARCHIVE_RE = /(^|\/)(archive|target|node_modules|\.obsidian)(\/|$)/;
-const SKIP_DIR = new Set(['.obsidian', 'node_modules']);
+const SKIP_DIR = new Set([".obsidian", "node_modules"]);
 
 // P3 sources (F1 triage 2026-10-04, docs/dev/tasks/DOCS-F1.md): frozen by
 // design, so a broken link inside them is never repaired and must not gate.
@@ -125,11 +133,11 @@ const inScope = (rel) => INCLUDE_ARCHIVE || !ARCHIVE_RE.test(rel);
 function normalise(p) {
   const out = [];
   for (const seg of p.split(/[\\/]/)) {
-    if (seg === '' || seg === '.') continue;
-    if (seg === '..') out.pop();
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") out.pop();
     else out.push(seg);
   }
-  return out.join('/');
+  return out.join("/");
 }
 
 const report = {
@@ -156,7 +164,7 @@ function proseLineLookup(text) {
   // line is off by the size of the frontmatter. The boundary comes from
   // parseFrontmatter() so it cannot drift from the parser it mirrors.
   const fm = parseFrontmatter(text);
-  const offset = fm.hadFrontmatter ? text.slice(0, fm.end).split('\n').length - 1 : 0;
+  const offset = fm.hadFrontmatter ? text.slice(0, fm.end).split("\n").length - 1 : 0;
   const bounds = [];
   let acc = 0;
   for (const s of segment(text)) {
@@ -176,7 +184,7 @@ for (const rel of mdFiles) {
   report.filesInScope++;
 
   const abs = join(ROOT, rel);
-  const text = readFileSync(abs, 'utf8');
+  const text = readFileSync(abs, "utf8");
   const dir = dirname(rel);
 
   const prose = proseOf(text);
@@ -197,21 +205,19 @@ for (const rel of mdFiles) {
     }
     report.linksChecked++;
 
-    const [pathPart, anchor] = raw.split('#');
+    const [pathPart, anchor] = raw.split("#");
     if (!pathPart) continue; // pure #anchor
 
     const decoded = safeDecode(pathPart);
-    const candidate = decoded.startsWith('/')
-      ? normalise(decoded)
-      : normalise(`${dir}/${decoded}`);
+    const candidate = decoded.startsWith("/") ? normalise(decoded) : normalise(`${dir}/${decoded}`);
 
     if (!allFiles.has(candidate)) {
       // P3 frozen sources do not gate (FROZEN_RE above): the link is left as-is
       // by policy, so counting it would be permanent noise.
       if (!FROZEN_RE.test(rel)) {
-        report.broken.push({ file: rel, line: lineAt(m.index), target: raw, kind: 'md' });
+        report.broken.push({ file: rel, line: lineAt(m.index), target: raw, kind: "md" });
       }
-    } else if (anchor && candidate.endsWith('.md')) {
+    } else if (anchor && candidate.endsWith(".md")) {
       // Fragment is advisory: a missing heading is a softer failure than a
       // missing file, so it is tracked separately and does not fail the gate.
       report.anchors ??= [];
@@ -228,7 +234,7 @@ for (const rel of mdFiles) {
       allFiles.has(`${dir}/${target}`) ||
       [...allFiles].some((f) => f.toLowerCase().endsWith(`/${base}`));
     if (!hit) {
-      report.broken.push({ file: rel, line: 0, target, kind: 'wikilink' });
+      report.broken.push({ file: rel, line: 0, target, kind: "wikilink" });
     }
   }
 }
@@ -246,12 +252,16 @@ function safeDecode(s) {
 if (JSON_OUT) {
   console.log(JSON.stringify(report, null, 2));
 } else {
-  const brokenMdCount = report.broken.filter((b) => b.kind === 'md').length;
+  const brokenMdCount = report.broken.filter((b) => b.kind === "md").length;
   console.log(`files scanned          : ${report.filesScanned} (${report.filesInScope} in scope)`);
   console.log(`internal links checked : ${report.linksChecked}`);
   console.log(`external links (skipped): ${report.externalLinks}`);
   console.log(`wikilinks remaining    : ${report.wikilinksRemaining} (budget ${WIKILINK_BUDGET})`);
-  console.log(`broken markdown links  : ${report.broken.filter((b) => b.kind === 'md').length} (budget ${BROKEN_MD_BUDGET})`);
+  console.log(
+    `broken markdown links  : ${
+      report.broken.filter((b) => b.kind === "md").length
+    } (budget ${BROKEN_MD_BUDGET})`,
+  );
 
   if (report.broken.length) {
     const byFile = new Map();
@@ -262,23 +272,24 @@ if (JSON_OUT) {
     // Only Markdown links fail the gate. A broken [[wikilink]] is already covered
     // by WIKILINK_BUDGET, and reporting it twice makes the real signal harder to
     // read in a 1700-file corpus.
-    const mdBroken = report.broken.filter((b) => b.kind === 'md').length;
-    const wikiBroken = report.broken.filter((b) => b.kind === 'wikilink').length;
+    const mdBroken = report.broken.filter((b) => b.kind === "md").length;
+    const wikiBroken = report.broken.filter((b) => b.kind === "wikilink").length;
     console.log(
       `\nBROKEN (${report.broken.length} in ${byFile.size} files): ` +
         `${mdBroken} markdown (GATES) + ${wikiBroken} wikilink (budgeted, informational)`,
     );
     for (const [file, items] of [...byFile].sort((a, b) => b[1].length - a[1].length)) {
       const shown = items.slice(0, 5);
-      const gating = items.filter((i) => i.kind === 'md').length;
-      console.log(`  ${file}  (${items.length}${gating ? `, ${gating} gating` : ''})`);
+      const gating = items.filter((i) => i.kind === "md").length;
+      console.log(`  ${file}  (${items.length}${gating ? `, ${gating} gating` : ""})`);
       for (const it of shown) {
         console.log(`      L${it.line}  -> ${it.target}`);
       }
-      if (items.length > shown.length) console.log(`      ... +${items.length - shown.length} more`);
+      if (items.length > shown.length)
+        console.log(`      ... +${items.length - shown.length} more`);
     }
   } else {
-    console.log('\nOK: every internal link resolves.');
+    console.log("\nOK: every internal link resolves.");
   }
 
   if (brokenMdCount > 0) {
@@ -286,24 +297,24 @@ if (JSON_OUT) {
       brokenMdCount > BROKEN_MD_BUDGET
         ? `\nOVER BUDGET: ${brokenMdCount} broken markdown links > ${BROKEN_MD_BUDGET}.`
         : `\nwithin budget: ${brokenMdCount} broken markdown links of ${BROKEN_MD_BUDGET} tolerated. ` +
-          'P0-P2 must be 0 (F1 triage: docs/dev/tasks/DOCS-F1.md). ' +
-          'Each one is a claim in the prose about a document that does not exist: ' +
-          'write the page or delete the sentence.',
+            "P0-P2 must be 0 (F1 triage: docs/dev/tasks/DOCS-F1.md). " +
+            "Each one is a claim in the prose about a document that does not exist: " +
+            "write the page or delete the sentence.",
     );
   }
 
   if (report.wikilinksRemaining) {
     const over = report.wikilinksRemaining > WIKILINK_BUDGET;
     console.log(
-      `\n${over ? 'OVER BUDGET' : 'within budget'}: ${report.wikilinksRemaining} [[wikilinks]] ` +
+      `\n${over ? "OVER BUDGET" : "within budget"}: ${report.wikilinksRemaining} [[wikilinks]] ` +
         `of which ${WIKILINK_BUDGET} tolerated. These do not render on GitHub. ` +
-        'Run: node scripts/docs/wikilinks-to-md.mjs   (budget: F1-T2 in the plan)',
+        "Run: node scripts/docs/wikilinks-to-md.mjs   (budget: F1-T2 in the plan)",
     );
   }
 }
 
-const brokenMd = report.broken.filter((b) => b.kind === 'md').length;
-const brokenWikilinks = report.broken.filter((b) => b.kind === 'wikilink').length;
+const brokenMd = report.broken.filter((b) => b.kind === "md").length;
+const brokenWikilinks = report.broken.filter((b) => b.kind === "wikilink").length;
 const brokenFails = brokenMd > BROKEN_MD_BUDGET;
 const wikilinksFail = FAIL_WIKILINKS && report.wikilinksRemaining > WIKILINK_BUDGET;
 process.exit(brokenFails || wikilinksFail ? 1 : 0);

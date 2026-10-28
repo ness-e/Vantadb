@@ -63,9 +63,24 @@ describe("WIRE-03: text-only + $op filters via the WASM door", () => {
   });
 
   it("$op DSL filter (Date range) in count matches the FilterItem[] form", () => {
-    db.put({ namespace: "w3f", key: "old", payload: "a", metadata: { when: new Date("2026-01-01T00:00:00Z") } });
-    db.put({ namespace: "w3f", key: "mid", payload: "b", metadata: { when: new Date("2026-06-01T00:00:00Z") } });
-    db.put({ namespace: "w3f", key: "new", payload: "c", metadata: { when: new Date("2026-12-01T00:00:00Z") } });
+    db.put({
+      namespace: "w3f",
+      key: "old",
+      payload: "a",
+      metadata: { when: new Date("2026-01-01T00:00:00Z") },
+    });
+    db.put({
+      namespace: "w3f",
+      key: "mid",
+      payload: "b",
+      metadata: { when: new Date("2026-06-01T00:00:00Z") },
+    });
+    db.put({
+      namespace: "w3f",
+      key: "new",
+      payload: "c",
+      metadata: { when: new Date("2026-12-01T00:00:00Z") },
+    });
 
     const dsl = {
       when: { $gte: new Date("2026-06-01T00:00:00Z"), $lt: new Date("2026-12-01T00:00:00Z") },

@@ -40,27 +40,27 @@ const TARGET = join(repoRoot, "vantadb-wasm", "pkg", "vantadb_wasm.d.ts");
 const checkMode = process.argv.includes("--check");
 
 if (!existsSync(HAND_WRITTEN)) {
-    console.error(`build-wasm-types: hand-written source not found: ${HAND_WRITTEN}`);
-    process.exit(1);
+  console.error(`build-wasm-types: hand-written source not found: ${HAND_WRITTEN}`);
+  process.exit(1);
 }
 
 const handWritten = readFileSync(HAND_WRITTEN, "utf8");
 
 if (checkMode) {
-    if (!existsSync(TARGET)) {
-        console.error(`build-wasm-types: --check FAIL (target missing): ${TARGET}`);
-        process.exit(3);
-    }
-    const current = readFileSync(TARGET, "utf8");
-    if (current === handWritten) {
-        console.log("build-wasm-types: --check OK (pkg/vantadb_wasm.d.ts already in sync)");
-        process.exit(0);
-    }
-    console.error(
-        "build-wasm-types: --check FAIL (pkg/vantadb_wasm.d.ts would change — " +
-            "did you forget to run this script after editing the hand-written source?)",
-    );
+  if (!existsSync(TARGET)) {
+    console.error(`build-wasm-types: --check FAIL (target missing): ${TARGET}`);
     process.exit(3);
+  }
+  const current = readFileSync(TARGET, "utf8");
+  if (current === handWritten) {
+    console.log("build-wasm-types: --check OK (pkg/vantadb_wasm.d.ts already in sync)");
+    process.exit(0);
+  }
+  console.error(
+    "build-wasm-types: --check FAIL (pkg/vantadb_wasm.d.ts would change — " +
+      "did you forget to run this script after editing the hand-written source?)",
+  );
+  process.exit(3);
 }
 
 writeFileSync(TARGET, handWritten, "utf8");

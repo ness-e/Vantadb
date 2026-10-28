@@ -24,10 +24,8 @@ export function isMemoryRecord(r: unknown): r is MemoryRecord {
     typeof obj.payload === "string" &&
     (typeof obj.version === "string" || typeof obj.version === "number") &&
     (typeof obj.node_id === "string" || typeof obj.node_id === "number") &&
-    (typeof obj.created_at_ms === "string" ||
-      typeof obj.created_at_ms === "number") &&
-    (typeof obj.updated_at_ms === "string" ||
-      typeof obj.updated_at_ms === "number")
+    (typeof obj.created_at_ms === "string" || typeof obj.created_at_ms === "number") &&
+    (typeof obj.updated_at_ms === "string" || typeof obj.updated_at_ms === "number")
   );
 }
 
@@ -141,10 +139,7 @@ export function validateVector(v: unknown): asserts v is number[] | Float32Array
     );
   }
   if (v.length === 0) {
-    throw new DbError(
-      ERROR_CODES.VALIDATION_ERROR,
-      "validateVector: vector cannot be empty",
-    );
+    throw new DbError(ERROR_CODES.VALIDATION_ERROR, "validateVector: vector cannot be empty");
   }
   for (let i = 0; i < v.length; i++) {
     if (typeof v[i] !== "number" || !isFinite(v[i])) {
@@ -208,7 +203,9 @@ export function buildSearchRequestBase(
   if (request === null || typeof request !== "object") {
     throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,
-      `buildSearchRequestBase: expected a SearchRequest object, got ${request === null ? "null" : typeof request}`,
+      `buildSearchRequestBase: expected a SearchRequest object, got ${
+        request === null ? "null" : typeof request
+      }`,
     );
   }
   if (typeof request.namespace !== "string" || request.namespace.length === 0) {
@@ -217,7 +214,11 @@ export function buildSearchRequestBase(
       "buildSearchRequestBase: namespace must be a non-empty string",
     );
   }
-  if (!Array.isArray(request.query_vector) && request.query_vector !== undefined && request.query_vector !== null) {
+  if (
+    !Array.isArray(request.query_vector) &&
+    request.query_vector !== undefined &&
+    request.query_vector !== null
+  ) {
     throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,
       "buildSearchRequestBase: query_vector must be an array",
@@ -231,8 +232,7 @@ export function buildSearchRequestBase(
     // searches legitimately run without a dense vector. An empty vector
     // alone is a caller error — reject it here with a distinct message
     // instead of accepting "[]" without distinguishing the intent.
-    const hasText =
-      typeof request.text_query === "string" && request.text_query.trim().length > 0;
+    const hasText = typeof request.text_query === "string" && request.text_query.trim().length > 0;
     const hasSparse =
       request.query_sparse !== undefined &&
       request.query_sparse !== null &&
@@ -272,7 +272,7 @@ export function buildSearchRequestBase(
       "buildSearchRequestBase: distance_metric must be Cosine or Euclidean",
     );
   }
-  const effExplain = explain ?? (request.explain ?? false);
+  const effExplain = explain ?? request.explain ?? false;
   if (typeof effExplain !== "boolean") {
     throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,

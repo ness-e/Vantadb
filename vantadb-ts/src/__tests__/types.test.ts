@@ -47,9 +47,7 @@ describe("TypeScript types are correctly defined", () => {
   });
 
   it("NodeRecord has edges array", () => {
-    const edges: EdgeRecord[] = [
-      { target: "2", label: "related", weight: 0.8 },
-    ];
+    const edges: EdgeRecord[] = [{ target: "2", label: "related", weight: 0.8 }];
     const node: NodeRecord = {
       id: "1",
       fields: {},

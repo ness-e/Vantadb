@@ -13,9 +13,7 @@ import { DbError, ERROR_CODES } from "../errors.js";
 function makeDbWith(inner: Record<string, unknown>): NativeVantaDB {
   // The constructor is private but accessible at runtime; this is deliberate
   // so the wrapping contract can be tested without a compiled .node binary.
-  return new (NativeVantaDB as unknown as new (i: unknown) => NativeVantaDB)(
-    inner,
-  );
+  return new (NativeVantaDB as unknown as new (i: unknown) => NativeVantaDB)(inner);
 }
 
 describe("NativeVantaDB error wrapping (TS-02)", () => {
@@ -41,9 +39,7 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     await expect(db.get({ namespace: "ns", key: "k" })).rejects.toBeInstanceOf(DbError);
     await expect(db.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
       code: "VANTADB_WASM_ERROR",
-      message: expect.stringContaining(
-        "get: engine panicked on background thread",
-      ),
+      message: expect.stringContaining("get: engine panicked on background thread"),
     });
   });
 
@@ -54,9 +50,7 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     await expect(db.get({ namespace: "ns", key: "k" })).rejects.toBeInstanceOf(DbError);
     await expect(db.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
       code: "VANTADB_WASM_ERROR",
-      message: expect.stringContaining(
-        "get: engine panicked on background thread",
-      ),
+      message: expect.stringContaining("get: engine panicked on background thread"),
     });
   });
 

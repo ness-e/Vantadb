@@ -118,7 +118,11 @@ export function classifyWasmError(message: string): ErrorCode {
   ) {
     return ERROR_CODES.VALIDATION_ERROR;
   }
-  if (/incompatible binary format|wal version mismatch|serialization error|schema error/i.test(message)) {
+  if (
+    /incompatible binary format|wal version mismatch|serialization error|schema error/i.test(
+      message,
+    )
+  ) {
     return ERROR_CODES.CORRUPT;
   }
   if (/resource limit/i.test(message)) return ERROR_CODES.RESOURCE_LIMIT;
@@ -143,20 +147,14 @@ export function classifyWasmError(message: string): ErrorCode {
 export function wrapWasmError(e: unknown, context: string): DbError {
   if (e instanceof DbError) return e;
   const message = e instanceof Error ? e.message : String(e);
-  const details = e instanceof Error
-    ? { name: e.name, stack: e.stack }
-    : { original: e };
+  const details = e instanceof Error ? { name: e.name, stack: e.stack } : { original: e };
   // Prefer the structured code attached by the wasm binding; fall back to
   // message-prefix classification (older pkg builds) and finally WASM_ERROR.
-  const code = e instanceof Error
-    && typeof (e as WasmErrorLike).code === "string"
-    && KNOWN_CODES.has((e as WasmErrorLike).code as string)
-    ? (e as WasmErrorLike).code as string
-    : classifyWasmError(message);
-  return new DbError(
-    code,
-    `${context}: ${message}`,
-    details,
-    { cause: e },
-  );
+  const code =
+    e instanceof Error &&
+    typeof (e as WasmErrorLike).code === "string" &&
+    KNOWN_CODES.has((e as WasmErrorLike).code as string)
+      ? ((e as WasmErrorLike).code as string)
+      : classifyWasmError(message);
+  return new DbError(code, `${context}: ${message}`, details, { cause: e });
 }

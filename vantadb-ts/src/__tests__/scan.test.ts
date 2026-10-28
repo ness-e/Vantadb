@@ -90,9 +90,9 @@ describe("scan() (EGO-11)", () => {
         await seedNative(db);
         const page = await db.scan({ namespace: NS, limit: 10 });
         expect(page.records.map((r) => r.key).sort()).toEqual(["k0", "k1", "k2"]);
-        await expect(
-          db.scan({ namespace: NS, filters: {} } as never),
-        ).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION_ERROR });
+        await expect(db.scan({ namespace: NS, filters: {} } as never)).rejects.toMatchObject({
+          code: ERROR_CODES.VALIDATION_ERROR,
+        });
       } finally {
         await db.close();
       }

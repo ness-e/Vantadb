@@ -61,7 +61,11 @@ function mcpCall(tool, args) {
 export const VantadbMemory = async () => ({
   // SessionStart recall: memory_recall(scope agent, top_k 5) -> additionalContext.
   "session.created": async (input, output) => {
-    const res = mcpCall("memory_recall", { query: "session start context", scope: "agent", top_k: 5 });
+    const res = mcpCall("memory_recall", {
+      query: "session start context",
+      scope: "agent",
+      top_k: 5,
+    });
     const hits = res?.prepend_context ?? res?.recalled ?? [];
     if (Array.isArray(hits) && hits.length > 0) {
       output.additionalContext = (output.additionalContext ?? "") + hits.join("\n");
@@ -86,7 +90,7 @@ export const VantadbMemory = async () => ({
   // PreCompact save-state: what isn't saved before compaction is gone.
   "experimental.session.compacting": async (input, output) => {
     output.context.push(
-      "VantaDB save-state: persist open turns via thread_send and/or scene_write before compaction."
+      "VantaDB save-state: persist open turns via thread_send and/or scene_write before compaction.",
     );
   },
   // Stop auto-capture: proxy-turns auto-captured; direct turns need explicit thread_send.

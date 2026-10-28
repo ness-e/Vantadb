@@ -40,15 +40,11 @@ describe("DX-04: Error handling", () => {
   });
 
   it("empty namespace returns error", () => {
-    expect(() =>
-      db.put({ namespace: "", key: "k", payload: "v" })
-    ).toThrow();
+    expect(() => db.put({ namespace: "", key: "k", payload: "v" })).toThrow();
   });
 
   it("empty key returns error", () => {
-    expect(() =>
-      db.put({ namespace: "ns", key: "", payload: "v" })
-    ).toThrow();
+    expect(() => db.put({ namespace: "ns", key: "", payload: "v" })).toThrow();
   });
 
   it("invalid vector (wrong dims inconsistency) is handled", async () => {
@@ -194,9 +190,7 @@ describe("DX-04: Edge cases", () => {
   it("concurrent put/get to same key", async () => {
     const promises = [];
     for (let i = 0; i < 20; i++) {
-      promises.push(
-        db.put({ namespace: "edge_concurrent", key: "same", payload: `v${i}` })
-      );
+      promises.push(db.put({ namespace: "edge_concurrent", key: "same", payload: `v${i}` }));
     }
     await Promise.all(promises);
     const got = await db.get({ namespace: "edge_concurrent", key: "same" });

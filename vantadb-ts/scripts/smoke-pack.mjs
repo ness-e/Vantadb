@@ -75,7 +75,9 @@ try {
   // (e.g., future npm pkg set rewrite or files filtering strips it).
   if (!manifest.engines?.node) {
     throw new Error(
-      `engines.node missing from packed manifest — tarball would ship without Node requirement (TS-05) — got ${JSON.stringify(manifest.engines)}`,
+      `engines.node missing from packed manifest — tarball would ship without Node requirement (TS-05) — got ${JSON.stringify(
+        manifest.engines,
+      )}`,
     );
   }
   console.log(`[smoke] engines ok: ${JSON.stringify(manifest.engines)}`);

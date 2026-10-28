@@ -89,7 +89,9 @@ function loadArtifacts() {
   for (const binding of BINDINGS) {
     const file = path.join(ARTIFACT_DIR, `${binding}.json`);
     if (!existsSync(file)) {
-      fail(`missing artifact ${path.relative(ROOT, file)} — run the ${binding} producer test first`);
+      fail(
+        `missing artifact ${path.relative(ROOT, file)} — run the ${binding} producer test first`,
+      );
     }
     let artifact;
     try {
@@ -98,7 +100,9 @@ function loadArtifacts() {
       fail(`unreadable artifact ${file}: ${error.message}`);
     }
     if (artifact.binding !== binding) {
-      fail(`${file}: binding=${JSON.stringify(artifact.binding)}, expected ${JSON.stringify(binding)}`);
+      fail(
+        `${file}: binding=${JSON.stringify(artifact.binding)}, expected ${JSON.stringify(binding)}`,
+      );
     }
     if (!artifact.steps || typeof artifact.steps !== "object") {
       fail(`${file}: missing "steps" object`);
@@ -112,7 +116,11 @@ function loadArtifacts() {
   const scenario = artifacts.get(BINDINGS[0]).scenario;
   for (const [binding, artifact] of artifacts) {
     if (artifact.scenario !== scenario) {
-      fail(`scenario mismatch: ${binding}=${JSON.stringify(artifact.scenario)}, expected ${JSON.stringify(scenario)}`);
+      fail(
+        `scenario mismatch: ${binding}=${JSON.stringify(
+          artifact.scenario,
+        )}, expected ${JSON.stringify(scenario)}`,
+      );
     }
   }
 
@@ -126,7 +134,11 @@ function loadArtifacts() {
     fail(`unreadable fixture ${path.relative(ROOT, FIXTURE)}: ${error.message}`);
   }
   if (fixture.scenario !== scenario) {
-    fail(`artifacts use scenario ${JSON.stringify(scenario)} but the fixture declares ${JSON.stringify(fixture.scenario)} — re-run the producers`);
+    fail(
+      `artifacts use scenario ${JSON.stringify(scenario)} but the fixture declares ${JSON.stringify(
+        fixture.scenario,
+      )} — re-run the producers`,
+    );
   }
   return { artifacts, scenario };
 }
@@ -183,7 +195,9 @@ function canonicalize(binding, artifact) {
   const excluded = new Set(artifact.excluded);
   for (const step of excluded) {
     if (!STEPS.includes(step)) {
-      fail(`${binding}: unknown excluded step ${JSON.stringify(step)} (known: ${STEPS.join(", ")})`);
+      fail(
+        `${binding}: unknown excluded step ${JSON.stringify(step)} (known: ${STEPS.join(", ")})`,
+      );
     }
   }
   const steps = {};
@@ -214,7 +228,11 @@ function main() {
   for (const step of STEPS) {
     const covered = [...canonical.entries()].filter(([, c]) => step in c.steps).map(([b]) => b);
     if (covered.length < MIN_STEP_COVERAGE) {
-      fail(`step ${step} covered by ${covered.length} binding(s) (${covered.join(", ") || "none"}) — need >= ${MIN_STEP_COVERAGE}`);
+      fail(
+        `step ${step} covered by ${covered.length} binding(s) (${
+          covered.join(", ") || "none"
+        }) — need >= ${MIN_STEP_COVERAGE}`,
+      );
     }
   }
 
@@ -228,7 +246,10 @@ function main() {
     const [referenceBinding, reference] = runners[0];
     const hashes = new Map();
     for (const [binding, c] of runners) {
-      hashes.set(binding, createHash("sha256").update(stableStringify(c.steps[step])).digest("hex"));
+      hashes.set(
+        binding,
+        createHash("sha256").update(stableStringify(c.steps[step])).digest("hex"),
+      );
     }
     for (const [binding, c] of runners.slice(1)) {
       const diff = firstDifference(reference.steps[step], c.steps[step], `${step}`);

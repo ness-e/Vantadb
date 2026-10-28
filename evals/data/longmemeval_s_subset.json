@@ -5,9 +5,7 @@
     "question": "What degree did I graduate with?",
     "question_date": "2023/05/30 (Tue) 23:40",
     "answer": "Business Administration",
-    "answer_session_ids": [
-      "answer_280352e9"
-    ],
+    "answer_session_ids": ["answer_280352e9"],
     "haystack_dates": [
       "2023/05/20 (Sat) 02:21",
       "2023/05/20 (Sat) 02:57",
@@ -2445,9 +2443,7 @@
     "question": "How long is my daily commute to work?",
     "question_date": "2023/05/30 (Tue) 20:36",
     "answer": "45 minutes each way",
-    "answer_session_ids": [
-      "answer_40a90d51"
-    ],
+    "answer_session_ids": ["answer_40a90d51"],
     "haystack_dates": [
       "2023/05/20 (Sat) 03:29",
       "2023/05/20 (Sat) 07:48",
@@ -4593,9 +4589,7 @@
     "question": "Where did I redeem a $5 coupon on coffee creamer?",
     "question_date": "2023/05/30 (Tue) 20:42",
     "answer": "Target",
-    "answer_session_ids": [
-      "answer_d61669c7"
-    ],
+    "answer_session_ids": ["answer_d61669c7"],
     "haystack_dates": [
       "2023/05/20 (Sat) 06:13",
       "2023/05/20 (Sat) 09:49",
@@ -6937,9 +6931,7 @@
     "question": "What play did I attend at the local community theater?",
     "question_date": "2023/05/30 (Tue) 22:53",
     "answer": "The Glass Menagerie",
-    "answer_session_ids": [
-      "answer_355c48bb"
-    ],
+    "answer_session_ids": ["answer_355c48bb"],
     "haystack_dates": [
       "2023/05/20 (Sat) 10:44",
       "2023/05/20 (Sat) 10:45",
@@ -9657,9 +9649,7 @@
     "question": "What is the name of my hamster?",
     "question_date": "2023/05/30 (Tue) 21:39",
     "answer": "You did not mention this information. You mentioned your cat Luna but not your hamster.",
-    "answer_session_ids": [
-      "answer_c6fd8ebd_abs"
-    ],
+    "answer_session_ids": ["answer_c6fd8ebd_abs"],
     "haystack_dates": [
       "2023/05/20 (Sat) 07:34",
       "2023/05/20 (Sat) 12:08",

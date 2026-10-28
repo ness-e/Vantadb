@@ -22,21 +22,63 @@
     }
   },
   "registries": [
-    { "label": "crates.io vantadb", "url_template": "https://crates.io/api/v1/crates/vantadb/{version}" },
-    { "label": "PyPI vantadb-py", "url_template": "https://pypi.org/pypi/vantadb-py/{version}/json" },
+    {
+      "label": "crates.io vantadb",
+      "url_template": "https://crates.io/api/v1/crates/vantadb/{version}"
+    },
+    {
+      "label": "PyPI vantadb-py",
+      "url_template": "https://pypi.org/pypi/vantadb-py/{version}/json"
+    },
     { "label": "npm vantadb", "url_template": "https://registry.npmjs.org/vantadb/{version}" },
-    { "label": "npm vantadb-wasm", "url_template": "https://registry.npmjs.org/vantadb-wasm/{version}" },
-    { "label": "PyPI vantadb-langchain", "url_template": "https://pypi.org/pypi/vantadb-langchain/{version}/json" },
-    { "label": "PyPI vantadb-llamaindex", "url_template": "https://pypi.org/pypi/vantadb-llamaindex/{version}/json" },
-    { "label": "PyPI vantadb-mem0", "url_template": "https://pypi.org/pypi/vantadb-mem0/{version}/json" },
-    { "label": "PyPI vantadb-crewai", "url_template": "https://pypi.org/pypi/vantadb-crewai/{version}/json" },
-    { "label": "PyPI vantadb-dspy", "url_template": "https://pypi.org/pypi/vantadb-dspy/{version}/json" },
-    { "label": "PyPI vantadb-haystack", "url_template": "https://pypi.org/pypi/vantadb-haystack/{version}/json" },
-    { "label": "PyPI vantadb-letta", "url_template": "https://pypi.org/pypi/vantadb-letta/{version}/json" },
-    { "label": "PyPI vantadb-litellm", "url_template": "https://pypi.org/pypi/vantadb-litellm/{version}/json" },
-    { "label": "PyPI vantadb-ollama", "url_template": "https://pypi.org/pypi/vantadb-ollama/{version}/json" },
-    { "label": "PyPI vantadb-openai", "url_template": "https://pypi.org/pypi/vantadb-openai/{version}/json" },
-    { "label": "npm vantadb-node", "url_template": "https://registry.npmjs.org/vantadb-node/{version}" }
+    {
+      "label": "npm vantadb-wasm",
+      "url_template": "https://registry.npmjs.org/vantadb-wasm/{version}"
+    },
+    {
+      "label": "PyPI vantadb-langchain",
+      "url_template": "https://pypi.org/pypi/vantadb-langchain/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-llamaindex",
+      "url_template": "https://pypi.org/pypi/vantadb-llamaindex/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-mem0",
+      "url_template": "https://pypi.org/pypi/vantadb-mem0/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-crewai",
+      "url_template": "https://pypi.org/pypi/vantadb-crewai/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-dspy",
+      "url_template": "https://pypi.org/pypi/vantadb-dspy/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-haystack",
+      "url_template": "https://pypi.org/pypi/vantadb-haystack/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-letta",
+      "url_template": "https://pypi.org/pypi/vantadb-letta/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-litellm",
+      "url_template": "https://pypi.org/pypi/vantadb-litellm/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-ollama",
+      "url_template": "https://pypi.org/pypi/vantadb-ollama/{version}/json"
+    },
+    {
+      "label": "PyPI vantadb-openai",
+      "url_template": "https://pypi.org/pypi/vantadb-openai/{version}/json"
+    },
+    {
+      "label": "npm vantadb-node",
+      "url_template": "https://registry.npmjs.org/vantadb-node/{version}"
+    }
   ],
   "documented_only": [
     {

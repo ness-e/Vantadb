@@ -64,9 +64,9 @@ describe("SCH-07: v2 fields + temporal params via the WASM backend", () => {
       expect(noneList.records).toHaveLength(0);
 
       // Inverted window → core boundary rejection (never silently swapped).
-      expect(() =>
-        db.list({ namespace: "s7w", valid_window: { from_ms: 10, to_ms: 1 } }),
-      ).toThrow(/valid_window/);
+      expect(() => db.list({ namespace: "s7w", valid_window: { from_ms: 10, to_ms: 1 } })).toThrow(
+        /valid_window/,
+      );
     } finally {
       db.close();
     }
@@ -109,29 +109,32 @@ describe("SCH-07: _mapRecord preserves the v2 fields verbatim", () => {
   });
 });
 
-describe.skipIf(!nativeAvailable)("SCH-07: v2 fields + temporal params via the native backend", () => {
-  it("records expose the fields and list forwards the params through napi", async () => {
-    const db = await NativeVantaDB.connect(":memory:");
-    try {
-      await db.put({ namespace: "s7n", key: "k1", payload: "temporal probe", vector: [1, 0] });
+describe.skipIf(!nativeAvailable)(
+  "SCH-07: v2 fields + temporal params via the native backend",
+  () => {
+    it("records expose the fields and list forwards the params through napi", async () => {
+      const db = await NativeVantaDB.connect(":memory:");
+      try {
+        await db.put({ namespace: "s7n", key: "k1", payload: "temporal probe", vector: [1, 0] });
 
-      const got = await db.get({ namespace: "s7n", key: "k1" });
-      expect(got).not.toBeNull();
-      // Native emits u64s as numbers.
-      expect(typeof got!.valid_at_ms).toBe("number");
-      expect(got!.valid_at_ms).toBe(got!.created_at_ms);
-      expect(got!.quarantined_at_ms ?? null).toBeNull();
+        const got = await db.get({ namespace: "s7n", key: "k1" });
+        expect(got).not.toBeNull();
+        // Native emits u64s as numbers.
+        expect(typeof got!.valid_at_ms).toBe("number");
+        expect(got!.valid_at_ms).toBe(got!.created_at_ms);
+        expect(got!.quarantined_at_ms ?? null).toBeNull();
 
-      const page = await db.list({ namespace: "s7n", as_of_ms: 9_000_000_000_000 });
-      expect(page.records).toHaveLength(1);
-      const filtered = await db.list({ namespace: "s7n", as_of_ms: 0 });
-      expect(filtered.records).toHaveLength(0);
+        const page = await db.list({ namespace: "s7n", as_of_ms: 9_000_000_000_000 });
+        expect(page.records).toHaveLength(1);
+        const filtered = await db.list({ namespace: "s7n", as_of_ms: 0 });
+        expect(filtered.records).toHaveLength(0);
 
-      await expect(
-        db.list({ namespace: "s7n", valid_window: { from_ms: 10, to_ms: 1 } }),
-      ).rejects.toThrow(/valid_window/);
-    } finally {
-      await db.close();
-    }
-  });
-});
+        await expect(
+          db.list({ namespace: "s7n", valid_window: { from_ms: 10, to_ms: 1 } }),
+        ).rejects.toThrow(/valid_window/);
+      } finally {
+        await db.close();
+      }
+    });
+  },
+);

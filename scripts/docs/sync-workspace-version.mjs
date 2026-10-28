@@ -30,32 +30,32 @@
 //     in-memory assertions on version extraction & transformation logic; exits 0
 //   2 = unrecoverable error (e.g. root Cargo.toml unreadable)
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
-import { ROOT, abs } from './lib.mjs';
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
+import { ROOT, abs } from "./lib.mjs";
 
 export const INTEGRATION_PACKAGES = [
-  'crewai',
-  'dspy',
-  'haystack',
-  'langchain',
-  'letta',
-  'llamaindex',
-  'mem0',
-  'ollama',
-  'openai',
+  "crewai",
+  "dspy",
+  "haystack",
+  "langchain",
+  "letta",
+  "llamaindex",
+  "mem0",
+  "ollama",
+  "openai",
 ];
 
 // ------------------------------------------------------------------ parsers
 
 export function parseWorkspaceVersion(cargoToml) {
   const lines = String(cargoToml).split(/\r?\n/);
-  const start = lines.findIndex((l) => l.trim() === '[workspace.package]');
+  const start = lines.findIndex((l) => l.trim() === "[workspace.package]");
   if (start === -1) return null;
   for (let i = start + 1; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (line.startsWith('[')) break;
+    if (line.startsWith("[")) break;
     const m = line.match(/^version\s*=\s*"([^"]+)"/);
     if (m) return m[1];
   }
@@ -65,7 +65,7 @@ export function parseWorkspaceVersion(cargoToml) {
 export function parsePackageVersion(text) {
   try {
     const v = JSON.parse(text)?.version;
-    return typeof v === 'string' && v.length > 0 ? v : null;
+    return typeof v === "string" && v.length > 0 ? v : null;
   } catch {
     return null;
   }
@@ -92,7 +92,7 @@ export function parseSurfaceManifestVersion(text) {
 }
 
 export function getPyprojectExpectedBound(newVersion) {
-  const [majorStr, minorStr] = newVersion.split('.');
+  const [majorStr, minorStr] = newVersion.split(".");
   const major = parseInt(majorStr, 10);
   const minor = parseInt(minorStr, 10);
   const nextMinor = minor + 1;
@@ -109,7 +109,7 @@ export function transformServerJson(text, newVersion) {
   try {
     const parsed = JSON.parse(text);
     parsed.version = newVersion;
-    return JSON.stringify(parsed, null, 2) + '\n';
+    return JSON.stringify(parsed, null, 2) + "\n";
   } catch {
     return text.replace(/^(\s*"version":\s*)"[^"]+"/m, `$1"${newVersion}"`);
   }
@@ -126,7 +126,7 @@ export function transformMcpMd(text, newVersion) {
   );
 }
 
-export const PROVIDER_PACKAGES = ['openai', 'ollama', 'litellm'];
+export const PROVIDER_PACKAGES = ["openai", "ollama", "litellm"];
 
 export function parsePyprojectVersionAndBound(text) {
   const mVer = String(text).match(/^\[project\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
@@ -230,43 +230,43 @@ export function buildTargetSpecs(workspaceVersion) {
   const expectedBound = getPyprojectExpectedBound(workspaceVersion);
   const specs = [
     {
-      name: 'vantadb-ts/package.json',
-      relPath: 'vantadb-ts/package.json',
+      name: "vantadb-ts/package.json",
+      relPath: "vantadb-ts/package.json",
       expected: workspaceVersion,
       parse: parsePackageVersion,
       transform: transformPackageJson,
     },
     {
-      name: 'vantadb-node/package.json',
-      relPath: 'vantadb-node/package.json',
+      name: "vantadb-node/package.json",
+      relPath: "vantadb-node/package.json",
       expected: workspaceVersion,
       parse: parsePackageVersion,
       transform: transformPackageJson,
     },
     {
-      name: 'vantadb-node/Cargo.toml',
-      relPath: 'vantadb-node/Cargo.toml',
+      name: "vantadb-node/Cargo.toml",
+      relPath: "vantadb-node/Cargo.toml",
       expected: workspaceVersion,
       parse: parseNodeCargoVersion,
       transform: transformNodeCargoToml,
     },
     {
-      name: 'server.json',
-      relPath: 'server.json',
+      name: "server.json",
+      relPath: "server.json",
       expected: workspaceVersion,
       parse: parsePackageVersion,
       transform: transformServerJson,
     },
     {
-      name: 'docs/api/openapi.yaml',
-      relPath: 'docs/api/openapi.yaml',
+      name: "docs/api/openapi.yaml",
+      relPath: "docs/api/openapi.yaml",
       expected: workspaceVersion,
       parse: parseOpenApiVersion,
       transform: transformOpenApiYaml,
     },
     {
-      name: 'docs/api/MCP.md',
-      relPath: 'docs/api/MCP.md',
+      name: "docs/api/MCP.md",
+      relPath: "docs/api/MCP.md",
       expected: workspaceVersion,
       parse: parseMcpVersion,
       transform: transformMcpMd,
@@ -294,32 +294,32 @@ export function buildTargetSpecs(workspaceVersion) {
   }
 
   specs.push({
-    name: 'docs/api/SURFACE_MANIFEST.md',
-    relPath: 'docs/api/SURFACE_MANIFEST.md',
+    name: "docs/api/SURFACE_MANIFEST.md",
+    relPath: "docs/api/SURFACE_MANIFEST.md",
     expected: workspaceVersion,
     parse: parseSurfaceManifestVersion,
     transform: transformSurfaceManifest,
   });
 
   specs.push({
-    name: 'release-manifest.json',
-    relPath: 'release-manifest.json',
+    name: "release-manifest.json",
+    relPath: "release-manifest.json",
     expected: `${workspaceVersion} (v${workspaceVersion})`,
     parse: parseReleaseManifestVersionAndTag,
     transform: transformReleaseManifest,
   });
 
   specs.push({
-    name: 'vantadb-ts/package-lock.json',
-    relPath: 'vantadb-ts/package-lock.json',
+    name: "vantadb-ts/package-lock.json",
+    relPath: "vantadb-ts/package-lock.json",
     expected: workspaceVersion,
     parse: parseNodeLockVersion,
     transform: transformNodeLockJson,
   });
 
   specs.push({
-    name: 'vanta-memory/Cargo.toml',
-    relPath: 'vanta-memory/Cargo.toml',
+    name: "vanta-memory/Cargo.toml",
+    relPath: "vanta-memory/Cargo.toml",
     expected: workspaceVersion,
     parse: parseVantaMemoryDepRequirement,
     transform: transformVantaMemoryDepRequirement,
@@ -345,106 +345,122 @@ export function selfTest() {
   };
 
   // 1. Cargo.toml workspace version extraction
-  check('parseWorkspaceVersion: extracts [workspace.package] version', () => {
-    const toml = '[package]\nname = "foo"\nversion = "9.9.9"\n[workspace.package]\nversion = "0.8.0"\n';
-    assert(parseWorkspaceVersion(toml) === '0.8.0', `got ${parseWorkspaceVersion(toml)}`);
+  check("parseWorkspaceVersion: extracts [workspace.package] version", () => {
+    const toml =
+      '[package]\nname = "foo"\nversion = "9.9.9"\n[workspace.package]\nversion = "0.8.0"\n';
+    assert(parseWorkspaceVersion(toml) === "0.8.0", `got ${parseWorkspaceVersion(toml)}`);
   });
 
   // 2. package.json extraction & transform
-  check('package.json: transforms version 0.8.0 -> 0.9.0', () => {
+  check("package.json: transforms version 0.8.0 -> 0.9.0", () => {
     const fixture = '{\n  "name": "vantadb",\n  "version": "0.8.0",\n  "type": "module"\n}\n';
-    const out = transformPackageJson(fixture, '0.9.0');
-    assert(parsePackageVersion(out) === '0.9.0', `parse failed, got ${parsePackageVersion(out)}`);
-    assert(out.includes('"version": "0.9.0"'), 'missing version string');
+    const out = transformPackageJson(fixture, "0.9.0");
+    assert(parsePackageVersion(out) === "0.9.0", `parse failed, got ${parsePackageVersion(out)}`);
+    assert(out.includes('"version": "0.9.0"'), "missing version string");
   });
 
   // 3. server.json extraction & transform (preserving 2-space formatting + newline)
-  check('server.json: transforms version 0.8.0 -> 0.9.0 preserving formatting', () => {
+  check("server.json: transforms version 0.8.0 -> 0.9.0 preserving formatting", () => {
     const fixture = '{\n  "name": "vantadb",\n  "version": "0.8.0"\n}\n';
-    const out = transformServerJson(fixture, '0.9.0');
-    assert(parsePackageVersion(out) === '0.9.0', `parse failed: ${out}`);
-    assert(out.endsWith('\n'), 'must end with newline');
-    assert(out === '{\n  "name": "vantadb",\n  "version": "0.9.0"\n}\n', 'exact formatting match');
+    const out = transformServerJson(fixture, "0.9.0");
+    assert(parsePackageVersion(out) === "0.9.0", `parse failed: ${out}`);
+    assert(out.endsWith("\n"), "must end with newline");
+    assert(out === '{\n  "name": "vantadb",\n  "version": "0.9.0"\n}\n', "exact formatting match");
   });
 
   // 4. openapi.yaml extraction & transform
-  check('openapi.yaml: transforms info.version 0.8.0 -> 0.9.0', () => {
+  check("openapi.yaml: transforms info.version 0.8.0 -> 0.9.0", () => {
     const fixture = 'openapi: "3.1.0"\ninfo:\n  title: VantaDB\n  version: "0.8.0"\n';
-    const out = transformOpenApiYaml(fixture, '0.9.0');
-    assert(parseOpenApiVersion(out) === '0.9.0', `got ${parseOpenApiVersion(out)}`);
-    assert(out.includes('  version: "0.9.0"'), 'expected indented version');
+    const out = transformOpenApiYaml(fixture, "0.9.0");
+    assert(parseOpenApiVersion(out) === "0.9.0", `got ${parseOpenApiVersion(out)}`);
+    assert(out.includes('  version: "0.9.0"'), "expected indented version");
   });
 
   // 5. MCP.md extraction & transform (bare version and `v...` formatted version)
-  check('MCP.md: transforms implementation version 0.8.0 -> 0.9.0 (bare)', () => {
-    const fixture = '# Header\n\nCurrent MCP implementation version: 0.8.0\n\nBody';
-    const out = transformMcpMd(fixture, '0.9.0');
-    assert(parseMcpVersion(out) === '0.9.0', `got ${parseMcpVersion(out)}`);
-    assert(out.includes('Current MCP implementation version: 0.9.0'), `output mismatch: ${out}`);
+  check("MCP.md: transforms implementation version 0.8.0 -> 0.9.0 (bare)", () => {
+    const fixture = "# Header\n\nCurrent MCP implementation version: 0.8.0\n\nBody";
+    const out = transformMcpMd(fixture, "0.9.0");
+    assert(parseMcpVersion(out) === "0.9.0", `got ${parseMcpVersion(out)}`);
+    assert(out.includes("Current MCP implementation version: 0.9.0"), `output mismatch: ${out}`);
   });
 
-  check('MCP.md: transforms implementation version `v0.8.0` -> `v0.9.0`', () => {
-    const fixture = '# Header\n\nCurrent MCP implementation version: `v0.8.0`\n\nBody';
-    const out = transformMcpMd(fixture, '0.9.0');
-    assert(parseMcpVersion(out) === '0.9.0', `got ${parseMcpVersion(out)}`);
-    assert(out.includes('Current MCP implementation version: `v0.9.0`'), `output mismatch: ${out}`);
+  check("MCP.md: transforms implementation version `v0.8.0` -> `v0.9.0`", () => {
+    const fixture = "# Header\n\nCurrent MCP implementation version: `v0.8.0`\n\nBody";
+    const out = transformMcpMd(fixture, "0.9.0");
+    assert(parseMcpVersion(out) === "0.9.0", `got ${parseMcpVersion(out)}`);
+    assert(out.includes("Current MCP implementation version: `v0.9.0`"), `output mismatch: ${out}`);
   });
 
   // 6. pyproject.toml upper bound transform: <0.9.0 -> <0.10.0 for 0.9.0
-  check('pyproject.toml: transforms vantadb-py upper bound <0.9.0 -> <0.10.0', () => {
+  check("pyproject.toml: transforms vantadb-py upper bound <0.9.0 -> <0.10.0", () => {
     const fixture = 'dependencies = [\n    "vantadb-py>=0.6.1,<0.9.0",\n    "dspy>=2.6,<3",\n]\n';
-    const out = transformPyprojectToml(fixture, '0.9.0');
-    assert(parsePyprojectUpperBound(out) === '<0.10.0', `got ${parsePyprojectUpperBound(out)}`);
+    const out = transformPyprojectToml(fixture, "0.9.0");
+    assert(parsePyprojectUpperBound(out) === "<0.10.0", `got ${parsePyprojectUpperBound(out)}`);
     assert(out.includes('"vantadb-py>=0.6.1,<0.10.0"'), `output mismatch: ${out}`);
   });
 
-  check('pyproject.toml: preserves lower bound 0.5.0 when updating upper bound', () => {
+  check("pyproject.toml: preserves lower bound 0.5.0 when updating upper bound", () => {
     const fixture = 'dependencies = [\n    "vantadb-py>=0.5.0,<0.9.0",\n    "openai>=1.0,<2",\n]\n';
-    const out = transformPyprojectToml(fixture, '0.9.0');
-    assert(parsePyprojectUpperBound(out) === '<0.10.0', `got ${parsePyprojectUpperBound(out)}`);
+    const out = transformPyprojectToml(fixture, "0.9.0");
+    assert(parsePyprojectUpperBound(out) === "<0.10.0", `got ${parsePyprojectUpperBound(out)}`);
     assert(out.includes('"vantadb-py>=0.5.0,<0.10.0"'), `output mismatch: ${out}`);
   });
 
   // 7. SURFACE_MANIFEST.md header transform
-  check('SURFACE_MANIFEST.md: transforms header workspace version', () => {
-    const fixture = '> **workspace version: 0.8.0** (source: root `Cargo.toml`).\n';
-    const out = transformSurfaceManifest(fixture, '0.9.0');
-    assert(parseSurfaceManifestVersion(out) === '0.9.0', `got ${parseSurfaceManifestVersion(out)}`);
-    assert(out.includes('workspace version: 0.9.0'), `output mismatch: ${out}`);
+  check("SURFACE_MANIFEST.md: transforms header workspace version", () => {
+    const fixture = "> **workspace version: 0.8.0** (source: root `Cargo.toml`).\n";
+    const out = transformSurfaceManifest(fixture, "0.9.0");
+    assert(parseSurfaceManifestVersion(out) === "0.9.0", `got ${parseSurfaceManifestVersion(out)}`);
+    assert(out.includes("workspace version: 0.9.0"), `output mismatch: ${out}`);
   });
 
   // 8. release-manifest.json: version + tag
-  check('release-manifest.json: transforms version and tag together', () => {
+  check("release-manifest.json: transforms version and tag together", () => {
     const fixture = '{\n  "version": "0.8.0",\n  "tag": "v0.8.0",\n  "github": {}\n}\n';
-    const out = transformReleaseManifest(fixture, '0.9.0');
-    assert(parseReleaseManifestVersionAndTag(out) === '0.9.0 (v0.9.0)', `got ${parseReleaseManifestVersionAndTag(out)}`);
-    assert(out.includes('"tag": "v0.9.0"'), 'tag not bumped');
+    const out = transformReleaseManifest(fixture, "0.9.0");
+    assert(
+      parseReleaseManifestVersionAndTag(out) === "0.9.0 (v0.9.0)",
+      `got ${parseReleaseManifestVersionAndTag(out)}`,
+    );
+    assert(out.includes('"tag": "v0.9.0"'), "tag not bumped");
   });
 
   // 9. vantadb-ts/package-lock.json: solo raiz y packages[""], no las deps
-  check('package-lock.json: bumps root version twice, leaves dependency versions', () => {
-    const fixture = '{\n  "name": "vantadb",\n  "version": "0.8.0",\n  "packages": {\n    "": {\n      "name": "vantadb",\n      "version": "0.8.0"\n    },\n    "node_modules/dep": {\n      "version": "0.8.0"\n    }\n  }\n}\n';
-    const out = transformNodeLockJson(fixture, '0.9.0');
-    assert(parseNodeLockVersion(out) === '0.9.0', `got ${parseNodeLockVersion(out)}`);
-    assert(out.includes('"version": "0.9.0",\n  "packages"'), 'root version not bumped');
+  check("package-lock.json: bumps root version twice, leaves dependency versions", () => {
+    const fixture =
+      '{\n  "name": "vantadb",\n  "version": "0.8.0",\n  "packages": {\n    "": {\n      "name": "vantadb",\n      "version": "0.8.0"\n    },\n    "node_modules/dep": {\n      "version": "0.8.0"\n    }\n  }\n}\n';
+    const out = transformNodeLockJson(fixture, "0.9.0");
+    assert(parseNodeLockVersion(out) === "0.9.0", `got ${parseNodeLockVersion(out)}`);
+    assert(out.includes('"version": "0.9.0",\n  "packages"'), "root version not bumped");
     assert(out.includes('"version": "0.9.0"\n    }'), 'packages[""] version not bumped');
-    assert(out.includes('"node_modules/dep": {\n      "version": "0.8.0"'), 'dependency version was touched');
+    assert(
+      out.includes('"node_modules/dep": {\n      "version": "0.8.0"'),
+      "dependency version was touched",
+    );
   });
 
   // 10. vanta-memory: el requisito del path dep debe seguir al workspace
-  check('vanta-memory/Cargo.toml: bumps the vantadb path-dep requirement', () => {
-    const fixture = '[package]\nname = "vanta-memory"\nversion.workspace = true\n\n[dependencies]\nvantadb = { path = "../", version = "0.8.0", default-features = false }\n';
-    const out = transformVantaMemoryDepRequirement(fixture, '0.9.0');
-    assert(parseVantaMemoryDepRequirement(out) === '0.9.0', `got ${parseVantaMemoryDepRequirement(out)}`);
+  check("vanta-memory/Cargo.toml: bumps the vantadb path-dep requirement", () => {
+    const fixture =
+      '[package]\nname = "vanta-memory"\nversion.workspace = true\n\n[dependencies]\nvantadb = { path = "../", version = "0.8.0", default-features = false }\n';
+    const out = transformVantaMemoryDepRequirement(fixture, "0.9.0");
+    assert(
+      parseVantaMemoryDepRequirement(out) === "0.9.0",
+      `got ${parseVantaMemoryDepRequirement(out)}`,
+    );
     assert(out.includes('version = "0.9.0"'), `output mismatch: ${out}`);
-    assert(out.includes('path = "../"'), 'path dep lost');
+    assert(out.includes('path = "../"'), "path dep lost");
   });
 
   const failed = results.filter((r) => !r.ok);
   for (const r of results) {
-    console.log(`${r.ok ? 'ok  ' : 'FAIL'}  ${r.name}${r.ok ? '' : ` -- ${r.error}`}`);
+    console.log(`${r.ok ? "ok  " : "FAIL"}  ${r.name}${r.ok ? "" : ` -- ${r.error}`}`);
   }
-  console.log(`\n${results.length - failed.length}/${results.length} assertions passed${failed.length ? ` — ${failed.length} FAILED` : ''}`);
+  console.log(
+    `\n${results.length - failed.length}/${results.length} assertions passed${
+      failed.length ? ` — ${failed.length} FAILED` : ""
+    }`,
+  );
   return failed.length === 0;
 }
 
@@ -452,29 +468,31 @@ export function selfTest() {
 
 const ARGS = process.argv.slice(2);
 
-if (ARGS.includes('--help')) {
-  console.log([
-    'sync-workspace-version.mjs — synchronize monorepo manifests to Cargo.toml workspace version',
-    '',
-    '  --check       (default) verify all tracked manifests match workspace version; exit 1 on drift',
-    '  --write       write synchronized versions to disk and regenerate surface manifest',
-    '  --self-test   run in-memory transformation assertions and exit 0',
-    '  --help        display this help text',
-    '',
-    'exit codes: 0 ok · 1 drift detected / assertions failed · 2 evaluation error',
-  ].join('\n'));
+if (ARGS.includes("--help")) {
+  console.log(
+    [
+      "sync-workspace-version.mjs — synchronize monorepo manifests to Cargo.toml workspace version",
+      "",
+      "  --check       (default) verify all tracked manifests match workspace version; exit 1 on drift",
+      "  --write       write synchronized versions to disk and regenerate surface manifest",
+      "  --self-test   run in-memory transformation assertions and exit 0",
+      "  --help        display this help text",
+      "",
+      "exit codes: 0 ok · 1 drift detected / assertions failed · 2 evaluation error",
+    ].join("\n"),
+  );
   process.exit(0);
 }
 
-if (ARGS.includes('--self-test')) {
+if (ARGS.includes("--self-test")) {
   process.exit(selfTest() ? 0 : 1);
 }
 
-const writeMode = ARGS.includes('--write');
+const writeMode = ARGS.includes("--write");
 
 let cargoToml;
 try {
-  cargoToml = readFileSync(abs('Cargo.toml'), 'utf8');
+  cargoToml = readFileSync(abs("Cargo.toml"), "utf8");
 } catch (e) {
   console.error(`ERROR: unable to read Cargo.toml from ${ROOT}: ${e.message}`);
   process.exit(2);
@@ -482,12 +500,12 @@ try {
 
 const workspaceVersion = parseWorkspaceVersion(cargoToml);
 if (!workspaceVersion) {
-  console.error('ERROR: failed to extract [workspace.package] version from root Cargo.toml');
+  console.error("ERROR: failed to extract [workspace.package] version from root Cargo.toml");
   process.exit(2);
 }
 
 console.log(`Workspace version: ${workspaceVersion} (from Cargo.toml)`);
-console.log(`Mode: ${writeMode ? 'WRITE (sync to disk)' : 'CHECK (read-only audit)'}\n`);
+console.log(`Mode: ${writeMode ? "WRITE (sync to disk)" : "CHECK (read-only audit)"}\n`);
 
 const specs = buildTargetSpecs(workspaceVersion);
 let driftedCount = 0;
@@ -497,7 +515,7 @@ for (const spec of specs) {
   const fullPath = abs(spec.relPath);
   let content;
   try {
-    content = readFileSync(fullPath, 'utf8');
+    content = readFileSync(fullPath, "utf8");
   } catch (e) {
     console.error(`FAIL: ${spec.name}: unable to read file (${e.message})`);
     driftedCount++;
@@ -511,12 +529,14 @@ for (const spec of specs) {
     console.log(`ok   ${spec.name}: ${found}`);
   } else {
     driftedCount++;
-    console.log(`DRIFT ${spec.name}: found '${found ?? '(unreadable)'}', expected '${spec.expected}'`);
+    console.log(
+      `DRIFT ${spec.name}: found '${found ?? "(unreadable)"}', expected '${spec.expected}'`,
+    );
 
     if (writeMode) {
       const transformed = spec.transform(content, workspaceVersion);
       try {
-        writeFileSync(fullPath, transformed, 'utf8');
+        writeFileSync(fullPath, transformed, "utf8");
         console.log(`  -> updated ${spec.name} on disk`);
         updatedCount++;
       } catch (e) {
@@ -528,22 +548,22 @@ for (const spec of specs) {
 
 if (writeMode) {
   // Regenerate SURFACE_MANIFEST.md via gen-surface-manifest.mjs --write to ensure full table sync
-  const genSurfaceScript = abs('scripts/docs/gen-surface-manifest.mjs');
+  const genSurfaceScript = abs("scripts/docs/gen-surface-manifest.mjs");
   if (existsSync(genSurfaceScript)) {
     try {
-      execFileSync(process.execPath, [genSurfaceScript, '--write'], { stdio: 'inherit' });
-      console.log('Regenerated docs/api/SURFACE_MANIFEST.md via gen-surface-manifest.mjs --write');
+      execFileSync(process.execPath, [genSurfaceScript, "--write"], { stdio: "inherit" });
+      console.log("Regenerated docs/api/SURFACE_MANIFEST.md via gen-surface-manifest.mjs --write");
     } catch (e) {
       console.warn(`Warning: gen-surface-manifest.mjs --write invocation failed: ${e.message}`);
     }
   }
 
   // Regenerate canonical documentation indexes and llms.txt via gen-index.mjs --write
-  const genIndexScript = abs('scripts/docs/gen-index.mjs');
+  const genIndexScript = abs("scripts/docs/gen-index.mjs");
   if (existsSync(genIndexScript)) {
     try {
-      execFileSync(process.execPath, [genIndexScript, '--write'], { stdio: 'inherit' });
-      console.log('Regenerated docs/index.md and llms.txt via gen-index.mjs --write');
+      execFileSync(process.execPath, [genIndexScript, "--write"], { stdio: "inherit" });
+      console.log("Regenerated docs/index.md and llms.txt via gen-index.mjs --write");
     } catch (e) {
       console.warn(`Warning: gen-index.mjs --write invocation failed: ${e.message}`);
     }
@@ -554,10 +574,16 @@ if (writeMode) {
 }
 
 if (driftedCount > 0) {
-  console.error(`\nFAILED: ${driftedCount} target(s) drifted from workspace version ${workspaceVersion}.`);
-  console.error('Run `node scripts/docs/sync-workspace-version.mjs --write` to synchronize all manifests.');
+  console.error(
+    `\nFAILED: ${driftedCount} target(s) drifted from workspace version ${workspaceVersion}.`,
+  );
+  console.error(
+    "Run `node scripts/docs/sync-workspace-version.mjs --write` to synchronize all manifests.",
+  );
   process.exit(1);
 }
 
-console.log(`\nOK: All ${specs.length} manifests synchronized with workspace version ${workspaceVersion}.`);
+console.log(
+  `\nOK: All ${specs.length} manifests synchronized with workspace version ${workspaceVersion}.`,
+);
 process.exit(0);

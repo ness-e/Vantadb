@@ -4,8 +4,8 @@
 // points this instance's stack at its own disjoint region, and runs the
 // kernel when the main thread says "go". See benchmarks/wasm_threads_bench.mjs
 // and docs/dev/architecture/WASM_THREADS.md.
-import { parentPort, workerData } from 'node:worker_threads';
-import { readFile } from 'node:fs/promises';
+import { parentPort, workerData } from "node:worker_threads";
+import { readFile } from "node:fs/promises";
 
 const { wasmPath, memory, stackTop, layout, chunk } = workerData;
 
@@ -18,10 +18,10 @@ const { exports } = instance;
 // The module exports `__stack_pointer` (mutable global) for exactly this.
 exports.__stack_pointer.value = stackTop;
 
-parentPort.postMessage({ type: 'ready' });
+parentPort.postMessage({ type: "ready" });
 
-parentPort.on('message', (msg) => {
-  if (msg?.type !== 'go') return;
+parentPort.on("message", (msg) => {
+  if (msg?.type !== "go") return;
   const t0 = performance.now();
   const status = exports.score_batch_chunked(
     layout.vectorsPtr,
@@ -33,5 +33,5 @@ parentPort.on('message', (msg) => {
     chunk,
   );
   const kernelMs = performance.now() - t0;
-  parentPort.postMessage({ type: 'done', status, kernelMs });
+  parentPort.postMessage({ type: "done", status, kernelMs });
 });

@@ -28,12 +28,12 @@
 //   1 = GATE FAILED — a tracked package drifted from the workspace version
 //   2 = cannot evaluate (Cargo.toml or workspace version unreadable) — NOT a pass
 
-import { readFileSync } from 'node:fs';
-import { abs } from './lib.mjs';
+import { readFileSync } from "node:fs";
+import { abs } from "./lib.mjs";
 
 // --------------------------------------------------------------------- policy
 
-const WORKSPACE_MANIFEST = 'Cargo.toml';
+const WORKSPACE_MANIFEST = "Cargo.toml";
 
 /**
  * The npm manifests this gate owns, plus server.json (stale-descriptor risk,
@@ -42,21 +42,21 @@ const WORKSPACE_MANIFEST = 'Cargo.toml';
  * the silent skip this gate exists to prevent. Keep the list explicit and small.
  */
 export const TARGETS = [
-  { name: 'vantadb', path: 'vantadb-ts/package.json', policy: 'workspace' },
+  { name: "vantadb", path: "vantadb-ts/package.json", policy: "workspace" },
   {
-    name: 'mcp-server',
-    path: 'server.json',
-    policy: 'workspace',
+    name: "mcp-server",
+    path: "server.json",
+    policy: "workspace",
     // server.json carries a top-level "version" (same shape the parser reads)
     // that must track the workspace version
     // (docs/user/operations/MCP_REGISTRY.md). No silent-skip risk — the
     // failure mode is a stale public descriptor, not a skipped publish.
-    why: 'is the public MCP registry descriptor (docs/user/operations/MCP_REGISTRY.md)',
+    why: "is the public MCP registry descriptor (docs/user/operations/MCP_REGISTRY.md)",
   },
   {
-    name: 'vantadb-node',
-    path: 'vantadb-node/package.json',
-    policy: 'workspace',
+    name: "vantadb-node",
+    path: "vantadb-node/package.json",
+    policy: "workspace",
   },
 ];
 
@@ -69,12 +69,12 @@ export const TARGETS = [
  * one-line contract this repo controls (same approach as gate-docs.yml).
  */
 export function parseWorkspaceVersion(cargoToml) {
-  const lines = String(cargoToml).split('\n');
-  const start = lines.findIndex((l) => l.trim() === '[workspace.package]');
+  const lines = String(cargoToml).split("\n");
+  const start = lines.findIndex((l) => l.trim() === "[workspace.package]");
   if (start === -1) return null;
   for (let i = start + 1; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (line.startsWith('[')) break; // next section
+    if (line.startsWith("[")) break; // next section
     const m = line.match(/^version\s*=\s*"([^"]+)"/);
     if (m) return m[1];
   }
@@ -85,7 +85,7 @@ export function parseWorkspaceVersion(cargoToml) {
 export function parsePackageVersion(text) {
   try {
     const v = JSON.parse(text)?.version;
-    return typeof v === 'string' && v.length > 0 ? v : null;
+    return typeof v === "string" && v.length > 0 ? v : null;
   } catch {
     return null;
   }
@@ -111,7 +111,7 @@ export function evaluate({ workspace, packages }) {
 
     if (found == null) {
       // Fail-closed: a version that cannot be read must never pass silently.
-      status = 'fail';
+      status = "fail";
       failures.push({
         path: p.path,
         found,
@@ -119,15 +119,15 @@ export function evaluate({ workspace, packages }) {
         message: `${p.path}: version could not be read (expected ${expected})`,
       });
     } else if (found === workspace) {
-      status = 'ok';
-    } else if (p.policy === 'never-published' && (p.neverPublished ?? []).includes(found)) {
-      status = 'ok-lagging';
+      status = "ok";
+    } else if (p.policy === "never-published" && (p.neverPublished ?? []).includes(found)) {
+      status = "ok-lagging";
       notes.push(
         `${p.path}: ${found} is a documented never-published version — allowed until its first ` +
           `release, when it must match the workspace version (${expected})`,
       );
     } else {
-      status = 'fail';
+      status = "fail";
       failures.push({
         path: p.path,
         found,
@@ -149,19 +149,19 @@ export function evaluate({ workspace, packages }) {
 // -------------------------------------------------------------------- runtime
 
 const ARGS = process.argv.slice(2);
-const KNOWN = new Set(['--json', '--self-test', '--help']);
-const JSON_OUT = ARGS.includes('--json');
-const IN_CI = process.env.GITHUB_ACTIONS === 'true';
+const KNOWN = new Set(["--json", "--self-test", "--help"]);
+const JSON_OUT = ARGS.includes("--json");
+const IN_CI = process.env.GITHUB_ACTIONS === "true";
 
 const USAGE = [
-  'check-npm-versions.mjs — npm package versions vs the workspace version',
-  '',
-  '  (no flags)     gate: exit 1 when a tracked package drifted',
-  '  --json         machine-readable report',
-  '  --self-test    built-in assertions, synthetic fixtures only',
-  '',
-  'exit: 0 ok · 1 gate failed · 2 cannot evaluate (not a pass)',
-].join('\n');
+  "check-npm-versions.mjs — npm package versions vs the workspace version",
+  "",
+  "  (no flags)     gate: exit 1 when a tracked package drifted",
+  "  --json         machine-readable report",
+  "  --self-test    built-in assertions, synthetic fixtures only",
+  "",
+  "exit: 0 ok · 1 gate failed · 2 cannot evaluate (not a pass)",
+].join("\n");
 
 function emit(level, message, file) {
   // GitHub annotations only when actually running inside Actions; locally the
@@ -176,34 +176,36 @@ function printReport(result) {
     return;
   }
   console.log(`workspace version: ${result.workspace} (${WORKSPACE_MANIFEST})`);
-  console.log('');
+  console.log("");
   for (const r of result.rows) {
-    const mark = r.status === 'fail' ? 'FAIL' : 'ok  ';
-    const suffix = r.status === 'fail' ? `  (expected ${r.expected})` : '';
-    console.log(`${mark} ${r.path}: ${r.found ?? '(unreadable)'}${suffix}`);
+    const mark = r.status === "fail" ? "FAIL" : "ok  ";
+    const suffix = r.status === "fail" ? `  (expected ${r.expected})` : "";
+    console.log(`${mark} ${r.path}: ${r.found ?? "(unreadable)"}${suffix}`);
   }
   if (result.notes.length) {
-    console.log('');
+    console.log("");
     for (const n of result.notes) console.log(`note: ${n}`);
   }
-  console.log('');
+  console.log("");
   if (result.pass) {
-    console.log(`OK: ${result.rows.length} npm package(s) in sync with workspace ${result.workspace}.`);
+    console.log(
+      `OK: ${result.rows.length} npm package(s) in sync with workspace ${result.workspace}.`,
+    );
   } else {
     for (const f of result.failures) {
       console.log(`GATE FAILED: ${f.message}`);
-      emit('error', f.message, f.path);
+      emit("error", f.message, f.path);
     }
-    console.log('');
-    console.log('How to fix: bump the npm manifest(s) above to the workspace version in the SAME');
-    console.log('PR that bumps it — the release-plz Release PR (docs/dev/workflow/PUBLISH.md).');
+    console.log("");
+    console.log("How to fix: bump the npm manifest(s) above to the workspace version in the SAME");
+    console.log("PR that bumps it — the release-plz Release PR (docs/dev/workflow/PUBLISH.md).");
   }
-  for (const n of result.notes) emit('notice', n);
+  for (const n of result.notes) emit("notice", n);
 }
 
 function failHard(message) {
   console.error(`DEGRADED (exit 2): ${message}`);
-  console.error('  This is NOT a pass — the gate could not be evaluated.');
+  console.error("  This is NOT a pass — the gate could not be evaluated.");
   process.exit(2);
 }
 
@@ -228,83 +230,83 @@ function selfTest() {
     if (!cond) throw new Error(msg);
   };
 
-  const tsPack = { name: 'vantadb', path: 'vantadb-ts/package.json', policy: 'workspace' };
+  const tsPack = { name: "vantadb", path: "vantadb-ts/package.json", policy: "workspace" };
   const nodePack = {
-    name: 'vantadb-node',
-    path: 'vantadb-node/package.json',
-    policy: 'never-published',
-    neverPublished: ['0.7.0'],
+    name: "vantadb-node",
+    path: "vantadb-node/package.json",
+    policy: "never-published",
+    neverPublished: ["0.7.0"],
   };
 
-  check('parse: [workspace.package] version wins over other keys', () => {
+  check("parse: [workspace.package] version wins over other keys", () => {
     const toml = [
-      '[package]',
+      "[package]",
       'name = "x"',
       'version = "9.9.9"',
-      '',
-      '[workspace.package]',
+      "",
+      "[workspace.package]",
       'version = "0.8.0"',
-      '',
-      '[workspace.dependencies]',
+      "",
+      "[workspace.dependencies]",
       'serde = "1"',
-    ].join('\n');
-    assert(parseWorkspaceVersion(toml) === '0.8.0', `got ${parseWorkspaceVersion(toml)}`);
+    ].join("\n");
+    assert(parseWorkspaceVersion(toml) === "0.8.0", `got ${parseWorkspaceVersion(toml)}`);
   });
-  check('parse: returns null when the section is missing', () => {
-    assert(parseWorkspaceVersion('[package]\nversion = "1.2.3"') === null, 'expected null');
+  check("parse: returns null when the section is missing", () => {
+    assert(parseWorkspaceVersion('[package]\nversion = "1.2.3"') === null, "expected null");
   });
-  check('parse: package version only from parseable JSON', () => {
-    assert(parsePackageVersion('{"name":"x","version":"0.8.0"}') === '0.8.0', 'valid JSON');
-    assert(parsePackageVersion('not json') === null, 'invalid JSON');
-    assert(parsePackageVersion('{"version":3}') === null, 'non-string version');
-    assert(parsePackageVersion('{}') === null, 'missing version');
+  check("parse: package version only from parseable JSON", () => {
+    assert(parsePackageVersion('{"name":"x","version":"0.8.0"}') === "0.8.0", "valid JSON");
+    assert(parsePackageVersion("not json") === null, "invalid JSON");
+    assert(parsePackageVersion('{"version":3}') === null, "non-string version");
+    assert(parsePackageVersion("{}") === null, "missing version");
   });
-  check('gate: server.json at the workspace version passes (workspace policy)', () => {
-    const srv = { name: 'mcp-server', path: 'server.json', policy: 'workspace' };
-    const r = evaluate({ workspace: '0.8.0', packages: [{ ...srv, version: '0.8.0' }] });
-    assert(r.pass, 'expected pass');
-    const r2 = evaluate({ workspace: '0.8.0', packages: [{ ...srv, version: '0.6.1' }] });
-    assert(!r2.pass, 'expected fail');
-    assert(r2.failures[0].message.includes('server.json'), 'must name the file');
+  check("gate: server.json at the workspace version passes (workspace policy)", () => {
+    const srv = { name: "mcp-server", path: "server.json", policy: "workspace" };
+    const r = evaluate({ workspace: "0.8.0", packages: [{ ...srv, version: "0.8.0" }] });
+    assert(r.pass, "expected pass");
+    const r2 = evaluate({ workspace: "0.8.0", packages: [{ ...srv, version: "0.6.1" }] });
+    assert(!r2.pass, "expected fail");
+    assert(r2.failures[0].message.includes("server.json"), "must name the file");
   });
-  check('gate: in-sync package passes', () => {
-    const r = evaluate({ workspace: '0.8.0', packages: [{ ...tsPack, version: '0.8.0' }] });
-    assert(r.pass, 'expected pass');
+  check("gate: in-sync package passes", () => {
+    const r = evaluate({ workspace: "0.8.0", packages: [{ ...tsPack, version: "0.8.0" }] });
+    assert(r.pass, "expected pass");
   });
-  check('gate: drifted package FAILS naming file, found and expected version', () => {
-    const r = evaluate({ workspace: '0.8.0', packages: [{ ...tsPack, version: '0.7.0' }] });
-    assert(!r.pass, 'expected fail');
+  check("gate: drifted package FAILS naming file, found and expected version", () => {
+    const r = evaluate({ workspace: "0.8.0", packages: [{ ...tsPack, version: "0.7.0" }] });
+    assert(!r.pass, "expected fail");
     const m = r.failures[0].message;
-    assert(m.includes('vantadb-ts/package.json'), 'must name the file');
-    assert(m.includes('0.7.0'), 'must carry the found version');
-    assert(m.includes('0.8.0'), 'must carry the expected version');
+    assert(m.includes("vantadb-ts/package.json"), "must name the file");
+    assert(m.includes("0.7.0"), "must carry the found version");
+    assert(m.includes("0.8.0"), "must carry the expected version");
   });
-  check('gate: node at a documented never-published version passes with a note', () => {
-    const r = evaluate({ workspace: '0.8.0', packages: [{ ...nodePack, version: '0.7.0' }] });
-    assert(r.pass, 'expected pass');
-    assert(r.notes.length === 1 && r.notes[0].includes('never-published'), 'expected one note');
+  check("gate: node at a documented never-published version passes with a note", () => {
+    const r = evaluate({ workspace: "0.8.0", packages: [{ ...nodePack, version: "0.7.0" }] });
+    assert(r.pass, "expected pass");
+    assert(r.notes.length === 1 && r.notes[0].includes("never-published"), "expected one note");
   });
-  check('gate: node at the workspace version passes silently', () => {
-    const r = evaluate({ workspace: '0.8.0', packages: [{ ...nodePack, version: '0.8.0' }] });
-    assert(r.pass && r.notes.length === 0, 'expected silent pass');
+  check("gate: node at the workspace version passes silently", () => {
+    const r = evaluate({ workspace: "0.8.0", packages: [{ ...nodePack, version: "0.8.0" }] });
+    assert(r.pass && r.notes.length === 0, "expected silent pass");
   });
-  check('gate: node at any OTHER stale version FAILS', () => {
-    const r = evaluate({ workspace: '0.9.0', packages: [{ ...nodePack, version: '0.6.0' }] });
-    assert(!r.pass, 'expected fail');
+  check("gate: node at any OTHER stale version FAILS", () => {
+    const r = evaluate({ workspace: "0.9.0", packages: [{ ...nodePack, version: "0.6.0" }] });
+    assert(!r.pass, "expected fail");
   });
-  check('gate: one bad package fails the whole gate', () => {
+  check("gate: one bad package fails the whole gate", () => {
     const r = evaluate({
-      workspace: '0.8.0',
+      workspace: "0.8.0",
       packages: [
-        { ...tsPack, version: '0.7.0' },
-        { ...nodePack, version: '0.7.0' },
+        { ...tsPack, version: "0.7.0" },
+        { ...nodePack, version: "0.7.0" },
       ],
     });
-    assert(!r.pass && r.failures.length === 1, 'only the ts package should fail');
+    assert(!r.pass && r.failures.length === 1, "only the ts package should fail");
   });
-  check('gate: an unreadable version can never pass', () => {
-    const r = evaluate({ workspace: '0.8.0', packages: [{ ...tsPack, version: null }] });
-    assert(!r.pass, 'null version must fail');
+  check("gate: an unreadable version can never pass", () => {
+    const r = evaluate({ workspace: "0.8.0", packages: [{ ...tsPack, version: null }] });
+    assert(!r.pass, "null version must fail");
   });
 
   const failed = results.filter((r) => !r.ok);
@@ -312,11 +314,11 @@ function selfTest() {
     console.log(JSON.stringify({ selfTest: results, pass: failed.length === 0 }, null, 2));
   } else {
     for (const r of results) {
-      console.log(`${r.ok ? 'ok  ' : 'FAIL'}  ${r.name}${r.ok ? '' : `  -- ${r.error}`}`);
+      console.log(`${r.ok ? "ok  " : "FAIL"}  ${r.name}${r.ok ? "" : `  -- ${r.error}`}`);
     }
     console.log(
       `\n${results.length - failed.length}/${results.length} assertions passed` +
-        (failed.length ? ` — ${failed.length} FAILED` : ''),
+        (failed.length ? ` — ${failed.length} FAILED` : ""),
     );
   }
   return failed.length === 0;
@@ -324,22 +326,22 @@ function selfTest() {
 
 // ---------------------------------------------------------------------- main
 
-if (ARGS.includes('--help')) {
+if (ARGS.includes("--help")) {
   console.log(USAGE);
   process.exit(0);
 }
 const unknown = ARGS.filter((a) => !KNOWN.has(a));
 if (unknown.length) {
-  console.error(`unknown argument(s): ${unknown.join(', ')}\n`);
+  console.error(`unknown argument(s): ${unknown.join(", ")}\n`);
   console.error(USAGE);
   process.exit(2);
 }
 
-if (ARGS.includes('--self-test')) process.exit(selfTest() ? 0 : 1);
+if (ARGS.includes("--self-test")) process.exit(selfTest() ? 0 : 1);
 
 let cargoToml;
 try {
-  cargoToml = readFileSync(abs(WORKSPACE_MANIFEST), 'utf8');
+  cargoToml = readFileSync(abs(WORKSPACE_MANIFEST), "utf8");
 } catch {
   failHard(`${WORKSPACE_MANIFEST} is not readable from ${process.cwd()}`);
 }
@@ -349,7 +351,7 @@ if (!workspace) failHard(`no [workspace.package] version found in ${WORKSPACE_MA
 const packages = TARGETS.map((t) => {
   let version = null;
   try {
-    version = parsePackageVersion(readFileSync(abs(t.path), 'utf8'));
+    version = parsePackageVersion(readFileSync(abs(t.path), "utf8"));
   } catch {
     version = null; // unreadable → evaluate() reports it as a failure, never a pass
   }

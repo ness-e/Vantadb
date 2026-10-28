@@ -35,15 +35,15 @@ export type VantaValue =
   | { ListFloat: number[] }
   | { ListBool: boolean[] }
   | { ListDateTime: string[] }
-  | 'Null'
+  | "Null";
 
 /** Metadata map attached to a memory record. */
-export type VantaMetadata = Record<string, VantaValue>
+export type VantaMetadata = Record<string, VantaValue>;
 
 /** Options for {@linkcode VantaDb.connect}. */
 export interface ConnectOptions {
-  read_only?: boolean
-  memory_limit?: number
+  read_only?: boolean;
+  memory_limit?: number;
   /**
    * Bytes pre-reserved per LSM segment. A store owns 4 segments (L0..L3),
    * so the address space reserved up front is `4 * reserve_bytes`.
@@ -51,238 +51,238 @@ export interface ConnectOptions {
    * Default: 1 MiB per segment (4 MiB per store). Clamped so the total
    * never exceeds `memory_limit`.
    */
-  reserve_bytes?: number
+  reserve_bytes?: number;
 }
 
 /** Input accepted by `put()` and `putBatch()`. */
 export interface MemoryInput {
-  namespace: string
-  key: string
-  payload: string
-  metadata?: VantaMetadata
-  vector?: number[]
+  namespace: string;
+  key: string;
+  payload: string;
+  metadata?: VantaMetadata;
+  vector?: number[];
   /** Sparse term-weight vector keyed by dimension id. Empty/undefined skips
    * sparse indexing. */
-  sparse_vector?: Record<string, number> | null
+  sparse_vector?: Record<string, number> | null;
   /** TTL in milliseconds relative to now. Must be a non-negative integer. */
-  ttl_ms?: number
+  ttl_ms?: number;
 }
 
 /** Persistent memory record returned by `put`/`putBatch`/`get`/`list`/`search`. */
 export interface MemoryRecord {
-  namespace: string
-  key: string
-  payload: string
-  metadata: VantaMetadata
-  created_at_ms: number
-  updated_at_ms: number
-  version: number
+  namespace: string;
+  key: string;
+  payload: string;
+  metadata: VantaMetadata;
+  created_at_ms: number;
+  updated_at_ms: number;
+  version: number;
   /** Decimal string (u128 ids exceed Number.MAX_SAFE_INTEGER). */
-  node_id: string
-  vector: number[] | null
+  node_id: string;
+  vector: number[] | null;
   /** Sparse term-weight vector keyed by dimension id. */
-  sparse_vector?: Record<string, number> | null
-  expires_at_ms: number | null
-  superseded_by?: string | null
-  superseded_at_ms?: number | null
+  sparse_vector?: Record<string, number> | null;
+  expires_at_ms: number | null;
+  superseded_by?: string | null;
+  superseded_at_ms?: number | null;
   /** Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
    * `"Derived"` (computed by the engine from `derived_from` parents). */
-  confidence_class: 'Asserted' | 'Derived'
+  confidence_class: "Asserted" | "Derived";
   /** Confidence range in [0, 1] — a declared/computed range, NOT a calibrated
    * probability (see `docs/api/scores.md`). Default 1.0 for asserted. */
-  confidence: number
+  confidence: number;
   /** Last successful re-validation timestamp (ms); `null` = never validated. */
-  last_validated_at_ms: number | null
+  last_validated_at_ms: number | null;
   /** Parent record keys for a `derived` record (empty for asserted). */
-  derived_from: string[]
+  derived_from: string[];
   /** Start of the validity window (ADR-046 §D3, SCH-07); v1 records normalize
    * to `created_at_ms`. */
-  valid_at_ms: number
+  valid_at_ms: number;
   /** End of the validity window (exclusive); `null` = open-ended. */
-  invalid_at_ms?: number | null
+  invalid_at_ms?: number | null;
   /** Quarantine entry timestamp (SCH-07); `null` = active (not quarantined). */
-  quarantined_at_ms?: number | null
+  quarantined_at_ms?: number | null;
   /** Stable quarantine reason code (`explicit_write`, `unreviewed_import`,
    * `derived_promotion`, `policy_match`); the code set may grow. */
-  quarantine_reason?: string | null
+  quarantine_reason?: string | null;
   /** Principal that applied the quarantine (or `system:<op>`). */
-  quarantined_by?: string | null
+  quarantined_by?: string | null;
   /** Review deadline (ms); `null` = no default deadline configured. */
-  quarantine_review_due_ms?: number | null
+  quarantine_review_due_ms?: number | null;
 }
 
 /** Options for `list()`. */
 export interface MemoryListOptions {
-  filters?: VantaMetadata
-  limit?: number
+  filters?: VantaMetadata;
+  limit?: number;
   /** Page cursor: number, decimal string (WASM emits strings), or omitted/null
    * (first page). Anything else is rejected with `cursor must be a number`. */
-  cursor?: number | string
+  cursor?: number | string;
   /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
    * window contains this unix-ms instant. Omit/null = no temporal filter. */
-  as_of_ms?: number | null
+  as_of_ms?: number | null;
   /** Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
    * `from_ms < to_ms` is validated at the core boundary. */
-  valid_window?: ValidWindow | null
+  valid_window?: ValidWindow | null;
   /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
    * quarantined content is excluded from search/list/retrieval. */
-  include_quarantined?: boolean
+  include_quarantined?: boolean;
   /** Hide records replaced by a newer one (ADR-028). Default false:
    * superseded records remain listed for backward compatibility — same
    * default as the WASM and Python bindings. */
-  exclude_superseded?: boolean
+  exclude_superseded?: boolean;
   /** Opt-in confidence filter (SCH-07, ADR-046 §D2): keep only records whose
    * `confidence` is `>= min_confidence` (finite, in [0, 1]). */
-  min_confidence?: number | null
+  min_confidence?: number | null;
 }
 
 /** Half-open valid-time window `[from_ms, to_ms)` (ADR-046 §D3). */
 export interface ValidWindow {
-  from_ms: number
-  to_ms: number
+  from_ms: number;
+  to_ms: number;
 }
 
 /** Result of `list()`. */
 export interface MemoryListResult {
-  records: MemoryRecord[]
-  next_cursor?: number
+  records: MemoryRecord[];
+  next_cursor?: number;
 }
 
 /** Request accepted by `search()` and `explainSearch()`. */
 export interface SearchRequest {
-  namespace: string
-  query_vector: number[]
+  namespace: string;
+  query_vector: number[];
   /** Sparse query vector keyed by dimension id; fused with dense/text scores.
    * Pass an empty `query_vector` with `text_query` for text-only (BM25). */
-  query_sparse?: Record<string, number> | null
-  filters?: VantaMetadata
-  text_query?: string
-  top_k?: number
-  distance_metric?: 'Cosine' | 'Euclidean'
+  query_sparse?: Record<string, number> | null;
+  filters?: VantaMetadata;
+  text_query?: string;
+  top_k?: number;
+  distance_metric?: "Cosine" | "Euclidean";
   /** Opt-in confidence filter (SCH-04, ADR-046): keep only hits whose record
    * `confidence` is `>= min_confidence` (finite, in [0, 1]). Omit/null = no
    * filter (default). */
-  min_confidence?: number | null
+  min_confidence?: number | null;
   /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
    * window contains this unix-ms instant. Omit/null = no temporal filter. */
-  as_of_ms?: number | null
+  as_of_ms?: number | null;
   /** Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
    * `from_ms < to_ms` is validated at the core boundary. */
-  valid_window?: ValidWindow | null
+  valid_window?: ValidWindow | null;
   /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
    * quarantined content is excluded from search/list/retrieval. */
-  include_quarantined?: boolean
+  include_quarantined?: boolean;
   /** Hide records replaced by a newer one (ADR-028). Default false:
    * superseded records remain searchable for backward compatibility — same
    * default as the WASM and Python bindings. */
-  exclude_superseded?: boolean
-  explain?: boolean
+  exclude_superseded?: boolean;
+  explain?: boolean;
 }
 
 /** Per-term BM25 scoring decomposition. */
 export interface Bm25TermContribution {
-  token: string
-  tf: number
-  df: number
-  doc_len: number
-  contribution: number
+  token: string;
+  tf: number;
+  df: number;
+  doc_len: number;
+  contribution: number;
 }
 
 /** Per-hit explanation with score, snippet, matched tokens, and BM25 breakdown. */
 export interface SearchExplanationHit {
   /** Unique identity string (`namespace\0key`). */
-  identity: string
-  score: number
-  snippet: string | null
-  matched_tokens: string[]
-  matched_phrases: string[]
-  bm25_terms: Bm25TermContribution[]
-  rrf_text_rank: number | null
-  rrf_vector_rank: number | null
+  identity: string;
+  score: number;
+  snippet: string | null;
+  matched_tokens: string[];
+  matched_phrases: string[];
+  bm25_terms: Bm25TermContribution[];
+  rrf_text_rank: number | null;
+  rrf_vector_rank: number | null;
 }
 
 /** Counts and configuration for a hybrid (text+vector) fusion pass. */
 export interface HybridFusionReport {
-  text_candidates: number
-  vector_candidates: number
-  fused_candidates: number
-  rrf_k: number
+  text_candidates: number;
+  vector_candidates: number;
+  fused_candidates: number;
+  rrf_k: number;
 }
 
 /** Explanation returned by `explainSearch()`. */
 export interface SearchExplanation {
-  route: string
-  hits: SearchExplanationHit[]
-  fusion_report: HybridFusionReport | null
+  route: string;
+  hits: SearchExplanationHit[];
+  fusion_report: HybridFusionReport | null;
 }
 
 /** Hit returned by `search()`. */
 export interface MemorySearchHit {
-  record: MemoryRecord
+  record: MemoryRecord;
   /** Relevance score (BM25, cosine similarity, or RRF fused score). */
-  score: number
-  explanation?: SearchExplanationHit | null
+  score: number;
+  explanation?: SearchExplanationHit | null;
 }
 
 /** Stable runtime capabilities returned by `capabilities()`. */
 export interface Capabilities {
-  runtime_profile: 'Enterprise' | 'Performance' | 'LowResource'
-  persistence: boolean
-  vector_search: boolean
-  iql_queries: boolean
-  read_only: boolean
+  runtime_profile: "Enterprise" | "Performance" | "LowResource";
+  persistence: boolean;
+  vector_search: boolean;
+  iql_queries: boolean;
+  read_only: boolean;
 }
 
 /** Input accepted by `insertNode()`. */
 export interface GraphNodeInput {
   /** Decimal string (safe above 2^53) or number. */
-  id: string | number
-  content?: string
-  vector?: number[]
+  id: string | number;
+  content?: string;
+  vector?: number[];
   /** Relational fields using the tagged `VantaValue` form. */
-  fields?: Record<string, VantaValue>
+  fields?: Record<string, VantaValue>;
 }
 
 /** Directed edge as returned inside {@linkcode GraphNodeRecord}. */
 export interface GraphEdgeRecord {
   /** Decimal string node id this edge points to. */
-  target: string
-  label: string
-  weight: number
-  reverse: boolean
-  created_at_ms: number
+  target: string;
+  label: string;
+  weight: number;
+  reverse: boolean;
+  created_at_ms: number;
 }
 
 /** Graph node returned by `getNode()`. */
 export interface GraphNodeRecord {
   /** Decimal string (u128 ids exceed Number.MAX_SAFE_INTEGER). */
-  id: string
-  fields: Record<string, VantaValue>
-  vector: number[] | null
-  vector_dimensions: number
-  edges: GraphEdgeRecord[]
-  confidence_score: number
-  importance: number
-  hits: number
-  last_accessed: number
-  epoch: number
-  tier: 'Hot' | 'Cold'
-  is_alive: boolean
+  id: string;
+  fields: Record<string, VantaValue>;
+  vector: number[] | null;
+  vector_dimensions: number;
+  edges: GraphEdgeRecord[];
+  confidence_score: number;
+  importance: number;
+  hits: number;
+  last_accessed: number;
+  epoch: number;
+  tier: "Hot" | "Cold";
+  is_alive: boolean;
 }
 
 /** Optional edge filtering for `graphFilteredTraversal()`. */
 export interface GraphFilterOptions {
-  labels?: number[]
+  labels?: number[];
   /** Inclusive `[from_ms, to_ms]` window on edge creation time. */
-  time_range?: [number, number]
+  time_range?: [number, number];
 }
 
 /** Degree-centrality entry returned by `graphDegree()`. */
 export interface DegreeEntry {
   /** Decimal string node id. */
-  id: string
-  in_degree: number
-  out_degree: number
+  id: string;
+  in_degree: number;
+  out_degree: number;
 }
 
 /**
@@ -291,63 +291,63 @@ export interface DegreeEntry {
  * (`MOD-10`, mirrors `src/storage/engine/mod.rs`).
  */
 export interface VacuumReport {
-  scanned_nodes: number
-  removed_nodes: number
-  reclaimed_bytes: number
-  duration_ms: number
-  success: boolean
+  scanned_nodes: number;
+  removed_nodes: number;
+  reclaimed_bytes: number;
+  duration_ms: number;
+  success: boolean;
 }
 
 /** Report returned by `rebuildIndex()`. */
 export interface RebuildReport {
-  scanned_nodes: number
-  indexed_vectors: number
-  skipped_tombstones: number
-  duration_ms: number
-  derived_rebuild_ms: number
-  index_path: string
-  success: boolean
+  scanned_nodes: number;
+  indexed_vectors: number;
+  skipped_tombstones: number;
+  duration_ms: number;
+  derived_rebuild_ms: number;
+  index_path: string;
+  success: boolean;
 }
 
 /** Comparison operator for `FilterItem`. Mirrors `VantaFilterOp`. */
-export type FilterOp = 'Eq' | 'Neq' | 'Gt' | 'Lt' | 'Gte' | 'Lte'
+export type FilterOp = "Eq" | "Neq" | "Gt" | "Lt" | "Gte" | "Lte";
 
 /** A single `{ field, op, value }` clause for `deleteByFilter` and `count`. */
 export interface FilterItem {
-  field: string
-  op: FilterOp
-  value: VantaValue
+  field: string;
+  op: FilterOp;
+  value: VantaValue;
 }
 
 /** Explicit dense-vector index backend override for `searchWithMethod`. */
-export type IndexMethod = 'Hnsw' | 'Ivf' | 'Flat' | 'DiskAnn' | 'Scann'
+export type IndexMethod = "Hnsw" | "Ivf" | "Flat" | "DiskAnn" | "Scann";
 
 /** A ranked GraphRAG node (DIST-15). */
 export interface GraphRagNode {
   /** Decimal string (u128 ids exceed Number.MAX_SAFE_INTEGER, API-01). */
-  id: string
-  content: string
+  id: string;
+  content: string;
   /** Combined relevance: 0.6·seed + 0.3·hop_boost + 0.1·degree_factor. */
-  score: number
+  score: number;
   /** BFS distance from the nearest seed (0 = seed itself). */
-  hop_distance: number
+  hop_distance: number;
 }
 
 /** A relationship edge between two GraphRAG nodes (DIST-15). */
 export interface GraphRagEdge {
   /** Decimal string node id (u128). */
-  source: string
+  source: string;
   /** Decimal string node id (u128). */
-  target: string
-  label: string
+  target: string;
+  label: string;
 }
 
 /** Pipeline counters for a GraphRAG run (DIST-15). */
 export interface GraphRagStats {
-  seeds_found: number
-  nodes_expanded: number
-  total_candidates: number
-  expansion_hops_used: number
+  seeds_found: number;
+  nodes_expanded: number;
+  total_candidates: number;
+  expansion_hops_used: number;
 }
 
 /**
@@ -355,9 +355,9 @@ export interface GraphRagStats {
  * binding (Py/TS/Node/WASM): nodes + edges + LLM-ready `context_text` + stats.
  */
 export interface GraphRagResult {
-  nodes: GraphRagNode[]
-  edges: GraphRagEdge[]
+  nodes: GraphRagNode[];
+  edges: GraphRagEdge[];
   /** LLM-ready context block (nodes + relationships), empty when no seeds. */
-  context_text: string
-  stats: GraphRagStats
+  context_text: string;
+  stats: GraphRagStats;
 }

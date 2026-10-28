@@ -28,47 +28,45 @@
  * the benchmark.
  */
 
-import { Worker } from 'node:worker_threads';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { Worker } from "node:worker_threads";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(__dirname, "..");
 const DEFAULT_WASM = path.join(
   ROOT,
-  'vantadb-wasm',
-  'threads-kernel',
-  'target',
-  'wasm32-unknown-unknown',
-  'release',
-  'vantadb_wasm_threads_kernel.wasm',
+  "vantadb-wasm",
+  "threads-kernel",
+  "target",
+  "wasm32-unknown-unknown",
+  "release",
+  "vantadb_wasm_threads_kernel.wasm",
 );
-const WORKER_PATH = path.join(__dirname, 'wasm_threads_worker.mjs');
+const WORKER_PATH = path.join(__dirname, "wasm_threads_worker.mjs");
 
 // ── CLI ────────────────────────────────────────────────────────────────────
 
 const args = {};
 for (let i = 2; i < process.argv.length; i++) {
-  const k = process.argv[i].replace(/^--/, '');
-  if (i + 1 < process.argv.length && !process.argv[i + 1].startsWith('--')) {
+  const k = process.argv[i].replace(/^--/, "");
+  if (i + 1 < process.argv.length && !process.argv[i + 1].startsWith("--")) {
     args[k] = process.argv[++i];
   } else {
     args[k] = true;
   }
 }
 
-const N_VECTORS = parseInt(args['n-vectors'] || '100000', 10);
-const DIMS = parseInt(args.dims || '128', 10);
-const WORKER_COUNTS = (args.workers || '1,2,4,8,12')
-  .split(',')
-  .map((n) => parseInt(n, 10));
-const REPEATS = parseInt(args.repeats || '5', 10);
-const CHUNK = parseInt(args.chunk || '256', 10);
-const SEED = parseInt(args.seed || '42', 10);
+const N_VECTORS = parseInt(args["n-vectors"] || "100000", 10);
+const DIMS = parseInt(args.dims || "128", 10);
+const WORKER_COUNTS = (args.workers || "1,2,4,8,12").split(",").map((n) => parseInt(n, 10));
+const REPEATS = parseInt(args.repeats || "5", 10);
+const CHUNK = parseInt(args.chunk || "256", 10);
+const SEED = parseInt(args.seed || "42", 10);
 const WASM_PATH = args.wasm || DEFAULT_WASM;
-const OUTPUT = args.output || path.join(__dirname, 'wasm_threads_results.json');
+const OUTPUT = args.output || path.join(__dirname, "wasm_threads_results.json");
 
 // ── Memory layout (host-owned) ─────────────────────────────────────────────
 //
@@ -134,16 +132,16 @@ function once(worker, type) {
   return new Promise((resolve, reject) => {
     const onMessage = (msg) => {
       if (msg?.type !== type) return;
-      worker.off('message', onMessage);
-      worker.off('error', onError);
+      worker.off("message", onMessage);
+      worker.off("error", onError);
       resolve(msg);
     };
     const onError = (err) => {
-      worker.off('message', onMessage);
+      worker.off("message", onMessage);
       reject(err);
     };
-    worker.on('message', onMessage);
-    worker.on('error', onError);
+    worker.on("message", onMessage);
+    worker.on("error", onError);
   });
 }
 
@@ -154,8 +152,8 @@ async function runOnce(workers) {
   new Float32Array(buffer, scoresPtr, N_VECTORS).fill(NaN);
 
   const t0 = performance.now();
-  for (const w of workers) w.postMessage({ type: 'go' });
-  const results = await Promise.all(workers.map((w) => once(w, 'done')));
+  for (const w of workers) w.postMessage({ type: "go" });
+  const results = await Promise.all(workers.map((w) => once(w, "done")));
   const elapsedMs = performance.now() - t0;
 
   for (const r of results) {
@@ -209,7 +207,7 @@ async function spawnWorkers(memory, workerCount) {
     w._memory = memory;
     workers.push(w);
   }
-  await Promise.all(workers.map((w) => once(w, 'ready')));
+  await Promise.all(workers.map((w) => once(w, "ready")));
   return workers;
 }
 
@@ -222,21 +220,26 @@ function median(values) {
 async function main() {
   if (!fs.existsSync(WASM_PATH)) {
     console.error(`wasm module not found: ${WASM_PATH}`);
-    console.error('Build it first: pwsh vantadb-wasm/threads-kernel/build.ps1');
+    console.error("Build it first: pwsh vantadb-wasm/threads-kernel/build.ps1");
     process.exit(2);
   }
 
-  console.log('='.repeat(72));
-  console.log('  STRAT-04 — WASM threads lock-free kernel benchmark');
-  console.log('='.repeat(72));
+  console.log("=".repeat(72));
+  console.log("  STRAT-04 — WASM threads lock-free kernel benchmark");
+  console.log("=".repeat(72));
   console.log(`  module:      ${WASM_PATH}`);
   console.log(`  dims:        ${DIMS}`);
   console.log(`  n-vectors:   ${N_VECTORS}`);
   console.log(`  chunk:       ${CHUNK}`);
-  console.log(`  workers:     ${WORKER_COUNTS.join(', ')}`);
+  console.log(`  workers:     ${WORKER_COUNTS.join(", ")}`);
   console.log(`  repeats:     ${REPEATS}`);
-  console.log(`  arena bytes: ${vectorsBytes + queryBytes + scoresBytes} (~${((vectorsBytes + queryBytes + scoresBytes) / 1048576).toFixed(1)} MiB)`);
-  console.log('='.repeat(72));
+  console.log(
+    `  arena bytes: ${vectorsBytes + queryBytes + scoresBytes} (~${(
+      (vectorsBytes + queryBytes + scoresBytes) /
+      1048576
+    ).toFixed(1)} MiB)`,
+  );
+  console.log("=".repeat(72));
 
   // One shared memory for all runs/workers.
   const memory = new WebAssembly.Memory({
@@ -297,9 +300,13 @@ async function main() {
       });
       if (workerCount === 1) baselineComputeMs = medCompute;
       console.log(
-        `  workers=${String(workerCount).padStart(2)}  wall ${med.toFixed(2).padStart(8)} ms (${speedup.toFixed(2)}x)  ` +
+        `  workers=${String(workerCount).padStart(2)}  wall ${med
+          .toFixed(2)
+          .padStart(8)} ms (${speedup.toFixed(2)}x)  ` +
           `compute ${medCompute.toFixed(2).padStart(7)} ms (${computeSpeedup.toFixed(2)}x)  ` +
-          `${Math.round(vectorsPerSec).toLocaleString('en-US')} vec/s  maxerr ${maxAbsErr.toExponential(2)}`,
+          `${Math.round(vectorsPerSec).toLocaleString(
+            "en-US",
+          )} vec/s  maxerr ${maxAbsErr.toExponential(2)}`,
       );
     } finally {
       await Promise.all(workers.map((w) => w.terminate()));
@@ -310,7 +317,7 @@ async function main() {
     timestamp: new Date().toISOString(),
     node: process.version,
     platform: `${process.platform}-${process.arch}`,
-    cpu_cores: (await import('node:os')).cpus().length,
+    cpu_cores: (await import("node:os")).cpus().length,
     dims: DIMS,
     n_vectors: N_VECTORS,
     chunk: CHUNK,
@@ -319,7 +326,7 @@ async function main() {
     rows,
   };
   fs.writeFileSync(OUTPUT, JSON.stringify(result, null, 2));
-  console.log('='.repeat(72));
+  console.log("=".repeat(72));
   console.log(`  results written to: ${OUTPUT}`);
 }
 

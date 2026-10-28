@@ -149,9 +149,7 @@ describe("vantadb-node api surface", () => {
       const undef = await db.list("page", { limit: 2, cursor: undefined });
       expect(undef.records).toHaveLength(2);
       const omitted = await db.list("page", { limit: 2 });
-      expect(omitted.records.map((r) => r.key)).toEqual(
-        undef.records.map((r) => r.key),
-      );
+      expect(omitted.records.map((r) => r.key)).toEqual(undef.records.map((r) => r.key));
 
       // Decimal string (WASM shape) => same page as the numeric cursor.
       const numeric = await db.list("page", { limit: 2, cursor: undef.next_cursor });
@@ -159,9 +157,7 @@ describe("vantadb-node api surface", () => {
         limit: 2,
         cursor: String(undef.next_cursor),
       });
-      expect(text.records.map((r) => r.key)).toEqual(
-        numeric.records.map((r) => r.key),
-      );
+      expect(text.records.map((r) => r.key)).toEqual(numeric.records.map((r) => r.key));
 
       // Invalid cursors still fail with the same message.
       for (const cursor of ["abc", "", "-5", 5.5, true, {}]) {
@@ -361,9 +357,7 @@ describe("vantadb-node api surface", () => {
       expect(caps.read_only).toBe(false);
       expect(typeof caps.vector_search).toBe("boolean");
       expect(typeof caps.iql_queries).toBe("boolean");
-      expect(["Enterprise", "Performance", "LowResource"]).toContain(
-        caps.runtime_profile,
-      );
+      expect(["Enterprise", "Performance", "LowResource"]).toContain(caps.runtime_profile);
     } finally {
       await db.close();
     }
@@ -380,7 +374,7 @@ describe("vantadb-node api surface", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     await db.close(); // drains any still-running op before flushing
-    await inflight;   // resolved, never silently lost
+    await inflight; // resolved, never silently lost
 
     const reopened = await VantaDb.connect(dir);
     try {
@@ -431,8 +425,11 @@ describe("vantadb-node api surface", () => {
     const db = await VantaDb.connect(tmp("dir"));
     try {
       await expect(
-        db.graphBfs(["1"], 2, // @ts-expect-error — exercising the runtime guard
-          "Sideways"),
+        db.graphBfs(
+          ["1"],
+          2, // @ts-expect-error — exercising the runtime guard
+          "Sideways",
+        ),
       ).rejects.toThrow(/invalid direction/);
     } finally {
       await db.close();
@@ -522,12 +519,8 @@ describe("vantadb-node api surface", () => {
   it("u64-returning methods resolve with typeof bigint", async () => {
     const db = await VantaDb.connect(tmp("bigint-typeof"));
     try {
-      await expect(db.count("empty").then((v) => typeof v)).resolves.toBe(
-        "bigint",
-      );
-      await expect(db.purgeExpired().then((v) => typeof v)).resolves.toBe(
-        "bigint",
-      );
+      await expect(db.count("empty").then((v) => typeof v)).resolves.toBe("bigint");
+      await expect(db.purgeExpired().then((v) => typeof v)).resolves.toBe("bigint");
     } finally {
       await db.close();
     }
@@ -536,9 +529,7 @@ describe("vantadb-node api surface", () => {
   it("deleteByFilter rejects an empty filter", async () => {
     const db = await VantaDb.connect(tmp("deleteByFilter"));
     try {
-      await expect(
-        db.deleteByFilter("ns", []),
-      ).rejects.toThrow(/at least one item/);
+      await expect(db.deleteByFilter("ns", [])).rejects.toThrow(/at least one item/);
     } finally {
       await db.close();
     }

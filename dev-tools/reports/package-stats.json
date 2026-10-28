@@ -428,9 +428,7 @@
       "ecosystem": "npm",
       "name": "vantadb",
       "dir": "vantadb-ts",
-      "dirs": [
-        "vantadb-ts"
-      ],
+      "dirs": ["vantadb-ts"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:00:06.982Z",
@@ -858,9 +856,7 @@
       "files": 20,
       "license": "Apache-2.0",
       "requires": ">=22.19",
-      "dependencies": [
-        "vantadb-wasm"
-      ],
+      "dependencies": ["vantadb-wasm"],
       "homepage": "https://vantadb.dev",
       "repository": "git+https://github.com/ness-e/Vantadb.git"
     },
@@ -868,9 +864,7 @@
       "ecosystem": "npm",
       "name": "vantadb-node",
       "dir": "vantadb-node",
-      "dirs": [
-        "vantadb-node"
-      ],
+      "dirs": ["vantadb-node"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:20:44.367Z",
@@ -910,9 +904,7 @@
       "ecosystem": "npm",
       "name": "vantadb-wasm",
       "dir": "vantadb-wasm",
-      "dirs": [
-        "vantadb-wasm"
-      ],
+      "dirs": ["vantadb-wasm"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T06:36:35.084Z",
@@ -1348,9 +1340,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-crewai",
       "dir": "integrations/crewai",
-      "dirs": [
-        "integrations/crewai"
-      ],
+      "dirs": ["integrations/crewai"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:11:14.197160Z",
@@ -1431,10 +1421,7 @@
       "files": 2,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "crewai<2,>=1.14",
-        "vantadb-py<0.10.0,>=0.6.1"
-      ],
+      "dependencies": ["crewai<2,>=1.14", "vantadb-py<0.10.0,>=0.6.1"],
       "homepage": "https://pypi.org/project/vantadb-crewai/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -1442,9 +1429,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-dspy",
       "dir": "integrations/dspy",
-      "dirs": [
-        "integrations/dspy"
-      ],
+      "dirs": ["integrations/dspy"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:11:15.282810Z",
@@ -1525,10 +1510,7 @@
       "files": 2,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "dspy<3,>=2.6",
-        "vantadb-py<0.10.0,>=0.6.1"
-      ],
+      "dependencies": ["dspy<3,>=2.6", "vantadb-py<0.10.0,>=0.6.1"],
       "homepage": "https://pypi.org/project/vantadb-dspy/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -1536,9 +1518,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-haystack",
       "dir": "integrations/haystack",
-      "dirs": [
-        "integrations/haystack"
-      ],
+      "dirs": ["integrations/haystack"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:11:16.382814Z",
@@ -1611,10 +1591,7 @@
       "files": 2,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "haystack-ai<3,>=2.0",
-        "vantadb-py<0.10.0,>=0.6.1"
-      ],
+      "dependencies": ["haystack-ai<3,>=2.0", "vantadb-py<0.10.0,>=0.6.1"],
       "homepage": "https://pypi.org/project/vantadb-haystack/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -1622,9 +1599,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-langchain",
       "dir": "integrations/langchain",
-      "dirs": [
-        "integrations/langchain"
-      ],
+      "dirs": ["integrations/langchain"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:11:17.575026Z",
@@ -1717,9 +1692,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-letta",
       "dir": "integrations/letta",
-      "dirs": [
-        "integrations/letta"
-      ],
+      "dirs": ["integrations/letta"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:11:18.985976Z",
@@ -1796,10 +1769,7 @@
       "files": 2,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "letta-client<2,>=1.0.0",
-        "vantadb-py<0.10.0,>=0.6.1"
-      ],
+      "dependencies": ["letta-client<2,>=1.0.0", "vantadb-py<0.10.0,>=0.6.1"],
       "homepage": "https://pypi.org/project/vantadb-letta/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -1807,9 +1777,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-litellm",
       "dir": "providers/litellm",
-      "dirs": [
-        "providers/litellm"
-      ],
+      "dirs": ["providers/litellm"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T06:37:17.385705Z",
@@ -1858,9 +1826,7 @@
       "files": 4,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "litellm<2,>=1.0"
-      ],
+      "dependencies": ["litellm<2,>=1.0"],
       "homepage": "https://pypi.org/project/vantadb-litellm/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -1868,9 +1834,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-llamaindex",
       "dir": "integrations/llamaindex",
-      "dirs": [
-        "integrations/llamaindex"
-      ],
+      "dirs": ["integrations/llamaindex"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:11:19.894863Z",
@@ -1951,10 +1915,7 @@
       "files": 2,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "llama-index-core<1,>=0.12",
-        "vantadb-py<0.10.0,>=0.6.1"
-      ],
+      "dependencies": ["llama-index-core<1,>=0.12", "vantadb-py<0.10.0,>=0.6.1"],
       "homepage": "https://pypi.org/project/vantadb-llamaindex/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -1962,9 +1923,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-mem0",
       "dir": "integrations/mem0",
-      "dirs": [
-        "integrations/mem0"
-      ],
+      "dirs": ["integrations/mem0"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T07:11:20.796005Z",
@@ -2045,10 +2004,7 @@
       "files": 2,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "mem0ai<1,>=0.1.0",
-        "vantadb-py<0.10.0,>=0.6.1"
-      ],
+      "dependencies": ["mem0ai<1,>=0.1.0", "vantadb-py<0.10.0,>=0.6.1"],
       "homepage": "https://pypi.org/project/vantadb-mem0/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -2056,10 +2012,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-ollama",
       "dir": "integrations/ollama",
-      "dirs": [
-        "integrations/ollama",
-        "providers/ollama"
-      ],
+      "dirs": ["integrations/ollama", "providers/ollama"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T06:37:22.596099Z",
@@ -2108,9 +2061,7 @@
       "files": 4,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "ollama<1,>=0.4"
-      ],
+      "dependencies": ["ollama<1,>=0.4"],
       "homepage": "https://pypi.org/project/vantadb-ollama/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -2118,10 +2069,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-openai",
       "dir": "integrations/openai",
-      "dirs": [
-        "integrations/openai",
-        "providers/openai"
-      ],
+      "dirs": ["integrations/openai", "providers/openai"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T06:37:27.676865Z",
@@ -2170,9 +2118,7 @@
       "files": 4,
       "license": "Apache-2.0",
       "requires": ">=3.11",
-      "dependencies": [
-        "openai<2,>=1.0"
-      ],
+      "dependencies": ["openai<2,>=1.0"],
       "homepage": "https://pypi.org/project/vantadb-openai/",
       "repository": "https://github.com/ness-e/Vantadb"
     },
@@ -2180,9 +2126,7 @@
       "ecosystem": "pypi",
       "name": "vantadb-py",
       "dir": "vantadb-python",
-      "dirs": [
-        "vantadb-python"
-      ],
+      "dirs": ["vantadb-python"],
       "localVersion": "0.9.0",
       "latest": "0.9.0",
       "publishedAt": "2026-10-20T06:40:40.769044Z",

@@ -57,17 +57,17 @@
 //   docs/dev/workflow/gate-doc-examples.md) or pass --allow-missing-package to
 //   get the extraction-only report.
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { listDocs, parseFrontmatter, readDoc, ROOT } from './lib.mjs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { listDocs, parseFrontmatter, readDoc, ROOT } from "./lib.mjs";
 
 const ARGS = new Set(process.argv.slice(2));
-const JSON_OUT = ARGS.has('--json');
-const INCLUDE_ARCHIVE = ARGS.has('--all');
-const SELF_TEST = ARGS.has('--self-test');
-const ALLOW_MISSING_PKG = ARGS.has('--allow-missing-package');
+const JSON_OUT = ARGS.has("--json");
+const INCLUDE_ARCHIVE = ARGS.has("--all");
+const SELF_TEST = ARGS.has("--self-test");
+const ALLOW_MISSING_PKG = ARGS.has("--allow-missing-package");
 
 /**
  * Documented-but-nonexistent API surfaces, tolerated.
@@ -84,11 +84,11 @@ const ALLOW_MISSING_PKG = ARGS.has('--allow-missing-package');
  * documented-but-nonexistent surface is a hard failure.
  */
 const MISSING_BUDGET = Number(
-  (process.argv.find((a) => a.startsWith('--max-missing=')) ?? '').split('=')[1] || 1,
+  (process.argv.find((a) => a.startsWith("--max-missing=")) ?? "").split("=")[1] || 1,
 );
 
-const PYTHON_FLAG = process.argv.find((a) => a.startsWith('--python='));
-const PYTHON_BIN = PYTHON_FLAG ? PYTHON_FLAG.split('=')[1] : null;
+const PYTHON_FLAG = process.argv.find((a) => a.startsWith("--python="));
+const PYTHON_BIN = PYTHON_FLAG ? PYTHON_FLAG.split("=")[1] : null;
 
 // Frozen history is never repaired, so it is not part of the gate. Same
 // rationale as check-links.mjs: a count that can never drain is noise.
@@ -129,10 +129,16 @@ export function extractBlocks(src) {
       const len = m[1].length;
       const rest = m[2].trim();
       if (!open) {
-        const lang = (rest.split(/[\s,{}]+/)[0] ?? '').toLowerCase();
+        const lang = (rest.split(/[\s,{}]+/)[0] ?? "").toLowerCase();
         if (lang) open = { marker, len, lang, info: rest, line: baseLine + i, section, buf: [] };
-      } else if (marker === open.marker && len >= open.len && rest === '') {
-        out.push({ lang: open.lang, info: open.info, line: open.line, section: open.section, code: open.buf.join('\n') });
+      } else if (marker === open.marker && len >= open.len && rest === "") {
+        out.push({
+          lang: open.lang,
+          info: open.info,
+          line: open.line,
+          section: open.section,
+          code: open.buf.join("\n"),
+        });
         open = null;
       }
       continue;
@@ -147,7 +153,13 @@ export function extractBlocks(src) {
   // An unterminated fence at EOF is still reported, so a broken document shows up
   // as a block rather than silently vanishing from the count.
   if (open) {
-    out.push({ lang: open.lang, info: open.info, line: open.line, section: open.section, code: open.buf.join('\n') });
+    out.push({
+      lang: open.lang,
+      info: open.info,
+      line: open.line,
+      section: open.section,
+      code: open.buf.join("\n"),
+    });
   }
   return out;
 }
@@ -159,15 +171,15 @@ const SKIP_MARKER = /#\s*vanta-skip\b|<!--\s*vanta-skip/;
 
 /** Crate names declared in the workspace `Cargo.toml` `members` + root package. */
 function workspaceCrates() {
-  const toml = readFileSync(join(ROOT, 'Cargo.toml'), 'utf8');
+  const toml = readFileSync(join(ROOT, "Cargo.toml"), "utf8");
   const names = new Set();
   const root = toml.match(/^name\s*=\s*"([^"]+)"/m);
-  if (root) names.add(root[1].replace(/-/g, '_'));
+  if (root) names.add(root[1].replace(/-/g, "_"));
   const members = toml.match(/^members\s*=\s*\[([\s\S]*?)\]/m);
   if (members) {
     for (const m of members[1].matchAll(/"([^"]+)"/g)) {
-      names.add(m[1].replace(/-/g, '_'));
-      names.add(m[1].split('/').pop().replace(/-/g, '_'));
+      names.add(m[1].replace(/-/g, "_"));
+      names.add(m[1].split("/").pop().replace(/-/g, "_"));
     }
   }
   return names;
@@ -186,33 +198,33 @@ const DOCTEST_HINT = /(^|,)no_run($|,)|(^|,)ignore($|,)|doctest/i;
  * references must be a workspace member, which is checkable.
  */
 function classifyRust(b, crates) {
-  const base = { ...b, lang: 'rust' };
-  if (DOCTEST_SECTION.test(b.section ?? '') || DOCTEST_HINT.test(b.info)) {
-    return { ...base, kind: 'doc-test', reason: 'section-or-flag' };
+  const base = { ...b, lang: "rust" };
+  if (DOCTEST_SECTION.test(b.section ?? "") || DOCTEST_HINT.test(b.info)) {
+    return { ...base, kind: "doc-test", reason: "section-or-flag" };
   }
   if (/^\s*(#\[test\]|assert(_eq|_ne|_matches)?!|fn main)/m.test(b.code)) {
-    return { ...base, kind: 'doc-test', reason: 'assert-or-test-fn' };
+    return { ...base, kind: "doc-test", reason: "assert-or-test-fn" };
   }
   if (/\.\.\.|<[a-z_]+>|\bTODO\b|\bplaceholder\b|\bunimplemented\b/i.test(b.code)) {
-    return { ...base, kind: 'fragment', reason: 'placeholder' };
+    return { ...base, kind: "fragment", reason: "placeholder" };
   }
   // Crate roots only come from `use` / `extern crate`: a path like
   // `Embedded::new()` names a TYPE, not a crate, and guessing at which is which
   // is how a checker starts inventing crates that do not exist.
   const used = new Set();
   for (const m of b.code.matchAll(/\b(?:use|extern\s+crate)\s+([a-z][a-z0-9_]*)/gi)) {
-    used.add(m[1].replace(/-/g, '_'));
+    used.add(m[1].replace(/-/g, "_"));
   }
-  if (!used.size) return { ...base, kind: 'fragment', reason: 'no-crate-path' };
+  if (!used.size) return { ...base, kind: "fragment", reason: "no-crate-path" };
   const unknown = [...used].filter((c) => !crates.has(c) && !STDLIB.has(c));
   if (unknown.length) {
-    return { ...base, kind: 'fragment', reason: `unknown-crate:${unknown.join(',')}` };
+    return { ...base, kind: "fragment", reason: `unknown-crate:${unknown.join(",")}` };
   }
-  return { ...base, kind: 'runnable', reason: 'workspace-crate' };
+  return { ...base, kind: "runnable", reason: "workspace-crate" };
 }
 
 // Crate roots that are legal in a `use` without being workspace members.
-const STDLIB = new Set(['std', 'core', 'alloc', 'crate', 'self', 'super']);
+const STDLIB = new Set(["std", "core", "alloc", "crate", "self", "super"]);
 
 // ------------------------------------------------------------ python analysis
 //
@@ -533,20 +545,20 @@ finally:
 
 // A backtick inside PY_HELPER silently ends the template literal and turns the
 // Python source into a JavaScript SyntaxError pointing at a comment. Say so.
-if (PY_HELPER.includes('`')) {
-  throw new Error('PY_HELPER contains a backtick; it lives inside a JS template literal');
+if (PY_HELPER.includes("`")) {
+  throw new Error("PY_HELPER contains a backtick; it lives inside a JS template literal");
 }
 
-/** Locate a Python interpreter. python3, then python, then py -3. */function findPython() {
+/** Locate a Python interpreter. python3, then python, then py -3. */ function findPython() {
   const candidates = PYTHON_BIN
     ? [PYTHON_BIN]
-    : process.platform === 'win32'
-      ? ['python', 'py -3', 'python3']
-      : ['python3', 'python'];
+    : process.platform === "win32"
+      ? ["python", "py -3", "python3"]
+      : ["python3", "python"];
   for (const c of candidates) {
-    const [exe, ...args] = c.split(' ');
-    const r = spawnSync(exe, [...args, '-c', 'import sys; print(sys.version_info[0])'], {
-      encoding: 'utf8',
+    const [exe, ...args] = c.split(" ");
+    const r = spawnSync(exe, [...args, "-c", "import sys; print(sys.version_info[0])"], {
+      encoding: "utf8",
     });
     if (r.status === 0) return { exe, args };
   }
@@ -558,22 +570,25 @@ function analyzePython(blocks) {
   const py = findPython();
   if (!py) {
     return {
-      pkg: { available: false, error: 'no python3/python interpreter on PATH' },
+      pkg: { available: false, error: "no python3/python interpreter on PATH" },
       results: [],
     };
   }
-  const dir = mkdtempSync(join(tmpdir(), 'vanta-doc-gate-'));
-  const script = join(dir, 'analyze.py');
+  const dir = mkdtempSync(join(tmpdir(), "vanta-doc-gate-"));
+  const script = join(dir, "analyze.py");
   try {
-    writeFileSync(script, PY_HELPER, 'utf8');
-    const r = spawnSync(
-      py.exe,
-      [...py.args, script],
-      { input: JSON.stringify({ snippets: blocks }), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-    );
+    writeFileSync(script, PY_HELPER, "utf8");
+    const r = spawnSync(py.exe, [...py.args, script], {
+      input: JSON.stringify({ snippets: blocks }),
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    });
     if (r.status !== 0) {
       return {
-        pkg: { available: false, error: `analyzer exited ${r.status}: ${(r.stderr || '').trim().slice(0, 1500)}` },
+        pkg: {
+          available: false,
+          error: `analyzer exited ${r.status}: ${(r.stderr || "").trim().slice(0, 1500)}`,
+        },
         results: [],
       };
     }
@@ -594,7 +609,7 @@ function scan() {
     blocks: 0,
     byLang: {},
     python: { runnable: 0, fragment: 0 },
-    rust: { runnable: 0, fragment: 0, 'doc-test': 0 },
+    rust: { runnable: 0, fragment: 0, "doc-test": 0 },
     pkg: { available: false },
     chainsChecked: 0,
     chainsUnresolved: 0,
@@ -611,18 +626,19 @@ function scan() {
     report.filesScanned++;
     const src = readDoc(rel);
     const blocks = extractBlocks(src);
-    const relevant = blocks.filter((b) => b.lang === 'python' || b.lang === 'rust');
+    const relevant = blocks.filter((b) => b.lang === "python" || b.lang === "rust");
     if (!relevant.length) continue;
     report.filesWithCode++;
     for (const b of relevant) {
       report.blocks++;
       report.byLang[b.lang] = (report.byLang[b.lang] ?? 0) + 1;
-      if (b.lang === 'rust') {
+      if (b.lang === "rust") {
         const r = classifyRust(b, crates);
         report.rust[r.kind]++;
-        if (r.kind === 'doc-test' && !report.docTestFiles.includes(rel)) report.docTestFiles.push(rel);
-        if (r.kind === 'fragment') {
-          const key = r.reason.split(':')[0];
+        if (r.kind === "doc-test" && !report.docTestFiles.includes(rel))
+          report.docTestFiles.push(rel);
+        if (r.kind === "fragment") {
+          const key = r.reason.split(":")[0];
           report.fragmentReasons[`rust/${key}`] = (report.fragmentReasons[`rust/${key}`] ?? 0) + 1;
         }
         continue;
@@ -631,8 +647,8 @@ function scan() {
       // is illustrative. Same rule as dev-tools/validate_doc_snippets.py.
       if (SKIP_MARKER.test(b.code)) {
         report.python.fragment++;
-        report.fragmentReasons['python/skip-marker'] =
-          (report.fragmentReasons['python/skip-marker'] ?? 0) + 1;
+        report.fragmentReasons["python/skip-marker"] =
+          (report.fragmentReasons["python/skip-marker"] ?? 0) + 1;
         continue;
       }
       pyBlocks.push({ id: `${rel}:${b.line}`, source: b.code, file: rel, line: b.line });
@@ -646,9 +662,9 @@ function scan() {
     for (const r of analysis.results) {
       const meta = byId.get(r.id);
       report.analyzed++;
-      if (r.kind === 'fragment') {
+      if (r.kind === "fragment") {
         report.python.fragment++;
-        const key = `python/${r.reason.split(':')[0]}`;
+        const key = `python/${r.reason.split(":")[0]}`;
         report.fragmentReasons[key] = (report.fragmentReasons[key] ?? 0) + 1;
       } else {
         report.python.runnable++;
@@ -667,7 +683,7 @@ function scan() {
           blockLine: meta.line,
           chain: m.chain,
           attr: m.attr,
-          via: m.via ?? 'attribute',
+          via: m.via ?? "attribute",
           kind: r.kind,
         });
       }
@@ -687,88 +703,151 @@ function scan() {
  */
 function selfTest() {
   let failed = 0;
-  const ok = (name, cond, detail = '') => {
-    console.log(`${cond ? 'PASS' : 'FAIL'}  ${name}${detail ? '  ' + detail : ''}`);
+  const ok = (name, cond, detail = "") => {
+    console.log(`${cond ? "PASS" : "FAIL"}  ${name}${detail ? "  " + detail : ""}`);
     if (!cond) failed++;
   };
 
   // 1. extraction: the info string, line number and heading come through.
   const md = [
-    '## Testing',
-    '',
-    '```python',
-    'import vantadb',
-    '```',
-    '',
-    '```rust',
-    'use vantadb::Embedded;',
-    '```',
-  ].join('\n');
+    "## Testing",
+    "",
+    "```python",
+    "import vantadb",
+    "```",
+    "",
+    "```rust",
+    "use vantadb::Embedded;",
+    "```",
+  ].join("\n");
   const blocks = extractBlocks(md);
-  ok('extract: two tagged blocks', blocks.length === 2, `got ${blocks.length}`);
-  ok('extract: python lang + line', blocks[0]?.lang === 'python' && blocks[0]?.line === 3, JSON.stringify(blocks[0] && { l: blocks[0].lang, n: blocks[0].line }));
-  ok('extract: rust lang + line', blocks[1]?.lang === 'rust' && blocks[1]?.line === 7, JSON.stringify(blocks[1] && { l: blocks[1].lang, n: blocks[1].line }));
-  ok('extract: heading captured', blocks[0]?.section === 'Testing', String(blocks[0]?.section));
+  ok("extract: two tagged blocks", blocks.length === 2, `got ${blocks.length}`);
+  ok(
+    "extract: python lang + line",
+    blocks[0]?.lang === "python" && blocks[0]?.line === 3,
+    JSON.stringify(blocks[0] && { l: blocks[0].lang, n: blocks[0].line }),
+  );
+  ok(
+    "extract: rust lang + line",
+    blocks[1]?.lang === "rust" && blocks[1]?.line === 7,
+    JSON.stringify(blocks[1] && { l: blocks[1].lang, n: blocks[1].line }),
+  );
+  ok("extract: heading captured", blocks[0]?.section === "Testing", String(blocks[0]?.section));
 
   // 2. rust classification: doctest section wins over runnable.
   const crates = workspaceCrates();
-  const cratesHave = crates.has('vantadb');
-  const dt = classifyRust({ info: '', section: 'Testing', code: 'use vantadb::Embedded;\nassert_eq!(1, 1);' }, crates);
-  ok('rust: block under ## Testing is a doc-test', dt.kind === 'doc-test', dt.kind);
-  const rt = classifyRust({ info: '', section: 'Api', code: 'use vantadb::Embedded;\nfn main() {}\nassert!(true);' }, crates);
-  ok('rust: assert-shaped block is a doc-test', rt.kind === 'doc-test', rt.kind);
-  const frag = classifyRust({ info: '', section: 'Api', code: 'use vantadb::...;\nlet x = 1;' }, crates);
-  ok('rust: ellipsis is a fragment', frag.kind === 'fragment', frag.kind);
+  const cratesHave = crates.has("vantadb");
+  const dt = classifyRust(
+    { info: "", section: "Testing", code: "use vantadb::Embedded;\nassert_eq!(1, 1);" },
+    crates,
+  );
+  ok("rust: block under ## Testing is a doc-test", dt.kind === "doc-test", dt.kind);
+  const rt = classifyRust(
+    { info: "", section: "Api", code: "use vantadb::Embedded;\nfn main() {}\nassert!(true);" },
+    crates,
+  );
+  ok("rust: assert-shaped block is a doc-test", rt.kind === "doc-test", rt.kind);
+  const frag = classifyRust(
+    { info: "", section: "Api", code: "use vantadb::...;\nlet x = 1;" },
+    crates,
+  );
+  ok("rust: ellipsis is a fragment", frag.kind === "fragment", frag.kind);
   if (cratesHave) {
-    const good = classifyRust({ info: '', section: 'Api', code: 'use vantadb::Embedded;\nlet db = Embedded::new();' }, crates);
-    ok('rust: workspace crate is runnable', good.kind === 'runnable', good.kind);
-    const bad = classifyRust({ info: '', section: 'Api', code: 'use vanta_core::Embedded;' }, crates);
-    ok('rust: non-member crate is a fragment', bad.kind === 'fragment', bad.kind);
+    const good = classifyRust(
+      { info: "", section: "Api", code: "use vantadb::Embedded;\nlet db = Embedded::new();" },
+      crates,
+    );
+    ok("rust: workspace crate is runnable", good.kind === "runnable", good.kind);
+    const bad = classifyRust(
+      { info: "", section: "Api", code: "use vanta_core::Embedded;" },
+      crates,
+    );
+    ok("rust: non-member crate is a fragment", bad.kind === "fragment", bad.kind);
   }
 
   // 3. python classification, offline: fragment vs runnable.
   const pyCases = [
-    { name: 'fragment: object defined in surrounding prose', source: 'hits = db.search("ns", [], text_query="x")\nprint(hits[0].payload)' },
-    { name: 'fragment: signature-only block', source: 'db.put(\n    namespace: str,\n    key: str,\n) -> Record' },
-    { name: 'fragment: unresolved ellipsis', source: 'import vantadb\ndb.put(...)' },
-    { name: 'runnable: imports and defines what it uses', source: 'import vantadb\n\ndb = vantadb.Client(":memory:")\ndb.put(namespace="ns", key="k", payload="p")' },
+    {
+      name: "fragment: object defined in surrounding prose",
+      source: 'hits = db.search("ns", [], text_query="x")\nprint(hits[0].payload)',
+    },
+    {
+      name: "fragment: signature-only block",
+      source: "db.put(\n    namespace: str,\n    key: str,\n) -> Record",
+    },
+    { name: "fragment: unresolved ellipsis", source: "import vantadb\ndb.put(...)" },
+    {
+      name: "runnable: imports and defines what it uses",
+      source:
+        'import vantadb\n\ndb = vantadb.Client(":memory:")\ndb.put(namespace="ns", key="k", payload="p")',
+    },
   ];
   const py = analyzePython(pyCases);
   if (!py.pkg.available) {
     console.log(`SKIP  python API resolution (vantadb not importable: ${py.pkg.error})`);
-    console.log('      classification-only assertions still ran; run this in the CI job that installs the wheel.');
+    console.log(
+      "      classification-only assertions still ran; run this in the CI job that installs the wheel.",
+    );
   }
-  const pyCasesIdx = 'python: ';
+  const pyCasesIdx = "python: ";
   for (let i = 0; i < pyCases.length; i++) {
     const r = py.results[i];
-    const want = pyCases[i].name.startsWith('runnable') ? 'runnable' : 'fragment';
+    const want = pyCases[i].name.startsWith("runnable") ? "runnable" : "fragment";
     ok(`${pyCasesIdx}${pyCases[i].name}`, r?.kind === want, `got ${r?.kind} (${r?.reason})`);
   }
 
   if (py.pkg.available) {
     // 4. the two assertions that matter: a real method passes, an invented one fails.
     const real = analyzePython([
-      { id: 'real', source: 'from vantadb import Client\n\ndb = Client(":memory:")\ndb.put(namespace="ns", key="k", payload="p")\ndb.memory.search(namespace="ns", query_vector=[0.1])' },
+      {
+        id: "real",
+        source:
+          'from vantadb import Client\n\ndb = Client(":memory:")\ndb.put(namespace="ns", key="k", payload="p")\ndb.memory.search(namespace="ns", query_vector=[0.1])',
+      },
     ]);
     const r0 = real.results[0];
-    ok('python: real methods resolve (put, memory.search)', r0.kind === 'runnable' && r0.missing.length === 0, JSON.stringify(r0.missing ?? r0.reason));
-    ok('python: real snippet checked at least 2 chains', (r0.checked ?? 0) >= 2, `checked=${r0.checked}`);
+    ok(
+      "python: real methods resolve (put, memory.search)",
+      r0.kind === "runnable" && r0.missing.length === 0,
+      JSON.stringify(r0.missing ?? r0.reason),
+    );
+    ok(
+      "python: real snippet checked at least 2 chains",
+      (r0.checked ?? 0) >= 2,
+      `checked=${r0.checked}`,
+    );
 
     const invented = analyzePython([
-      { id: 'invented', source: 'from vantadb import Client\n\ndb = Client(":memory:")\nhits = db.search_memory("ns", [0.1], top_k=5)' },
+      {
+        id: "invented",
+        source:
+          'from vantadb import Client\n\ndb = Client(":memory:")\nhits = db.search_memory("ns", [0.1], top_k=5)',
+      },
     ]);
     const r1 = invented.results[0];
     const names = (r1.missing ?? []).map((m) => m.attr);
-    ok('python: invented method is a hard failure', r1.kind === 'runnable' && r1.missing.length === 1, JSON.stringify(r1.missing ?? r1.reason));
-    ok('python: failure names search_memory', names.includes('search_memory'), JSON.stringify(names));
+    ok(
+      "python: invented method is a hard failure",
+      r1.kind === "runnable" && r1.missing.length === 1,
+      JSON.stringify(r1.missing ?? r1.reason),
+    );
+    ok(
+      "python: failure names search_memory",
+      names.includes("search_memory"),
+      JSON.stringify(names),
+    );
 
     const inventedMod = analyzePython([
-      { id: 'mod', source: 'import vantadb\n\nprint(vantadb.VantaDB("./x"))' },
+      { id: "mod", source: 'import vantadb\n\nprint(vantadb.VantaDB("./x"))' },
     ]);
-    ok('python: invented module class is a hard failure', (inventedMod.results[0].missing ?? []).some((m) => m.attr === 'VantaDB'), JSON.stringify(inventedMod.results[0].missing));
+    ok(
+      "python: invented module class is a hard failure",
+      (inventedMod.results[0].missing ?? []).some((m) => m.attr === "VantaDB"),
+      JSON.stringify(inventedMod.results[0].missing),
+    );
   }
 
-  console.log(`\nself-test: ${failed === 0 ? 'OK' : `${failed} FAILED`}`);
+  console.log(`\nself-test: ${failed === 0 ? "OK" : `${failed} FAILED`}`);
   return failed;
 }
 
@@ -783,59 +862,77 @@ const report = scan();
 if (JSON_OUT) {
   console.log(JSON.stringify(report, null, 2));
 } else {
-  console.log(`files scanned          : ${report.filesScanned} (${report.filesWithCode} with python/rust code)`);
-  console.log(`code blocks           : ${report.blocks}  (python ${report.byLang.python ?? 0}, rust ${report.byLang.rust ?? 0})`);
+  console.log(
+    `files scanned          : ${report.filesScanned} (${report.filesWithCode} with python/rust code)`,
+  );
+  console.log(
+    `code blocks           : ${report.blocks}  (python ${report.byLang.python ?? 0}, rust ${
+      report.byLang.rust ?? 0
+    })`,
+  );
   console.log(
     `python                 : ${report.python.runnable} runnable, ${report.python.fragment} fragment ` +
-      `(${report.python.runnable + report.python.fragment} of ${report.byLang.python ?? 0} blocks, ` +
+      `(${report.python.runnable + report.python.fragment} of ${
+        report.byLang.python ?? 0
+      } blocks, ` +
       `${report.analyzed} analysed)`,
   );
   console.log(
-    `rust                   : ${report.rust['doc-test']} doc-test, ${report.rust.runnable} runnable, ` +
+    `rust                   : ${report.rust["doc-test"]} doc-test, ${report.rust.runnable} runnable, ` +
       `${report.rust.fragment} fragment (of ${report.byLang.rust ?? 0})`,
   );
   console.log(`rust doc-test coverage : ${report.docTestFiles.length} files`);
   if (report.pkg.available) {
     console.log(`vantadb package        : ${report.pkg.version} (importable)`);
-    console.log(`attribute chains checked: ${report.chainsChecked}  (unresolved ${report.chainsUnresolved})`);
+    console.log(
+      `attribute chains checked: ${report.chainsChecked}  (unresolved ${report.chainsUnresolved})`,
+    );
   } else {
     console.log(`vantadb package        : NOT IMPORTABLE -- ${report.pkg.error}`);
-    console.log('                          no snippet was verified. Install the wheel; see');
-    console.log('                          docs/dev/workflow/gate-doc-examples.md');
+    console.log("                          no snippet was verified. Install the wheel; see");
+    console.log("                          docs/dev/workflow/gate-doc-examples.md");
   }
 
   const top = Object.entries(report.fragmentReasons)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
     .map(([k, v]) => `${k}=${v}`)
-    .join('  ');
+    .join("  ");
   if (top) console.log(`fragment reasons       : ${top}`);
 
   const verified = Object.entries(report.verified).sort((a, b) => b[1] - a[1]);
   if (verified.length) {
-    console.log(`verified against 0.7.0 : ${verified.length} distinct attributes, e.g. ` + verified.slice(0, 12).map(([k]) => `\`${k}\``).join(' '));
+    console.log(
+      `verified against 0.7.0 : ${verified.length} distinct attributes, e.g. ` +
+        verified
+          .slice(0, 12)
+          .map(([k]) => `\`${k}\``)
+          .join(" "),
+    );
   }
 
   if (report.missing.length) {
-    const viaImport = report.missing.filter((m) => m.via === 'import').length;
+    const viaImport = report.missing.filter((m) => m.via === "import").length;
     console.log(
       `\nDOCUMENTED BUT NOT EXISTENT (${report.missing.length}, budget ${MISSING_BUDGET}; ` +
         `${viaImport} via import, ${report.missing.length - viaImport} via attribute):`,
     );
     for (const m of report.missing) {
-      const via = m.via === 'import' ? 'name' : 'attribute';
-      console.log(`  ${m.file}:${m.line}  ${m.chain}   ->  no ${via} '${m.attr}' on vantadb [${m.kind} block]`);
+      const via = m.via === "import" ? "name" : "attribute";
+      console.log(
+        `  ${m.file}:${m.line}  ${m.chain}   ->  no ${via} '${m.attr}' on vantadb [${m.kind} block]`,
+      );
     }
     console.log(
-      '\nEach one is a snippet an agent can copy and that will raise ImportError or\n' +
-        'AttributeError. See docs/dev/workflow/gate-doc-examples.md for the fix procedure.',
+      "\nEach one is a snippet an agent can copy and that will raise ImportError or\n" +
+        "AttributeError. See docs/dev/workflow/gate-doc-examples.md for the fix procedure.",
     );
   } else if (report.pkg.available) {
-    console.log('\nOK: every attribute a runnable snippet touches exists on the real package.');
+    console.log("\nOK: every attribute a runnable snippet touches exists on the real package.");
   } else {
     // Never print "OK" when nothing was verified: a green line over an
     // unverifiable corpus is how a gate gets trusted after it stopped working.
-    console.log('\nNOT VERIFIED: no snippet was checked, because `vantadb` is not importable.');
+    console.log("\nNOT VERIFIED: no snippet was checked, because `vantadb` is not importable.");
   }
 
   if (report.missing.length) {

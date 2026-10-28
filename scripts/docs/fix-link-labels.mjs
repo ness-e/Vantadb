@@ -15,10 +15,10 @@
 // USAGE
 //   node scripts/docs/fix-link-labels.mjs [--write] [--json]
 
-import { listDocs, readDoc, writeDoc } from './lib.mjs';
+import { listDocs, readDoc, writeDoc } from "./lib.mjs";
 
-const WRITE = process.argv.includes('--write');
-const JSON_OUT = process.argv.includes('--json');
+const WRITE = process.argv.includes("--write");
+const JSON_OUT = process.argv.includes("--json");
 
 const docs = listDocs({ includeArchive: true });
 // A label ending in a backslash, immediately before ](  —  and not an escaped
@@ -35,7 +35,7 @@ for (const rel of docs) {
   let hits = 0;
   const out = text.replace(BROKEN, (m, label) => {
     hits++;
-    return `[${label.replace(/\\+$/, '')}](`;
+    return `[${label.replace(/\\+$/, "")}](`;
   });
   if (hits > 0) {
     files++;
@@ -48,8 +48,8 @@ for (const rel of docs) {
 if (JSON_OUT) {
   console.log(JSON.stringify({ files, labels, report }, null, 2));
 } else {
-  console.log(`[${WRITE ? 'APPLIED' : 'DRY RUN'}] files affected : ${files}`);
-  console.log(`[${WRITE ? 'APPLIED' : 'DRY RUN'}] labels fixed    : ${labels}`);
+  console.log(`[${WRITE ? "APPLIED" : "DRY RUN"}] files affected : ${files}`);
+  console.log(`[${WRITE ? "APPLIED" : "DRY RUN"}] labels fixed    : ${labels}`);
   for (const r of report.slice(0, 20)) console.log(`  ${r.file}  (${r.labels})`);
   if (report.length > 20) console.log(`  ... and ${report.length - 20} more files`);
 }

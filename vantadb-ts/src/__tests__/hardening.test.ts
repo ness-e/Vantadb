@@ -112,8 +112,12 @@ describe("WASM error classification (FIND-10)", () => {
 describe("Client error codes from the real WASM engine (FIND-10)", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("zero-norm cosine search surfaces VANTADB_VALIDATION_ERROR", () => {
     let caught: unknown;
@@ -150,19 +154,21 @@ describe("Type guards edge cases", () => {
   });
 
   it("isNodeRecord rejects objects with wrong tier", () => {
-    expect(isNodeRecord({
-      id: "1",
-      fields: {},
-      vector_dimensions: 3,
-      edges: [],
-      confidence_score: 0.9,
-      importance: 0.5,
-      hits: 10,
-      last_accessed: "1000",
-      epoch: 0,
-      tier: "Invalid",
-      is_alive: true,
-    })).toBe(false);
+    expect(
+      isNodeRecord({
+        id: "1",
+        fields: {},
+        vector_dimensions: 3,
+        edges: [],
+        confidence_score: 0.9,
+        importance: 0.5,
+        hits: 10,
+        last_accessed: "1000",
+        epoch: 0,
+        tier: "Invalid",
+        is_alive: true,
+      }),
+    ).toBe(false);
   });
 
   it("isValidValue rejects Null with extra value", () => {
@@ -192,23 +198,35 @@ describe("Type guards edge cases", () => {
 describe("Client input validation", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("put with null namespace throws", () => {
-    expect(() => db.put({ namespace: null as unknown as string, key: "k", payload: "v" })).toThrow();
+    expect(() =>
+      db.put({ namespace: null as unknown as string, key: "k", payload: "v" }),
+    ).toThrow();
   });
 
   it("put with null key throws", () => {
-    expect(() => db.put({ namespace: "ns", key: null as unknown as string, payload: "v" })).toThrow();
+    expect(() =>
+      db.put({ namespace: "ns", key: null as unknown as string, payload: "v" }),
+    ).toThrow();
   });
 
   it("put with undefined payload throws", () => {
-    expect(() => db.put({ namespace: "ns", key: "k", payload: undefined as unknown as string })).toThrow();
+    expect(() =>
+      db.put({ namespace: "ns", key: "k", payload: undefined as unknown as string }),
+    ).toThrow();
   });
 
   it("put with vector containing NaN does not crash", () => {
-    expect(() => db.put({ namespace: "ns", key: "k", payload: "v", vector: [1, NaN] })).not.toThrow();
+    expect(() =>
+      db.put({ namespace: "ns", key: "k", payload: "v", vector: [1, NaN] }),
+    ).not.toThrow();
   });
 
   it("get with empty string namespace returns null or throws", () => {
@@ -252,10 +270,17 @@ describe("Client search edge cases", () => {
     db.put({ namespace: "search_edge", key: "b", payload: "beta", vector: [0, 1, 0] });
   });
 
-  afterAll(() => { db.close(); });
+  afterAll(() => {
+    db.close();
+  });
 
   it("search with Euclidean metric", () => {
-    const hits = db.search({ namespace: "search_edge", query_vector: [1, 0, 0], distance_metric: "Euclidean", top_k: 5 });
+    const hits = db.search({
+      namespace: "search_edge",
+      query_vector: [1, 0, 0],
+      distance_metric: "Euclidean",
+      top_k: 5,
+    });
     expect(hits.length).toBeGreaterThan(0);
     // Euclidean relevance is non-positive (`-distance²`; 0 = exact match).
     expect(hits[0].score).toBeLessThanOrEqual(0);
@@ -285,25 +310,39 @@ describe("Client search edge cases", () => {
   });
 
   it("explainSearch with explain flag", () => {
-    const exp = db.explainSearch({ namespace: "search_edge", query_vector: [1, 0, 0], text_query: "alpha" });
+    const exp = db.explainSearch({
+      namespace: "search_edge",
+      query_vector: [1, 0, 0],
+      text_query: "alpha",
+    });
     expect(exp).toBeDefined();
   });
 
   it("hybrid search with only text_query", () => {
-    const hits = db.search({ namespace: "search_edge", query_vector: [1, 0, 0], text_query: "beta", top_k: 5 });
+    const hits = db.search({
+      namespace: "search_edge",
+      query_vector: [1, 0, 0],
+      text_query: "beta",
+      top_k: 5,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(0);
   });
 
   it("zero-norm cosine query throws instead of falling back to Euclidean (ERR-028)", () => {
     // The core rejects zero-norm cosine queries (src/sdk/search/mod.rs) —
     // the binding must propagate that error, not silently switch metrics.
-    expect(() => db.search({ namespace: "search_edge", query_vector: [0, 0, 0], top_k: 5 })).toThrow(
-      /zero-norm|undefined|InvalidInput/i,
-    );
+    expect(() =>
+      db.search({ namespace: "search_edge", query_vector: [0, 0, 0], top_k: 5 }),
+    ).toThrow(/zero-norm|undefined|InvalidInput/i);
   });
 
   it("zero-norm euclidean query is accepted", () => {
-    const hits = db.search({ namespace: "search_edge", query_vector: [0, 0, 0], distance_metric: "Euclidean", top_k: 5 });
+    const hits = db.search({
+      namespace: "search_edge",
+      query_vector: [0, 0, 0],
+      distance_metric: "Euclidean",
+      top_k: 5,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(0);
   });
 });
@@ -313,11 +352,18 @@ describe("Client export/import roundtrip", () => {
 
   beforeAll(() => {
     db = Client.create();
-    db.put({ namespace: "export", key: "k1", payload: "v1", metadata: { tag: { String: "test" } } });
+    db.put({
+      namespace: "export",
+      key: "k1",
+      payload: "v1",
+      metadata: { tag: { String: "test" } },
+    });
     db.put({ namespace: "export", key: "k2", payload: "v2" });
   });
 
-  afterAll(() => { db.close(); });
+  afterAll(() => {
+    db.close();
+  });
 
   it("importRecords round-trip with strict counts (FIND-79)", () => {
     const report = db.importRecords([
@@ -352,7 +398,9 @@ describe("Client list edge cases", () => {
     }
   });
 
-  afterAll(() => { db.close(); });
+  afterAll(() => {
+    db.close();
+  });
 
   it("list with small limit paginates", () => {
     const page1 = db.list({ namespace: "list_edge", limit: 10 });
@@ -422,8 +470,12 @@ describe("Client lifecycle harden", () => {
 describe("Client graph edge cases", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("getNode on non-existent returns null", () => {
     expect(db.getNode(999999)).toBeNull();
@@ -455,8 +507,12 @@ describe("Client graph edge cases", () => {
 describe("Client batch edge cases", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("putBatch with single element", () => {
     const records = db.putBatch([{ namespace: "batch1", key: "only", payload: "solo" }]);
@@ -483,8 +539,12 @@ describe("Client batch edge cases", () => {
 describe("Client maintenance edge cases", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("rebuildIndex on empty DB throws IO error on non-persistent", () => {
     expect(() => db.rebuildIndex()).toThrow(DbError);
@@ -505,8 +565,12 @@ describe("Client maintenance edge cases", () => {
 describe("Client TTL edge cases", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("put with TTL = null is same as no TTL", () => {
     db.put({ namespace: "ttl_null", key: "k", payload: "v", ttl_ms: null as unknown as number });
@@ -522,8 +586,12 @@ describe("Client TTL edge cases", () => {
 describe("Client metadata edge cases", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("put with all metadata types round-trips", () => {
     const meta = {
@@ -548,8 +616,12 @@ describe("Client metadata edge cases", () => {
 describe("Client generate snippet edge cases", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("generateSnippet with empty query", () => {
     const s = db.generateSnippet("some text", "", true);

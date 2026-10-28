@@ -40,19 +40,19 @@
 //   1 = pending work (dry run found conversions) OR unresolved links remain
 //   2 = bad usage
 
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, dirname, relative, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { segment, segmentsRoundTrip, normalisePath } from './lib.mjs';
+import { readdirSync, readFileSync } from "node:fs";
+import { join, dirname, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { segment, segmentsRoundTrip, normalisePath } from "./lib.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const DOCS = join(ROOT, 'docs');
-const WRITE = process.argv.includes('--write');
-const JSON_OUT = process.argv.includes('--json');
-const ALLOW_AMBIGUOUS = process.argv.includes('--allow-ambiguous');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const DOCS = join(ROOT, "docs");
+const WRITE = process.argv.includes("--write");
+const JSON_OUT = process.argv.includes("--json");
+const ALLOW_AMBIGUOUS = process.argv.includes("--allow-ambiguous");
 
-if (process.argv.includes('--help') || process.argv.includes('-h')) {
-  console.log('usage: wikilinks-to-md.mjs [--write] [--json] [--allow-ambiguous]');
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("usage: wikilinks-to-md.mjs [--write] [--json] [--allow-ambiguous]");
   process.exit(0);
 }
 
@@ -62,14 +62,14 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
 const allMd = [];
 (function walk(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === '.obsidian' || entry.name === 'node_modules') continue;
+    if (entry.name === ".obsidian" || entry.name === "node_modules") continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) walk(full);
-    else if (entry.name.endsWith('.md')) allMd.push(full);
+    else if (entry.name.endsWith(".md")) allMd.push(full);
   }
 })(DOCS);
 
-const toRel = (abs) => relative(ROOT, abs).split(sep).join('/');
+const toRel = (abs) => relative(ROOT, abs).split(sep).join("/");
 
 /** vault-relative POSIX path -> absolute path */
 const byRelPath = new Map();
@@ -90,12 +90,12 @@ for (const abs of allMd) {
   byRelPath.set(rel, abs);
   byRelPath.set(rel.toLowerCase(), abs);
 
-  const relNoExt = rel.replace(/\.md$/i, '');
+  const relNoExt = rel.replace(/\.md$/i, "");
   byNoExt.set(relNoExt.toLowerCase(), rel);
 
-  const file = rel.split('/').pop();
+  const file = rel.split("/").pop();
   indexBase(file, rel);
-  indexBase(file.replace(/\.md$/i, ''), rel);
+  indexBase(file.replace(/\.md$/i, ""), rel);
 }
 
 // ------------------------------------------------------------- link parsing
@@ -107,9 +107,9 @@ function encodePath(p) {
   // Encode spaces and characters that break Markdown link targets, but keep
   // path separators and the safe filename alphabet intact.
   return p
-    .split('/')
-    .map((seg) => encodeURIComponent(seg).replace(/%2F/gi, '/'))
-    .join('/');
+    .split("/")
+    .map((seg) => encodeURIComponent(seg).replace(/%2F/gi, "/"))
+    .join("/");
 }
 
 /** Look a candidate vault-relative path up, exact then case-insensitive. */
@@ -145,10 +145,10 @@ const unique = (spelling) => {
  *   5. Ambiguous basename -> null unless --allow-ambiguous.
  */
 function resolve(targetRaw, srcDir) {
-  const t = targetRaw.trim().replace(/\\/g, '/');
-  const base = t.split('/').pop();
+  const t = targetRaw.trim().replace(/\\/g, "/");
+  const base = t.split("/").pop();
 
-  if (t.startsWith('./') || t.startsWith('../')) {
+  if (t.startsWith("./") || t.startsWith("../")) {
     const hit = lookup(normalisePath(`${srcDir}/${t}`));
     if (hit) return hit;
   }
@@ -164,20 +164,20 @@ function resolve(targetRaw, srcDir) {
   if (cands.length === 1) return cands[0];
 
   const sorted = [...cands].sort(
-    (a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b),
+    (a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b),
   );
   return ALLOW_AMBIGUOUS ? sorted[0] : null;
 }
 
 /** Candidates for a target that could not be resolved, for the report. */
 function candidatesFor(targetRaw, srcDir) {
-  const t = targetRaw.trim().replace(/\\/g, '/');
-  const base = t.split('/').pop().toLowerCase();
-  if (t.startsWith('./') || t.startsWith('../')) {
+  const t = targetRaw.trim().replace(/\\/g, "/");
+  const base = t.split("/").pop().toLowerCase();
+  if (t.startsWith("./") || t.startsWith("../")) {
     const norm = normalisePath(`${srcDir}/${t}`);
     return byNoExt.has(norm.toLowerCase()) ? [byNoExt.get(norm.toLowerCase())] : null;
   }
-  const cands = byBase.get(base) ?? byBase.get(base.replace(/\.md$/i, '')) ?? [];
+  const cands = byBase.get(base) ?? byBase.get(base.replace(/\.md$/i, "")) ?? [];
   return cands.length ? cands : null;
 }
 
@@ -189,33 +189,33 @@ function candidatesFor(targetRaw, srcDir) {
 // or drops text corrupts every document it touches while leaving every read-only
 // checker perfectly green.
 
-if (process.argv.includes('--self-test')) {
+if (process.argv.includes("--self-test")) {
   const CASES = [
-    ['plain prose only', 'a\nb\nc\n'],
-    ['prose interleaved with inline code', 'plain one\nhas `code` here\nplain two\n'],
-    ['code fence in the middle', 'a\n```py\n[[x]]\n```\nb\n'],
-    ['frontmatter then heading', '---\ntitle: t\n---\n# H\n\nbody `c`\n'],
-    ['no trailing newline', 'a\nb'],
-    ['only inline code', '`a` `b`\n'],
-    ['fence at end of file', 'a\n```\nb\n'],
-    ['table row then inline code', '| a | b |\n|---|---|\ntext `x`\n'],
-    ['CRLF frontmatter', '---\r\ntitle: t\r\n---\r\n# H\r\n\r\nbody `c`\r\n'],
-    ['wikilink inside inline code', 'see `[[not a link]]` here\n'],
+    ["plain prose only", "a\nb\nc\n"],
+    ["prose interleaved with inline code", "plain one\nhas `code` here\nplain two\n"],
+    ["code fence in the middle", "a\n```py\n[[x]]\n```\nb\n"],
+    ["frontmatter then heading", "---\ntitle: t\n---\n# H\n\nbody `c`\n"],
+    ["no trailing newline", "a\nb"],
+    ["only inline code", "`a` `b`\n"],
+    ["fence at end of file", "a\n```\nb\n"],
+    ["table row then inline code", "| a | b |\n|---|---|\ntext `x`\n"],
+    ["CRLF frontmatter", "---\r\ntitle: t\r\n---\r\n# H\r\n\r\nbody `c`\r\n"],
+    ["wikilink inside inline code", "see `[[not a link]]` here\n"],
   ];
   let bad = 0;
   for (const [name, src] of CASES) {
     const ok = segmentsRoundTrip(src);
     if (!ok) bad++;
-    console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}`);
+    console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}`);
   }
   // And the real property this script depends on: inline code is never rewritten.
-  const guarded = 'see `[[keep]]` and [[convert]]\n';
+  const guarded = "see `[[keep]]` and [[convert]]\n";
   const kept = segment(guarded)
-    .filter((s) => s.why === 'inline-code')
-    .every((s) => s.text === '`[[keep]]`');
+    .filter((s) => s.why === "inline-code")
+    .every((s) => s.text === "`[[keep]]`");
   if (!kept) bad++;
-  console.log(`  ${kept ? 'ok  ' : 'FAIL'}  wikilinks inside inline code are not rewritten`);
-  console.log(bad ? `\nSELF-TEST FAILED: ${bad} case(s).` : '\nself-test passed.');
+  console.log(`  ${kept ? "ok  " : "FAIL"}  wikilinks inside inline code are not rewritten`);
+  console.log(bad ? `\nSELF-TEST FAILED: ${bad} case(s).` : "\nself-test passed.");
   process.exit(bad ? 1 : 0);
 }
 
@@ -238,15 +238,15 @@ const conversions = new Map();
 
 for (const abs of allMd) {
   const rel = toRel(abs);
-  const src = readFileSync(abs, 'utf8');
-  if (!src.includes('[[')) continue;
+  const src = readFileSync(abs, "utf8");
+  if (!src.includes("[[")) continue;
 
   const srcDir = dirname(rel);
   let touched = false;
   const skipKey = {
-    'code-fence': 'skippedCodeFence',
-    frontmatter: 'skippedFrontmatter',
-    'inline-code': 'skippedInlineCode',
+    "code-fence": "skippedCodeFence",
+    frontmatter: "skippedFrontmatter",
+    "inline-code": "skippedInlineCode",
   };
 
   // Hard invariant, asserted on every real file before anything is written:
@@ -267,13 +267,13 @@ for (const abs of allMd) {
         if (k) report[k] += (seg.text.match(/\[\[/g) ?? []).length;
         return seg.text;
       }
-      if (!seg.text.includes('[[')) return seg.text;
+      if (!seg.text.includes("[[")) return seg.text;
 
       return seg.text.replace(WIKILINK, (match, bang, targetRaw, anchor, aliasPart) => {
         // Obsidian embeds (![[x]]) have no GitHub equivalent. There are none in
         // this repo today; if one appears, leave it and report rather than guess.
         if (bang) {
-          report.nonPortable.push({ file: rel, target: targetRaw.trim(), kind: 'embed' });
+          report.nonPortable.push({ file: rel, target: targetRaw.trim(), kind: "embed" });
           return match;
         }
 
@@ -288,22 +288,22 @@ for (const abs of allMd) {
           return match;
         }
 
-        let relPath = relative(srcDir, hit).split(sep).join('/');
-        if (!relPath.startsWith('.')) relPath = './' + relPath;
+        let relPath = relative(srcDir, hit).split(sep).join("/");
+        if (!relPath.startsWith(".")) relPath = "./" + relPath;
 
         // Block references (#^id) are Obsidian-only per Obsidian's own docs; keep
         // them but flag so the reviewer can decide.
-        if (anchor && anchor.trim().startsWith('^')) {
-          report.nonPortable.push({ file: rel, target: targetRaw.trim(), kind: 'block-ref' });
+        if (anchor && anchor.trim().startsWith("^")) {
+          report.nonPortable.push({ file: rel, target: targetRaw.trim(), kind: "block-ref" });
         }
 
         // `[[bm25\|BM25]]` inside a table cell: the backslash escapes the pipe. It
         // must be stripped from BOTH the target and the fallback label, or the
         // emitted link text becomes `bm25\`.
         const label =
-          (aliasPart ?? '').replace(/^\|/, '').replace(/\\+$/, '').trim() ||
-          targetRaw.trim().replace(/\\+$/, '').split('/').pop();
-        const suffix = anchor ? `#${anchor.trim()}` : '';
+          (aliasPart ?? "").replace(/^\|/, "").replace(/\\+$/, "").trim() ||
+          targetRaw.trim().replace(/\\+$/, "").split("/").pop();
+        const suffix = anchor ? `#${anchor.trim()}` : "";
         const replacement = `[${label}](${encodePath(relPath)}${suffix})`;
 
         touched = true;
@@ -311,7 +311,7 @@ for (const abs of allMd) {
         return replacement;
       });
     })
-    .join('');
+    .join("");
 
   if (touched) conversions.set(abs, out);
 }
@@ -331,7 +331,7 @@ if (report.segmentRoundTripFailures.length) {
 
 if (WRITE) {
   for (const [abs, content] of conversions) {
-    (await import('node:fs')).writeFileSync(abs, content, 'utf8');
+    (await import("node:fs")).writeFileSync(abs, content, "utf8");
   }
 }
 
@@ -340,7 +340,7 @@ if (WRITE) {
 if (JSON_OUT) {
   console.log(JSON.stringify(report, null, 2));
 } else {
-  const mode = WRITE ? 'APPLIED' : 'DRY RUN';
+  const mode = WRITE ? "APPLIED" : "DRY RUN";
   console.log(`[${mode}] files scanned   : ${report.filesScanned}`);
   console.log(`[${mode}] files changed   : ${report.filesChanged}`);
   console.log(`[${mode}] links converted : ${report.linksConverted}`);
@@ -357,21 +357,25 @@ if (JSON_OUT) {
       if (seen.has(key)) continue;
       seen.add(key);
       console.log(`  ${a.file}  [[${a.target}]]`);
-      console.log(`      candidates: ${a.candidates.join(', ')}`);
+      console.log(`      candidates: ${a.candidates.join(", ")}`);
     }
   }
 
   if (report.unresolved.length) {
     const uniq = [...new Map(report.unresolved.map((u) => [`${u.file}|${u.target}`, u])).values()];
-    console.log(`\nUNRESOLVED (${report.unresolved.length}, ${uniq.length} unique) — left untouched:`);
+    console.log(
+      `\nUNRESOLVED (${report.unresolved.length}, ${uniq.length} unique) — left untouched:`,
+    );
     for (const u of uniq.slice(0, 40)) console.log(`  ${u.file}  [[${u.target}]]`);
     if (uniq.length > 40) console.log(`  ... and ${uniq.length - 40} more`);
   }
 
   if (report.nonPortable.length) {
     console.log(`\nOBSIDIAN-ONLY (${report.nonPortable.length}) — kept, not portable to GitHub:`);
-    for (const n of [...new Set(report.nonPortable.map((x) => `${x.file}|${x.target}|${x.kind}`))]) {
-      console.log(`  ${n.replace(/\|/g, '  ')}`);
+    for (const n of [
+      ...new Set(report.nonPortable.map((x) => `${x.file}|${x.target}|${x.kind}`)),
+    ]) {
+      console.log(`  ${n.replace(/\|/g, "  ")}`);
     }
   }
 

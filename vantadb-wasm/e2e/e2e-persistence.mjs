@@ -40,7 +40,12 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     let p = normalize(join(root, decodeURIComponent(url.pathname)));
     if (!p.startsWith(root)) throw new Error("path escape");
-    if ((await stat(p).then((s) => s.isDirectory()).catch(() => false))) p = join(p, "index.html");
+    if (
+      await stat(p)
+        .then((s) => s.isDirectory())
+        .catch(() => false)
+    )
+      p = join(p, "index.html");
     const data = await readFile(p);
     res.writeHead(200, { "content-type": MIME[extname(p)] || "application/octet-stream" });
     res.end(data);
@@ -64,7 +69,11 @@ async function runStorage(browser, storage) {
   await page.waitForFunction(() => document.body.dataset.done === "1");
   const seeded = await page.evaluate(() => document.body.dataset.result);
   if (seeded !== "SEEDED") {
-    console.log(`[${storage}] page log:\n${await page.evaluate(() => document.getElementById("log").textContent)}`);
+    console.log(
+      `[${storage}] page log:\n${await page.evaluate(
+        () => document.getElementById("log").textContent,
+      )}`,
+    );
     throw new Error(`[${storage}] seed failed: ${seeded}`);
   }
   console.log(`[${storage}] seed OK: 10 records put + saved`);

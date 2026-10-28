@@ -43,10 +43,7 @@ const VEC_SEED = 42;
 // Nearest-rank percentile over sorted samples (same as bench-abi.mjs).
 const percentile = (sorted, pct) => {
   if (!sorted.length) return 0;
-  const idx = Math.min(
-    sorted.length - 1,
-    Math.max(0, Math.ceil((pct / 100) * sorted.length) - 1),
-  );
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((pct / 100) * sorted.length) - 1));
   return sorted[idx];
 };
 
@@ -119,14 +116,37 @@ try {
   const searchHybrid = { ...summarize(searchHybSamples), ops: SEARCHES };
 
   const fmtMs = (v) => v.toFixed(3);
-  console.log(`vantadb-ts WASM bench — records=${RECORDS} dim=${DIM} searches=${SEARCHES} top_k=${TOP_K} batch=${BATCH} vec_seed=${VEC_SEED}`);
+  console.log(
+    `vantadb-ts WASM bench — records=${RECORDS} dim=${DIM} searches=${SEARCHES} top_k=${TOP_K} batch=${BATCH} vec_seed=${VEC_SEED}`,
+  );
   console.log(`note: in-memory WASM engine in Node (no OPFS); browser backends pending.`);
   console.log("");
-  for (const [label, s] of [["insert", insert], ["search_vector", searchVector], ["search_hybrid", searchHybrid]]) {
-    console.log(`  ${label.padEnd(14)} p50/p95/p99 (ms) ${fmtMs(s.p50)} / ${fmtMs(s.p95)} / ${fmtMs(s.p99)}  mean ${fmtMs(s.mean)}`);
+  for (const [label, s] of [
+    ["insert", insert],
+    ["search_vector", searchVector],
+    ["search_hybrid", searchHybrid],
+  ]) {
+    console.log(
+      `  ${label.padEnd(14)} p50/p95/p99 (ms) ${fmtMs(s.p50)} / ${fmtMs(s.p95)} / ${fmtMs(
+        s.p99,
+      )}  mean ${fmtMs(s.mean)}`,
+    );
   }
   console.log("");
-  console.log("JSON: " + JSON.stringify({ records: RECORDS, dim: DIM, searches: SEARCHES, top_k: TOP_K, batch: BATCH, vec_seed: VEC_SEED, insert, search_vector: searchVector, search_hybrid: searchHybrid }));
+  console.log(
+    "JSON: " +
+      JSON.stringify({
+        records: RECORDS,
+        dim: DIM,
+        searches: SEARCHES,
+        top_k: TOP_K,
+        batch: BATCH,
+        vec_seed: VEC_SEED,
+        insert,
+        search_vector: searchVector,
+        search_hybrid: searchHybrid,
+      }),
+  );
 } finally {
   db.close();
 }

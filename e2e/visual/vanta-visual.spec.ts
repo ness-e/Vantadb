@@ -35,9 +35,7 @@ async function snapshotWithDiff(
   }
 
   const expectation = expect(page).toHaveScreenshot(name, {
-    maxDiffPixels: opts?.maxDiffPixelRatio
-      ? undefined
-      : 100,
+    maxDiffPixels: opts?.maxDiffPixelRatio ? undefined : 100,
     maxDiffPixelRatio: opts?.maxDiffPixelRatio,
     threshold: 0.2,
   });

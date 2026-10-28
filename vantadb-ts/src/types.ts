@@ -337,9 +337,7 @@ export type FilterOperator = "$eq" | "$neq" | "$gt" | "$gte" | "$lt" | "$lte";
 
 /** One condition for {@link FilterInput}: an input value (implicit `$eq`) or an
  * object of `$op` keys mapped to values (`{$gte: v, $lt: v2}` = range). */
-export type FilterCondition =
-  | UntrustedInput
-  | { [op in FilterOperator]?: UntrustedInput };
+export type FilterCondition = UntrustedInput | { [op in FilterOperator]?: UntrustedInput };
 
 /** Canonical cross-SDK filter DSL, interchangeable with Python/MCP/CLI:
  * `{field: value}` = implicit `$eq`; `{field: {$gte: v}}` = advanced op(s).

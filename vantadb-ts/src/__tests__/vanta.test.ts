@@ -68,12 +68,8 @@ describe("Type guards: isMemoryRecord", () => {
   });
 
   it("accepts mixed string/number version and node_id", () => {
-    expect(
-      isMemoryRecord({ ...validRecord, version: "1", node_id: 7 }),
-    ).toBe(true);
-    expect(
-      isMemoryRecord({ ...validRecord, version: 2, node_id: "8" }),
-    ).toBe(true);
+    expect(isMemoryRecord({ ...validRecord, version: "1", node_id: 7 })).toBe(true);
+    expect(isMemoryRecord({ ...validRecord, version: 2, node_id: "8" })).toBe(true);
   });
 
   it("still rejects invalid version/node_id/timestamps", () => {
@@ -227,7 +223,11 @@ describe("Type guards: validateVector (asserts)", () => {
     // ERR-TS-01: validateVector surfaces DbError(VANTADB_VALIDATION_ERROR)
     // instead of the previous raw TypeError/RangeError (BREAKING documented).
     let caught: unknown;
-    try { validateVector("bad"); } catch (e) { caught = e; }
+    try {
+      validateVector("bad");
+    } catch (e) {
+      caught = e;
+    }
     expect(caught).toBeInstanceOf(DbError);
     expect((caught as DbError).code).toBe("VANTADB_VALIDATION_ERROR");
   });
@@ -343,8 +343,12 @@ describe("Client lifecycle", () => {
 describe("Client put / get / delete", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("put stores and returns a record", () => {
     const r = db.put({ namespace: "test", key: "hello", payload: "world" });
@@ -399,23 +403,23 @@ describe("Client put / get / delete", () => {
   });
 
   it("put with empty string namespace throws", () => {
-    expect(() =>
-      db.put({ namespace: "", key: "k", payload: "v" }),
-    ).toThrow();
+    expect(() => db.put({ namespace: "", key: "k", payload: "v" })).toThrow();
   });
 
   it("put with empty string key throws", () => {
-    expect(() =>
-      db.put({ namespace: "ns", key: "", payload: "v" }),
-    ).toThrow();
+    expect(() => db.put({ namespace: "ns", key: "", payload: "v" })).toThrow();
   });
 });
 
 describe("Client deleteByFilter", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("deletes matching records and returns the count as bigint", () => {
     for (let i = 0; i < 3; i++) {
@@ -433,9 +437,10 @@ describe("Client deleteByFilter", () => {
       metadata: { tier: { String: "cold" } },
     });
 
-    const deleted = db.deleteByFilter({ namespace: "filterdel", filter: [
-      { field: "tier", op: "Eq", value: { String: "hot" } },
-    ] });
+    const deleted = db.deleteByFilter({
+      namespace: "filterdel",
+      filter: [{ field: "tier", op: "Eq", value: { String: "hot" } }],
+    });
     expect(deleted).toBe(3n);
     expect(db.get({ namespace: "filterdel", key: "keep" })).not.toBeNull();
   });
@@ -448,8 +453,12 @@ describe("Client deleteByFilter", () => {
 describe("Client putBatch", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("putBatch with empty array returns empty array", () => {
     const records = db.putBatch([]);
@@ -491,8 +500,12 @@ describe("Client putBatch", () => {
 describe("Client list and namespace operations", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("listNamespaces returns created namespaces", () => {
     db.put({ namespace: "list_ns_a", key: "k", payload: "v" });
@@ -527,7 +540,9 @@ describe("Client search", () => {
     db.put({ namespace: "search_db", key: "c", payload: "cherry", vector: [0, 0, 1, 0] });
   });
 
-  afterAll(() => { db.close(); });
+  afterAll(() => {
+    db.close();
+  });
 
   it("search exposes SearchHit.score (higher is better), not distance", () => {
     const hits = db.search({ namespace: "search_db", query_vector: [1, 0, 0, 0], top_k: 3 });
@@ -581,8 +596,12 @@ describe("Client search", () => {
 describe("Client graph operations", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("insertNode creates a node", () => {
     expect(() => db.insertNode(1, "root")).not.toThrow();
@@ -657,8 +676,12 @@ describe("Client graph operations", () => {
 describe("Client maintenance operations", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("flush does not throw", () => {
     db.put({ namespace: "maint", key: "k", payload: "v" });
@@ -691,8 +714,12 @@ describe("Client maintenance operations", () => {
 describe("Client text index", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("auditTextIndex returns result or null", () => {
     const result = db.auditTextIndex();
@@ -712,8 +739,12 @@ describe("Client text index", () => {
 describe("Client generateSnippet", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("returns snippet with highlighting", () => {
     const s = db.generateSnippet(
@@ -734,8 +765,12 @@ describe("Client generateSnippet", () => {
 describe("Client edge cases", () => {
   let db: Client;
 
-  beforeAll(() => { db = Client.create(); });
-  afterAll(() => { db.close(); });
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
 
   it("unicode payload round-trips", () => {
     const payload = "Hello 世界 🌟 привет";

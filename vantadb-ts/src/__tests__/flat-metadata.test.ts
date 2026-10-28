@@ -128,9 +128,10 @@ describe("FIND-01: flat metadata input", () => {
   });
 
   it("deleteByFilter accepts plain values", async () => {
-    const deleted = db.deleteByFilter({ namespace: "flat_filter", filter: [
-      { field: "env", op: "Eq", value: "prod" },
-    ] });
+    const deleted = db.deleteByFilter({
+      namespace: "flat_filter",
+      filter: [{ field: "env", op: "Eq", value: "prod" }],
+    });
     expect(deleted).toBeGreaterThanOrEqual(1n);
     expect(await db.get({ namespace: "flat_filter", key: "x" })).toBeNull();
   });

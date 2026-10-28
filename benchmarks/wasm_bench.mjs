@@ -21,33 +21,33 @@
  *   (VantaDB uses the local vantadb-wasm/pkg)
  */
 
-import { createRequire } from 'module';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import { createRequire } from "module";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
 
 // ── CLI ────────────────────────────────────────────────────────────────────
 
 const args = {};
 for (let i = 2; i < process.argv.length; i++) {
-  const k = process.argv[i].replace(/^--/, '');
-  if (i + 1 < process.argv.length && !process.argv[i + 1].startsWith('--')) {
+  const k = process.argv[i].replace(/^--/, "");
+  if (i + 1 < process.argv.length && !process.argv[i + 1].startsWith("--")) {
     args[k] = process.argv[++i];
   } else {
     args[k] = true;
   }
 }
 
-const DIMS = parseInt(args.dims || '128', 10);
-const N_VECTORS = parseInt(args['n-vectors'] || '1000', 10);
-const N_QUERIES = parseInt(args['n-queries'] || '100', 10);
-const TOP_K = parseInt(args['top-k'] || '10', 10);
-const ENGINES = (args.engines || 'vantadb,edgevec,minimemory').split(',');
-const OUTPUT = args.output || path.join(__dirname, 'wasm_benchmark_results.json');
+const DIMS = parseInt(args.dims || "128", 10);
+const N_VECTORS = parseInt(args["n-vectors"] || "1000", 10);
+const N_QUERIES = parseInt(args["n-queries"] || "100", 10);
+const TOP_K = parseInt(args["top-k"] || "10", 10);
+const ENGINES = (args.engines || "vantadb,edgevec,minimemory").split(",");
+const OUTPUT = args.output || path.join(__dirname, "wasm_benchmark_results.json");
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -58,7 +58,9 @@ function randomVector(dim) {
 }
 
 function cosineSimilarity(a, b) {
-  let dot = 0, na = 0, nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
@@ -72,7 +74,7 @@ function computeGroundTruth(vectors, queries, topK) {
   for (const q of queries) {
     const sims = vectors.map((v, i) => ({ i, s: cosineSimilarity(q, v) }));
     sims.sort((a, b) => b.s - a.s);
-    results.push(sims.slice(0, topK).map(x => x.i));
+    results.push(sims.slice(0, topK).map((x) => x.i));
   }
   return results;
 }
@@ -86,7 +88,9 @@ function recallAtK(predicted, groundTruth, k) {
   return hits / predicted.length;
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 // ── Engine Benchmarks ─────────────────────────────────────────────────────
 
@@ -100,16 +104,16 @@ function generateDataset() {
 // ── VantaDB ────────────────────────────────────────────────────────────────
 
 async function benchVantaDB(dataset) {
-  const pkg = path.join(ROOT, 'vantadb-wasm', 'pkg');
-  const mod = await import(path.join(pkg, 'vantadb_wasm.js'));
+  const pkg = path.join(ROOT, "vantadb-wasm", "pkg");
+  const mod = await import(path.join(pkg, "vantadb_wasm.js"));
   await mod.default();
 
-  const db = new mod.VantaDB({ storage_path: '/vantadb_bench', read_only: false });
+  const db = new mod.VantaDB({ storage_path: "/vantadb_bench", read_only: false });
 
   const t0 = performance.now();
   for (let i = 0; i < dataset.vectors.length; i++) {
     await db.put({
-      namespace: 'bench',
+      namespace: "bench",
       key: `v${i}`,
       payload: `vector ${i}`,
       vector: Array.from(dataset.vectors[i]),
@@ -126,7 +130,7 @@ async function benchVantaDB(dataset) {
   for (const q of dataset.queries) {
     const t = performance.now();
     const hits = await db.search({
-      namespace: 'bench',
+      namespace: "bench",
       query_vector: Array.from(q),
       top_k: TOP_K,
     });
@@ -135,7 +139,7 @@ async function benchVantaDB(dataset) {
     if (hits && hits.length) {
       for (const h of hits) {
         const key = h.record ? h.record.key : h.key;
-        if (key != null) ids.push(parseInt(key.replace('v', ''), 10));
+        if (key != null) ids.push(parseInt(key.replace("v", ""), 10));
       }
     }
     predictions.push(ids);
@@ -147,7 +151,7 @@ async function benchVantaDB(dataset) {
   db.close();
 
   return {
-    engine: 'VantaDB',
+    engine: "VantaDB",
     ingest_ms: ingestMs,
     index_ms: indexMs,
     p50_ms: queryLatencies[Math.floor(queryLatencies.length * 0.5)],
@@ -160,7 +164,7 @@ async function benchVantaDB(dataset) {
 // ── EdgeVec ────────────────────────────────────────────────────────────────
 
 async function benchEdgeVec(dataset) {
-  const edgevec = require('edgevec');
+  const edgevec = require("edgevec");
   await edgevec.default();
 
   const config = new edgevec.EdgeVecConfig(DIMS);
@@ -183,7 +187,7 @@ async function benchEdgeVec(dataset) {
   queryLatencies.sort((a, b) => a - b);
 
   return {
-    engine: 'EdgeVec',
+    engine: "EdgeVec",
     ingest_ms: ingestMs,
     index_ms: 0,
     p50_ms: queryLatencies[Math.floor(queryLatencies.length * 0.5)],
@@ -198,13 +202,13 @@ async function benchEdgeVec(dataset) {
 async function benchMinimemory(dataset) {
   let mm;
   try {
-    mm = require('@rckflr/minimemory');
+    mm = require("@rckflr/minimemory");
   } catch {
-    return { engine: 'minimemory', error: 'npm install @rckflr/minimemory' };
+    return { engine: "minimemory", error: "npm install @rckflr/minimemory" };
   }
   await mm.default();
 
-  const db = new mm.WasmVectorDB(DIMS, 'cosine', 'flat');
+  const db = new mm.WasmVectorDB(DIMS, "cosine", "flat");
 
   const t0 = performance.now();
   for (let i = 0; i < dataset.vectors.length; i++) {
@@ -222,7 +226,7 @@ async function benchMinimemory(dataset) {
   queryLatencies.sort((a, b) => a - b);
 
   return {
-    engine: 'minimemory',
+    engine: "minimemory",
     ingest_ms: ingestMs,
     index_ms: 0,
     p50_ms: queryLatencies[Math.floor(queryLatencies.length * 0.5)],
@@ -235,15 +239,15 @@ async function benchMinimemory(dataset) {
 // ── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('='.repeat(60));
-  console.log('  WASM Vector DB Benchmark Suite (MCP-03)');
-  console.log('='.repeat(60));
+  console.log("=".repeat(60));
+  console.log("  WASM Vector DB Benchmark Suite (MCP-03)");
+  console.log("=".repeat(60));
   console.log(`  dims:       ${DIMS}`);
   console.log(`  n-vectors:  ${N_VECTORS}`);
   console.log(`  n-queries:  ${N_QUERIES}`);
   console.log(`  top-k:      ${TOP_K}`);
-  console.log(`  engines:    ${ENGINES.join(', ')}`);
-  console.log('='.repeat(60));
+  console.log(`  engines:    ${ENGINES.join(", ")}`);
+  console.log("=".repeat(60));
 
   const dataset = generateDataset();
   console.log(`  Dataset: ${dataset.vectors.length} vectors, ${dataset.queries.length} queries`);
@@ -265,7 +269,11 @@ async function main() {
     try {
       const r = await fn(dataset);
       results.push(r);
-      console.log(`  ingest: ${r.ingest_ms?.toFixed(1)}ms | p50: ${r.p50_ms?.toFixed(3)}ms | p95: ${r.p95_ms?.toFixed(3)}ms | qps: ${r.qps?.toFixed(0)}`);
+      console.log(
+        `  ingest: ${r.ingest_ms?.toFixed(1)}ms | p50: ${r.p50_ms?.toFixed(
+          3,
+        )}ms | p95: ${r.p95_ms?.toFixed(3)}ms | qps: ${r.qps?.toFixed(0)}`,
+      );
     } catch (e) {
       console.error(`  ** ${name} FAILED: ${e.message}`);
       results.push({ engine: name, error: e.message });
@@ -273,13 +281,30 @@ async function main() {
     await sleep(50);
   }
 
-  console.log('\n' + '='.repeat(60));
-  console.log('  RESULTS');
-  console.log('='.repeat(60));
+  console.log("\n" + "=".repeat(60));
+  console.log("  RESULTS");
+  console.log("=".repeat(60));
   console.table(results);
 
-  fs.writeFileSync(OUTPUT, JSON.stringify({ timestamp: new Date().toISOString(), dims: DIMS, nVectors: N_VECTORS, nQueries: N_QUERIES, topK: TOP_K, results }, null, 2));
+  fs.writeFileSync(
+    OUTPUT,
+    JSON.stringify(
+      {
+        timestamp: new Date().toISOString(),
+        dims: DIMS,
+        nVectors: N_VECTORS,
+        nQueries: N_QUERIES,
+        topK: TOP_K,
+        results,
+      },
+      null,
+      2,
+    ),
+  );
   console.log(`\n  Results written to: ${OUTPUT}`);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

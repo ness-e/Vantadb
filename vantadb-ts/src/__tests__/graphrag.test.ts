@@ -23,7 +23,8 @@ const nativeAvailable = await import("vantadb-node").then(
 
 function seedWasm(db: Client): void {
   const ids = RECORDS.map(
-    (r) => db.put({ namespace: NAMESPACE, key: r.key, payload: r.payload, vector: r.vector }).node_id,
+    (r) =>
+      db.put({ namespace: NAMESPACE, key: r.key, payload: r.payload, vector: r.vector }).node_id,
   );
   db.addEdge(BigInt(String(ids[0])), BigInt(String(ids[1])), "uses");
   db.addEdge(BigInt(String(ids[0])), BigInt(String(ids[2])), "uses");

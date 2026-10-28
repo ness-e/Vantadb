@@ -110,9 +110,7 @@ describe("D5a: buildSearchRequestBase valida", () => {
   });
 
   it("rechaza request nulo", () => {
-    expect(() =>
-      buildSearchRequestBase(null as unknown as SearchRequest),
-    ).toThrow(DbError);
+    expect(() => buildSearchRequestBase(null as unknown as SearchRequest)).toThrow(DbError);
   });
 
   it("rechaza namespace vacío o no-string", () => {
@@ -144,16 +142,16 @@ describe("D5a: buildSearchRequestBase valida", () => {
 
   it("EGO-02: query_vector ausente defaultea a [] con text_query o query_sparse", () => {
     const { query_vector: _omitted, ...noVector } = base;
+    expect(buildSearchRequestBase({ ...noVector, text_query: "hola" }).query_vector).toEqual([]);
+    expect(buildSearchRequestBase({ ...noVector, query_sparse: { 1: 0.5 } }).query_vector).toEqual(
+      [],
+    );
     expect(
-      buildSearchRequestBase({ ...noVector, text_query: "hola" }).query_vector,
-    ).toEqual([]);
-    expect(
-      buildSearchRequestBase({ ...noVector, query_sparse: { 1: 0.5 } })
-        .query_vector,
-    ).toEqual([]);
-    expect(
-      buildSearchRequestBase({ ...noVector, query_vector: null as unknown as number[], text_query: "hola" })
-        .query_vector,
+      buildSearchRequestBase({
+        ...noVector,
+        query_vector: null as unknown as number[],
+        text_query: "hola",
+      }).query_vector,
     ).toEqual([]);
   });
 

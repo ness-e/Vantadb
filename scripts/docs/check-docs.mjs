@@ -33,13 +33,30 @@
 //   1 = a gating check failed
 //   2 = bad usage
 
-import { listDocs, parseFrontmatter, deriveKind, isArchive, isIndexCandidate, loadSchema, loadTagVocabulary, validateFrontmatter, buildTargetSet, normalisePath, toPosix, linkFrom, encodePath, abs, readDoc, proseOf } from './lib.mjs';
-import { readdirSync } from 'node:fs';
-import { join, dirname, relative, basename, sep } from 'node:path';
+import {
+  listDocs,
+  parseFrontmatter,
+  deriveKind,
+  isArchive,
+  isIndexCandidate,
+  loadSchema,
+  loadTagVocabulary,
+  validateFrontmatter,
+  buildTargetSet,
+  normalisePath,
+  toPosix,
+  linkFrom,
+  encodePath,
+  abs,
+  readDoc,
+  proseOf,
+} from "./lib.mjs";
+import { readdirSync } from "node:fs";
+import { join, dirname, relative, basename, sep } from "node:path";
 
-const STRICT = process.argv.includes('--strict');
-const JSON_OUT = process.argv.includes('--json');
-const HINTS = process.argv.includes('--fix-hints');
+const STRICT = process.argv.includes("--strict");
+const JSON_OUT = process.argv.includes("--json");
+const HINTS = process.argv.includes("--fix-hints");
 
 const schema = loadSchema();
 const vocab = loadTagVocabulary();
@@ -129,11 +146,15 @@ for (const rel of docs) {
     for (const m of text.matchAll(MD_LINK)) {
       const raw = m[1];
       if (/^(https?:|mailto:|tel:|data:|obsidian:|#|\/\/)/i.test(raw)) continue;
-      const [pathPart] = raw.split('#');
+      const [pathPart] = raw.split("#");
       if (!pathPart) continue;
       let dec = pathPart;
-      try { dec = decodeURIComponent(pathPart); } catch { /* keep raw */ }
-      const cand = dec.startsWith('/') ? normalisePath(dec) : normalisePath(`${dir}/${dec}`);
+      try {
+        dec = decodeURIComponent(pathPart);
+      } catch {
+        /* keep raw */
+      }
+      const cand = dec.startsWith("/") ? normalisePath(dec) : normalisePath(`${dir}/${dec}`);
       if (inbound.has(cand)) inbound.set(cand, inbound.get(cand) + 1);
     }
   }
@@ -166,7 +187,10 @@ const gating = {
   missingFrontmatter: findings.missingFrontmatter.length,
   schema: findings.schema.length,
   kindMismatch: findings.kindMismatch.length,
-  wikilinks: findings.wikilinks.length > WIKILINK_FILE_BUDGET ? findings.wikilinks.length - WIKILINK_FILE_BUDGET : 0,
+  wikilinks:
+    findings.wikilinks.length > WIKILINK_FILE_BUDGET
+      ? findings.wikilinks.length - WIKILINK_FILE_BUDGET
+      : 0,
   duplicateBasenames: STRICT ? findings.duplicateBasenames.length : 0,
   orphans: STRICT ? findings.orphans.length : 0,
 };
@@ -176,38 +200,71 @@ if (JSON_OUT) {
   console.log(JSON.stringify({ ...findings, gating, failed: failed.map(([k]) => k) }, null, 2));
 } else {
   console.log(`documents            : ${docs.length} (${docsNoArchive.length} non-archived)`);
-  console.log(`GATING (fail -> 1)   : ${failed.length ? failed.map(([k, v]) => `${k}=${v}`).join(', ') : 'all clear'}`);
-  console.log(`reporting only       : wikilinks=${findings.wikilinks.length}/${WIKILINK_FILE_BUDGET} files, unknownKeys=${findings.unknownKeys.length} files, duplicateBasenames=${findings.duplicateBasenames.length} groups, orphans=${findings.orphans.length}/${findings.orphanTotal}`);
-  console.log('');
+  console.log(
+    `GATING (fail -> 1)   : ${
+      failed.length ? failed.map(([k, v]) => `${k}=${v}`).join(", ") : "all clear"
+    }`,
+  );
+  console.log(
+    `reporting only       : wikilinks=${findings.wikilinks.length}/${WIKILINK_FILE_BUDGET} files, unknownKeys=${findings.unknownKeys.length} files, duplicateBasenames=${findings.duplicateBasenames.length} groups, orphans=${findings.orphans.length}/${findings.orphanTotal}`,
+  );
+  console.log("");
 
   const show = (label, items, fmt, cap = 12) => {
     if (!items.length) return;
     console.log(`${label} (${items.length}):`);
-    for (const it of items.slice(0, cap)) console.log('  ' + fmt(it));
+    for (const it of items.slice(0, cap)) console.log("  " + fmt(it));
     if (items.length > cap) console.log(`  ... and ${items.length - cap} more`);
-    console.log('');
+    console.log("");
   };
 
-  show('MISSING FRONTMATTER', findings.missingFrontmatter, (f) => f);
-  show('SCHEMA VIOLATIONS (gating)', findings.schema, (s) => `${s.file}  ${s.problem}`);
-  show('UNKNOWN KEYS (reported, not gated — rename to x-<name>)', findings.unknownKeys,
-    (s) => `${s.file}  ${s.problem}`);
-  show('KIND MISMATCH (path vs frontmatter)', findings.kindMismatch,
-    (k) => `${k.file}  declared=${k.declared} derived=${k.derived}`);
-  show('DUPLICATE BASENAMES', findings.duplicateBasenames,
-    (d) => `${d.basename} x${d.count}  e.g. ${d.files.slice(0, 2).join(', ')}`);
-  show('ORPHANS (no inbound link, not an index, not archived)', findings.orphans, (f) => f);
-  show('WIKILINKS IN PROSE (reported; gates only above budget)', findings.wikilinks, (w) => `${w.file}  (${w.count})`);
+  show("MISSING FRONTMATTER", findings.missingFrontmatter, (f) => f);
+  show("SCHEMA VIOLATIONS (gating)", findings.schema, (s) => `${s.file}  ${s.problem}`);
+  show(
+    "UNKNOWN KEYS (reported, not gated — rename to x-<name>)",
+    findings.unknownKeys,
+    (s) => `${s.file}  ${s.problem}`,
+  );
+  show(
+    "KIND MISMATCH (path vs frontmatter)",
+    findings.kindMismatch,
+    (k) => `${k.file}  declared=${k.declared} derived=${k.derived}`,
+  );
+  show(
+    "DUPLICATE BASENAMES",
+    findings.duplicateBasenames,
+    (d) => `${d.basename} x${d.count}  e.g. ${d.files.slice(0, 2).join(", ")}`,
+  );
+  show("ORPHANS (no inbound link, not an index, not archived)", findings.orphans, (f) => f);
+  show(
+    "WIKILINKS IN PROSE (reported; gates only above budget)",
+    findings.wikilinks,
+    (w) => `${w.file}  (${w.count})`,
+  );
 
   if (HINTS) {
-    console.log('HOW TO REDUCE EACH COUNT');
-    console.log(`  ${findings.missingFrontmatter.length} missing frontmatter : node scripts/docs/stamp-frontmatter.mjs --write`);
-    console.log(`  ${findings.schema.length} schema violations       : fix by hand, or run the above then the schema`);
-    console.log(`  ${findings.unknownKeys.length} unknown keys          : rename to x-<name> in the same PR (reported, not gated)`);
-    console.log(`  ${findings.kindMismatch.length} kind mismatches       : node scripts/docs/stamp-frontmatter.mjs --write --fix-kind`);
-    console.log(`  ${findings.duplicateBasenames.length} duplicate names     : rename to kebab-case, one README.md per directory`);
-    console.log(`  ${findings.orphans.length} orphans                 : node scripts/docs/gen-index.mjs --write  (indexes, not renames)`);
-    console.log(`  ${findings.wikilinks.length} files with wikilinks  : node scripts/docs/wikilinks-to-md.mjs --write   (budget ${WIKILINK_FILE_BUDGET})`);
+    console.log("HOW TO REDUCE EACH COUNT");
+    console.log(
+      `  ${findings.missingFrontmatter.length} missing frontmatter : node scripts/docs/stamp-frontmatter.mjs --write`,
+    );
+    console.log(
+      `  ${findings.schema.length} schema violations       : fix by hand, or run the above then the schema`,
+    );
+    console.log(
+      `  ${findings.unknownKeys.length} unknown keys          : rename to x-<name> in the same PR (reported, not gated)`,
+    );
+    console.log(
+      `  ${findings.kindMismatch.length} kind mismatches       : node scripts/docs/stamp-frontmatter.mjs --write --fix-kind`,
+    );
+    console.log(
+      `  ${findings.duplicateBasenames.length} duplicate names     : rename to kebab-case, one README.md per directory`,
+    );
+    console.log(
+      `  ${findings.orphans.length} orphans                 : node scripts/docs/gen-index.mjs --write  (indexes, not renames)`,
+    );
+    console.log(
+      `  ${findings.wikilinks.length} files with wikilinks  : node scripts/docs/wikilinks-to-md.mjs --write   (budget ${WIKILINK_FILE_BUDGET})`,
+    );
     console.log(`  broken internal links            : node scripts/docs/repair-links.mjs --write`);
     console.log(`  then re-run: node scripts/docs/check-docs.mjs`);
   }

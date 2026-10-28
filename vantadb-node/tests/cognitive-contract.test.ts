@@ -99,9 +99,9 @@ describe("vantadb-node cognitive contract (DIST-19 S5)", () => {
         db.memoryRecall({ user_text: "x", session_key: L1_SESSION, scope: "bogus" }),
       ).rejects.toThrow(/scope/);
       // Review-S3 Optional: empty session_key is rejected, never silent.
-      await expect(
-        db.memoryRecall({ user_text: "x", session_key: "  " }),
-      ).rejects.toThrow(/session_key/);
+      await expect(db.memoryRecall({ user_text: "x", session_key: "  " })).rejects.toThrow(
+        /session_key/,
+      );
     } finally {
       await db.close();
     }
@@ -243,7 +243,12 @@ describe("vantadb-node cognitive contract (DIST-19 S5)", () => {
 
       // Evidence for Regla 8: engine untouched by the abort — writes/reads
       // work, and close() drains promptly (a hang would fail the suite).
-      await db.put({ namespace: "bulk", key: "after", payload: "ok", vector: new Array(dim).fill(0.1) });
+      await db.put({
+        namespace: "bulk",
+        key: "after",
+        payload: "ok",
+        vector: new Array(dim).fill(0.1),
+      });
       const rec = await db.get("bulk", "after");
       expect(rec?.payload).toBe("ok");
     } finally {

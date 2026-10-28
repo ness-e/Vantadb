@@ -116,7 +116,7 @@ describe("Client WASM Integration", () => {
     const snippet = await db.generateSnippet(
       "VantaDB is a vector database for AI agents",
       "vector database",
-      true
+      true,
     );
     expect(snippet).toBeDefined();
     expect(snippet).toContain("vector");
@@ -132,9 +132,10 @@ describe("Client WASM Integration", () => {
     await db.put({ namespace: "ts04", key: "c", payload: "gamma" });
     const total = db.count({ namespace: "ts04" });
     expect(total).toBeGreaterThanOrEqual(3n);
-    const onlyA = db.count({ namespace: "ts04", filters: [
-      { field: "tier", op: "Eq", value: "one" },
-    ] });
+    const onlyA = db.count({
+      namespace: "ts04",
+      filters: [{ field: "tier", op: "Eq", value: "one" }],
+    });
     expect(onlyA).toBe(1n);
   });
 
@@ -200,7 +201,8 @@ describe("Client WASM Integration", () => {
       payload: "y",
       vector: [0.99, 0.01, 0.0],
     });
-    const hits = db.searchMulti({ namespaces: ["ts04m1", "ts04m2"],
+    const hits = db.searchMulti({
+      namespaces: ["ts04m1", "ts04m2"],
       query_vector: [1.0, 0.0, 0.0],
       top_k: 5,
     });

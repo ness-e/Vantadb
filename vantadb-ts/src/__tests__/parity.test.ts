@@ -100,7 +100,12 @@ describe("cross-language conformance — WASM producer (DIST-17)", () => {
       writeFileSync(
         ARTIFACT_URL,
         JSON.stringify(
-          { binding: "wasm", scenario: scenario.scenario, excluded: [], steps: { put, search, graph_bfs: bfs, iql } },
+          {
+            binding: "wasm",
+            scenario: scenario.scenario,
+            excluded: [],
+            steps: { put, search, graph_bfs: bfs, iql },
+          },
           null,
           2,
         ) + "\n",

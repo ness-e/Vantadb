@@ -19,9 +19,7 @@
       "compute_speedup_vs_1": 1,
       "vectors_per_s": 9856975,
       "max_abs_err": 5.3818551726259045e-8,
-      "worker_kernel_ms": [
-        9
-      ],
+      "worker_kernel_ms": [9],
       "correct": true
     },
     {
@@ -34,10 +32,7 @@
       "compute_speedup_vs_1": 1.64,
       "vectors_per_s": 15703518,
       "max_abs_err": 5.3818551726259045e-8,
-      "worker_kernel_ms": [
-        5.5,
-        5.6
-      ],
+      "worker_kernel_ms": [5.5, 5.6],
       "correct": true
     },
     {
@@ -50,12 +45,7 @@
       "compute_speedup_vs_1": 3.23,
       "vectors_per_s": 30347172,
       "max_abs_err": 5.3818551726259045e-8,
-      "worker_kernel_ms": [
-        2.9,
-        2.9,
-        2.9,
-        2.9
-      ],
+      "worker_kernel_ms": [2.9, 2.9, 2.9, 2.9],
       "correct": true
     },
     {
@@ -68,16 +58,7 @@
       "compute_speedup_vs_1": 4.68,
       "vectors_per_s": 42806387,
       "max_abs_err": 5.3818551726259045e-8,
-      "worker_kernel_ms": [
-        3.5,
-        3.5,
-        3.5,
-        3.5,
-        3.3,
-        3.5,
-        3.4,
-        1.9
-      ],
+      "worker_kernel_ms": [3.5, 3.5, 3.5, 3.5, 3.3, 3.5, 3.4, 1.9],
       "correct": true
     },
     {
@@ -90,20 +71,7 @@
       "compute_speedup_vs_1": 5.55,
       "vectors_per_s": 50279049,
       "max_abs_err": 5.3818551726259045e-8,
-      "worker_kernel_ms": [
-        2.7,
-        2.5,
-        2.5,
-        2.5,
-        2.4,
-        2.4,
-        0,
-        2.4,
-        2.4,
-        2.6,
-        2.3,
-        0
-      ],
+      "worker_kernel_ms": [2.7, 2.5, 2.5, 2.5, 2.4, 2.4, 0, 2.4, 2.4, 2.6, 2.3, 0],
       "correct": true
     }
   ]

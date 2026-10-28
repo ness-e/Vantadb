@@ -27,24 +27,24 @@ const MANIFEST = join(repoRoot, "vantadb-wasm", "pkg", "package.json");
 const SNIPPETS_DIR = join(repoRoot, "vantadb-wasm", "pkg", "snippets");
 
 if (!existsSync(MANIFEST)) {
-    console.error(`fix-wasm-pkg-files: manifest not found: ${MANIFEST}`);
-    process.exit(1);
+  console.error(`fix-wasm-pkg-files: manifest not found: ${MANIFEST}`);
+  process.exit(1);
 }
 
 const manifest = JSON.parse(readFileSync(MANIFEST, "utf8"));
 if (!Array.isArray(manifest.files)) {
-    manifest.files = [];
+  manifest.files = [];
 }
 
 let changed = false;
 if (existsSync(SNIPPETS_DIR) && !manifest.files.some((f) => f.startsWith("snippets"))) {
-    manifest.files.push("snippets/");
-    changed = true;
+  manifest.files.push("snippets/");
+  changed = true;
 }
 
 if (changed) {
-    writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n", "utf8");
-    console.log("fix-wasm-pkg-files: added snippets/ to pkg/package.json files");
+  writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+  console.log("fix-wasm-pkg-files: added snippets/ to pkg/package.json files");
 } else {
-    console.log("fix-wasm-pkg-files: pkg/package.json already ok (no change)");
+  console.log("fix-wasm-pkg-files: pkg/package.json already ok (no change)");
 }

@@ -67,10 +67,7 @@ const VEC_SEED = 42;
 // Percentile — copiado de `.agents/skills/impeccable/scripts/detector/profile/profiler.mjs:95-102`
 const percentile = (sorted, pct) => {
   if (!sorted.length) return 0;
-  const idx = Math.min(
-    sorted.length - 1,
-    Math.max(0, Math.ceil((pct / 100) * sorted.length) - 1),
-  );
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((pct / 100) * sorted.length) - 1));
   return sorted[idx];
 };
 
@@ -90,7 +87,7 @@ const summarize = (samples) => {
 
 // Deterministic pseudo-random vector in [0,1) so both backends see identical data.
 const vec = (seed) => {
-  let s = seed * 2654435761 % 4294967296;
+  let s = (seed * 2654435761) % 4294967296;
   const out = new Array(DIM);
   for (let i = 0; i < DIM; i++) {
     s = (s * 1664525 + 1013904223) % 4294967296;
@@ -206,20 +203,37 @@ const fmt = (r) => {
   const searchVecTotal = (r.search_vector?.mean || 0) * (r.search_vector_ops || 0);
   const searchHybTotal = (r.search_hybrid?.mean || 0) * (r.search_hybrid_ops || 0);
   return [
-    ["insert p50/p95/p99 (ms)", `${fmtMs(r.insert?.p50)} / ${fmtMs(r.insert?.p95)} / ${fmtMs(r.insert?.p99)}`],
+    [
+      "insert p50/p95/p99 (ms)",
+      `${fmtMs(r.insert?.p50)} / ${fmtMs(r.insert?.p95)} / ${fmtMs(r.insert?.p99)}`,
+    ],
     ["insert mean (ms/op)", fmtMs(r.insert?.mean)],
     ["insert throughput (rec/s)", fmtRate(r.insert_ops || 0, insertTotal)],
-    ["search_vector p50/p95/p99 (ms)", `${fmtMs(r.search_vector?.p50)} / ${fmtMs(r.search_vector?.p95)} / ${fmtMs(r.search_vector?.p99)}`],
+    [
+      "search_vector p50/p95/p99 (ms)",
+      `${fmtMs(r.search_vector?.p50)} / ${fmtMs(r.search_vector?.p95)} / ${fmtMs(
+        r.search_vector?.p99,
+      )}`,
+    ],
     ["search_vector mean (ms/op)", fmtMs(r.search_vector?.mean)],
     ["search_vector throughput (ops/s)", fmtRate(r.search_vector_ops || 0, searchVecTotal)],
-    ["search_hybrid p50/p95/p99 (ms)", `${fmtMs(r.search_hybrid?.p50)} / ${fmtMs(r.search_hybrid?.p95)} / ${fmtMs(r.search_hybrid?.p99)}`],
+    [
+      "search_hybrid p50/p95/p99 (ms)",
+      `${fmtMs(r.search_hybrid?.p50)} / ${fmtMs(r.search_hybrid?.p95)} / ${fmtMs(
+        r.search_hybrid?.p99,
+      )}`,
+    ],
     ["search_hybrid mean (ms/op)", fmtMs(r.search_hybrid?.mean)],
     ["search_hybrid throughput (ops/s)", fmtRate(r.search_hybrid_ops || 0, searchHybTotal)],
   ];
 };
 
-console.log(`vantadb-node vs vantadb-ts A/B bench — records=${RECORDS} dim=${DIM} searches=${SEARCHES} vec_seed=${VEC_SEED}`);
-console.log(`note: native=persistent fjall (fsync), wasm=in-memory (no OPFS in Node). WASM init falls back to in-memory on Node.`);
+console.log(
+  `vantadb-node vs vantadb-ts A/B bench — records=${RECORDS} dim=${DIM} searches=${SEARCHES} vec_seed=${VEC_SEED}`,
+);
+console.log(
+  `note: native=persistent fjall (fsync), wasm=in-memory (no OPFS in Node). WASM init falls back to in-memory on Node.`,
+);
 console.log("");
 
 const rows = [];
@@ -232,10 +246,13 @@ for (const backend of BACKENDS) {
   console.log("");
 }
 
-console.log("JSON: " + JSON.stringify({
-  records: RECORDS,
-  dim: DIM,
-  searches: SEARCHES,
-  vec_seed: VEC_SEED,
-  rows,
-}));
+console.log(
+  "JSON: " +
+    JSON.stringify({
+      records: RECORDS,
+      dim: DIM,
+      searches: SEARCHES,
+      vec_seed: VEC_SEED,
+      rows,
+    }),
+);

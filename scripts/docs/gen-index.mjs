@@ -28,16 +28,28 @@
 //   node scripts/docs/gen-index.mjs --check    # CI: exit 1 if output is stale
 //   node scripts/docs/gen-index.mjs --json
 
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
-  ROOT, DOCS, abs, listDocs, parseFrontmatter, deriveKind, firstH1, firstProseLine,
-  readDoc, writeDoc, isArchive, linkFrom, encodePath, loadTagVocabulary,
-} from './lib.mjs';
+  ROOT,
+  DOCS,
+  abs,
+  listDocs,
+  parseFrontmatter,
+  deriveKind,
+  firstH1,
+  firstProseLine,
+  readDoc,
+  writeDoc,
+  isArchive,
+  linkFrom,
+  encodePath,
+  loadTagVocabulary,
+} from "./lib.mjs";
 
-const WRITE = process.argv.includes('--write');
-const CHECK = process.argv.includes('--check');
-const JSON_OUT = process.argv.includes('--json');
+const WRITE = process.argv.includes("--write");
+const CHECK = process.argv.includes("--check");
+const JSON_OUT = process.argv.includes("--json");
 
 // Banners double as the GitHub-safe comment syntax. Never use %% comments:
 // those render literally on GitHub.
@@ -48,9 +60,9 @@ const BANNER = (generator) =>
   `     Source of truth: the frontmatter of the files listed below. -->`;
 
 const SECTION_LABELS = {
-  user: 'End-user documentation',
-  api: 'API reference',
-  dev: 'Internal / contributor',
+  user: "End-user documentation",
+  api: "API reference",
+  dev: "Internal / contributor",
 };
 
 // ---------------------------------------------------------------- load corpus
@@ -67,14 +79,17 @@ for (const rel of docs) {
   const text = readDoc(rel);
   const fm = parseFrontmatter(text);
   const kind = fm.data.kind ?? deriveKind(rel);
-  const title = fm.data.title ?? firstH1(fm.body) ?? rel.split('/').pop().replace(/\.md$/, '');
+  const title = fm.data.title ?? firstH1(fm.body) ?? rel.split("/").pop().replace(/\.md$/, "");
   let desc = fm.data.description ?? null;
   const descDeclared = Boolean(fm.data.description);
   if (desc) descFromFrontmatter++;
   else {
     const prose = firstProseLine(fm.body);
     if (prose) {
-      desc = prose.replace(/[*`_\[\]]/g, '').slice(0, 140).trim();
+      desc = prose
+        .replace(/[*`_\[\]]/g, "")
+        .slice(0, 140)
+        .trim();
       descDerived++;
     } else {
       desc = null;
@@ -87,10 +102,10 @@ for (const rel of docs) {
     title,
     desc,
     descDeclared,
-    status: fm.data.status ?? (isArchive(rel) ? 'archived' : null),
+    status: fm.data.status ?? (isArchive(rel) ? "archived" : null),
     updated: fm.data.updated ?? null,
     aliases: fm.data.aliases ?? [],
-    section: rel.split('/')[1] ?? '',
+    section: rel.split("/")[1] ?? "",
     hasFrontmatter: fm.hadFrontmatter,
   });
 }
@@ -102,26 +117,35 @@ for (const rel of docs) {
  * section called "CHANGELOG.md" -- it is a root document.
  */
 const sectionOf = (r) => {
-  const parts = r.rel.split('/');
-  return parts.length > 2 ? parts[1] : '_root';
+  const parts = r.rel.split("/");
+  return parts.length > 2 ? parts[1] : "_root";
 };
 
 const byKindDesc = [...new Set(records.map((r) => r.kind))].sort();
 const KIND_LABELS = {
-  index: 'Index', concept: 'Concepts & architecture', tutorial: 'Tutorials',
-  howto: 'Guides', runbook: 'Runbooks', reference: 'API reference',
-  glossary: 'Glossary', adr: 'Architecture decision records', plan: 'Plans',
-  task: 'Task files', research: 'Research', review: 'Reviews', report: 'Reports',
-  changelog: 'Changelog',
+  index: "Index",
+  concept: "Concepts & architecture",
+  tutorial: "Tutorials",
+  howto: "Guides",
+  runbook: "Runbooks",
+  reference: "API reference",
+  glossary: "Glossary",
+  adr: "Architecture decision records",
+  plan: "Plans",
+  task: "Task files",
+  research: "Research",
+  review: "Reviews",
+  report: "Reports",
+  changelog: "Changelog",
 };
 
 /** Sort: status, then title. Archived always last. */
-const rank = (s) => (s === 'archived' || s === 'superseded' ? 2 : s === 'draft' ? 1 : 0);
+const rank = (s) => (s === "archived" || s === "superseded" ? 2 : s === "draft" ? 1 : 0);
 const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const cmp = (a, b) => rank(a.status) - rank(b.status) || cmpStr(a.title, b.title);
 
 const table = (rows) => {
-  if (!rows.length) return '_None yet._';
+  if (!rows.length) return "_None yet._";
   const w = [
     Math.max(3, ...rows.map((r) => r.t.length)),
     Math.max(4, ...rows.map((r) => r.k.length)),
@@ -129,19 +153,19 @@ const table = (rows) => {
   ];
   const line = (c) => `| ${c[0].padEnd(w[0])} | ${c[1].padEnd(w[1])} | ${c[2].padEnd(w[2])} |`;
   return [
-    line(['Document', 'Kind', 'Summary']),
-    `| ${'-'.repeat(w[0])} | ${'-'.repeat(w[1])} | ${'-'.repeat(w[2])} |`,
+    line(["Document", "Kind", "Summary"]),
+    `| ${"-".repeat(w[0])} | ${"-".repeat(w[1])} | ${"-".repeat(w[2])} |`,
     ...rows.map((r) => line([r.t, r.k, r.d])),
-  ].join('\n');
+  ].join("\n");
 };
 
 const rowFor = (r, fromRel) => {
   const href = encodePath(linkFrom(fromRel, r.rel));
-  const t = `[${r.title.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')}](${href})`;
+  const t = `[${r.title.replace(/\\/g, "\\\\").replace(/\|/g, "\\|")}](${href})`;
   const k = r.kind;
   let d = cellDesc(r);
-  if (r.status && r.status !== 'active' && r.status !== 'stable') d = `${d} _(${r.status})_`;
-  return { t, k, d: d || '_—_' };
+  if (r.status && r.status !== "active" && r.status !== "stable") d = `${d} _(${r.status})_`;
+  return { t, k, d: d || "_—_" };
 };
 
 /**
@@ -152,7 +176,10 @@ const rowFor = (r, fromRel) => {
  * lint gate for the whole generated index.
  */
 const cellDesc = (r) =>
-  (r.desc ?? '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/[\[\]]/g, '\\$&');
+  (r.desc ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/[\[\]]/g, "\\$&");
 
 // --------------------------------------------------------------- generators
 
@@ -160,76 +187,76 @@ const outputs = new Map(); // rel -> content
 
 // 1. docs/index.md
 {
-  const target = 'docs/index.md';
+  const target = "docs/index.md";
   const L = [];
-  L.push('---');
+  L.push("---");
   L.push('title: "VantaDB Documentation"');
-  L.push('kind: index');
-  L.push('status: active');
+  L.push("kind: index");
+  L.push("status: active");
   L.push('description: "Canonical index of the VantaDB documentation corpus."');
-  L.push('---');
-  L.push('');
-  L.push('# VantaDB Documentation');
-  L.push('');
-  L.push(BANNER('Grouped by kind, then by status, then by title.'));
-  L.push('');
+  L.push("---");
+  L.push("");
+  L.push("# VantaDB Documentation");
+  L.push("");
+  L.push(BANNER("Grouped by kind, then by status, then by title."));
+  L.push("");
   L.push(
     `${records.length} documents. This page is generated from frontmatter, so it cannot ` +
-      'fall behind the tree. If a document is missing here, its `kind` or `description` is missing.',
+      "fall behind the tree. If a document is missing here, its `kind` or `description` is missing.",
   );
-  L.push('');
+  L.push("");
 
   const sections = [...new Set(records.map(sectionOf))].sort();
   for (const s of sections) {
     const inSection = records.filter((r) => sectionOf(r) === s);
-    L.push(`## ${s === '_root' ? 'Top level' : (SECTION_LABELS[s] ?? s)} (${inSection.length})`);
-    L.push('');
+    L.push(`## ${s === "_root" ? "Top level" : SECTION_LABELS[s] ?? s} (${inSection.length})`);
+    L.push("");
     for (const kind of byKindDesc) {
       const rows = inSection.filter((r) => r.kind === kind).sort(cmp);
       if (!rows.length) continue;
       L.push(`### ${KIND_LABELS[kind] ?? kind} — ${rows.length}`);
-      L.push('');
+      L.push("");
       L.push(table(rows.map((r) => rowFor(r, target))));
-      L.push('');
+      L.push("");
     }
   }
-  outputs.set(target, L.join('\n'));
+  outputs.set(target, L.join("\n"));
 }
 
 // 2. ADR index
 {
-  const adrs = records.filter((r) => r.kind === 'adr').sort((a, b) => cmpStr(a.rel, b.rel));
+  const adrs = records.filter((r) => r.kind === "adr").sort((a, b) => cmpStr(a.rel, b.rel));
   if (adrs.length) {
-    const dir = adrs[0].rel.slice(0, adrs[0].rel.lastIndexOf('/'));
+    const dir = adrs[0].rel.slice(0, adrs[0].rel.lastIndexOf("/"));
     const target = `${dir}/README.md`;
     const L = [];
-    L.push('---');
+    L.push("---");
     L.push('title: "Architecture Decision Records"');
-    L.push('kind: index');
-    L.push('status: active');
+    L.push("kind: index");
+    L.push("status: active");
     L.push('description: "Every decision VantaDB has made, with status and supersession links."');
-    L.push('---');
-    L.push('');
-    L.push('# Architecture Decision Records');
-    L.push('');
-    L.push(BANNER('Numbered by filename, as in the ADR collection.'));
-    L.push('');
+    L.push("---");
+    L.push("");
+    L.push("# Architecture Decision Records");
+    L.push("");
+    L.push(BANNER("Numbered by filename, as in the ADR collection."));
+    L.push("");
     L.push(
       `${adrs.length} ADRs. An ADR is immutable once accepted; a change of mind is a new ` +
-        'ADR that names the one it supersedes. Follow `Supersedes` in the body before ' +
-        'citing a decision.',
+        "ADR that names the one it supersedes. Follow `Supersedes` in the body before " +
+        "citing a decision.",
     );
-    L.push('');
+    L.push("");
     const rows = adrs.map((r) => {
-      const num = r.rel.split('/').pop().match(/(\d+)/)?.[1] ?? '—';
+      const num = r.rel.split("/").pop().match(/(\d+)/)?.[1] ?? "—";
       const href = encodePath(linkFrom(target, r.rel));
-      const t = `[${num} · ${r.title.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')}](${href})`;
+      const t = `[${num} · ${r.title.replace(/\\/g, "\\\\").replace(/\|/g, "\\|")}](${href})`;
       let d = cellDesc(r);
       if (r.status) d = `${d} _(${r.status})_`;
-      return { t, k: '', d: d || '_—_' };
+      return { t, k: "", d: d || "_—_" };
     });
     L.push(table(rows));
-    outputs.set(target, L.join('\n'));
+    outputs.set(target, L.join("\n"));
   }
 }
 
@@ -240,30 +267,31 @@ const outputs = new Map(); // rel -> content
 //    silently goes stale (that is how 75 `{{#include}}` rows from docs/user/book/src/
 //    shipped in docs/user/index.md). A hand-written section index is left alone.
 {
-  const sections = [...new Set(records.map(sectionOf))].filter((s) => s !== '_root' && s !== 'dev');
+  const sections = [...new Set(records.map(sectionOf))].filter((s) => s !== "_root" && s !== "dev");
   for (const s of sections) {
     const target = `docs/${s}/index.md`;
-    const isGenerated = existsSync(abs(target))
-      && readFileSync(abs(target), 'utf8').includes('GENERATED by scripts/docs/gen-index.mjs');
+    const isGenerated =
+      existsSync(abs(target)) &&
+      readFileSync(abs(target), "utf8").includes("GENERATED by scripts/docs/gen-index.mjs");
     const isHandWritten = existsSync(abs(target)) && !isGenerated;
     if (isHandWritten) continue;
     const inSection = records.filter((r) => sectionOf(r) === s);
     const L = [];
-    L.push('---');
+    L.push("---");
     L.push(`title: "${SECTION_LABELS[s] ?? s}"`);
-    L.push('kind: index');
-    L.push('status: active');
+    L.push("kind: index");
+    L.push("status: active");
     L.push('description: "Section index."');
-    L.push('---');
-    L.push('');
+    L.push("---");
+    L.push("");
     L.push(`# ${SECTION_LABELS[s] ?? s}`);
-    L.push('');
-    L.push(BANNER('One row per document in this section.'));
-    L.push('');
+    L.push("");
+    L.push(BANNER("One row per document in this section."));
+    L.push("");
     L.push(`${inSection.length} documents.`);
-    L.push('');
+    L.push("");
     L.push(table(inSection.sort(cmp).map((r) => rowFor(r, target))));
-    outputs.set(target, L.join('\n'));
+    outputs.set(target, L.join("\n"));
   }
 }
 
@@ -284,40 +312,44 @@ const outputs = new Map(); // rel -> content
 // longer than the useful part of the page it points at, which is the other
 // reason the inventory here is deliberately smaller than docs/index.md.
 {
-  const target = 'llms.txt';
+  const target = "llms.txt";
   const raw = (rel) => `https://raw.githubusercontent.com/ness-e/Vantadb/main/${encodePath(rel)}`;
-  const listed = records.filter((r) => r.kind !== 'task');
+  const listed = records.filter((r) => r.kind !== "task");
   const L = [];
-  L.push('# VantaDB');
-  L.push('');
-  L.push('> VantaDB is an embedded persistent memory and hybrid retrieval engine for AI');
-  L.push('> agents. Rust core; Python, TypeScript/Node and WASM bindings; an HTTP API and');
-  L.push('> an MCP server. Published to crates.io, PyPI and npm.');
-  L.push('');
-  L.push('Every link below points to the raw Markdown source, not a rendered page. Read the');
-  L.push('page you need; do not read this file end to end. This index covers the');
-  L.push(`${listed.length} documentation pages; it deliberately omits the ${records.length - listed.length} task files,`);
-  L.push('which are work items rather than documentation. The full inventory of every file');
-  L.push('is in docs/index.md in the repository.');
-  L.push('');
-  L.push('## Start here');
-  L.push('');
-  for (const r of listed.filter((x) => x.kind === 'index' && x.rel.split('/').length <= 3)) {
-    L.push(`- [${r.title}](${raw(r.rel)})${r.desc ? ': ' + r.desc : ''}`);
+  L.push("# VantaDB");
+  L.push("");
+  L.push("> VantaDB is an embedded persistent memory and hybrid retrieval engine for AI");
+  L.push("> agents. Rust core; Python, TypeScript/Node and WASM bindings; an HTTP API and");
+  L.push("> an MCP server. Published to crates.io, PyPI and npm.");
+  L.push("");
+  L.push("Every link below points to the raw Markdown source, not a rendered page. Read the");
+  L.push("page you need; do not read this file end to end. This index covers the");
+  L.push(
+    `${listed.length} documentation pages; it deliberately omits the ${
+      records.length - listed.length
+    } task files,`,
+  );
+  L.push("which are work items rather than documentation. The full inventory of every file");
+  L.push("is in docs/index.md in the repository.");
+  L.push("");
+  L.push("## Start here");
+  L.push("");
+  for (const r of listed.filter((x) => x.kind === "index" && x.rel.split("/").length <= 3)) {
+    L.push(`- [${r.title}](${raw(r.rel)})${r.desc ? ": " + r.desc : ""}`);
   }
-  L.push('');
+  L.push("");
   for (const kind of byKindDesc) {
     const rows = listed.filter((r) => r.kind === kind).sort(cmp);
     if (!rows.length) continue;
     L.push(`## ${KIND_LABELS[kind] ?? kind}`);
-    L.push('');
+    L.push("");
     for (const r of rows) {
-      const d = (r.desc ?? '').replace(/\s+/g, ' ').trim();
-      L.push(`- [${r.title}](${raw(r.rel)})${d ? ': ' + d : ''}`);
+      const d = (r.desc ?? "").replace(/\s+/g, " ").trim();
+      L.push(`- [${r.title}](${raw(r.rel)})${d ? ": " + d : ""}`);
     }
-    L.push('');
+    L.push("");
   }
-  outputs.set(target, L.join('\n'));
+  outputs.set(target, L.join("\n"));
 }
 
 // --------------------------------------------------------------------- apply
@@ -335,7 +367,7 @@ if (WRITE) {
   for (const [rel, content] of outputs) {
     const cur = existsSync(abs(rel)) ? readDoc(rel) : null;
     if (cur === content) continue;
-    mkdirSync(join(abs(rel), '..'), { recursive: true });
+    mkdirSync(join(abs(rel), ".."), { recursive: true });
     writeDoc(rel, content);
   }
 }
@@ -375,20 +407,21 @@ if (JSON_OUT) {
     const first = stale[0];
     const cur = readDoc(first);
     const want = outputs.get(first);
-    const cl = cur.split('\n'), wl = want.split('\n');
+    const cl = cur.split("\n"),
+      wl = want.split("\n");
     let shown = 0;
     for (let i = 0; i < Math.max(cl.length, wl.length) && shown < 8; i++) {
       if (cl[i] !== wl[i]) {
         console.log(`  [${first}] line ${i + 1}:`);
-        console.log(`    committed: ${JSON.stringify((cl[i] ?? '').slice(0, 120))}`);
-        console.log(`    expected:  ${JSON.stringify((wl[i] ?? '').slice(0, 120))}`);
+        console.log(`    committed: ${JSON.stringify((cl[i] ?? "").slice(0, 120))}`);
+        console.log(`    expected:  ${JSON.stringify((wl[i] ?? "").slice(0, 120))}`);
         shown++;
       }
     }
   }
   if (CHECK && (written.length || stale.length)) {
-    console.log('\nCHECK FAILED: generated indexes are out of date.');
-    console.log('Fix with: node scripts/docs/gen-index.mjs --write');
+    console.log("\nCHECK FAILED: generated indexes are out of date.");
+    console.log("Fix with: node scripts/docs/gen-index.mjs --write");
   }
 }
 

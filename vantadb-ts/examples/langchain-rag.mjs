@@ -27,7 +27,7 @@ const rawDocs = [
 // Split into chunks
 const splitter = new CharacterTextSplitter({ chunkSize: 100, chunkOverlap: 20 });
 const splitDocs = await splitter.splitDocuments(
-  rawDocs.map((text) => new Document({ pageContent: text }))
+  rawDocs.map((text) => new Document({ pageContent: text })),
 );
 
 // Generate embeddings and store in VantaDB

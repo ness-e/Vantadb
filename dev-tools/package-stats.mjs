@@ -224,7 +224,9 @@ const npmSeries = async (name, days) => {
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - (days - 1));
   const fmt = (d) => d.toISOString().slice(0, 10);
-  const url = `https://api.npmjs.org/downloads/range/${fmt(start)}:${fmt(end)}/${encodeURIComponent(name)}`;
+  const url = `https://api.npmjs.org/downloads/range/${fmt(start)}:${fmt(end)}/${encodeURIComponent(
+    name,
+  )}`;
   const json = await fetchJson(url);
   return (json?.downloads ?? []).map((d) => ({ day: d.day, downloads: d.downloads }));
 };
@@ -260,7 +262,7 @@ async function collectNpm(pkg) {
     ...pkg,
     ecosystem: "npm",
     latest,
-    publishedAt: latest ? (packument.time?.[latest] ?? null) : null,
+    publishedAt: latest ? packument.time?.[latest] ?? null : null,
     createdAt: packument.time?.created ?? null,
     downloads: { day, week, month, year },
     series,
@@ -278,11 +280,16 @@ async function collectNpm(pkg) {
 async function collectPypi(pkg) {
   const meta = await fetchJson(`https://pypi.org/pypi/${encodeURIComponent(pkg.name)}/json`);
   if (!meta) throw new Error("no existe en PyPI");
-  const overall = await fetchJson(`https://pypistats.org/api/packages/${encodeURIComponent(pkg.name)}/overall`);
+  const overall = await fetchJson(
+    `https://pypistats.org/api/packages/${encodeURIComponent(pkg.name)}/overall`,
+  );
 
   const releases = Object.entries(meta.releases ?? {})
     .map(([version, files]) => {
-      const uploaded = files.map((f) => f.upload_time_iso_8601).filter(Boolean).sort();
+      const uploaded = files
+        .map((f) => f.upload_time_iso_8601)
+        .filter(Boolean)
+        .sort();
       const sizes = files.map((f) => f.size ?? 0).filter(Boolean);
       return {
         version,
@@ -360,11 +367,20 @@ function selfTest() {
   assert(wasm === expected, `vantadb-wasm version ${wasm} != workspace ${expected}`);
 
   // 3. Discovery finds the published packages of both ecosystems.
-  const npmNames = packages.filter((p) => p.ecosystem === "npm").map((p) => p.name).sort();
-  const pypiNames = packages.filter((p) => p.ecosystem === "pypi").map((p) => p.name).sort();
+  const npmNames = packages
+    .filter((p) => p.ecosystem === "npm")
+    .map((p) => p.name)
+    .sort();
+  const pypiNames = packages
+    .filter((p) => p.ecosystem === "pypi")
+    .map((p) => p.name)
+    .sort();
   assert(npmNames.includes("vantadb") && npmNames.includes("vantadb-node"), "npm discovery");
   assert(pypiNames.includes("vantadb-py"), "pypi discovery");
-  assert(new Set(packages.map((p) => `${p.ecosystem}:${p.name}`)).size === packages.length, "duplicate names");
+  assert(
+    new Set(packages.map((p) => `${p.ecosystem}:${p.name}`)).size === packages.length,
+    "duplicate names",
+  );
 
   // 4. Byte formatting.
   assert(bytes(1024) === "1.0 KB", `bytes(1024) = ${bytes(1024)}`);
@@ -424,7 +440,10 @@ const byDownloads = [...collected].sort(
 function ecosystemChart(pkgList, colorFor) {
   if (!pkgList.length) return "";
   // Common window: the last DAYS days of the newest date present.
-  const maxDay = pkgList.flatMap((p) => p.series.map((d) => d.day)).sort().at(-1);
+  const maxDay = pkgList
+    .flatMap((p) => p.series.map((d) => d.day))
+    .sort()
+    .at(-1);
   const cutoff = new Date(`${maxDay}T00:00:00Z`);
   cutoff.setUTCDate(cutoff.getUTCDate() - (DAYS - 1));
   const iso = cutoff.toISOString().slice(0, 10);
@@ -449,33 +468,52 @@ function ecosystemChart(pkgList, colorFor) {
   const x = (i) => padL + (days.length === 1 ? plotW / 2 : (i / (days.length - 1)) * plotW);
   const y = (v) => padT + plotH - (v / max) * plotH;
 
-  const line = totalsByDay.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const area = `${line} L${x(days.length - 1).toFixed(1)},${(padT + plotH).toFixed(1)} L${x(0).toFixed(1)},${(padT + plotH).toFixed(1)} Z`;
+  const line = totalsByDay
+    .map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
+    .join(" ");
+  const area = `${line} L${x(days.length - 1).toFixed(1)},${(padT + plotH).toFixed(1)} L${x(
+    0,
+  ).toFixed(1)},${(padT + plotH).toFixed(1)} Z`;
 
   const grid = [0, 0.25, 0.5, 0.75, 1]
     .map((f) => {
       const value = Math.round(max * f);
       const gy = y(value);
-      return `<line x1="${padL}" y1="${gy.toFixed(1)}" x2="${W - padR}" y2="${gy.toFixed(1)}" class="grid"/><text x="${padL - 8}" y="${(gy + 4).toFixed(1)}" class="axis" text-anchor="end">${nf(value)}</text>`;
+      return `<line x1="${padL}" y1="${gy.toFixed(1)}" x2="${W - padR}" y2="${gy.toFixed(
+        1,
+      )}" class="grid"/><text x="${padL - 8}" y="${(gy + 4).toFixed(
+        1,
+      )}" class="axis" text-anchor="end">${nf(value)}</text>`;
     })
     .join("");
 
   const ticks = [0, Math.floor((days.length - 1) / 2), days.length - 1]
-    .map((i) => `<text x="${x(i).toFixed(1)}" y="${H - 6}" class="axis" text-anchor="middle">${days[i]}</text>`)
+    .map(
+      (i) =>
+        `<text x="${x(i).toFixed(1)}" y="${H - 6}" class="axis" text-anchor="middle">${
+          days[i]
+        }</text>`,
+    )
     .join("");
 
   const points = totalsByDay
     .map(
       (v, i) =>
-        `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.4" class="dot"><title>${days[i]} — ${nf(v)} descargas</title></circle>`,
+        `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.4" class="dot"><title>${
+          days[i]
+        } — ${nf(v)} descargas</title></circle>`,
     )
     .join("");
 
   const legend = pkgList
     .map((p) => {
       const color = colorFor(p.name);
-      const value = windowed.find((w) => w.name === p.name)?.series.reduce((acc, d) => acc + d.downloads, 0) ?? 0;
-      return `<li><span class="chip" style="background:${color}"></span><span class="chip-name">${esc(p.name)}</span><span class="chip-val">${nf(value)}</span></li>`;
+      const value =
+        windowed.find((w) => w.name === p.name)?.series.reduce((acc, d) => acc + d.downloads, 0) ??
+        0;
+      return `<li><span class="chip" style="background:${color}"></span><span class="chip-name">${esc(
+        p.name,
+      )}</span><span class="chip-val">${nf(value)}</span></li>`;
     })
     .join("");
 
@@ -483,12 +521,18 @@ function ecosystemChart(pkgList, colorFor) {
     <div class="chart">
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Descargas diarias por paquete">
         <defs><linearGradient id="fill-${pkgList[0].ecosystem}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${ecosystemAccent[pkgList[0].ecosystem]}" stop-opacity="0.45"/>
-          <stop offset="100%" stop-color="${ecosystemAccent[pkgList[0].ecosystem]}" stop-opacity="0.03"/>
+          <stop offset="0%" stop-color="${
+            ecosystemAccent[pkgList[0].ecosystem]
+          }" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="${
+            ecosystemAccent[pkgList[0].ecosystem]
+          }" stop-opacity="0.03"/>
         </linearGradient></defs>
         ${grid}
         <path d="${area}" fill="url(#fill-${pkgList[0].ecosystem})"/>
-        <path d="${line}" fill="none" stroke="${ecosystemAccent[pkgList[0].ecosystem]}" stroke-width="2" stroke-linejoin="round"/>
+        <path d="${line}" fill="none" stroke="${
+          ecosystemAccent[pkgList[0].ecosystem]
+        }" stroke-width="2" stroke-linejoin="round"/>
         ${points}
         ${ticks}
       </svg>
@@ -507,7 +551,12 @@ function sparkline(series) {
   const bars = last30
     .map((d, i) => {
       const h = Math.max(1, (d.downloads / max) * H);
-      return `<rect x="${(i * barW).toFixed(2)}" y="${(H - h).toFixed(2)}" width="${Math.max(0.8, barW - 0.8).toFixed(2)}" height="${h.toFixed(2)}" rx="1"><title>${d.day} — ${nf(d.downloads)}</title></rect>`;
+      return `<rect x="${(i * barW).toFixed(2)}" y="${(H - h).toFixed(2)}" width="${Math.max(
+        0.8,
+        barW - 0.8,
+      ).toFixed(2)}" height="${h.toFixed(2)}" rx="1"><title>${d.day} — ${nf(
+        d.downloads,
+      )}</title></rect>`;
     })
     .join("");
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="Descargas 30 días">${bars}</svg>`;
@@ -519,7 +568,9 @@ const releaseTimeline = (pkg) => {
     .reverse()
     .map(
       (r) => `<tr${r.version === pkg.latest ? ' class="latest"' : ""}>
-        <td class="mono">${esc(r.version)}${r.yanked ? ' <span class="tag warn">yanked</span>' : ""}</td>
+        <td class="mono">${esc(r.version)}${
+          r.yanked ? ' <span class="tag warn">yanked</span>' : ""
+        }</td>
         <td>${dateOnly(r.date)}</td>
         <td class="num">${bytes(r.bytes)}</td>
         <td class="num">${r.files ?? "—"}</td>
@@ -541,22 +592,32 @@ const packageCard = (pkg, color) => {
     <header>
       <div>
         <h3>${esc(pkg.name)}</h3>
-        <p class="muted">${pkg.ecosystem === "npm" ? "npm" : "PyPI"}${pkg.note ? ` · ${esc(pkg.note)}` : ""}</p>
+        <p class="muted">${pkg.ecosystem === "npm" ? "npm" : "PyPI"}${
+          pkg.note ? ` · ${esc(pkg.note)}` : ""
+        }</p>
       </div>
       <div class="versions">
         ${pill}
-        <span class="mono muted">local ${esc(pkg.localVersion ?? "—")} · publicado ${esc(pkg.latest ?? "—")}</span>
+        <span class="mono muted">local ${esc(pkg.localVersion ?? "—")} · publicado ${esc(
+          pkg.latest ?? "—",
+        )}</span>
       </div>
     </header>
     <div class="stats">
       <div><span class="k">1 día</span><span class="v">${nf(pkg.downloads.day)}</span></div>
       <div><span class="k">7 días</span><span class="v">${nf(pkg.downloads.week)}</span></div>
       <div><span class="k">30 días</span><span class="v">${nf(pkg.downloads.month)}</span></div>
-      <div><span class="k">365 días</span><span class="v">${pkg.downloads.year === null ? "—" : nf(pkg.downloads.year)}</span></div>
+      <div><span class="k">365 días</span><span class="v">${
+        pkg.downloads.year === null ? "—" : nf(pkg.downloads.year)
+      }</span></div>
     </div>
     <div class="meta">
       <span>Publicado: ${dateOnly(pkg.publishedAt)}</span>
-      ${pkg.history?.from ? `<span>Histórico: ${dateOnly(pkg.history.from)} → ${dateOnly(pkg.history.to)}</span>` : ""}
+      ${
+        pkg.history?.from
+          ? `<span>Histórico: ${dateOnly(pkg.history.from)} → ${dateOnly(pkg.history.to)}</span>`
+          : ""
+      }
       <span>Tamaño: ${bytes(pkg.bytes)}</span>
       <span>${esc(pkg.license ?? "sin licencia")}</span>
       <span>${esc(pkg.requires ?? "")}</span>
@@ -570,17 +631,26 @@ const packageCard = (pkg, color) => {
 const now = new Date();
 const npmPkgs = byDownloads.filter((p) => p.ecosystem === "npm");
 const pypiPkgs = byDownloads.filter((p) => p.ecosystem === "pypi");
-const colorOf = (name) => SERIES_COLORS[npmPkgs.concat(pypiPkgs).findIndex((p) => p.name === name) % SERIES_COLORS.length];
+const colorOf = (name) =>
+  SERIES_COLORS[npmPkgs.concat(pypiPkgs).findIndex((p) => p.name === name) % SERIES_COLORS.length];
 
 const tableRows = byDownloads
   .map((p) => {
     const driftHere = p.localVersion && p.latest && p.localVersion !== p.latest;
     return `<tr>
-      <td><span class="chip" style="background:${colorOf(p.name)}"></span><span class="mono">${esc(p.name)}</span></td>
+      <td><span class="chip" style="background:${colorOf(p.name)}"></span><span class="mono">${esc(
+        p.name,
+      )}</span></td>
       <td class="muted">${p.ecosystem}</td>
       <td class="mono">${esc(p.localVersion ?? "—")}</td>
       <td class="mono">${esc(p.latest ?? "—")}</td>
-      <td>${!p.localVersion ? '<span class="pill">—</span>' : driftHere ? '<span class="pill warn">drift</span>' : '<span class="pill ok">ok</span>'}</td>
+      <td>${
+        !p.localVersion
+          ? '<span class="pill">—</span>'
+          : driftHere
+            ? '<span class="pill warn">drift</span>'
+            : '<span class="pill ok">ok</span>'
+      }</td>
       <td class="num">${nf(p.downloads.week)}</td>
       <td class="num">${nf(p.downloads.month)}</td>
       <td class="num">${p.downloads.year === null ? "—" : nf(p.downloads.year)}</td>
@@ -593,7 +663,10 @@ const tableRows = byDownloads
 
 const errorBlock = errors.length
   ? `<section class="section"><h2>Fallos de recogida</h2><ul class="errors">${errors
-      .map((e) => `<li><span class="mono">${esc(e.ecosystem)}/${esc(e.name)}</span> — ${esc(e.error)}</li>`)
+      .map(
+        (e) =>
+          `<li><span class="mono">${esc(e.ecosystem)}/${esc(e.name)}</span> — ${esc(e.error)}</li>`,
+      )
       .join("")}</ul></section>`
   : "";
 
@@ -680,16 +753,39 @@ const html = `<!DOCTYPE html>
 <div class="wrap">
   <header class="top">
     <h1>Estadísticas de paquetes · VantaDB</h1>
-    <p class="sub">Generado el ${now.toISOString().replace("T", " ").slice(0, 16)} UTC · ventana de serie ${DAYS} días · ${collected.length} paquetes en ${packages.length} manifiestos locales</p>
+    <p class="sub">Generado el ${now
+      .toISOString()
+      .replace("T", " ")
+      .slice(0, 16)} UTC · ventana de serie ${DAYS} días · ${collected.length} paquetes en ${
+      packages.length
+    } manifiestos locales</p>
   </header>
 
   <section class="kpis">
-    <div class="kpi"><span class="k">Descargas 7 días</span><span class="v">${nf(totals.npm.week + totals.pypi.week)}</span><span class="s">npm ${nf(totals.npm.week)} · PyPI ${nf(totals.pypi.week)}</span></div>
-    <div class="kpi"><span class="k">Descargas 30 días</span><span class="v">${nf(totals.npm.month + totals.pypi.month)}</span><span class="s">npm ${nf(totals.npm.month)} · PyPI ${nf(totals.pypi.month)}</span></div>
-    <div class="kpi"><span class="k">Descargas 365 días</span><span class="v">${nf(totals.npm.year + totals.pypi.year)}</span><span class="s">npm ${nf(totals.npm.year)} · PyPI ${nf(totals.pypi.year)} (histórico disponible)</span></div>
-    <div class="kpi"><span class="k">Paquetes</span><span class="v">${collected.length}</span><span class="s">${totals.npm.packages} npm · ${totals.pypi.packages} PyPI</span></div>
-    <div class="kpi"><span class="k">Drift de versión</span><span class="v">${drift.length}</span><span class="s">${drift.length ? drift.map((d) => esc(d.name)).join(", ") : "todo en línea"}</span></div>
-    <div class="kpi"><span class="k">Fallos</span><span class="v">${errors.length}</span><span class="s">${errors.length ? "ver sección de errores" : "sin errores"}</span></div>
+    <div class="kpi"><span class="k">Descargas 7 días</span><span class="v">${nf(
+      totals.npm.week + totals.pypi.week,
+    )}</span><span class="s">npm ${nf(totals.npm.week)} · PyPI ${nf(totals.pypi.week)}</span></div>
+    <div class="kpi"><span class="k">Descargas 30 días</span><span class="v">${nf(
+      totals.npm.month + totals.pypi.month,
+    )}</span><span class="s">npm ${nf(totals.npm.month)} · PyPI ${nf(
+      totals.pypi.month,
+    )}</span></div>
+    <div class="kpi"><span class="k">Descargas 365 días</span><span class="v">${nf(
+      totals.npm.year + totals.pypi.year,
+    )}</span><span class="s">npm ${nf(totals.npm.year)} · PyPI ${nf(
+      totals.pypi.year,
+    )} (histórico disponible)</span></div>
+    <div class="kpi"><span class="k">Paquetes</span><span class="v">${
+      collected.length
+    }</span><span class="s">${totals.npm.packages} npm · ${totals.pypi.packages} PyPI</span></div>
+    <div class="kpi"><span class="k">Drift de versión</span><span class="v">${
+      drift.length
+    }</span><span class="s">${
+      drift.length ? drift.map((d) => esc(d.name)).join(", ") : "todo en línea"
+    }</span></div>
+    <div class="kpi"><span class="k">Fallos</span><span class="v">${
+      errors.length
+    }</span><span class="s">${errors.length ? "ver sección de errores" : "sin errores"}</span></div>
   </section>
 
   <section class="section">
@@ -743,14 +839,20 @@ const jsonPath = path.join(OUT_DIR, "package-stats.json");
 writeFileSync(htmlPath, html, "utf8");
 writeFileSync(
   jsonPath,
-  JSON.stringify({ generatedAt: now.toISOString(), days: DAYS, totals, drift, errors, packages: collected }, null, 2),
+  JSON.stringify(
+    { generatedAt: now.toISOString(), days: DAYS, totals, drift, errors, packages: collected },
+    null,
+    2,
+  ),
   "utf8",
 );
 
 console.log(`\n  HTML  -> ${htmlPath}`);
 console.log(`  JSON  -> ${jsonPath}`);
 console.log(
-  `  ${collected.length} paquetes · ${nf(totals.npm.week + totals.pypi.week)} descargas/7d · ${drift.length} drift · ${errors.length} fallos`,
+  `  ${collected.length} paquetes · ${nf(totals.npm.week + totals.pypi.week)} descargas/7d · ${
+    drift.length
+  } drift · ${errors.length} fallos`,
 );
 
 if (OPEN) {

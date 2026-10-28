@@ -16,13 +16,7 @@
     "rule": "first N non-abstention + first M abstention questions in dataset order; output = non-abs then abs",
     "nonabs": 4,
     "abs": 1,
-    "question_ids": [
-      "e47becba",
-      "118b2229",
-      "51a45a95",
-      "58bf7951",
-      "0862e8bf_abs"
-    ]
+    "question_ids": ["e47becba", "118b2229", "51a45a95", "58bf7951", "0862e8bf_abs"]
   },
   "note": "Questions are object-identical to the source split (deep-equal, no field edits, no truncation). Not comparable with published LongMemEval-S leaderboard numbers at this sample size; use the full split (--nonabs 470 --abs 30 or the raw file) for reporting."
 }

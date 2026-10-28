@@ -17,9 +17,7 @@ import type {
  * other number → Float, null → Null. Already-tagged values pass through
  * untouched (backward compat).
  */
-export function normalizeMetadata(
-  m?: MetadataInput | null,
-): Metadata | undefined {
+export function normalizeMetadata(m?: MetadataInput | null): Metadata | undefined {
   if (m === undefined || m === null) return undefined;
   const out: Record<string, Value> = {};
   for (const [k, v] of Object.entries(m)) {
@@ -36,9 +34,7 @@ export interface NormalizedFilterItem {
 }
 
 /** Same normalization for AND-combined filter items (returns wire-ready values). */
-export function normalizeFilterItems(
-  items: FilterItem[],
-): NormalizedFilterItem[] {
+export function normalizeFilterItems(items: FilterItem[]): NormalizedFilterItem[] {
   return items.map((item) => ({
     field: item.field,
     op: item.op,
@@ -73,11 +69,7 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
       }
       return { String: payload };
     case "Int":
-      if (
-        typeof payload !== "number" ||
-        !Number.isFinite(payload) ||
-        !Number.isInteger(payload)
-      ) {
+      if (typeof payload !== "number" || !Number.isFinite(payload) || !Number.isInteger(payload)) {
         throw new DbError(
           ERROR_CODES.VALIDATION_ERROR,
           "normalizeValue: { Int } payload must be a finite integer",
@@ -117,10 +109,7 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
       }
       return { Null: null };
     case "ListString":
-      if (
-        !Array.isArray(payload) ||
-        !payload.every((e: unknown) => typeof e === "string")
-      ) {
+      if (!Array.isArray(payload) || !payload.every((e: unknown) => typeof e === "string")) {
         throw new DbError(
           ERROR_CODES.VALIDATION_ERROR,
           "normalizeValue: { ListString } payload must be a string[]",
@@ -131,10 +120,7 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
       if (
         !Array.isArray(payload) ||
         !payload.every(
-          (e: unknown) =>
-            typeof e === "number" &&
-            Number.isFinite(e) &&
-            Number.isInteger(e),
+          (e: unknown) => typeof e === "number" && Number.isFinite(e) && Number.isInteger(e),
         )
       ) {
         throw new DbError(
@@ -146,9 +132,7 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
     case "ListFloat":
       if (
         !Array.isArray(payload) ||
-        !payload.every(
-          (e: unknown) => typeof e === "number" && Number.isFinite(e),
-        )
+        !payload.every((e: unknown) => typeof e === "number" && Number.isFinite(e))
       ) {
         throw new DbError(
           ERROR_CODES.VALIDATION_ERROR,
@@ -157,10 +141,7 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
       }
       return { ListFloat: payload as number[] };
     case "ListBool":
-      if (
-        !Array.isArray(payload) ||
-        !payload.every((e: unknown) => typeof e === "boolean")
-      ) {
+      if (!Array.isArray(payload) || !payload.every((e: unknown) => typeof e === "boolean")) {
         throw new DbError(
           ERROR_CODES.VALIDATION_ERROR,
           "normalizeValue: { ListBool } payload must be a boolean[]",
@@ -168,10 +149,7 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
       }
       return { ListBool: payload as boolean[] };
     case "ListDateTime":
-      if (
-        !Array.isArray(payload) ||
-        !payload.every((e: unknown) => typeof e === "string")
-      ) {
+      if (!Array.isArray(payload) || !payload.every((e: unknown) => typeof e === "string")) {
         throw new DbError(
           ERROR_CODES.VALIDATION_ERROR,
           "normalizeValue: { ListDateTime } payload must be an RFC 3339 string[]",
@@ -192,10 +170,7 @@ export function normalizeValue(v: unknown): Value {
     // py↔js parity: Python accepts `datetime` objects; JS accepts `Date`
     // instances (wire form is the RFC 3339 tagged `DateTime`).
     if (Number.isNaN(v.getTime())) {
-      throw new DbError(
-        ERROR_CODES.VALIDATION_ERROR,
-        "normalizeValue: Date must be a valid date",
-      );
+      throw new DbError(ERROR_CODES.VALIDATION_ERROR, "normalizeValue: Date must be a valid date");
     }
     return { DateTime: v.toISOString() };
   }
@@ -206,10 +181,7 @@ export function normalizeValue(v: unknown): Value {
       return { Bool: v };
     case "number":
       if (!Number.isFinite(v)) {
-        throw new DbError(
-          ERROR_CODES.VALIDATION_ERROR,
-          "normalizeValue: number must be finite",
-        );
+        throw new DbError(ERROR_CODES.VALIDATION_ERROR, "normalizeValue: number must be finite");
       }
       return Number.isInteger(v) ? { Int: v } : { Float: v };
     default: {

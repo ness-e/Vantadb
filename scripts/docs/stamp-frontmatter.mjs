@@ -29,30 +29,47 @@
 //   node scripts/docs/stamp-frontmatter.mjs --json
 
 import {
-  listDocs, parseFrontmatter, serialiseFrontmatter, deriveKind, firstH1, firstProseLine,
-  readDoc, writeDoc, isArchive,
-} from './lib.mjs';
+  listDocs,
+  parseFrontmatter,
+  serialiseFrontmatter,
+  deriveKind,
+  firstH1,
+  firstProseLine,
+  readDoc,
+  writeDoc,
+  isArchive,
+} from "./lib.mjs";
 
-const WRITE = process.argv.includes('--write');
-const PRUNE = process.argv.includes('--prune');
-const FIX_KIND = process.argv.includes('--fix-kind');
-const REFRESH_DESCRIPTION = process.argv.includes('--refresh-description');
-const JSON_OUT = process.argv.includes('--json');
+const WRITE = process.argv.includes("--write");
+const PRUNE = process.argv.includes("--prune");
+const FIX_KIND = process.argv.includes("--fix-kind");
+const REFRESH_DESCRIPTION = process.argv.includes("--refresh-description");
+const JSON_OUT = process.argv.includes("--json");
 const ONLY = (() => {
-  const i = process.argv.indexOf('--only');
+  const i = process.argv.indexOf("--only");
   return i !== -1 ? process.argv[i + 1] : null;
 })();
 
 // Keys the 2026-09-28 schema retired. Reported always; removed only with --prune.
-const RETIRED = ['type', 'last_reviewed', 'related', 'language', 'cssclasses', 'guid', 'up', 'breadcrumb', 'icon'];
+const RETIRED = [
+  "type",
+  "last_reviewed",
+  "related",
+  "language",
+  "cssclasses",
+  "guid",
+  "up",
+  "breadcrumb",
+  "icon",
+];
 
 /** Truncate on a word boundary so a clipped value never ends mid-word. */
 function clip(s, max) {
   const t = String(s).trim();
   if (t.length <= max) return t;
   const head = t.slice(0, max - 3);
-  const cut = head.lastIndexOf(' ');
-  return (cut > max * 0.6 ? head.slice(0, cut) : head).replace(/[.,;:)\]]+$/, '') + '...';
+  const cut = head.lastIndexOf(" ");
+  return (cut > max * 0.6 ? head.slice(0, cut) : head).replace(/[.,;:)\]]+$/, "") + "...";
 }
 
 /**
@@ -64,11 +81,11 @@ function clip(s, max) {
  */
 function normaliseTag(t) {
   return String(t)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')      // strip combining accents
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // strip combining accents
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')          // underscores, spaces, dots, anything else
-    .replace(/^-+|-+$/g, '')
+    .replace(/[^a-z0-9]+/g, "-") // underscores, spaces, dots, anything else
+    .replace(/^-+|-+$/g, "")
     .slice(0, 40);
 }
 
@@ -101,7 +118,7 @@ for (const rel of docs) {
   // the schema it is stamped under is the script's bug, not a gate finding.
   if (!next.title) {
     const h1 = firstH1(fm.body);
-    const fromName = rel.split('/').pop().replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
+    const fromName = rel.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ");
     next.title = clip(h1 ?? fromName, 120);
     changed = true;
   } else if (String(next.title).length > 120) {
@@ -119,7 +136,7 @@ for (const rel of docs) {
 
   // status: archived is a fact about the path
   if (isArchive(rel) && !next.status) {
-    next.status = 'archived';
+    next.status = "archived";
     changed = true;
   }
 
@@ -129,12 +146,12 @@ for (const rel of docs) {
     const prose = firstProseLine(fm.body);
     if (prose) {
       const flat = prose
-        .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // [HNSW](../x.md) -> HNSW
-        .replace(/^\s*["'`*_]+/, '')                // stray quote or emphasis left by the source line
-        .replace(/[*`_]/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1") // [HNSW](../x.md) -> HNSW
+        .replace(/^\s*["'`*_]+/, "") // stray quote or emphasis left by the source line
+        .replace(/[*`_]/g, "")
+        .replace(/\s+/g, " ")
         .trim()
-        .replace(/[.:;]+$/, '');
+        .replace(/[.:;]+$/, "");
       if (flat.length > 3) {
         next.description = clip(flat, 240);
         changed = true;
@@ -171,7 +188,7 @@ for (const rel of docs) {
     continue;
   }
 
-  const rebuilt = serialiseFrontmatter(next) + '\n' + fm.body.replace(/^\n+/, '');
+  const rebuilt = serialiseFrontmatter(next) + "\n" + fm.body.replace(/^\n+/, "");
   if (rebuilt === text) {
     report.unchanged++;
     continue;
@@ -188,7 +205,7 @@ if (WRITE) for (const [rel, text] of edits) writeDoc(rel, text);
 if (JSON_OUT) {
   console.log(JSON.stringify({ ...report, files: report.files.length }, null, 2));
 } else {
-  const mode = WRITE ? 'APPLIED' : 'DRY RUN';
+  const mode = WRITE ? "APPLIED" : "DRY RUN";
   console.log(`[${mode}] scanned        : ${report.scanned}`);
   console.log(`[${mode}] frontmatter added (was absent) : ${report.stamped}`);
   console.log(`[${mode}] frontmatter completed          : ${report.updated}`);
@@ -197,12 +214,14 @@ if (JSON_OUT) {
 
   const rf = Object.entries(report.retiredFound);
   if (rf.length) {
-    console.log(`\nRETIRED KEYS FOUND ${PRUNE ? '(removed)' : '(not removed — pass --prune)'}: ` +
-      rf.map(([k, v]) => `${k}=${v}`).join(', '));
+    console.log(
+      `\nRETIRED KEYS FOUND ${PRUNE ? "(removed)" : "(not removed — pass --prune)"}: ` +
+        rf.map(([k, v]) => `${k}=${v}`).join(", "),
+    );
     if (!PRUNE) {
-      console.log('  Rationale: type was never a taxonomy; last_reviewed is a self-reported');
-      console.log('  date, not a measurement (freshness comes from git); related was a');
-      console.log('  hand-maintained backlink list that gen-index.mjs now generates.');
+      console.log("  Rationale: type was never a taxonomy; last_reviewed is a self-reported");
+      console.log("  date, not a measurement (freshness comes from git); related was a");
+      console.log("  hand-maintained backlink list that gen-index.mjs now generates.");
     }
   }
   if (!WRITE && report.files.length) {

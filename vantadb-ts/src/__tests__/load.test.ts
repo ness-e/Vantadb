@@ -22,7 +22,7 @@ describe("Client Load Tests", () => {
           key: `k${i}`,
           payload: `v${i}`,
           vector: [i % 10, 0, 0, 0],
-        })
+        }),
       );
     }
     // Act (bulk único).
@@ -121,7 +121,7 @@ describe("Client Load Tests", () => {
           key: `mk${i}`,
           payload: `mv${i}`,
           vector: [i % 5, 0, 0, 0],
-        })
+        }),
       );
     }
     // Act (bulk único).

@@ -88,12 +88,9 @@ describe("vantadb-node graph + explain (native backend)", () => {
       expect(root!.out_degree).toBe(2);
 
       // Filtered traversal: a non-matching label id blocks edge traversal
-      const filteredNone = await db.graphFilteredTraversal(
-        ["900"],
-        5,
-        "Forward",
-        { labels: [999999] },
-      );
+      const filteredNone = await db.graphFilteredTraversal(["900"], 5, "Forward", {
+        labels: [999999],
+      });
       expect(filteredNone).toEqual(["900"]);
 
       // No filter (null) behaves like graphBfs
@@ -162,15 +159,9 @@ describe("vantadb-node graph + explain (native backend)", () => {
     const db = await connect();
     try {
       await db.insertNode({ id: "7", content: "n" });
-      await expect(db.graphBfs(["7"], 5, "Diagonal")).rejects.toThrow(
-        /invalid direction/,
-      );
-      await expect(db.graphBfs(["abc"], 5, "Forward")).rejects.toThrow(
-        /invalid node id/,
-      );
-      await expect(db.insertNode({ id: "-1", content: "x" })).rejects.toThrow(
-        /invalid node id/,
-      );
+      await expect(db.graphBfs(["7"], 5, "Diagonal")).rejects.toThrow(/invalid direction/);
+      await expect(db.graphBfs(["abc"], 5, "Forward")).rejects.toThrow(/invalid node id/);
+      await expect(db.insertNode({ id: "-1", content: "x" })).rejects.toThrow(/invalid node id/);
       await expect(db.insertNode({ content: "missing id" })).rejects.toThrow(
         /missing required field `id`/,
       );

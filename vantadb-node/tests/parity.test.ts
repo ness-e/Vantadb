@@ -64,7 +64,13 @@ describe("cross-language conformance — Node producer (DIST-17)", () => {
       const search = hits.map((hit) => ({ id: String(hit.record.node_id), score: hit.score }));
 
       for (const edge of scenario.graph.edges) {
-        await db.addEdge(ids[edge.source_key], ids[edge.target_key], edge.label, undefined, undefined);
+        await db.addEdge(
+          ids[edge.source_key],
+          ids[edge.target_key],
+          edge.label,
+          undefined,
+          undefined,
+        );
       }
       const bfs = await db.graphBfs(
         [ids[scenario.graph.root_key]],
