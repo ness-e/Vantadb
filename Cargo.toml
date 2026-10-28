@@ -88,11 +88,11 @@ fjall = { version = "3.1", optional = true }
 # ── Async + Integrations + Server ──
 crc32c = "0.5"
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls"], optional = true }
-ort = { version = "=2.0.0-rc.13", optional = true, features = ["load-dynamic"] }
+ort = { version = "=2.0.0-rc.15", optional = true, features = ["load-dynamic"] }
 tokenizers = { version = "0.23", optional = true }
 serde_json = "1.0"
 prometheus = { version = "0.14", optional = true }
-pyo3 = { version = "0.29", features = ["extension-module", "chrono"], optional = true }
+pyo3 = { version = "0.30", features = ["extension-module", "chrono"], optional = true }
 wide = ">=1.2, <2"
 sysinfo = { version = "0.39", optional = true }
 memmap2 = { version = "0.9", optional = true }
@@ -116,7 +116,7 @@ indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
-toml = { version = "0.8", optional = true }
+toml = { version = "1", optional = true }
 # ERR-CORE-02: anyhow es SOLO para los bins (src/bin/*), nunca para src/lib.
 # Gated tras `cli` (vanta-cli required-features=["cli"]) para no gravar a los
 # consumidores de la librería.
