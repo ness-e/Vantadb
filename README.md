@@ -53,7 +53,7 @@ VantaDB is a local-first, embedded memory engine for AI agents. **One product, f
 | Read the FAQ | [FAQ](docs/user/FAQ.md) |
 | Read architecture docs | [Documentation](#documentation) |
 | Contribute safely | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
-| Report a vulnerability | [SECURITY.md](SECURITY.md) |
+| Report a vulnerability | [SECURITY.md](.github/SECURITY.md) |
 
 ---
 

@@ -50,7 +50,7 @@ VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de 
 | Leer las FAQ | [FAQ](docs/user/FAQ.md) |
 | Leer la documentación de arquitectura | [Documentación](#documentación) |
 | Contribuir de forma segura | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
-| Reportar una vulnerabilidad | [SECURITY.md](SECURITY.md) |
+| Reportar una vulnerabilidad | [SECURITY.md](.github/SECURITY.md) |
 
 ---
 
