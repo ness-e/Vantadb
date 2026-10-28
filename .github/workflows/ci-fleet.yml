@@ -145,6 +145,7 @@ jobs:
         # which PowerShell (windows-latest default) cannot parse.
         shell: bash
         run: |
+          # shellcheck disable=SC2012 # Safe for generated wheel names
           wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
           python -m pip install --upgrade pip
           python -m pip install "$wheel"
@@ -434,8 +435,8 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           python -m venv .venv
-          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Create virtualenv (Windows)
         if: runner.os == 'Windows'

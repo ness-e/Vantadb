@@ -418,12 +418,14 @@ jobs:
         if: always()
         continue-on-error: true # CATEGORY: INFORMATIONAL
         run: |
-          echo "## canonical_p99 (informational)" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Baseline: docs/user/operations/BENCHMARKS.md §11 (consumo guard) + §1." >> "$GITHUB_STEP_SUMMARY"
-          echo "Regression policy: p99 >10% vs baseline needs ADR-or-revert - evaluated here, never enforced (Q5)." >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          grep -E "canonical_p99 search" canonical_p99_results.txt >> "$GITHUB_STEP_SUMMARY" || echo "(p50/p95/p99 line not found - see artifact)" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## canonical_p99 (informational)"
+            echo ""
+            echo "Baseline: docs/user/operations/BENCHMARKS.md §11 (consumo guard) + §1."
+            echo "Regression policy: p99 >10% vs baseline needs ADR-or-revert - evaluated here, never enforced (Q5)."
+            echo ""
+            grep -E "canonical_p99 search" canonical_p99_results.txt || echo "(p50/p95/p99 line not found - see artifact)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Extract criterion estimates
         if: always()

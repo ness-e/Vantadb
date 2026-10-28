@@ -8,7 +8,16 @@ echo "Compiling benchmark (no-run) unlimited memory..."
 export CI=true
 cargo bench --bench high_density --no-run
 
-BENCH_BIN=$(ls -t target/release/deps/high_density-* | grep -v '\.d' | grep -v '\.pdb' | grep -v '\.rmeta' | head -n 1)
+BENCH_BIN=""
+for f in target/release/deps/high_density-*; do
+    [ -e "$f" ] || continue
+    case "$f" in
+        *.d | *.pdb | *.rmeta) continue ;;
+    esac
+    if [ -z "$BENCH_BIN" ] || [ "$f" -nt "$BENCH_BIN" ]; then
+        BENCH_BIN="$f"
+    fi
+done
 
 echo "Benchmark compiled successfully: $BENCH_BIN"
 

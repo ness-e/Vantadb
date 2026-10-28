@@ -1,2 +1,5 @@
-# ShellCheck configuration for GitHub Actions scripts
-disable=SC2012,SC2086,SC2129,SC2044
+# ShellCheck configuration for this repo.
+# Policy: NO global disables. Every suppression must be inline
+# (`# shellcheck disable=SCxxxx # reason`) at the exact line, so each
+# exception stays visible, justified, and greppable. CI (actionlint)
+# honours the same inline directives for embedded workflow scripts.

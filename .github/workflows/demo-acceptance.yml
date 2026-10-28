@@ -138,6 +138,7 @@ jobs:
         # job today, same recipe as ci-examples.yml.
         shell: bash
         run: |
+          # shellcheck disable=SC2012 # Safe for generated wheel names
           wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
           python -m pip install --upgrade pip
           python -m pip install "$wheel"

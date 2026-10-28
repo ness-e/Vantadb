@@ -93,9 +93,10 @@ jobs:
         with:
           node-version: 22
       - name: Check frontmatter required fields
+        shell: bash
         run: |
           PASS=true
-          for f in $(find docs -name "*.md"); do
+          while IFS= read -r -d '' f; do
             if head -1 "$f" | grep -q "^---$"; then
               title=$(sed -n '/^---$/,/^---$/p' "$f" | grep -i "^title:" | head -1)
               if [ -z "$title" ]; then
@@ -103,7 +104,7 @@ jobs:
                 PASS=false
               fi
             fi
-          done
+          done < <(find docs -name '*.md' -print0)
           if [ "$PASS" != "true" ]; then exit 1; fi
           echo "All documents have valid frontmatter."
   check-api-version:
@@ -440,6 +441,7 @@ jobs:
         # default shell cannot parse. Same pattern as ci-examples.yml.
         shell: bash
         run: |
+          # shellcheck disable=SC2012 # Safe for generated wheel names
           wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
           python -m pip install --upgrade pip
           python -m pip install "$wheel"
@@ -560,11 +562,13 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "## Rustdoc Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- Workflow: ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Ref: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Artifact: api-reference-rust.tar.gz (30-day retention)" >> $GITHUB_STEP_SUMMARY
-          echo "- Command: cargo doc --no-deps --workspace --all-features --document-private-items" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Rustdoc Build Summary"
+            echo "- Workflow: ${{ github.workflow }}"
+            echo "- Ref: ${{ github.ref }}"
+            echo "- Artifact: api-reference-rust.tar.gz (30-day retention)"
+            echo "- Command: cargo doc --no-deps --workspace --all-features --document-private-items"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # DOCS-F2 (2026-10-04): los ejemplos de la documentación nunca se ejecutaban
   # en CI. `cargo doc` construye el artefacto y valida links, pero los doctests
@@ -627,11 +631,11 @@ jobs:
 
       - name: Lint workflows
         run: |
-          /tmp/actionlint -color -ignore 'shellcheck reported issue in this script: (SC2012|SC2086|SC2129|SC2044)'
+          /tmp/actionlint -color
 
       - name: Workflow inventory gate (count vs CI_POLICY.md)
         run: |
           expected=$(grep -oP '\*\*\K[0-9]+(?= active workflow files)' docs/dev/operations/CI_POLICY.md)
-          actual=$(ls .github/workflows/*.yml | wc -l)
+          actual=$(find .github/workflows -maxdepth 1 -name '*.yml' | wc -l)
           echo "workflows: $actual (CI_POLICY.md: $expected)"
           test "$actual" = "$expected"
