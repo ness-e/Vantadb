@@ -224,7 +224,7 @@ pub struct VantaHarness {
 }
 
 impl VantaHarness {
-    const REPORT_FILE: &'static str = "vanta_certification.json";
+    const REPORT_FILE: &'static str = "metricas/certificacion/vanta_certification.json";
     const REPORT_FILE_ENV: &'static str = "VANTA_CERT_REPORT";
 
     pub fn new(test_name: &str) -> Self {
@@ -358,6 +358,12 @@ impl VantaHarness {
     fn log_metric(&self, metric: TestMetric) {
         let report_file =
             std::env::var(Self::REPORT_FILE_ENV).unwrap_or_else(|_| Self::REPORT_FILE.to_string());
+
+        // Landing zone metricas/: crear el directorio si no existe.
+        // Igual que el resto de la funcion, un fallo aqui no debe romper el test.
+        if let Some(parent) = std::path::Path::new(&report_file).parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
 
         let mut file = match OpenOptions::new()
             .read(true)

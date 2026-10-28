@@ -327,6 +327,10 @@ $env:VANTA_CERT_REPORT="target/memory_telemetry.json"
 cargo test --test memory_telemetry -- --nocapture
 ```
 
+> Convención de landing zone: por defecto los harnesses escriben en
+> `metricas/<area>/` (ver `metricas/README.md`); `VANTA_CERT_REPORT` solo
+> overridea para corridas ad-hoc.
+
 This validates that RSS memory does not leak and that MMap pages are released
 correctly when the index is flushed to disk.
 

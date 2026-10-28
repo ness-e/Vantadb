@@ -147,8 +147,10 @@ build_logs/
 validation_logs/
 # traces runtime raiz (campanas)
 traces/
-# sin / inicial: aplica a cualquier nivel
-vanta_certification.json
+# Landing zone de metricas (ver metricas/README.md): todo artefacto generado
+# de medicion va ahi. Solo el indice se trackea.
+metricas/*
+!metricas/README.md
 vanta_benchmark_report.json
 benchmarks/embed_bench_report*.json
 benchmarks/vanta_benchmark_report.json
