@@ -43,6 +43,7 @@ from .vantadb_py import (
     Vector,
     __version__,
     connect,
+    memory_node_id,
 )
 
 # AST-010: rename nativo completo (vector.rs `Vector`, convert.rs `Error`).
@@ -71,6 +72,7 @@ __all__ = [
     "__version__",
     "connect",
     "error_to_dict",
+    "memory_node_id",
 ]
 
 

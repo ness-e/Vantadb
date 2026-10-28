@@ -31,6 +31,7 @@ from .vantadb_py import (
     Vector,
     __version__,
     connect,
+    memory_node_id,
 )
 
 # AST-010: rename nativo completo — sin puentes legacy.
@@ -57,6 +58,7 @@ __all__ = [
     "__version__",
     "connect",
     "error_to_dict",
+    "memory_node_id",
 ]
 
 def error_to_dict(exc: BaseException) -> dict[str, Any]:
