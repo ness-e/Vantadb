@@ -41,6 +41,41 @@ else
     fi
 fi
 
+# verify_staged: fast multi-area gate (touched members/standalone/skills).
+# The yaml covers core (-p vantadb), ruff, prettier, docs markdownlint.
+# NOTE (Windows/Git Bash): powershell.exe cannot read /mnt-style paths —
+# convert once via cygpath (buffered in WIN_PS1).
+# Native Windows PowerShells need a Windows path even when called from
+# Git Bash/WSL (/c/... or /mnt/c/...). Pure-POSIX conversion, no deps.
+winpath() {
+    case "$1" in
+        /mnt/[a-zA-Z]/*) p=$(echo "$1" | cut -c6-); d=$(echo "$p" | cut -c1 | tr 'a-z' 'A-Z'); r=$(echo "$p" | cut -c3- | tr '/' '\'); printf '%s:%s' "$d" "\\$r" ;;
+        /[a-zA-Z]/*) d=$(echo "$1" | cut -c2 | tr 'a-z' 'A-Z'); r=$(echo "$1" | cut -c3- | tr '/' '\'); printf '%s:%s' "$d" "\\$r" ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+if [ "$FAILED" -eq 0 ]; then
+    STAGED_PS1_WIN="$(winpath "$REPO_ROOT/dev-tools/verify_staged.ps1")"
+    if command -v pwsh >/dev/null 2>&1; then
+        if pwsh -NoProfile -File "$STAGED_PS1_WIN"; then
+            echo "pre-commit: staged-area gate passed."
+        else
+            FAILED=1
+        fi
+    elif command -v powershell.exe >/dev/null 2>&1; then
+        if command -v cygpath >/dev/null 2>&1; then
+            STAGED_PS1="$(cygpath -w "$STAGED_PS1")"
+        fi
+        if powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$STAGED_PS1_WIN"; then
+            echo "pre-commit: staged-area gate passed."
+        else
+            FAILED=1
+        fi
+    else
+        echo "pre-commit: no PowerShell, skipping staged-area gate (yaml gates still ran)."
+    fi
+fi
+
 # actionlint (GitHub Actions YAML, solo si está instalado — condicional heredado)
 if command -v actionlint >/dev/null 2>&1; then
     echo "pre-commit: running actionlint..."

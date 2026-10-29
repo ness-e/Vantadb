@@ -75,7 +75,9 @@ env:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
+  # Heavies de schedule llevan override cancel:false en su propio bloque
+  # (un push no debe matar una cert de horas ya en curso).
 
 jobs:
   ci-gate:
@@ -84,14 +86,15 @@ jobs:
     uses: ./.github/workflows/ci-gate.yml
     permissions:
       checks: read
-    with:
-      event_name: ${{ github.event_name }}
 
   failpoint-tests:
     name: "Nightly: failpoint_injections"
     # CI-08: schedule/dispatch only — never on PR (see header).
     if: github.event_name != 'pull_request'
     needs: ci-gate
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -113,6 +116,9 @@ jobs:
     # CI-08: schedule/dispatch only — never on PR (see header).
     if: github.event_name != 'pull_request'
     needs: ci-gate
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -150,6 +156,9 @@ jobs:
     # CI-08: schedule/dispatch only — never on PR (see header).
     if: github.event_name != 'pull_request'
     needs: ci-gate
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -166,6 +175,9 @@ jobs:
     # CI-08: schedule/dispatch only — never on PR (see header).
     if: github.event_name != 'pull_request'
     needs: ci-gate
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -182,6 +194,9 @@ jobs:
     # CI-08: schedule/dispatch only — never on PR (see header).
     if: github.event_name != 'pull_request'
     needs: ci-gate
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -198,6 +213,9 @@ jobs:
     # CI-08: schedule/dispatch only — never on PR (see header).
     if: github.event_name != 'pull_request'
     needs: ci-gate
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -219,7 +237,7 @@ jobs:
         run: pwsh -NoProfile -File dev-tools/coverage-budget.ps1
       - name: Upload coverage report JSON
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-report
           path: target/coverage-report.json
@@ -230,6 +248,9 @@ jobs:
     # CI-08: schedule/dispatch only — never on PR (see header).
     if: github.event_name != 'pull_request'
     needs: ci-gate
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -270,8 +291,8 @@ jobs:
         # CATEGORY: INFORMATIONAL
         continue-on-error: true # CATEGORY: INFORMATIONAL
         run: |
-          cargo install cargo-modules --version 0.27.0
-          cargo install cargo-coupling --version 0.4.0
+          cargo install cargo-modules --version 0.27.0 --locked
+          cargo install cargo-coupling --version 0.4.0 --locked
 
       - name: ADP acyclic check (-p vantadb --lib, default features)
         # CATEGORY: INFORMATIONAL
@@ -292,7 +313,7 @@ jobs:
       - name: Upload reports
         # CATEGORY: INFORMATIONAL
         continue-on-error: true # CATEGORY: INFORMATIONAL
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: arch-metrics
           path: |
@@ -322,8 +343,21 @@ jobs:
           swap-mb: 6144
           free-disk: true
 
+      - name: Perf-path gate (skip unless perf sources changed)
+        id: perf
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1 2>/dev/null || true
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -Eq '^(src/index/|src/storage/|benches/canonical_p99|benchmarks/)'; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Perf sources untouched — skipping toolchain compile, keeping fast signals."
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compile canonical_p99 in release (no run)
         id: compile
+        if: steps.perf.outputs.hit != 'false'
         continue-on-error: true # CATEGORY: INFORMATIONAL
         run: cargo bench -p vantadb --bench canonical_p99 --no-run 2>&1 | tee toolchain-check.log
 
@@ -373,7 +407,7 @@ jobs:
       - name: Upload toolchain log
         if: always()
         continue-on-error: true # CATEGORY: INFORMATIONAL
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-p99-toolchain-check
           path: toolchain-check.log
@@ -389,7 +423,8 @@ jobs:
     name: Run canonical_p99 vs baseline (informational)
     # CI-08: PR/dispatch only — never on the daily schedule (see header).
     if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
-    needs: toolchain-check
+    # Sin needs: toolchain-check (corre en paralelo; ambos son informativos
+    # con issue propia y el bench recompila de todos modos para correr).
     runs-on: ubuntu-latest
     # FIND-317 (2026-10-07): 90 -> 240 min (criterion estimate ~128 min for the
     # insert bench alone on the runner). If this still times out, next step:
@@ -409,8 +444,21 @@ jobs:
           swap-mb: 6144
           free-disk: true
 
+      - name: Perf-path gate (skip unless perf sources changed)
+        id: perf
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1 2>/dev/null || true
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -Eq '^(src/index/|src/storage/|benches/canonical_p99|benchmarks/)'; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Perf sources untouched — skipping 2h bench, keeping fast signals."
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run canonical_p99
         id: bench
+        if: steps.perf.outputs.hit != 'false'
         continue-on-error: true # CATEGORY: INFORMATIONAL
         run: cargo bench -p vantadb --bench canonical_p99 -- --nocapture 2>&1 | tee canonical_p99_results.txt
 
@@ -507,7 +555,7 @@ jobs:
       - name: Upload bench results
         if: always()
         continue-on-error: true # CATEGORY: INFORMATIONAL
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-p99-results
           path: |
@@ -573,7 +621,7 @@ jobs:
       - name: Upload OCR spec
         # CATEGORY: INFORMATIONAL
         continue-on-error: true # CATEGORY: INFORMATIONAL
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ocr-delegate-spec
           path: |
@@ -584,7 +632,7 @@ jobs:
     name: "Notify failure (auto-issue)"
     # CI-08: informational jobs intentionally NOT in `needs` — their findings
     # open their own issues; they never page the nightly notify (see header).
-    needs: [failpoint-tests, storage-persistence, hnsw-validation, hnsw-recall, text-index, coverage-budget, release-dry-run]
+    needs: [ci-gate, failpoint-tests, storage-persistence, hnsw-validation, hnsw-recall, text-index, coverage-budget, release-dry-run]
     if: github.actor != 'dependabot[bot]' && (failure())
     runs-on: ubuntu-latest
     timeout-minutes: 10

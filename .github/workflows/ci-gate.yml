@@ -4,15 +4,13 @@
 # avoiding hours of wasted heavy runs that would fail anyway.
 # Re-checked 2026-09-24 (EST-03): measures main HEAD; skipped/neutral pass;
 # checks with no completed runs on main are tolerated with a WARN.
+# REQUIRED mirrors the main branch ruleset 1:1 (verified 2026-10-29) — when the
+# ruleset changes, update this list in the same commit.
 
 name: CI Gate
 
 on:
   workflow_call:
-    inputs:
-      event_name:
-        type: string
-        required: true
 
 permissions:
   checks: read
@@ -45,22 +43,48 @@ jobs:
             "Security Audit"
             "OSV-Scanner"
             "Unused Deps (cargo-machete)"
-            "Miri (UB Detection)"
             "Dependency Policy Check"
-            "Analyze"
+            "Check npm package versions match workspace"
+            "Check API Docs Version"
+            "Internal links resolve"
+            "Frontmatter schema, kind agreement, orphans"
+            "Generated indexes are current"
+            "actionlint (workflows lint + inventory gate)"
+            "Cross-language conformance (Py/Node/WASM)"
           )
+          # Miri omitted: required on develop, not on main (this gate measures main).
           # Semver Checks excluded: guard ref==main/base_ref==main skips it on develop (no check-run → false red).
           # ADR Gate excluded: guard event==pull_request skips it on push/schedule (no check-run → false red).
-          # EST-03 policy (owner-approved 2026-09-24): one API call, latest completed
+          # EST-03 policy (owner-approved 2026-09-24): latest completed
           # conclusion per check name; success|skipped|neutral pass (some guards skip
           # by design); failure|timed_out|cancelled|action_required fail; checks with
-          # no completed runs on main are tolerated with a WARN (never-run != red).
-          RUNS=$(gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100&filter=latest")
+          # no completed runs on main are tolerated with a WARN (never-run != red:
+          # path-filtered workflows leave no check-run on docs-only commits).
+          # Paginate: a main commit can carry >100 check-runs; stop early once every
+          # REQUIRED name resolved.
+          declare -A SEEN
+          PAGE=1
           FAILED=0
+          while true; do
+            RUNS=$(gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100&page=${PAGE}&filter=latest")
+            for c in "${REQUIRED[@]}"; do
+              [ -n "${SEEN["${c}"]:-}" ] && continue
+              CONCLUSION=$(jq -r --arg c "${c}" \
+                '[.check_runs[] | select(.name==$c and .status=="completed")] | sort_by(.completed_at) | last | .conclusion // "<missing>"' \
+                <<<"${RUNS}")
+              if [ "${CONCLUSION}" != "<missing>" ]; then
+                SEEN["${c}"]="${CONCLUSION}"
+              fi
+            done
+            TOTAL=$(jq '.check_runs | length' <<<"${RUNS}")
+            RESOLVED=${#SEEN[@]}
+            if [ "${RESOLVED}" -ge "${#REQUIRED[@]}" ] || [ "${TOTAL}" -lt 100 ] || [ "${PAGE}" -ge 3 ]; then
+              break
+            fi
+            PAGE=$((PAGE + 1))
+          done
           for c in "${REQUIRED[@]}"; do
-            CONCLUSION=$(jq -r --arg c "${c}" \
-              '[.check_runs[] | select(.name==$c and .status=="completed")] | sort_by(.started_at) | last | .conclusion // "<missing>"' \
-              <<<"${RUNS}")
+            CONCLUSION="${SEEN["${c}"]:-<missing>}"
             echo "  ${c} -> ${CONCLUSION}"
             case "${CONCLUSION}" in
               success|skipped|neutral) ;;

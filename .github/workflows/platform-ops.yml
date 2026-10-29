@@ -3,18 +3,26 @@ name: 'OPS: Platform - CodeQL'
 # CodeQL static analysis for Rust, Python, and JavaScript/TypeScript.
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'src/**'
       - 'vantadb-server/**'
+      - 'vantadb-python/**'
+      - 'vantadb-ts/**'
+      - 'vantadb-mcp/**'
+      - 'vanta-memory/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/platform-ops.yml'
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'src/**'
       - 'vantadb-server/**'
+      - 'vantadb-python/**'
+      - 'vantadb-ts/**'
+      - 'vantadb-mcp/**'
+      - 'vanta-memory/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/platform-ops.yml'
@@ -31,8 +39,7 @@ permissions:
 
 jobs:
   analyze:
-    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-
+    # Escanea en push/PR (build-mode:none, barato) y en schedule semanal.
     name: Analyze
     runs-on: ubuntu-latest
     timeout-minutes: 45

@@ -1,6 +1,7 @@
 name: 'GATES: Docs - lint, links, secrets, API surface, examples, rustdoc'
 
-# CI-08 Step 4 (SRV-10.md tabla migracion): consolida 6 workflows (17 jobs 1:1).
+# CI-08 Step 4 (SRV-10.md tabla migracion): consolida 6 workflows (16 jobs 1:1
+# tras fusionar docs-secrets×2 y retirar lint-markdown subsumido por baseline 0).
 # Origenes: gate-docs.yml, gate-docs-links.yml, gate-api-docs.yml,
 #   gate-doc-examples.yml, gate-docs-secrets.yml, ci-rustdoc.yml.
 # Triggers = union de paths + schedule semanal de docs-links (lun 07:23 UTC).
@@ -15,7 +16,7 @@ name: 'GATES: Docs - lint, links, secrets, API surface, examples, rustdoc'
 #   ya cubre vantadb-python/** completo (pyproject/tests incluidos).
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'docs/**'
       - 'scripts/**'
@@ -68,19 +69,8 @@ permissions:
   contents: read
 
 jobs:
-  lint-markdown:
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
-
-    name: Lint Markdown
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-      - name: Lint Markdown
-        run: npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml "docs/**/*.md"
+  # (lint-markdown removed: subsumed by docs-lint-regression with baseline 0,
+  # same config, wider trigger incl. schedule sweep. Saves one runner per run.)
   check-format:
     if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
@@ -497,20 +487,10 @@ jobs:
         run: node scripts/docs/check-secrets.mjs --self-test
       - name: Scan prose for credential shapes
         run: node scripts/docs/check-secrets.mjs
-  docs-secrets-json:
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
-
-    name: Machine-readable report
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-      # Same scan, second surface. The human job prints a per-file report a
+      # Same scan, second surface. The human step prints a per-file report a
       # reviewer can act on; this one emits the aggregate that a later promotion
       # or a weekly trend report can consume without re-deriving it from logs.
+      # Merged into this job (was docs-secrets-json): one checkout+setup for both.
       - name: Emit the JSON report
         run: node scripts/docs/check-secrets.mjs --json
   rustdoc:
@@ -552,7 +532,7 @@ jobs:
           du -h api-reference-rust.tar.gz
 
       - name: Upload API reference artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: api-reference-rust
           path: api-reference-rust.tar.gz

@@ -2,7 +2,7 @@ name: 'CI: Rust — Build & Lint + Tests'
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
     paths:
       - 'src/**'
       - 'tests/**'
@@ -12,6 +12,8 @@ on:
       - 'build.rs'
       - '.config/nextest.toml'
       - '.github/workflows/ci-rust.yml'
+      - '.github/actions/rust-setup/**'
+      - '.cargo/**'
       - 'deny.toml'
       - 'osv-scanner.toml'
       - 'rust-toolchain.toml'
@@ -20,7 +22,7 @@ on:
       - 'integrations/**'
       - 'providers/**'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
     paths:
       - 'src/**'
       - 'tests/**'
@@ -45,6 +47,11 @@ env:
 
 permissions:
   contents: read
+
+# Cancela runs obsoletos del mismo workflow+ref en cada push (como ci-fleet).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   fmt:
@@ -130,7 +137,7 @@ jobs:
           swap-mb: 4096
 
       - name: Install cargo-semver-checks
-        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: cargo-semver-checks
 
@@ -240,7 +247,7 @@ jobs:
     name: Tests (Linux)
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -251,6 +258,7 @@ jobs:
           install-nextest: true
           install-system-deps: true
           swap-mb: 8192
+          shared-key: linux-stable
 
       - name: Cache benchmark dataset (GloVe 100d)
         id: cache-benchmark
@@ -265,33 +273,31 @@ jobs:
         shell: bash
 
       - name: Run tests (Audit profile, core)
-        timeout-minutes: 25
         run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+
+      - name: Upload test report (failures only)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-linux
+          path: junit.xml
+          if-no-files-found: warn
 
   test-windows:
     name: Tests (Windows)
     if: github.actor != 'dependabot[bot]'
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Rust (Windows)
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: ./.github/actions/rust-setup
         with:
           toolchain: stable
           components: clippy
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
-        with:
-          cache-bin: "false"
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
-        with:
-          tool: nextest
+          install-nextest: true
+          shared-key: windows-stable
 
       - name: Cargo check (Windows smoke test)
         run: cargo check
@@ -302,14 +308,21 @@ jobs:
 
       - name: Run quick integrity tests (Windows)
         shell: pwsh
-        timeout-minutes: 30
         run: cargo nextest run --profile ci-windows --features "cli,arrow,tls,opentelemetry"
+
+      - name: Upload test report (failures only)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-windows
+          path: junit.xml
+          if-no-files-found: warn
 
   test-macos:
     name: Tests (macOS)
     if: github.actor != 'dependabot[bot]'
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -318,6 +331,7 @@ jobs:
         with:
           components: clippy
           install-nextest: true
+          shared-key: macos-stable
 
       - name: Install system dependencies
         env:
@@ -336,8 +350,15 @@ jobs:
 
       - name: Run tests (Audit profile, core)
         shell: bash
-        timeout-minutes: 25
         run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+
+      - name: Upload test report (failures only)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-macos
+          path: junit.xml
+          if-no-files-found: warn
 
   test-embedding-features:
     name: Tests (embeddings features)
@@ -353,6 +374,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [fmt, clippy]
+    # Matriz: las 2 combinaciones en paralelo (~18 min pared en vez de ~36).
+    strategy:
+      fail-fast: false
+      matrix:
+        features: [remote-inference, embed-local]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -361,14 +387,10 @@ jobs:
           install-nextest: true
           install-system-deps: true
           swap-mb: 8192
+          shared-key: embedding-${{ matrix.features }}
 
-      - name: Run lib tests (remote-inference)
-        timeout-minutes: 18
-        run: cargo nextest run -p vantadb --lib --profile audit --features "cli,arrow,tls,opentelemetry,remote-inference"
-
-      - name: Run lib tests (embed-local)
-        timeout-minutes: 18
-        run: cargo nextest run -p vantadb --lib --profile audit --features "cli,arrow,tls,opentelemetry,embed-local"
+      - name: Run lib tests (${{ matrix.features }})
+        run: cargo nextest run -p vantadb --lib --profile audit --features "cli,arrow,tls,opentelemetry,${{ matrix.features }}"
 
   msrv:
     name: MSRV Check (1.94.1)
@@ -411,7 +433,7 @@ jobs:
     name: Code Coverage (cargo-llvm-cov)
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -423,6 +445,7 @@ jobs:
           install-llvm-cov: true
           install-system-deps: true
           swap-mb: 8192
+          shared-key: linux-coverage
 
       - name: Cache benchmark dataset (GloVe 100d)
         id: cache-benchmark
@@ -437,7 +460,6 @@ jobs:
         shell: bash
 
       - name: Run tests with coverage
-        timeout-minutes: 25
         # CATEGORY: EXPERIMENTAL — --exclude flags skip experimental crates (server, mcp, wasm).
         run: |
           cargo llvm-cov nextest \
@@ -476,7 +498,7 @@ jobs:
           "
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-lcov
           path: lcov.info
@@ -493,8 +515,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install wasm-pack
-        run: cargo install wasm-pack --version 0.13.1 --locked
+      - name: Install wasm-pack (prebuilt binary, no cargo compile)
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: wasm-pack
 
       - name: Install wasm target
         run: rustup target add wasm32-unknown-unknown
@@ -508,6 +532,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: [fmt, clippy]
     # CATEGORY: EXPERIMENTAL — server, MCP, WASM, and adapter crates. These
     # crates are not in workspace default-members; this job checks them so
     # regressions surface in CI. Must pass before merge.
@@ -582,7 +607,7 @@ jobs:
           install-system-deps: false
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: cargo-audit
 
@@ -649,27 +674,17 @@ jobs:
     name: Miri (UB Detection)
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Rust (Nightly + Miri)
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: ./.github/actions/rust-setup
         with:
           toolchain: nightly
           components: miri
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
-        with:
-          shared-key: miri-cache
-
-      - name: Install system dependencies
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          install-system-deps: true
+          shared-key: miri-nightly
 
       - name: Miri Setup (core)
         run: cargo +nightly miri setup --manifest-path Cargo.toml -p vantadb
@@ -718,7 +733,7 @@ jobs:
           install-system-deps: false
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: cargo-deny
 
@@ -744,15 +759,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install nightly
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        uses: ./.github/actions/rust-setup
         with:
           toolchain: nightly
           components: rust-src
+          install-system-deps: true
+          shared-key: asan-nightly
 
-      - name: Install system deps
+      - name: Install system deps (llvm-symbolizer)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev llvm
+          sudo apt-get install -y llvm
 
       # FIND-226: without llvm-symbolizer the ASan/LSan leak report printed raw
       # addresses only (BuildId + offsets) — no triage possible. apt `llvm`
@@ -847,14 +864,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install nightly
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        uses: ./.github/actions/rust-setup
         with:
           toolchain: nightly
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          install-system-deps: true
+          shared-key: tsan-nightly
 
       # CATEGORY: BEST-EFFORT — job-level continue-on-error covers this
       - name: Test with ThreadSanitizer

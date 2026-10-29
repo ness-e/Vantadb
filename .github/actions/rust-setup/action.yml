@@ -2,9 +2,9 @@ name: 'Rust & system setup'
 description: 'Common Rust toolchain, cache, and system dependencies for VantaDB CI'
 inputs:
   toolchain:
-    description: 'Rust toolchain channel'
+    description: 'Rust toolchain channel (default pins to rust-toolchain.toml 1.95.0)'
     required: false
-    default: 'stable'
+    default: '1.95.0'
   components:
     description: 'Additional Rustup components (comma-separated)'
     required: false
@@ -33,6 +33,18 @@ inputs:
     description: 'Install system libraries (RocksDB, Clang)'
     required: false
     default: 'true'
+  shared-key:
+    description: 'Extra cache key suffix for Swatinem/rust-cache (isolate sanitizers/miri/fuzz caches)'
+    required: false
+    default: ''
+  use-sccache:
+    description: 'Enable sccache as RUSTC_WRAPPER (disable to measure real compile times)'
+    required: false
+    default: 'true'
+  workspaces:
+    description: 'Extra workspace target dirs for rust-cache (standalone crates outside the root target/). Default mirrors rust-cache upstream.'
+    required: false
+    default: '. -> target'
 
 runs:
   using: 'composite'
@@ -65,16 +77,20 @@ runs:
         components: ${{ inputs.components }}
 
     - name: Rust cache
-      uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       with:
         cache-bin: ${{ inputs.cache-bin }}
+        shared-key: ${{ inputs.shared-key }}
+        workspaces: ${{ inputs.workspaces }}
 
     - name: Set up sccache
+      if: ${{ inputs.use-sccache == 'true' }}
       uses: mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11
       with:
-        version: v0.16.0
+        version: v0.19.0
 
     - name: Enable sccache for cargo
+      if: ${{ inputs.use-sccache == 'true' }}
       shell: bash
       run: |
         echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
@@ -89,12 +105,12 @@ runs:
 
     - name: Install cargo-nextest
       if: ${{ inputs.install-nextest == 'true' }}
-      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+      uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
       with:
         tool: nextest
 
     - name: Install cargo-llvm-cov
       if: ${{ inputs.install-llvm-cov == 'true' }}
-      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+      uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
       with:
         tool: cargo-llvm-cov

@@ -1,26 +1,26 @@
 #!/bin/sh
-# VantaDB pre-push hook (SIPP barrier, smart)
-# Blocks the push when Rust (.rs) files changed and verification fails.
-# Skips cargo entirely when the pushed commits change no .rs files
-# (CI-only / docs-only / config-only pushes must not pay the full verify).
-#
-# Contract (AGENTS.md Regla 1 — push → verify.ps1 completo):
-#   - No .rs changes in pushed range  -> print skip message, allow push (exit 0)
-#   - .rs changes -> run dev-tools/verify.ps1 (full gate: fmt+check+clippy+tests+deny)
-#   - verify fails -> BLOCK (exit non-zero)
-#   - pwsh missing + .rs changes -> BLOCK with clear message
-
+# VantaDB pre-push — barrera completa multi-area (<1h por diseno).
+# - Rust (cualquier .rs o Cargo.* tocado): dev-tools/verify.ps1 SIEMPRE
+#   (fast gate: fmt+check+clippy+tests+deny, ~5-8 min con -j1).
+# - vantadb-node/vantadb-ts tocados (+node_modules presente): npm test.
+# - vantadb-python tocado: ruff check+format (scope limpio probado).
+# - skills/docs .md tocados: markdownlint docs/** (30s).
+# - .github/workflows tocados: actionlint si esta instalado.
+# - providers/* tocados: fmt --check por manifest (sin compilar).
+# Skips: git push --no-verify (solo emergencias).
 set -e
 
-# --- Pre-push stdin: one line per pushed ref: <local ref> <local sha> <remote ref> <remote sha>
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
+CHANGED=""
 RS_CHANGED=0
 
 while read -r local_ref local_sha remote_ref remote_sha; do
-    [ -z "$local_sha" ] && continue            # branch deletion: nothing to verify
+    [ -z "$local_sha" ] && continue
     [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
-
     if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
-        # First push of a new branch: diff against origin tip (or repo root as fallback)
         base=$(git merge-base "$local_sha" origin/HEAD 2>/dev/null || true)
         if [ -z "$base" ]; then
             base=$(git rev-list --max-parents=0 "$local_sha" | tail -1)
@@ -28,47 +28,110 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     else
         base=$remote_sha
     fi
-
-    if git diff --name-only "$base..$local_sha" 2>/dev/null | grep -q '\.rs$'; then
-        RS_CHANGED=1
-    fi
+    RANGE_FILES=$(git diff --name-only "$base..$local_sha" 2>/dev/null || true)
+    CHANGED="$CHANGED
+$RANGE_FILES"
 done
 
-if [ "$RS_CHANGED" -eq 0 ]; then
-    echo "pre-push: no .rs changes in pushed commits, skipping cargo. Push allowed."
-    exit 0
+CHANGED=$(echo "$CHANGED" | sort -u | grep -v '^$' || true)
+if echo "$CHANGED" | grep -q '\.rs$'; then RS_CHANGED=1; fi
+if echo "$CHANGED" | grep -qE '(^|/)(Cargo\.toml|Cargo\.lock)$'; then RS_CHANGED=1; fi
+
+echo "pre-push: $(echo "$CHANGED" | wc -l | tr -d ' ') archivos en el rango."
+if [ "$RS_CHANGED" -eq 1 ]; then
+    echo "pre-push: archivos Rust tocados:"
+    echo "$CHANGED" | grep -E '\.rs$|Cargo\.(toml|lock)$' | sed 's/^/  /' | head -20
 fi
 
-# --- Rust changed: run the full verification barrier ---
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# --- Rust gate (siempre): verify.ps1 completo ---
 VERIFY_SCRIPT="$REPO_ROOT/dev-tools/verify.ps1"
-
 if [ ! -f "$VERIFY_SCRIPT" ]; then
     echo "pre-push: verify script not found at $VERIFY_SCRIPT. Push BLOCKED."
     exit 1
 fi
-
-echo "pre-push: .rs changes detected — running verification barrier..."
-echo "pre-push: full gate (dev-tools/verify.ps1: fmt -> check -> clippy -> tests -> deny)"
-
+echo "pre-push: running full Rust gate (dev-tools/verify.ps1)..."
 STATUS=0
+# NOTE (Windows/Git Bash): powershell.exe cannot read /mnt-style paths —
+# convert once via cygpath.
+# Native Windows PowerShells need a Windows path even when called from
+# Git Bash/WSL (/c/... or /mnt/c/...). Pure-POSIX conversion, no deps.
+winpath() {
+    case "$1" in
+        /mnt/[a-zA-Z]/*) p=$(echo "$1" | cut -c6-); d=$(echo "$p" | cut -c1 | tr 'a-z' 'A-Z'); r=$(echo "$p" | cut -c3- | tr '/' '\'); printf '%s:%s' "$d" "\\$r" ;;
+        /[a-zA-Z]/*) d=$(echo "$1" | cut -c2 | tr 'a-z' 'A-Z'); r=$(echo "$1" | cut -c3- | tr '/' '\'); printf '%s:%s' "$d" "\\$r" ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+VERIFY_PS1_WIN="$(winpath "$VERIFY_SCRIPT")
 if command -v pwsh >/dev/null 2>&1; then
-    # `|| STATUS=$?` captures the real exit code even under `set -e`
-    # (a bare failing command would abort before STATUS=$? could run).
-    pwsh -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_SCRIPT" || STATUS=$?
+    pwsh -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_PS1_WIN" || STATUS=$?
 elif command -v powershell.exe >/dev/null 2>&1; then
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_SCRIPT" || STATUS=$?
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_PS1_WIN" || STATUS=$?
 else
-    echo "pre-push: ERROR — no PowerShell found (install pwsh 7+) but .rs files changed. Push BLOCKED."
+    echo "pre-push: ERROR — no PowerShell found (install pwsh 7+). Push BLOCKED."
     exit 1
 fi
-
 if [ $STATUS -ne 0 ]; then
     echo ""
-    echo "pre-push: Verification FAILED (exit code: $STATUS). Push BLOCKED."
-    echo "pre-push: Fix the failures above, then retry the push."
+    echo "pre-push: Rust gate FAILED (exit code: $STATUS). Push BLOCKED."
     exit $STATUS
+fi
+
+# --- Node (solo si se toco + hay node_modules) ---
+if echo "$CHANGED" | grep -qE '^(vantadb-node|vantadb-ts)/'; then
+    if [ -d "vantadb-node/node_modules" ] && command -v npm >/dev/null 2>&1; then
+        echo "pre-push: vantadb-node touched — npm test..."
+        (cd vantadb-node && npm test) || { echo "pre-push: vantadb-node tests FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: node area touched but no node_modules — npm test skipped (CI covers)."
+    fi
+    if [ -d "vantadb-ts/node_modules" ] && command -v npm >/dev/null 2>&1; then
+        echo "pre-push: vantadb-ts touched — npm test..."
+        (cd vantadb-ts && npm test) || { echo "pre-push: vantadb-ts tests FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: ts area touched but no node_modules — npm test skipped (CI covers)."
+    fi
+fi
+
+# --- Python limpio (solo scope probado) ---
+if echo "$CHANGED" | grep -qE '^vantadb-python/.*\.pyi?$'; then
+    if command -v ruff >/dev/null 2>&1; then
+        echo "pre-push: vantadb-python touched — ruff..."
+        ruff check vantadb-python && ruff format --check vantadb-python || { echo "pre-push: ruff FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: ruff not found, skipped (CI covers)."
+    fi
+fi
+
+# --- Docs/skills markdown ---
+if echo "$CHANGED" | grep -qE '^((docs|skills)/.*\.mdx?)$'; then
+    if command -v npx >/dev/null 2>&1; then
+        echo "pre-push: docs touched — markdownlint..."
+        npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml "docs/**/*.md" || { echo "pre-push: markdownlint FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: npx not found, skipped (CI covers)."
+    fi
+fi
+
+# --- Providers standalone: fmt sin compilar ---
+PROV_RS=$(echo "$CHANGED" | grep -E '^providers/[^/]+/.*\.rs$' || true)
+if [ -n "$PROV_RS" ]; then
+    for p in openai ollama litellm; do
+        if echo "$PROV_RS" | grep -q "^providers/$p/"; then
+            echo "pre-push: fmt providers/$p..."
+            cargo fmt --manifest-path "providers/$p/Cargo.toml" -- --check || { echo "pre-push: fmt providers/$p FAILED. Push BLOCKED."; exit 1; }
+        fi
+    done
+fi
+
+# --- Workflows: actionlint ---
+if echo "$CHANGED" | grep -q '^\.github/workflows/'; then
+    if command -v actionlint >/dev/null 2>&1; then
+        echo "pre-push: running actionlint..."
+        actionlint || { echo "pre-push: actionlint FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: actionlint not found, skipped (CI covers)."
+    fi
 fi
 
 echo "pre-push: barrier passed. Push allowed."
