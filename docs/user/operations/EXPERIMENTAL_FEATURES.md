@@ -2,13 +2,13 @@
 title: Experimental Features and Product Boundary
 kind: runbook
 status: active
-description: This document classifies the current v0.7.0 repository surface. It is the operational reference for
+description: This document classifies the current v0.9.0 repository surface. It is the operational reference for
 tags: [vantadb, operations]
 ---
 
 # Experimental Features and Product Boundary
 
-This document classifies the current v0.7.0 repository surface. It is the operational reference for
+This document classifies the current v0.9.0 repository surface. It is the operational reference for
 what is production-facing, optional, experimental, or deferred. Every row carries verification
 evidence (Cargo feature, `file:line`, or command). JavaScript/WASM bindings (`vantadb-ts`,
 `vantadb-node`, `vantadb-wasm`) and the provider packages are separate distribution surfaces
@@ -20,6 +20,8 @@ the consolidated scope inventory (core-promise vs labs) is defined in §Scope Bu
 > **Revision 2026-09-27 (DEF-07):** Scope Budget section added — the core-promise vs labs classification is finalized per surface (DEF-02's provisional labels resolved: `vanta-memory` stays core-promise; `vanta-proxy`, Vanta Studio and the web console stay labs) and the inversion rule (admission → promotion → freeze) is documented. `docs/specs/SPEC.md` §Frontera now references this section.
 >
 > **Revision 2026-10-05 (WIRE-17):** scheduler-host promotion applied per ADR-0054 §Scope Budget — `vantadb-server` keeps **labs** but its scheduler-host role is promoted (scoped; no general thaw), and `vanta-memory` moves from "scheduler host pending" to host resolved (WIRE-16 wiring).
+>
+> **Revision 2026-10-29:** version stamp v0.7.0 → v0.9.0; MCP count 86 → 88 (`tools.rs:25`); Vanta Studio row rewritten (desktop tree removed from repo, dead `feature-freez/` paths dropped).
 
 ## Scope Budget — core-promise vs labs
 
@@ -102,7 +104,7 @@ HA/replication/clustering · plugins/marketplace · full RBAC/multi-tenancy/quot
 
 ## Production-Facing MVP
 
-The product boundary (v0.7.0) is an embedded local-first persistent memory engine:
+The product boundary (v0.9.0) is an embedded local-first persistent memory engine:
 
 | Area | Status | Evidence |
 | --- | --- | --- |
@@ -130,18 +132,18 @@ The server and `embed-local` are optional wrappers around the same embedded core
 
 ## Experimental or Not MVP
 
-These surfaces may exist in the repository, but they are not stable product claims for v0.7.0:
+These surfaces may exist in the repository, but they are not stable product claims for v0.9.0:
 
 | Area | Boundary | Evidence |
 | --- | --- | --- |
 | IQL/LISP/DQL parser, evaluator, and executor paths | **IQL shipped** (2026-09-24): `POST /api/v2/query` + SDK/CLI/MCP expose SELECT/INSERT/RELATE with JOIN (no aggregations). What was archived (2024-06-10, legacy batch codename, not a release date) is the LISP runtime evaluator (borrow checker/GIL); the legacy fuzz target is preserved in [`FUZZING.md`](../../dev/operations/FUZZING.md). Syntax stabilization: API-06 (P51) | `src/parser/` · `src/server/router.rs` (`/api/v2/query`) · `src/cli.rs` (`query`) |
-| MCP API | **Shipped** — 86 tools + resources + prompts (v0.7.0). Naming/schema stabilization: API-04 (P51); profile enforcement + default `agent` profile: WIRE-02 (P56) | `vantadb-mcp/src/handlers/tools.rs:25` ("86 tool definitions, 48 base + 38 extend") · `docs/api/MCP.md:198` (80 listed across profiles) |
+| MCP API | **Shipped** — 88 tools + resources + prompts (v0.9.0). Naming/schema stabilization: API-04 (P51); profile enforcement + default `agent` profile: WIRE-02 (P56) | `vantadb-mcp/src/handlers/tools.rs:25` ("88 tool definitions, 49 base + 39 extend") · `docs/api/MCP.md:198` (80 listed across profiles — profile-filtered subset) |
 | Remote LLM/Ollama integration (`remote-inference` feature, `OllamaProvider`/`OpenAIProvider`) | External optional integration, not core dependency — alternative to `embed-local` | `feature:remote-inference` (`Cargo.toml:159`) · `src/llm.rs` |
 | Governance and maintenance semantics | Legacy framework runtime archived (2024-06-10, batch codename). Current governance: supersede/TTL/version_history (SDK) + MGR program (P49) → v0.7 manual → v1.0 automatic. Extracted utilities live in `src/utils/` (Bloom filter wiring into the write path pending — FUT-09/VER-07) | `src/sdk/api/memory.rs` (`supersede`, `versions`, `purge_expired`) · `src/utils/` |
 | Graph traversal beyond stored local edges | Experimental, not a graph database claim | `src/sdk/graph.rs` · `src/graphrag/` · MCP `graph_*` tools |
 | Docker/Ollama examples | Experimental development examples | `docs/dev/archive/docker/` (archived) · `vantadb-server/docker-compose.yml` |
 | **vanta-proxy (LLM gateway)** | **Category: labs** — multi-stage request pipeline (auth → rate-limit → session → mem-commands → inject → redact → context trim → cache/translate → forward + failover → capture/writeback; stages numbered inline in `vanta-proxy/src/server.rs`). `/snapshot` auth: ✅ API-05 (P51) — every route requires `x-vanta-user-key` (`vanta-proxy/src/auth.rs:19`; desktop: FIND-155); memory loop + cost output: WIRE-01 (P56) | `vanta-proxy/` · `docs/api/PROXY.md` |
-| **Vanta Studio (Tauri desktop)** | **Category: labs — FROZEN 2026-10-16 (ver FIND-341)** — 12 workspace surfaces / 3 transport modes; CI builds removidos con el freeze | `feature-freez/desktop/src/components/layout/WorkspaceShell.tsx` (`Surface`) · `feature-freez/desktop/src/transport.ts` · ex-`.github/workflows/desktop.yml` (jobs removidos) |
+| **Vanta Studio (Tauri desktop)** | **Category: labs — FROZEN 2026-10-16 (FIND-341)** — desktop tree removed from the repo; desktop CI jobs removed. Promotion candidate: ICP-01's minimal "viewer" if F5 evidence requires it — viewer only, not the Studio | DEF-02 "Category: labs"; FIND-341 |
 | **Web console** | **Category: labs** — separate site in [`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web) (user docs live in its docs/user/web/ tree) | external repo — no surface in this tree |
 | **vanta-memory (L0→L3)** | **Category: core-promise** (finalized by the DEF-07 Scope Budget) — **Partially shipped — scheduler host landed (WIRE-16/ADR-0054)**: full pipeline + host in `vantadb-server` HTTP mode (writable servers: bridge always wired; loop opt-in via `VANTADB_SCHEDULER_INTERVAL_MS`, `0` = off; MCP/proxy hosts deferred); trigger trait implemented in `vanta-memory/src/services/conversation_hook.rs`; dreams dry-run/promote real: VER-07 (P52) | `vanta-memory/` · `vantadb-server/src/scheduler.rs` |
 
@@ -165,7 +167,7 @@ Visible in-tree examples and docs must carry the same boundary:
 
 ## Deferred
 
-The following are explicitly outside the v0.7.0 MVP:
+The following are explicitly outside the v0.9.0 MVP:
 
 | Area | Boundary | Evidence |
 | --- | --- | --- |
