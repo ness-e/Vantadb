@@ -460,7 +460,14 @@ jobs:
         id: bench
         if: steps.perf.outputs.hit != 'false'
         continue-on-error: true # CATEGORY: INFORMATIONAL
-        run: cargo bench -p vantadb --bench canonical_p99 -- --nocapture 2>&1 | tee canonical_p99_results.txt
+        run: |
+          mkdir -p metricas/benchmarks
+          cargo bench -p vantadb --bench canonical_p99 -- --nocapture 2>&1 | tee metricas/benchmarks/canonical_p99_results.txt
+
+      - name: Run param_sweep (sift-128 recall-QPS curve)
+        if: steps.perf.outputs.hit != 'false'
+        continue-on-error: true # CATEGORY: INFORMATIONAL
+        run: cargo bench -p vantadb --bench param_sweep -- --nocapture 2>&1 | tee -a metricas/benchmarks/canonical_p99_results.txt
 
       - name: Publish p50/p95/p99 vs baseline to summary
         if: always()
@@ -472,7 +479,7 @@ jobs:
             echo "Baseline: docs/user/operations/BENCHMARKS.md §11 (consumo guard) + §1."
             echo "Regression policy: p99 >10% vs baseline needs ADR-or-revert - evaluated here, never enforced (Q5)."
             echo ""
-            grep -E "canonical_p99 search" canonical_p99_results.txt || echo "(p50/p95/p99 line not found - see artifact)"
+            grep -E "canonical_p99 search" metricas/benchmarks/canonical_p99_results.txt || echo "(p50/p95/p99 line not found - see artifact)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Extract criterion estimates
@@ -511,7 +518,7 @@ jobs:
             if (!cmp.has_regression) { console.log('No regression - nothing to file.'); return; }
             let numbers = '';
             try {
-              const txt = fs.readFileSync('canonical_p99_results.txt', 'utf8');
+              const txt = fs.readFileSync('metricas/benchmarks/canonical_p99_results.txt', 'utf8');
               const m = txt.match(/canonical_p99 search.*/);
               numbers = m ? m[0] : '(numbers line not found)';
             } catch (e) { numbers = '(results file missing)'; }
@@ -559,7 +566,7 @@ jobs:
         with:
           name: canonical-p99-results
           path: |
-            canonical_p99_results.txt
+            metricas/benchmarks/canonical_p99_results.txt
             metricas/benchmark_report_canonical_p99.json
             metricas/bench_comparison_canonical_p99.json
           retention-days: 30

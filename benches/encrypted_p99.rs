@@ -22,18 +22,16 @@
 //! depends on the environment. With the feature compiled out, the field is
 //! simply ignored and the database stays plaintext (byte-identical path).
 //!
-//! **Dataset:** the canonical one — seed 42, 1536d — drawn exactly like
-//! `benches/canonical_p99.rs` (`StdRng::seed_from_u64(42)`). The vectors are
-//! streamed (one chunk at a time) instead of held all at once: the values
-//! are identical, the RSS is not inflated by the bench itself.
+//! **Dataset:** GloVe-100 (`data/benchmark/glove-100/`, normalized,
+//! angular) — corpus, held-out queries, no synthetic RNG. Vectors stream
+//! from the loaded corpus (one chunk at a time): RSS stays flat while the
+//! data is real.
 //!
 //! **The default scale is 25 000** (`ENCRYPTED_P99_SCALE` overrides it): it
 //! is the **smallest scale of the HNSW regime**, and the regime is what
 //! answers the question. Below `flat_threshold` (10 000) the search is a
 //! flat scan over the in-memory copies: it never reads the vstore and it
-//! never decrypts anything (BENCHMARKS.md §22.3.5). The canonical 100k
-//! scale does not fit in the commit charge of a shared machine (it died
-//! three times with `os error 1450`).
+//! never decrypts anything (BENCHMARKS.md §22.3.5).
 //!
 //! **The "the working set still fits in RAM" criterion** (`ram_bound` in the
 //! output): if the **plaintext** variant's p50 explodes against the
@@ -44,7 +42,7 @@
 //!
 //! **Phases** (each one timed):
 //!
-//! 1. `insert` — `n` nodes with a 1536d vector into a real engine
+//! 1. `insert` — `n` nodes with a 100d GloVe vector into a real engine
 //!    (Fjall backend + WAL + vstore, on a tempdir).
 //! 2. `search` — 1000 queries through `engine.hnsw` **plus the vstore** (the
 //!    engine reads the candidate vectors from the store: a zero-copy mmap
@@ -67,8 +65,6 @@
 //! Run: `cargo bench -p vantadb --bench encrypted_p99 [--features encryption]`
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
 use std::time::{Duration, Instant};
 use tempfile::{tempdir, TempDir};
 use vantadb::config::Config;
@@ -77,33 +73,30 @@ use vantadb::storage::StorageEngine;
 
 mod common;
 
-const DIM: usize = 1536;
+const TOP_K: usize = 10;
 
-/// The default scale of the bench: **25 000 × 1536d**.
+/// The default scale of the bench: **25 000 × 100d (GloVe)**.
 ///
 /// It is the smallest scale of the **HNSW regime** (`flat_threshold` =
 /// 10 000 ⇒ above it the search reads the vector from the vstore and
-/// **decrypts** it, which is the whole point of this bench). The canonical
-/// 100k scale does not fit in the commit charge of a shared machine
-/// (BENCHMARKS.md §22.3.5.1). `ENCRYPTED_P99_SCALE` overrides it.
+/// **decrypts** it, which is the whole point of this bench).
+/// `ENCRYPTED_P99_SCALE` overrides it.
 const N_VECTORS: usize = 25_000;
 const N_QUERIES: usize = 1_000;
-const TOP_K: usize = 10;
-const SEED: u64 = 42;
 
 /// The canonical p50 of the search (BENCHMARKS.md §11, `canonical_p99`):
-/// **2.2388 ms** for a 100k **in-memory** index.
+/// **0.8036 ms** for a 100k **GloVe-100d** in-memory index (2026-10-29).
 ///
 /// It is the reference of the "the working set still fits in RAM"
 /// criterion: the plaintext variant reads the vstore through the mmap, so
 /// a p50 that explodes against this number means the reads are hitting the
 /// **disk** — the run would measure the I/O of the machine, not the cost
 /// of the encryption.
-const CANONICAL_P50_MS: f64 = 2.2388;
+const CANONICAL_P50_MS: f64 = 0.8036;
 
 /// The p50 above which the run is considered I/O-bound (not publishable).
 ///
-/// 8 ms = 3.5 × the canonical p50. The 10k run of W7 measured 8-14 ms with
+/// 8 ms ≈ 10 × the canonical p50. The old 10k run of W7 measured 8-14 ms with
 /// the working set out of RAM and was discarded for it (BENCHMARKS.md
 /// §22.3.1); the same floor catches it here.
 fn max_p50_ms() -> f64 {
@@ -189,11 +182,14 @@ fn median(values: &mut [Duration]) -> Duration {
 /// engine) loses every number it printed. The file is written and flushed
 /// after every line, so a killed run still leaves its numbers behind.
 ///
-/// Path: `ENCRYPTED_P99_OUT` (default `target/w7-results.txt`).
+/// Path: `ENCRYPTED_P99_OUT` (default `metricas/benchmarks/w7-results.txt`).
 fn report(line: &str) {
     println!("{line}");
-    let path =
-        std::env::var("ENCRYPTED_P99_OUT").unwrap_or_else(|_| "target/w7-results.txt".to_string());
+    let path = std::env::var("ENCRYPTED_P99_OUT")
+        .unwrap_or_else(|_| "metricas/benchmarks/w7-results.txt".to_string());
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -205,16 +201,30 @@ fn report(line: &str) {
     }
 }
 
-/// The canonical dataset: one vector at a time, in the canonical order.
-fn next_vector(rng: &mut StdRng) -> Vec<f32> {
-    (0..DIM).map(|_| rng.random::<f32>()).collect()
+/// Corpus + queries: slices of the GloVe-100 dataset (real, normalized).
+/// Vectors stream one chunk at a time: RSS stays flat while the data is real.
+struct Corpus {
+    vectors: Vec<Vec<f32>>,
+    queries: Vec<Vec<f32>>,
 }
 
-/// The canonical query set — a fresh seed-42 stream, exactly as
-/// `canonical_p99.rs` builds it.
-fn generate_queries() -> Vec<Vec<f32>> {
-    let mut rng = StdRng::seed_from_u64(SEED);
-    (0..N_QUERIES).map(|_| next_vector(&mut rng)).collect()
+fn load_corpus(n: usize, n_queries: usize) -> Corpus {
+    let ds = common::load_standard_dataset("glove-100");
+    assert!(
+        n <= ds.n_train && n_queries <= ds.n_queries,
+        "glove-100 holds {} train / {} queries; asked {n}/{n_queries}",
+        ds.n_train,
+        ds.n_queries
+    );
+    let vectors = ds.train[..n * ds.dims]
+        .chunks_exact(ds.dims)
+        .map(|c| c.to_vec())
+        .collect();
+    let queries = ds.test[..n_queries * ds.dims]
+        .chunks_exact(ds.dims)
+        .map(|c| c.to_vec())
+        .collect();
+    Corpus { vectors, queries }
 }
 
 /// The engine configuration under test.
@@ -249,7 +259,7 @@ fn measure_search(
     for (i, query) in queries.iter().enumerate() {
         let start = Instant::now();
         let result = hnsw.search_nearest(
-            query,
+            std::hint::black_box(query),
             None,
             None,
             &FilterBitset::all_set(),
@@ -298,21 +308,20 @@ fn wal_format_version(data_dir: &std::path::Path) -> Option<u16> {
 }
 
 /// One full run: open → insert → search → flush → close → reopen.
-fn run_once(dir: &TempDir, queries: &[Vec<f32>], n: usize) -> (RunMetrics, StorageEngine) {
+fn run_once(dir: &TempDir, corpus: &Corpus, n: usize) -> (RunMetrics, StorageEngine) {
     let db_path = dir.path().to_str().expect("tempdir path is utf-8");
     let engine =
         StorageEngine::open_with_config(db_path, Some(bench_config())).expect("open engine");
+    let queries = &corpus.queries;
 
     // ---- insert ----
-    let mut rng = StdRng::seed_from_u64(SEED);
     let insert_start = Instant::now();
     let mut id: u128 = 0;
     while (id as usize) < n {
         let batch = (n - id as usize).min(INSERT_CHUNK);
-        for _ in 0..batch {
-            let vector = next_vector(&mut rng);
+        for vec in corpus.vectors.iter().skip(id as usize).take(batch) {
             engine
-                .insert(&UnifiedNode::with_vector(id, vector))
+                .insert(&UnifiedNode::with_vector(id, vec.clone()))
                 .expect("insert node");
             id += 1;
         }
@@ -369,13 +378,14 @@ fn bench_encrypted_p99(c: &mut Criterion) {
         .and_then(|s| s.parse().ok())
         .unwrap_or(3);
 
-    let queries = generate_queries();
+    let corpus = load_corpus(n, N_QUERIES);
+    let queries = corpus.queries.clone();
     let mut metrics: Vec<RunMetrics> = Vec::with_capacity(runs);
     let mut last: Option<(TempDir, StorageEngine)> = None;
 
     for run in 0..runs {
         let dir = tempdir().expect("tempdir for the bench database");
-        let (m, engine) = run_once(&dir, &queries, n);
+        let (m, engine) = run_once(&dir, &corpus, n);
         report(&format!(
             "encrypted_p99 run={}/{} n={} insert_s={:.3} search_p50_ms={:.4} search_p95_ms={:.4} \
              search_p99_ms={:.4} flush_s={:.3} cold_s={:.3} hits={}",
@@ -472,7 +482,7 @@ fn bench_encrypted_p99(c: &mut Criterion) {
     let mut group = c.benchmark_group("encrypted_p99");
     common::apply_fixed_profile(&mut group);
     group.sample_size(10);
-    group.bench_function("search_1000_queries_1536d", |b| {
+    group.bench_function("search_1000_queries_glove100d", |b| {
         b.iter(|| {
             let hnsw = engine.hnsw.load();
             let vs = engine.vector_store[0].read();

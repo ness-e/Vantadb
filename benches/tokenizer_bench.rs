@@ -134,18 +134,32 @@ fn bench_multilingual(c: &mut Criterion) {
 }
 
 #[cfg(feature = "advanced-tokenizer")]
-fn bench_batch_reuse_vs_fresh(c: &mut Criterion) {
-    // ERR-044: a batch of N texts must pay one analyzer build (stemming +
-    // stopwords pipeline), not N builds. Builds a realistic batch and compares
-    // per-text fresh builds against a single reused analyzer.
-    let texts: Vec<String> = (0..100)
-        .map(|i| {
+fn beir_abstracts(count: usize) -> Vec<String> {
+    // Real abstracts (BEIR-SciFact) instead of a repeated pangram: the batch
+    // cell must see varied vocabulary for stemming/stopwords to matter.
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("data/benchmark/beir-scifact");
+    let text = std::fs::read_to_string(base.join("corpus.jsonl")).expect("beir corpus");
+    text.lines()
+        .filter(|l| !l.trim().is_empty())
+        .take(count)
+        .map(|l| {
+            let v: serde_json::Value = serde_json::from_str(l).expect("parse corpus jsonl");
             format!(
-                "The quick brown fox {} jumps over the lazy dog. Café naïve résumé item {}.",
-                i, i
+                "{} {}",
+                v.get("title").and_then(|t| t.as_str()).unwrap_or(""),
+                v.get("text").and_then(|t| t.as_str()).unwrap_or("")
             )
         })
-        .collect();
+        .collect()
+}
+
+#[cfg(feature = "advanced-tokenizer")]
+fn bench_batch_reuse_vs_fresh(c: &mut Criterion) {
+    // ERR-044: a batch of N texts must pay one analyzer build (stemming +
+    // stopwords pipeline), not N builds. Realistic batch: 100 SciFact
+    // abstracts with varied vocabulary (a repeated pangram makes stemming
+    // and stopwords trivial).
+    let texts: Vec<String> = beir_abstracts(100);
     let config = AdvancedTokenizerConfig::default();
 
     let mut group = c.benchmark_group("batch_analyzer");

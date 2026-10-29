@@ -87,14 +87,17 @@ fn bench_memory_budget(c: &mut Criterion) {
         let insert_elapsed = insert_start.elapsed();
         inserted += count;
 
-        // Read mix: random point lookups against already-inserted ids.
+        // Read mix: pseudo-random point lookups against already-inserted ids
+        // (xorshift over i: the old `(inserted*K) % inserted` was always 0,
+        // hammering id 0 instead of sampling).
         let read_start = Instant::now();
+        let mut probe = inserted as u128;
         for _ in 0..READS_PER_BATCH {
-            let id = ((inserted as u128).wrapping_mul(2654435761) % inserted as u128) as usize;
-            let _ = storage.get(id as u128);
+            probe = probe.wrapping_mul(2654435761).wrapping_add(40503);
+            let id = (probe % inserted as u128) as usize;
+            let _ = std::hint::black_box(storage.get(id as u128));
         }
         let read_elapsed = read_start.elapsed();
-        let _ = read_elapsed;
 
         // flush() records the real process RSS into the metrics snapshot.
         storage.flush().unwrap();
@@ -127,11 +130,12 @@ fn bench_memory_budget(c: &mut Criterion) {
             pressure_ratio
         );
         println!(
-            "  -> rss={} logical_estimate={} delta={} limit={} guard_physical={} guard_effective={} pressure_ratio={:.3}",
+            "  -> rss={} logical_estimate={} delta={} limit={} read_10k={:.1}s guard_physical={} guard_effective={} pressure_ratio={:.3}",
             fmt_bytes(rss),
             fmt_bytes(logical),
             fmt_bytes(rss.saturating_sub(logical)),
             fmt_bytes(stats.memory_limit),
+            read_elapsed.as_secs_f64(),
             stats
                 .physical_rss
                 .map(fmt_bytes)
@@ -141,18 +145,33 @@ fn bench_memory_budget(c: &mut Criterion) {
         );
     }
 
-    // Minimal criterion measurement so the bench integrates with the harness.
+    // Honest criterion measurement: one fixed 5k batch insert (+flush) into a
+    // fresh engine per iteration. Setup is NOT timed (iter_batched); the
+    // routine takes seconds, so PerIteration overhead is negligible per the
+    // Criterion docs (it only matters in the hundreds-of-nanoseconds range).
+    // The RSS trend table above stays as the primary (docs-consumed) signal.
     let mut group = c.benchmark_group("memory_budget");
     common::apply_fixed_profile(&mut group);
-    group.sample_size(10);
-    group.bench_function("rss_vs_dataset_trend", |b| {
-        b.iter_custom(|iters| {
-            let start = Instant::now();
-            for _ in 0..iters {
-                std::hint::black_box(inserted);
-            }
-            start.elapsed()
-        })
+    group.bench_function("insert_batch_5k", |b| {
+        use criterion::BatchSize;
+        b.iter_batched(
+            || {
+                let dir = tempdir().unwrap();
+                let engine = StorageEngine::open(dir.path().to_str().unwrap()).unwrap();
+                let vecs = common::synthetic_vectors(5_000, DIM);
+                (dir, engine, vecs)
+            },
+            |(_dir, engine, vecs)| {
+                for (i, vec) in vecs.iter().enumerate() {
+                    let node =
+                        UnifiedNode::with_vector(i as u128, std::hint::black_box(vec.clone()));
+                    engine.insert(&node).unwrap();
+                }
+                engine.flush().unwrap();
+                std::hint::black_box(engine.stats().logical_bytes);
+            },
+            BatchSize::PerIteration,
+        );
     });
     group.finish();
 }

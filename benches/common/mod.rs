@@ -24,8 +24,16 @@ pub const DATASET_SEED: u64 = 0x9E37_79B9_7F4A_7C15;
 pub const DATASET_DIM: usize = 256;
 /// Number of vectors in the committed baseline dataset.
 pub const DATASET_COUNT: usize = 2_000;
-/// Path to the committed deterministic dataset (relative to workspace root).
-pub const DATASET_PATH: &str = "benches/data/synthetic_dataset.bin";
+/// Path to the committed deterministic dataset (absolute at compile time via
+/// CARGO_MANIFEST_DIR — robust to the bench's working directory).
+pub const DATASET_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/benches/data/synthetic_dataset.bin"
+);
+/// Dataset file format version (u32 after the magic; bump on layout change).
+pub const DATASET_VERSION: u32 = 1;
+/// Magic bytes at the start of the dataset file.
+pub const DATASET_MAGIC: &[u8; 4] = b"VNDS";
 
 /// Fixed measurement profile shared by all regression-tracked benches.
 ///
@@ -52,25 +60,32 @@ fn next_u64(state: &mut u64) -> u64 {
 }
 
 /// Generate `count` deterministic vectors of `dim` dimensions in `[0,1)`.
+/// Uses the top 24 bits of the xorshift output scaled by 2^-24 (exact for
+/// f32 mantissa; the old `(bits >> 11)/2^21` mapping could exceed 1.0).
 pub fn gen_f32(count: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
+    const SCALE: f32 = 1.0 / 16777216.0; // 2^-24
     let mut state = seed;
     (0..count)
         .map(|_| {
             (0..dim)
                 .map(|_| {
                     let bits = next_u64(&mut state);
-                    // map u64 to [0,1) f32 using 21 bits of mantissa
-                    ((bits >> 11) as f32) / ((1u64 << 21) as f32)
+                    ((bits >> 40) as f32) * SCALE
                 })
                 .collect()
         })
         .collect()
 }
 
-/// Serialize vectors as a little-endian f32 flat buffer.
+/// Serialize vectors as little-endian f32 flat buffer with header:
+/// magic `VNDS` + u32 version + u32 dim + u32 count, then dim*count f32 LE.
 pub fn write_dataset(path: &str, data: &[Vec<f32>]) {
     let first_len = data.first().map_or(0, |v| v.len());
-    let mut buf = Vec::with_capacity(data.len() * first_len * 4);
+    let mut buf = Vec::with_capacity(16 + data.len() * first_len * 4);
+    buf.extend_from_slice(DATASET_MAGIC);
+    buf.extend_from_slice(&DATASET_VERSION.to_le_bytes());
+    buf.extend_from_slice(&(first_len as u32).to_le_bytes());
+    buf.extend_from_slice(&(data.len() as u32).to_le_bytes());
     for v in data {
         for &x in v {
             buf.extend_from_slice(&x.to_le_bytes());
@@ -79,14 +94,22 @@ pub fn write_dataset(path: &str, data: &[Vec<f32>]) {
     std::fs::write(path, buf).expect("write synthetic dataset");
 }
 
-/// Read a dataset written by [`write_dataset`], reconstructing `DATASET_DIM`-wide vectors.
+/// Read a dataset written by [`write_dataset`]; validates magic + version
+/// and uses the header dim (not the caller's assumption).
 pub fn load_dataset(path: &str) -> Vec<Vec<f32>> {
     let bytes = std::fs::read(path).expect("read synthetic dataset");
-    let floats: Vec<f32> = bytes
+    assert!(bytes.len() >= 16, "dataset too short for header");
+    assert!(&bytes[0..4] == DATASET_MAGIC, "bad dataset magic");
+    let version = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
+    assert!(version == DATASET_VERSION, "unsupported dataset version");
+    let dim = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize;
+    let count = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]) as usize;
+    let floats: Vec<f32> = bytes[16..]
         .chunks_exact(4)
         .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
         .collect();
-    floats.chunks(DATASET_DIM).map(|c| c.to_vec()).collect()
+    assert!(floats.len() == dim * count, "dataset body size mismatch");
+    floats.chunks(dim).map(|c| c.to_vec()).collect()
 }
 
 /// Return deterministic vectors of `count`×`dim`.
@@ -102,4 +125,93 @@ pub fn synthetic_vectors(count: usize, dim: usize) -> Vec<Vec<f32>> {
         }
     }
     gen_f32(count, dim, DATASET_SEED)
+}
+
+/// A standard dataset from `data/benchmark/{name}/` (see
+/// scripts/download_ground_truth.py): flat f32 corpus + queries + u64
+/// ground-truth neighbor ids + meta.json. The industry-standard layout
+/// (corpus/queries/ground-truth separated, like ANN-Benchmarks).
+pub struct StandardDataset {
+    pub train: Vec<f32>,
+    pub test: Vec<f32>,
+    pub ground_truth: Vec<u64>,
+    pub dims: usize,
+    pub n_train: usize,
+    pub n_queries: usize,
+    pub k: usize,
+    pub metric: String,
+}
+
+/// Load a standard dataset by name (e.g. `"glove-100"`).
+/// Paths resolve against the workspace root so the bench's working
+/// directory does not matter.
+pub fn load_standard_dataset(name: &str) -> StandardDataset {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/benchmark");
+    let base = root.join(name);
+    let meta = std::fs::read_to_string(base.join("meta.json")).unwrap_or_else(|_| {
+        panic!("missing dataset {name} (run scripts/download_ground_truth.py)")
+    });
+    let dims = json_int(&meta, "\"dims\"");
+    let n_train = json_int(&meta, "\"n_train\"");
+    let n_queries = json_int(&meta, "\"n_test\"");
+    let k = json_int(&meta, "\"k_ground_truth\"");
+    let metric = json_str(&meta, "\"metric\"").to_string();
+    let train = read_flat_f32(&base.join("train.f32"));
+    let test = read_flat_f32(&base.join("test.f32"));
+    let gt_bytes = std::fs::read(base.join("test_neighbors.u64"))
+        .unwrap_or_else(|_| panic!("missing ground truth for {name}"));
+    assert_eq!(gt_bytes.len() % 8, 0, "ground truth size mismatch");
+    let mut ground_truth = Vec::with_capacity(gt_bytes.len() / 8);
+    for c in gt_bytes.chunks_exact(8) {
+        ground_truth.push(u64::from_le_bytes([
+            c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7],
+        ]));
+    }
+    assert_eq!(train.len(), n_train * dims, "train size mismatch");
+    assert_eq!(test.len(), n_queries * dims, "test size mismatch");
+    assert_eq!(
+        ground_truth.len(),
+        n_queries * k,
+        "ground truth size mismatch"
+    );
+    StandardDataset {
+        train,
+        test,
+        ground_truth,
+        dims,
+        n_train,
+        n_queries,
+        k,
+        metric,
+    }
+}
+
+fn read_flat_f32(path: &Path) -> Vec<f32> {
+    let bytes = std::fs::read(path).unwrap_or_else(|_| panic!("missing {}", path.display()));
+    assert_eq!(bytes.len() % 4, 0, "f32 size mismatch");
+    bytes
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect()
+}
+
+fn json_int(text: &str, key: &str) -> usize {
+    let idx = text
+        .find(key)
+        .unwrap_or_else(|| panic!("missing key {key}"));
+    let after = &text[idx + key.len()..];
+    let start = after.find(|c: char| c.is_ascii_digit()).unwrap();
+    let end = after[start..]
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(after.len() - start);
+    after[start..start + end].parse().unwrap()
+}
+
+fn json_str<'a>(text: &'a str, key: &'a str) -> &'a str {
+    let idx = text.find(key).unwrap();
+    let after = &text[idx + key.len()..];
+    let after_colon = &after[after.find(':').unwrap() + 1..];
+    let start = after_colon.find('"').unwrap() + 1;
+    let end = after_colon[start..].find('"').unwrap();
+    &after_colon[start..start + end]
 }

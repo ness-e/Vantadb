@@ -1,3 +1,5 @@
+"""DEPRECATED: use scripts/download_ground_truth.py (single entry point,
+idempotent, with manifest + --check). Kept for history only."""
 import urllib.request
 import os
 import tarfile

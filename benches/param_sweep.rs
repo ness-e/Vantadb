@@ -1,27 +1,35 @@
 // ponytail: blanket allow — unwraps with documented invariants; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-//! A4+A3: Parametric HNSW sweep over real datasets.
+//! A4+A3: Parametric HNSW sweep over real datasets (sift-128).
 //!
-//! Loads pre-downloaded datasets from `data/benchmark/{name}/`, sweeps
-//! M / ef_construction / ef_search, reports build(s), QPS, recall@10,
-//! p50(µs), p99(µs).
+//! Loads pre-downloaded datasets from `data/benchmark/{name}/` (see
+//! scripts/download_ground_truth.py). Default: single canonical build
+//! (M=16, efC=100) with an ef_search sweep → the industry-standard
+//! recall-QPS tradeoff curve. Recall is computed once per cell (untimed);
+//! Criterion tracks search latency per cell (estimates.json feeds
+//! bench_regression.py).
+//!
+//! Full 5×4×6 grid: PARAM_SWEEP_FULL=1 (nightly-scale cost, not for light CI).
 //!
 //! Run: cargo bench --bench param_sweep
-//!
-//! Data prepared by scripts/download_ground_truth.py.
 
+use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
 use std::path::PathBuf;
 use std::time::Instant;
 use vantadb::index::{auto_tune::AutoTune, CPIndex, HnswConfig, IndexType, VectorRepresentations};
 use vantadb::node::{DistanceMetric, FilterBitset};
 
+mod common;
+
 // ── Sweep ranges ──────────────────────────────────────────────────────
 
+// Default (fast): canonical build, ef_search curve only.
+const EF_S_VALUES: &[usize] = &[10, 20, 50, 100, 200, 400];
+// Full grid (PARAM_SWEEP_FULL=1): 5×4 builds × 6 efS cells.
 const M_VALUES: &[usize] = &[8, 12, 16, 24, 32];
 const EF_C_VALUES: &[usize] = &[50, 100, 200, 400];
-const EF_S_VALUES: &[usize] = &[10, 20, 50, 100, 200, 400];
 
 // ── Data loading ──────────────────────────────────────────────────────
 
@@ -160,7 +168,14 @@ fn recall_at_k(index: &CPIndex, ds: &Dataset) -> f64 {
     for q_idx in 0..ds.n_queries {
         let query = &ds.test[q_idx * ds.dims..(q_idx + 1) * ds.dims];
         let result: Vec<u128> = index
-            .search_nearest(query, None, None, &FilterBitset::all_set(), ds.k, None)
+            .search_nearest(
+                black_box(query),
+                None,
+                None,
+                &FilterBitset::all_set(),
+                ds.k,
+                None,
+            )
             .into_iter()
             .map(|(id, _)| id)
             .collect();
@@ -201,58 +216,62 @@ fn build_index(ds: &Dataset, m: usize, ef_c: usize) -> (CPIndex, f64) {
     (idx, build_s)
 }
 
-fn bench_one(ef_s: usize, idx: &mut CPIndex, ds: &Dataset) -> (f64, f64, f64) {
-    idx.config.ef_search = ef_s;
-
-    let mut lats = Vec::with_capacity(ds.n_queries);
-    for q_idx in 0..ds.n_queries {
-        let query = &ds.test[q_idx * ds.dims..(q_idx + 1) * ds.dims];
-        let t = Instant::now();
-        let _res =
-            black_box(idx.search_nearest(query, None, None, &FilterBitset::all_set(), ds.k, None));
-        lats.push(t.elapsed().as_secs_f64() * 1e6); // µs
+fn bench_ef_curve(
+    c: &mut Criterion,
+    ds: &Dataset,
+    name: &str,
+    m: usize,
+    ef_c: usize,
+    ef_values: &[usize],
+) {
+    let (mut idx, build_s) = build_index(ds, m, ef_c);
+    println!("  build M={m} efC={ef_c}: {build_s:.1}s");
+    let mut group = c.benchmark_group(format!("param_sweep_{name}"));
+    common::apply_fixed_profile(&mut group);
+    for &ef_s in ef_values {
+        AutoTune::set_ef(1); // bypass auto_tuner
+        idx.config.ef_search = ef_s;
+        let recall = recall_at_k(&idx, ds);
+        println!("  M={m} efC={ef_c} efS={ef_s}: recall@10 = {recall:.4}");
+        group.bench_function(format!("ef_search_{ef_s}"), |b| {
+            b.iter(|| {
+                for q_idx in 0..ds.n_queries {
+                    let query = &ds.test[q_idx * ds.dims..(q_idx + 1) * ds.dims];
+                    let _ = black_box(idx.search_nearest(
+                        black_box(query),
+                        None,
+                        None,
+                        &FilterBitset::all_set(),
+                        ds.k,
+                        None,
+                    ));
+                }
+            });
+        });
     }
-    lats.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let n = lats.len();
-    let mean = lats.iter().sum::<f64>() / n as f64;
-    let p50 = lats[n / 2];
-    let qps = if mean > 0.0 { 1_000_000.0 / mean } else { 0.0 };
-    let recall = recall_at_k(idx, ds);
-    (qps, recall, p50)
-}
-
-// ── Sweep runner ──────────────────────────────────────────────────────
-
-fn run_sweep(ds: &Dataset, name: &str) {
-    println!(
-        "\n  ── {name} (D={}, N={}, Nq={}) ──",
-        ds.dims, ds.n_train, ds.n_queries
-    );
-    println!("  Sweeping M={M_VALUES:?}, efC={EF_C_VALUES:?}, efS={EF_S_VALUES:?}");
-    println!();
-    println!(
-        "  {:<4} {:<5} {:<5} {:>10} {:>10} {:>12} {:>8}",
-        "M", "efC", "efS", "build(s)", "QPS", "recall@10", "p50µs"
-    );
-    println!("  {}", "─".repeat(65));
-
-    for &m in M_VALUES {
-        for &ef_c in EF_C_VALUES {
-            let (mut idx, build_s) = build_index(ds, m, ef_c);
-
-            for &ef_s in EF_S_VALUES {
-                AutoTune::set_ef(1); // bypass auto_tuner
-                let (qps, recall, p50) = bench_one(ef_s, &mut idx, ds);
-                println!("  {m:<4} {ef_c:<5} {ef_s:<5} {build_s:>10.3} {qps:>10.0} {recall:>12.4} {p50:>8.0}");
-            }
-        }
-    }
-    println!();
+    group.finish();
 }
 
 // ── Entry point ───────────────────────────────────────────────────────
 
-fn main() {
+fn bench_param_sweep(c: &mut Criterion) {
     let ds = load_dataset("sift-128");
-    run_sweep(&ds, "sift-128");
+    println!(
+        "\n  ── sift-128 (D={}, N={}, Nq={}) ──",
+        ds.dims, ds.n_train, ds.n_queries
+    );
+    if std::env::var("PARAM_SWEEP_FULL").as_deref() == Ok("1") {
+        println!("  Full grid: M={M_VALUES:?}, efC={EF_C_VALUES:?}");
+        for &m in M_VALUES {
+            for &ef_c in EF_C_VALUES {
+                bench_ef_curve(c, &ds, &format!("m{m}_efc{ef_c}"), m, ef_c, EF_S_VALUES);
+            }
+        }
+    } else {
+        println!("  Canonical build M=16 efC=100, efS curve (PARAM_SWEEP_FULL=1 for full grid)");
+        bench_ef_curve(c, &ds, "canonical", 16, 100, EF_S_VALUES);
+    }
 }
+
+criterion_group!(benches, bench_param_sweep);
+criterion_main!(benches);

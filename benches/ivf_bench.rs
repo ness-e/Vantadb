@@ -118,28 +118,34 @@ fn candidates_scanned(index: &IvfIndex, query: &[f32]) -> usize {
 }
 
 fn measure_latency(index: &IvfIndex, queries: &[Vec<f32>], k: usize) -> (f64, f64, f64, f64) {
-    // Mean candidates scanned per query (entries visited across probed lists).
-    let mut candidates_sum = 0usize;
+    // Latency pass: pure search only (candidate counting runs separately and
+    // untimed — mixing it in inflates the timed region with a second search).
     let mut latencies_us: Vec<f64> = queries
         .iter()
         .map(|q| {
             let t = Instant::now();
-            let _ = black_box(index.search(q, k, &FilterBitset::all_set()));
-            candidates_sum += candidates_scanned(index, q);
+            let _ = black_box(index.search(black_box(q), k, &FilterBitset::all_set()));
             t.elapsed().as_nanos() as f64 / 1_000.0
         })
         .collect();
+    // Attribution pass (untimed): mean candidates scanned per query.
+    let candidates_sum: usize = queries.iter().map(|q| candidates_scanned(index, q)).sum();
     latencies_us.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = latencies_us.len();
     let p50 = latencies_us[n / 2];
-    let p99 = latencies_us[(n as f64 * 0.99) as usize];
+    let p99 = latencies_us[((n as f64 * 0.99) as usize).min(n - 1)];
     let mean = latencies_us.iter().sum::<f64>() / n as f64;
-    let mean_candidates = if candidates_sum > 0 {
-        candidates_sum as f64 / n as f64
-    } else {
-        0.0
-    };
+    let mean_candidates = candidates_sum as f64 / n as f64;
     (p50, p99, mean, mean_candidates)
+}
+
+/// Real brute-force floor: time exact cosine scan per query (not N/1000 arithmetic).
+fn measure_brute_floor(dataset: &[(u128, Vec<f32>)], queries: &[Vec<f32>], k: usize) -> f64 {
+    let t = Instant::now();
+    for q in queries {
+        std::hint::black_box(brute_force_knn(black_box(q), dataset, k));
+    }
+    t.elapsed().as_nanos() as f64 / 1_000.0 / queries.len() as f64
 }
 
 fn bench_ivf(c: &mut Criterion) {
@@ -194,8 +200,8 @@ fn bench_ivf(c: &mut Criterion) {
     println!("  {}", "─".repeat(28));
 
     // ── 2. nlist × nprobe sweep: recall + latency vs brute force ─────
-    // Baseline: brute-force scan cost per query (all 10K vectors).
-    let brute_scan_us = N_VECTORS as f64 / 1_000.0; // floor for the quoted Nd scan, not timed
+    // Baseline: MEASURED brute-force scan cost per query (all 10K vectors).
+    let brute_scan_us = measure_brute_floor(&dataset, &queries, TOP_K);
 
     println!(
         "\n━━━ IVF Search: nlist × nprobe trade-off (N={}, D={}, k={}) ━━━",
@@ -235,7 +241,7 @@ fn bench_ivf(c: &mut Criterion) {
     }
     println!("  {}", "─".repeat(88));
     println!(
-        "  Brute-force ground truth: cosine over all {} vectors ({:.1}µs/query scan floor).\n",
+        "  Brute-force ground truth: cosine over all {} vectors ({:.1}µs/query measured).\n",
         N_VECTORS, brute_scan_us
     );
 

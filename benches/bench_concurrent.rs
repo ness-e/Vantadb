@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
-use tempfile::tempdir;
+use tempfile::{tempdir, TempDir};
 use vantadb::index::auto_tune::AutoTune;
 use vantadb::index::FilterBitset;
 use vantadb::node::{UnifiedNode, VectorRepresentations};
@@ -25,9 +25,11 @@ fn generate_vectors(count: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
 }
 
 /// Setup the shared storage + query pool once before running the bench group.
-/// Returns `(storage, query_pool)`. Done outside `bench_function` so it isn't
-/// included in the timed iter (criterion warmup is separate).
-fn setup_storage() -> (Arc<StorageEngine>, Arc<Vec<Vec<f32>>>) {
+/// Returns `(storage, query_pool, _dir_guard)`. Done outside `bench_function`
+/// so it isn't included in the timed iter (criterion warmup is separate).
+/// The TempDir guard is returned (not dropped): deleting the dir while the
+/// engine holds it open breaks on Windows and skews later iters.
+fn setup_storage() -> (Arc<StorageEngine>, Arc<Vec<Vec<f32>>>, TempDir) {
     AutoTune::set_ef(100);
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
@@ -50,11 +52,11 @@ fn setup_storage() -> (Arc<StorageEngine>, Arc<Vec<Vec<f32>>>) {
     );
 
     let query_pool = Arc::new(generate_vectors(1000, DIM, 1337));
-    (storage, query_pool)
+    (storage, query_pool, dir)
 }
 
 fn bench_concurrent(c: &mut Criterion) {
-    let (storage, query_pool) = setup_storage();
+    let (storage, query_pool, _dir_guard) = setup_storage();
 
     // Measure baseline (t=1) ONCE before the criterion loop so the per-thread
     // bench functions can use a stable speedup/efficiency reference. The
@@ -84,9 +86,12 @@ fn bench_concurrent(c: &mut Criterion) {
         // measured baseline so the in-iter printout is meaningful.
         let bench_baseline = if t == 1 { 0.0 } else { baseline_qps };
         group.bench_function(format!("read_only/t{}", t), |b| {
+            // Honest wall-clock: return the measured window, not the
+            // TEST_DURATION constant (a constant makes estimates.json fiction).
             b.iter_custom(|iters| {
                 let mut total = Duration::ZERO;
                 for _ in 0..iters {
+                    let start = Instant::now();
                     let _ = run_read_only_bench(
                         storage.clone(),
                         query_pool.clone(),
@@ -94,7 +99,7 @@ fn bench_concurrent(c: &mut Criterion) {
                         TEST_DURATION,
                         bench_baseline,
                     );
-                    total += TEST_DURATION;
+                    total += start.elapsed();
                 }
                 total
             });
@@ -117,8 +122,9 @@ fn bench_concurrent(c: &mut Criterion) {
             b.iter_custom(|iters| {
                 let mut total = Duration::ZERO;
                 for _ in 0..iters {
+                    let start = Instant::now();
                     run_mixed_bench(storage.clone(), query_pool.clone(), t, TEST_DURATION, DIM);
-                    total += TEST_DURATION;
+                    total += start.elapsed();
                 }
                 total
             });
@@ -151,7 +157,7 @@ fn run_read_only_bench(
             let mut query_idx = thread_idx % query_pool.len();
 
             while !stop_signal.load(Ordering::Relaxed) {
-                let query = &query_pool[query_idx];
+                let query = std::hint::black_box(&query_pool[query_idx]);
                 let q_start = Instant::now();
 
                 // Perform query
@@ -284,7 +290,7 @@ fn run_mixed_bench(
             let mut query_idx = thread_idx % query_pool.len();
 
             while !stop_signal.load(Ordering::Relaxed) {
-                let query = &query_pool[query_idx];
+                let query = std::hint::black_box(&query_pool[query_idx]);
                 let q_start = Instant::now();
 
                 // Perform query
