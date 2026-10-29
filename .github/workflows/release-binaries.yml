@@ -61,28 +61,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # PRE-PUB: solo linux-x64 (eran 5). Al lanzar, reactivar la matriz.
         include:
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: x86_64-apple-darwin
-            os: macos-latest
-          - target: aarch64-apple-darwin
-            os: macos-latest
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-          - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
-        with:
-          target: ${{ matrix.target }}
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        uses: ./.github/actions/rust-setup
         with:
           shared-key: release-${{ matrix.target }}
 
@@ -142,6 +130,19 @@ jobs:
           $hash = (Get-FileHash "vantadb-${{ matrix.target }}.zip" -Algorithm SHA256).Hash.ToLower()
           "$hash  vantadb-${{ matrix.target }}.zip" | Out-File -Encoding ASCII "vantadb-${{ matrix.target }}.zip.sha256"
 
+      - name: Install cargo-cyclonedx
+        if: github.event_name == 'release' || inputs.release_tag != ''
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: cargo-cyclonedx
+
+      - name: Generate SBOM (Rust + Python, ex release-sbom.yml fusionado aqui)
+        if: github.event_name == 'release' || inputs.release_tag != ''
+        run: |
+          cargo cyclonedx --format json --override-filename sbom
+          python3 -m pip install --user --quiet cyclonedx-bom
+          python3 -m cyclonedx_py requirements --pyproject vantadb-python/pyproject.toml --output-file sbom-python.json
+
       - name: Upload release asset
         if: github.event_name == 'release' || inputs.release_tag != ''
         env:
@@ -153,5 +154,7 @@ jobs:
           gh release upload "${{ inputs.release_tag || github.ref_name }}" \
             "vantadb-${TARGET}${ext}" \
             "vantadb-${TARGET}${ext}.sha256" \
+            sbom.json \
+            sbom-python.json \
             --repo "${{ github.repository }}" \
             --clobber

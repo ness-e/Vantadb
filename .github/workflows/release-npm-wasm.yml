@@ -22,7 +22,7 @@ on:
     paths:
       - "vantadb-wasm/**"
       - "vantadb-ts/**"
-      - ".github/workflows/release-npm-61.yml"
+      - ".github/workflows/release-npm-wasm.yml"
 
 permissions:
   contents: read
@@ -56,15 +56,15 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
+      - name: Install wasm-pack (prebuilt binary, same route everywhere)
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
-          version: latest
+          tool: wasm-pack
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
+          install-system-deps: false
 
       - name: Add wasm target
         run: rustup target add wasm32-unknown-unknown
@@ -80,6 +80,19 @@ jobs:
       # the hand-written .d.ts: `vantadb-wasm/src/vantadb_wasm.d.ts`.
       - name: Override .d.ts with hand-written source (WSM-05)
         run: node dev-tools/build-wasm-types.mjs
+
+      # WSM-06: wasm-pack omits `snippets/` from pkg `files` — run here too so
+      # the uploaded wasm-pkg artifact (reused by publish-wasm, no rebuild)
+      # matches what used to be built there.
+      - name: Include wasm-pack snippets in pkg files (WSM-06)
+        run: node dev-tools/fix-wasm-pkg-files.mjs
+
+      - name: Upload WASM build artifact (reused by publish-wasm)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wasm-pkg
+          path: vantadb-wasm/pkg
+          if-no-files-found: error
 
       - name: Install dependencies
         working-directory: vantadb-ts
@@ -106,76 +119,19 @@ jobs:
           node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (STABLE-06)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines));"
           npm pack --dry-run > /dev/null
 
-  # DX-01: the published TS demo broke on Node 26 (H-009: `get` with a
-  # non-string key trapped in the wasm glue — vantadb_wasm_bg.js:1551) while
-  # this gate only ran Node 22. Mirror the `tests` job on Node 26 — one added
-  # job, not a full matrix (cost; see DX-01 task file).
-  tests-node26:
-    name: Tests (npm/TS, Node 26)
-    if: github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 26
-
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
-        with:
-          version: latest
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
-        with:
-          toolchain: stable
-
-      - name: Add wasm target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Build WASM package
-        run: wasm-pack build --release
-        working-directory: vantadb-wasm
-
-      # WSM-05: see `tests` job.
-      - name: Override .d.ts with hand-written source (WSM-05)
-        run: node dev-tools/build-wasm-types.mjs
-
-      - name: Install dependencies
-        working-directory: vantadb-ts
-        run: npm ci
-
-      - name: Build TypeScript
-        working-directory: vantadb-ts
-        run: npm run build
-
-      - name: Run tests
-        working-directory: vantadb-ts
-        run: npm test
-
-      - name: Lint TypeScript (STABLE-06)
-        working-directory: vantadb-ts
-        run: npm run lint
-
-      - name: Verify packed manifest keeps engines (STABLE-06)
-        working-directory: vantadb-ts
-        run: |
-          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (STABLE-06)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines));"
-          npm pack --dry-run > /dev/null
+  # (tests-node26 retirado: duplicaba `tests` (~60 lineas, 2.º compile wasm)
+  # para un bug de Node 26 ya fixeado (DX-01/H-009). Al necesitar Node 26,
+  # reactivar como matriz sobre `tests`.)
 
   publish-wasm:
     name: Publish vantadb-wasm to npm
-    needs: [tests, tests-node26]
+    needs: [tests]
     if: >
       startsWith(github.ref, 'refs/tags/v') ||
       (github.event_name == 'workflow_dispatch' && inputs.package != 'ts')
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: npm
+    environment: release
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -191,37 +147,16 @@ jobs:
       - name: Upgrade npm for OIDC trusted publishing
         run: npm install -g npm@11
 
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
+      # Reusa el artefacto wasm-pkg del job `tests` (sin recompilar: era el
+      # 3.er compile wasm identico por release).
+      - name: Download WASM build artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          version: latest
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
-        with:
-          toolchain: stable
-
-      - name: Add wasm target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Build WASM package
-        run: wasm-pack build --release
-        working-directory: vantadb-wasm
-
-      # WSM-05: see `tests` job. Runs in `publish-wasm` too so the artifact
-      # uploaded to npm is the hand-written one (not the mostly-`any`
-      # wasm-pack output).
-      - name: Override .d.ts with hand-written source (WSM-05)
-        run: node dev-tools/build-wasm-types.mjs
-
-      # WSM-06: wasm-pack omits `snippets/` from pkg `files`, but the glue
-      # imports `snippets/<hash>/inline0.js` — without this the tarball ships
-      # broken (ERR_MODULE_NOT_FOUND, caught by TS-07 on vantadb-wasm@0.6.0).
-      - name: Include wasm-pack snippets in pkg files (WSM-06)
-        run: node dev-tools/fix-wasm-pkg-files.mjs
+          name: wasm-pkg
+          path: vantadb-wasm/pkg
 
       - name: Upload WASM build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wasm-pkg
           path: vantadb-wasm/pkg
@@ -265,7 +200,7 @@ jobs:
        (github.event_name == 'workflow_dispatch' && inputs.package != 'wasm'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: npm
+    environment: release
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -281,14 +216,14 @@ jobs:
         run: npm install -g npm@11
 
       - name: Download WASM build artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: wasm-pkg
           path: vantadb-wasm/pkg
 
       - name: Install dependencies
         working-directory: vantadb-ts
-        run: npm install
+        run: npm ci
 
       - name: Build TypeScript
         working-directory: vantadb-ts

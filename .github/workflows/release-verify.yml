@@ -5,8 +5,8 @@ name: 'RELEASE: Verify — Artifacts live check'
 # (the checkout stays on the dispatched ref, so dispatch from `main`).
 # Remediation: docs/dev/workflow/PUBLISH.md, Post-release verification.
 on:
-  schedule:
-    - cron: '0 8 * * 1' # Mon 08:00 UTC — no overlap with other scheduled slots (TRIGGERS.md)
+  # PRE-PUB dispatch-only: el schedule semanal daba FAIL cronico (verifica
+  # registros tras approvals pendientes). Al lanzar, reactivar el cron.
   workflow_dispatch:
     inputs:
       tag:

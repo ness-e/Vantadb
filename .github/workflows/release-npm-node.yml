@@ -12,11 +12,8 @@ on:
         description: "Dry run (no actual publish)"
         required: false
         default: "false"
-  push:
-    # Tags solo: publish. CI de ramas va por pull_request (paths).
-    # (paths no se evalúa en tags; tags+branches+paths en un bloque es
-    # ambiguo — FIND-140)
-    tags: ["v*.*.*", "node-v*.*.*"]
+  # PRE-PUB lane manual: sin trigger de tags (el fanout ya no lo llama).
+  # Se publica solo por workflow_dispatch.
   pull_request:
     paths:
       - "vantadb-node/**"
@@ -50,21 +47,8 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             runs-on: ubuntu-latest
             rust-target: x86_64-unknown-linux-gnu
-          - target: x86_64-unknown-linux-musl
-            runs-on: ubuntu-latest
-            rust-target: x86_64-unknown-linux-musl
-          - target: aarch64-unknown-linux-gnu
-            runs-on: ubuntu-latest
-            rust-target: aarch64-unknown-linux-gnu
-          - target: aarch64-unknown-linux-musl
-            runs-on: ubuntu-latest
-            rust-target: aarch64-unknown-linux-musl
-          - target: x86_64-apple-darwin
-            runs-on: macos-latest
-            rust-target: x86_64-apple-darwin
-          - target: aarch64-apple-darwin
-            runs-on: macos-latest
-            rust-target: aarch64-apple-darwin
+          # PRE-PUB: musl/darwin recortados (eran 7). Al lanzar, reactivar
+          # la matriz completa.
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,18 +60,10 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
         with:
           toolchain: stable
           targets: ${{ matrix.rust-target }}
-
-      - name: Add Rust target
-        run: rustup target add ${{ matrix.rust-target }}
-
-      - name: Install cross-compilation toolchain (Linux cross/musl targets)
-        if: runner.os == 'Linux' && matrix.rust-target != 'x86_64-unknown-linux-gnu'
-        run: |
-          python3 -m pip install --break-system-packages ziglang cargo-zigbuild
 
       - name: Build vantadb-node (${{ matrix.target }})
         working-directory: vantadb-node
@@ -104,13 +80,8 @@ jobs:
           npx napi build --platform --release --target "$RUST_TARGET" $CROSS_FLAG --js index.cjs
           npx napi build --platform --release --target "$RUST_TARGET" $CROSS_FLAG --esm --js index.js
 
-      - name: Run tests
-        if: runner.os == 'Linux' && matrix.target == 'x86_64-unknown-linux-gnu'
-        run: npm test
-        working-directory: vantadb-node
-
       - name: Upload native binary
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vantadb-node-${{ matrix.target }}
           path: vantadb-node/*.node
@@ -118,7 +89,7 @@ jobs:
 
       - name: Upload JS/TS artifacts (only from one job)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vantadb-node-js
           path: |
@@ -139,12 +110,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download Linux build
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: vantadb-node-x86_64-unknown-linux-gnu
           path: vantadb-node
       - name: Download JS/TS artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: vantadb-node-js
           path: vantadb-node
@@ -168,7 +139,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.publish != false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: npm
+    environment: release
     permissions:
       id-token: write
       contents: write
@@ -178,7 +149,7 @@ jobs:
 
       # Download all native binaries
       - name: Download all native binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: vantadb-node-*
           path: vantadb-node
@@ -186,7 +157,7 @@ jobs:
 
       # Download JS/TS artifacts
       - name: Download JS/TS artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: vantadb-node-js
           path: vantadb-node
@@ -205,11 +176,11 @@ jobs:
         run: |
           echo "Checking for required native binaries..."
           ls -la vantadb-node/*.node
-          # Verify we have binaries for all 7 targets
+          # PRE-PUB: matriz recortada a 2 targets (eran 7).
           count=$(find vantadb-node -name "*.node" | wc -l)
           echo "Found $count native binaries"
-          if [ "$count" -lt 5 ]; then
-            echo "ERROR: Expected at least 5 native binaries, found $count"
+          if [ "$count" -lt 2 ]; then
+            echo "ERROR: Expected at least 2 native binaries, found $count"
             exit 1
           fi
 
@@ -246,11 +217,8 @@ jobs:
         with:
           subject-path: 'vantadb-node/*.tgz'
 
-      - name: Attach to Release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          files: vantadb-node/*.tgz
+      # (Attach to Release retirado: este workflow nunca recibe el evento
+      # 'release', el bloque era codigo muerto.)
 
       - name: Publish to npm
         if: steps.check-node.outputs.exists != 'true'

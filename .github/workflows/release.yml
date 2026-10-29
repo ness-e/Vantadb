@@ -183,11 +183,12 @@ jobs:
             echo "::error::Could not derive the released tag from release-plz outputs: $RELEASES_JSON"
             exit 1
           fi
-          echo "Fanning out on tag $TAG"
+          echo "Fanning out on tag $TAG (PRE-PUB: solo nucleo automatico)"
           gh workflow run release-wheels.yml -R "${{ github.repository }}" --ref "$TAG"
           gh workflow run release-npm-wasm.yml -R "${{ github.repository }}" --ref "$TAG" -f package=both
-          gh workflow run release-npm-node.yml -R "${{ github.repository }}" --ref "$TAG" -f publish=true
-          gh workflow run release-adapters.yml -R "${{ github.repository }}" --ref "$TAG" -f publish_pypi=true
-          gh workflow run release-providers.yml -R "${{ github.repository }}" --ref "$TAG" -f publish_pypi=true
-          gh workflow run release-sbom.yml -R "${{ github.repository }}" --ref "$TAG"
-          gh workflow run release-binaries.yml -R "${{ github.repository }}" --ref "$TAG" -f release_tag="$TAG"
+          # PRE-PUB lanes manuales (dispatch): al lanzar, reactivar estas 5 lineas.
+          # gh workflow run release-npm-node.yml -R "${{ github.repository }}" --ref "$TAG" -f publish=true
+          # gh workflow run release-adapters.yml -R "${{ github.repository }}" --ref "$TAG" -f publish_pypi=true
+          # gh workflow run release-providers.yml -R "${{ github.repository }}" --ref "$TAG" -f publish_pypi=true
+          # (sbom fusionado como step en release-binaries.yml)
+          # gh workflow run release-binaries.yml -R "${{ github.repository }}" --ref "$TAG" -f release_tag="$TAG"
