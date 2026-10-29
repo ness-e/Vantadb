@@ -299,7 +299,7 @@ monitoring): see [`docs/user/operations/hardening.md`](hardening.md).
 
 See the [GitHub Security Advisories](https://github.com/ness-e/Vantadb/security/advisories) page for the full disclosure policy.
 
-- **Email:** security@vantadb.dev
+- **Email:** developererosnessy@gmail.com
 - **GitHub:** https://github.com/ness-e/Vantadb/security/advisories
 
 Do **not** report security vulnerabilities through public GitHub issues, Discord, or Twitter.

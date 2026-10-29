@@ -169,7 +169,7 @@ The changes most likely to touch consumers:
 - **Release tooling**: release-plz now releases only when the Release PR is
   merged (`release_always = false`).
 
-**Breaking changes:** none for consumers. Evidence: `docs/CHANGELOG.md`
+**Breaking changes:** none for consumers. Evidence: `CHANGELOG.md`
 § `[0.7.0] - 2026-09-25` carries only an *Other* entry (no `feat!` /
 `BREAKING CHANGE` markers), and `git diff v0.6.1 v0.7.0 -- src/` touches five
 internal lines only (no public API changes).
@@ -217,7 +217,7 @@ migration; verify with `vanta-cli audit-index --json` → `"passed": true`).
 
 **Breaking changes:** none reported.
 
-> Evidence: `docs/CHANGELOG.md` § `[0.5.0] - 2026-07-31` lists only *Added*
+> Evidence: `CHANGELOG.md` § `[0.5.0] - 2026-07-31` lists only *Added*
 > entries; no `BREAKING CHANGE` markers in the release notes, and no breaking
 > commits surfaced between `0.4.0` and `v0.5.0`. The legacy `SegmentRegistry`
 > handles migration of pre-existing single-level stores automatically on open.
@@ -228,7 +228,7 @@ legacy vector store segments are migrated transparently by the new
 `IndexType.Ivf` in your index config.
 
 **Note:** there is no `v0.4.0` git tag — all tags prior to `v0.5.0` were removed
-in the 0.4.0 clean-versioning reset (see `docs/CHANGELOG.md` § 0.4.0 *Changed*).
+in the 0.4.0 clean-versioning reset (see `CHANGELOG.md` § 0.4.0 *Changed*).
 Use the changelog, not tags, to diff against 0.4.0.
 
 <!-- TEMPLATE — copy for each new release:
@@ -248,6 +248,6 @@ Use the changelog, not tags, to diff against 0.4.0.
 ## After upgrading
 
 1. Open the database and run a read smoke test (list namespaces, one search).
-2. Check `docs/CHANGELOG.md` for the versions you skipped — MINOR releases may
+2. Check `CHANGELOG.md` for the versions you skipped — MINOR releases may
    stack multiple changes.
 3. Delete the backup only after a full workload cycle completes cleanly.

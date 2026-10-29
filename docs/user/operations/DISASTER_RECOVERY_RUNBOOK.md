@@ -442,7 +442,7 @@ After every incident:
 | On-call engineer | PagerDuty / OpsGenie | Initial diagnosis, SEV-1/2 response |
 | Database engineer | Slack / GitHub Issues | Data recovery, index repair |
 | Engineering lead | Phone (if SEV-1) | Escalation, stakeholder communication |
-| Security team | security@vantadb.dev | If data loss involves PII or credentials |
+| Security team | developererosnessy@gmail.com | If data loss involves PII or credentials |
 
 ---
 

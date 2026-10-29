@@ -160,7 +160,7 @@ constraints, and a re-run of the Gate P HITL decision (post-release, D42/D43).
 |---|---|---|---|---|
 | **T1** | External demand | ≥5 exposure requests from distinct non-maintainers | Issue tracker: issues/discussions opened by non-maintainers asking for the memory surface through a binding (count distinct requesters) | Lead |
 | **T2** | ICP-03 adapter blocked | 1 frameworks-track adapter blocked because it needs the memory surface and no binding exists | ICP-03 registry (master roadmap Task 44 / frameworks one-pager): blocker recorded with task ref | Lead |
-| **T3** | Stability proven | 2 release trains with 0 breaking changes to the documented Rust surface | `git log -p -- docs/api/VANTA_MEMORY.md` since 2026-09-27 (adoption) + `docs/CHANGELOG.md` | Release process |
+| **T3** | Stability proven | 2 release trains with 0 breaking changes to the documented Rust surface | `git log -p -- docs/api/VANTA_MEMORY.md` since 2026-09-27 (adoption) + `CHANGELOG.md` | Release process |
 | **T4** | Stranger-tests | FASE-A stranger-tests (2–3 unaided testers) confirm local-first demand that only a published memory surface satisfies | `docs/dev/FASE-A.md` kit + EXE-03 report | Research / owner |
 
 Rules:

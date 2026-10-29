@@ -197,7 +197,7 @@ push v*.*.* tag
   [gate] version_coherence
        │
        ▼
-  [build-wheels] Linux / macOS / Windows
+  [build-wheels] linux-x86_64 on PR; full matrix (linux/macos/windows/aarch64) on tag/dispatch
   (smoke test per platform)
        │
        ├──────────────────────────┐

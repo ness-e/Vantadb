@@ -178,14 +178,14 @@ reversibility) is defined in **[ADR-0031: Promotion to default-members](../../de
 
 #### Promotion to `default-members` — ADR-0031 DoD (STABLE-00, P47)
 
-`default-members` today is `[ ".", "vantadb-python" ]` (`Cargo.toml:636`). Candidates
+`default-members` today is `[ ".", "vantadb-python", "vanta-memory", "vantadb-server", "vantadb-mcp" ]` (`Cargo.toml`) — `vanta-proxy`/`vantadb-wasm` promoted to members but stay out of defaults (STABLE review below). Candidates
 `vanta-memory`, `vanta-proxy`, `vantadb-server`, `vantadb-mcp`, `vantadb-wasm`
 (Rust) and `vantadb-ts`/`vantadb-node` (npm, equivalent gate) must each pass
 the **10-check DoD** before promotion; the checks and their exact commands are
 the single source of truth in ADR-0031 (gates 1-10: `cargo check`+`fmt`+`clippy -D warnings`,
 `cargo nextest --profile audit`, `cargo deny check`, `validate-docs-coverage`,
 workflow `paths:` + no `continue-on-error` + `timeout-minutes <5 min` measured,
-`cargo package --dry-run`, `wasm-pack`/`wasm32` for `wasm`, `napi` 7-target matrix +
+`cargo package --dry-run`, `wasm-pack`/`wasm32` for `wasm`, `napi` 2-target matrix (pre-pub recorte de 7) +
 `npm pack` for `node`, `verify.ps1` wall time `<5 min` with all crates included,
 ADR with cost + rollback). **Rollback is 1 line:** `git revert` of `Cargo.toml:636`
 (the `publish = false` crates never affect `cargo publish`).
@@ -529,7 +529,7 @@ publication and signing remain deferred.
 | NPM Publish (Node) | `release-npm-node.yml` | Tag `node-v*.*.*`, `pull_request` (paths node), or `workflow_dispatch` |
 | PyPI Adapters | `release-adapters.yml` | Tag `adapters-v*.*.*` or `workflow_dispatch` (TestPyPI) |
 | Binary Builds | `release-binaries.yml` | Release published or `workflow_dispatch` |
-| SBOM Generation | `release-sbom.yml` | Tag `v*` or `workflow_dispatch` |
+| SBOM Generation | step en `release-binaries.yml` (ex `release-sbom.yml`, fusionado pre-pub) | Release con upload |
 
 ## External Dependencies (Ollama/LLMs)
 

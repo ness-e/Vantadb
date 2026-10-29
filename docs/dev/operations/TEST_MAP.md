@@ -27,7 +27,7 @@ tags: [vantadb, operations, test-map, testing]
 | **Web frontend** (`web/`) | `cd web && npx tsc --noEmit && npm run lint` | `cd web && npm run build` | ci-web-11 |
 | **Server** (`vantadb-server/`) | `cargo nextest run -p vantadb-server` | `cargo test --release -p vantadb-server --test e2e` | heavy-certification-50 (other-heavy) |
 | **MCP** (`vantadb-mcp/`) | `cargo nextest run -p vantadb-mcp` | `cargo test --release -p vantadb-mcp --test mcp_tests` | heavy-certification-50 (other-heavy) |
-| **Documentation** (`docs/`) | — | `npx markdownlint-cli2 "docs/**/*.md"` | gate-docs-21 |
+| **Documentation** (`docs/`) | — | `npx markdownlint-cli2 "docs/**/*.md"` | docs-gates |
 | **CI config** (`.github/`) | `just fmt && just clippy` | `just verify` | ci-rust-10 |
 | **Dependencies** (`Cargo.toml`, `Cargo.lock`) | `just deny && just audit-cargo` | `just machete` | ci-rust-10 (deny + audit) |
 | **Benchmarks** (`benches/`, `tests/benchmark_*`) | `cargo bench` (criterion) | `cargo test --release --test benchmark_internal` | heavy-bench-nightly-51 |
@@ -63,7 +63,7 @@ tags: [vantadb, operations, test-map, testing]
 | **ci-web-11** | Web build, lint, tsc | Every push/PR touching `web/` | **Yes** for web changes |
 | **heavy-certification-50** | Full test suite: stress, HNSW validation, storage persistence, failpoints, text index, memory concurrency, benchmarks | Weekly (Sun) + manual trigger | No (weekly quality signal) |
 | **heavy-bench-nightly-51** | Performance benchmarks | Nightly | No (regression signal) |
-| **gate-docs-21** | Markdown lint + frontmatter validation | Every push/PR touching `docs/` | **Yes** for doc changes |
+| **docs-gates** | Markdown lint + frontmatter validation | Every push/PR touching `docs/` | **Yes** for doc changes |
 | **fuzz-40** | Fuzz testing (Linux, nightly) | On demand | No |
 | **sec-codeql-30** | CodeQL security analysis | On push to main | No |
 | **release-*** | Binary, wheel, npm, SBOM publishing | Tag/release | N/A |

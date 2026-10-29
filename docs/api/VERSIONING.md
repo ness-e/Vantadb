@@ -22,7 +22,7 @@ Until `1.0.0`:
   performance improvements, and doc updates only. No API removals, no signature
   changes, no on-disk format changes.
 
-Every breaking change is marked in `docs/CHANGELOG.md` via a `feat!:` commit or a
+Every breaking change is marked in `CHANGELOG.md` via a `feat!:` commit or a
 `BREAKING CHANGE:` footer, so consumers can scan for them mechanically.
 
 ## The 11 public API surfaces
