@@ -62,6 +62,7 @@ vanta-cli server --http --db ./data
 - Binding `0.0.0.0` / non-loopback → **hard error**, server exits (FIND-07)
 
 **Override (dev only):**
+
 ```bash
 vanta-cli server --http --host 0.0.0.0 --allow-insecure  # LOGS PROMINENT WARNING
 ```

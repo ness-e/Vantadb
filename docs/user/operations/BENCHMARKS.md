@@ -282,6 +282,7 @@ Ver `embeddings/manifest.json` como source-of-truth (rev pinned, dims, ONNX path
 > Reuse `benches/common/mod.rs:apply_fixed_profile` (warmup 3s, measure 5s) — same as `canonical_p99`.
 >
 > **Reproduce (Regla 11):**
+>
 > ```powershell
 > cargo bench -p vantadb --bench scores_semantics
 > # quick compile-only
@@ -312,6 +313,7 @@ Micro-bench puro `f32` — sin alloc, inline O(1). Mide overhead de helpers cent
 > **Source of truth:** `vantadb-node/bench/bench-abi.mjs` (extended 2026-08-30 with per-op p50/p95/p99 percentiles).
 >
 > **Reproduce (Regla 11 — medición antes de decidir):**
+>
 > ```bash
 > # canónico (pre-mortem Fallo 2: dataset determinístico seed 42)
 > # Reducido aquí a 10k × 1536d × 100q por budget wall en este sandbox (bun);
@@ -394,6 +396,7 @@ Lectura: el `.node` nativo es ~3.3× más grande que el `.wasm` (4.5 MB vs 1.35 
 **Baseline canónico (Regla 9):** `benches/canonical_p99.rs` — 100k vectors × 1536d, seed 42, insert + search p50/p95/p99. Measured timed run 2026-09-25: **p50 2.2388 / p95 4.248 / p99 4.9987 ms** (MGR-19 §1; machine-readable baseline `benchmarks/criterion_baseline.json`). §1 Stress Protocol remains the separate certified series (different scope — do not mix).
 
 **Contrato consumo guard:**
+
 ```powershell
 cargo bench -p vantadb --bench canonical_p99 --no-run
 Select-String -Path "docs/user/operations/BENCHMARKS.md" -Pattern "consumo guard" | Measure-Object Count # >=1
@@ -421,6 +424,7 @@ Select-String -Path "dev-tools/verify.ps1" -Pattern "consumo guard" | Measure-Ob
 > bench documents as significant (trend, not absolutes).
 >
 > **Reproduce (Regla 11):**
+>
 > ```powershell
 > MEMORY_BUDGET_SCALE=lite cargo bench -p vantadb --bench memory_budget
 > # compile-only (fast gate)
@@ -466,6 +470,7 @@ decisión: DEFAULT_RSS_THRESHOLD=0.80 calibrado 2026-09-03 — MANTENER 0.80 (ca
 > (`crossbeam-channel` / `flume`)? Regla 9: medir antes de rediseñar.
 >
 > **Reproduce (Regla 11):**
+>
 > ```powershell
 > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion
 > ```
@@ -538,6 +543,7 @@ Backpressure (pre-mortem 2): capacity 1024 intacta — no hubo cambio de canal.
 > on the current tree. Gate D approved by the user at dispatch.
 > >
 > > **Reproduce (Regla 11):**
+> >
 > > ```powershell
 > > # criterion accepts a single [FILTER]; one invocation per cell, ×2 corridas
 > > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "p1/1"
@@ -576,6 +582,7 @@ FIND-59/FUT-12 (serial `insert_lock` + WAL fsync ceiling).
 > Cierra FIND-61 (follow-up de FIND-59/ADR-0037).
 > >
 > > **Reproduce (Regla 11):**
+> >
 > > ```powershell
 > > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "find61_sync"
 > > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "find61_batch"
@@ -713,9 +720,11 @@ Win11 con compactions fjall de fondo; por eso mediana-de-2, nunca mejor corrida.
 > per-record byte-idéntica.
 >
 > **Reproduce (Regla 11):**
+>
 > ```powershell
 > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "wire06_"
 > ```
+>
 > **Método §13:** criterion `sample_size(10)`, BATCH=400, DIM=16, canal default
 > (1024), DB fjall fresca por iter, p1/w1, chunk de submits en vuelo 32 (celda
 > N=32 de FIND-61); `on_serial_p1w1` usa chunk=1 (testigo de la ventana);
@@ -803,6 +812,7 @@ mínimo; secuencial 5.19×; atribución 1.00× sin costo medible vs prototipo).
 > **Source of truth:** `benches/ivf_bench.rs` (REVISAR-01). `canonical_p99.rs` **no** cubre IVF
 > (`rg -in ivf` = 0 hits) → la tabla inline de `ivf_bench` es el baseline declarado de esta fila.
 > **Reproduce (Regla 11):**
+>
 > ```powershell
 > $env:RUST_MIN_STACK = "33554432"              # sin esto rustc crashea al compilar (ver Entorno)
 > cargo build --release --bench ivf_bench -j 1
@@ -895,6 +905,7 @@ Worker threads de LLVM con stack por defecto insuficiente en esta máquina/toolc
 > Solo numeros propios — comparativa head-to-head prohibida (D1).
 >
 > **Reproduce (Regla 11):**
+>
 > ```bash
 > cd vantadb-ts
 > npm run build          # el bench importa ../dist/vantadb.js
@@ -964,10 +975,12 @@ Corridas crudas (p50/p95/p99): insert (717.21/1449.01/1453.48) · (667.61/924.95
 > Solo numeros propios — comparativa head-to-head externa prohibida (D1).
 >
 > **Reproduce (Regla 11):**
+>
 > ```bash
 > node vantadb-node/bench/bench-abi.mjs --records 2000 --dim 384 --searches 200
 > # ×3 corridas, mediana + rango (pre-mortem: varianza GC/timers — nunca mejor corrida)
 > ```
+>
 > Prereqs: `vantadb-node` con `*.node` prebuilt + `vantadb-ts/dist/` construido
 > (`cd vantadb-ts && npm run build`). Rama WASM requiere Node ≥22 (ESM `.wasm` nativo).
 >
@@ -1056,6 +1069,7 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 > harness sintético shape-only (gate de regresión del propio harness).
 >
 > **Reproduce (Regla 11):**
+>
 > ```bash
 > python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --output metricas/memoria/memory_bench_report.json
 > # smoke offline/CI (sin vantadb):
@@ -1115,6 +1129,7 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 > operativo al run; el análisis narrativo vive en el doc curado (no duplicado acá).
 > >
 > > **Reproduce (Regla 11):**
+> >
 > > ```powershell
 > > python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant
 > > # fila Milvus (harness adaptado a IndexParams, ver caveats):
@@ -1200,11 +1215,13 @@ configuración (ver doc curado § Lectura honesta).
 > harness docstring and `evals/data/README.md`.
 
 **Reproduce (Regla 11):**
+
 ```bash
 python evals/data/fetch_longmemeval_subset.py            # verifies the sha256 of the 277 MB source
 python evals/memory_harness.py --data datasets/longmemeval/longmemeval_s_cleaned.json --label s-full-500q
 python evals/memory_harness.py --label subset-5q         # committed 5-question sub-sample (offline smoke)
 ```
+
 Reports: `metricas/memoria/memory_harness_report*.json` (gitignored — regenerate with the commands).
 
 ### Results — full split, run 2026-09-30 (n=500: 470 non-abstention + 30 abstention, top_k=5)
@@ -1280,6 +1297,7 @@ row above is the reference measurement.
 > questions, no `_abs` cells. Dataset sha256 `d6f21ea9…`.
 >
 > **Reproduce (Regla 11):**
+>
 > ```bash
 > python evals/runners/head_to_head.py --systems vantadb,mem0 \
 >     --data datasets/longmemeval/longmemeval_s_cleaned.json \
@@ -1327,6 +1345,7 @@ with FINDs for the owner. Reports: `metricas/memoria/report_h2h_h2h-strat10_{van
 
 > **Source of truth:** `benchmarks/compare_baseline.py` (bands + A/B mode) + `.github/workflows/perf-bench.yml` (workflow).
 > **Reproduce (Regla 11):**
+>
 > ```bash
 > python benchmarks/compare_baseline.py --self-test   # prove all 15 band cases offline
 > ```
@@ -1374,10 +1393,12 @@ gh run list --workflow=perf-bench.yml --limit 3 --json databaseId,conclusion,hea
 
 > **Source of truth:** `benchmarks/beir_recall_bench.py` (harness) + `benchmarks/beir_recall_report.json` (regenerable artifact, gitignored).
 > **Reproduce (Regla 11):**
+>
 > ```bash
 > .venv/Scripts/python benchmarks/beir_recall_bench.py
 > # defaults: --dataset scifact --split test --model all-MiniLM-L6-v2 --k 10 --top-k 100 --seed 42 --engines vanta,sqlite-vec
 > ```
+>
 > First run downloads the dataset (~8 MB) from the HuggingFace mirror `mteb/scifact` into `benchmarks/datasets/` (cached, gitignored). Offline self-test: `--self-test`.
 
 ### What this measures — and what it does not

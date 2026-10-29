@@ -116,11 +116,13 @@ coordination, crash consistency, test coverage, and documentation.
 ### P2 — High (correctness / DX)
 
 4. **Add Web Locks coordination** — Use `navigator.locks.request()` when the IDB backend writes to prevent multi-tab corruption:
+
    ```rust
    // In JS bridge: navigator.locks.request("vantadb-write", () => {
    //   tx.objectStore(STORE_NAME).put(data, key);
    // });
    ```
+
    This prevents concurrent writes from different tabs. Backlog reference: `NUEVO-12`.
 
 5. **Add OPFS crash resilience** — Before writing `db_state.json`, write to `db_state.tmp` first, then atomically rename (OPFS supports `move()`). Add a checksum (SHA-256 footer) so corrupted files are detected on `load()`.

@@ -18,7 +18,7 @@ updates:
     labels:
       - "dependencies"
       - "rust"
-    open-pull-requests-limit: 15
+    open-pull-requests-limit: 8
     groups:
       rust-patch:
         patterns:
@@ -30,6 +30,13 @@ updates:
           - "*"
         update-types:
           - "minor"
+      # Los major no matcheaban ningun grupo -> un PR individual por major
+      # (asi se llego a 10 PRs abiertos). Un solo rollup consciente.
+      rust-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
 
   # ponytail: solo /vantadb-python — los 10 integrations/* son stubs sin publicar
   # en PyPI (MKT-18f); añadir sus entradas cuando se publiquen.
@@ -38,7 +45,7 @@ updates:
     target-branch: "develop"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "tuesday"
       time: "09:00"
       timezone: "America/Argentina/Buenos_Aires"
     commit-message:
@@ -47,7 +54,7 @@ updates:
     labels:
       - "dependencies"
       - "python"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     groups:
       python-patch-and-minor:
         patterns:
@@ -145,7 +152,8 @@ updates:
   # ponytail: providers/* son crates AISLADOS (fuera del workspace raíz).
   # El cargo "/" no los ve; sin estas entradas ni siquiera hay monitoreo de
   # versiones. Solo-alertas. (La entrada de desktop/src-tauri se eliminó por
-  # freeze 2026-10-16 — ver FIND-341; su lockfile vive en feature-freez/.)
+  # freeze 2026-10-16 — ver FIND-341; ese directorio ya no existe en el arbol,
+  # no queda lockfile que monitorear.)
   - package-ecosystem: "cargo"
     directory: "/providers/ollama"
     target-branch: "develop"

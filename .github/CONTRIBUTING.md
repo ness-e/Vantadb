@@ -48,11 +48,13 @@ VantaDB follows **Conventional Commits**. Commit messages drive automated semant
 |--------|-------------|-------------|---------|
 | `feat:` | minor | New feature | `feat: add cosine distance metric` |
 | `fix:` | patch | Bug fix | `fix: handle empty slice in buffer` |
-| `docs:` | patch | Documentation changes | `docs: update quickstart guide` |
-| `test:` | patch | Adding or modifying tests | `test: add boundary check for hnsw` |
-| `perf:` | patch | Performance improvements | `perf: avoid allocation in search path` |
-| `refactor:` | patch | Code refactoring without behavior changes | `refactor: extract graph builder` |
+| `docs:` | none | Documentation changes (no release) | `docs: update quickstart guide` |
+| `test:` | none | Adding or modifying tests (no release) | `test: add boundary check for hnsw` |
+| `perf:` | none | Performance improvements (no release) | `perf: avoid allocation in search path` |
+| `refactor:` | none | Code refactoring without behavior changes | `refactor: extract graph builder` |
 | `chore:` | none | Maintenance tasks, dependencies | `chore: update dependencies` |
+
+Only `feat:`/`fix:` (plus `!`/`BREAKING CHANGE:` → major) trigger releases (`release_always = false` in `release-plz.toml`).
 
 Use `feat!:` or `BREAKING CHANGE:` in the commit body to denote breaking changes.
 
@@ -63,7 +65,7 @@ Use `feat!:` or `BREAKING CHANGE:` in the commit body to denote breaking changes
    - `main`: Production release branch. Releases are automated.
 2. **Automated releases**:
    - Do **not** manually edit versions in `Cargo.toml`.
-   - Do **not** edit `docs/CHANGELOG.md` or create release git tags manually.
+   - Do **not** edit `CHANGELOG.md` (root) or create release git tags manually.
    - When PRs merge into `main` from `develop`, `release-plz` automatically calculates the version bump, updates the changelog, and opens release PRs.
 3. **Pre-flight checks**:
    - Ensure `just verify` passes cleanly with no warnings or formatting diffs.

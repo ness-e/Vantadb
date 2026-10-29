@@ -62,6 +62,7 @@ if hits:
     )
     print(f"Snippet: {snippet}")
 ```
+
 *Note: For more details on search execution, see Hybrid Search.*
 
 ## Import name
@@ -167,6 +168,7 @@ db = vanta.connect("./my_brain", memory_limit=256 * 1024 * 1024)
 ### Memory API (Namespace-Scoped)
 
 #### `put()`
+
 ```python
 db.put(
     namespace: str,
@@ -178,6 +180,7 @@ db.put(
     sparse_vector: Optional[dict] = None,
 ) -> Record
 ```
+
 Insert or update a memory record. The `metadata` is a dict of scalar fields.
 `sparse_vector` is an optional `{dimension_id: weight}` dict (u32 dimension ids,
 finite floats) that participates in sparse search alongside the dense vector —
@@ -247,6 +250,7 @@ hits = db.search_multi(["docs", "kb"], [0.1] * 384, top_k=5)
 ```
 
 #### `memory.get()`
+
 ```python
 db.memory.get(
     namespace: str,
@@ -255,6 +259,7 @@ db.memory.get(
 ```
 
 #### `memory.delete()`
+
 ```python
 db.memory.delete(
     namespace: str,
@@ -263,6 +268,7 @@ db.memory.delete(
 ```
 
 #### `memory.list()`
+
 ```python
 db.memory.list(
     namespace: str,
@@ -276,6 +282,7 @@ db.memory.list(
     min_confidence: Optional[float] = None,
 ) -> ListResult
 ```
+
 Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration. The SCH-07 v2 params (`as_of_ms`, `valid_window` `{"from_ms", "to_ms"}`, `include_quarantined`, `min_confidence`) mirror the SDK wire names (ADR-0046 §D2/§D3/§D5).
 
 > **Semantics of `page.total_count` vs `db.count()`:** `page.total_count` represents the number of records returned in the current page/filter window (equivalent to `len(page.records)`). To obtain the full cardinality of records in a namespace, call `db.count(namespace)` (or `db.memory.count(namespace)`).
@@ -289,6 +296,7 @@ for record in page:
 records = page["records"]
 next_cursor = page["next_cursor"]
 ```
+
 #### `memory.search()`
 
 ```python
@@ -309,6 +317,7 @@ db.memory.search(
     include_quarantined: bool = False,
 ) -> List[SearchHit]
 ```
+
 Search namespace-scoped persistent memory records by vector + filters + text_query.
 
 `query_sparse` is an optional `{dimension_id: weight}` dict fused with the
@@ -331,12 +340,14 @@ The `exclude_superseded` parameter (default `False`) controls whether superseded
 also mirrors them in `__getitem__`. Semantics and calibration limits:
 [`scores.md`](scores.md).
 #### `search_vector()`
+
 ```python
 db.search_vector(
     vector: VectorInput,
     top_k: int = 10,
 ) -> List[Tuple[int, float]]
 ```
+
 Pure-ANN vector search over nodes (no namespace, no filters, no text).
 Returns `(node_id, distance)` tuples with lower-is-better distance
 (AST-008: ex-`search`; the namespaced hybrid is `memory.search()`).
@@ -353,17 +364,20 @@ db.explain_memory_search(
     query_sparse: Optional[dict] = None,
 ) -> dict
 ```
+
 Returns a detailed breakdown of how a memory search arrives at its results.
 
 The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
 
 #### `count()`
+
 ```python
 db.count(
     namespace: str,
     filters: Optional[dict] = None,
 ) -> int
 ```
+
 Count memory records in a namespace, optionally filtered by metadata. The
 `filters` dict follows the canonical cross-SDK operator format: a flat value is
 an implicit `$eq` (`{"category": "task"}`), and a nested dict selects an
@@ -382,12 +396,14 @@ db.count("ns", {"score": {"$gte": 20}}) # 1
 ```
 
 #### `delete_by_filter()`
+
 ```python
 db.delete_by_filter(
     namespace: str,
     filters: dict,
 ) -> int
 ```
+
 Delete all memory records in a namespace matching a metadata filter. The
 `filters` dict uses the same operator format as `count()` (flat value →
 implicit `$eq`, or `{"$op": value}` per key). Returns the number of records
@@ -401,6 +417,7 @@ print(f"Removed {deleted} draft records")
 ```
 
 #### `similar_to_key()`
+
 ```python
 db.similar_to_key(
     namespace: str,
@@ -408,6 +425,7 @@ db.similar_to_key(
     top_k: int = 10,
 ) -> List[SearchHit]
 ```
+
 Search namespace-scoped memory records by vector similarity to an existing
 key, without supplying a query vector. Resolves the record at `key`, reads its
 embedding, and runs a vector search. The source record itself is excluded from
@@ -544,6 +562,7 @@ if result is not None:
 ### Node / Graph API (Low-Level)
 
 #### `insert_node()` (W1/API-02)
+
 ```python
 db.insert_node(
     id: int,
@@ -552,6 +571,7 @@ db.insert_node(
     fields: Optional[dict] = None,
 ) -> None
 ```
+
 Insert a graph node with text content and an optional embedding vector. `fields` can contain additional metadata key-value pairs (supports `str`, `int`, `float`, `bool`, `datetime`, and homogeneous lists). GIL-released — allows Python threads to run during the insert.
 
 ```python
@@ -564,11 +584,13 @@ db.insert_node(
 ```
 
 #### `get_node()` (W1/API-02)
+
 ```python
 db.get_node(
     id: int,
 ) -> Optional[dict]
 ```
+
 Retrieve a graph node by its numeric ID. Returns a dict with `id`, `vector`, `vector_dims`, `fields`, `edges`, `confidence_score`, `importance`, `hits`, `tier`, and `is_alive`, or `None` if not found. The `content` passed to `insert_node()` is stored as `fields["content"]` (extra `fields={...}` keys sit alongside it). GIL-released.
 
 ```python
@@ -579,12 +601,14 @@ if node:
 ```
 
 #### `delete_node()` (W1/API-02)
+
 ```python
 db.delete_node(
     id: int,
     reason: str = "manual deletion",
 ) -> None
 ```
+
 Delete a graph node by ID with an auditable reason (recorded as a tombstone). GIL-released.
 
 ```python
@@ -592,6 +616,7 @@ db.delete_node(id=42, reason="stale training data cleaned up")
 ```
 
 #### `supersede()`
+
 ```python
 db.supersede(
     namespace: str,
@@ -599,6 +624,7 @@ db.supersede(
     new_key: str,
 ) -> None
 ```
+
 Mark an existing memory record as superseded by another existing record (ADR-0028). The old record keeps its data but gains `superseded_by`/`superseded_at_ms` and can be hidden from search/list with `exclude_superseded=True`. Raises `RuntimeError` if either key is missing, if `old_key == new_key`, or if the old record is already superseded. GIL-released.
 
 ```python
@@ -606,6 +632,7 @@ db.supersede(namespace="agents/summary", old_key="draft-v1", new_key="draft-v2")
 ```
 
 #### `search()`
+
 ```python
 db.search(
     namespace: str,
@@ -624,6 +651,7 @@ db.search(
     include_quarantined: bool = False,
 ) -> List[SearchHit]
 ```
+
 Flat alias of `db.memory.search()` — hybrid memory search over a namespace (vector + BM25 fused via RRF). AST-008: ex-`search_memory`; pure ANN over graph nodes is `search_vector()`. Same SCH-07 v2 params as `memory.search()` (see above).
 
 ```python
@@ -633,12 +661,14 @@ for hit in hits:
 ```
 
 #### `search_batch()`
+
 ```python
 db.search_batch(
     vectors: List[VectorInput],
     top_k: int = 10,
 ) -> List[List[Tuple[int, float]]]
 ```
+
 Batch K-NN search over multiple query vectors. Each query returns its own list of `(node_id, distance)` tuples. Internally parallelized via Rayon for concurrent HNSW traversal. GIL-released.
 
 ```python
@@ -649,12 +679,14 @@ for i, hits in enumerate(results):
 ```
 
 #### `search_batch_requests()`
+
 ```python
 db.search_batch_requests(
     requests: List[Union[Dict[str, Any], "SearchRequest"]],
     top_k: int = 10,
 ) -> List[List[SearchHit]]
 ```
+
 Batch hybrid search over multiple request objects. Each element may be a
 `dict` or a typed `SearchRequest` dataclass, and supports the fields
 `namespace`, `query_vector`, `text_query`, `filters`, `distance_metric`, and
@@ -671,12 +703,14 @@ all_hits = db.search_batch_requests(requests)
 ```
 
 #### `memory_node_id()` (Graph/Memory Bridge)
+
 ```python
 db.memory_node_id(namespace: str, key: str) -> int
 # Also available as a static method on Client / module function:
 vantadb.Client.memory_node_id(namespace: str, key: str) -> int
 vantadb.memory_node_id(namespace: str, key: str) -> int
 ```
+
 Compute the deterministic 128-bit graph node ID (`XxHash3_128(ns + "\0" + key)`) for a memory record `(namespace, key)` pair. This bridges the memory record layer (`db.put(namespace, key, ...)`) and the low-level property graph layer (`db.add_edge(source_id, target_id, label)`), allowing you to link memory records directly in the graph without an external lookup table.
 
 ```python
@@ -686,6 +720,7 @@ db.add_edge(source_id=src_id, target_id=dst_id, label="depends_on")
 ```
 
 #### `add_edge()`
+
 ```python
 db.add_edge(
     source_id: int,
@@ -695,6 +730,7 @@ db.add_edge(
     created_at_ms: Optional[int] = None,
 ) -> None
 ```
+
 Add a labeled, optionally weighted edge between two graph nodes. Useful for building knowledge graphs, relationships between entities, or graph-based RAG pipelines. GIL-released.
 
 `created_at_ms` sets the edge's creation timestamp as Unix epoch milliseconds (forward and reverse edges share the same logical creation time). If omitted, the current wall-clock time is used. The timestamp is persisted with the edge and available to time-aware graph queries in the core engine.
@@ -708,9 +744,11 @@ db.add_edge(source_id=42, target_id=17, label="references", created_at_ms=170000
 ```
 
 #### `graph_bfs()`
+
 ```python
 db.graph_bfs(roots: List[int], max_depth: int = 999999, direction: str = "Forward") -> List[int]
 ```
+
 Breadth-First Search from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. Returns discovered distinct node IDs. GIL-released.
 
 ```python
@@ -719,9 +757,11 @@ print(f"Reachable nodes: {reachable}")
 ```
 
 #### `graph_dfs()`
+
 ```python
 db.graph_dfs(roots: List[int], max_depth: int = 999999, direction: str = "Forward") -> List[int]
 ```
+
 Depth-First Search from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. Returns discovered distinct node IDs. GIL-released.
 
 ```python
@@ -730,9 +770,11 @@ print(f"DFS reachable nodes: {reachable}")
 ```
 
 #### `graph_topological_sort()`
+
 ```python
 db.graph_topological_sort(roots: List[int]) -> List[int]
 ```
+
 Topological sort of the subgraph reachable from the given roots. Raises `ValueError` if a cycle is detected. GIL-released.
 
 ```python
@@ -741,9 +783,11 @@ print(f"Topological order: {sorted_nodes}")
 ```
 
 #### `graph_is_dag()`
+
 ```python
 db.graph_is_dag(roots: List[int]) -> bool
 ```
+
 Check whether the subgraph reachable from the given roots is a Directed Acyclic Graph (DAG). GIL-released.
 
 ```python
@@ -752,6 +796,7 @@ if db.graph_is_dag(roots=[1, 2]):
 ```
 
 #### `graph_page_rank()`
+
 ```python
 db.graph_page_rank(
     roots: List[int],
@@ -760,6 +805,7 @@ db.graph_page_rank(
     tolerance: float = 1e-6,
 ) -> Dict[int, float]
 ```
+
 Compute PageRank for the subgraph reachable from the given roots. Returns a dict mapping `node_id -> rank`. GIL-released - allows Python threads to run during PageRank computation.
 
 ```python
@@ -769,11 +815,13 @@ for node_id, rank in sorted(ranks.items(), key=lambda kv: -kv[1]):
 ```
 
 #### `graph_degree_centrality()`
+
 ```python
 db.graph_degree_centrality(
     roots: List[int],
 ) -> Dict[int, Tuple[int, int]]
 ```
+
 Compute degree centrality (in/out degree counts) for the subgraph reachable from the given roots. Returns a dict mapping `node_id -> (in_degree, out_degree)`. GIL-released.
 
 ```python
@@ -783,6 +831,7 @@ for node_id, (in_deg, out_deg) in centrality.items():
 ```
 
 #### `graph_bfs_filtered()`
+
 ```python
 db.graph_bfs_filtered(
     roots: List[int],
@@ -792,6 +841,7 @@ db.graph_bfs_filtered(
     time_range: Optional[Tuple[int, int]] = None,
 ) -> List[int]
 ```
+
 Breadth-First Search with optional edge label and time filtering from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. `labels` is a list of edge label IDs to follow (empty list disables label filtering). `time_range` is an optional inclusive `(from_ms, to_ms)` window for edge creation time. Returns discovered distinct node IDs in BFS order. GIL-released.
 
 ```python
@@ -812,11 +862,13 @@ reachable = db.graph_bfs_filtered(
 ### Advanced Operations
 
 #### `query()`
+
 ```python
 db.query(
     iql_query: str,
 ) -> str
 ```
+
 Execute an IQL (Interactive Query Language) or LISP-style query string against the graph database. Returns a formatted result string describing the query outcome.
 
 ```python
@@ -826,11 +878,13 @@ print(result)
 ```
 
 #### `query_structured()`
+
 ```python
 db.query_structured(
     iql_query: str,
 ) -> Dict[str, Any]
 ```
+
 Execute an IQL or LISP-style query string and return a **structured dict** instead of a formatted string, so callers can consume the result as data. The dict carries a `kind` discriminator:
 
 - `{"kind": "read", "nodes": [{"id": str, "tier": str, "confidence": float, "hits": int}, ...]}` for `SELECT`-style reads.
@@ -849,29 +903,35 @@ print(result["nodes"])  # [{"id": "...", "tier": "...", "confidence": 0.5, "hits
 > **Note:** `query_structured()` is additive — the legacy `query()` (which returns a formatted `str`) is unchanged.
 
 #### `bulk_import()`
+
 ```python
 db.bulk_import(
     path: str,
 ) -> Dict[str, Any]
 ```
+
 Bulk-import records from a binary `.vdbdump` file. Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
 
 > **Format bridge:** `.vdbdump` is the **binary** bulk format (magic `VDBJSON\n`), not the JSONL written by [`export_namespace()`](#export_namespace) / [`export_all()`](#export_all). To re-import a JSONL export, use [`import_file()`](#import_file). Layout spec: [EMBEDDED_SDK.md § Bulk Import](./EMBEDDED_SDK.md#bulk-import).
 
 #### `bulk_import_bytes()`
+
 ```python
 db.bulk_import_bytes(
     data: bytes,
 ) -> Dict[str, Any]
 ```
+
 Bulk-import records from binary bytes (`.vdbdump` format). Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released. Same binary format as [`bulk_import()`](#bulk_import) (magic `VDBJSON\n`) — for JSONL exports use [`import_file()`](#import_file).
 
 #### `recover_archived_nodes()`
+
 ```python
 db.recover_archived_nodes(
     summary_id: str,
 ) -> List[dict]
 ```
+
 Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns a list of recovered node dictionaries. `summary_id` is the summary node ID as a decimal string (u128). GIL-released.
 
 ```python
@@ -883,9 +943,11 @@ for node in nodes:
 ### Maintenance & Diagnostics
 
 #### `flush()`
+
 ```python
 db.flush() -> None
 ```
+
 Flush the Write-Ahead Log (WAL) and HNSW index to disk for durability. Recommended before shutdown or after a batch of writes. GIL-released.
 
 ```python
@@ -894,9 +956,11 @@ db.flush()  # ensure data is durably on disk
 ```
 
 #### `compact_wal()`
+
 ```python
 db.compact_wal() -> None
 ```
+
 Flush, archive the current WAL as `vanta.wal.<timestamp>`, and start a fresh WAL. Prevents unbounded WAL growth under heavy write load. GIL-released.
 
 ```python
@@ -904,9 +968,11 @@ db.compact_wal()  # archive the current WAL
 ```
 
 #### `purge_expired()`
+
 ```python
 db.purge_expired() -> int
 ```
+
 Scan all memory records and physically delete entries whose TTL has expired. Returns the number of records purged. GIL-released.
 
 ```python
@@ -915,9 +981,11 @@ print(f"Cleaned up {purged} expired records")
 ```
 
 #### `rebuild_index()`
+
 ```python
 db.rebuild_index() -> dict
 ```
+
 Rebuild the ANN (HNSW) and all derived memory indexes from canonical storage. Useful after large bulk imports or data recovery. Returns a report dict with `scanned_nodes`, `indexed_vectors`, `duration_ms`, and `success`. GIL-released.
 
 ```python
@@ -926,9 +994,11 @@ print(f"Rebuilt {report['indexed_vectors']} vectors in {report['duration_ms']}ms
 ```
 
 #### `reindex_hnsw_from_text()`
+
 ```python
 db.reindex_hnsw_from_text(namespace: str, page_size: int = 1000) -> None
 ```
+
 Rebuild the HNSW vector index using the text content of all memory records in a namespace. Iterates through records in paginated batches (default 1000 per page) to prevent OOM on large databases. Each record's text is re-embedded and the vector index is reconstructed from canonical storage.
 
 ```python
@@ -937,9 +1007,11 @@ print("Vector index rebuilt from text records")
 ```
 
 #### `compact_layout()`
+
 ```python
 db.compact_layout() -> int
 ```
+
 Compact the storage layout by reordering nodes in BFS order to improve locality and free unused pages. Returns the number of nodes compacted. GIL-released.
 
 ```python
@@ -948,9 +1020,11 @@ print(f"Compacted {compacted} nodes")
 ```
 
 #### `list_namespaces()`
+
 ```python
 db.list_namespaces() -> List[str]
 ```
+
 List all namespaces currently registered in the database.
 
 ```python
@@ -959,9 +1033,11 @@ print(f"Active namespaces: {namespaces}")
 ```
 
 #### `export_namespace()`
+
 ```python
 db.export_namespace(path: str, namespace: str) -> dict
 ```
+
 Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `namespaces`, `path`, `duration_ms`, `sha256`, and `manifest_path`. Also writes the integrity manifest sidecar (`<path>.manifest.json`, sha256 over the export bytes — see [MEMORY_INTERCHANGE_FORMAT.md § Integrity manifest](./MEMORY_INTERCHANGE_FORMAT.md#integrity-manifest)). GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file) — not the binary [`bulk_import()`](#bulk_import) family.
 
 > **Warning on 0 records:** If the specified namespace exports 0 records (`report["records_exported"] == 0`), indicating that the namespace is empty, does not exist, or was misspelled, `export_namespace()` emits a Python `UserWarning` alerting the caller.
@@ -972,9 +1048,11 @@ print(f"Exported {report['records_exported']} records")
 ```
 
 #### `export_all()`
+
 ```python
 db.export_all(path: str) -> dict
 ```
+
 Export all namespaces as a single JSONL file. Returns a report dict with `records_exported`, `namespaces`, `duration_ms`, `sha256`, and `manifest_path`. Also writes the integrity manifest sidecar (`<path>.manifest.json`). GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file).
 
 ```python
@@ -983,9 +1061,11 @@ print(f"All-namespace export: {report}")
 ```
 
 #### `import_file()`
+
 ```python
 db.import_file(path: str) -> dict
 ```
+
 Import records from a VantaDB memory JSONL export file. Returns a report dict with `inserted`, `updated`, `skipped`, `errors`, and `duration_ms`. GIL-released. This is the inverse of the JSONL exports above; for the binary `.vdbdump` format use [`bulk_import()`](#bulk_import) / [`bulk_import_bytes()`](#bulk_import_bytes).
 
 ```python
@@ -994,9 +1074,11 @@ print(f"Imported: {report['inserted']} new, {report['updated']} updated")
 ```
 
 #### `audit_text_index()`
+
 ```python
 db.audit_text_index(namespace: Optional[str] = None, deep: bool = False) -> dict
 ```
+
 Run a read-only structural audit of the derived text (BM25) index. With `deep=True`, also validates individual posting entries for positional and term-frequency consistency. Returns a detailed audit report. GIL-released.
 
 ```python
@@ -1007,9 +1089,11 @@ if not report['passed']:
 ```
 
 #### `repair_text_index()`
+
 ```python
 db.repair_text_index() -> dict
 ```
+
 Rebuild the text index from canonical storage as a repair primitive. Useful when the audit report indicates corruption. Returns a report dict with `record_count`, `posting_entries`, and `duration_ms`. GIL-released.
 
 ```python
@@ -1018,9 +1102,11 @@ print(f"Repaired text index: {report['record_count']} records, {report['posting_
 ```
 
 #### `operational_metrics()`
+
 ```python
 db.operational_metrics() -> dict
 ```
+
 Return operational metrics: startup timing, WAL replay stats, ANN/text index rebuild times, query counts, memory breakdown (jemalloc, HNSW, mmap, cache). GIL-released.
 
 ```python
@@ -1030,9 +1116,11 @@ print(f"HNSW nodes: {metrics['hnsw_nodes_count']}")
 ```
 
 #### `capabilities()`
+
 ```python
 db.capabilities() -> dict
 ```
+
 Introspect the stable runtime capabilities exposed by the SDK. Returns a dict with `profile` (`ENTERPRISE`, `PERFORMANCE`, or `LOW_RESOURCE`), `read_only`, `persistence`, `vector_search`, and `iql_queries`.
 
 ```python
@@ -1042,9 +1130,11 @@ print(f"Read-only: {caps['read_only']}")
 ```
 
 #### `hardware_profile()`
+
 ```python
 db.hardware_profile() -> dict
 ```
+
 Return capabilities merged with system memory telemetry. Combines the `capabilities()` dict with memory metrics from `operational_metrics()` (RSS, HNSW, mmap, cache, jemalloc). Useful for deployment diagnostics.
 
 ```python
@@ -1053,6 +1143,7 @@ print(f"Profile: {profile['profile']}, RSS: {profile.get('process_rss_bytes', 'N
 ```
 
 #### `generate_snippet()`
+
 ```python
 db.generate_snippet(
     payload: str,
@@ -1060,6 +1151,7 @@ db.generate_snippet(
     with_highlighting: bool = False,
 ) -> Optional[str]
 ```
+
 Generate a text snippet from a payload, highlighting matched query terms. Returns a context window around the best-matching passage, or `None` if no terms match.
 
 ```python
@@ -1072,9 +1164,11 @@ print(snippet)  # e.g. "...**VantaDB** is a high-performance **vector database**
 ```
 
 #### `close()`
+
 ```python
 db.close() -> None
 ```
+
 Flush and close the embedded engine handle, releasing all resources. The database can be re-opened by creating a new `Client` instance. GIL-released.
 
 ```python
@@ -1082,10 +1176,12 @@ db.close()
 ```
 
 #### `__enter__()` / `__exit__()` — Synchronous Context Manager
+
 ```python
 db.__enter__() -> Client
 db.__exit__(exc_type, exc_val, exc_tb) -> None
 ```
+
 Support for the synchronous context manager protocol (`with Client(...) as db:`). `__enter__` returns the database handle; `__exit__` calls `close()` to flush and release resources. This ensures WAL is flushed even if an exception occurs within the `with` block. Available since 0.5.0 (RES-05).
 
 ```python
@@ -1095,6 +1191,7 @@ with Client("./my_brain") as db:
 ```
 
 #### `put_batch_raw()`
+
 ```python
 db.put_batch_raw(
     vectors: VectorInput,
@@ -1105,6 +1202,7 @@ db.put_batch_raw(
     ttls: Optional[List[Optional[int]]] = None,
 ) -> List[Record]
 ```
+
 Batch insert with raw arrays (no tuple wrapping). Accepts `vectors` as a 2D NumPy array (shape `[N, D]`) for zero-copy buffer protocol input. Optimized for large batches with homogeneous vector dimensions. GIL-released.
 
 ```python
@@ -1119,9 +1217,11 @@ records = db.put_batch_raw(
 ```
 
 #### `new()`
+
 ```python
 Client.__new__(cls, *args, **kwargs) -> Client
 ```
+
 Internal constructor — prefer the class constructor `Client(db_path, ...)`.
 
 ### NumPy / Buffer Protocol
@@ -1130,6 +1230,7 @@ Internal constructor — prefer the class constructor `Client(db_path, ...)`.
 db.get_array_interface() -> dict
 db.get_search_hit_array_interface() -> dict
 ```
+
 Return `__array_interface__`-compatible descriptors for zero-copy NumPy interop.
 
 ### Iteration Protocol
@@ -1148,6 +1249,7 @@ db.__setstate__(state) -> None  # pickle deserialization
 ```python
 VectorInput = Union[List[float], Vector, numpy.ndarray, memoryview]
 ```
+
 Accepts plain Python lists, `Vector`, NumPy arrays, or any buffer-protocol object (zero-copy when possible).
 
 ## Data Types
@@ -1157,6 +1259,7 @@ Accepts plain Python lists, `Vector`, NumPy arrays, or any buffer-protocol objec
 ```python
 vantadb.Vector(data: List[float]) -> Vector
 ```
+
 Zero-copy vector wrapper backed by a `Box<[f32]>`. Exposes NumPy's `__array_interface__` for zero-copy `np.asarray()` conversion, and supports Python sequence iteration, indexing, and pickle serialization.
 
 ```python

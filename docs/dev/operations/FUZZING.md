@@ -51,12 +51,14 @@ PROPTEST_CASES=1000 cargo test fuzz_proptest
 Requires `cargo-fuzz` and `rustc nightly`. Use in CI or WSL2:
 
 ### Prerequisites
+
 ```bash
 rustup install nightly
 cargo install cargo-fuzz
 ```
 
 ### Execution
+
 ```bash
 cd fuzz/
 
@@ -69,11 +71,13 @@ cargo +nightly fuzz run fuzz_parser -- -max_total_time=300
 
 ### Reproducing Crashes
 If `cargo-fuzz` finds a crash, the case is saved in `fuzz/artifacts/`:
+
 ```bash
 cargo +nightly fuzz run fuzz_node_deserialize fuzz/artifacts/fuzz_node_deserialize/crash-<hash>
 ```
 
 ### CI Integration (GitHub Actions)
+
 ```yaml
 # .github/workflows/fuzz.yml (example for Linux)
 name: Fuzzing
@@ -109,6 +113,7 @@ jobs:
 
 ### Workspace Configuration
 The `fuzz/` directory is excluded from the workspace in `Cargo.toml`:
+
 ```toml
 [workspace]
 exclude = ["fuzz"]  # Prevents conflict with cargo-fuzz on Windows

@@ -102,6 +102,7 @@ LISP used a custom `parse_sexpr()` tokenizer. Nom-based IQL parsing is more main
 The ROADMAP.md defers Query Language decisions to Phase 5. Based on this analysis:
 
 ### 3.1 SDK Query Builder (TSK-XXX)
+
 ```python
 # Builder pattern instead of string concatenation
 q = client.query_builder()

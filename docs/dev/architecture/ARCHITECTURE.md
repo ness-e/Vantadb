@@ -30,6 +30,7 @@ VantaDB is an **embedded library**, not a service. The core (`vantadb`) has zero
 │  └────────────────────────────────────┘ │
 └─────────────────────────────────────────┘
 ```
+
 *Components:* WAL, HNSW
 
 ### 2. Canonical Data + Derived Indexes
@@ -47,6 +48,7 @@ Derived Indexes (Rebuildable):
 ├── BM25 (lexical search)
 └── Payload indexes (structured filters)
 ```
+
 *Derived Indexes:* HNSW, BM25
 
 ### 3. Zero-Cost Abstractions
@@ -113,6 +115,7 @@ Per-record format:
 │ CRC32C of payload: u32 LE           │
 └─────────────────────────────────────┘
 ```
+
 *Verification:* CRC32C per-record + header integrity
 
 ### Write Flow
@@ -235,6 +238,7 @@ Client: db.put("doc1", vector, text, metadata)
            ▼
       ACK to client
 ```
+
 *Backend and indexes details:* Fjall, HNSW, BM25
 
 ### Hybrid Search Path

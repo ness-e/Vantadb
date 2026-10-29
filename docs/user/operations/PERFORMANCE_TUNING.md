@@ -87,6 +87,7 @@ Total ≈ dim × 4 + (m + m_max0) × 4 bytes per vector
 ```
 
 For 128‑dimensional vectors at defaults:
+
 ```
 128 × 4 + (32 + 64) × 4 = 512 + 384 = 896 bytes/node
 ```

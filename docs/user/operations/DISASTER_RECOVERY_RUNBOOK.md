@@ -37,6 +37,7 @@ This runbook covers incident response and recovery procedures for VantaDB produc
 - Startup crashes during index rebuild
 
 **Diagnosis:**
+
 ```bash
 # Check data directory integrity
 ls -la /var/lib/vantadb/data/
@@ -50,27 +51,32 @@ journalctl -u vantadb-server --since "1 hour ago" --no-pager
 **Recovery:**
 
 1. **Stop the service immediately** to prevent further writes:
+
    ```bash
    sudo systemctl stop vantadb-server
    ```
 
 2. **Create a forensic copy** of the damaged directory:
+
    ```bash
    cp -a /var/lib/vantadb/data /var/lib/vantadb/data.corrupted-$(date +%F-%H%M)
    ```
 
 3. **Restore from latest backup** (the target directory must be empty or use `--force` to overwrite):
+
    ```bash
    vanta-cli restore --in /backups/vantadb-latest --rebuild --force --db /var/lib/vantadb/data
    ```
 
 4. **Verify restored data:**
+
    ```bash
    vanta-cli doctor -d /var/lib/vantadb/data/
    vanta-cli count -d /var/lib/vantadb/data/ --namespace <primary-ns>
    ```
 
 5. **Restart the service:**
+
    ```bash
    sudo systemctl start vantadb-server
    ```
@@ -91,6 +97,7 @@ journalctl -u vantadb-server --since "1 hour ago" --no-pager
 - Journal shows process exit or panic
 
 **Diagnosis:**
+
 ```bash
 # Check recent logs
 journalctl -u vantadb-server --since "1 hour ago" --no-pager | tail -100
@@ -112,15 +119,20 @@ sudo -u vantadb vanta-cli server --http -d /var/lib/vantadb/data/
 **Recovery:**
 1. Identify and fix the root cause from the table above
 2. If the engine starts but crashes during index rebuild, try:
+
    ```bash
    # Rebuild indexes before starting the server
    vanta-cli rebuild-index -d /var/lib/vantadb/data/
    ```
+
 3. If WAL corruption blocks startup, rename WAL files and let the engine start without replay (data since last flush is lost):
+
    ```bash
    mv /var/lib/vantadb/data/*.wal /tmp/wal-corrupted/
    ```
+
 4. Verify with `doctor` and restart:
+
    ```bash
    sudo systemctl start vantadb-server
    ```
@@ -135,6 +147,7 @@ sudo -u vantadb vanta-cli server --http -d /var/lib/vantadb/data/
 - Some recent writes may be missing
 
 **Recovery:**
+
 ```bash
 # Stop service
 sudo systemctl stop vantadb-server
@@ -179,6 +192,7 @@ sudo systemctl start vantadb-server
 - System logs show compaction backpressure
 
 **Diagnosis:**
+
 ```bash
 # Check database status
 vanta-cli status -d /var/lib/vantadb/data/
@@ -191,18 +205,25 @@ iostat -x 1 5
 
 **Recovery:**
 1. **Rebuild HNSW index** (rebuilds BFS layout for cache locality):
+
    ```bash
    vanta-cli rebuild-index -d /var/lib/vantadb/data/
    ```
+
 2. **Monitor compaction settings** — ensure the engine is not under compaction pressure:
+
    ```bash
    vanta-cli stats -d /var/lib/vantadb/data/ --json | grep compaction
    ```
+
 3. **Adjust thread pool** to match available cores:
+
    ```bash
    export VANTADB_MAX_BLOCKING_THREADS=$(nproc)
    ```
+
 4. **Check memory pressure** — if RSS is near `MemoryMax`, reduce `memory_limit`:
+
    ```bash
    export VANTADB_MEMORY_LIMIT=2147483648  # 2GB
    ```
@@ -217,6 +238,7 @@ iostat -x 1 5
 - `audit-index` finds mismatches between canonical records and the index
 
 **Recovery:**
+
 ```bash
 # Audit the text index
 vanta-cli audit-index -d /var/lib/vantadb/data/ --deep
@@ -237,6 +259,7 @@ vanta-cli rebuild-index -d /var/lib/vantadb/data/
 - Backup file is smaller than expected
 
 **Diagnosis:**
+
 ```bash
 # Check backup command output
 vanta-cli backup --out /backups/vantadb-$(date +%F) 2>&1
@@ -256,20 +279,26 @@ cat /backups/vantadb-latest/MANIFEST.json | python3 -m json.tool
 
 **Recovery:**
 1. Ensure the backup target directory exists and is writable:
+
    ```bash
    ls -ld /backups/
    touch /backups/test-write && rm /backups/test-write
    ```
+
 2. Check disk space:
+
    ```bash
    df -h /backups/
    ```
+
 3. For the Fjall backend, backup requires a quiet moment — stop writes temporarily:
+
    ```bash
    sudo systemctl stop vantadb-server
    vanta-cli backup --out /backups/vantadb-$(date +%F)
    sudo systemctl start vantadb-server
    ```
+
 4. Update backup automation (see [BACKUP_POLICY.md](BACKUP_POLICY.md))
 
 ---
@@ -293,22 +322,27 @@ cat /backups/vantadb-latest/MANIFEST.json | python3 -m json.tool
 **Full procedure** (preferred — proves the backup actually restores):
 
 1. **Back up the live database:**
+
    ```bash
    vanta-cli backup --db /var/lib/vantadb/data --out /tmp/verify-backup
    ```
+
    This writes a `MANIFEST.json` with per-file CRC32C checksums.
 
 2. **Restore to a temporary directory** (never the live data dir):
+
    ```bash
    vanta-cli restore --in /tmp/verify-backup --force --db /tmp/verify-restore
    ```
 
 3. **Run health diagnostics on the restored copy** (must exit 0):
+
    ```bash
    vanta-cli doctor -d /tmp/verify-restore
    ```
 
 4. **Compare record counts and spot-check a record** via `get` against the restored DB:
+
    ```bash
    vanta-cli count -d /var/lib/vantadb/data --namespace <ns>
    vanta-cli count -d /tmp/verify-restore --namespace <ns>
@@ -323,13 +357,16 @@ cat /backups/vantadb-latest/MANIFEST.json | python3 -m json.tool
 # MANIFEST.json must exist and every file entry must carry name, size, and crc32c
 cat /backups/latest/MANIFEST.json | python3 -m json.tool
 ```
+
 If any file entry is missing or its `crc32c` field is absent, treat the backup as unverified and run the full procedure.
 
 > **Native backup verification (`restore --dry-run`): AVAILABLE.**
 > Quick pre-check without touching the target:
+>
 > ```bash
 > vanta-cli restore --in /backups/latest --db /tmp/verify-restore --dry-run
 > ```
+>
 > (lists files + size + conflicts, exit 0, target untouched).
 > Until per-file CRC verification lands, the full restore procedure above is
 > still the only way to prove restorability.

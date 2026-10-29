@@ -628,20 +628,24 @@ into the scheduler are deferred → FIND-290 (Backlog).
 ## Contratos clave
 
 ### Trait `LlmRunner` (host-neutral, sync)
+
 ```rust
 pub trait LlmRunner {
     fn run(&self, params: &LlmRunParams) -> Result<String, LlmError>;
     // complete_json<T>: helper genérico — NO dyn-compatible; usar <R: LlmRunner>
 }
 ```
+
 Los extractores/generadores son funciones genéricas `<R: LlmRunner>`; el fallo del runner
 degrada a `success: false` / skip documentado — jamás bloquea ni corrompe estado previo.
 
 ### Context engine
+
 ```rust
 assemble(messages, budget, estimator, protected_prefix, cfg) -> AssembleOutput
 assemble_with_recall(..., spill: Option<&mut dyn SpillSink>)  // coordinator único: assemble → inject_mmd → recall, un solo budget (+ spill opt-in MEMG-06)
 ```
+
 - Ratio < 0.5 → skip sin tocar mensajes.
 - Mild cascade (MIN=10/INITIAL=7/FLOOR=1) → aggressive one-shot (fingerprint boundary
   `role + primeros 200 chars`, idempotente) → emergency prefix-aware (~2000 chars).
@@ -650,11 +654,13 @@ assemble_with_recall(..., spill: Option<&mut dyn SpillSink>)  // coordinator ún
 - `inject_mmd` agrega `<current_task_context>` tras el prefijo System con dedup fingerprint.
 
 ### Spill to disk + recall (MEMG-06, opt-in)
+
 ```rust
 pub trait SpillSink { fn spill(&mut self, message: &ChatMessage, original: &str); }
 SpillStorage::{spill, recall(session, id), recall_session(session), reclaim, reclaim_as_of}
 ContextAssemblyConfig { spill_enabled: bool /* default false */, .. }
 ```
+
 - With `spill_enabled: true`, every message replaced by a `[compacted N chars]` stub
   persists its full payload under `spill/<session>` **before** the replacement lands
   (get-before-put dedup, D19; key = sanitized message id, or `anon-<fnv1a64>` for
@@ -669,10 +675,12 @@ ContextAssemblyConfig { spill_enabled: bool /* default false */, .. }
 - Default `false`: no extra writes, byte-identical assembly semantics.
 
 ### Recall
+
 ```rust
 RecallConfig { scope: RecallScope, .. }   // Session | Agent | Team — default Agent
 perform_auto_recall(db, params) -> RecallResult { prepend_context, append_system_context, .. }
 ```
+
 Prepend = dynamic per-turn memories; Append = stable persona/scenes (prompt-cache friendly).
 Embedding/Hybrid actually run when an embedding hook is attached **and** the pool carries
 vectors (MEM-47 dual-pool: cosine ranking + keyword gate, fused with RRF via `rrf_merge`) —
@@ -694,11 +702,13 @@ reports the embedding arm *executed* (non-empty query vector). Default `false` k
 legacy path byte-identical — flip the flag to roll forward or back during the migration.
 
 ### Wiki ingest (F7)
+
 ```rust
 worker::run(store, sources_root, runner_opt, cfg) -> IngestReport
 worker::run_with_progress(..., Option<&ProgressTracker>)   // throttle 500ms
 progress_tracker.wiki_status(run_id) -> Option<IngestProgress>
 ```
+
 Serial por página; fallo de página no bloquea las siguientes; STRUCTURAL_FILES protegidos;
 `ensure_sources` fuerza frontmatter. Fallback P4 sin runner: páginas nuevas verbatim,
 merges requeridos se registran como skipped.

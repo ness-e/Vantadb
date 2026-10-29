@@ -53,12 +53,14 @@ vantadb-server
 ```
 
 For embedded use, set `port` and `host` on `VantaConfig`:
+
 ```rust
 config.port = 9090;
 config.host = "0.0.0.0".into();
 ```
 
 Override via environment:
+
 ```bash
 export VANTADB_PORT=9090
 export VANTADB_HOST=0.0.0.0

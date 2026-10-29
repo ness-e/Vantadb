@@ -31,6 +31,7 @@ Three approaches were evaluated: PyO3 (native Rust bindings), CFFI (C ABI handsh
    - PyO3's Python GIL management (`Python::with_gil`) allows fine-grained control over lock duration during engine calls.
 
 2. **Buffer Protocol for Zero-Copy Arrays:** Query methods return numpy arrays through Python's buffer protocol, not through `Vec -> PyList` conversion. The engine's internal `Vec<f32>` storage is exposed as a `PyBuffer` via `PyO3`'s `#[pyclass]` integration:
+
    ```rust
    impl PyBufferProtocol for VectorBuffer {
        fn bf_getbuffer(
@@ -42,6 +43,7 @@ Three approaches were evaluated: PyO3 (native Rust bindings), CFFI (C ABI handsh
        }
    }
    ```
+
    This avoids a memcpy for every result set. The returned buffer wraps a reference-counted handle to the engine's internal `Arc<Vec<f32>>`, ensuring the data lives long enough for the Python consumer.
 
 3. **Async Support Strategy:** The Python SDK is intentionally synchronous at the call-site (see ADR 003). For applications requiring concurrent query execution, users spawn Python `threading.Thread` or `concurrent.futures.ThreadPool` workers. Each thread holds a handle to a separate engine instance or uses the engine's internal `RwLock` for concurrent reads. A future `vantadb-python-async` shim may be offered as a separate package for asyncio-native applications, but it will always delegate to the synchronous core via `loop.run_in_executor`.

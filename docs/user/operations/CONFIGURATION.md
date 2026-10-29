@@ -358,6 +358,7 @@ db = vantadb.Client(
     backend=None,     # "rocksdb", "memory", or None (fjall)
 )
 ```
+
 *Note: Available backends include rocksdb and fjall (default).*
 
 | Parameter | Type | Default | Description |

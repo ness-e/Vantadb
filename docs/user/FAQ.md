@@ -27,12 +27,14 @@ VantaDB is at version 0.8.0 and under active development. The core engine, WAL d
 ### How do I install VantaDB?
 
 **Rust:** Add to `Cargo.toml`:
+
 ```toml
 [dependencies]
 vantadb = "0.8.0"
 ```
 
 **Python:**
+
 ```bash
 pip install vantadb-py
 ```
@@ -56,6 +58,7 @@ let db = Embedded::open_with_config(config)?;
 ```
 
 Or with defaults:
+
 ```rust
 let db = Embedded::open("./vanta_data")?;
 ```

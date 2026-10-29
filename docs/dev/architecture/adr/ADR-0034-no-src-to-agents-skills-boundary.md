@@ -70,6 +70,7 @@ fue una métrica agregada que **no representa inversión de dependencia**
 Tres verificaciones independientes, todas con resultado `0` (sin inversión):
 
 **1. Verificación textual PowerShell (contrato del task):**
+
 ```powershell
 Select-String -Path "src/**/*.rs" -Pattern "\.agents\.skills" |
   Measure-Object | Select-Object Count
@@ -77,12 +78,14 @@ Select-String -Path "src/**/*.rs" -Pattern "\.agents\.skills" |
 ```
 
 **2. Grep cruzado literal (sanity check):**
+
 ```bash
 grep -r --include='*.rs' '\.agents/skills|\.opencode/skills' src/
 # → No files found ✅
 ```
 
 **3. Cypher en codebase-memory-mcp (índice `moderate`):**
+
 ```cypher
 MATCH (src:Folder {file_path: 'src'})-[r]->(target)
 WHERE target.file_path CONTAINS '.agents'
@@ -94,19 +97,23 @@ RETURN type(r), target.file_path, count(*) AS edges
 ```
 
 **4. Codegraph `get_architecture aspects=['boundaries']`:**
+
 ```
 boundaries: 10  (cols: from to calls)
   ...
   src skills 184   ← esta es la métrica agregada
   ...
 ```
+
 La métrica `src skills 184` **existe**, pero al inspeccionar
 `query_graph` sobre `src/skills`:
+
 ```cypher
 MATCH (src:Folder {file_path:'src'})-[r]->(t:Folder {file_path:'src/skills'})
 RETURN type(r), count(r)
 // → CONTAINS_FOLDER, 1 edge
 ```
+
 confirmamos que la métrica viene de **acoplamiento interno** del core
 con su sub-módulo, **no** de una inversión hacia skills del agente.
 

@@ -1,3 +1,7 @@
+# Markdown libre salvo lo grave: la mayoria de reglas estan apagadas a proposito.
+# Solo gatean 3 basicas (MD009 espacios al final, MD031 fences rodeados de
+# lineas en blanco, MD047 una sola linea final). Si activas otra regla,
+# primero limpia docs/** hasta baseline 0 (job docs-lint-regression).
 config:
   MD013: false
   MD029: false
@@ -7,21 +11,18 @@ config:
   MD060: false
   MD001: false
   MD004: false
-  MD009: false
   MD012: false
   MD018: false
   MD022: false
   MD024: false
   MD025: false
   MD026: false
-  MD031: false
   MD034: false
   MD036: false
   MD037: false
   MD038: false
   MD040: false
   MD046: false
-  MD047: false
   MD050: false
   MD051: false
   MD056: false

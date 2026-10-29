@@ -80,6 +80,7 @@ vantadb-mcp/
 ## Code Style
 
 **Discovery file atomic write:**
+
 ```rust
 // GOOD: Atomic write via temp + rename
 fn write_discovery_file(path: &Path, content: &DiscoveryFile) -> Result<()> {
@@ -91,6 +92,7 @@ fn write_discovery_file(path: &Path, content: &DiscoveryFile) -> Result<()> {
 ```
 
 **Proxy dispatcher pattern:**
+
 ```rust
 // GOOD: Async HTTP client with connection pooling
 pub struct ProxyDispatcher {
@@ -264,6 +266,7 @@ flowchart TD
 **Owner Health Endpoint:** `GET /health` (already exists, returns `HealthReportV2`)
 
 **Proxy Health Check Loop:**
+
 ```rust
 async fn health_check_loop(dispatcher: &ProxyDispatcher) {
     let mut consecutive_failures = 0;
@@ -297,6 +300,7 @@ async fn health_check_loop(dispatcher: &ProxyDispatcher) {
 ### 5. Graceful Shutdown
 
 **Owner Shutdown:**
+
 ```rust
 async fn owner_shutdown(discovery_path: &Path, storage: &StorageEngine) {
     // 1. Delete discovery file (signals "no owner")
@@ -309,6 +313,7 @@ async fn owner_shutdown(discovery_path: &Path, storage: &StorageEngine) {
 ```
 
 **Proxy Shutdown:**
+
 ```rust
 async fn proxy_shutdown(discovery_path: &Path) {
     // Only remove own proxy entry if tracking multiple proxies

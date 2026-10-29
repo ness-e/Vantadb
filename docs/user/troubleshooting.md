@@ -48,6 +48,7 @@ tags: [vantadb, troubleshooting, windows]
 **Causa:** El stack por defecto en Windows es 1MB. Algoritmos recursivos profundos o serde pueden excederlo.
 
 **Solución:**
+
 ```bash
 RUST_MIN_STACK=4194304 cargo run    # 4MB stack
 RUST_MIN_STACK=8388608 cargo run    # 8MB si sigue fallando
@@ -62,6 +63,7 @@ RUST_MIN_STACK=8388608 cargo run    # 8MB si sigue fallando
 **Causa:** Visual Studio Build Tools no instalado o no detectado.
 
 **Solución:**
+
 ```bash
 # Verificar instalación
 rustup show
@@ -79,11 +81,14 @@ rustup default stable-x86_64-pc-windows-msvc
 **Síntoma:** nextest corre pero un test parece no terminar nunca.
 
 **Diagnóstico:**
+
 ```bash
 # Presiona 't' en terminal interactiva para ver output en vivo
 # O usa SIGUSR1 en Unix
 ```
+
 O matar y rerun con `--no-capture`:
+
 ```bash
 cargo nextest run --no-capture -p <crate> --test <test_name>
 ```
@@ -95,6 +100,7 @@ cargo nextest run --no-capture -p <crate> --test <test_name>
 **Causa:** El test tarda más de 60s. `slow-timeout` en `.config/nextest.toml` termina tras 3 periodos (3min).
 
 **Solución:** Si es esperado (test de integración pesado), aumentar timeout vía per-test override:
+
 ```toml
 [profile.audit.overrides]
 "test(my_slow_test)".slow-timeout = { period = "120s", terminate-after = 3 }
@@ -113,6 +119,7 @@ cargo nextest run --no-capture -p <crate> --test <test_name>
 **Causa:** Contaminación de estado global compartido (archivos temporales, vars de entorno, puertos).
 
 **Diagnóstico:**
+
 ```bash
 # Rerun con 1 thread
 cargo nextest run --test-threads=1 --test <test_name>
@@ -134,6 +141,7 @@ cargo nextest run --test-threads=1 --test <test_name>
 **Causa:** Falta `maturin` o herramienta de compilación Rust.
 
 **Solución:**
+
 ```bash
 pip install maturin
 # Verificar Rust toolchain
@@ -161,6 +169,7 @@ rustup show
 **Síntoma:** Errores de dependencias nativas (node-gyp, sharp, etc.).
 
 **Solución:**
+
 ```bash
 # Asegurar que Build Tools están en PATH
 npm install --ignore-scripts  # salta build steps problemáticos
@@ -175,10 +184,12 @@ npm install -g windows-build-tools
 **Causa:** Windows con WSL o antivirus bloqueando file watchers.
 
 **Solución:**
+
 ```bash
 # Forzar polling en Vite
 # Agregar a vite.config.ts: server: { watch: { usePolling: true } }
 ```
+
 O excluir el directorio del proyecto del antivirus.
 
 ---
@@ -192,6 +203,7 @@ O excluir el directorio del proyecto del antivirus.
 **Causa:** El hook respeta `SKIP_CLIPPY=1` (ver header del hook).
 
 **Solución:**
+
 ```bash
 SKIP_CLIPPY=1 git commit -m "fix: ..."
 ```

@@ -28,6 +28,7 @@ created: "2026-09-02"
 **Location:** `<data_dir>/.vanta.server.json` (where `<data_dir>` = `<db_path>/data`)
 
 **Schema:**
+
 ```json
 {
   "version": 1,
@@ -223,7 +224,7 @@ Try StorageEngine::open_with_config()
 - Graceful shutdown cleanup
 
 ### Phase 4: Integration Tests
-- 2+ simultaneous `vanta-cli server --mcp --db <same>` 
+- 2+ simultaneous `vanta-cli server --mcp --db <same>`
 - Tools parity verification (all 76 tools)
 - Owner kill → proxy promotion test
 - `cargo check -p vantadb --tests` passes
