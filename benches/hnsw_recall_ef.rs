@@ -9,6 +9,11 @@
 //!
 //! Run: cargo bench --bench hnsw_recall_ef
 //! Release mode: cargo bench --bench hnsw_recall_ef -- --nocapture
+//!
+//! Scale: full ANN curve = RECALL_DATASET=glove-100-ann RECALL_N=1183514
+//! RECALL_NQ=10000 (~12h local, nightly-scale cost — never in CI fast lanes).
+//! Iterate locally with RECALL_NQ=1000 (10x fewer queries) or the default
+//! 10k/200 subset (minutes).
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;

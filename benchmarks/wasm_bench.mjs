@@ -25,7 +25,7 @@
 import { createRequire } from "module";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -96,12 +96,38 @@ function computeGroundTruth(vectors, queries, topK) {
 }
 
 function recallAtK(predicted, groundTruth, k) {
-  let hits = 0;
+  // Real recall@k: |top-k predicted ∩ top-k truth| / k, averaged over queries.
+  // (The old version compared an array against a set — always 0.)
+  let sum = 0;
   for (let i = 0; i < predicted.length; i++) {
     const gtSet = new Set(groundTruth[i].slice(0, k));
-    if (gtSet.has(predicted[i])) hits++;
+    const top = predicted[i].slice(0, k);
+    let hits = 0;
+    for (const id of top) if (gtSet.has(id)) hits++;
+    sum += hits / k;
   }
-  return hits / predicted.length;
+  return predicted.length ? sum / predicted.length : 0;
+}
+
+// Normalize heterogeneous engine results to int vector-indices.
+// Engines return ids as numbers, "v<i>" strings, or JSON strings thereof.
+function toIds(res) {
+  if (typeof res === "string") {
+    try {
+      res = JSON.parse(res);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(res)) return [];
+  const out = [];
+  for (const h of res) {
+    const v = h?.id ?? h?.key ?? h;
+    const n =
+      typeof v === "string" && v.startsWith("v") ? parseInt(v.slice(1), 10) : parseInt(v, 10);
+    if (Number.isFinite(n) && n >= 0) out.push(n);
+  }
+  return out;
 }
 
 function sleep(ms) {
@@ -121,10 +147,13 @@ function generateDataset() {
 
 async function benchVantaDB(dataset) {
   const pkg = path.join(ROOT, "vantadb-wasm", "pkg");
-  const mod = await import(path.join(pkg, "vantadb_wasm.js"));
-  await mod.default();
+  // Node ESM loader needs file:// URLs; wasm-bindgen init needs raw bytes
+  // (fetch() of a file path fails under plain node).
+  // The web-target pkg self-initializes on import (imports its .wasm directly,
+  // supported by Node 22+); it exports { Client }, no default init.
+  const mod = await import(pathToFileURL(path.join(pkg, "vantadb_wasm.js")).href);
 
-  const db = new mod.VantaDB({ storage_path: "/vantadb_bench", read_only: false });
+  const db = new mod.Client({ storage_path: "/vantadb_bench" });
 
   const t0 = performance.now();
   for (let i = 0; i < dataset.vectors.length; i++) {
@@ -137,9 +166,18 @@ async function benchVantaDB(dataset) {
   }
   const ingestMs = performance.now() - t0;
 
-  const tIdx = performance.now();
-  await db.rebuild_index();
-  const indexMs = performance.now() - tIdx;
+  // Rebuild needs the file backend (disk), unavailable in Node WASM —
+  // engine limitation, not bench config. Incremental HNSW serves queries
+  // without it (same condition as edgevec/minimemory, index_ms 0 there too).
+  let indexMs = 0;
+  let rebuilt = true;
+  try {
+    const tIdx = performance.now();
+    await db.rebuild_index();
+    indexMs = performance.now() - tIdx;
+  } catch {
+    rebuilt = false;
+  }
 
   const queryLatencies = [];
   const predictions = [];
@@ -167,6 +205,7 @@ async function benchVantaDB(dataset) {
     engine: "VantaDB",
     ingest_ms: ingestMs,
     index_ms: indexMs,
+    rebuilt,
     recall_at_k: recall,
     p50_ms: queryLatencies[Math.floor(queryLatencies.length * 0.5)],
     p95_ms: queryLatencies[Math.floor(queryLatencies.length * 0.95)],
@@ -179,7 +218,8 @@ async function benchVantaDB(dataset) {
 
 async function benchEdgeVec(dataset) {
   const edgevec = require("edgevec");
-  await edgevec.default();
+  const nm = path.join(__dirname, "node_modules");
+  await edgevec.default(fs.readFileSync(path.join(nm, "edgevec", "edgevec_bg.wasm")));
 
   const config = new edgevec.EdgeVecConfig(DIMS);
   const db = new edgevec.EdgeVec(config);
@@ -190,12 +230,20 @@ async function benchEdgeVec(dataset) {
     ids.push(db.insert(v));
   }
   const ingestMs = performance.now() - t0;
+  // Engine-assigned id -> vector index (robust to non-sequential assignment).
+  const idMap = new Map(ids.map((id, i) => [Number(id), i]));
 
   const queryLatencies = [];
+  const predictions = [];
   for (const q of dataset.queries) {
     const t = performance.now();
     const results = db.search(q, TOP_K);
     queryLatencies.push(performance.now() - t);
+    predictions.push(
+      toIds(results)
+        .map((id) => idMap.get(id) ?? -1)
+        .filter((i) => i >= 0),
+    );
   }
 
   queryLatencies.sort((a, b) => a - b);
@@ -204,6 +252,7 @@ async function benchEdgeVec(dataset) {
     engine: "EdgeVec",
     ingest_ms: ingestMs,
     index_ms: 0,
+    recall_at_k: recallAtK(predictions, dataset.groundTruth, TOP_K),
     p50_ms: queryLatencies[Math.floor(queryLatencies.length * 0.5)],
     p95_ms: queryLatencies[Math.floor(queryLatencies.length * 0.95)],
     p99_ms: queryLatencies[Math.floor(queryLatencies.length * 0.99)],
@@ -220,7 +269,11 @@ async function benchMinimemory(dataset) {
   } catch {
     return { engine: "minimemory", error: "npm install @rckflr/minimemory" };
   }
-  await mm.default();
+  await mm.default(
+    fs.readFileSync(
+      path.join(__dirname, "node_modules", "@rckflr", "minimemory", "minimemory_bg.wasm"),
+    ),
+  );
 
   const db = new mm.WasmVectorDB(DIMS, "cosine", "flat");
 
@@ -231,10 +284,12 @@ async function benchMinimemory(dataset) {
   const ingestMs = performance.now() - t0;
 
   const queryLatencies = [];
+  const predictions = [];
   for (const q of dataset.queries) {
     const t = performance.now();
-    db.search(q, TOP_K);
+    const res = db.search(q, TOP_K);
     queryLatencies.push(performance.now() - t);
+    predictions.push(toIds(res));
   }
 
   queryLatencies.sort((a, b) => a - b);
@@ -243,6 +298,7 @@ async function benchMinimemory(dataset) {
     engine: "minimemory",
     ingest_ms: ingestMs,
     index_ms: 0,
+    recall_at_k: recallAtK(predictions, dataset.groundTruth, TOP_K),
     p50_ms: queryLatencies[Math.floor(queryLatencies.length * 0.5)],
     p95_ms: queryLatencies[Math.floor(queryLatencies.length * 0.95)],
     p99_ms: queryLatencies[Math.floor(queryLatencies.length * 0.99)],

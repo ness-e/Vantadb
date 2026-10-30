@@ -417,10 +417,14 @@ def bench_lancedb(db_path, train_vectors, test_vectors, ground_truth, metric, to
                 if dim % d == 0:
                     num_sub_vectors = d
                     break
+        # Full-precision HNSW graph (no PQ compression): same category as the
+        # VantaDB/Qdrant HNSW cells. IVF-PQ (lossy) understates LanceDB here —
+        # measured 23.30% recall@10 on 2026-10-30 with PQ-8 (kept as reference).
         tbl.create_index(
             metric="cosine" if metric == "cosine" else "l2",
             num_partitions=num_partitions,
-            num_sub_vectors=num_sub_vectors
+            num_sub_vectors=num_sub_vectors,
+            index_type="IVF_HNSW_FLAT",
         )
     index_time = time.perf_counter() - start_index
     rss_after_index = get_current_rss()
@@ -992,7 +996,7 @@ def main():
                              "build). 0/negative = default (999). See header comment.")
     parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
-    parser.add_argument("--output", type=str, default=os.path.join("docs", "user", "operations", "BENCHMARKS.md"), help="Path to BENCHMARKS.md to append results")
+    parser.add_argument("--output", type=str, default="", help="Optional path for a STANDALONE markdown table file (never BENCHMARKS.md — doc updated by hand; empty = stdout only)")
     parser.add_argument("--json-output", type=str,
                         default=os.path.join("metricas", "benchmarks", "competitive-benchmark.json"),
                         help="JSON report path (metricas/ landing zone)")
@@ -1136,45 +1140,16 @@ def main():
     print("  comparable. See header comment for full methodology changelog.")
 
     # Write report back to docs/BENCHMARKS.md if specified
-    if args.output and os.path.exists(args.output):
+    # SAFETY (2026-10-30): the old code replaced the marker span through EOF,
+    # wiping every section after §7 (4128+ lines lost once, restored from git).
+    # Per update_markdown precedent: harness prints the table, doc updated by hand.
+    if args.output:
         try:
-            with open(args.output, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            title_marker = "## 🚀 7. Competitive Benchmark vs LanceDB & Chroma"
-            new_section = f"""
-
-{title_marker}
-Este benchmark compara **VantaDB** directamente contra **LanceDB** y **ChromaDB** en ingesta, latencias, precisión (Recall) y huella de memoria en reposo.
-
-* **Fecha de ejecución**: {time.strftime("%Y-%m-%d %H:%M:%S")}
-* **Configuración del Dataset**:
-  * **Nombre**: `{args.dataset}`
-  * **Tamaño Ingestado**: {args.size} registros
-  * **Dimensión de Vectores**: {train_vectors.shape[1]}
-  * **Consultas Evaluadas**: {args.queries}
-  * **Métrica**: `{metric}`
-  * **Vecinos (Top-K)**: {args.top_k}
-
-### Tabla Comparativa
-
-{table_md}
-
-*Nota: LanceDB e incremental-HNSW de ChromaDB usan sus wrappers de C/C++ nativos integrados en Python. VantaDB corre a través de sus bindings FFI de PyO3 (`vantadb`) consumiendo el core de Rust mapeado en memoria (`mmap`).*
-"""
-
-            # If section already exists, replace it, otherwise append.
-            if title_marker in content:
-                idx = content.find(title_marker)
-                content = content[:idx] + new_section
-            else:
-                content += new_section
-
             with open(args.output, "w", encoding="utf-8") as f:
-                f.write(content)
-            print(f"\nSuccessfully updated benchmark results in: {args.output}")
+                f.write(table_md + "\n")
+            print(f"\nStandalone table written to: {args.output} (paste into BENCHMARKS.md by hand)")
         except Exception as e:
-            print(f"Error updating file: {e}")
+            print(f"Error writing table file: {e}")
 
 
 if __name__ == "__main__":

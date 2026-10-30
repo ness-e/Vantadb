@@ -1,13 +1,25 @@
 # WASM Vector DB Benchmark Report (MCP-03)
 
-> Generated: 2026-07-05. **Status: no measurements** — feature matrix only.
-> For measured latencies see `benchmarks/wasm_bench.mjs`
-> (`node benchmarks/wasm_bench.mjs --engines vantadb,edgevec,minimemory`);
-> results go to `metricas/benchmarks/wasm_benchmark_results.json`.
-> Do not cite this file as performance evidence.
+> Measured 2026-10-30 (`node benchmarks/wasm_bench.mjs`, seed 42):
+> 1000 vectors × 128d, 100 queries, top-10, exact brute-force ground truth.
+> Machine-readable: `metricas/benchmarks/wasm_benchmark_results.json`.
+> Env: Node v26.8.1, Windows x86_64. Deps: `benchmarks/package.json`
+> (`npm install --prefix benchmarks`).
 >
 > Compares VantaDB WASM against EdgeVec and minimemory
 > (altor-vec/lattice-db were never implemented in the harness).
+
+| Engine | Ingest (ms) | p50 (ms) | p95 (ms) | p99 (ms) | QPS | Recall@10 |
+|---|---|---|---|---|---|---|
+| VantaDB (incremental HNSW, no rebuild) | 1154.0 | 1.720 | 2.386 | 2.081 | 581 | 1.000 |
+| EdgeVec | 396.5 | 0.209 | 0.608 | 0.850 | 3782 | 0.597 |
+| minimemory (flat) | 5.7 | 0.247 | 0.534 | 3.622 | 2963 | 1.000 |
+
+> Caveats: VantaDB cell is incremental HNSW without `rebuild_index` (needs
+> the file backend, unavailable in Node WASM — `rebuilt: false` in JSON).
+> minimemory runs in `flat` mode = exact scan, so recall 1.0 is by
+> construction, not evidence. Historical feature matrix below (2026-07-05,
+> unverified vendor claims — do not cite as performance evidence).
 
 ---
 
@@ -86,7 +98,11 @@ VantaDB's bundle is larger because it includes: HNSW + BM25 (Tantivy) + Graph en
 
 ## Conclusion
 
-VantaDB leads in **feature completeness** — it's the only WASM vector DB with HNSW + BM25 + Hybrid + WAL + MCP + IQL + Graph. The tradeoff is a larger WASM bundle (404KB gzipped vs 54KB for altor-vec). 
+VantaDB leads in **feature completeness** — it's the only WASM vector DB with HNSW + BM25 + Hybrid + WAL + MCP + IQL + Graph. The tradeoff is a larger WASM bundle (404KB gzipped vs 54KB for altor-vec).
+
+> Note 2026-10-30: the three paragraphs below predate measured runs and
+> cite altor-vec, which is not in the harness — read them as historical
+> positioning, not evidence. Measured numbers are the table at the top.
 
 For **pure vector search** (no text, no graph), altor-vec wins on size and speed.
 For **browser RAG with text + vector**, VantaDB and minimemory are the top contenders.

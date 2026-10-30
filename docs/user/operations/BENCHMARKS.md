@@ -191,7 +191,7 @@ This benchmark compares **VantaDB** directly against **LanceDB** and **ChromaDB*
 
 > Retrieval **quality** on a real text corpus (recall@k vs human qrels, BEIR SciFact) is §21 — a different metric from the vector-dataset `Recall@10` below (exact-kNN fidelity); the numbers are not comparable.
 
-* **Execution Date**: 2026-06-06 15:43:40
+* **Execution Date**: 2026-10-30 (re-run with current harness; supersedes the 2026-06-06 run below)
 * **Dataset Configuration**:
   * **Name**: `glove-100-angular`
   * **Ingested Size**: 10000 records
@@ -199,8 +199,35 @@ This benchmark compares **VantaDB** directly against **LanceDB** and **ChromaDB*
   * **Evaluated Queries**: 100
   * **Metric**: `cosine`
   * **Neighbors (Top-K)**: 10
+* **Env (Regla 11)**: Windows 11 · i5-1235U (12t) · 31.78 GB · Python 3.11.9 ·
+  vantadb-py 0.8.0 · lancedb 0.33.0 · chromadb 1.5.9 · qdrant-client (embedded,
+  no docker) · numpy 2.4.6. Machine-readable:
+  `metricas/benchmarks/competitive-benchmark.json` (schema v1).
+* **Reproduce**: `python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100 --engines vanta,lance,chroma,qdrant --yes`
+  (LanceDB cell re-measured separately with `IVF_HNSW_FLAT`, see note).
 
-### Comparative Table
+### Comparative Table (2026-10-30)
+
+| Engine   |   Ingest QPS | Index Time (ms)   |   Query QPS |   Latency p50 (ms) |   Latency p99 (ms) | Recall@10   |   Peak RSS (MB) |   Delta RSS (MB) |
+|----------|--------------|-------------------|-------------|--------------------|--------------------|-------------|-----------------|------------------|
+| VantaDB  |        449.5 | 6524.8            |       288.6 |              3.375 |              4.635 | 100.00%     |           347.1 |             -2.6 |
+| LanceDB (IVF_HNSW_FLAT) | 114956 |     497.1        |       256.4 |              3.657 |              5.838 | 83.60%      |           297.9 |             39.8 |
+| ChromaDB |       1971   | N/A (Inc)         |       525.7 |              1.83  |              2.76  | 95.20%      |           316.9 |             26   |
+| Qdrant   |         66.5 | N/A (Inc)         |       208.5 |              4.583 |              7.804 | 100.00%     |           340   |             43.8 |
+
+*Note: LanceDB and ChromaDB's incremental-HNSW use their native C/C++ wrappers integrated in Python. VantaDB runs through its PyO3 FFI bindings (`vantadb`) consuming the memory-mapped (`mmap`) Rust core.*
+
+**Reading.** Query QPS: Chroma 525.7 > VantaDB 288.6 > Lance 256.4 > Qdrant 208.5;
+Recall@10: VantaDB 100% = Qdrant 100% > Chroma 95.2% > Lance 83.6% (IVF
+partitioning cost at nprobes=32). LanceDB ingest is a bulk append (index built
+separately in 497 ms); VantaDB ingest includes the indexed path.
+**LanceDB methodology note:** the harness default (`IVF_PQ`, 8 sub-vectors)
+measured 23.30% on the same data (2026-10-30, reference only in
+`metricas/benchmarks/competitive-benchmark.pq-ref.json`) — lossy compression,
+not comparable with full-precision HNSW cells, so the table carries the
+`IVF_HNSW_FLAT` (m=20, ef_construction=300) re-measurement.
+
+### Retired: run 2026-06-06 (different harness era, not comparable)
 
 | Engine   |   Ingest QPS | Index Time (ms)   |   Query QPS |   Latency p50 (ms) |   Latency p99 (ms) | Recall@10   |   Peak RSS (MB) |   Delta RSS (MB) |
 |----------|--------------|-------------------|-------------|--------------------|--------------------|-------------|-----------------|------------------|
@@ -208,7 +235,9 @@ This benchmark compares **VantaDB** directly against **LanceDB** and **ChromaDB*
 | LanceDB  |     114583   | 602.2             |       320.5 |              2.653 |              6.98  | 13.90%      |           344.2 |             97.2 |
 | ChromaDB |       3886   | N/A (Inc)         |       978.6 |              0.941 |              3.349 | 24.10%      |           253.5 |             39.1 |
 
-*Note: LanceDB and ChromaDB's incremental-HNSW use their native C/C++ wrappers integrated in Python. VantaDB runs through its PyO3 FFI bindings (`vantadb`) consuming the memory-mapped (`mmap`) Rust core.*
+Retired because: pre-BENCH-01 ingest timer (included client build + payload
+prep), old HNSW defaults on all engines, no Qdrant cell. Kept as record; do
+not subtract or divide between runs.
 
 ---
 
@@ -1131,7 +1160,11 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 
 ---
 
-## 18. Competitive synthetic 2K — run 2026-08-12 (GOV-TK8)
+## 18. Competitive synthetic 2K — run 2026-08-12 (GOV-TK8, historical)
+
+> Historical record (contaminated environment, synthetic data — see caveats).
+> For the current real-dataset comparison (glove-100-angular 10K, 2026-10-30,
+> fair HNSW cells) see **§7**.
 
 > **Source of truth (triple evidencia):** raw `docs/user/benchmarks/_run_stdout.md`
 > (121L, log íntegro del harness) + machine-readable
@@ -1409,7 +1442,7 @@ gh run list --workflow=perf-bench.yml --limit 3 --json databaseId,conclusion,hea
 
 ## 21. BEIR/MTEB recall@k vs sqlite-vec (BENCH-02) — BEIR SciFact, test split
 
-> **Source of truth:** `benchmarks/beir_recall_bench.py` (harness) + `benchmarks/beir_recall_report.json` (regenerable artifact, gitignored).
+> **Source of truth:** `benchmarks/beir_recall_bench.py` (harness) + `metricas/benchmarks/beir_recall_report.json` (regenerable artifact, gitignored).
 > **Reproduce (Regla 11):**
 >
 > ```bash
@@ -1427,6 +1460,10 @@ Retrieval **quality** on a real text corpus: **`recall@k` against human relevanc
 - **Both engines are exact on this corpus.** sqlite-vec (vec0) is a brute-force scan; VantaDB routes to its **flat exact scan** at this size — `flat_threshold` defaults to 10,000 nodes (`src/config.rs:347`, `VANTADB_FLAT_THRESHOLD` unset in this run) and `use_flat_search()` picks the flat path when `nodes.len() <= threshold` (`src/index/search/neighbors.rs`). `index-recall` = 1.0 is therefore expected by construction for both; the qrels recall they reach is the retrieval-quality ceiling of the declared embedding + ranking stack, not an ANN-fidelity result.
 
 ### Results — BEIR SciFact (`mteb/scifact`, split `test`), 300 queries, corpus 5,183 docs, single run 2026-10-06
+
+> Re-run 2026-10-30 con el harness actual (self-test 16/16, salida a `metricas/`):
+> calidad **idéntica dígito a dígito** (pipeline determinista); latencias dentro
+> del rango del caveat (ingest 33.70 s, q p50 10.876 / p99 28.618 ms).
 
 | Engine | recall@1 | recall@10 | recall@100 | nDCG@10 | index-recall@1/10/100 | ingest (s) | q p50 (ms) | q p99 (ms) |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -2314,6 +2351,8 @@ Measured 2026-10-30 (Windows dev, `-j 1`, ~12h): 1.183.514 vectores × 100d,
 
 > Reproduce (Regla 11, solo-local por coste — no correr junto a otras cargas):
 > `RECALL_DATASET=glove-100-ann RECALL_N=1183514 RECALL_NQ=10000 cargo bench -p vantadb --bench hnsw_recall_ef -j 1`.
+> Para iterar: `RECALL_NQ=1000` (misma curva, 10x menos queries) o el subset
+> default 10k/200 (minutos).
 > El JSON lo escribio el bench; los valores de esta tabla se transcribieron
 > del stdout de la corrida porque el binario en curso era anterior al sink
 > (verificado celda por celda: QPS = 1e6/mean en las 6).
