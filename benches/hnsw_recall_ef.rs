@@ -207,9 +207,12 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
         println!("  {}", "─".repeat(50));
     } // RECALL_FULL_EFC gate
 
-    // Build index for ef_search sweep (using default ef_construction = 100)
+    // Build index ONCE for the ef_search sweep (ef_search is query-time only:
+    // insert_hnsw reads ef_construction + the seeded RNG, never ef_search —
+    // one build serves all cells with identical graphs. The old per-cell
+    // rebuilds wasted ~8.5h on the full corpus for zero information.
+    let mut index = CPIndex::new_with_config(base_config.clone());
     let build_time = {
-        let index = CPIndex::new_with_config(base_config.clone());
         let t0 = Instant::now();
         for (id, vec) in &dataset {
             let _ = index.add(
@@ -250,18 +253,8 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
         // only (mirrors benches/param_sweep.rs). Without this, tuned_ef could
         // exceed ef_search, contaminating the ef sweep.
         AutoTune::set_ef(1);
-        let index = CPIndex::new_with_config(HnswConfig {
-            ef_search: ef,
-            ..base_config.clone()
-        });
-        for (id, vec) in &dataset {
-            let _ = index.add(
-                *id,
-                FilterBitset::all_set(),
-                VectorRepresentations::Full(vec.clone()),
-                0,
-            );
-        }
+        // Query-time only: the shared build serves every cell (see above).
+        index.config.ef_search = ef;
 
         let recall = compute_recall(&index, &queries, &ground_truth, TOP_K);
         let (p50, p99, mean) = measure_latency(&index, &queries, TOP_K);
