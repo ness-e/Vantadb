@@ -15,10 +15,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, "..");
-const PLANS_DIR = join(PROJECT_ROOT, "docs", "plans");
+const PLANS_DIR = join(PROJECT_ROOT, "docs", "dev", "plans");
 const TASKS_ROOT = join(PROJECT_ROOT, ".opencode", "skills", "campaign-executor", "tasks");
 const LOG = join(PROJECT_ROOT, ".opencode", "task-system", "enforcement", "verify-log.jsonl");
-const OUT = join(PROJECT_ROOT, "docs", "reports", "dora.md");
+const OUT = join(PROJECT_ROOT, "docs", "dev", "reports", "dora.md");
 const DAY = 86400000;
 
 // ---------- helpers ----------
@@ -328,7 +328,7 @@ const plansF = [...new Set(tasks.map((t) => t.plan).filter(Boolean))].sort();
 const code = (s) => "`" + s + "`";
 let md = `# DORA Flow Metrics Report
 
-> Generado por ${code("evals/dora.mjs")} (P3-07) — ${now.toISOString()}
+> Generado por ${code("dev-tools/dora.mjs")} (P3-07) — ${now.toISOString()}
 > Fuentes: ${code("docs/dev/plans/*.md")} (${plans.size} tareas en ${
   plansF.length
 } planes) + task files en ${code(".opencode/skills/campaign-executor/tasks/")} (${
@@ -551,7 +551,7 @@ ${
 )} que aún no existen) — sus estados vienen del plan; los task files existentes (AUD/ERR/INV/COMP/DESKTOP/…) alimentan la vista de detalle.
 `;
 
-mkdirSync(join(PROJECT_ROOT, "docs", "reports"), { recursive: true });
+mkdirSync(join(PROJECT_ROOT, "docs", "dev", "reports"), { recursive: true });
 writeFileSync(OUT, md, "utf-8");
 console.log(
   `Wrote ${OUT} (${allIds.size} tasks, ${completed.length} completed, lead avg ${f1(

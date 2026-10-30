@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // EVAL-01 — pipeline eval harness.
 // Reads .opencode/task-system/enforcement/verify-log.jsonl (written by campaign_verify_cmd)
-// plus plan files, and produces docs/reports/pipeline-evals.md against the RULES.md North Star:
+// plus plan files, and produces docs/dev/reports/pipeline-evals.md against the RULES.md North Star:
 //   - tasa completado >90% primer intento
 //   - falsos positivos = 0  (verify FAILED pero task pasó a COMPLETED)
 //   - regresión silenciosa = 0 (verify pasó y luego falló para la misma tarea)
@@ -14,7 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, "..");
 const TASK_SYSTEM = resolve(PROJECT_ROOT, ".opencode", "task-system");
 const LOG = join(TASK_SYSTEM, "enforcement", "verify-log.jsonl");
-const OUT = join(PROJECT_ROOT, "docs", "reports", "pipeline-evals.md");
+const OUT = join(PROJECT_ROOT, "docs", "dev", "reports", "pipeline-evals.md");
 
 function readLog() {
   if (!existsSync(LOG)) return [];
@@ -55,7 +55,7 @@ function planState(taskId, plansDir) {
 }
 
 const entries = readLog();
-const plansDir = join(PROJECT_ROOT, "docs", "plans");
+const plansDir = join(PROJECT_ROOT, "docs", "dev", "plans");
 
 // per-task aggregation
 const byTask = new Map();
@@ -125,12 +125,12 @@ const skillsReported = tasks.filter((t) => taskSkills.has(t.id)).length;
 let md = `---
 title: "Pipeline Evaluation Report"
 kind: report
-description: "Métricas del pipeline vs North Star (RULES.md) — verify calls, primer intento, regresiones — generado por evals/eval-metrics.mjs"
+description: "Métricas del pipeline vs North Star (RULES.md) — verify calls, primer intento, regresiones — generado por dev-tools/eval-metrics.mjs"
 ---
 
 # Pipeline Evaluation Report
 
-> Generado por \`evals/eval-metrics.mjs\` (EVAL-01) — ${new Date().toISOString()}
+> Generado por \`dev-tools/eval-metrics.mjs\` (EVAL-01) — ${new Date().toISOString()}
 > Datos: \`.opencode/task-system/enforcement/verify-log.jsonl\` (${
   entries.length
 } invocaciones de verify) + \`docs/dev/plans/*.md\`
@@ -198,6 +198,6 @@ ${
 - El log se alimenta automáticamente desde \`campaign_verify_cmd\`; este reporte es la referencia del threshold de RULES.md.
 `;
 
-mkdirSync(join(PROJECT_ROOT, "docs", "reports"), { recursive: true });
+mkdirSync(join(PROJECT_ROOT, "docs", "dev", "reports"), { recursive: true });
 writeFileSync(OUT, md, "utf-8");
 console.log(`Wrote ${OUT} (${tasks.length} tasks from ${entries.length} verify calls)`);

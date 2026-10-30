@@ -8,7 +8,7 @@ abstención proxy, token-economy, aislamiento). **0 forks del harness** — el d
 importa `run_harness`; `memory_harness.py`/`calibration.py` no se editan.
 
 > Resultados publicados: `docs/user/operations/BENCHMARKS.md` §19 · narrativa:
-> `docs/user/blog/head_to_head_mem0_zep_letta.md`. Este README es el protocolo operativo.
+> `docs/user/blog/head_to_head_mem0_vantadb.md`. Este README es el protocolo operativo.
 
 ## Comandos (Regla 11)
 

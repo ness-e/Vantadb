@@ -87,6 +87,17 @@ jobs:
     permissions:
       checks: read
 
+  agent-eval:
+    # FIND-151 contract: agent-eval regression = NO-GO. --offline is stdlib-only
+    # (seconds, no network, no builds) so it runs on PR too, unlike heavy jobs.
+    name: "Nightly: agent-eval (offline)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run agent golden-case eval (offline, 0 tokens)
+        run: python3 evals/agent/run_eval.py --offline
+
   failpoint-tests:
     name: "Nightly: failpoint_injections"
     # CI-08: schedule/dispatch only — never on PR (see header).

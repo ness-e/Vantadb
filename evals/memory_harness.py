@@ -87,6 +87,19 @@ def question_is_abs(q: dict) -> bool:
     return str(q.get("question_id", "")).endswith("_abs")
 
 
+def f1_overlap(gold: str, pred: str) -> float:
+    """LoCoMo-style lexical F1 (case-insensitive word overlap)."""
+    g, p = gold.lower().split(), pred.lower().split()
+    if not g or not p:
+        return 0.0
+    from collections import Counter
+    common = sum((Counter(g) & Counter(p)).values())
+    if not common:
+        return 0.0
+    prec, rec = common / len(p), common / len(g)
+    return 2 * prec * rec / (prec + rec)
+
+
 def session_text(session: list) -> str:
     """Flatten a LongMemEval session (list of {role, content}) to plain text."""
     return "\n".join(f"{t.get('role', '?')}: {t.get('content', '')}" for t in session)
@@ -233,12 +246,20 @@ def run_harness(
         top_keys = {h["key"] for h in hits}
         correct_any = bool(gold & top_keys)
         correct_all = bool(gold) and gold.issubset(top_keys)
+        # Lexical answer-F1 (LoCoMo-style secondary): best word-overlap between
+        # the gold answer text and any top-k payload. Retrieval-level only —
+        # QA correctness stays with the manual LLM-judge report (owner Q1).
+        f1max = None
+        ans = q.get("answer")
+        if not question_is_abs(q) and isinstance(ans, str) and ans.strip():
+            f1max = max((f1_overlap(ans, h.get("payload", "")) for h in hits), default=0.0)
         hits_by_q.append(
             {
                 "qid": qid,
                 "abs": question_is_abs(q),
                 "correct_any": correct_any,
                 "correct_all": correct_all,
+                "f1_max": f1max,
                 "hits": hits,
             }
         )
@@ -260,6 +281,14 @@ def run_harness(
         by_type_all.setdefault(t, []).append(1 if r["correct_all"] else 0)
     recall_any_by_type = {t: sum(v) / len(v) for t, v in sorted(by_type_any.items())}
     recall_all_by_type = {t: sum(v) / len(v) for t, v in sorted(by_type_all.items())}
+    # F1 aggregates over questions that carry gold answer text.
+    f1_by_type_vals: dict[str, list] = {}
+    for q, r in zip([q for q in questions if not question_is_abs(q)], nonabs):
+        if r["f1_max"] is not None:
+            f1_by_type_vals.setdefault(q.get("question_type", "?"), []).append(r["f1_max"])
+    f1_vals_all = [v for vs in f1_by_type_vals.values() for v in vs]
+    f1_mean = (sum(f1_vals_all) / len(f1_vals_all)) if f1_vals_all else None
+    f1_by_type = {t: sum(v) / len(v) for t, v in sorted(f1_by_type_vals.items())}
 
     # abstention proxy (retrieval-level, no LLM): tau from evidence-score tail.
     evidence_scores = [
@@ -306,6 +335,11 @@ def run_harness(
             "abs": len(absq),
             "top_k": top_k,
             "namespace_prefix": namespace_prefix,
+            # Cost (HELM/Mem0-style): the harness path makes zero LLM calls;
+            # time cost is ingest QPS + query latencies. Runners with LLM
+            # extraction (mem0 native, Zep) report their own counts when measured.
+            "llm_calls": 0,
+            "est_cost_usd": 0.0,
         },
         "ingest": {
             "docs": n_docs,
@@ -327,6 +361,13 @@ def run_harness(
             "any": recall_any,
             "all_by_type": recall_all_by_type,
             "any_by_type": recall_any_by_type,
+        },
+        "answer_f1": {
+            "k": top_k,
+            "mean_max": f1_mean,
+            "by_type": f1_by_type,
+            "n_scored": len(f1_vals_all),
+            "note": "lexical word-overlap vs gold answer text (LoCoMo-style secondary, retrieval-level: short gold vs long session payloads reads near-zero even at recall 1.0 — do not read as answer quality); QA correctness stays with the manual LLM-judge report",
         },
         "write_quality": {
             "checked": wq_checked,
@@ -350,6 +391,7 @@ def run_harness(
                 "abs": r["abs"],
                 "correct_any": r["correct_any"],
                 "correct_all": r["correct_all"],
+                "f1_max": r["f1_max"],
                 "top_keys": [h["key"] for h in r["hits"]],
                 "top_scores": [h["score"] for h in r["hits"]],
             }
@@ -400,6 +442,7 @@ def _selftest() -> int:
             "question_id": "q1",
             "question_type": "single-session-user",
             "question": "gold-one",
+            "answer": "gold-one evidence",
             "answer_session_ids": ["s1"],
             "haystack_session_ids": ["s1", "s2"],
             "haystack_sessions": [
@@ -448,7 +491,12 @@ def _selftest() -> int:
     rep2 = run_harness(FakeStore(), bad, top_k=2)
     assert rep2["recall_at_k"]["any"] == 0.0, rep2["recall_at_k"]
     assert rep2["recall_at_k"]["all"] == 0.0, rep2["recall_at_k"]
-    print("memory_harness selftest: OK (13 checks)")
+    assert abs(f1_overlap("a b c", "a b d") - 2 / 3) < 1e-9, f1_overlap("a b c", "a b d")
+    assert f1_overlap("", "x") == 0.0 and f1_overlap("x", "") == 0.0
+    q1row = next(p for p in rep["per_question"] if p["question_id"] == "q1")
+    assert q1row["f1_max"] is not None and q1row["f1_max"] > 0.5, q1row
+    assert rep["answer_f1"]["n_scored"] == 1, rep["answer_f1"]
+    print("memory_harness selftest: OK (16 checks)")
     return 0
 
 
@@ -463,14 +511,15 @@ def _load_questions(path: pathlib.Path) -> list[dict]:
 def _markdown(report: dict) -> str:
     m, s, r, wq = report["meta"], report["search"], report["recall_at_k"], report["write_quality"]
     cal = report.get("calibration")
+    f1 = report.get("answer_f1") or {}
 
     def fmt(v) -> str:
         return f"{v:.4f}" if v is not None else "n/a"
 
     lines = [
-        "| label | questions | top_k | recall_all@k | recall_any@k | write-quality | q p50 (ms) | q p99 (ms) | ingest QPS | ECE before → after |",
-        "|---|---|---|---|---|---|---|---|---|---|",
-        "| {label} | {n} ({non} non-abs + {ab} abs) | {k} | {rall} | {rany} | {wq} | {p50} | {p99} | {qps} | {ece} |".format(
+        "| label | questions | top_k | recall_all@k | recall_any@k | f1_answer | write-quality | q p50 (ms) | q p99 (ms) | ingest QPS | ECE before → after |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "| {label} | {n} ({non} non-abs + {ab} abs) | {k} | {rall} | {rany} | {f1} | {wq} | {p50} | {p99} | {qps} | {ece} |".format(
             label=report["meta"].get("label", "?"),
             n=m["questions"],
             non=m["nonabs"],
@@ -478,6 +527,7 @@ def _markdown(report: dict) -> str:
             k=r["k"],
             rall=fmt(r["all"]),
             rany=fmt(r["any"]),
+            f1=fmt(f1.get("mean_max")),
             wq=fmt(wq["value"]),
             p50=s["p50_ms"],
             p99=s["p99_ms"],

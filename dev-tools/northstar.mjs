@@ -16,8 +16,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, "..");
 const TASK_SYSTEM = resolve(PROJECT_ROOT, ".opencode", "task-system");
 const LOG = join(TASK_SYSTEM, "enforcement", "verify-log.jsonl");
-const PLANS_DIR = join(PROJECT_ROOT, "docs", "plans");
-const OUT = join(PROJECT_ROOT, "docs", "reports", "northstar.md");
+const PLANS_DIR = join(PROJECT_ROOT, "docs", "dev", "plans");
+const OUT = join(PROJECT_ROOT, "docs", "dev", "reports", "northstar.md");
 
 function readLog() {
   if (!existsSync(LOG)) return [];
@@ -195,7 +195,7 @@ const telemetryTasks = skillReportedTasks.size;
 
 let md = `# North Star Report
 
-> Generado por \`evals/northstar.mjs\` (P1-06) — ${new Date().toISOString()}
+> Generado por \`dev-tools/northstar.mjs\` (P1-06) — ${new Date().toISOString()}
 > Datos: \`.opencode/task-system/enforcement/verify-log.jsonl\` (${
   entries.length
 } invocaciones de verify) + \`docs/dev/plans/*.md\` (${
@@ -304,7 +304,7 @@ ${
 - Fuente de planes: \`docs/dev/plans/*.md\` raíz (el subdirectorio \`archive/\` no se incluye).
 `;
 
-mkdirSync(join(PROJECT_ROOT, "docs", "reports"), { recursive: true });
+mkdirSync(join(PROJECT_ROOT, "docs", "dev", "reports"), { recursive: true });
 writeFileSync(OUT, md, "utf-8");
 console.log(
   `Wrote ${OUT} (${totalCompleted} completed / ${firstTryOk} first-try, ${falsePositives} FP, ${regressions} regressions, ${entries.length} verify calls)`,
