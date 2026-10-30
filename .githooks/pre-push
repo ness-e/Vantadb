@@ -62,7 +62,7 @@ winpath() {
         *) printf '%s' "$1" ;;
     esac
 }
-VERIFY_PS1_WIN="$(winpath "$VERIFY_SCRIPT")
+VERIFY_PS1_WIN="$(winpath "$VERIFY_SCRIPT")"
 if command -v pwsh >/dev/null 2>&1; then
     pwsh -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_PS1_WIN" || STATUS=$?
 elif command -v powershell.exe >/dev/null 2>&1; then

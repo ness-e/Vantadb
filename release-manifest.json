@@ -4,8 +4,8 @@
   "tag": "v0.9.0",
   "github": {
     "repo": "ness-e/Vantadb",
-    "binaries": [
-      { "target": "x86_64-unknown-linux-gnu", "ext": "tar.gz" },
+    "binaries": [{ "target": "x86_64-unknown-linux-gnu", "ext": "tar.gz" }],
+    "binaries_documented_only": [
       { "target": "x86_64-apple-darwin", "ext": "tar.gz" },
       { "target": "aarch64-apple-darwin", "ext": "tar.gz" },
       { "target": "aarch64-unknown-linux-gnu", "ext": "tar.gz" },

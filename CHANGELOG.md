@@ -13,8 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- *(benchmarks)* programa completo de mediciones honestas: datasets reales (GloVe-100, BEIR-SciFact, SIFT-1M) con manifiesto + sha256, semillas fijas en todos los harnesses, y todos los resultados a `metricas/`. La curva recall-QPS full-corpus (1.18M vectores × 10k queries) quedó publicada en `BENCHMARKS.md` §23 con un solo build (12h → ~3.5h).
+- *(benchmarks)* **retractación**: la tabla A/B de prefetch (§4) medía dos corridas idénticas (la variable que apagaba el prefetch no la leía el motor, ~1% = ruido). Re-medida: p50 −24%, p99 −64%, QPS +45%.
+- *(benchmarks)* comparativa competitiva (§7) republicada 2026-10-30 sobre glove-100-angular 10K con celdas justas (LanceDB re-medido con HNSW full-precision: 23.3% → 83.6%); la corrida de 2026-06-06 queda como registro histórico.
+- *(benchmarks)* GraphRAG desbloqueado (el overflow de stack quedó resuelto) con informe propio en `docs/user/blog/graphrag-benchmark.md`; WASM bench ejecutado de punta a punta por primera vez (VantaDB 100% / EdgeVec 59.7% recall@10).
+- *(evals)* `evals/` queda como harness de memoria-producto: los medidores del task-system (`northstar`, `eval-metrics`, `dora`) se movieron a `dev-tools/` y el harness añade F1 y BLEU-1 léxicos (estilo LoCoMo/Mem0) junto a recall, con costo explícito (0 llamadas LLM).
+
 ### Fixed
 
+- *(ci)* `.githooks/pre-push` tenía un error de sintaxis que impedía compilarlo (`bash -n` fallaba), así que la barrera de verificación pre-push nunca corrió; y `CI_POLICY.md` declaraba 18 workflows cuando hay 17, lo que dejaba en rojo permanente el gate de inventario.
 - *(security)* `SECURITY.md` deja de publicar como capacidad el cifrado en reposo: las primitivas AES-256-GCM existen detrás de la feature `encryption` (`src/crypto.rs`) y las usa el envelope de `vanta-proxy`, pero los ficheros de storage del core (WAL, HNSW, VantaFile, backend-KV, snapshots) siguen en claro. Diseño del wiring: `ADR-0057` (`FIND-407`, `FIND-249`).
 - *(index)* **BREAKING**: la dimensión del vector se valida. Un `put` (o `put_batch`, `bulk_import`, `put_record_exact`) cuyo vector no tenga la dimensión del índice se rechaza con `Error::DimensionMismatch { expected, got }`, y una búsqueda con un `query_vector` de otra longitud devuelve ese mismo error. Antes, un vector de otra dimensión puntuaba `0.0` — el **mejor** score Euclidean posible — y se colaba por delante de los vectores válidos, y los tres backends (flat, HNSW, HNSW-inline) no coincidían. Como el índice de vectores admite una sola dimensión, la regla pasa a ser **un modelo por base de datos** (no por namespace): usar una ruta de base de datos distinta al cambiar de modelo (`FIND-411`).
 - *(index)* **BREAKING**: el score Euclidean que ve el SDK cambia de `-d²` a `-d` para los corpus por debajo de `flat_threshold` (10 000 nodos): el flat scan y el path HNSW devuelven ahora la misma escala, así que un score Euclidean ya es comparable entre backends. Quien filtrara o comparara por score debe re-medir (`FIND-411`).

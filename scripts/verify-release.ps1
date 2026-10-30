@@ -85,6 +85,9 @@ foreach ($b in $manifest.github.binaries) {
   if ($assetNames -contains $archive) { Write-Ok $archive } else { Write-Bad "$archive missing" }
   if ($assetNames -contains "$archive.sha256") { Write-Ok "$archive.sha256" } else { Write-Bad "$archive.sha256 missing" }
 }
+foreach ($b in $manifest.github.binaries_documented_only) {
+  Write-Skip "binary $($b.target): listed in the manifest but not built by the pipeline (matrix reduced pre-pub)"
+}
 foreach ($p in $manifest.github.wheels.platforms) {
   $wheel = ($manifest.github.wheels.template -replace '\{version\}', $Ver) -replace '\{platform\}', $p
   if ($assetNames -contains $wheel) { Write-Ok $wheel } else { Write-Bad "$wheel missing" }

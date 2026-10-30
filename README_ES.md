@@ -397,7 +397,7 @@ Las líneas base medidas se publican en [docs/user/operations/BENCHMARKS.md](doc
 | **Escalado** (10K → 50K) | 4,88x sub-lineal (p50 6,1 ms @50K) |
 | **Recall@10** | 0,9560 @10K (Bloque 1) / 0,9980 @100K (escalado) |
 
-*Fuente: [BENCHMARKS.md §1](docs/user/operations/BENCHMARKS.md) — Stress Protocol en hardware CI con AVX2 (Regla 11: bench + entorno versionados en el repo).* Las latencias de alcance SDK (`put` p50 13,5 ms · HNSW p50 2,4 ms · híbrido RRF p50 5,6 ms — PyO3/GIL, un solo hilo) están publicadas en [§2](docs/user/operations/BENCHMARKS.md), regenerada 2026-09-30 con su entorno documentado; nunca comparar ni restar entre los alcances §1/§2. Regenera localmente con `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (la salida `benchmarks/vanta_benchmark_report.json` es gitignored — local a la máquina; los números publicados viven en §2 con su entorno). La latencia léxica BM25 no se reclama aquí: en este corpus sintético las consultas de la suite no matchean registros (ver la nota de §2).
+*Fuente: [BENCHMARKS.md §1](docs/user/operations/BENCHMARKS.md) — Stress Protocol en hardware CI con AVX2 (Regla 11: bench + entorno versionados en el repo).* Las latencias de alcance SDK (`put` p50 13,5 ms · HNSW p50 2,4 ms · híbrido RRF p50 5,6 ms — PyO3/GIL, un solo hilo) están publicadas en [§2](docs/user/operations/BENCHMARKS.md), regenerada 2026-09-30 con su entorno documentado; nunca comparar ni restar entre los alcances §1/§2. Regenera localmente con `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (la salida `metricas/benchmarks/vanta_benchmark_report.json` es gitignored — local a la máquina; los números publicados viven en §2 con su entorno). La latencia léxica BM25 no se reclama aquí: en este corpus sintético las consultas de la suite no matchean registros (ver la nota de §2).
 
 ### Benchmarks competitivos SIFT-1M (escala 100K) — Fase 2
 
@@ -415,7 +415,7 @@ Los resultados de rendimiento certificados en el dataset estándar de SIFT en mo
 
 *Hardware de certificación: AMD Ryzen 12-Core @ 3,5 GHz, compilado con `-C target-cpu=native`.*
 
-*Fuente: [docs/user/operations/BENCHMARKS.md §5](docs/user/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Historial completo de optimización en [docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
+*Fuente: [docs/user/operations/BENCHMARKS.md §5](docs/user/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Para la comparativa head-to-head contra LanceDB/ChromaDB/Qdrant (2026-10-30) ver [§7](docs/user/operations/BENCHMARKS.md).*
 
 <p align="center">
   <img src="assets/benchmark-sift1m.svg" alt="Aceleración de construcción HNSW SIFT1M — Fase 1 vs Fase 2 (2,14×–2,80×)" width="760">
@@ -438,7 +438,7 @@ maturin develop --release --manifest-path vantadb-python/Cargo.toml
 python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000
 ```
 
-Los resultados se imprimen en la consola y se escriben en `vanta_benchmark_report.json` (gitignored, local a la máquina — el registro publicado vive en [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md)).
+Los resultados se imprimen en la consola y se escriben en `metricas/benchmarks/vanta_benchmark_report.json` (gitignored, local a la máquina — el registro publicado vive en [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md)).
 
 ---
 

@@ -134,6 +134,7 @@ embeddings/**/*.bin
 .env
 .env.*
 !.env.example
+!.env.tokens.example
 .env.local
 
 # ── 7. Logs, reportes, coverage y screenshots ───────────────
@@ -208,8 +209,6 @@ SKILLS-MANIFEST.md
 AGENTS.md
 .lurkr-baseline.json
 .env.tokens
-# OJO: el .example tambien queda untracked (C-01)
-.env.tokens.example
 notion_backup_batches/
 # scratch local
 .understand-anything/
@@ -298,7 +297,7 @@ llama-index-vector-stores-vantadb/
 #     trackeado ignorado)
 #   git check-ignore src/lib.rs Cargo.toml tests/cli_tests.rs
 #     docs/index.md skills/vantadb/SKILL.md                 -> vacio (OK)
-rcelain | ? {$_ -match '^!!'}  -> 105 rutas
+#   git status --ignored --porcelain | ? {$_ -match '^!!'}  -> 105 rutas
 #   git ls-files -c -i --exclude-standard                 -> 0 (nada
 #     trackeado ignorado)
 #   git check-ignore src/lib.rs Cargo.toml tests/cli_tests.rs
