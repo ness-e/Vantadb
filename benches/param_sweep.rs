@@ -223,16 +223,20 @@ fn bench_ef_curve(
     m: usize,
     ef_c: usize,
     ef_values: &[usize],
-) {
+) -> Vec<String> {
     let (mut idx, build_s) = build_index(ds, m, ef_c);
     println!("  build M={m} efC={ef_c}: {build_s:.1}s");
     let mut group = c.benchmark_group(format!("param_sweep_{name}"));
     common::apply_fixed_profile(&mut group);
+    let mut cells = Vec::new();
     for &ef_s in ef_values {
         AutoTune::set_ef(1); // bypass auto_tuner
         idx.config.ef_search = ef_s;
         let recall = recall_at_k(&idx, ds);
         println!("  M={m} efC={ef_c} efS={ef_s}: recall@10 = {recall:.4}");
+        cells.push(format!(
+            "{{\"m\":{m},\"ef_c\":{ef_c},\"ef_s\":{ef_s},\"build_s\":{build_s:.1},\"recall\":{recall:.4}}}"
+        ));
         group.bench_function(format!("ef_search_{ef_s}"), |b| {
             b.iter(|| {
                 for q_idx in 0..ds.n_queries {
@@ -250,6 +254,7 @@ fn bench_ef_curve(
         });
     }
     group.finish();
+    cells
 }
 
 // ── Entry point ───────────────────────────────────────────────────────
@@ -260,17 +265,37 @@ fn bench_param_sweep(c: &mut Criterion) {
         "\n  ── sift-128 (D={}, N={}, Nq={}) ──",
         ds.dims, ds.n_train, ds.n_queries
     );
+    let mut all_cells: Vec<String> = Vec::new();
     if std::env::var("PARAM_SWEEP_FULL").as_deref() == Ok("1") {
         println!("  Full grid: M={M_VALUES:?}, efC={EF_C_VALUES:?}");
         for &m in M_VALUES {
             for &ef_c in EF_C_VALUES {
-                bench_ef_curve(c, &ds, &format!("m{m}_efc{ef_c}"), m, ef_c, EF_S_VALUES);
+                all_cells.extend(bench_ef_curve(
+                    c,
+                    &ds,
+                    &format!("m{m}_efc{ef_c}"),
+                    m,
+                    ef_c,
+                    EF_S_VALUES,
+                ));
             }
         }
     } else {
         println!("  Canonical build M=16 efC=100, efS curve (PARAM_SWEEP_FULL=1 for full grid)");
-        bench_ef_curve(c, &ds, "canonical", 16, 100, EF_S_VALUES);
+        all_cells.extend(bench_ef_curve(c, &ds, "canonical", 16, 100, EF_S_VALUES));
     }
+    // Machine-readable curve for the dashboard (metricas/benchmarks/).
+    common::write_metric_json(
+        "recall_param_sweep.json",
+        &format!(
+            "{{\"dataset\":\"sift-128\",\"dims\":{},\"n_train\":{},\"n_queries\":{},\"k\":{},\"cells\":[{}]}}",
+            ds.dims,
+            ds.n_train,
+            ds.n_queries,
+            ds.k,
+            all_cells.join(",")
+        ),
+    );
 }
 
 criterion_group!(benches, bench_param_sweep);

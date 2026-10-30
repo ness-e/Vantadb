@@ -992,9 +992,10 @@ def main():
                              "build). 0/negative = default (999). See header comment.")
     parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
-    parser.add_argument("--output", type=str, default="docs/BENCHMARKS.md", help="Path to docs/BENCHMARKS.md to append results")
-    parser.add_argument("--json-output", type=str, default="web/src/lib/data/competitive-benchmark.json",
-                        help="Path to write the versioned JSON contract (INV-007-B). The web imports this file directly.")
+    parser.add_argument("--output", type=str, default=os.path.join("docs", "user", "operations", "BENCHMARKS.md"), help="Path to BENCHMARKS.md to append results")
+    parser.add_argument("--json-output", type=str,
+                        default=os.path.join("metricas", "benchmarks", "competitive-benchmark.json"),
+                        help="JSON report path (metricas/ landing zone)")
     parser.add_argument("--yes", action="store_true", help="Skip health check prompt")
     parser.add_argument("--self-test", action="store_true",
                         help="Run the offline measurement-region self-test (stub engine, no data) and exit.")

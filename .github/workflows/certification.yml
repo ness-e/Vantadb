@@ -432,6 +432,8 @@ jobs:
         run: cargo bench --bench canonical_p99 -- --nocapture 2>&1 | tee metricas/benchmarks/nightly_canonical_p99_results.txt
 
       - name: Run memory_budget benchmarks
+        env:
+          MEMORY_BUDGET_SCALE: lite
         run: cargo bench --bench memory_budget -- --nocapture 2>&1 | tee metricas/benchmarks/nightly_memory_budget_results.txt
 
       - name: Run incremental_bench benchmarks
@@ -548,7 +550,7 @@ jobs:
         run: |
           python scripts/bench_regression.py extract \
             --criterion-root target/criterion \
-            --output metricas/benchmark_report_criterion.json
+            --output metricas/benchmarks/benchmark_report_criterion.json
 
       # CATEGORY: INFORMATIONAL — regression comparison may fail when no
       # baseline exists (first run) or baseline format changes. Non-blocking.
@@ -557,9 +559,9 @@ jobs:
         continue-on-error: true # CATEGORY: INFORMATIONAL - comparacion contra el baseline: informa de la regresion de rendimiento; el gate que decide es el step anterior
         run: |
           python scripts/bench_regression.py compare \
-            metricas/benchmark_report_criterion.json \
+            metricas/benchmarks/benchmark_report_criterion.json \
             --format json \
-            --output metricas/bench_comparison_result.json \
+            --output metricas/benchmarks/bench_comparison_result.json \
             --fail-on-regression
         env:
           GITHUB_SHA: ${{ github.sha }}
@@ -567,8 +569,8 @@ jobs:
       - name: Detect regressions
         id: check_regression
         run: |
-          if [ -f metricas/bench_comparison_result.json ]; then
-            HAS_REG=$(python -c "import json; print(json.load(open('metricas/bench_comparison_result.json'))['has_regression'])")
+          if [ -f metricas/benchmarks/bench_comparison_result.json ]; then
+            HAS_REG=$(python -c "import json; print(json.load(open('metricas/benchmarks/bench_comparison_result.json'))['has_regression'])")
             echo "has_regression=$HAS_REG" >> "$GITHUB_OUTPUT"
             echo "Regression detected: $HAS_REG"
           else
@@ -581,7 +583,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const report = JSON.parse(fs.readFileSync('metricas/bench_comparison_result.json', 'utf8'));
+            const report = JSON.parse(fs.readFileSync('metricas/benchmarks/bench_comparison_result.json', 'utf8'));
             const markdown = fs.readFileSync('metricas/benchmarks/nightly_hnsw_results.txt', 'utf8').slice(0, 500)
               + '\n...\n*(truncated — see workflow artifacts for full logs)*';
 
@@ -638,8 +640,8 @@ jobs:
           name: nightly-benchmark-results
           path: |
             nightly_*_results.txt
-            metricas/benchmark_report_criterion.json
-            metricas/bench_comparison_result.json
+            metricas/benchmarks/benchmark_report_criterion.json
+            metricas/benchmarks/bench_comparison_result.json
           retention-days: 30
 
       # AUD-030: promote tonight's clean run to the new baseline so the
@@ -649,7 +651,7 @@ jobs:
       - name: Update and commit baseline (nightly only)
         if: github.event_name == 'schedule' && steps.check_regression.outputs.has_regression != 'True'
         run: |
-          python scripts/bench_regression.py update-baseline metricas/benchmark_report_criterion.json
+          python scripts/bench_regression.py update-baseline metricas/benchmarks/benchmark_report_criterion.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add benchmarks/criterion_baseline.json

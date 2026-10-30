@@ -134,12 +134,17 @@ This benchmark compares query latency on a persisted dataset under `VantaFile` w
 <!-- PREFETCH_BENCHMARK_START -->
 | Metric | Without Prefetch (A) | With Prefetch (B) | Improvement (%) |
 | :--- | :--- | :--- | :--- |
-| **Average Latency** | 38.870 ms | 38.539 ms | **0.9%** |
-| **p50 Latency** | 36.639 ms | 36.007 ms | **1.7%** |
-| **p95 Latency** | 52.592 ms | 51.537 ms | **2.0%** |
-| **p99 Latency** | 57.057 ms | 57.776 ms | **-1.3%** |
-| **Throughput (QPS)** | 25.7 qps | 25.9 qps | **+0.9%** |
+| **Average Latency** | 5.546 ms | 3.823 ms | **31.1%** |
+| **p50 Latency** | 5.018 ms | 3.793 ms | **24.4%** |
+| **p95 Latency** | 10.044 ms | 4.942 ms | **50.8%** |
+| **p99 Latency** | 15.568 ms | 5.672 ms | **63.6%** |
+| **Throughput (QPS)** | 180.3 qps | 261.6 qps | **+45.1%** |
 <!-- PREFETCH_BENCHMARK_END -->
+
+> Re-measured 2026-10-29 (Windows dev): 5k vectors × 128d, 100 queries, seed 42.
+> The previous table (≈1% deltas, p99 −1.3%) was two identical runs — the harness
+> set `VANTA_DISABLE_PREFETCH`, which the engine never read (renamed
+> `VANTADB_DISABLE_PREFETCH` in F3C); fixed + re-measured. Past numbers retracted.
 
 ---
 
@@ -214,6 +219,7 @@ Comparativa **ingest 1k EN+ES, QPS, recall@10, RSS, p50 embed** para los 9 model
 > **Alcance:** los números de esta tabla son de la corrida del **2026-08-28**, cuando `embeddings/manifest.json` tenía 9 modelos. El manifest actual tiene **10** (`embeddinggemma-2` se añadió después), y `embeddinggemma-2` no aparece en la tabla porque no se midió en esa corrida. Qwen3 fila con `exception` — solo incluida con `--include-exception` (HF only, GPU, `trust_remote_code=True`, Matryoshka 4096→1024). Sin flag, el bench corre hoy **9 modelos** (los 10 del manifest menos la excepción >3 GB; CI-friendly).
 
 * **Fecha**: 2026-08-28 (dummy determinístico, sin descarga ONNX/HF — `benchmarks/embed_bench.py` fallback)
+* **Inferencia real desde 2026-10-30**: `try_real_embed` ejecuta `session.run` ONNX (mean-pool + L2) cuando el modelo está en `embeddings/models/` (validado: all-MiniLM-L6-v2, 384d, norma 1.0, p50 ~313 ms, recall@10 0.2 real). La tabla de arriba sigue siendo la corrida dummy del 28-08; re-correr hoy da latencias/recall reales y el JSON marca `embed_real` + `vantadb_fallback` por modelo.
 * **Entorno (Regla 11)**: fallback dummy determinístico — dataset seed 42 + embedding por hash (`sha256`) del texto: sintético por diseño, no depende del CPU; reproducible run-to-run con los comandos de abajo.
 * **Dataset**: `tiny-en-es-1k` — 1000 docs sintéticos (500 EN + 500 ES), 12 queries (5 EN + 5 ES + 2 cross `hola mundo`/`hello world`), dim por modelo
 * **Métricas por modelo**: ingest QPS (docs/s con embed incluido), p50 embed (ms), QPS (queries/s), p50 query (ms), recall@10 (brute-force exact vs HNSW), RSS peak/delta (MB), multi cosine `hola mundo` vs `hello world` (validación ES: >0.60 para combined/es, <0.50 para EN-only)
@@ -273,6 +279,12 @@ Ver `embeddings/manifest.json` como source-of-truth (rev pinned, dims, ONNX path
 * **RSS** crece con dim y modelos cargados (384d ~105 MB, 1024d ~143 MB, 4096d ~248 MB en bench sintético).
 * **recall@10 = 1.0** en dummy fallback (pred == exact por construcción); con ONNX/HF reales y `vantadb` HNSW el recall refleja calidad del índice.
 * **Multi cosine** valida soporte ES: `combined`/`es` deben dar >0.60 (`hola mundo` ≈ `hello world`), `en`-only <0.50; el dummy lo fuerza por diseño (`TRANSLATION_CANON`).
+* **embeddinggemma-2 (2026-10-30):** el ONNX de `onnx-community` exige slots
+  multimodales (`image/video/audio_features`); en texto-solo se alimentan con
+  ceros (0, 512) y se lee `sentence_embedding` directo (ya normalizado).
+  Validado smoke `--size 2`: `embed_real=true`, hola/hello = 0.918 (real, no
+  dummy). Sesion ORT cacheada por modelo (load-once). Republicacion completa
+  de §8 con los 9 modelos pendiente (run pesado, tras el commit).
 
 ---
 
@@ -1341,9 +1353,15 @@ with FINDs for the owner. Reports: `metricas/memoria/report_h2h_h2h-strat10_{van
 
 ---
 
-## 20. CI perf-bench gate — instrument limits + same-job A/B (FIND-232/FIND-233)
+## 20. CI perf-bench gate — RETIRED 2026-10-29 (FIND-232/FIND-233)
 
-> **Source of truth:** `benchmarks/compare_baseline.py` (bands + A/B mode) + `.github/workflows/perf-bench.yml` (workflow).
+> **Retired:** the `perf-bench.yml` workflow no longer exists and
+> `benchmarks/compare_baseline.py` + `benchmarks/python_baseline.json` were
+> removed with it. Python-side regression is covered by
+> `scripts/bench_regression.py` like every other lane. What follows is kept
+> as methodology record (bands + noise floor), not an operable gate.
+>
+> **Source of truth (retired):** ~~`benchmarks/compare_baseline.py` (bands + A/B mode) + `.github/workflows/perf-bench.yml` (workflow)~~.
 > **Reproduce (Regla 11):**
 >
 > ```bash
@@ -1494,8 +1512,9 @@ target\release\deps\wal_throughput-<hash>.exe --bench
 | Ruido | **0 procesos de compilacion y 0 procesos de bench** durante toda la medicion (ver §22.3.1: el intento anterior estaba contaminado por procesos zombis) |
 | Toolchain | rustc 1.95.0 / cargo 1.95.0 (`x86_64-pc-windows-msvc`) |
 | Perfil | `bench` = `release` (`opt-level 3`, `lto = "thin"`, `codegen-units = 1`) + `debug = 1` |
-| Dataset | seed 42, **25 000 × 1536d**, `StdRng::seed_from_u64(42)` (identico a `benches/canonical_p99.rs`); 1000 queries, `top_k = 10` |
+| Dataset | seed 42, **25 000 × 1536d**, `StdRng::seed_from_u64(42)` (identico a `benches/canonical_p99.rs` de entonces); 1000 queries, `top_k = 10` |
 | Perfil de medicion | `benches/common::apply_fixed_profile` (warmup 3 s / measure 5 s, confianza 0.95, `sample_size(10)`) |
+| Nota 2026-10-29 | `encrypted_p99` usa desde entonces GloVe-100 real (25k×100d + queries held-out); las cifras de esta sección siguen siendo válidas para el código/dataset de su fecha |
 | Protocolo | **3 corridas por variante, mediana**; variantes **intercaladas** (P1, E1, P2, E2, P3, E3); una invocacion = una corrida |
 | Commit | `4fb9f02` (`develop`); `src/`, `benches/` y `Cargo.toml` **identicos** entre las dos compilaciones (verificado: `git diff` del arbol de fuentes vacio y los commits intermedios del bot son **solo de docs**) |
 | **Estado del codigo medido** | **anterior al "Paso 0"** (`6edc635f`, 22:10: del 2026-10-21, que reduce las copias por candidato de 5 a 3 y la cache de 1 entrada a LRU). Los dos binarios se construyeron a las **18:26** y **19:45**, antes de ese commit, y **ningun commit toco `src/` entre las 18:00 y las 20:00** ⇒ las dos variantes difieren **solo** en la feature. **Esta cifra es la del estado pre-Paso 0**; la del estado **post-Paso 0** — que es el que evalua el gate hoy — esta en **§22.4** (`docs/dev/tasks/FIND-598-paso0.md`, step 5 cerrado) |
@@ -2266,7 +2285,7 @@ decision** (bandas) se aplico sobre el set publicado, sin excluir ninguna corrid
 |---|---|---|
 | `purge_expired` | `purge_expired` full-scan vs indice TTL | Sin baseline; TTL basado en wall-clock (flaky potencial) |
 | `sparse_hot_path` | hot-path sparse + sorts + serde + codec | 4 concerns mezclados, denominadores incomparables |
-| `vfile_search` | search con vfile vs compactado | Compara I/O contra `create_in_memory` (delta vacuo) |
+| `vfile_search` | search con vfile file-backed (tempdir real) vs in-memory vs compactado | Sin baseline; solo-local hasta cablearlo a CI |
 | `backend_compare` | Fjall vs RocksDB put/get | Sin vectores; no representa carga vectorial |
 | `crash_recovery` | latencia open+WAL replay | WAL diminuto sin vectores; mide reopen limpio, no crash |
 | `batch_existing_check` | probe ERR-037 (ver nota) | Criterio pesado para light; doc del fix unicamente |
@@ -2276,3 +2295,29 @@ decision** (bandas) se aplico sobre el set publicado, sin excluir ninguna corrid
 > Nota: `batch_existing_check` y `wal_throughput` estan cableados a
 > `light-benchmarks` desde 2026-10-29 (Fase 2); `tokenizer_bench` corre con
 > `--features advanced-tokenizer`. El resto de esta tabla sigue solo-local.
+
+### Curva recall-QPS full-corpus (`hnsw_recall_ef`, glove-100-ann 1.18M)
+
+Measured 2026-10-30 (Windows dev, `-j 1`, ~12h): 1.183.514 vectores × 100d,
+10.000 queries held-out, ground truth exacta del dataset, build 5108.8 s
+(`ef_construction=100`, m=16). Machine-readable:
+`metricas/benchmarks/recall_ef_curve.json`.
+
+| ef_search | Recall@10 | p50 (µs) | p99 (µs) | Mean (µs) | QPS |
+|---|---|---|---|---|---|
+| 10 | 0.2800 | 331.1 | 670.5 | 353.8 | 2826 |
+| 20 | 0.3490 | 532.3 | 1197.3 | 579.8 | 1725 |
+| 50 | 0.4547 | 1067.6 | 2335.1 | 1161.8 | 861 |
+| 100 | 0.5446 | 1994.1 | 4211.5 | 2169.1 | 461 |
+| 200 | 0.6336 | 3793.0 | 7518.0 | 4051.2 | 247 |
+| 400 | 0.7107 | 7051.5 | 12600.2 | 7384.8 | 135 |
+
+> Reproduce (Regla 11, solo-local por coste — no correr junto a otras cargas):
+> `RECALL_DATASET=glove-100-ann RECALL_N=1183514 RECALL_NQ=10000 cargo bench -p vantadb --bench hnsw_recall_ef -j 1`.
+> El JSON lo escribio el bench; los valores de esta tabla se transcribieron
+> del stdout de la corrida porque el binario en curso era anterior al sink
+> (verificado celda por celda: QPS = 1e6/mean en las 6).
+> Criterion marco "+1948% regressed" contra el baseline viejo — esperado: ese
+> baseline era de corridas subset 10k/200, no del corpus completo. No pisar
+> `criterion_baseline.json` con numeros locales; el re-baseline lo hace
+> `analyze` en el nightly.

@@ -61,6 +61,13 @@ DATASETS = {
         "n_train": 100_000,
         "n_queries": 1_000,
     },
+    "glove-100-ann": {
+        "kind": "hdf5",
+        "url": "http://ann-benchmarks.com/glove-100-angular.hdf5",
+        "metric": "angular",
+        "n_train": 1_183_514,
+        "n_queries": 10_000,
+    },
     "beir-scifact": {
         "kind": "beir-zip",
         "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",

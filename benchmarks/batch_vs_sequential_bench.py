@@ -222,8 +222,10 @@ if __name__ == "__main__":
                         help="Number of queries in the INV-008-B bench")
     parser.add_argument("--skip-batch-requests", action="store_true",
                         help="Run only the search_batch vs sequential bench (skip INV-008-B)")
+    parser.add_argument("--seed", type=int, default=42, help="RNG seed (reproducibility)")
 
     args = parser.parse_args()
+    random.seed(args.seed)
     run_bench(
         db_path=args.db_path,
         num_vectors=args.num_vectors,

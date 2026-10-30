@@ -13,14 +13,13 @@ vantadb-py>=0.5.0
 
 # --- Required only for competitive_bench.py (VantaDB vs LanceDB vs ChromaDB vs Qdrant) ---
 # Optional for vantadb_local_bench.py and batch_vs_sequential_bench.py.
-# FIND-72: floors pinned so `pip install -r` is reproducible. Versions with
-# "[cita NO VERIFICADA — sin red]" were chosen offline against the APIs used in
-# competitive_bench.py and must be ratified with network (deuda TSYS-13).
+# FIND-72: floors pinned so `pip install -r` is reproducible. Versions
+# verified against PyPI 2026-10-30 (all floors below latest stable).
 numpy>=1.26
-h5py>=3.8  # [cita NO VERIFICADA — sin red]
-lancedb>=0.10  # [cita NO VERIFICADA — sin red]
-chromadb>=0.4.22  # [cita NO VERIFICADA — sin red]
-qdrant-client>=1.10  # query_points API used by bench_qdrant; [cita NO VERIFICADA — sin red]
+h5py>=3.8
+lancedb>=0.10
+chromadb>=0.4.22
+qdrant-client>=1.10  # query_points API used by bench_qdrant
 psutil>=5.9
 tabulate>=0.9
 
@@ -28,14 +27,15 @@ tabulate>=0.9
 # Uncomment to enable the `milvus` engine in competitive_bench.py.
 # Not installed by default; the harness skips it cleanly if absent.
 # NOTE: the harness uses the pymilvus>=2.5 `IndexParams` API, so both are required:
-# pymilvus>=2.5  # [cita NO VERIFICADA - sin red]
-# milvus-lite  # [cita NO VERIFICADA - sin red]
+# pymilvus>=2.5
+# milvus-lite
 
-# --- Optional: BEIR/MTEB recall@k harness (benchmarks/beir_recall_bench.py, BENCH-02) ---
+# --- Required: BEIR/MTEB recall@k harness (benchmarks/beir_recall_bench.py, BENCH-02) ---
 # Text-retrieval quality (recall@k vs qrels) on BEIR SciFact vs sqlite-vec.
 # Uses LOCAL ONNX model artifacts from embeddings/download.py (no torch needed).
-# Install: pip install onnxruntime tokenizers sqlite-vec
-# onnxruntime>=1.17  # [cita NO VERIFICADA - sin red]
-# tokenizers>=0.15  # [cita NO VERIFICADA - sin red]
-# sqlite-vec>=0.1.6  # [cita NO VERIFICADA - sin red]
+# Hard requirement of the harness (exits if missing) — install:
+# pip install onnxruntime tokenizers sqlite-vec
+onnxruntime>=1.17
+tokenizers>=0.15
+sqlite-vec>=0.1.6
 

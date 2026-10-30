@@ -50,9 +50,8 @@ MODEL_PATTERNS: dict[str, list[str]] = {
     ],
 }
 
-# Override explícito por modelo (lista cerrada, no glob amplio). Vacío hoy:
-# los 9 repos exponen model.safetensors.
-MODEL_PATTERNS: dict[str, list[str]] = {}
+# Override explícito por modelo (lista cerrada, no glob amplio).
+# Hoy solo embeddinggemma-2 necesita override; el resto expone model.safetensors.
 
 
 def get_allow_patterns(model_id: str) -> list[str]:

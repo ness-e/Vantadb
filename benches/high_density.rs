@@ -1,7 +1,9 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::env;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use vantadb::index::FilterBitset;
@@ -9,7 +11,8 @@ use vantadb::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
 
 fn generate_random_vector(dim: usize) -> Vec<f32> {
-    let mut rng = rand::rng();
+    // Deterministic seed: runs must be comparable across machines/CI.
+    let mut rng = StdRng::seed_from_u64(42);
     let mut vec: Vec<f32> = (0..dim).map(|_| rng.random_range(-1.0..1.0)).collect();
     // Normalize
     let norm: f32 = vec.iter().map(|v| v * v).sum::<f32>().sqrt();
@@ -39,7 +42,10 @@ fn high_density_benchmark(c: &mut Criterion) {
     );
     println!("============================================================");
 
-    let storage = Arc::new(StorageEngine::open("high_density_bench_db").unwrap());
+    // TempDir (not a fixed repo path): auto-cleaned on drop, safe in
+    // parallel, leaves no artifacts if the job dies mid-run.
+    let _db_guard = tempfile::tempdir().expect("tempdir");
+    let storage = Arc::new(StorageEngine::open(_db_guard.path().to_str().unwrap()).unwrap());
 
     // Seed the database
     println!(
@@ -98,12 +104,17 @@ fn high_density_benchmark(c: &mut Criterion) {
     let spam_inserts: u128 = if is_ci { 5_000 } else { 50_000 }; // ponytail: CI inserts reduced to stay under 6h
     spam_group.sample_size(spam_samples);
 
+    // Unique id base per iteration: reused ids would measure overwrite
+    // after the first iter, not spam. Monotonic across iters/samples.
+    static SPAM_ID_BASE: AtomicU64 = AtomicU64::new(0);
+    SPAM_ID_BASE.store((target_nodes + 1) as u64, Ordering::Relaxed);
     spam_group.bench_function("50k_spam_mutations", |b: &mut criterion::Bencher| {
         b.iter_batched(
             || {
+                let base = SPAM_ID_BASE.fetch_add(spam_inserts as u64, Ordering::Relaxed);
                 let mut dummy_nodes = Vec::with_capacity(spam_inserts as usize);
                 for i in 0..spam_inserts {
-                    let mut node = UnifiedNode::new((target_nodes + 1 + i) as u128);
+                    let mut node = UnifiedNode::new(base as u128 + i);
                     node.relational.insert(
                         "content".to_string(),
                         FieldValue::String(format!("Spam node {}", i)),
@@ -132,9 +143,6 @@ fn high_density_benchmark(c: &mut Criterion) {
         )
     });
     spam_group.finish();
-
-    // Clean up
-    let _ = std::fs::remove_dir_all("high_density_bench_db");
 }
 
 criterion_group!(benches, high_density_benchmark);

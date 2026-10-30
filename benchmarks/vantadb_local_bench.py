@@ -245,8 +245,10 @@ if __name__ == "__main__":
     parser.add_argument("--queries", type=int, default=1000, help="Number of queries to perform")
     parser.add_argument("--db-path", type=str, default="./benchmarks/data_bench_db", help="Database storage path")
     parser.add_argument("--output", type=str, default="metricas/benchmarks/vanta_benchmark_report.json", help="Output JSON path")
+    parser.add_argument("--seed", type=int, default=42, help="RNG seed (reproducibility)")
 
     args = parser.parse_args()
+    random.seed(args.seed)
     run_benchmark(
         db_path=args.db_path,
         num_vectors=args.size,

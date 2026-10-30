@@ -66,29 +66,29 @@ python benchmarks/vantadb_local_bench.py --size 10000 --queries 1000 --output re
 
 The scripts accept either install path (PyPI wheel or `maturin develop`).
 
-## CI gate and same-job A/B
+## CI gate and same-job A/B (retired 2026-10-29)
 
-The `perf-bench.yml` workflow compares each run against `python_baseline.json` (collapse detection — bands calibrated to the measured 1.7-2.4x cross-VM spread; full rationale in [`docs/user/operations/BENCHMARKS.md` §20](../docs/user/operations/BENCHMARKS.md)). For fine regressions (<2-3x), dispatch the same-job A/B mode: wheel A is built from `ab_ref` and wheel B from the current ref in the same runner, 3 alternated pairs run, and the gate compares the median of the paired ratios:
-
-```bash
-gh workflow run perf-bench.yml --ref develop -f ab_ref=<ref-or-sha>
-```
-
-Prove all bands offline: `python benchmarks/compare_baseline.py --self-test` (15 cases).
+The `perf-bench.yml` workflow no longer exists; `compare_baseline.py` and
+`python_baseline.json` were retired with it (Python-side regression is covered
+by `scripts/bench_regression.py`). The band design below is kept as
+methodology record — collapse detection calibrated to the measured 1.7-2.4x
+cross-VM spread; full rationale in
+[`docs/user/operations/BENCHMARKS.md` §20](../docs/user/operations/BENCHMARKS.md). For fine regressions (<2-3x),
+use `cargo bench -p vantadb --bench canonical_p99` vs §11.
 
 ## Published results
 
 - Latest CI results: [`docs/user/operations/BENCHMARKS.md`](../docs/user/operations/BENCHMARKS.md)
-- CI badge: `perf-bench.yml` workflow (see GitHub Actions)
 
 ## Scripts
 
 | Script | Purpose |
 | :--- | :--- |
 | `vantadb_local_bench.py` | BENCH-01: ingestion + lexical/vector/hybrid search latencies (zero-dep besides `vantadb`) |
-| `compare_baseline.py` | CI gate comparator: calibrated bands + `--ab-runs` same-job A/B; `--self-test` proves 15 cases offline |
 | `competitive_bench.py` | VantaDB vs LanceDB vs ChromaDB vs Qdrant vs **Milvus** (embedded, no docker; ingestion, QPS, latency, recall, RSS). Milvus via `pymilvus` + `milvus-lite`. |
 | `batch_vs_sequential_bench.py` | `search_batch()` vs sequential `search()` FFI amortization |
 | `prefetch_comparison.py` | Predictive kernel prefetch impact (SCALE-01) |
+| `beir_recall_bench.py` | BEIR-SciFact recall@k + nDCG vs sqlite-vec (real dataset + qrels) |
+| `embed_bench.py` | EMB-07: embedding model comparison (9 models + dummy check-only) |
 | `wasm_bench.mjs` | WASM build benchmark |
 | `../evals/memory_bench.py` | MEM-70: harness sintético estilo LongMemEval-S/LoCoMo (recall@k + p50/p99, offline con `--no-vantadb`) |

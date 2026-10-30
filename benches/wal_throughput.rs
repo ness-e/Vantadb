@@ -17,9 +17,12 @@
 //! - `iter_custom` recreates the tempdir each iteration so fsync is measured
 //!   cold (otherwise the 2nd iter would open an existing WAL with bytes already
 //!   on disk and the numbers would not be comparable).
-//! - Payload: `WalRecord::Insert(UnifiedNode::new(id))` (~24 B serialized)
-//!   — represents the smallest real WAL write; larger records would inflate
-//!   serialization cost but not the I/O surface this bench measures.
+//! - Payload (tiny): `WalRecord::Insert(UnifiedNode::new(id))` (~24 B serialized)
+//!   — the smallest real WAL write; kept verbatim as the baseline series.
+//! - Payload (realistic): same + deterministic 100d `Full` vector (~424 B,
+//!   mirrors a GloVe-100 node). One additive sample
+//!   (`periodic/batch_100/realistic`) so serialization cost is measured
+//!   without doubling the sweep or renaming the `/tiny`-less baseline labels.
 //! - Latency histogram printed per sample (p50/p95/p99 in microseconds).
 //!
 //! **Encrypted variant (W7 of the encryption plan):** the same source runs
@@ -43,7 +46,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 use tempfile::tempdir;
 use vantadb::config::SyncMode;
-use vantadb::node::UnifiedNode;
+use vantadb::node::{UnifiedNode, VectorRepresentations};
 use vantadb::wal::{WalRecord, WalWriter};
 
 mod common;
@@ -55,6 +58,24 @@ const RECORDS_PER_ITER: u64 = 10_000;
 /// Batch sizes to sweep — covers single-record worst case up to amortized
 /// large batches. Plan-mandated: [1, 100, 1_000, 10_000].
 const BATCH_SIZES: &[usize] = &[1, 100, 1_000, 10_000];
+
+/// Payload dimension of the realistic variant — mirrors a GloVe-100 node
+/// (100 x f32 ~= 400 B + header ~= 424 B vs ~24 B tiny).
+const REALISTIC_DIM: usize = 100;
+
+/// Build the WAL record for the bench. Tiny = empty node (baseline series,
+/// label unchanged); realistic = node + deterministic 100d vector (no RNG
+/// alloc in the hot path — id-derived pattern, run-to-run identical).
+fn make_record(id: u128, realistic: bool) -> WalRecord {
+    let mut node = UnifiedNode::new(id);
+    if realistic {
+        let v: Vec<f32> = (0..REALISTIC_DIM)
+            .map(|i| ((id.wrapping_add(i as u128) % 1000) as f32) / 1000.0 * 2.0 - 1.0)
+            .collect();
+        node.vector = VectorRepresentations::Full(v);
+    }
+    WalRecord::Insert(node)
+}
 
 /// The encryption context of the WAL — `()` when the feature is compiled out.
 #[cfg(feature = "encryption")]
@@ -103,6 +124,7 @@ fn run_iter(
     sync_mode: SyncMode,
     batch_size: usize,
     crypto: Option<&WalCryptoCtx>,
+    realistic: bool,
 ) -> Vec<Duration> {
     let dir = tempdir().expect("tempdir for wal bench");
     let path = dir.path().join("wal_throughput.wal");
@@ -121,13 +143,13 @@ fn run_iter(
     for _ in 0..batches {
         let start = Instant::now();
         if batch_size == 1 {
-            let record = WalRecord::Insert(UnifiedNode::new(id_counter));
+            let record = make_record(id_counter, realistic);
             id_counter += 1;
             writer.append(&record).expect("wal append");
         } else {
             let records: Vec<WalRecord> = (0..batch_size)
                 .map(|_| {
-                    let r = WalRecord::Insert(UnifiedNode::new(id_counter));
+                    let r = make_record(id_counter, realistic);
                     id_counter += 1;
                     r
                 })
@@ -153,6 +175,7 @@ fn bench_one(
     sync_mode: SyncMode,
     batch_size: usize,
     crypto: Option<&WalCryptoCtx>,
+    realistic: bool,
 ) {
     let label = format!(
         "{}/batch_{}",
@@ -166,8 +189,14 @@ fn bench_one(
 
     // The mode is part of the group name: the plaintext and the encrypted
     // series are independent (and both survive a criterion re-run).
-    let mut group: BenchmarkGroup<'_, WallTime> =
-        c.benchmark_group(format!("wal_throughput/{label}/{MODE}"));
+    // Realistic sample gets its own label; the tiny series keeps its
+    // baseline label verbatim (renaming would orphan criterion_baseline.json).
+    let group_name = if realistic {
+        format!("wal_throughput/{label}/realistic/{MODE}")
+    } else {
+        format!("wal_throughput/{label}/{MODE}")
+    };
+    let mut group: BenchmarkGroup<'_, WallTime> = c.benchmark_group(group_name);
     common::apply_fixed_profile(&mut group);
     group.sample_size(10);
     group.throughput(Throughput::Elements(RECORDS_PER_ITER));
@@ -177,7 +206,7 @@ fn bench_one(
             let mut total = Duration::ZERO;
             let mut last_latencies: Vec<Duration> = Vec::new();
             for _ in 0..iters {
-                let lats = run_iter(sync_mode, batch_size, crypto);
+                let lats = run_iter(sync_mode, batch_size, crypto, realistic);
                 total += lats.iter().sum::<Duration>();
                 last_latencies = lats;
             }
@@ -216,9 +245,11 @@ fn bench_wal_throughput(c: &mut Criterion) {
 
     for &sync_mode in &[SyncMode::Always, SyncMode::Periodic, SyncMode::Never] {
         for &batch_size in BATCH_SIZES {
-            bench_one(c, sync_mode, batch_size, crypto.as_ref());
+            bench_one(c, sync_mode, batch_size, crypto.as_ref(), false);
         }
     }
+    // Additive realistic-payload sample (one cell, negligible sweep cost).
+    bench_one(c, SyncMode::Periodic, 100, crypto.as_ref(), true);
 }
 
 criterion_group!(benches, bench_wal_throughput);

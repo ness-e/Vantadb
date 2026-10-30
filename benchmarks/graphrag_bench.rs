@@ -22,14 +22,12 @@
 //! fresh temp DB per run, 10 warmup queries, median aggregation.
 //!
 //! Known status (2026-08-05, MKT-16 run): on Windows x86_64 in `--release`,
-//! the search phase (vector queries over the built graph) reproducibly hits a
+//! the search phase (vector queries over the built graph) reproducibly hit a
 //! stack overflow in the engine, even for a 20-node/8-edge DAG corpus and a
-//! 256 MB benchmark-thread stack. Index timing completes cleanly and is REAL;
-//! the query-latency and token-reduction metrics could not be measured in this
-//! environment and are documented as PENDING in docs/user/blog/graphrag-benchmark.md.
-//! This is the same failure class as AUDIT-04 (STATUS_STACK_BUFFER_OVERRUN).
-//! Re-run `cargo run --release --example graphrag_bench` after the engine fix
-//! to fill the pending cells — the script itself is complete and reproducible.
+//! 256 MB benchmark-thread stack.
+//! **Update 2026-10-29: RESOLVED** — engine fixes since August removed the
+//! overflow; the default scale (3000 nodes / 100 queries) runs clean.
+//! Results published in `docs/user/blog/graphrag-benchmark.md`.
 
 use std::env;
 use std::fs;

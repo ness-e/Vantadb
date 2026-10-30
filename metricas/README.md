@@ -12,8 +12,18 @@ nextest`, `benchmarks/` y `evals/` para harnesses ad-hoc multilingües);
 |---|---|---|
 | `certificacion/` | `tests/common/mod.rs` (`VantaHarness`, default `VANTA_CERT_REPORT`) | `vanta_certification.json`: sidecar de `tests/certification/*` (correctitud + tiempos + memoria por bloque) |
 | `benchmarks/` | `benchmarks/vantadb_local_bench.py` (`--output`, default aquí) | `vanta_benchmark_report.json`: throughput/latencias del bench local. Lo lee `benchmarks/update_markdown.py` (fallback) para la tabla de `docs/user/operations/BENCHMARKS.md` |
+| `benchmarks/` | benches Criterion (`common::write_metric_json`) | `canonical_summary.json`, `recall_ef_curve.json`, `recall_param_sweep.json`, `recall_acorn.json`, `hybrid_recall.json`, `encrypted_summary.json`, `benchmark_report_*.json`, `bench_comparison_*.json`, `*_results.txt`, `w7-results.txt` |
 | `embeddings/` | `benchmarks/embed_bench.py` (`--output`, default aquí) | `embed_bench_report.json`: recall/QPS/RSS/p50 por modelo |
 | `memoria/` | `evals/memory_bench.py`, `evals/memory_harness.py` (`--output`), `evals/runners/head_to_head.py` (nombre fijo `report_h2h_<label>_<system>.json`) | reportes de harness y head-to-head de memoria |
+
+## Panel (`dashboard.html`, generado)
+
+`python dev-tools/gen_metrics_dashboard.py` lee todos los JSON de arriba
+(todos opcionales: lo ausente se muestra "sin datos") + el manifiesto de
+datasets + el baseline de criterion, y genera `metricas/dashboard.html`
+autocontenido (sin CDN ni servidor: doble clic). Secciones: tarjetas,
+curva recall-QPS, latencias, tablas de sweeps, historial de certificación,
+datasets y gaps. Regenerar tras cada corrida que quieras visualizar.
 
 ## Convención (obligatoria para harnesses nuevos)
 

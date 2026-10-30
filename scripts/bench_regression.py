@@ -261,7 +261,7 @@ def main() -> None:
     ex = sub.add_parser("extract", help="Parse target/criterion/ into a portable JSON report")
     ex.add_argument("--criterion-root", default="target/criterion",
                     help="Path to target/criterion/ (default: target/criterion)")
-    ex.add_argument("--output", default="metricas/benchmark_report_criterion.json",
+    ex.add_argument("--output", default="metricas/benchmarks/benchmark_report_criterion.json",
                     help="Output JSON path (default under metricas/ landing zone)")
     ex.add_argument("--created", default="",
                     help="ISO timestamp (default: auto)")

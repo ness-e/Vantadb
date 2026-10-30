@@ -2,9 +2,10 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! DRV-130 T3: File-backed search benchmark.
 //!
-//! Measures search_nearest with a populated File (SSD-I/O emulation)
-//! vs in-memory search (no I/O). Includes a compacted variant that rewrites
-//! the File in BFS order to test locality improvement.
+//! Measures search_nearest with a populated vfile (file-backed: real I/O
+//! through a tempdir file) vs in-memory search (no I/O). Includes a
+//! compacted variant that rewrites the File in BFS order to test locality
+//! improvement.
 //!
 //! Run with:
 //!   RUST_LOG=debug cargo bench --bench vfile_search 2>&1 | grep PROFILE
@@ -109,7 +110,7 @@ fn search_with_vfile(index: &CPIndex, queries: &[Vec<f32>], vfile: &File) {
     }
 }
 
-fn build_compacted(vectors: &[Vec<f32>]) -> (CPIndex, File) {
+fn build_compacted(vectors: &[Vec<f32>]) -> (CPIndex, File, tempfile::TempDir) {
     let dir = tempdir().expect("tempdir");
     let vfile_path: PathBuf = [dir.path().to_str().unwrap(), "vstore.vanta"]
         .iter()
@@ -127,7 +128,9 @@ fn build_compacted(vectors: &[Vec<f32>]) -> (CPIndex, File) {
         compact_layout(&mut vfile, &index, &bfs_order, hdr_size).expect("compact_layout");
     reindex_nodes(&index, &offset_map);
 
-    (index, vfile)
+    // Return the TempDir guard: dropping it deletes the directory while the
+    // mapped vfile is still open (fails on Windows, skews later iterations).
+    (index, vfile, dir)
 }
 
 fn bench_vfile_search(c: &mut Criterion) {
@@ -135,10 +138,16 @@ fn bench_vfile_search(c: &mut Criterion) {
     let queries = generate_vectors(N_QUERIES, DIMS, SEED + 1);
 
     let index = build_index(&vectors);
-    let mut vfile = File::create_in_memory(16 * 1024 * 1024);
+    // File-backed (not in-memory): the with_vfile arm must do real I/O,
+    // otherwise it measures the same thing as in_memory under another name.
+    let vfile_dir = tempdir().expect("tempdir");
+    let vfile_path: PathBuf = [vfile_dir.path().to_str().unwrap(), "vfile_bench.vanta"]
+        .iter()
+        .collect();
+    let mut vfile = File::open(vfile_path, 64 * 1024 * 1024).expect("File::open");
     populate_vfile(&mut vfile, &vectors);
 
-    let (compacted_index, compacted_vfile) = build_compacted(&vectors);
+    let (compacted_index, compacted_vfile, _compacted_dir) = build_compacted(&vectors);
 
     let mut group = c.benchmark_group("vfile_search");
     group.throughput(criterion::Throughput::Elements(N_QUERIES as u64));

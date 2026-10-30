@@ -195,6 +195,19 @@ fn read_flat_f32(path: &Path) -> Vec<f32> {
         .collect()
 }
 
+/// Persist a machine-readable summary for the metrics dashboard.
+///
+/// Writes `metricas/benchmarks/{file_name}` (created if missing; the
+/// dashboard reads it, stdout stays human-first). Numbers only — callers
+/// format plain JSON via `format!` (no extra dependency at the call site).
+pub fn write_metric_json(file_name: &str, body: &str) {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("metricas/benchmarks");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return; // metrics must never break the bench
+    }
+    let _ = std::fs::write(dir.join(file_name), body);
+}
+
 fn json_int(text: &str, key: &str) -> usize {
     let idx = text
         .find(key)

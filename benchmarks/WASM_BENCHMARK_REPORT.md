@@ -1,7 +1,13 @@
 # WASM Vector DB Benchmark Report (MCP-03)
 
-> Generated: 2026-07-05
-> Compares VantaDB WASM against EdgeVec, minimemory, altor-vec, and lattice-db.
+> Generated: 2026-07-05. **Status: no measurements** — feature matrix only.
+> For measured latencies see `benchmarks/wasm_bench.mjs`
+> (`node benchmarks/wasm_bench.mjs --engines vantadb,edgevec,minimemory`);
+> results go to `metricas/benchmarks/wasm_benchmark_results.json`.
+> Do not cite this file as performance evidence.
+>
+> Compares VantaDB WASM against EdgeVec and minimemory
+> (altor-vec/lattice-db were never implemented in the harness).
 
 ---
 

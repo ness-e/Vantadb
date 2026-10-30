@@ -497,7 +497,8 @@ def main():
     parser.add_argument("--limit-queries", type=int, default=0, help="Subsample N queries (0 = all; sampled with --seed)")
     parser.add_argument("--seed", type=int, default=42, help="Sampling seed (declared in the reproducible command)")
     parser.add_argument("--dataset-dir", type=str, default=os.path.join("benchmarks", "datasets"), help="Dataset cache dir")
-    parser.add_argument("--json-output", type=str, default=os.path.join("benchmarks", "beir_recall_report.json"), help="JSON report path")
+    parser.add_argument("--json-output", type=str,
+default=os.path.join("metricas", "benchmarks", "beir_recall_report.json"), help="JSON report path (metricas/ landing zone)")
     parser.add_argument("--batch-size", type=int, default=64, help="Embedding batch size")
     parser.add_argument("--self-test", action="store_true", help="Offline self-test (recall math + parser + sampler) and exit")
     args = parser.parse_args()

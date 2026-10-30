@@ -231,6 +231,11 @@ def filter_models(manifest: dict, args: argparse.Namespace) -> list[dict]:
 
 # ── per-model bench ────────────────────────────────────────────────────────
 
+_REAL_EMBED_SEEN: set[str] = set()
+# ORT sessions/tokenizers cached per model: production loads once, and a
+# 740M model (embeddinggemma-2) reloaded per doc would measure disk, not infer.
+_ORT_CACHE: dict[str, tuple] = {}
+
 def try_real_embed(text: str, dim: int, group: str, model_id: str) -> tuple[list[float], float]:
     """intenta ort real si modelo esta descargado, si no dummy. Returns (vec, latency_ms)"""
     models_dir = pathlib.Path(__file__).parent.parent / "embeddings" / "models" / model_id
@@ -242,16 +247,61 @@ def try_real_embed(text: str, dim: int, group: str, model_id: str) -> tuple[list
             try:
                 import onnxruntime as ort  # type: ignore
                 import tokenizers  # type: ignore
-                # carga lazy por bench (no cachear entre modelos para medir cold)
+                # Sesion cacheada por modelo (load-once, como en produccion).
                 t0 = time.perf_counter()
-                sess = ort.InferenceSession(str(candidates[0]), providers=["CPUExecutionProvider"])
-                tok = tokenizers.Tokenizer.from_file(str(tok_candidates[0]))
+                hit = _ORT_CACHE.get(model_id)
+                if hit is None:
+                    # Preferir el onnx base (no cuantizados): nombre exacto model.onnx.
+                    base = [c for c in candidates if c.name == "model.onnx"]
+                    sess = ort.InferenceSession(
+                        str((base or candidates)[0]), providers=["CPUExecutionProvider"]
+                    )
+                    tok = tokenizers.Tokenizer.from_file(str(tok_candidates[0]))
+                    hit = (sess, tok)
+                    _ORT_CACHE[model_id] = hit
+                sess, tok = hit
                 enc = tok.encode(text)
-                # dummy run: solo medir path ort si disponible; si faltan inputs reales, fallback dummy pero medir overhead
+                ids = enc.ids
+                mask = enc.attention_mask
+                import numpy as _np  # type: ignore
+                feed = {
+                    "input_ids": _np.array([ids], dtype=_np.int64),
+                    "attention_mask": _np.array([mask], dtype=_np.int64),
+                }
+                want = {i.name for i in sess.get_inputs()}
+                # Algunos exports exigen token_type_ids (MiniLM): ceros.
+                # Modelos multimodales (embeddinggemma-2): slots de modalidad
+                # sin tokens en texto-solo -> ceros (0, feat). Verificado: el
+                # encoder de texto responde con sentence_embedding real.
+                for i in sess.get_inputs():
+                    if i.name in feed:
+                        continue
+                    if i.name == "token_type_ids":
+                        feed[i.name] = _np.zeros_like(feed["input_ids"])
+                        continue
+                    shp = [0 if isinstance(d, str) else d for d in i.shape]
+                    if not shp or not all(isinstance(d, int) for d in shp):
+                        raise RuntimeError(f"input sin forma alimentable: {i.name}{list(i.shape)}")
+                    dt = _np.int64 if "int" in i.type else _np.float32
+                    feed[i.name] = _np.zeros(shp, dtype=dt)
+                out_names = [o.name for o in sess.get_outputs()]
+                if "sentence_embedding" in out_names:
+                    (emb,) = sess.run(["sentence_embedding"], feed)
+                    vec = _np.asarray(emb[0], dtype=_np.float32)
+                else:
+                    # last_hidden_state -> mean-pool enmascarado -> L2.
+                    (hidden,) = sess.run(None, feed)
+                    m = _np.asarray(mask, dtype=_np.float32)
+                    summed = (hidden[0] * m[:, None]).sum(axis=0)
+                    counts = m.sum().clip(min=1.0)
+                    vec = (summed / counts).astype(_np.float32)
+                n = vec / max(float((vec**2).sum() ** 0.5), 1e-12)
                 dt = (time.perf_counter() - t0) * 1000
-                # no ejecutamos session.run completo (requiere attention_mask etc) — medimos dummy normalizado + costo load
-                vec = dummy_embed(text, dim, group)
-                return vec, dt
+                out = n[:dim].tolist()
+                if len(out) < dim:
+                    out = out + [0.0] * (dim - len(out))
+                _REAL_EMBED_SEEN.add(model_id)
+                return out, dt
             except Exception as e:
                 eprint(f"[info] {model_id}: ort no usable ({e}) — fallback dummy")
     # fallback dummy determinístico
@@ -412,6 +462,8 @@ def bench_one_model(model: dict, docs: list[dict], queries: list[dict]) -> dict:
         "multi_cosine_hola_hello": round(multi_cos, 3),
         "docs": len(docs),
         "queries": len(queries),
+        "embed_real": mid in _REAL_EMBED_SEEN,
+        "vantadb_fallback": used_fallback,
     }
 
 # ── CLI ────────────────────────────────────────────────────────────────────
@@ -435,8 +487,8 @@ def main() -> int:
     args = parse_args()
     manifest = load_manifest()
     # validar manifest rápido
-    if len(manifest.get("models", [])) != 9:
-        eprint(f"[warn] manifest tiene {len(manifest.get('models',[]))} modelos (esperado 9)")
+    if len(manifest.get("models", [])) < 9:
+        eprint(f"[warn] manifest tiene {len(manifest.get('models',[]))} modelos (esperado >=9)")
     models = filter_models(manifest, args)
     if not models:
         eprint("[error] ningún modelo seleccionado — revisa --models")

@@ -108,7 +108,9 @@ def main():
     parser.add_argument("--queries", type=int, default=500, help="Number of queries to execute")
     parser.add_argument("--top-k", type=int, default=10, help="Top-K nearest neighbors")
     parser.add_argument("--db-path", type=str, default="data_prefetch_bench", help="Path to temp database")
+    parser.add_argument("--seed", type=int, default=42, help="RNG seed (reproducibility)")
     args = parser.parse_args()
+    random.seed(args.seed)
 
     print("╔══════════════════════════════════════════════════╗")
     print("║   VantaDB Prefetch A/B Comparison (SCALE-01c)   ║")
@@ -128,8 +130,8 @@ def main():
         shutil.rmtree(args.db_path)
 
     # Habilitamos el prefetch durante la ingesta
-    if "VANTA_DISABLE_PREFETCH" in os.environ:
-        del os.environ["VANTA_DISABLE_PREFETCH"]
+    if "VANTADB_DISABLE_PREFETCH" in os.environ:
+        del os.environ["VANTADB_DISABLE_PREFETCH"]
 
     print("\n  ⚙️  Initializing VantaDB...")
     db = vantadb.Client(args.db_path)
@@ -177,12 +179,12 @@ def main():
     time.sleep(1)
 
     # ==================================================
-    # TEST A: Sin Prefetch (VANTA_DISABLE_PREFETCH = 1)
+    # TEST A: Sin Prefetch (VANTADB_DISABLE_PREFETCH = 1)
     # ==================================================
     print("\n┌──────────────────────────────────────────────────┐")
     print("│  TEST A: Search WITHOUT Prefetching              │")
     print("└──────────────────────────────────────────────────┘")
-    os.environ["VANTA_DISABLE_PREFETCH"] = "1"
+    os.environ["VANTADB_DISABLE_PREFETCH"] = "1"
 
     print("  ⚙️  Opening database (prefetch DISABLED)...")
     db_no_pf = vantadb.Client(args.db_path)
@@ -217,8 +219,8 @@ def main():
     print("\n┌──────────────────────────────────────────────────┐")
     print("│  TEST B: Search WITH Prefetching                 │")
     print("└──────────────────────────────────────────────────┘")
-    if "VANTA_DISABLE_PREFETCH" in os.environ:
-        del os.environ["VANTA_DISABLE_PREFETCH"]
+    if "VANTADB_DISABLE_PREFETCH" in os.environ:
+        del os.environ["VANTADB_DISABLE_PREFETCH"]
 
     print("  ⚙️  Opening database (prefetch ENABLED)...")
     db_pf = vantadb.Client(args.db_path)

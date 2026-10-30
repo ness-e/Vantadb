@@ -468,6 +468,16 @@ fn bench_encrypted_p99(c: &mut Criterion) {
         metrics.iter().map(|m| m.hits).min().unwrap_or(0),
         max_p50_ms(),
     ));
+    // Machine-readable summary for the dashboard (metricas/benchmarks/).
+    common::write_metric_json(
+        "encrypted_summary.json",
+        &format!(
+            "{{\"mode\":\"{mode}\",\"n\":{n},\"runs\":{runs},\"insert_s\":{:.3},\"search_p50_ms\":{p50_ms:.4},\"flush_s\":{:.3},\"cold_s\":{:.3},\"ram_bound\":\"{ram_bound}\"}}",
+            median(&mut inserts).as_secs_f64(),
+            median(&mut flushes).as_secs_f64(),
+            median(&mut colds).as_secs_f64(),
+        ),
+    );
     // A run whose plaintext reference is I/O-bound does not publish a
     // number: it would measure the disk, not the encryption.
     assert!(

@@ -114,6 +114,7 @@ fn bench_acorn(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("acorn_filtered_search");
     common::apply_fixed_profile(&mut group);
+    let mut cells: Vec<String> = Vec::new();
     for (name, bit_idx) in categories {
         let mask = match bit_idx {
             Some(bit) => {
@@ -143,6 +144,9 @@ fn bench_acorn(c: &mut Criterion) {
             1.0
         };
         println!("acorn {name}: recall@10 = {recall:.4}");
+        cells.push(format!(
+            "{{\"selectivity\":\"{name}\",\"recall\":{recall:.4}}}"
+        ));
 
         group.bench_function(name, |b| {
             b.iter(|| {
@@ -160,6 +164,14 @@ fn bench_acorn(c: &mut Criterion) {
         });
     }
     group.finish();
+    // Machine-readable curve for the dashboard (metricas/benchmarks/).
+    common::write_metric_json(
+        "recall_acorn.json",
+        &format!(
+            "{{\"n\":{N_VECTORS},\"dims\":{DIMS},\"queries\":{N_QUERIES},\"k\":{TOP_K},\"cells\":[{}]}}",
+            cells.join(",")
+        ),
+    );
 }
 
 criterion_group!(benches, bench_acorn);

@@ -139,6 +139,19 @@ fn bench_canonical_p99(c: &mut Criterion) {
         p99,
         recall
     );
+    // Machine-readable summary for the dashboard (metricas/benchmarks/).
+    common::write_metric_json(
+        "canonical_summary.json",
+        &format!(
+            "{{\"dataset\":\"glove-100\",\"n\":{},\"dims\":{},\"queries\":{},\"p50_ms\":{},\"p95_ms\":{},\"p99_ms\":{},\"recall\":{recall:.4}}}",
+            ds.n_train,
+            ds.dims,
+            queries.len(),
+            p50.as_secs_f64() * 1000.0,
+            p95.as_secs_f64() * 1000.0,
+            p99.as_secs_f64() * 1000.0
+        ),
+    );
 
     group.bench_function("search_1000_queries_glove100d", |b| {
         b.iter(|| {

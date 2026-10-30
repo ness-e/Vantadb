@@ -171,9 +171,15 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
         }
     }
     if total > 0 {
-        println!(
-            "hybrid text-only recall@{TOP_K} vs qrels: {:.4} ({hits}/{total})",
-            hits as f64 / total as f64
+        let recall = hits as f64 / total as f64;
+        println!("hybrid text-only recall@{TOP_K} vs qrels: {recall:.4} ({hits}/{total})");
+        // Machine-readable summary for the dashboard (metricas/benchmarks/).
+        common::write_metric_json(
+            "hybrid_recall.json",
+            &format!(
+                "{{\"recall\":{recall:.4},\"hits\":{hits},\"total\":{total},\"docs\":{N_DOCS},\"queries\":{}}}",
+                queries.len()
+            ),
         );
     } else {
         println!("hybrid text-only recall: no qrels overlap for the query subset");

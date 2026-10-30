@@ -2,7 +2,7 @@
 /**
  * WASM Vector DB Benchmark Suite (MCP-03)
  *
- * Compares VantaDB, EdgeVec, minimemory, altor-vec, and lattice-db
+ * Compares VantaDB, EdgeVec and minimemory
  * on: ingestion speed, search latency, recall, and memory.
  *
  * Usage:
@@ -13,11 +13,12 @@
  *   --n-vectors  Number of vectors to insert [default: 1000]
  *   --n-queries  Number of query vectors     [default: 100]
  *   --top-k      Top-K for search            [default: 10]
- *   --engines    Comma-separated list        [default: vantadb,edgevec,minimemory,altor-vec]
- *   --output     Output JSON path            [default: benchmarks/wasm_benchmark_results.json]
+ *   --seed       RNG seed (reproducibility)  [default: 42]
+ *   --engines    Comma-separated list        [default: vantadb,edgevec,minimemory]
+ *   --output     Output JSON path            [default: metricas/benchmarks/wasm_benchmark_results.json]
  *
  * Dependencies (install first):
- *   npm install edgevec @rckflr/minimemory altor-vec
+ *   npm install edgevec @rckflr/minimemory
  *   (VantaDB uses the local vantadb-wasm/pkg)
  */
 
@@ -47,13 +48,28 @@ const N_VECTORS = parseInt(args["n-vectors"] || "1000", 10);
 const N_QUERIES = parseInt(args["n-queries"] || "100", 10);
 const TOP_K = parseInt(args["top-k"] || "10", 10);
 const ENGINES = (args.engines || "vantadb,edgevec,minimemory").split(",");
-const OUTPUT = args.output || path.join(__dirname, "wasm_benchmark_results.json");
+const OUTPUT =
+  args.output || path.join(ROOT, "metricas", "benchmarks", "wasm_benchmark_results.json");
+const SEED = parseInt(args.seed || "42", 10);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+// Deterministic PRNG (mulberry32): reproducible datasets across runs.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(SEED);
+
 function randomVector(dim) {
   const v = new Float32Array(dim);
-  for (let i = 0; i < dim; i++) v[i] = Math.random() - 0.5;
+  for (let i = 0; i < dim; i++) v[i] = rng() - 0.5;
   return v;
 }
 
@@ -145,15 +161,13 @@ async function benchVantaDB(dataset) {
     predictions.push(ids);
   }
 
-  recallAtK(predictions, dataset.groundTruth, TOP_K);
-  queryLatencies.sort((a, b) => a - b);
-
-  db.close();
+  const recall = recallAtK(predictions, dataset.groundTruth, TOP_K);
 
   return {
     engine: "VantaDB",
     ingest_ms: ingestMs,
     index_ms: indexMs,
+    recall_at_k: recall,
     p50_ms: queryLatencies[Math.floor(queryLatencies.length * 0.5)],
     p95_ms: queryLatencies[Math.floor(queryLatencies.length * 0.95)],
     p99_ms: queryLatencies[Math.floor(queryLatencies.length * 0.99)],
@@ -286,6 +300,7 @@ async function main() {
   console.log("=".repeat(60));
   console.table(results);
 
+  fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
   fs.writeFileSync(
     OUTPUT,
     JSON.stringify(
