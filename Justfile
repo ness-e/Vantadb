@@ -112,10 +112,12 @@ python-setup:
 python-test:
     pwsh -NoProfile -File dev-tools/scripts/validate_python_sdk.ps1
 
-# Generate changelog (manual escape hatch; releases own CHANGELOG.md via release-plz,
-# which reads cliff.toml for grouping/template)
+# Generate changelog (manual escape hatch). WARNING: release-plz OWNS CHANGELOG.md
+# and does NOT read cliff.toml (release-plz.toml has no `changelog_config`), so this
+# overwrites the release-managed file and drops the frontmatter that
+# scripts/docs/check-docs.mjs requires. Output goes to a scratch file instead.
 changelog:
-    git-cliff -o CHANGELOG.md
+    git-cliff -o CHANGELOG.generated.md
 
 # Full CI suite (what CI runs)
 ci: fmt clippy test deny audit-cargo

@@ -13,7 +13,9 @@ ignore = [
     "RUSTSEC-2023-0089",
 
     # RUSTSEC-2024-0436: paste is unmaintained.
-    # Transitive via tikv-jemalloc-ctl -> paste (build-time proc macro).
+    # Transitive via tikv-jemalloc-ctl 0.6.1 -> paste 1.0.15 (build-time proc macro),
+    # also tokenizers -> onig -> paste. Re-added 2026-10-30: deny.toml had dropped
+    # it on "advisory-not-detected", but the dependency is still in Cargo.lock.
     # Owner: vanta-lead
     # Expiry: 2027-01-01
     # No runtime impact: build-time only proc macro.

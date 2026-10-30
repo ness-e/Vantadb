@@ -97,14 +97,14 @@ table column below.
 | Excluded test | Lives in source | Why excluded | Category | Where the exclusion is enforced |
 |---------------|-----------------|--------------|----------|--------------------------------|
 | `deserialize_absurd_node_count` | `src/index/core.rs:414` | Deserializes a crafted buffer with `u64::MAX` node count — designed as a memory bomb for the deserializer path; allocating it on a shared runner risks OOM-killing unrelated jobs | RESOURCE-GUARD | `dev-tools/verify.ps1` `-E` filter (`nextest` + `coverage` steps) and the non-nextest fallback `--skip` list |
-| `test_search_with_bizarre_text_query` | `tests/security.rs:639` | Feeds giant malformed text queries (100KB strings, NUL bytes, astral-plane chars) into search; robust behavior against such inputs belongs to the dedicated fuzzing lane (`fuzz.yml`), not the fast gate | RESOURCE-GUARD | Same |
+| `test_search_with_bizarre_text_query` | `tests/security.rs:639` | Feeds giant malformed text queries (100KB strings, NUL bytes, astral-plane chars) into search; robust behavior against such inputs belongs to the dedicated fuzzing lane (`certification.yml` fuzz jobs), not the fast gate | RESOURCE-GUARD | Same |
 | `test_malformed_payload_extremely_large` | `tests/security.rs:324` | Ingests a 1MB payload plus 10KB of metadata; same rationale — hostile-input coverage is delegated to fuzzing | RESOURCE-GUARD | Same |
 
 **Structural exclusions in `.config/nextest.toml`:** the `default-filter` of the `audit` profile
 additionally excludes ~55 heavy test binaries (stress_protocol, chaos_integrity, wal_resilience,
 sift_validation, competitive_bench, etc.) via package-qualified `not (package(X) and binary(Y))`
 clauses (BND-06 scope-safe form). That list implements the two-tier split documented in this file
-(Fast Gate vs Heavy Certification) and changes only together with `heavy-certification.yml`.
+(Fast Gate vs Heavy Certification) and changes only together with `certification.yml`.
 
 **Rules for any new exclusion:**
 
@@ -315,11 +315,14 @@ cargo nextest run --profile experimental --workspace --features experimental
 Failures in this suite should be triaged, but they do not block the Fast Gate unless the failure is
 caused by a change to production-facing MVP behavior.
 
-### 2. Heavy Certification (`heavy-certification.yml`)
+### 2. Heavy Certification (`certification.yml`)
 
 The heavy certification suite validates the engine's capability to run under production stress,
 ensuring recall guarantees and scaling limits. **Goal:** Validate engine stability, recall, and
 scale capabilities without bottlenecking daily development.
+
+> Renamed from `heavy-certification.yml`/`heavy-certification-50.yml`; the real file is
+> `certification.yml` (weekly CRON, dispatch, and path-filtered PRs).
 
 **Jobs:**
 
@@ -349,7 +352,7 @@ a **daily subset** of the deterministic core certification jobs so a regression
 in crash recovery / durability / HNSW correctness / text-index recovery
 surfaces in ≤24h instead of ≤7d:
 
-| Job (nightly.yml) | Mirrors heavy-certification.yml | Timeout |
+| Job (nightly.yml) | Mirrors certification.yml | Timeout |
 |---|---|---|
 | `failpoint-tests` | same job (`chaos_integrity`, `wal_resilience`, `crash_injection`) | 30m |
 | `storage-persistence` | same job (16 binaries, `--release --features cli`) | 90m |
@@ -359,7 +362,7 @@ surfaces in ≤24h instead of ≤7d:
 | `coverage-budget` | NEW (owner decision (c) 2026-09-27) — `dev-tools/coverage-budget.ps1`: coverage report + per-directory budget (see §Coverage) | 60m |
 | `release-dry-run` | NEW — `cargo publish -p vantadb --dry-run` (packaging + verify, **never uploads** — release-plz remains the only publisher) | 45m |
 
-- **Why a separate file, not a daily `heavy-certification.yml`** (decision
+- **Why a separate file, not a daily `certification.yml`** (decision
   evidence): the full suite contains jobs that are deliberately weekly —
   `stress-protocol` (~2h), `memory-concurrency`, `mutation-test` (non-gating by
   design) — and running them daily multiplies flake exposure without adding
@@ -378,7 +381,7 @@ surfaces in ≤24h instead of ≤7d:
   jobs; `issues: write` is granted **only** on that job (RULES.md §4). Badge:
   README (`nightly.yml` workflow badge).
 - **Command coupling:** the job commands are copies of their
-  `heavy-certification.yml` counterparts — a test-binary list change edits both
+  `certification.yml` counterparts - a test-binary list change edits both
   files together (same coupling rule as `.config/nextest.toml` structural
   exclusions).
 
@@ -484,33 +487,52 @@ aggregate vs per-runner binding measurement — is decided in
 - No new `--fail-under` gate is added for the aggregate. Revisit on release or when a binding
   graduates from experimental.
 
-### 3. Web CI (`ci-web.yml`)
+### 3. Docs Gate (`docs-gates.yml`)
 
-Builds and lints the web frontend (`web/` directory — Next.js 16). Runs `npm ci`, `npm run lint`,
-`npx tsc --noEmit`, and `npm run build` on push to `main`+`develop` and PR to `main` that touch `web/**`. No test infra
-— the Next.js SPA is client-only (`"use client"` everywhere). Triggered by `workflow_dispatch` as
-well.
+Gate de documentación (no existe `gate-docs.yml` ni `gate-docs-21.yml`): `markdownlint-cli2`
+sobre `docs/**`, `check-links`, gate de frontmatter/orphans (`scripts/docs/check-docs.mjs`), el
+gate de inventario de workflows (compara el número declarado aquí contra `.github/workflows/`) y
+el guard de documentación de release. Corren en push/PR a `main`+`develop` que toquen docs,
+scripts o workflows.
 
-### 4. Docs Gate (`gate-docs.yml`)
+### 4. Platform ops (`platform-ops.yml`)
 
-Lints Markdown files in `docs/**` with `markdownlint-cli2`. Triggered on push/PR to `main`+`develop`
-touching `docs/**` (plus router/scripts paths).
+Análisis CodeQL para Rust (push/PR a `main` + semanal), dependency review y los gates de
+seguridad de plataforma (SBOM, OSV). Sustituye a los antiguos `sec-codeql.yml`/`sec-codeql-30.yml`.
 
-### 5. Security Scan (`sec-codeql.yml`)
+### 5. Fuzzing (dentro de `certification.yml`)
 
-CodeQL analysis for Rust. Runs on push/PR to `main` and weekly. Triggers via `workflow_dispatch`.
+Los 4 targets de `cargo fuzz` (`fuzz_parser`, `fuzz_wal`, `fuzz_node_deserialize`, `fuzz_archive`)
+se ejecutan como jobs de `certification.yml` (semanal/dispatch). **No hay `fuzz.yml`**; el harness
+vive en `fuzz/` y su lock sigue gitignored (FIND-404).
 
-### 6. Fuzzing (`fuzz.yml`)
+### 6. Benchmarks (dentro de `nightly.yml` y `certification.yml`)
 
-LibFuzzer corpus + regression via `cargo fuzz`. Scheduled weekly (Monday 06:00 UTC), PRs touching
-`src/**`/fuzz paths, or `workflow_dispatch`.
+**No hay `heavy-bench-nightly.yml`.** Los benches ligeros corren en `certification.yml`
+(`light-benchmarks`) y la serie pesada + `analyze`/`bench_regression` en `nightly.yml`
+(job `bench-informational`). El gate `perf-bench.yml` se retiró el 2026-10-29 (ver
+`docs/user/operations/BENCHMARKS.md` §20).
 
-### 7. Nightly Benchmarks (`heavy-bench-nightly.yml`)
+### 7. Release verification (`release-verify.yml`)
 
-Nightly benchmark regression suite (daily CRON 02:00 plus `workflow_dispatch`, PRs touching bench paths). Runs light benchmarks
-and heavy benchmarks across multiple package scopes.
+Verificación post-release de assets y registries; renderiza su lista esperada desde
+`release-manifest.json` (nunca hardcodea).
 
-### 8. Python Wheel Build & Publish (`release-wheels.yml`)
+### 8. Demo acceptance (`demo-acceptance.yml`)
+
+Smoke E2E del flujo demo/showcase (dispatch y paths de `examples/`, `vantadb-server/`).
+
+### 9. MCP registry (`publish-mcp-registry.yml`)
+
+Publica `server.json` en el registro MCP (dispatch). Requiere `MCP_REGISTRY_TOKEN`.
+
+### 10. CI Fleet (`ci-fleet.yml`) y `ci-gate.yml`
+
+`ci-fleet.yml` corre la matriz de jobs complementarios; `ci-gate.yml` es el agregador que exige
+todos los checks requeridos (su lista `REQUIRED` es la fuente de verdad de los contexts del
+ruleset de `main`).
+
+### 11. Python Wheel Build & Publish (`release-wheels.yml`)
 
 Builds the Python SDK on Linux (x86_64 and aarch64 cross via maturin-action's manylinux_2_28
 cross container), macOS, and Windows with `maturin`, installs the generated wheel
@@ -540,7 +562,7 @@ They are either marked with `#[ignore]` or gated behind environment variables (e
 
 ## Running Heavy Certification Manually
 
-The `heavy-certification.yml` workflow runs automatically via a CRON schedule (weekly on
+The `certification.yml` workflow runs automatically via a CRON schedule (weekly on
 Sundays at 03:00 UTC). The scheduled lane runs the local deterministic core certification jobs.
 SIFT-1M validation and competitive benchmarks are manual opt-ins because they require external
 datasets. You can also trigger it manually from the GitHub Actions UI:

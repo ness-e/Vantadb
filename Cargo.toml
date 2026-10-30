@@ -20,6 +20,9 @@ exclude = [
     "benchmarks/",
     "examples/",
     "docs/",
+    # Leaf crate with no public API: its Cargo.toml + src/lib.rs would otherwise
+    # ride in the published tarball (see WORKSPACE-EXCLUDE-01).
+    "vantadb-ffi-core/",
     "assets/",
     "e2e/",
     "evals/",

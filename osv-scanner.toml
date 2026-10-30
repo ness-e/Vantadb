@@ -26,18 +26,13 @@ id = "RUSTSEC-2024-0436"
 ignoreUntil = "2027-01-01T00:00:00Z"
 reason = "Mirror of audit.toml triage: build-time only, no runtime impact. Tracked: tikv/jemalloc-ctl#60. Owner: vanta-lead."
 
-# RUSTSEC-2026-0253: lru 0.16.4 (transitive via tantivy 0.26.x; direct dep is
-# already 0.18.4 >= patched 0.18.2). Bump blocked by tantivy upstream pin.
-# Mirror of deny.toml comment triage. Owner: vanta-lead.
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0253"
-ignoreUntil = "2027-01-01T00:00:00Z"
-reason = "Mirror of deny.toml triage: transitive via tantivy only; direct lru 0.18.4 patched. Revisit on tantivy bump. Owner: vanta-lead."
+# RUSTSEC-2026-0253: lru (transitive via tantivy; direct dep is already 0.18.5
+# >= patched 0.18.2). REMOVED 2026-10-30: tantivy is now 0.27 and the lock only
+# carries lru 0.18.5, so the advisory no longer matches anything.
 
-# RUSTSEC-2026-0391 (zstd 0.13.3, abandoned-stream context leak via tantivy 0.26.2).
-# Mirror of deny.toml triage (2026-10-28): VantaDB only decompresses its own
-# index files, no cross-request contexts. Fix needs tantivy with zstd >= 0.14.3.
-# Owner: vanta-lead.
+# RUSTSEC-2026-0387 (crypto-bigint 0.5.5 timing variability, via jsonwebtoken ->
+# rsa). Same triage as RUSTSEC-2023-0071: VantaDB pins Algorithm::HS256 (HMAC),
+# so the RSA path is never exercised.
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0387"
 ignoreUntil = "2027-01-26T00:00:00Z"
@@ -54,7 +49,6 @@ id = "GHSA-qwgh-2vcv-g2f7"
 ignoreUntil = "2027-01-26T00:00:00Z"
 reason = "No panicking callbacks into digest compress path; internal hashing only. Tracked jsonwebtoken upgrade to sha2/digest-0.11 chain (already partially in graph). Owner: vanta-lead."
 
-# RUSTSEC-2026-0395..0406 batch (zstd-safe 7.2.4, unsoundness class — same tantivy 0.26.2
-# chain as 0391/0398/0403/0410, same fix: zstd-safe >= 8.2.0 via tantivy upgrade).
-# VantaDB decompresses only its own index files; no attacker-driven contexts/offsets/dicts.
-# Owner: vanta-lead. Expiry shared with the batch: 2027-01-26.
+# RUSTSEC-2026-0395..0406 batch (zstd-safe) — REMOVED 2026-10-30: the tantivy 0.27
+# bump already ships zstd 0.14.3 / zstd-safe 8.2.0 (patched), so the advisory no
+# longer matches the lock. Re-add only if a downgrade reappears.

@@ -1,4 +1,10 @@
 [advisories]
+# cargo-deny v2 schema: sin `version` se aplican defaults legacy y la política
+# escrita no se cumple. `unmaintained = "all"` mantiene el chequeo de crates
+# transitivas (los triageados estan en `ignore` abajo); con "workspace" esos
+# ignores quedarian stale y cargo-deny los reportaria como advisory-not-detected.
+version = 2
+unmaintained = "all"
 ignore = [
     # RUSTSEC-2023-0089: atomic-polyfill is unmaintained.
     # Transitive via postcard -> heapless (0.7.x) -> atomic-polyfill.
@@ -25,13 +31,21 @@ ignore = [
     # advisory-not-detected (stale ignore). Triage stays in .cargo/audit.toml
     # + VULN-C1 (owner accept-risk 2026-09-22, expiry 2027-03-22).
 
-# RUSTSEC-2024-0436 (paste unmaintained): removed — advisory-not-detected,
-    # tikv-jemalloc-ctl no longer pulls paste. Re-add only if it reappears.
+# RUSTSEC-2024-0436 (paste unmaintained): triage lives in .cargo/audit.toml.
+    # 2026-10-30: Cargo.lock still carries paste 1.0.15 via tikv-jemalloc-ctl 0.6.1
+    # and tokenizers -> onig, so "no longer pulls paste" was false. Kept OUT of
+    # deny's ignore list because deny reports it as advisory-not-detected in this
+    # graph; `.cargo/audit.toml` carries it. Re-add here only if deny fires it.
 
-    # RUSTSEC-2026-0253 (lru 0.16.4): REMOVED 2026-09-11 (AST-007) — cargo-deny
-    # reported advisory-not-detected (stale ignore = warning). Direct lru is now
-    # 0.18.4 (>= patched 0.18.2); 0.16.4 remains only transitively via tantivy 0.26.1.
-    # Re-add only if deny fires it again (e.g. tantivy still pinning lru ^0.16).
+    # RUSTSEC-2024-0436 (paste unmaintained): triage lives in .cargo/audit.toml.
+    # 2026-10-30: Cargo.lock still carries paste 1.0.15 via tikv-jemalloc-ctl 0.6.1
+    # and tokenizers -> onig, so "no longer pulls paste" was false. Kept OUT of
+    # deny's ignore list because deny reports advisory-not-detected for it in this
+    # graph; `.cargo/audit.toml` carries it. Re-add here only if deny fires it.
+
+    # RUSTSEC-2026-0253 (lru): REMOVED 2026-09-11 (AST-007) — cargo-deny reported
+    # advisory-not-detected. 2026-10-30: tantivy is 0.27 and the lock only carries
+    # lru 0.18.5, so it stays removed. Re-add only if deny fires it again.
 
     # Removal 2026-10-28: serde_yaml replaced by serde-saphyr in the parity
     # test (only consumer) — unsafe-libyaml left the dependency graph, so this
@@ -52,6 +66,7 @@ ignore = [
 ]
 
 [licenses]
+version = 2
 # CDLA-Permissive-2.0: webpki-roots (Mozilla CA root data) — permissive data
 # license, no copyleft. Entró al grafo del root con la migración de reqwest a
 # rustls (cross ARM64, FIND-229); mcp/server/proxy ya la traían por sus chains.
@@ -72,17 +87,29 @@ allow-workspace = false
 # con cargo update (cada caller exige su major). Bloat de binario solamente, sin
 # advisory de seguridad (verificado 2026-08-12). Se documentan abajo, no se silencian
 # a ciegas: si un crate aparece con una version NUEVA sin explicar, vuelve a alertar.
+# 2026-10-30: el skip pasa a major PINEADO (name + version "=X.Y.Z"); un skip por
+# nombre solo silenciaba tambien el siguiente major.
 skip = [
-    # hashbrown 0.14/0.15/0.16/0.17 — rustc-hash/parking_lot/ahash/edition2024 requieren majors distintos.
-    "hashbrown",
-    # windows-sys 0.52/0.59/0.60/0.61 — windows crates en cascada por major.
-    "windows-sys",
-    # syn 2.x/3.x — proc-macro2/serde_derive/tauri usan majors distintos.
-    "syn",
+    # hashbrown 0.14/0.16/0.17 — rustc-hash/parking_lot/ahash/edition2024 requieren majors distintos.
+    { name = "hashbrown", version = "=0.14.5" },
+    { name = "hashbrown", version = "=0.16.1" },
+    { name = "hashbrown", version = "=0.17.1" },
+    # windows-sys 0.52/0.59/0.61 — windows crates en cascada por major.
+    { name = "windows-sys", version = "=0.52.0" },
+    { name = "windows-sys", version = "=0.59.0" },
+    { name = "windows-sys", version = "=0.61.2" },
+    # syn 2/3 — proc-macro2/serde_derive/tauri usan majors distintos.
+    # (syn 1.0.109 está en el lock pero no en el grafo resuelto: no se lista, o
+    #  cargo-deny emite unmatched-skip.)
+    { name = "syn", version = "=2.0.119" },
+    { name = "syn", version = "=3.0.3" },
     # thiserror 1.x/2.x — thiserror-core (2) vs deps legacy (1).
-    "thiserror",
+    { name = "thiserror", version = "=1.0.69" },
+    { name = "thiserror", version = "=2.0.21" },
     # rand 0.8/0.9/0.10 — criterion/bolt/rand_core en majors distintos.
-    "rand",
+    { name = "rand", version = "=0.8.7" },
+    { name = "rand", version = "=0.9.5" },
+    { name = "rand", version = "=0.10.2" },
 ]
 skip-tree = []
 

@@ -32,7 +32,6 @@ config:
 gitignore: true
 
 ignores:
-  - ".github/ISSUE_TEMPLATE/*.yml"
   - "docs/dev/tasks/**"
   - "docs/dev/reviews/**"
   - "docs/dev/research/**"

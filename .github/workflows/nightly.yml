@@ -1,7 +1,7 @@
 # Nightly - heavy certification subset (HARD-02, owner decision (c) 2026-09-26).
 #
 # Why a separate file (decision + evidence: CI_POLICY.md "Nightly Certification Subset"):
-# - heavy-certification.yml stays the WEEKLY full suite (stress_protocol ~2h,
+# - certification.yml stays the WEEKLY full suite (stress_protocol ~2h,
 #   memory_brutality, mutation_test, other_heavy - deliberately heavy, weekly).
 # - This lane is the DAILY safety net on the failure-critical certification
 #   subset (crash recovery / durability / HNSW correctness / text-index
@@ -10,7 +10,7 @@
 #   gate (HARD-01 coordination, plan 2026-09-26 stop condition).
 # - Schedules deconflicted (FIND-141): bench nightly 02:00, full cert Sun 03:00,
 #   OCR 04:00 - this lane 05:00 UTC daily.
-# - Job commands are IDENTICAL to their heavy-certification.yml counterparts
+# - Job commands are IDENTICAL to their certification.yml counterparts
 #   (copy, not re-derive). When a test-binary list changes, change both files
 #   together - same rule as .config/nextest.toml structural exclusions.
 # - Since owner decision (c) 2026-09-27, this lane also carries the coverage
@@ -606,7 +606,7 @@ jobs:
         continue-on-error: true # CATEGORY: INFORMATIONAL
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install OCR CLI
         # CATEGORY: INFORMATIONAL
@@ -676,7 +676,7 @@ jobs:
               .join('\n');
 
             const title = '[Nightly] Heavy certification subset failed';
-            const body = `## Nightly heavy-certification subset failed\n\n` +
+            const body = `## Nightly certification subset failed\n\n` +
               `**Commit:** \`${context.sha}\`\n` +
               `**Run:** [${context.workflow}](${runUrl})\n\n` +
               `### Failed jobs\n\n${failed || '- (see run log)'}\n`;

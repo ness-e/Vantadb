@@ -40,6 +40,8 @@ updates:
 
   # ponytail: solo /vantadb-python — los 10 integrations/* son stubs sin publicar
   # en PyPI (MKT-18f); añadir sus entradas cuando se publiquen.
+  # Los providers SÍ tienen pyproject.toml con deps Python: se cubren abajo con
+  # open-pull-requests-limit: 0 (alertas de seguridad sí, PRs no).
   - package-ecosystem: "pip"
     directory: "/vantadb-python"
     target-branch: "develop"
@@ -228,3 +230,33 @@ updates:
     open-pull-requests-limit: 0
 
 # (docker ecosystem entry removed 2026-10-02 - docker support eliminated repo-wide)
+
+# --- pip: providers (alertas de seguridad sí, PRs no) ---
+# Añadido 2026-10-30: providers/* tienen pyproject.toml con deps Python y solo
+# estaban cubiertos como `cargo`, dejando sus deps pip sin alertas.
+  - package-ecosystem: "pip"
+    directory: "/providers/openai"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: "pip"
+    directory: "/providers/ollama"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: "pip"
+    directory: "/providers/litellm"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 0

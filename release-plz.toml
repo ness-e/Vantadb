@@ -4,7 +4,6 @@
 [workspace]
 # Publish all workspace crates in dependency order
 publish = true
-# Don't publish these crates (no public API)
 publish_allow_dirty = false
 
 # Release only when the Release PR is merged (not on every main push):

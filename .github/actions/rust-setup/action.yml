@@ -2,7 +2,7 @@ name: 'Rust & system setup'
 description: 'Common Rust toolchain, cache, and system dependencies for VantaDB CI'
 inputs:
   toolchain:
-    description: 'Rust toolchain channel (default pins to rust-toolchain.toml 1.95.0)'
+    description: 'Rust toolchain channel. Default 1.95.0 mirrors rust-toolchain.toml; release/publish jobs deliberately override with `stable` (see CI_POLICY) — do not "unify" them without a release rehearsal.'
     required: false
     default: '1.95.0'
   components:
