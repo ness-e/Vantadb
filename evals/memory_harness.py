@@ -100,6 +100,19 @@ def f1_overlap(gold: str, pred: str) -> float:
     return 2 * prec * rec / (prec + rec)
 
 
+def bleu1(gold: str, pred: str) -> float:
+    """BLEU-1 (Mem0/LoCoMo standard): clipped unigram precision + brevity penalty."""
+    import math
+    g, p = gold.lower().split(), pred.lower().split()
+    if not g or not p:
+        return 0.0
+    from collections import Counter
+    common = sum((Counter(g) & Counter(p)).values())
+    prec = common / len(p)
+    bp = 1.0 if len(p) >= len(g) else math.exp(1.0 - len(g) / len(p))
+    return bp * prec
+
+
 def session_text(session: list) -> str:
     """Flatten a LongMemEval session (list of {role, content}) to plain text."""
     return "\n".join(f"{t.get('role', '?')}: {t.get('content', '')}" for t in session)
@@ -250,9 +263,11 @@ def run_harness(
         # the gold answer text and any top-k payload. Retrieval-level only —
         # QA correctness stays with the manual LLM-judge report (owner Q1).
         f1max = None
+        b1max = None
         ans = q.get("answer")
         if not question_is_abs(q) and isinstance(ans, str) and ans.strip():
             f1max = max((f1_overlap(ans, h.get("payload", "")) for h in hits), default=0.0)
+            b1max = max((bleu1(ans, h.get("payload", "")) for h in hits), default=0.0)
         hits_by_q.append(
             {
                 "qid": qid,
@@ -260,6 +275,7 @@ def run_harness(
                 "correct_any": correct_any,
                 "correct_all": correct_all,
                 "f1_max": f1max,
+                "bleu1_max": b1max,
                 "hits": hits,
             }
         )
@@ -289,6 +305,13 @@ def run_harness(
     f1_vals_all = [v for vs in f1_by_type_vals.values() for v in vs]
     f1_mean = (sum(f1_vals_all) / len(f1_vals_all)) if f1_vals_all else None
     f1_by_type = {t: sum(v) / len(v) for t, v in sorted(f1_by_type_vals.items())}
+    # BLEU-1 aggregates over the same scored questions.
+    b1_vals_all = [
+        r["bleu1_max"]
+        for q, r in zip([q for q in questions if not question_is_abs(q)], nonabs)
+        if r["bleu1_max"] is not None
+    ]
+    b1_mean = (sum(b1_vals_all) / len(b1_vals_all)) if b1_vals_all else None
 
     # abstention proxy (retrieval-level, no LLM): tau from evidence-score tail.
     evidence_scores = [
@@ -369,6 +392,12 @@ def run_harness(
             "n_scored": len(f1_vals_all),
             "note": "lexical word-overlap vs gold answer text (LoCoMo-style secondary, retrieval-level: short gold vs long session payloads reads near-zero even at recall 1.0 — do not read as answer quality); QA correctness stays with the manual LLM-judge report",
         },
+        "answer_bleu1": {
+            "k": top_k,
+            "mean_max": b1_mean,
+            "n_scored": len(b1_vals_all),
+            "note": "clipped unigram precision + brevity penalty (Mem0/LoCoMo standard); same retrieval-level caveat as answer_f1",
+        },
         "write_quality": {
             "checked": wq_checked,
             "recovered_top1": wq_recovered,
@@ -392,6 +421,7 @@ def run_harness(
                 "correct_any": r["correct_any"],
                 "correct_all": r["correct_all"],
                 "f1_max": r["f1_max"],
+                "bleu1_max": r["bleu1_max"],
                 "top_keys": [h["key"] for h in r["hits"]],
                 "top_scores": [h["score"] for h in r["hits"]],
             }
@@ -493,10 +523,16 @@ def _selftest() -> int:
     assert rep2["recall_at_k"]["all"] == 0.0, rep2["recall_at_k"]
     assert abs(f1_overlap("a b c", "a b d") - 2 / 3) < 1e-9, f1_overlap("a b c", "a b d")
     assert f1_overlap("", "x") == 0.0 and f1_overlap("x", "") == 0.0
+    assert abs(bleu1("a b c", "a b d") - 2 / 3) < 1e-9, bleu1("a b c", "a b d")
+    import math as _m
+    assert abs(bleu1("a b", "a") - _m.exp(-1)) < 1e-9, bleu1("a b", "a")
+    assert bleu1("", "x") == 0.0 and bleu1("x", "") == 0.0
     q1row = next(p for p in rep["per_question"] if p["question_id"] == "q1")
     assert q1row["f1_max"] is not None and q1row["f1_max"] > 0.5, q1row
+    assert q1row["bleu1_max"] is not None and q1row["bleu1_max"] > 0.3, q1row
     assert rep["answer_f1"]["n_scored"] == 1, rep["answer_f1"]
-    print("memory_harness selftest: OK (16 checks)")
+    assert rep["answer_bleu1"]["n_scored"] == 1, rep["answer_bleu1"]
+    print("memory_harness selftest: OK (19 checks)")
     return 0
 
 
@@ -512,14 +548,15 @@ def _markdown(report: dict) -> str:
     m, s, r, wq = report["meta"], report["search"], report["recall_at_k"], report["write_quality"]
     cal = report.get("calibration")
     f1 = report.get("answer_f1") or {}
+    b1 = report.get("answer_bleu1") or {}
 
     def fmt(v) -> str:
         return f"{v:.4f}" if v is not None else "n/a"
 
     lines = [
-        "| label | questions | top_k | recall_all@k | recall_any@k | f1_answer | write-quality | q p50 (ms) | q p99 (ms) | ingest QPS | ECE before → after |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
-        "| {label} | {n} ({non} non-abs + {ab} abs) | {k} | {rall} | {rany} | {f1} | {wq} | {p50} | {p99} | {qps} | {ece} |".format(
+        "| label | questions | top_k | recall_all@k | recall_any@k | f1_answer | bleu1 | write-quality | q p50 (ms) | q p99 (ms) | ingest QPS | ECE before → after |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| {label} | {n} ({non} non-abs + {ab} abs) | {k} | {rall} | {rany} | {f1} | {b1} | {wq} | {p50} | {p99} | {qps} | {ece} |".format(
             label=report["meta"].get("label", "?"),
             n=m["questions"],
             non=m["nonabs"],
@@ -528,6 +565,7 @@ def _markdown(report: dict) -> str:
             rall=fmt(r["all"]),
             rany=fmt(r["any"]),
             f1=fmt(f1.get("mean_max")),
+            b1=fmt(b1.get("mean_max")),
             wq=fmt(wq["value"]),
             p50=s["p50_ms"],
             p99=s["p99_ms"],

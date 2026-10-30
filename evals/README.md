@@ -36,10 +36,10 @@ python evals/runners/head_to_head.py --systems vantadb,mem0 --label h2h-5q
   LongMemEval) y `recall_any@k` (hit-rate: al menos una; secundaria).
   El juez GPT-4o de LongMemEval queda para el reporte manual (owner Q1), nunca
   para un gate.
-- **F1 léxico** (secundario, estilo LoCoMo): `answer_f1.mean_max` = mejor
-  solape de palabras entre la respuesta gold y cualquier payload del top-k;
-  a nivel retrieval con sesiones largas lee cerca de cero aun con recall 1.0
-  (ver nota en el JSON) — no es calidad de respuesta.
+- **F1/BLEU-1 léxicos** (secundarios, estilo LoCoMo/Mem0): `answer_f1.mean_max`
+  y `answer_bleu1.mean_max` = mejor solape entre la respuesta gold y cualquier
+  payload del top-k; a nivel retrieval con sesiones largas leen cerca de cero
+  aun con recall 1.0 (ver nota en el JSON) — no son calidad de respuesta.
 - **Costo** (estilo HELM/Mem0): `meta.llm_calls` + `est_cost_usd` (0 en todas
   las celdas actuales, sin LLM) + ingest QPS y latencias ya reportados.
 - Proxies declarados: token-economy = palabras; abstención = separación por

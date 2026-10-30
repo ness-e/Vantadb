@@ -1481,6 +1481,12 @@ Retrieval **quality** on a real text corpus: **`recall@k` against human relevanc
 - **Latency caveat:** single run, single machine; recall values are deterministic for this pipeline, latency/ingest values vary run-to-run (VantaDB ingest observed 12.6–26.3 s across runs on the same machine, machine load dependent). The exact-kNN row is a brute-force numpy reference (no index). VantaDB's ingest includes index + derived-index build; sqlite-vec's ingest is a row append — speed is not the axis measured here (see §7 and `competitive_bench.py`).
 - **Scale caveat:** 5,183 vectors is below `flat_threshold` (10,000) and below any meaningful HNSW operating range; the exact-scan tie here is not evidence about approximate-search quality at larger corpora (see §1 stress protocol for 10K-100K and `FIND-315` for a real-HNSW measurement).
 - **Competitor choice:** sqlite-vec was selected over pgvector because pgvector requires a PostgreSQL server (Docker unavailable in the dev environment; native install outside this harness's no-docker philosophy) — tracked as `FIND-314` in the Backlog.
+- **Ground-truth caveat (2026-10-30):** the pinned upstream snapshot
+  (`98d7416`, Sept-2025 cleaning) carries disputed labels — the third-party
+  review `agentscope-ai/ReMe_longmemeval_clean_s_v2` corrected 77/500 records
+  (15.4%: 57 answers, 58 evidence sets, mostly `temporal-reasoning`, incl.
+  future-info leaks). Our numbers use upstream GT; re-running on ReMe GT may
+  shift recall cells. Not adopted yet: different GT = different leaderboard.
 
 ---
 
