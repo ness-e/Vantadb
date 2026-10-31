@@ -60,7 +60,7 @@ proptest! {
             StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
         let id = 42u64;
         let node = UnifiedNode::with_vector(id.into(), vec.clone());
-        let _ = engine.insert(&node).unwrap();
+        engine.insert(&node).unwrap();
         let retrieved = engine.get(id.into()).unwrap().unwrap();
         prop_assert_eq!(retrieved.vector.to_f32(), Some(vec));
     }
@@ -76,7 +76,7 @@ proptest! {
         let id = 99u64;
         let mut node = UnifiedNode::new(id.into());
         node.set_field(&key, FieldValue::String(value.clone()));
-        let _ = engine.insert(&node).unwrap();
+        engine.insert(&node).unwrap();
         let retrieved = engine.get(id.into()).unwrap().unwrap();
         let expected = Some(&FieldValue::String(value));
         prop_assert_eq!(retrieved.get_field(&key), expected);
