@@ -213,13 +213,19 @@ async fn privacy_chain_capture_audit_forget_injection_end_to_end() {
     let audit_path = demo.join("injection-audit.jsonl");
     let handoff_path = demo.join("handoff.json");
 
-    let key_hex = format!("{:02x}", 0x2au8).repeat(32); // 64 hex chars = 32 bytes
-    std::env::set_var("VANTADB_ENCRYPTION_KEY", &key_hex);
-
     // ── 1. on-disk store + auth user + persona/scene ────────────────────────
+    // Open the on-disk StorageEngine BEFORE setting VANTADB_ENCRYPTION_KEY so
+    // ADR-0057 at-rest KV/WAL encryption does not encrypt the raw store files
+    // (this test and vanta-pii-audit intentionally inspect raw cleartext bytes
+    // on disk to prove "[REDACTED_EMAIL]" is persisted without raw PII, while
+    // VANTADB_ENCRYPTION_KEY is used by vanta-proxy's AEAD Envelope below).
+    std::env::remove_var("VANTADB_ENCRYPTION_KEY");
     let engine = seeded_engine(&db_path);
     let db = Embedded::from_engine(engine.clone());
     seed_memory(&engine, SESSION);
+
+    let key_hex = format!("{:02x}", 0x2au8).repeat(32); // 64 hex chars = 32 bytes
+    std::env::set_var("VANTADB_ENCRYPTION_KEY", &key_hex);
 
     let redact_cfg = RedactConfig {
         enabled: true,

@@ -7,6 +7,7 @@ use vantadb::storage::StorageEngine;
 /// which names `tools/call` may dispatch (WIRE-02 enforces both symmetrically).
 ///
 /// Profiles are selected via the `VANTADB_MCP_PROFILE` environment variable:
+/// - `brain` (12 tools): Compact cognitive lifecycle surface (L0-L3) + meta-tools; dispatches all 88 tools.
 /// - `agent` (39 tools, default): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
 /// - `full` (82 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
 /// - `dev` (38 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
@@ -24,6 +25,9 @@ pub enum McpProfile {
     /// surface with `VANTADB_MCP_PROFILE=full`.
     #[default]
     Agent,
+    /// Brain profile (12 listed tools) — compact cognitive surface (L0-L3 + meta-tools).
+    /// Lists 12 tools (~2.8K schema tokens) while allowing execution of all 88 tools.
+    Brain,
     /// Full profile (82 listed tools) — all listed base + extended families.
     /// The 6 absorbed `code_*` projections stay dispatch-only (WIRE-02).
     Full,
@@ -39,6 +43,7 @@ impl McpProfile {
     pub const fn as_str(self) -> &'static str {
         match self {
             McpProfile::Agent => "agent",
+            McpProfile::Brain => "brain",
             McpProfile::Full => "full",
             McpProfile::Dev => "dev",
             McpProfile::Memory => "memory",
@@ -52,11 +57,12 @@ impl std::str::FromStr for McpProfile {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "agent" => Ok(McpProfile::Agent),
+            "brain" => Ok(McpProfile::Brain),
             "full" => Ok(McpProfile::Full),
             "dev" => Ok(McpProfile::Dev),
             "memory" => Ok(McpProfile::Memory),
             other => Err(format!(
-                "Invalid VANTADB_MCP_PROFILE: '{other}'. Valid values: agent, full, dev, memory"
+                "Invalid VANTADB_MCP_PROFILE: '{other}'. Valid values: agent, brain, full, dev, memory"
             )),
         }
     }
@@ -228,6 +234,14 @@ impl McpConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn profile_brain_parse_and_str() {
+        use std::str::FromStr;
+        assert_eq!(McpProfile::from_str("brain").unwrap(), McpProfile::Brain);
+        assert_eq!(McpProfile::from_str("Brain").unwrap(), McpProfile::Brain);
+        assert_eq!(McpProfile::Brain.as_str(), "brain");
+    }
 
     #[test]
     fn injection_policy_composes_acl_and_trust() {

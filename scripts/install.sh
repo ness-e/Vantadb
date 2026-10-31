@@ -168,19 +168,21 @@ else
   echo "⚠️ No checksum file at $CHECKSUM_URL — skipping verification"
 fi
 
-# Extract vanta-cli from tarball
-tar xzf "$TMPDIR/$TARBALL" -C "$TMPDIR" "$BINARY_NAME"
+# Extract binaries from tarball (vanta-cli and optional vantadb-server)
+tar xzf "$TMPDIR/$TARBALL" -C "$TMPDIR"
 
-# Idempotency (FIND-105 pre-mortem #2): back up any previous binary.
-if [ -f "$INSTALL_DIR/$BINARY_NAME" ]; then
-  STAMP=$(date +%Y%m%d-%H%M%S)
-  cp "$INSTALL_DIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME.bak-$STAMP"
-  echo "💾 Backed up previous binary to $BINARY_NAME.bak-$STAMP"
-fi
-cp "$TMPDIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
-chmod +x "$INSTALL_DIR/$BINARY_NAME"
-
-echo "✨ VantaDB CLI successfully installed to $INSTALL_DIR/$BINARY_NAME"
+for BIN in "$BINARY_NAME" "vantadb-server"; do
+  if [ -f "$TMPDIR/$BIN" ]; then
+    if [ -f "$INSTALL_DIR/$BIN" ]; then
+      STAMP=$(date +%Y%m%d-%H%M%S)
+      cp "$INSTALL_DIR/$BIN" "$INSTALL_DIR/$BIN.bak-$STAMP"
+      echo "💾 Backed up previous binary to $BIN.bak-$STAMP"
+    fi
+    cp "$TMPDIR/$BIN" "$INSTALL_DIR/$BIN"
+    chmod +x "$INSTALL_DIR/$BIN"
+    echo "✨ Installed $BIN to $INSTALL_DIR/$BIN"
+  fi
+done
 
 # --- Wizard chain (FIND-105): installer -> setup-embeddings interactivo ---
 if [ "$WITH_WIZARD" = "0" ]; then

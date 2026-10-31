@@ -114,30 +114,34 @@ try {
     Write-Host "⚠️ No checksum file at $checksumUrl — skipping verification" -ForegroundColor Yellow
 }
 
-# Extract vanta-cli.exe from zip
+# Extract vanta-cli.exe and vantadb-server.exe from zip
 Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
 
-# The archive layout is flat today (vanta-cli.exe at the root); older/newer
-# packagers may nest it under release/ — resolve either way (DIST-05).
-$binItem = Get-ChildItem -Path $tmpDir -Recurse -Filter $binaryName -File | Select-Object -First 1
-if (-not $binItem) {
+$binariesToInstall = @("vanta-cli.exe", "vantadb-server.exe")
+$installedCount = 0
+
+foreach ($bName in $binariesToInstall) {
+    $binItem = Get-ChildItem -Path $tmpDir -Recurse -Filter $bName -File | Select-Object -First 1
+    if ($binItem) {
+        $existing = Join-Path $installDir $bName
+        if (Test-Path $existing) {
+            $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+            Copy-Item $existing "$existing.bak-$stamp" -Force
+            Write-Host "💾 Backed up previous binary to $bName.bak-$stamp" -ForegroundColor Cyan
+        }
+        Copy-Item $binItem.FullName $installDir -Force
+        Write-Host "✨ $bName successfully installed to $installDir\$bName" -ForegroundColor Green
+        $installedCount++
+    }
+}
+
+if ($installedCount -eq 0) {
     Write-Host "❌ $binaryName not found inside the downloaded zip (unexpected archive layout)" -ForegroundColor Red
     Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
     Exit 1
 }
 
-# Idempotency (FIND-105 pre-mortem #2): back up any previous binary.
-$existing = Join-Path $installDir $binaryName
-if (Test-Path $existing) {
-    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    Copy-Item $existing "$existing.bak-$stamp" -Force
-    Write-Host "💾 Backed up previous binary to $binaryName.bak-$stamp" -ForegroundColor Cyan
-}
-Copy-Item $binItem.FullName $installDir -Force
-
 Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
-
-Write-Host "✨ VantaDB CLI successfully installed to $installDir\$binaryName" -ForegroundColor Green
 
 # --- Wizard chain (FIND-105): installer -> setup-embeddings interactivo ---
 $wizardUrl = "https://raw.githubusercontent.com/ness-e/Vantadb/$latestRelease/$wizardFile"

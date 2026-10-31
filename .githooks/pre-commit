@@ -49,8 +49,8 @@ fi
 # Git Bash/WSL (/c/... or /mnt/c/...). Pure-POSIX conversion, no deps.
 winpath() {
     case "$1" in
-        /mnt/[a-zA-Z]/*) p=$(echo "$1" | cut -c6-); d=$(echo "$p" | cut -c1 | tr 'a-z' 'A-Z'); r=$(echo "$p" | cut -c3- | tr '/' '\'); printf '%s:%s' "$d" "\\$r" ;;
-        /[a-zA-Z]/*) d=$(echo "$1" | cut -c2 | tr 'a-z' 'A-Z'); r=$(echo "$1" | cut -c3- | tr '/' '\'); printf '%s:%s' "$d" "\\$r" ;;
+        /mnt/[a-zA-Z]/*) p=$(echo "$1" | cut -c6-); d=$(echo "$p" | cut -c1 | tr 'a-z' 'A-Z'); r=$(echo "$p" | cut -c3- | tr '/' '\\'); printf '%s:%s' "$d" "\\$r" ;;
+        /[a-zA-Z]/*) d=$(echo "$1" | cut -c2 | tr 'a-z' 'A-Z'); r=$(echo "$1" | cut -c3- | tr '/' '\\'); printf '%s:%s' "$d" "\\$r" ;;
         *) printf '%s' "$1" ;;
     esac
 }
@@ -64,7 +64,7 @@ if [ "$FAILED" -eq 0 ]; then
         fi
     elif command -v powershell.exe >/dev/null 2>&1; then
         if command -v cygpath >/dev/null 2>&1; then
-            STAGED_PS1="$(cygpath -w "$STAGED_PS1")"
+            STAGED_PS1_WIN="$(cygpath -w "$REPO_ROOT/dev-tools/verify_staged.ps1")"
         fi
         if powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$STAGED_PS1_WIN"; then
             echo "pre-commit: staged-area gate passed."

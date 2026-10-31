@@ -75,6 +75,11 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // dream_discard: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
 // dream_consolidate: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
 // dream_promote: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// memory_forget: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// vanta_scene: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// vanta_dream: readOnlyHint false, destructiveHint true, idempotentHint false, openWorldHint false
+// vanta_graph: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// vanta_dispatch: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint true
 
 // ── Tools handler ─────────────────────────────────────────────────────────
 
@@ -1049,6 +1054,126 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                 },
                 "required": ["texts"]
             }
+        },
+        {
+            "name": "memory_forget",
+            "description": "Unified memory forgetting tool. Forgets records in a namespace by key, metadata filters, or semantic query using 'soft' (mark invalid_at), 'hard' (physical delete), or 'certified' (with cryptographic purge certificates) mode.",
+            "annotations": {
+                "title": "Memory Forget",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Target namespace" },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["soft", "hard", "certified"],
+                        "description": "Forgetting mode: 'soft', 'hard', or 'certified' (default 'hard')"
+                    },
+                    "target": {
+                        "type": "object",
+                        "description": "Target: {\"key\": \"...\"}, or {\"filters\": {...}}, or {\"query\": {\"text\": \"...\", \"top_k\": 10, \"min_score\": 0.7}}"
+                    }
+                },
+                "required": ["namespace", "target"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "vanta_scene",
+            "description": "Consolidated L2 Scene tool for structured narrative navigation. Actions: 'read', 'list', 'query', 'write', 'edit'.",
+            "annotations": {
+                "title": "Vanta Scene",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string", "enum": ["read", "list", "query", "write", "edit"] },
+                    "session_key": { "type": "string" },
+                    "scene_name": { "type": "string" },
+                    "query": { "type": "string" },
+                    "content": { "type": "string" },
+                    "summary": { "type": "string" },
+                    "arguments": { "type": "object" }
+                },
+                "required": ["action"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "vanta_dream",
+            "description": "Consolidated L3 Dream tool for memory consolidation and persona axioms. Actions: 'list', 'load', 'consolidate', 'promote', 'discard'.",
+            "annotations": {
+                "title": "Vanta Dream",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string", "enum": ["list", "load", "consolidate", "promote", "discard"] },
+                    "dream_id": { "type": "string" },
+                    "namespace": { "type": "string" },
+                    "arguments": { "type": "object" }
+                },
+                "required": ["action"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "vanta_graph",
+            "description": "Consolidated Graph and Lineage tool. Actions: 'neighbors', 'traverse', 'page_rank', 'degree_centrality', 'topological_sort', 'is_dag', 'remove_edge'.",
+            "annotations": {
+                "title": "Vanta Graph",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string", "enum": ["neighbors", "traverse", "page_rank", "degree_centrality", "topological_sort", "is_dag", "remove_edge"] },
+                    "node_id": { "type": "string" },
+                    "from": { "type": "string" },
+                    "to": { "type": "string" },
+                    "edge_type": { "type": "string" },
+                    "max_depth": { "type": "number" },
+                    "arguments": { "type": "object" }
+                },
+                "required": ["action"],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "vanta_dispatch",
+            "description": "Universal meta-tool for VantaDB: executes any tool across the 88-tool catalog with full privileges. Rejects recursive dispatch.",
+            "annotations": {
+                "title": "Vanta Dispatch",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": true
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "tool": { "type": "string", "description": "Target VantaDB tool name" },
+                    "arguments": { "type": "object", "description": "Arguments for target tool" }
+                },
+                "required": ["tool"],
+                "additionalProperties": false
+            }
         }
     ]);
     // API-04 (Gate P): strict JSON Schemas on the canonical base surface —
@@ -1097,6 +1222,28 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
 fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'static str> {
     use McpProfile::*;
     let mut set = std::collections::HashSet::new();
+
+    // Brain profile (12 listed tools): Compact cognitive surface L0-L3 + meta-tools
+    if profile == Brain {
+        let brain_tools = [
+            "memory_recall",
+            "memory_search",
+            "memory_put",
+            "memory_get",
+            "memory_forget",
+            "memory_supersede",
+            "context_assemble",
+            "thread_send",
+            "vanta_scene",
+            "vanta_dream",
+            "vanta_graph",
+            "vanta_dispatch",
+        ];
+        for t in brain_tools {
+            set.insert(t);
+        }
+        return set;
+    }
 
     // Memory profile (≤22 tools): Core memory CRUD + search + list only
     let memory_tools = [
@@ -1304,6 +1451,7 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
 
             set
         }
+        Brain => set,
     }
 }
 
@@ -1326,23 +1474,34 @@ fn absorbed_canonical(name: &str) -> Option<&'static str> {
         "code_callers" | "code_callees" | "code_impact" | "code_node" => Some("code_explore"),
         "code_status" => Some("capabilities"),
         "code_files" => Some("code_search"),
+        // Brain consolidated forget tool: absorbed via canonical memory_delete.
+        // AUD-MCP-01: vanta_scene, vanta_dream, vanta_graph, and vanta_dispatch are NOT
+        // absorbed here so restricted profiles (Memory, Dev, Agent) cannot use them to
+        // escalate privileges and bypass WIRE-02.
+        "memory_forget" => Some("memory_delete"),
         _ => None,
     }
 }
 
 /// WIRE-02: `tools/call` gate — a listed tool passes; an absorbed name passes
 /// when its canonical tool is listed in the profile.
+/// When profile is `Brain`, allows calling any known tool directly (only lists 12 in tools/list).
 fn profile_allows_call(profile: McpProfile, name: &str) -> bool {
+    if profile == McpProfile::Brain {
+        return tool_is_known(name);
+    }
     let allowed = profile_allowed_tools(profile);
     allowed.contains(name) || absorbed_canonical(name).is_some_and(|c| allowed.contains(c))
 }
 
-/// A name known to exist in the broadest surface (listed in `full` or absorbed
+/// A name known to exist in the broadest surface (listed in `full`, listed in `brain`, or absorbed
 /// dispatch-only). Unknown names keep the plain `Tool not found: {name}`
 /// fall-through; known-out-of-profile names get the `(not in profile ...)`
 /// suffix the docs promise.
 fn tool_is_known(name: &str) -> bool {
-    profile_allowed_tools(McpProfile::Full).contains(name) || absorbed_canonical(name).is_some()
+    profile_allowed_tools(McpProfile::Full).contains(name)
+        || profile_allowed_tools(McpProfile::Brain).contains(name)
+        || absorbed_canonical(name).is_some()
 }
 
 /// Dispatch a `tools/call` request, validating inputs against config limits.
@@ -3310,6 +3469,207 @@ pub fn handle_tools_call(
         | "thread_list"
         | "thread_delete"
         | "thread_purge_expired" => crate::threads::handle_thread_tool(name, args, storage, config),
+        "memory_forget" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let mode = match args.get("mode").and_then(|v| v.as_str()).unwrap_or("hard") {
+                "soft" => vantadb::sdk::ForgetMode::Soft,
+                "hard" => vantadb::sdk::ForgetMode::Hard,
+                "certified" => vantadb::sdk::ForgetMode::Certified,
+                other => {
+                    return McpError::invalid_params(format!(
+                        "Invalid forget mode: '{other}'. Expected 'soft', 'hard', or 'certified'"
+                    ))
+                    .into_err();
+                }
+            };
+
+            let target_val = args.get("target").ok_or_else(|| {
+                McpError::invalid_params("Missing 'target' in memory_forget").to_json()
+            })?;
+
+            let target = if let Some(key) = target_val.get("key").and_then(|v| v.as_str()) {
+                validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+                vantadb::sdk::ForgetTarget::Key(key.to_string())
+            } else if let Some(filters_val) = target_val.get("filters") {
+                let filters: vantadb::sdk::MemoryMetadata =
+                    serde_json::from_value(filters_val.clone()).map_err(|e| {
+                        McpError::invalid_params(format!("Invalid 'filters' in target: {e}"))
+                            .to_json()
+                    })?;
+                vantadb::sdk::ForgetTarget::Filter(filters)
+            } else if let Some(query_val) = target_val.get("query") {
+                let text = query_val
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        McpError::invalid_params("Missing 'text' in target query").to_json()
+                    })?
+                    .to_string();
+                validate_payload(&text, config.max_payload_length).map_err(|e| e.to_json())?;
+                let top_k = (query_val
+                    .get("top_k")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(10) as usize)
+                    .min(config.max_top_k)
+                    .max(1);
+                let min_score = query_val
+                    .get("min_score")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0) as f32;
+                vantadb::sdk::ForgetTarget::Query {
+                    text,
+                    top_k,
+                    min_score,
+                }
+            } else {
+                return McpError::invalid_params(
+                    "Target object must specify 'key', 'filters', or 'query'",
+                )
+                .into_err();
+            };
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.forget(namespace, target, mode) {
+                Ok(report) => Ok(text_content_structured(&report)),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+        "vanta_scene" => {
+            let action = args["action"].as_str().ok_or_else(|| {
+                McpError::invalid_params(
+                    "Missing 'action' for vanta_scene (read, list, query, write, edit)",
+                )
+                .to_json()
+            })?;
+            let target_tool = match action {
+                "read" => "scene_read",
+                "list" => "scene_list",
+                "query" => "scene_query",
+                "write" => "scene_write",
+                "edit" => "scene_edit",
+                other => {
+                    return McpError::invalid_params(format!(
+                        "Invalid action '{other}' for vanta_scene. Expected 'read', 'list', 'query', 'write', or 'edit'"
+                    )).into_err();
+                }
+            };
+            let mut delegated_args = args.clone();
+            if let Some(sub_args) = args.get("arguments").and_then(|v| v.as_object()) {
+                if let Some(obj) = delegated_args.as_object_mut() {
+                    for (k, v) in sub_args {
+                        obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+            let delegated_params = Some(json!({
+                "name": target_tool,
+                "arguments": delegated_args
+            }));
+            let mut full_config = config.clone();
+            if matches!(config.profile, McpProfile::Brain | McpProfile::Full) {
+                full_config.profile = McpProfile::Full;
+            }
+            handle_tools_call(&delegated_params, executor, storage, &full_config)
+        }
+        "vanta_dream" => {
+            let action = args["action"].as_str().ok_or_else(|| {
+                McpError::invalid_params(
+                    "Missing 'action' for vanta_dream (list, load, consolidate, promote, discard)",
+                )
+                .to_json()
+            })?;
+            let target_tool = match action {
+                "list" => "dream_list",
+                "load" => "dream_load",
+                "consolidate" => "dream_consolidate",
+                "promote" => "dream_promote",
+                "discard" => "dream_discard",
+                other => {
+                    return McpError::invalid_params(format!(
+                        "Invalid action '{other}' for vanta_dream. Expected 'list', 'load', 'consolidate', 'promote', or 'discard'"
+                    )).into_err();
+                }
+            };
+            let mut delegated_args = args.clone();
+            if let Some(sub_args) = args.get("arguments").and_then(|v| v.as_object()) {
+                if let Some(obj) = delegated_args.as_object_mut() {
+                    for (k, v) in sub_args {
+                        obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+            let delegated_params = Some(json!({
+                "name": target_tool,
+                "arguments": delegated_args
+            }));
+            let mut full_config = config.clone();
+            if matches!(config.profile, McpProfile::Brain | McpProfile::Full) {
+                full_config.profile = McpProfile::Full;
+            }
+            handle_tools_call(&delegated_params, executor, storage, &full_config)
+        }
+        "vanta_graph" => {
+            let action = args["action"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'action' for vanta_graph (neighbors, traverse, page_rank, degree_centrality, topological_sort, is_dag, remove_edge)").to_json())?;
+            let target_tool = match action {
+                "neighbors" => "get_node_neighbors",
+                "traverse" => "graph_traverse",
+                "page_rank" => "graph_page_rank",
+                "degree_centrality" => "graph_degree_centrality",
+                "topological_sort" => "graph_topological_sort",
+                "is_dag" => "graph_is_dag",
+                "remove_edge" => "remove_edge",
+                other => {
+                    return McpError::invalid_params(format!(
+                        "Invalid action '{other}' for vanta_graph. Expected 'neighbors', 'traverse', 'page_rank', 'degree_centrality', 'topological_sort', 'is_dag', or 'remove_edge'"
+                    )).into_err();
+                }
+            };
+            let mut delegated_args = args.clone();
+            if let Some(sub_args) = args.get("arguments").and_then(|v| v.as_object()) {
+                if let Some(obj) = delegated_args.as_object_mut() {
+                    for (k, v) in sub_args {
+                        obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+            let delegated_params = Some(json!({
+                "name": target_tool,
+                "arguments": delegated_args
+            }));
+            let mut full_config = config.clone();
+            if matches!(config.profile, McpProfile::Brain | McpProfile::Full) {
+                full_config.profile = McpProfile::Full;
+            }
+            handle_tools_call(&delegated_params, executor, storage, &full_config)
+        }
+        "vanta_dispatch" => {
+            let tool_name = args["tool"].as_str().ok_or_else(|| {
+                McpError::invalid_params("Missing 'tool' in vanta_dispatch").to_json()
+            })?;
+            if tool_name == "vanta_dispatch" {
+                return McpError::invalid_params(
+                    "Recursive dispatch of 'vanta_dispatch' is forbidden",
+                )
+                .into_err();
+            }
+            let inner_args = args.get("arguments").cloned().unwrap_or_else(|| json!({}));
+            let delegated_params = Some(json!({
+                "name": tool_name,
+                "arguments": inner_args
+            }));
+            let mut full_config = config.clone();
+            if matches!(config.profile, McpProfile::Brain | McpProfile::Full) {
+                full_config.profile = McpProfile::Full;
+            }
+            handle_tools_call(&delegated_params, executor, storage, &full_config)
+        }
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
 }
@@ -4403,4 +4763,92 @@ fn query_embed_hook() -> Option<vanta_memory::core::record::EmbedFn> {
 #[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
 fn query_embed_hook() -> Option<vanta_memory::core::record::EmbedFn> {
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_profile_brain_invariants() {
+        let brain_set = profile_allowed_tools(McpProfile::Brain);
+        assert_eq!(
+            brain_set.len(),
+            12,
+            "Brain profile must have exactly 12 tools"
+        );
+        for expected in [
+            "memory_recall",
+            "memory_search",
+            "memory_put",
+            "memory_get",
+            "memory_forget",
+            "memory_supersede",
+            "context_assemble",
+            "thread_send",
+            "vanta_scene",
+            "vanta_dream",
+            "vanta_graph",
+            "vanta_dispatch",
+        ] {
+            assert!(
+                brain_set.contains(expected),
+                "Brain profile missing {expected}"
+            );
+        }
+
+        // Full profile should still list 82 tools (WIRE-02 invariant)
+        let full_set = profile_allowed_tools(McpProfile::Full);
+        assert_eq!(
+            full_set.len(),
+            82,
+            "Full profile count drift: {}",
+            full_set.len()
+        );
+
+        // Agent profile should still have 39 tools (WIRE-02 invariant)
+        let agent_set = profile_allowed_tools(McpProfile::Agent);
+        assert_eq!(
+            agent_set.len(),
+            39,
+            "Agent profile count drift: {}",
+            agent_set.len()
+        );
+
+        // Dev profile should still have 38 tools
+        let dev_set = profile_allowed_tools(McpProfile::Dev);
+        assert_eq!(
+            dev_set.len(),
+            38,
+            "Dev profile count drift: {}",
+            dev_set.len()
+        );
+
+        // Memory profile should still have 22 tools
+        let mem_set = profile_allowed_tools(McpProfile::Memory);
+        assert_eq!(
+            mem_set.len(),
+            22,
+            "Memory profile count drift: {}",
+            mem_set.len()
+        );
+
+        // Brain profile dispatches any known tool directly
+        assert!(profile_allows_call(McpProfile::Brain, "code_search"));
+        assert!(profile_allows_call(McpProfile::Brain, "wiki_read"));
+        assert!(profile_allows_call(McpProfile::Brain, "vanta_dispatch"));
+        assert!(profile_allows_call(McpProfile::Brain, "memory_forget"));
+        assert!(!profile_allows_call(McpProfile::Brain, "non_existent_tool"));
+
+        // Other profiles absorb memory_forget via canonical memory_delete,
+        // but must NOT allow Brain-only meta-tools (AUD-MCP-01: prevent privilege escalation)
+        assert!(profile_allows_call(McpProfile::Full, "memory_forget"));
+        assert!(profile_allows_call(McpProfile::Agent, "memory_forget"));
+        assert!(profile_allows_call(McpProfile::Dev, "memory_forget"));
+        assert!(profile_allows_call(McpProfile::Memory, "memory_forget"));
+        assert!(!profile_allows_call(McpProfile::Full, "vanta_dispatch"));
+        assert!(!profile_allows_call(McpProfile::Agent, "vanta_dispatch"));
+        assert!(!profile_allows_call(McpProfile::Dev, "vanta_dispatch"));
+        assert!(!profile_allows_call(McpProfile::Memory, "vanta_dispatch"));
+    }
 }

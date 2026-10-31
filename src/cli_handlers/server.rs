@@ -364,6 +364,12 @@ fn cmd_server_mcp(
         sibling_server.set_file_name(&exe_name);
         candidates.push(sibling_server);
     }
+    // Also look in ~/.vanta/bin (or %USERPROFILE%\.vanta\bin)
+    if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
+        let vanta_bin = std::path::PathBuf::from(home).join(".vanta").join("bin");
+        candidates.push(vanta_bin.join(&exe_name));
+        candidates.push(vanta_bin.join(if cfg!(windows) { "vanta.exe" } else { "vanta" }));
+    }
     candidates.push(std::path::PathBuf::from(if cfg!(windows) {
         "vanta.exe"
     } else {

@@ -1,3 +1,4 @@
+#![cfg_attr(not(any(feature = "fjall", feature = "rocksdb")), allow(dead_code))]
 //! Encryption at rest for the backend key-value store (ADR-0057 W4).
 //!
 //! The backend KV is the one artefact whose **keys must stay in cleartext**:

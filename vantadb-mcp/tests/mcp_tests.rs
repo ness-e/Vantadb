@@ -1230,6 +1230,7 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
             mode: vantadb::sdk::SearchProfileMode::Hybrid,
             rrf_k: Some(30),
             candidate_k: Some(64),
+            ..Default::default()
         }),
         range: None,
         group_by: None,

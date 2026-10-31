@@ -61,6 +61,7 @@ impl BackendPartition {
     /// Only the at-rest encryption wiring needs the full list; the trait
     /// method that uses it is feature-gated with it.
     #[cfg(feature = "encryption")]
+    #[cfg_attr(not(any(feature = "fjall", feature = "rocksdb")), allow(dead_code))]
     pub(crate) const ALL: [BackendPartition; 10] = [
         BackendPartition::Default,
         BackendPartition::TombstoneStorage,
@@ -80,6 +81,7 @@ impl BackendPartition {
     /// cleartext (the text index needs prefix scans per namespace), so the
     /// name travels in the clear. It is also the RocksDB column family name.
     #[cfg(any(feature = "encryption", feature = "rocksdb"))]
+    #[cfg_attr(not(any(feature = "fjall", feature = "rocksdb")), allow(dead_code))]
     pub(crate) fn partition_name(&self) -> &'static str {
         match self {
             BackendPartition::Default => "default",
@@ -306,6 +308,7 @@ pub(crate) trait StorageBackend: Scannable + Send + Sync {
     /// The default implementation scans every partition; backends with a
     /// cheap emptiness check override it.
     #[cfg(feature = "encryption")]
+    #[cfg_attr(not(any(feature = "fjall", feature = "rocksdb")), allow(dead_code))]
     fn is_empty(&self) -> Result<bool> {
         for partition in BackendPartition::ALL {
             if !self.scan(partition)?.is_empty() {

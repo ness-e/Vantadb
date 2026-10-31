@@ -259,7 +259,18 @@ function Write-TextIfChanged($Path, $Content) {
   return ($null -eq $existing) ? 'created' : 'updated-backup'
 }
 
-function Get-LauncherPath { Join-Path (Get-RepoRoot) 'vanta-mcp-local.ps1' }
+function Get-LauncherPath {
+  $vantaBin = Join-Path $env:USERPROFILE '.vanta\bin'
+  if (-not (Test-Path $vantaBin)) {
+    New-Item -ItemType Directory -Force -Path $vantaBin | Out-Null
+  }
+  $dest = Join-Path $vantaBin 'vanta-mcp-local.ps1'
+  $src = Join-Path (Get-RepoRoot) 'vanta-mcp-local.ps1'
+  if (Test-Path $src) {
+    Copy-Item -Path $src -Destination $dest -Force -ErrorAction SilentlyContinue
+  }
+  return $dest
+}
 
 function Get-McpBlock($Client, $Launcher, $Db) {
   $escLauncher = $Launcher -replace '\\', '/'
