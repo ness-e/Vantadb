@@ -13,6 +13,7 @@ pub(crate) mod serialization;
 pub(crate) mod types;
 pub(crate) mod version_history;
 
+pub use api::memory::{ForgetMode, ForgetReport, ForgetTarget};
 pub use api::sharing::{
     AccessQuery, Action, GrantInput, PermDecision, ShareAssetInput, SharedOutcome, Subject,
     TeamMemberInput, TeamRole, Visibility,

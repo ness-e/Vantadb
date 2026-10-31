@@ -9,6 +9,7 @@ impl Embedded {
     /// `boost` opts into the deterministic entity-cluster boost (WIRE-05); the
     /// returned [`EntityBoostReport`] carries per-hit provenance and is empty
     /// when `boost` is `None` or no cluster has co-occurring candidates.
+    #[allow(dead_code)]
     pub(super) fn hybrid_search(
         &self,
         namespace: &str,

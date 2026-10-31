@@ -36,6 +36,7 @@ impl ScalarIndex {
     }
 
     /// Look up node IDs by field and value.
+    #[allow(dead_code)]
     pub fn lookup(&self, field: &str, value: &FieldValue) -> Vec<u128> {
         self.indexes
             .get(field)

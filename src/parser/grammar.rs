@@ -306,6 +306,7 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
                 mode,
                 rrf_k: rrf.map(|(_, n)| n as usize),
                 candidate_k: cand.map(|(_, n)| n as usize),
+                ..Default::default()
             }),
             as_of_ms,
             limit,

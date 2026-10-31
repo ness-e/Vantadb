@@ -17,7 +17,6 @@
 //! | Type | Role |
 //! |------|------|
 //! | [`Embedded`](sdk/struct.Embedded.html) | Top-level engine handle. Open/close, CRUD, search, graph ops. |
-//! | [`InMemoryEngine`](engine/struct.InMemoryEngine.html) | In-memory engine with WAL persistence. |
 //! | [`UnifiedNode`](node/struct.UnifiedNode.html) | Single node representation (fields, vector, edges, metadata). |
 //! | [`MemoryRecord`](sdk/struct.MemoryRecord.html) | A stored memory record with namespace, key, payload, vector, metadata. |
 //! | [`Error`](error/enum.Error.html) | Typed error enum covering validation, I/O, serialization, and engine errors. |
@@ -103,7 +102,6 @@ pub(crate) mod cost_estimator;
 pub(crate) mod edge_index;
 /// Visible-fallback probe for local embeddings (DEF-08; DISTRIBUTION §7).
 pub mod embedding_health;
-pub mod engine;
 /// Scoped entity metadata store (teams, users, agents, tasks, assets).
 pub mod entity;
 /// Core error types for all VantaDB operations.
@@ -191,9 +189,6 @@ pub use binary_header::Header;
 #[allow(deprecated)]
 pub use binary_header::VantaHeader;
 pub use config::{Config, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
-pub use engine::{EngineStats, InMemoryEngine, SourceType};
-// NOTE (AST-002): `engine::QueryResult` stays namespaced (`engine::QueryResult`)
-// — crate-root `QueryResult` is the SDK graph result.
 pub use error::{Error, Result};
 pub use index::graph::VECTOR_INDEX_VERSION;
 pub use node::{
@@ -204,13 +199,14 @@ pub use parser::IQL_VERSION;
 pub use sdk::{
     connect, default_confidence, AbstentionReason, Bm25TermContribution, BulkImportReport,
     Capabilities, ConfidenceClass, EdgeRecord, Embedded, ExportReport, Fields, FilterOp,
-    GroupByConfig, HybridFusionReport, ImportReport, IndexRebuildReport, MemoryFilter,
-    MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
-    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MergeOutcome, MergeResult, MmrConfig,
-    NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult,
-    RangeFilter, ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit,
-    SearchHit, StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
-    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
+    ForgetMode, ForgetReport, ForgetTarget, GroupByConfig, HybridFusionReport, ImportReport,
+    IndexRebuildReport, MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions,
+    MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit, MemorySearchPage,
+    MemorySearchRequest, MergeOutcome, MergeResult, MmrConfig, NamespaceStats, NamespaceStatsMap,
+    NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter, ReinforceOutcome,
+    RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit, StorageTier,
+    TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value, DERIVATION_DISCOUNT,
+    MAX_DERIVATION_DEPTH,
 };
 pub use sdk::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,

@@ -157,16 +157,11 @@ impl Embedded {
                 }
                 if let Some(node) = node_map.get(&node_id) {
                     if let Some(record) = record_from_node(node) {
-                        // For InFilter, the bitset already guarantees the
-                        // record matches filters (we built it from
-                        // records_for_namespace). Only namespace check needed.
-                        // For PostFilter, still need matches_memory_filters.
-                        let passes = if strategy == FilterStrategy::PostFilter {
-                            record.namespace == *namespace
-                                && matches_memory_filters(&record, filters)
-                        } else {
-                            record.namespace == *namespace
-                        };
+                        // For both InFilter and PostFilter, check namespace and exact filters.
+                        // InFilter's Bloom bitset prunes non-matching nodes during graph search,
+                        // while matches_memory_filters eliminates Bloom false positives.
+                        let passes = record.namespace == *namespace
+                            && matches_memory_filters(&record, filters);
                         if passes {
                             let score = raw_score;
                             hits.push(MemorySearchHit {

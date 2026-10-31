@@ -6,8 +6,8 @@ use super::text_index;
 use crate::backend::BackendPartition;
 use crate::error::{ChainedError, Error, Result};
 use crate::node::{FilterBitset, UnifiedNode};
-use crate::query::RelOp;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use web_time::Instant;
 
 impl Embedded {
@@ -50,7 +50,7 @@ impl Embedded {
         };
         let mut scores: BTreeMap<u128, f32> = BTreeMap::new();
         let mut candidate_positions: BTreeMap<u128, BTreeMap<&str, Vec<u32>>> = BTreeMap::new();
-        let mut doc_stats_cache: BTreeMap<u128, crate::text_index::TextDocStats> = BTreeMap::new();
+        let mut doc_stats_cache: HashMap<String, crate::text_index::TextDocStats> = HashMap::new();
         let mut candidates_scored = 0u64;
 
         for token in &query_plan.terms {
@@ -78,7 +78,7 @@ impl Embedded {
                 else {
                     continue;
                 };
-                let doc_len = if let Some(stats) = doc_stats_cache.get(&posting.node_id) {
+                let doc_len = if let Some(stats) = doc_stats_cache.get(record_key) {
                     stats.doc_len
                 } else {
                     let Some(stats) = Self::load_text_doc_stats(&engine, namespace, record_key)?
@@ -94,7 +94,7 @@ impl Embedded {
                         )));
                     }
                     let doc_len = stats.doc_len;
-                    doc_stats_cache.insert(posting.node_id, stats);
+                    doc_stats_cache.insert(record_key.to_string(), stats);
                     doc_len
                 };
 
@@ -168,57 +168,22 @@ impl Embedded {
         );
         Ok(hits)
     }
-    /// Build a `FilterBitset` from the node IDs of all records matching
-    /// the given filters within a namespace.
+    /// Build a `FilterBitset` query mask from the given namespace and equality filters.
     ///
-    /// When shredded data is available for the filter fields this uses direct
-    /// typed comparisons against the column store instead of loading full
-    /// records — an order of magnitude faster for selective queries.
+    /// Constructs a Bloom-like filter bitset in O(filters.len()) by projecting
+    /// `("__ns__", namespace)` and each exact equality filter using [`metadata_hash_bit`].
     pub(super) fn bitset_from_filters(
         &self,
         namespace: &str,
         filters: &MemoryMetadata,
     ) -> Result<FilterBitset> {
-        // ── Shredded fast path ────────────────────────────────
-        // Try resolving every filter field from the shredded column store.
-        // If all fields are present in shredded data we skip loading full
-        // records entirely, reducing I/O for selective queries.
-        if let Ok(engine) = self.engine_handle() {
-            let (ids, _has_index) = self.indexed_ids_by_namespace(&engine, namespace, 0, None)?;
-            let mut bitset = FilterBitset::with_capacity(ids.len());
-            let mut all_resolved = true;
-
-            for &node_id in &ids {
-                let shredded = match crate::shred::ShreddedRowStore::get(node_id, &*engine.backend)
-                {
-                    Ok(Some(s)) => s,
-                    _ => {
-                        all_resolved = false;
-                        break; // not all nodes have shredded data → fall back
-                    }
-                };
-
-                let matched = filters.iter().all(|(field, expected)| {
-                    shredded
-                        .get(field)
-                        .is_some_and(|s| crate::shred::matches_shredded(s, &RelOp::Eq, expected))
-                });
-
-                if matched {
-                    bitset.set_bit(node_id as usize);
-                }
-            }
-
-            if all_resolved {
-                return Ok(bitset);
-            }
-        }
-
-        // ── Fallback: load full records and use existing filtering ─
-        let records = self.records_for_namespace(namespace, filters)?;
-        let mut bitset = FilterBitset::with_capacity(records.len());
-        for record in &records {
-            bitset.set_bit(record.node_id as usize);
+        let mut bitset = FilterBitset::new();
+        bitset.set_bit(super::super::serialization::metadata_hash_bit(
+            "__ns__", namespace,
+        ));
+        for (field, value) in filters {
+            let repr = super::super::serialization::value_canonical_repr(value);
+            bitset.set_bit(super::super::serialization::metadata_hash_bit(field, &repr));
         }
         Ok(bitset)
     }

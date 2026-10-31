@@ -1986,91 +1986,6 @@ impl core::panic::unwind_safe::RefUnwindSafe for vantadb::embedding_health::Embe
 impl core::panic::unwind_safe::UnwindSafe for vantadb::embedding_health::EmbeddingHealth
 pub const vantadb::embedding_health::REMEDY: &str
 pub fn vantadb::embedding_health::embedding_health() -> vantadb::embedding_health::EmbeddingHealth
-pub mod vantadb::engine
-pub enum vantadb::engine::SourceType
-pub vantadb::engine::SourceType::BitsetFilter
-pub vantadb::engine::SourceType::FullScan
-pub vantadb::engine::SourceType::GraphTraversal
-pub vantadb::engine::SourceType::Hybrid
-pub vantadb::engine::SourceType::VectorSearch
-impl core::clone::Clone for vantadb::engine::SourceType
-pub fn vantadb::engine::SourceType::clone(&self) -> Self
-impl core::cmp::PartialEq for vantadb::engine::SourceType
-pub fn vantadb::engine::SourceType::eq(&self, &Self) -> bool
-impl core::fmt::Debug for vantadb::engine::SourceType
-pub fn vantadb::engine::SourceType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for vantadb::engine::SourceType
-impl core::marker::Freeze for vantadb::engine::SourceType
-impl core::marker::Send for vantadb::engine::SourceType
-impl core::marker::Sync for vantadb::engine::SourceType
-impl core::marker::Unpin for vantadb::engine::SourceType
-impl core::marker::UnsafeUnpin for vantadb::engine::SourceType
-impl core::panic::unwind_safe::RefUnwindSafe for vantadb::engine::SourceType
-impl core::panic::unwind_safe::UnwindSafe for vantadb::engine::SourceType
-pub struct vantadb::engine::EngineStats
-pub vantadb::engine::EngineStats::edge_count: u64
-pub vantadb::engine::EngineStats::memory_estimate_bytes: u64
-pub vantadb::engine::EngineStats::node_count: u64
-pub vantadb::engine::EngineStats::total_dimensions: u64
-pub vantadb::engine::EngineStats::vector_count: u64
-impl core::clone::Clone for vantadb::engine::EngineStats
-pub fn vantadb::engine::EngineStats::clone(&self) -> Self
-impl core::default::Default for vantadb::engine::EngineStats
-pub fn vantadb::engine::EngineStats::default() -> Self
-impl core::fmt::Debug for vantadb::engine::EngineStats
-pub fn vantadb::engine::EngineStats::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Freeze for vantadb::engine::EngineStats
-impl core::marker::Send for vantadb::engine::EngineStats
-impl core::marker::Sync for vantadb::engine::EngineStats
-impl core::marker::Unpin for vantadb::engine::EngineStats
-impl core::marker::UnsafeUnpin for vantadb::engine::EngineStats
-impl core::panic::unwind_safe::RefUnwindSafe for vantadb::engine::EngineStats
-impl core::panic::unwind_safe::UnwindSafe for vantadb::engine::EngineStats
-pub struct vantadb::engine::InMemoryEngine
-impl vantadb::engine::InMemoryEngine
-pub fn vantadb::engine::InMemoryEngine::contains(&self, u128) -> bool
-pub fn vantadb::engine::InMemoryEngine::delete(&self, u128) -> vantadb::error::Result<()>
-pub fn vantadb::engine::InMemoryEngine::filter_field(&self, &str, &vantadb::FieldValue) -> alloc::vec::Vec<u128>
-pub fn vantadb::engine::InMemoryEngine::flush_wal(&self) -> vantadb::error::Result<()>
-pub fn vantadb::engine::InMemoryEngine::get(&self, u128) -> core::option::Option<vantadb::UnifiedNode>
-pub fn vantadb::engine::InMemoryEngine::hybrid_search(&self, &[f32], usize, f32, core::option::Option<&vantadb::index::FilterBitset>, &[(alloc::string::String, vantadb::FieldValue)]) -> vantadb::engine::QueryResult
-pub fn vantadb::engine::InMemoryEngine::insert(&self, vantadb::UnifiedNode) -> vantadb::error::Result<u128>
-pub fn vantadb::engine::InMemoryEngine::intern_label(&self, &str) -> u32
-pub fn vantadb::engine::InMemoryEngine::new() -> Self
-pub fn vantadb::engine::InMemoryEngine::next_id(&self) -> u64
-pub fn vantadb::engine::InMemoryEngine::node_count(&self) -> usize
-pub fn vantadb::engine::InMemoryEngine::resolve_label(&self, u32) -> core::option::Option<alloc::string::String>
-pub fn vantadb::engine::InMemoryEngine::scan_bitset(&self, &vantadb::index::FilterBitset) -> alloc::vec::Vec<u128>
-pub fn vantadb::engine::InMemoryEngine::stats(&self) -> vantadb::engine::EngineStats
-pub fn vantadb::engine::InMemoryEngine::traverse(&self, u128, &str, u32, u32) -> vantadb::error::Result<alloc::vec::Vec<(u128, u32)>>
-pub fn vantadb::engine::InMemoryEngine::update(&self, u128, vantadb::UnifiedNode) -> vantadb::error::Result<()>
-pub fn vantadb::engine::InMemoryEngine::vector_search(&self, &[f32], usize, f32, core::option::Option<&vantadb::index::FilterBitset>) -> vantadb::engine::QueryResult
-pub fn vantadb::engine::InMemoryEngine::with_wal(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<Self>
-impl core::default::Default for vantadb::engine::InMemoryEngine
-pub fn vantadb::engine::InMemoryEngine::default() -> Self
-impl !core::marker::Freeze for vantadb::engine::InMemoryEngine
-impl core::marker::Send for vantadb::engine::InMemoryEngine
-impl core::marker::Sync for vantadb::engine::InMemoryEngine
-impl core::marker::Unpin for vantadb::engine::InMemoryEngine
-impl core::marker::UnsafeUnpin for vantadb::engine::InMemoryEngine
-impl !core::panic::unwind_safe::RefUnwindSafe for vantadb::engine::InMemoryEngine
-impl !core::panic::unwind_safe::UnwindSafe for vantadb::engine::InMemoryEngine
-pub struct vantadb::engine::QueryResult
-pub vantadb::engine::QueryResult::exhaustivity: f32
-pub vantadb::engine::QueryResult::is_partial: bool
-pub vantadb::engine::QueryResult::nodes: alloc::vec::Vec<vantadb::UnifiedNode>
-pub vantadb::engine::QueryResult::source_type: vantadb::engine::SourceType
-impl core::clone::Clone for vantadb::engine::QueryResult
-pub fn vantadb::engine::QueryResult::clone(&self) -> Self
-impl core::fmt::Debug for vantadb::engine::QueryResult
-pub fn vantadb::engine::QueryResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Freeze for vantadb::engine::QueryResult
-impl core::marker::Send for vantadb::engine::QueryResult
-impl core::marker::Sync for vantadb::engine::QueryResult
-impl core::marker::Unpin for vantadb::engine::QueryResult
-impl core::marker::UnsafeUnpin for vantadb::engine::QueryResult
-impl core::panic::unwind_safe::RefUnwindSafe for vantadb::engine::QueryResult
-impl core::panic::unwind_safe::UnwindSafe for vantadb::engine::QueryResult
 pub mod vantadb::entity
 pub mod vantadb::entity::checker
 #[non_exhaustive] pub enum vantadb::entity::checker::Action
@@ -8890,26 +8805,6 @@ impl core::marker::Unpin for vantadb::RuntimeProfile
 impl core::marker::UnsafeUnpin for vantadb::RuntimeProfile
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::RuntimeProfile
 impl core::panic::unwind_safe::UnwindSafe for vantadb::RuntimeProfile
-pub enum vantadb::SourceType
-pub vantadb::SourceType::BitsetFilter
-pub vantadb::SourceType::FullScan
-pub vantadb::SourceType::GraphTraversal
-pub vantadb::SourceType::Hybrid
-pub vantadb::SourceType::VectorSearch
-impl core::clone::Clone for vantadb::engine::SourceType
-pub fn vantadb::engine::SourceType::clone(&self) -> Self
-impl core::cmp::PartialEq for vantadb::engine::SourceType
-pub fn vantadb::engine::SourceType::eq(&self, &Self) -> bool
-impl core::fmt::Debug for vantadb::engine::SourceType
-pub fn vantadb::engine::SourceType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for vantadb::engine::SourceType
-impl core::marker::Freeze for vantadb::engine::SourceType
-impl core::marker::Send for vantadb::engine::SourceType
-impl core::marker::Sync for vantadb::engine::SourceType
-impl core::marker::Unpin for vantadb::engine::SourceType
-impl core::marker::UnsafeUnpin for vantadb::engine::SourceType
-impl core::panic::unwind_safe::RefUnwindSafe for vantadb::engine::SourceType
-impl core::panic::unwind_safe::UnwindSafe for vantadb::engine::SourceType
 pub enum vantadb::StorageTier
 pub vantadb::StorageTier::Cold
 pub vantadb::StorageTier::Hot
@@ -9429,25 +9324,6 @@ impl core::marker::Unpin for vantadb::Embedded
 impl core::marker::UnsafeUnpin for vantadb::Embedded
 impl !core::panic::unwind_safe::RefUnwindSafe for vantadb::Embedded
 impl !core::panic::unwind_safe::UnwindSafe for vantadb::Embedded
-pub struct vantadb::EngineStats
-pub vantadb::EngineStats::edge_count: u64
-pub vantadb::EngineStats::memory_estimate_bytes: u64
-pub vantadb::EngineStats::node_count: u64
-pub vantadb::EngineStats::total_dimensions: u64
-pub vantadb::EngineStats::vector_count: u64
-impl core::clone::Clone for vantadb::engine::EngineStats
-pub fn vantadb::engine::EngineStats::clone(&self) -> Self
-impl core::default::Default for vantadb::engine::EngineStats
-pub fn vantadb::engine::EngineStats::default() -> Self
-impl core::fmt::Debug for vantadb::engine::EngineStats
-pub fn vantadb::engine::EngineStats::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Freeze for vantadb::engine::EngineStats
-impl core::marker::Send for vantadb::engine::EngineStats
-impl core::marker::Sync for vantadb::engine::EngineStats
-impl core::marker::Unpin for vantadb::engine::EngineStats
-impl core::marker::UnsafeUnpin for vantadb::engine::EngineStats
-impl core::panic::unwind_safe::RefUnwindSafe for vantadb::engine::EngineStats
-impl core::panic::unwind_safe::UnwindSafe for vantadb::engine::EngineStats
 pub struct vantadb::ExportReport
 pub vantadb::ExportReport::duration_ms: u64
 pub vantadb::ExportReport::manifest_path: alloc::string::String
@@ -9573,35 +9449,6 @@ impl core::marker::Unpin for vantadb::ImportReport
 impl core::marker::UnsafeUnpin for vantadb::ImportReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ImportReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::ImportReport
-pub struct vantadb::InMemoryEngine
-impl vantadb::engine::InMemoryEngine
-pub fn vantadb::engine::InMemoryEngine::contains(&self, u128) -> bool
-pub fn vantadb::engine::InMemoryEngine::delete(&self, u128) -> vantadb::error::Result<()>
-pub fn vantadb::engine::InMemoryEngine::filter_field(&self, &str, &vantadb::FieldValue) -> alloc::vec::Vec<u128>
-pub fn vantadb::engine::InMemoryEngine::flush_wal(&self) -> vantadb::error::Result<()>
-pub fn vantadb::engine::InMemoryEngine::get(&self, u128) -> core::option::Option<vantadb::UnifiedNode>
-pub fn vantadb::engine::InMemoryEngine::hybrid_search(&self, &[f32], usize, f32, core::option::Option<&vantadb::index::FilterBitset>, &[(alloc::string::String, vantadb::FieldValue)]) -> vantadb::engine::QueryResult
-pub fn vantadb::engine::InMemoryEngine::insert(&self, vantadb::UnifiedNode) -> vantadb::error::Result<u128>
-pub fn vantadb::engine::InMemoryEngine::intern_label(&self, &str) -> u32
-pub fn vantadb::engine::InMemoryEngine::new() -> Self
-pub fn vantadb::engine::InMemoryEngine::next_id(&self) -> u64
-pub fn vantadb::engine::InMemoryEngine::node_count(&self) -> usize
-pub fn vantadb::engine::InMemoryEngine::resolve_label(&self, u32) -> core::option::Option<alloc::string::String>
-pub fn vantadb::engine::InMemoryEngine::scan_bitset(&self, &vantadb::index::FilterBitset) -> alloc::vec::Vec<u128>
-pub fn vantadb::engine::InMemoryEngine::stats(&self) -> vantadb::engine::EngineStats
-pub fn vantadb::engine::InMemoryEngine::traverse(&self, u128, &str, u32, u32) -> vantadb::error::Result<alloc::vec::Vec<(u128, u32)>>
-pub fn vantadb::engine::InMemoryEngine::update(&self, u128, vantadb::UnifiedNode) -> vantadb::error::Result<()>
-pub fn vantadb::engine::InMemoryEngine::vector_search(&self, &[f32], usize, f32, core::option::Option<&vantadb::index::FilterBitset>) -> vantadb::engine::QueryResult
-pub fn vantadb::engine::InMemoryEngine::with_wal(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<Self>
-impl core::default::Default for vantadb::engine::InMemoryEngine
-pub fn vantadb::engine::InMemoryEngine::default() -> Self
-impl !core::marker::Freeze for vantadb::engine::InMemoryEngine
-impl core::marker::Send for vantadb::engine::InMemoryEngine
-impl core::marker::Sync for vantadb::engine::InMemoryEngine
-impl core::marker::Unpin for vantadb::engine::InMemoryEngine
-impl core::marker::UnsafeUnpin for vantadb::engine::InMemoryEngine
-impl !core::panic::unwind_safe::RefUnwindSafe for vantadb::engine::InMemoryEngine
-impl !core::panic::unwind_safe::UnwindSafe for vantadb::engine::InMemoryEngine
 pub struct vantadb::IndexRebuildReport
 pub vantadb::IndexRebuildReport::derived_rebuild_ms: u64
 pub vantadb::IndexRebuildReport::duration_ms: u64

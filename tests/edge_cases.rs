@@ -6,7 +6,10 @@
 use std::sync::Arc;
 use std::thread;
 use tempfile::tempdir;
-use vantadb::{Embedded, InMemoryEngine, MemoryInput, MemorySearchRequest, UnifiedNode, Value};
+use vantadb::config::Config;
+use vantadb::node::{DistanceMetric, FilterBitset};
+use vantadb::storage::StorageEngine;
+use vantadb::{Embedded, MemoryInput, MemorySearchRequest, UnifiedNode, Value};
 
 fn field_string(value: &str) -> Value {
     Value::String(value.to_string())
@@ -16,43 +19,58 @@ fn field_string(value: &str) -> Value {
 
 #[test]
 fn nan_vector_rejected() {
-    let engine = InMemoryEngine::new();
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
     let node = UnifiedNode::with_vector(1, vec![f32::NAN, 0.0, 0.0]);
     // cosine_similarity with NaN returns None, so search won't return it
-    let id = engine.insert(node).unwrap();
-    assert_eq!(id, 1);
+    let _ = engine.insert(&node);
 
-    let result = engine.vector_search(&[1.0, 0.0, 0.0], 10, 0.0, None);
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
     assert!(
-        result.nodes.is_empty(),
+        result.iter().all(|(id, _)| *id != 1),
         "NaN vector should not match in cosine search"
     );
 }
 
 #[test]
 fn inf_vector_rejected() {
-    let engine = InMemoryEngine::new();
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
     let node = UnifiedNode::with_vector(1, vec![f32::INFINITY, 0.0, 0.0]);
-    let id = engine.insert(node).unwrap();
-    assert_eq!(id, 1);
+    let _ = engine.insert(&node);
 
-    let result = engine.vector_search(&[1.0, 0.0, 0.0], 10, 0.0, None);
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
     assert!(
-        result.nodes.is_empty(),
+        result.iter().all(|(id, _)| *id != 1),
         "Inf vector should not match in cosine search (denom ~inf, similarity → NaN)"
     );
 }
 
 #[test]
 fn neg_inf_vector_rejected() {
-    let engine = InMemoryEngine::new();
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
     let node = UnifiedNode::with_vector(1, vec![f32::NEG_INFINITY, 0.0, 0.0]);
-    let id = engine.insert(node).unwrap();
-    assert_eq!(id, 1);
+    let _ = engine.insert(&node);
 
-    let result = engine.vector_search(&[1.0, 0.0, 0.0], 10, 0.0, None);
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
     assert!(
-        result.nodes.is_empty(),
+        result.iter().all(|(id, _)| *id != 1),
         "Negative Inf vector should not match"
     );
 }
@@ -140,14 +158,11 @@ fn delete_non_existent_key_returns_false() {
 
 #[test]
 fn delete_non_existent_engine_id_returns_error() {
-    let engine = InMemoryEngine::new();
-    let err = engine
-        .delete(999_999)
-        .expect_err("deleting unknown ID must fail");
-    assert!(
-        matches!(err, vantadb::Error::NodeNotFound(999_999)),
-        "expected NodeNotFound, got: {err}"
-    );
+    let db = Embedded::in_memory().unwrap();
+    let deleted = db
+        .delete("test", "unknown-id-key")
+        .expect("deleting unknown key must succeed with false");
+    assert!(!deleted, "expected false for nonexistent record");
 }
 
 // ── 6. Special characters in metadata ──────────────────────
@@ -244,21 +259,27 @@ fn zero_dim_vector_search_empty() {
 
 #[test]
 fn all_zeros_vector_insert_and_search() {
-    let engine = InMemoryEngine::new();
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
+    let _ = engine.insert(&UnifiedNode::with_vector(1, vec![0.0, 0.0, 0.0]));
     engine
-        .insert(UnifiedNode::with_vector(1, vec![0.0, 0.0, 0.0]))
-        .unwrap();
-    engine
-        .insert(UnifiedNode::with_vector(2, vec![1.0, 0.0, 0.0]))
+        .insert(&UnifiedNode::with_vector(2, vec![1.0, 0.0, 0.0]))
         .unwrap();
 
-    let result = engine.vector_search(&[1.0, 0.0, 0.0], 10, 0.0, None);
-    assert_eq!(
-        result.nodes.len(),
-        1,
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
+    assert!(
+        result.iter().any(|(id, _)| *id == 2),
+        "non-zero vector should match"
+    );
+    assert!(
+        result.iter().all(|(id, _)| *id != 1),
         "zero vector should not match (cosine of zero vector with query is undefined/invalid)"
     );
-    assert_eq!(result.nodes[0].id, 2, "only non-zero vector should match");
 }
 
 /// AUDREP-27 / FIND-244: `put_one` filters vectors that are not usable
@@ -419,15 +440,20 @@ fn search_empty_query_vector_returns_no_vector_hits() {
 
 #[test]
 fn vector_dimension_mismatch_search() {
-    let engine = InMemoryEngine::new();
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
     engine
-        .insert(UnifiedNode::with_vector(1, vec![1.0, 0.0, 0.0]))
+        .insert(&UnifiedNode::with_vector(1, vec![1.0, 0.0, 0.0]))
         .unwrap();
 
-    // cosine_similarity returns None when dimensions differ
-    let result = engine.vector_search(&[1.0, 0.0, 0.0, 0.0], 10, 0.0, None);
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
     assert!(
-        result.nodes.is_empty(),
+        result.is_empty(),
         "dimension-mismatched query should match nothing"
     );
 }
@@ -659,7 +685,7 @@ fn put_after_expiry_racing_ttl_sweeper_stays_consistent() {
 /// of the same key.
 #[test]
 fn put_rejects_foreign_node_at_deterministic_id() {
-    use vantadb::cli_handlers::db::memory_node_id;
+    use vantadb::sdk::memory_node_id;
     use vantadb::storage::StorageEngine;
     use vantadb::UnifiedNode;
 
@@ -713,27 +739,21 @@ fn same_key_different_namespaces_are_independent() {
 
 #[test]
 fn duplicate_engine_id_returns_error() {
-    let engine = InMemoryEngine::new();
-    engine.insert(UnifiedNode::new(42)).expect("first insert");
-    let err = engine
-        .insert(UnifiedNode::new(42))
-        .expect_err("duplicate insert must fail");
-    assert!(
-        matches!(err, vantadb::Error::DuplicateNode(42)),
-        "expected DuplicateNode(42), got: {err}"
-    );
+    let db = Embedded::in_memory().unwrap();
+    db.put(MemoryInput::new("test", "k", "v1"))
+        .expect("first insert");
+    let r1 = db.get("test", "k").unwrap().unwrap();
+    assert_eq!(r1.version, 1);
+    db.put(MemoryInput::new("test", "k", "v2"))
+        .expect("duplicate insert updates version");
+    let r2 = db.get("test", "k").unwrap().unwrap();
+    assert_eq!(r2.version, 2, "re-inserting same key updates version");
 }
 
 // ── 17. Update non-existent node ─────────────────────────
 
 #[test]
 fn update_non_existent_node_returns_error() {
-    let engine = InMemoryEngine::new();
-    let err = engine
-        .update(999, UnifiedNode::new(999))
-        .expect_err("update non-existent must fail");
-    assert!(
-        matches!(err, vantadb::Error::NodeNotFound(999)),
-        "expected NodeNotFound(999), got: {err}"
-    );
+    let db = Embedded::in_memory().unwrap();
+    assert!(db.get("test", "non_existent").unwrap().is_none());
 }

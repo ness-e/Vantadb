@@ -518,6 +518,7 @@ mod tests {
             mode: SearchProfileMode::Keyword,
             rrf_k: Some(100),
             candidate_k: Some(128),
+            ..Default::default()
         };
         let json = serde_json::to_string(&p).unwrap();
         let back: SearchProfileConfig = serde_json::from_str(&json).unwrap();
@@ -552,6 +553,7 @@ mod tests {
                 mode: SearchProfileMode::Hybrid,
                 rrf_k: Some(75),
                 candidate_k: Some(96),
+                ..Default::default()
             }),
             range: None,
             group_by: None,

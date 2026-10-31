@@ -90,6 +90,79 @@ pub fn memory_node_id(namespace: &str, key: &str) -> u128 {
     hasher.finish_128()
 }
 
+/// Deterministic 64-bit metadata hash bit for Bloom-like filter matching.
+/// Uses 64-bit FNV-1a modulo 64.
+pub fn metadata_hash_bit(key: &str, val_repr: &str) -> usize {
+    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+
+    let mut hash = FNV_OFFSET_BASIS;
+    for byte in key.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash ^= b'=' as u64;
+    hash = hash.wrapping_mul(FNV_PRIME);
+    for byte in val_repr.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    (hash % 64) as usize
+}
+
+/// Canonical string representation of a metadata `Value` for consistent hashing.
+pub fn value_canonical_repr(v: &Value) -> String {
+    match v {
+        Value::String(s) => format!("s:{s}"),
+        Value::Int(i) => format!("i:{i}"),
+        Value::Float(f) => {
+            let bits = if *f == 0.0 {
+                0.0f64.to_bits()
+            } else {
+                f.to_bits()
+            };
+            format!("f:{bits:016x}")
+        }
+        Value::Bool(b) => {
+            if *b {
+                "b:1".to_string()
+            } else {
+                "b:0".to_string()
+            }
+        }
+        Value::DateTime(dt) => {
+            format!(
+                "d:{}",
+                dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
+            )
+        }
+        Value::ListString(list) => format!("ls:{list:?}"),
+        Value::ListInt(list) => format!("li:{list:?}"),
+        Value::ListFloat(list) => {
+            let bits: Vec<u64> = list
+                .iter()
+                .map(|f| {
+                    if *f == 0.0 {
+                        0.0f64.to_bits()
+                    } else {
+                        f.to_bits()
+                    }
+                })
+                .collect();
+            format!("lf:{bits:?}")
+        }
+        Value::ListBool(list) => format!("lb:{list:?}"),
+        Value::ListDateTime(list) => {
+            let dts: Vec<String> = list
+                .iter()
+                .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true))
+                .collect();
+            format!("ld:{dts:?}")
+        }
+        Value::Null => "n:".to_string(),
+    }
+}
+
 /// MCP-29: IQL table name under which a memory namespace is reachable via
 /// `SELECT * FROM <name>`. IQL identifiers (`src/parser/mod.rs::ident`) accept
 /// `[A-Za-z_][A-Za-z0-9_#.]*`, but namespaces may also contain `-` and `/`;
@@ -617,8 +690,13 @@ pub fn memory_record_to_node_owned(mut record: MemoryRecord) -> (UnifiedNode, Me
         );
     }
 
+    // Populate Bloom-like FilterBitset for multi-tenant and equality filtering
+    node.bitset.set_bit(metadata_hash_bit("__ns__", &namespace));
+
     // ponytail: iterar por referencia, no clonar todo el HashMap solo para leerlo
     for (k, v) in &metadata {
+        let repr = value_canonical_repr(v);
+        node.bitset.set_bit(metadata_hash_bit(k, &repr));
         node.set_field(k.clone(), v.clone().into());
     }
 

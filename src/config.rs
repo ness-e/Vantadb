@@ -1007,6 +1007,9 @@ pub struct Config {
     /// Controls automatic tombstone reclamation, segment compaction, and
     /// index rebuild scheduling.
     pub segment_optimizer: SegmentOptimizerConfig,
+    /// Whether to shred JSON metadata fields into a columnar representation during `put`.
+    /// When disabled (default: false), `put` does not run JSON shredding on the write critical path.
+    pub enable_json_shredding: bool,
     /// Hot-reloadable config snapshot.
     ///
     /// When `cfg(feature = "hot-reload")` is enabled, a background watcher
@@ -1588,6 +1591,12 @@ impl Default for Config {
             },
             rbac_config: RbacConfig::default(),
             segment_optimizer: SegmentOptimizerConfig::default(),
+            enable_json_shredding: {
+                match env::var("VANTADB_ENABLE_JSON_SHREDDING") {
+                    Ok(s) => matches!(s.trim().to_lowercase().as_str(), "1" | "true" | "yes"),
+                    Err(_) => false,
+                }
+            },
             #[cfg(feature = "hot-reload")]
             hot_reload_config: Arc::new(RwLock::new(HotReloadConfig::default())),
         }
@@ -1595,6 +1604,20 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Create a lightweight in-memory configuration (`BackendKind::InMemory` and `storage_path = ":memory:"`).
+    pub fn in_memory() -> Self {
+        Self {
+            storage_path: ":memory:".to_string(),
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        }
+    }
+
+    /// Sets whether JSON shredding is enabled on `put` operations.
+    pub fn with_json_shredding(mut self, enabled: bool) -> Self {
+        self.enable_json_shredding = enabled;
+        self
+    }
     /// Creates a configuration from environment variables.
     pub fn from_env() -> Self {
         Self::default()

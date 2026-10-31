@@ -1752,6 +1752,7 @@ fn quarantine_backup_path(path: &Path) -> PathBuf {
 
 /// Outcome of verifying one WAL file's integrity.
 #[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum WalVerifyStatus {
     /// Every frame's CRC, chain link and record hash validated.
@@ -1786,6 +1787,7 @@ pub(crate) enum WalVerifyStatus {
 }
 
 #[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
 impl WalVerifyStatus {
     /// True when the file is not evidence of integrity failure (verified,
     /// legacy or crash-tail).
@@ -1810,6 +1812,7 @@ impl WalVerifyStatus {
 
 /// Per-file WAL verification report.
 #[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct WalVerifyReport {
     /// Path of the verified file.

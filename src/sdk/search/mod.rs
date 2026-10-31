@@ -205,7 +205,9 @@ impl Embedded {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
+        let started = web_time::Instant::now();
         let (rrf_k, candidate_k) = fusion::resolve_search_profile(&request);
+        let (dense_weight, lexical_weight, sparse_weight) = fusion::resolve_weights(&request);
         let mode = fusion::search_mode(&request);
         let mut text_query = fusion::trimmed_text_query(&request);
         let mut has_vector = !request.query_vector.is_empty();
@@ -277,16 +279,27 @@ impl Embedded {
                                     &request.filters,
                                     budget,
                                 )?;
-                                let (hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
-                                    vec![lexical_hits, vector_hits, sparse_hits],
-                                    rrf_k,
-                                    boost,
-                                );
+                                let (hits, boost_report) =
+                                    fusion::fuse_rrf_many_weighted_with_entity_boost(
+                                        vec![
+                                            (lexical_hits, lexical_weight),
+                                            (vector_hits, dense_weight),
+                                            (sparse_hits, sparse_weight),
+                                        ],
+                                        rrf_k,
+                                        boost,
+                                    );
                                 (hits, None, boost_report)
                             }
                             _ => {
-                                let (hits, report, boost_report) =
-                                    fusion::fuse_rrf_impl(lexical_hits, vector_hits, rrf_k, boost);
+                                let (hits, report, boost_report) = fusion::fuse_rrf_impl_weighted(
+                                    lexical_hits,
+                                    vector_hits,
+                                    rrf_k,
+                                    lexical_weight,
+                                    dense_weight,
+                                    boost,
+                                );
                                 (hits, Some(report), boost_report)
                             }
                         };
@@ -308,11 +321,12 @@ impl Embedded {
                             budget,
                         )?;
                         let text_ranks = debug::rank_map(&lexical_hits);
-                        let (mut hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
-                            vec![lexical_hits, sparse_hits],
-                            rrf_k,
-                            boost,
-                        );
+                        let (mut hits, boost_report) =
+                            fusion::fuse_rrf_many_weighted_with_entity_boost(
+                                vec![(lexical_hits, lexical_weight), (sparse_hits, sparse_weight)],
+                                rrf_k,
+                                boost,
+                            );
                         hits.truncate(request.top_k);
                         (hits, text_ranks, BTreeMap::new(), boost_report)
                     }
@@ -348,11 +362,12 @@ impl Embedded {
                             budget,
                         )?;
                         let vector_ranks = debug::rank_map(&vector_hits);
-                        let (mut hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
-                            vec![vector_hits, sparse_hits],
-                            rrf_k,
-                            boost,
-                        );
+                        let (mut hits, boost_report) =
+                            fusion::fuse_rrf_many_weighted_with_entity_boost(
+                                vec![(vector_hits, dense_weight), (sparse_hits, sparse_weight)],
+                                rrf_k,
+                                boost,
+                            );
                         hits.truncate(request.top_k);
                         (hits, BTreeMap::new(), vector_ranks, boost_report)
                     }
@@ -416,19 +431,54 @@ impl Embedded {
         match (text_query, has_vector, query_sparse) {
             (Some(text_query), true, _) => {
                 crate::metrics::record_planner_hybrid_query();
-                self.hybrid_search(
+                let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
+                let lexical_hits =
+                    self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
+                let vector_hits = self.vector_memory_search(
                     &request.namespace,
                     &request.query_vector,
-                    text_query,
                     &request.filters,
-                    request.top_k,
+                    budget,
                     request.distance_metric,
-                    query_sparse,
                     method,
-                    rrf_k,
-                    candidate_k,
-                    boost,
-                )
+                )?;
+                let (mut hits, boost_report) = match query_sparse {
+                    Some(query_sparse) => {
+                        let sparse_hits = self.sparse_memory_search(
+                            &request.namespace,
+                            query_sparse,
+                            &request.filters,
+                            budget,
+                        )?;
+                        fusion::fuse_rrf_many_weighted_with_entity_boost(
+                            vec![
+                                (lexical_hits, lexical_weight),
+                                (vector_hits, dense_weight),
+                                (sparse_hits, sparse_weight),
+                            ],
+                            rrf_k,
+                            boost,
+                        )
+                    }
+                    None => {
+                        let (hits, _report, boost_report) = fusion::fuse_rrf_impl_weighted(
+                            lexical_hits,
+                            vector_hits,
+                            rrf_k,
+                            lexical_weight,
+                            dense_weight,
+                            boost,
+                        );
+                        (hits, boost_report)
+                    }
+                };
+                let candidates_fused = hits.len() as u64;
+                hits.truncate(request.top_k);
+                crate::metrics::record_hybrid_query(
+                    started.elapsed().as_millis() as u64,
+                    candidates_fused,
+                );
+                Ok((hits, boost_report))
             }
             (Some(text_query), false, Some(query_sparse)) => {
                 crate::metrics::record_planner_hybrid_query();
@@ -441,8 +491,8 @@ impl Embedded {
                     &request.filters,
                     budget,
                 )?;
-                let (mut hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
-                    vec![lexical_hits, sparse_hits],
+                let (mut hits, boost_report) = fusion::fuse_rrf_many_weighted_with_entity_boost(
+                    vec![(lexical_hits, lexical_weight), (sparse_hits, sparse_weight)],
                     rrf_k,
                     boost,
                 );
@@ -476,8 +526,8 @@ impl Embedded {
                     &request.filters,
                     budget,
                 )?;
-                let (mut hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
-                    vec![vector_hits, sparse_hits],
+                let (mut hits, boost_report) = fusion::fuse_rrf_many_weighted_with_entity_boost(
+                    vec![(vector_hits, dense_weight), (sparse_hits, sparse_weight)],
                     rrf_k,
                     boost,
                 );

@@ -45,6 +45,15 @@ pub fn resolve_search_profile(request: &MemorySearchRequest) -> (f32, Option<usi
     (rrf_k, candidate_k)
 }
 
+/// Pesos efectivos por modalidad para un request con profile opcional.
+/// Devuelve `(dense_weight, lexical_weight, sparse_weight)` (fallback a 1.0 cada uno).
+pub fn resolve_weights(request: &MemorySearchRequest) -> (f32, f32, f32) {
+    match request.search_profile {
+        Some(ref p) => (p.dense_weight(), p.lexical_weight(), p.sparse_weight()),
+        None => (1.0, 1.0, 1.0),
+    }
+}
+
 /// Modo de búsqueda efectivo de un request (default `Hybrid`, MEM-01).
 pub fn search_mode(request: &MemorySearchRequest) -> SearchProfileMode {
     request.search_profile.map(|p| p.mode).unwrap_or_default()
@@ -88,6 +97,7 @@ pub fn fuse_rrf(
 /// co-occurring records of the same entity reinforce each other. The boost is
 /// reversible: `score − delta == base_score` for every reported entry, and no
 /// stored data is mutated.
+#[allow(dead_code)]
 pub fn fuse_rrf_with_entity_boost(
     lexical_hits: Vec<MemorySearchHit>,
     vector_hits: Vec<MemorySearchHit>,
@@ -98,26 +108,28 @@ pub fn fuse_rrf_with_entity_boost(
     (hits, boost_report)
 }
 
-/// Full RRF fusion (hits + hybrid report + entity boost provenance).
-/// Crate-internal entry used by the explain path so counts, boost provenance
-/// and the fusion report come from the same pass.
-pub(crate) fn fuse_rrf_impl(
+/// Full RRF fusion with custom weights (hits + hybrid report + entity boost provenance).
+pub(crate) fn fuse_rrf_impl_weighted(
     lexical_hits: Vec<MemorySearchHit>,
     vector_hits: Vec<MemorySearchHit>,
     rrf_k: f32,
+    lexical_weight: f32,
+    dense_weight: f32,
     boost: Option<&EntityBoost>,
 ) -> (Vec<MemorySearchHit>, HybridFusionReport, EntityBoostReport) {
     tracing::debug!(
-        "Fusing lexical candidates ({}) and vector candidates ({}) with RRF_K = {}",
+        "Fusing lexical candidates ({}) [w={}] and vector candidates ({}) [w={}] with RRF_K = {}",
         lexical_hits.len(),
+        lexical_weight,
         vector_hits.len(),
+        dense_weight,
         rrf_k
     );
     let text_candidates = lexical_hits.len();
     let vector_candidates = vector_hits.len();
     let mut fused: BTreeMap<(String, String), MemorySearchHit> = BTreeMap::new();
-    apply_rrf_contributions(&mut fused, lexical_hits, rrf_k);
-    apply_rrf_contributions(&mut fused, vector_hits, rrf_k);
+    apply_rrf_contributions_weighted(&mut fused, lexical_hits, rrf_k, lexical_weight);
+    apply_rrf_contributions_weighted(&mut fused, vector_hits, rrf_k, dense_weight);
 
     let mut hits: Vec<_> = fused.into_values().collect();
     let boost_report = apply_entity_boost(&mut hits, boost, rrf_k);
@@ -132,6 +144,18 @@ pub(crate) fn fuse_rrf_impl(
     (hits, report, boost_report)
 }
 
+/// Full RRF fusion (hits + hybrid report + entity boost provenance).
+/// Crate-internal entry used by the explain path so counts, boost provenance
+/// and the fusion report come from the same pass.
+pub(crate) fn fuse_rrf_impl(
+    lexical_hits: Vec<MemorySearchHit>,
+    vector_hits: Vec<MemorySearchHit>,
+    rrf_k: f32,
+    boost: Option<&EntityBoost>,
+) -> (Vec<MemorySearchHit>, HybridFusionReport, EntityBoostReport) {
+    fuse_rrf_impl_weighted(lexical_hits, vector_hits, rrf_k, 1.0, 1.0, boost)
+}
+
 /// Fuse an arbitrary number of ranked candidate lists (lexical, dense, sparse,
 /// ...) via reciprocal rank fusion. Each channel contributes RRF score by rank;
 /// hits appearing in several channels accumulate contributions. Sorted
@@ -142,6 +166,7 @@ pub fn fuse_rrf_many(channels: Vec<Vec<MemorySearchHit>>, rrf_k: f32) -> Vec<Mem
 
 /// Same as [`fuse_rrf_many`] with an opt-in entity-cluster boost (WIRE-05).
 /// `boost = None` is byte-identical to [`fuse_rrf_many`].
+#[allow(dead_code)]
 pub fn fuse_rrf_many_with_entity_boost(
     channels: Vec<Vec<MemorySearchHit>>,
     rrf_k: f32,
@@ -150,19 +175,29 @@ pub fn fuse_rrf_many_with_entity_boost(
     fuse_rrf_many_impl(channels, rrf_k, boost)
 }
 
-fn fuse_rrf_many_impl(
-    channels: Vec<Vec<MemorySearchHit>>,
+/// Fuse ranked candidate lists with per-channel weights and entity boost.
+pub fn fuse_rrf_many_weighted_with_entity_boost(
+    channels: Vec<(Vec<MemorySearchHit>, f32)>,
     rrf_k: f32,
     boost: Option<&EntityBoost>,
 ) -> (Vec<MemorySearchHit>, EntityBoostReport) {
     let mut fused: BTreeMap<(String, String), MemorySearchHit> = BTreeMap::new();
-    for channel in channels {
-        apply_rrf_contributions(&mut fused, channel, rrf_k);
+    for (channel, weight) in channels {
+        apply_rrf_contributions_weighted(&mut fused, channel, rrf_k, weight);
     }
     let mut hits: Vec<_> = fused.into_values().collect();
     let boost_report = apply_entity_boost(&mut hits, boost, rrf_k);
     sort_hits(&mut hits);
     (hits, boost_report)
+}
+
+fn fuse_rrf_many_impl(
+    channels: Vec<Vec<MemorySearchHit>>,
+    rrf_k: f32,
+    boost: Option<&EntityBoost>,
+) -> (Vec<MemorySearchHit>, EntityBoostReport) {
+    let weighted = channels.into_iter().map(|c| (c, 1.0)).collect();
+    fuse_rrf_many_weighted_with_entity_boost(weighted, rrf_k, boost)
 }
 
 pub fn fuse_rrf_with_report(
@@ -174,13 +209,19 @@ pub fn fuse_rrf_with_report(
     (hits, report)
 }
 
-fn apply_rrf_contributions(
+pub(crate) fn apply_rrf_contributions_weighted(
     fused: &mut BTreeMap<(String, String), MemorySearchHit>,
     hits: Vec<MemorySearchHit>,
     rrf_k: f32,
+    weight: f32,
 ) {
+    let effective_weight = if weight.is_finite() && weight > 0.0 {
+        weight
+    } else {
+        1.0
+    };
     for (rank, hit) in hits.into_iter().enumerate() {
-        let contribution = 1.0 / (rrf_k + rank as f32 + 1.0);
+        let contribution = effective_weight / (rrf_k + rank as f32 + 1.0);
         let identity = (hit.record.namespace.clone(), hit.record.key.clone());
         fused
             .entry(identity)
@@ -191,6 +232,15 @@ fn apply_rrf_contributions(
                 explanation: None,
             });
     }
+}
+
+#[allow(dead_code)]
+fn apply_rrf_contributions(
+    fused: &mut BTreeMap<(String, String), MemorySearchHit>,
+    hits: Vec<MemorySearchHit>,
+    rrf_k: f32,
+) {
+    apply_rrf_contributions_weighted(fused, hits, rrf_k, 1.0);
 }
 
 // ── Entity boost (WIRE-05) ────────────────────────────────────────────────

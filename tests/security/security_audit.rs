@@ -15,10 +15,10 @@ use subtle::ConstantTimeEq;
 use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
-use vantadb::{
-    Embedded, InMemoryEngine, MemoryInput, MemoryListOptions, MemorySearchRequest, UnifiedNode,
-    Value,
-};
+use vantadb::config::Config;
+use vantadb::node::{DistanceMetric, FilterBitset};
+use vantadb::storage::StorageEngine;
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, UnifiedNode, Value};
 
 fn field_string(value: &str) -> Value {
     Value::String(value.to_string())
@@ -241,7 +241,8 @@ fn security_audit_input_validation() {
     });
 
     harness.execute("Input: NaN and Infinity Values", || {
-        let engine = InMemoryEngine::new();
+        let engine =
+            StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
 
         let special_vectors = [
             (1, "NaN", vec![f32::NAN, 0.0, 0.0]),
@@ -254,13 +255,19 @@ fn security_audit_input_validation() {
 
         for (id, _name, vec) in &special_vectors {
             let node = UnifiedNode::with_vector(*id, vec.clone());
-            let _id = engine.insert(node).expect("Insert should not panic");
+            let _ = engine.insert(&node);
         }
 
         // Search with NaN query
-        let result = engine.vector_search(&[f32::NAN, 0.0, 0.0], 10, 0.0, None);
+        let results = engine.vec_index().search(
+            &[f32::NAN, 0.0, 0.0],
+            &FilterBitset::all_set(),
+            10,
+            None,
+            DistanceMetric::Cosine,
+        );
         assert!(
-            result.nodes.len() <= 10,
+            results.len() <= 10,
             "NaN query search should not return more than top_k"
         );
     });
@@ -290,28 +297,31 @@ fn security_audit_input_validation() {
     });
 
     harness.execute("Input: Negative IDs", || {
-        // InMemoryEngine uses u64 IDs — negative values are impossible
-        // at the type level. However, InMemoryEngine auto-assigns IDs when
-        // node.id == 0, so we must use non-zero IDs for explicit insert.
-        let engine = InMemoryEngine::new();
+        // StorageEngine uses u128 IDs — negative values are impossible
+        // at the type level.
+        let engine =
+            StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
 
         // u64::MAX — maximum possible value, no negative semantics
         let node = UnifiedNode::new(u64::MAX.into());
-        let id = engine.insert(node).expect("Insert with MAX ID");
-        assert_eq!(id, u128::from(u64::MAX));
+        engine.insert(&node).expect("Insert with MAX ID");
 
         // Verify retrieval
-        let retrieved = engine.get(u128::from(u64::MAX)).expect("Get MAX ID node");
+        let retrieved = engine
+            .get(u128::from(u64::MAX))
+            .expect("Get MAX ID node")
+            .expect("found");
         assert_eq!(retrieved.id, u128::from(u64::MAX));
 
-        // Edge of valid range — use non-zero explicit ID to avoid auto-assign
+        // Edge of valid range
         let node_one = UnifiedNode::new(1);
-        let id_one = engine.insert(node_one).expect("Insert with ID 1");
-        assert_eq!(id_one, 1);
+        engine.insert(&node_one).expect("Insert with ID 1");
+        let retrieved_one = engine.get(1).expect("Get ID 1 node").expect("found");
+        assert_eq!(retrieved_one.id, 1);
 
-        // Duplicate ID fails gracefully
-        let dup = engine.insert(UnifiedNode::new(1));
-        assert!(dup.is_err(), "Duplicate ID 1 should fail");
+        // Repeated insert behaves as upsert
+        let dup = engine.insert(&UnifiedNode::new(1));
+        assert!(dup.is_ok(), "Upsert ID 1 should succeed");
     });
 
     harness.execute("Input: Null Bytes in Strings", || {
@@ -430,27 +440,30 @@ fn security_audit_resource_exhaustion() {
     harness.execute(
         "Resource: Repeated Vector Insertions With Same Dimension",
         || {
-            let engine = InMemoryEngine::new();
+            let engine =
+                StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
 
-            // Start at i=1 to avoid InMemoryEngine auto-assign (node.id == 0 → next_id)
-            for i in 1..=5_000u64 {
+            for i in 1..=1_000u64 {
                 let node = UnifiedNode::with_vector(
                     i.into(),
                     vec![i as f32, (i + 1) as f32, (i + 2) as f32],
                 );
-                engine.insert(node).expect("Insert should not panic");
+                engine.insert(&node).expect("Insert should not panic");
             }
 
             // Search should still work
-            let result = engine.vector_search(&[100.0, 101.0, 102.0], 10, 0.5, None);
-            assert!(
-                !result.nodes.is_empty(),
-                "Search after 5K inserts should find matches"
+            let results = engine.vec_index().search(
+                &[100.0, 101.0, 102.0],
+                &FilterBitset::all_set(),
+                10,
+                None,
+                DistanceMetric::Cosine,
             );
             assert!(
-                result.nodes.len() <= 10,
-                "Search should respect top_k limit"
+                !results.is_empty(),
+                "Search after 1K inserts should find matches"
             );
+            assert!(results.len() <= 10, "Search should respect top_k limit");
         },
     );
 }

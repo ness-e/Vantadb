@@ -106,7 +106,6 @@ impl StorageEngine {
         if threshold <= 0.0 {
             return Ok(());
         }
-        let stats = self.stats();
         // FND-01-F1: usar el RSS real del proceso (Win32 GetProcessMemoryInfo /
         // Mach task_info / /proc/self/statm con fallback sysinfo, `_get_rss_virt`
         // en src/metrics/core/mod.rs:471). `physical_rss` (mmap) subestima ~6.5×
@@ -118,7 +117,7 @@ impl StorageEngine {
         let effective = if rss > 0 {
             rss
         } else {
-            stats.effective_bytes()
+            self.stats().effective_bytes()
         };
         if effective == 0 {
             return Ok(());

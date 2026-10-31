@@ -34,6 +34,7 @@ impl LabelIntern {
     }
 
     /// Look up a label string without creating a new ID.
+    #[allow(dead_code)]
     pub fn lookup(&self, label: &str) -> Option<u32> {
         self.map.get(label).copied()
     }

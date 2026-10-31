@@ -297,6 +297,7 @@ forward_to_db!(MemoryClient {
     put_batch,
     put_batch_raw,
     delete_by_filter,
+    forget,
     count,
     similar_to_key,
     search,
@@ -1152,6 +1153,94 @@ impl Client {
         let namespace = namespace.to_string();
         py.detach(move || engine.delete_by_filter(&namespace, filter_ops))
             .map_err(map_vanta_error)
+    }
+
+    /// Unified memory forgetting API.
+    ///
+    /// Args:
+    ///     namespace: Namespace to forget records from.
+    ///     target: Key string, filter dict, or query dict ({"text": "...", "top_k": 10, "min_score": 0.5}).
+    ///     mode: "soft" (default), "hard", or "certified".
+    ///
+    /// Returns:
+    ///     dict: Summary with "mode", "forgotten_count", "keys", and "certificates".
+    #[pyo3(signature = (namespace, target, mode="soft"))]
+    fn forget<'py>(
+        &self,
+        py: Python<'py>,
+        namespace: &str,
+        target: &Bound<'py, PyAny>,
+        mode: &str,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let _g = enter(&self.op_gate)?;
+        let forget_mode = match mode.to_ascii_lowercase().as_str() {
+            "soft" => vantadb::ForgetMode::Soft,
+            "hard" => vantadb::ForgetMode::Hard,
+            "certified" => vantadb::ForgetMode::Certified,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "unknown forget mode '{other}', expected 'soft', 'hard', or 'certified'"
+                )))
+            }
+        };
+
+        let forget_target = if let Ok(key) = target.extract::<String>() {
+            vantadb::ForgetTarget::Key(key)
+        } else if let Ok(dict) = target.cast::<PyDict>() {
+            if dict.is_empty() {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "forget target dict cannot be empty",
+                ));
+            }
+            if let Some(text_val) = dict.get_item("text")? {
+                let text = text_val.extract::<String>()?;
+                let top_k = match dict.get_item("top_k")? {
+                    Some(v) if !v.is_none() => clamp_top_k(v.extract::<usize>()?),
+                    _ => clamp_top_k(10),
+                };
+                let min_score = match dict.get_item("min_score")? {
+                    Some(v) if !v.is_none() => v.extract::<f32>()?,
+                    _ => 0.0,
+                };
+                vantadb::ForgetTarget::Query {
+                    text,
+                    top_k,
+                    min_score,
+                }
+            } else if let Some(key_val) = dict.get_item("key")? {
+                vantadb::ForgetTarget::Key(key_val.extract::<String>()?)
+            } else {
+                let meta = py_dict_to_metadata(Some(dict))?;
+                vantadb::ForgetTarget::Filter(meta)
+            }
+        } else {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "target must be a str (key) or a dict (filter or query)",
+            ));
+        };
+
+        let engine = self.engine.clone();
+        let ns = namespace.to_string();
+        let report = py
+            .detach(move || engine.forget(&ns, forget_target, forget_mode))
+            .map_err(map_vanta_error)?;
+
+        let result = PyDict::new(py);
+        let mode_str = match report.mode {
+            vantadb::ForgetMode::Soft => "soft",
+            vantadb::ForgetMode::Hard => "hard",
+            vantadb::ForgetMode::Certified => "certified",
+        };
+        result.set_item("mode", mode_str)?;
+        result.set_item("forgotten_count", report.forgotten_count)?;
+        result.set_item("keys", report.keys)?;
+        let certs_json: Vec<String> = report
+            .certificates
+            .iter()
+            .filter_map(|c| serde_json::to_string(c).ok())
+            .collect();
+        result.set_item("certificates", certs_json)?;
+        Ok(result)
     }
 
     /// Count memory records in a namespace, optionally filtered by metadata.

@@ -1243,6 +1243,7 @@ mod wire08_rrf_tests {
                 mode: SearchProfileMode::Hybrid,
                 rrf_k: Some(60),
                 candidate_k: None,
+                ..Default::default()
             }),
         };
         let mut op =
@@ -1310,6 +1311,7 @@ mod wire08_rrf_tests {
                 mode: SearchProfileMode::Hybrid,
                 rrf_k: None,
                 candidate_k: None,
+                ..Default::default()
             }),
         };
         let mut op =
@@ -1362,6 +1364,7 @@ mod wire08_rrf_tests {
                 mode: SearchProfileMode::Keyword,
                 rrf_k: None,
                 candidate_k: None,
+                ..Default::default()
             }),
         };
         let mut op = optimize_and_compile(&plan, &storage).unwrap();

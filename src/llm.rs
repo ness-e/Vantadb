@@ -21,6 +21,13 @@ use crate::error::{Error, Result};
 #[cfg(feature = "remote-inference")]
 use reqwest::blocking::Client;
 
+/// ort 2.x owns exactly one `Environment` per process, built explicitly and
+/// shared by every `Session` (no more global `init().commit()`). It lives here
+/// so `ensure_ort_ready` (dylib probe) and `load_session_inner` (session builds)
+/// always agree on which environment is current.
+#[cfg(feature = "embed-local")]
+static ORT_ENV: std::sync::OnceLock<ort::environment::Environment> = std::sync::OnceLock::new();
+
 // ── EmbeddingProvider trait ────────────────────────────────────────────
 
 /// Abstract embedding provider.
@@ -394,16 +401,17 @@ impl LocalOnnxProvider {
     /// Pre-check the ONNX Runtime dylib WITHOUT panicking.
     ///
     /// FIND-100: `ort`'s lazy loader `expect`s on `Dlopen`/`MissingApi`/`BadVersion`.
-    /// Worse, a panic inside `Session` building can fire while `ort` holds its global
-    /// `G_ENV` mutex; the poisoned mutex then panics again in `ort`'s nounwind process-
-    /// exit handler (`release_env_on_exit`) → abort even after a graceful run.
     /// Two layers: (1) `ort::init_from` performs the load + version check returning
     /// `Err` instead of panicking; (2) probe `ort::api()` under `catch_unwind` NOW,
-    /// outside any session/environment lock, so `setup_api` can never panic later
-    /// under `Environment::current`'s guard. Returns `true` when ORT is usable.
+    /// outside any session/environment lock, so `setup_api` can never panic later.
+    /// Returns `true` when ORT is usable. On ort 2.x the single per-process
+    /// `Environment` is built here and cached in `ORT_ENV` (a `build()` error with
+    /// an env already cached just means another caller got there first: ready).
     fn ensure_ort_ready() -> bool {
-        // wasm32 has no `init_from` (no `load-dynamic` there); session load below
-        // stays behind `catch_unwind` (gate FIND-58: wasm32 raw build must compile).
+        // wasm32 has no `init_from` (no `load-dynamic` there) and ort 2.x exposes
+        // no public `Environment` constructor for wasm — graceful dummy fallback,
+        // same contract as any other ORT failure (gate FIND-58: wasm32 raw build
+        // must compile).
         #[cfg(not(target_arch = "wasm32"))]
         {
             let path = Self::resolve_ort_dylib_path();
@@ -419,11 +427,25 @@ impl LocalOnnxProvider {
                     return false;
                 }
             };
-            // Layer 0 (P2-01 follow-up): even `commit()` must never panic-escape
-            // (poisoned global) — wrap it too; strictly safer, zero cost.
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| builder.commit()));
-            // Layer 2: force `setup_api` now, outside `G_ENV`. A failure here only
-            // poisons `ort`'s `OnceLock` (catchable forever after), never its `Mutex`.
+            // Layer 0 (P2-01 follow-up): even `build()` must never panic-escape —
+            // wrap it too; strictly safer, zero cost.
+            let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| builder.build()));
+            match built {
+                Ok(Ok(env)) => {
+                    let _ = ORT_ENV.set(env);
+                }
+                _ if ORT_ENV.get().is_some() => {}
+                _ => {
+                    tracing::warn!(
+                        fallback = true,
+                        path = %path.display(),
+                        "ONNX Runtime environment build failed; using deterministic dummy embeddings"
+                    );
+                    return false;
+                }
+            }
+            // Layer 2: force `setup_api` now. A failure here only poisons `ort`'s
+            // `OnceLock` (catchable forever after), never a mutex.
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let _ = ort::api();
             }))
@@ -440,8 +462,7 @@ impl LocalOnnxProvider {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            let _ = ort::init().commit();
-            true
+            false
         }
     }
 
@@ -472,6 +493,9 @@ impl LocalOnnxProvider {
     }
 
     fn load_session_inner(model_dir: &str) -> Option<ort::session::Session> {
+        // Sessions borrow the shared 2.x Environment; `ensure_ort_ready` runs
+        // first (see `try_load_session`), so absence here is belt-and-braces.
+        let env = ORT_ENV.get()?;
         let candidates = [
             std::path::Path::new(model_dir)
                 .join("model.onnx")
@@ -487,7 +511,7 @@ impl LocalOnnxProvider {
         for p in candidates {
             if p.exists() {
                 if let Ok(sess) =
-                    ort::session::Session::builder().and_then(|mut b| b.commit_from_file(&p))
+                    ort::session::Session::builder(env).and_then(|mut b| b.commit_from_file(&p))
                 {
                     return Some(sess);
                 }
@@ -498,8 +522,8 @@ impl LocalOnnxProvider {
             for e in dir.flatten() {
                 let path = e.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("onnx") {
-                    if let Ok(sess) =
-                        ort::session::Session::builder().and_then(|mut b| b.commit_from_file(&path))
+                    if let Ok(sess) = ort::session::Session::builder(env)
+                        .and_then(|mut b| b.commit_from_file(&path))
                     {
                         return Some(sess);
                     }
@@ -507,8 +531,8 @@ impl LocalOnnxProvider {
                 // check subdir onnx/
                 let sub = path.join("model.onnx");
                 if sub.exists() {
-                    if let Ok(sess) =
-                        ort::session::Session::builder().and_then(|mut b| b.commit_from_file(&sub))
+                    if let Ok(sess) = ort::session::Session::builder(env)
+                        .and_then(|mut b| b.commit_from_file(&sub))
                     {
                         return Some(sess);
                     }

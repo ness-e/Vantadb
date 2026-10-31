@@ -36,7 +36,8 @@ try {
     $members = @('vanta-memory','vanta-proxy','vantadb-server','vantadb-mcp','vantadb-wasm','vantadb-ffi-core','vantadb-python')
     foreach ($k in $members) {
         if ($rs | Where-Object { $_ -match "^${k}/" }) {
-            run "clippy -p $k" ("cargo", "clippy", "-p", $k, "-j", "2", "--", "-D", "warnings")
+            $pkg = if ($k -eq 'vantadb-python') { 'vantadb_py' } else { $k }
+            run "clippy -p $pkg" ("cargo", "clippy", "-p", $pkg, "-j", "2", "--", "-D", "warnings")
         }
     }
     if ($rs | Where-Object { $_ -match '^src/' }) { Write-Host "  core src/ touched: yaml clippy -p vantadb covers it." }

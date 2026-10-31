@@ -28,6 +28,37 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use web_time::Instant;
 
+/// Mode of memory forgetting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForgetMode {
+    Soft,
+    Hard,
+    Certified,
+}
+
+/// Target of memory forgetting operation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForgetTarget {
+    Key(String),
+    Filter(MemoryMetadata),
+    Query {
+        text: String,
+        top_k: usize,
+        min_score: f32,
+    },
+}
+
+/// Report returned by `forget` operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForgetReport {
+    pub mode: ForgetMode,
+    pub forgotten_count: usize,
+    pub keys: Vec<String>,
+    pub certificates: Vec<crate::attestation::PurgeCertificate>,
+}
+
 /// Report returned by bulk import operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BulkImportReport {
@@ -809,9 +840,14 @@ impl Embedded {
             )?;
         }
 
-        // Best-effort JSON shredding — if this fails the record still works
-        // via the existing derived-index / PostFilter paths.
-        if !record.metadata.is_empty() {
+        // Best-effort JSON shredding — only when enable_json_shredding is configured.
+        // AUD-CORE-03: also invoke ShreddedRowStore::put when replacing a record that
+        // previously had metadata with an empty-metadata record, so stale shredded rows
+        // are purged.
+        if engine.config.enable_json_shredding
+            && (!record.metadata.is_empty()
+                || existing.as_ref().is_some_and(|e| !e.metadata.is_empty()))
+        {
             let _ = crate::shred::ShreddedRowStore::put(
                 record.node_id,
                 &record.metadata,
@@ -1191,13 +1227,15 @@ impl Embedded {
 
             // ── Post-processing (shredding; derived/text/sparse indexes were
             // replaced per record right after the chunk insert) ──
-            for record in &records {
-                if !record.metadata.is_empty() {
-                    let _ = crate::shred::ShreddedRowStore::put(
-                        record.node_id,
-                        &record.metadata,
-                        &*engine.backend,
-                    );
+            if engine.config.enable_json_shredding {
+                for record in &records {
+                    if !record.metadata.is_empty() {
+                        let _ = crate::shred::ShreddedRowStore::put(
+                            record.node_id,
+                            &record.metadata,
+                            &*engine.backend,
+                        );
+                    }
                 }
             }
 
@@ -1459,6 +1497,121 @@ impl Embedded {
             serde_json::from_str(receipt_json).map_err(Error::serialization)?;
         let engine = self.engine_handle()?;
         crate::attestation::verify_write_receipt(&engine, &receipt)
+    }
+
+    /// Unified memory forgetting API.
+    ///
+    /// Supports `Soft` (mark invalid_at_ms), `Hard` (physical delete), and
+    /// `Certified` (delete with PurgeCertificate).
+    #[tracing::instrument(skip(self), err)]
+    pub fn forget(
+        &self,
+        namespace: &str,
+        target: ForgetTarget,
+        mode: ForgetMode,
+    ) -> Result<ForgetReport> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+
+        let target_keys: Vec<String> = match target {
+            ForgetTarget::Key(key) => {
+                validate_key(&key)?;
+                vec![key]
+            }
+            ForgetTarget::Filter(filters) => {
+                validate_metadata(&filters)?;
+                if filters.is_empty() {
+                    return Err(Error::Validation {
+                        field: "filters".into(),
+                        reason: "forget filter cannot be empty".into(),
+                    });
+                }
+                self.records_for_namespace(namespace, &filters)?
+                    .into_iter()
+                    .map(|r| r.key)
+                    .collect()
+            }
+            ForgetTarget::Query {
+                text,
+                top_k,
+                min_score,
+            } => {
+                let hits = self.search(MemorySearchRequest {
+                    namespace: namespace.to_string(),
+                    text_query: Some(text),
+                    top_k,
+                    ..Default::default()
+                })?;
+                hits.into_iter()
+                    .filter(|h| h.score >= min_score)
+                    .map(|h| h.record.key)
+                    .collect()
+            }
+        };
+
+        let mut forgotten_count = 0;
+        let mut keys = Vec::new();
+        let mut certificates = Vec::new();
+
+        match mode {
+            ForgetMode::Soft => {
+                let engine = self.engine_handle()?;
+                let _supersede_guard = self.supersede_lock.lock();
+                let _write_guard = self.purge_lock.write();
+                for key in target_keys {
+                    if let Some(mut record) = self.get(namespace, &key)? {
+                        let now = now_ms();
+                        let invalid_at = now.max(record.valid_at_ms);
+                        record.invalid_at_ms = Some(invalid_at);
+                        record.version = record.version.saturating_add(1);
+                        record.updated_at_ms = now;
+
+                        let (mut node, _rec) = memory_record_to_node_owned(record);
+                        carry_graph_state(&engine, &mut node)?;
+                        engine.insert(&node)?;
+                        self.audit(crate::audit::AuditEvent::new(
+                            "forget",
+                            namespace,
+                            &key,
+                            "ok",
+                            Some("mode=soft".to_string()),
+                        ));
+                        forgotten_count += 1;
+                        keys.push(key);
+                    }
+                }
+            }
+            ForgetMode::Hard => {
+                for key in target_keys {
+                    if self.delete(namespace, &key)? {
+                        forgotten_count += 1;
+                        keys.push(key);
+                    }
+                }
+            }
+            ForgetMode::Certified => {
+                for key in target_keys {
+                    let cert = self.delete_certified(namespace, &key)?;
+                    if cert.status != "not_found" {
+                        forgotten_count += 1;
+                        keys.push(key);
+                        certificates.push(cert);
+                    }
+                }
+            }
+        }
+
+        Ok(ForgetReport {
+            mode,
+            forgotten_count,
+            keys,
+            certificates,
+        })
+    }
+
+    /// Open an embedded VantaDB database in memory using [`Config::in_memory()`].
+    pub fn in_memory() -> Result<Self> {
+        Self::open_with_config(crate::config::Config::in_memory())
     }
 
     /// Insert or update a record with exact fields (used internally by import).

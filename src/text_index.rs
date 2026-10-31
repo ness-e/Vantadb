@@ -169,6 +169,8 @@ pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<St
     debug_assert_eq!(spec.name, TOKENIZER_NAME);
     debug_assert_eq!(spec.version, TOKENIZER_VERSION);
 
+    const MAX_BASIC_TOKEN_BYTES: usize = 256;
+
     let mut tokens = Vec::new();
     let mut current = String::new();
 
@@ -178,11 +180,15 @@ pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<St
         if ch.is_alphanumeric() {
             current.push(ch);
         } else if !current.is_empty() {
-            tokens.push(std::mem::take(&mut current));
+            if current.len() <= MAX_BASIC_TOKEN_BYTES {
+                tokens.push(std::mem::take(&mut current));
+            } else {
+                current.clear();
+            }
         }
     }
 
-    if !current.is_empty() {
+    if !current.is_empty() && current.len() <= MAX_BASIC_TOKEN_BYTES {
         tokens.push(current);
     }
 
@@ -400,10 +406,7 @@ pub(crate) fn query_plan_with_config(query: &str, _config: Option<&()>) -> TextQ
     for ch in query.chars() {
         if ch == '"' {
             if in_quote {
-                let phrase: Vec<String> = quoted
-                    .split_whitespace()
-                    .map(|s| s.to_lowercase())
-                    .collect();
+                let phrase = tokenize(&quoted);
                 if !phrase.is_empty() {
                     terms.extend(phrase.iter().cloned());
                     phrases.push(phrase);
@@ -411,10 +414,7 @@ pub(crate) fn query_plan_with_config(query: &str, _config: Option<&()>) -> TextQ
                 quoted.clear();
                 in_quote = false;
             } else {
-                let outside_tokens: Vec<String> = outside
-                    .split_whitespace()
-                    .map(|s| s.to_lowercase())
-                    .collect();
+                let outside_tokens = tokenize(&outside);
                 terms.extend(outside_tokens);
                 outside.clear();
                 in_quote = true;
@@ -429,10 +429,7 @@ pub(crate) fn query_plan_with_config(query: &str, _config: Option<&()>) -> TextQ
     if in_quote {
         outside.push_str(&quoted);
     }
-    let outside_tokens: Vec<String> = outside
-        .split_whitespace()
-        .map(|s| s.to_lowercase())
-        .collect();
+    let outside_tokens = tokenize(&outside);
     terms.extend(outside_tokens);
 
     TextQueryPlan { terms, phrases }

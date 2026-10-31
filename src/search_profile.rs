@@ -46,7 +46,7 @@ pub enum SearchProfileMode {
 ///
 /// Los campos `None` delegan en las constantes core (`RRF_K`,
 /// `hybrid_candidate_budget`) de `sdk::search::fusion`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct SearchProfileConfig {
     /// Modo de búsqueda. Default: `Hybrid`.
     #[serde(default)]
@@ -57,4 +57,36 @@ pub struct SearchProfileConfig {
     /// Presupuesto de candidatos por canal. `None` usa `hybrid_candidate_budget`.
     #[serde(default)]
     pub candidate_k: Option<usize>,
+    /// Peso para la modalidad vectorial densa en fusión RRF. Default: `1.0`.
+    #[serde(default)]
+    pub dense_weight: Option<f32>,
+    /// Peso para la modalidad léxica (BM25) en fusión RRF. Default: `1.0`.
+    #[serde(default)]
+    pub lexical_weight: Option<f32>,
+    /// Peso para la modalidad sparse en fusión RRF. Default: `1.0`.
+    #[serde(default)]
+    pub sparse_weight: Option<f32>,
+}
+
+impl SearchProfileConfig {
+    /// Devuelve el peso efectivo para búsqueda densa (fallback a 1.0 si <= 0.0 o no finito).
+    pub fn dense_weight(&self) -> f32 {
+        self.dense_weight
+            .filter(|w| w.is_finite() && *w > 0.0)
+            .unwrap_or(1.0)
+    }
+
+    /// Devuelve el peso efectivo para búsqueda léxica (fallback a 1.0 si <= 0.0 o no finito).
+    pub fn lexical_weight(&self) -> f32 {
+        self.lexical_weight
+            .filter(|w| w.is_finite() && *w > 0.0)
+            .unwrap_or(1.0)
+    }
+
+    /// Devuelve el peso efectivo para búsqueda sparse (fallback a 1.0 si <= 0.0 o no finito).
+    pub fn sparse_weight(&self) -> f32 {
+        self.sparse_weight
+            .filter(|w| w.is_finite() && *w > 0.0)
+            .unwrap_or(1.0)
+    }
 }

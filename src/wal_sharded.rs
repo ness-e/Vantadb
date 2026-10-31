@@ -199,6 +199,7 @@ fn present_globals(counts: &[u64]) -> Vec<u64> {
 /// Read-only salvage preview: coherent prefix + explicit discards.
 /// Never mutates; `Ok` even when incoherent (that is the point).
 #[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct SalvagePreview {
     /// Durable per-shard counts as read.
@@ -287,6 +288,7 @@ fn quarantine_and_truncate(shard_path: &Path, valid_end: u64) -> Result<PathBuf>
 /// Mutating salvage: truncate shards to the coherent prefix (quarantined).
 /// Returns the post-salvage preview (coherent) plus pre counts in `SalvageDone`.
 #[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct SalvageDone {
     /// Counts before truncation.
@@ -331,6 +333,7 @@ pub(crate) fn salvage(base_path: &Path, num_shards: usize) -> Result<SalvageDone
 /// come from `detect_shard_count`/`read_shard_meta` (same resolution as
 /// recovery and salvage). Read-only: never truncates, quarantines or mutates.
 #[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
 pub(crate) fn verify_shards(
     base_path: &Path,
     num_shards: usize,
@@ -359,6 +362,7 @@ pub(crate) fn verify_shards(
 
 impl ShardedWal {
     /// Create a new `ShardedWal` with the given base path, shard count, and sync mode.
+    #[allow(dead_code)]
     pub fn new(
         base_path: &Path,
         num_shards: usize,
@@ -550,6 +554,7 @@ impl ShardedWal {
     /// skips at most `ceil(checkpoint_seq / num_shards)` of its own records,
     /// with the first `checkpoint_seq % num_shards` shards skipping one extra.
     #[cfg_attr(not(feature = "encryption"), allow(unused_variables))]
+    #[allow(dead_code)]
     pub fn recover(
         &self,
         checkpoint_seq: u64,
@@ -621,6 +626,7 @@ impl ShardedWal {
     /// serialize anyway, so a thread per shard on every flush was pure spawn
     /// overhead. Durability contract unchanged — all shards are synced before
     /// this returns.
+    #[allow(dead_code)]
     pub fn flush_all(&self) -> Result<()> {
         for shard in &self.shards {
             shard.lock().sync()?;

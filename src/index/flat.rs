@@ -38,7 +38,9 @@ pub(crate) fn flat_search(
             let id = *entry.key();
             let node = entry.value();
             let sim = match (&node.vec_data, metric, query_inv_norm) {
-                (VectorRepresentations::Full(v), DistanceMetric::Cosine, Some(q_inv)) => {
+                (VectorRepresentations::Full(v), DistanceMetric::Cosine, Some(q_inv))
+                    if node.inv_cached_norm > f32::EPSILON =>
+                {
                     crate::index::cosine_sim_cached_norms(query_vec, q_inv, v, node.inv_cached_norm)
                 }
                 _ => calculate_similarity(query_vec, None, None, None, &node.vec_data, metric),
@@ -148,7 +150,9 @@ impl crate::index::VecIndex for FlatIndex {
             .filter(|e| query_mask.is_all_set() || e.bitset.matches_mask(query_mask))
             .map(|e| {
                 let sim = match (&e.vec, metric, query_inv_norm) {
-                    (VectorRepresentations::Full(v), DistanceMetric::Cosine, Some(q_inv)) => {
+                    (VectorRepresentations::Full(v), DistanceMetric::Cosine, Some(q_inv))
+                        if e.inv_cached_norm > f32::EPSILON =>
+                    {
                         crate::index::cosine_sim_cached_norms(
                             query_vec,
                             q_inv,

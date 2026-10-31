@@ -6984,6 +6984,7 @@ dependencies = [
  "lru",
  "pyo3",
  "rayon",
+ "serde_json",
  "tracing",
  "vanta-memory",
  "vantadb",

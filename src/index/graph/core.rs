@@ -79,7 +79,7 @@ pub(crate) fn cached_norms_for_metric(
             .as_f32_slice()
             .map(|s| {
                 let norm = f32_l2_norm(s);
-                if norm > f32::EPSILON {
+                if norm.is_finite() && norm > f32::EPSILON {
                     (1.0 / norm, norm * norm)
                 } else {
                     (0.0, 0.0)
@@ -448,7 +448,7 @@ impl CPIndex {
         // entry point / neighbour allocation). Fail loudly instead.
         if self.config.distance_metric == DistanceMetric::Cosine {
             let norm = f32_l2_norm(&query_f32);
-            if norm < f32::EPSILON {
+            if !norm.is_finite() || norm < f32::EPSILON {
                 return Err(crate::error::Error::InvalidInput(format!(
                     "cannot index node {id}: zero-norm vector is undefined under \
                      cosine similarity"
@@ -623,7 +623,7 @@ impl CPIndex {
         // AUDREP-27: reject zero-norm up-front, before any graph mutation.
         if self.config.distance_metric == DistanceMetric::Cosine {
             let norm = f32_l2_norm(&query_f32);
-            if norm < f32::EPSILON {
+            if !norm.is_finite() || norm < f32::EPSILON {
                 return Err(crate::error::Error::InvalidInput(format!(
                     "cannot index node {id}: zero-norm vector is undefined under \
                      cosine similarity"

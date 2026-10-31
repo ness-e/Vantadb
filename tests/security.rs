@@ -9,9 +9,10 @@
 
 use std::sync::Arc;
 use tempfile::tempdir;
-use vantadb::{
-    Embedded, Error, InMemoryEngine, MemoryInput, MemorySearchRequest, UnifiedNode, Value,
-};
+use vantadb::config::Config;
+use vantadb::node::{DistanceMetric, FilterBitset};
+use vantadb::storage::StorageEngine;
+use vantadb::{Embedded, Error, MemoryInput, MemorySearchRequest, UnifiedNode, Value};
 
 // ── IQL Injection Tests ────────────────────────────────────
 
@@ -425,7 +426,8 @@ mod auth_security_tests {
 
     #[test]
     fn test_auth_malformed_token_no_panic() {
-        let engine = InMemoryEngine::new();
+        let engine =
+            StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
         let tokens = [
             "Bearer ",
             "Bearer invalid token with spaces",
@@ -444,7 +446,8 @@ mod auth_security_tests {
             }
         }
         // Smoke test: engine is unaffected by token strings
-        let result = engine.insert(UnifiedNode::new(1));
+        let node = UnifiedNode::new(1);
+        let result = engine.insert(&node);
         assert!(
             result.is_ok(),
             "Engine operations must work after token garbage"
@@ -548,7 +551,8 @@ mod fuzzing_tests {
 
     #[test]
     fn test_random_vs_corrupt_vector_no_panic() {
-        let engine = InMemoryEngine::new();
+        let engine =
+            StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
 
         // Insert various malformed vectors
         let vectors: Vec<Vec<f32>> = vec![
@@ -565,7 +569,7 @@ mod fuzzing_tests {
 
         for (i, v) in vectors.iter().enumerate() {
             let node = UnifiedNode::with_vector((i as u64 + 1000).into(), v.clone());
-            let result = engine.insert(node);
+            let result = engine.insert(&node);
             // Should not panic — may succeed or fail
             assert!(
                 result.is_ok() || result.is_err(),
@@ -583,10 +587,16 @@ mod fuzzing_tests {
         ];
 
         for (i, q) in queries.iter().enumerate() {
-            let result = engine.vector_search(q, 10, 0.0, None);
+            let results = engine.vec_index().search(
+                q,
+                &FilterBitset::all_set(),
+                10,
+                None,
+                DistanceMetric::Cosine,
+            );
             // Search should never panic
             assert!(
-                result.nodes.len() <= 10,
+                results.len() <= 10,
                 "Search {i} should not return more than top_k"
             );
         }

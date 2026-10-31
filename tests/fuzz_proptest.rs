@@ -10,9 +10,10 @@ use proptest::prelude::*;
 use std::collections::HashSet;
 use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
+use vantadb::storage::StorageEngine;
 use vantadb::wal::WalRecord;
 use vantadb::BackendKind;
-use vantadb::{Embedded, Error, FieldValue, InMemoryEngine, MemoryInput, MemoryMetadata};
+use vantadb::{Embedded, FieldValue, MemoryInput, MemoryMetadata};
 
 proptest! {
     /// Test 1: WalRecord debe manejar bytes aleatorios sin panic
@@ -39,28 +40,28 @@ proptest! {
     /// Test 4: Node ID uniqueness — no duplicate IDs collide
     #[test]
     fn test_node_id_uniqueness(ids in proptest::collection::vec(0u64..10000, 1..20)) {
-        let engine = InMemoryEngine::new();
+        let engine =
+            StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
         let mut seen = HashSet::new();
         for id in ids {
-            if seen.contains(&id) {
-                let result = engine.insert(UnifiedNode::new(id.into()));
-                prop_assert!(result.is_err(), "Duplicate insert of id {} should fail", id);
-            } else {
-                let result = engine.insert(UnifiedNode::new(id.into()));
-                prop_assert!(result.is_ok(), "First insert of id {} should succeed", id);
-                seen.insert(id);
-            }
+            let node = UnifiedNode::new(id.into());
+            let result = engine.insert(&node);
+            prop_assert!(result.is_ok(), "Insert of id {} should succeed", id);
+            seen.insert(id);
         }
+        let nodes = engine.scan_nodes().unwrap();
+        prop_assert_eq!(nodes.len(), seen.len(), "Distinct node count should match seen IDs");
     }
 
     /// Test 5: Vector roundtrip — insert with random vector, retrieve, verify match
     #[test]
     fn test_vector_roundtrip(vec in proptest::collection::vec(-1.0f32..1.0, 1..=64)) {
-        let engine = InMemoryEngine::new();
+        let engine =
+            StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
         let id = 42u64;
         let node = UnifiedNode::with_vector(id.into(), vec.clone());
-        let _ = engine.insert(node).unwrap();
-        let retrieved = engine.get(id.into()).unwrap();
+        let _ = engine.insert(&node).unwrap();
+        let retrieved = engine.get(id.into()).unwrap().unwrap();
         prop_assert_eq!(retrieved.vector.to_f32(), Some(vec));
     }
 
@@ -70,29 +71,29 @@ proptest! {
         key in "[a-zA-Z_][a-zA-Z0-9_]{0,15}",
         value in ".{0,50}",
     ) {
-        let engine = InMemoryEngine::new();
+        let engine =
+            StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
         let id = 99u64;
         let mut node = UnifiedNode::new(id.into());
         node.set_field(&key, FieldValue::String(value.clone()));
-        let _ = engine.insert(node).unwrap();
-        let retrieved = engine.get(id.into()).unwrap();
+        let _ = engine.insert(&node).unwrap();
+        let retrieved = engine.get(id.into()).unwrap().unwrap();
         let expected = Some(&FieldValue::String(value));
         prop_assert_eq!(retrieved.get_field(&key), expected);
     }
 
-    /// Test 7: Delete idempotency — second delete returns NodeNotFound, never panics
+    /// Test 7: Delete idempotency — second delete succeeds and node remains absent
     #[test]
     fn test_delete_idempotency(id: u64) {
-        let engine = InMemoryEngine::new();
-        prop_assert!(engine.insert(UnifiedNode::new(id.into())).is_ok());
-        prop_assert!(engine.delete(id.into()).is_ok());
+        let engine =
+            StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
+        prop_assert!(engine.insert(&UnifiedNode::new(id.into())).is_ok());
+        prop_assert!(engine.delete(id.into(), "test").is_ok());
+        prop_assert!(engine.get(id.into()).unwrap().is_none());
 
-        let result = engine.delete(id.into());
-        prop_assert!(result.is_err(), "Second delete should return an error");
-        match result {
-            Err(Error::NodeNotFound(returned_id)) => prop_assert_eq!(returned_id, u128::from(id)),
-            _ => panic!("Expected NodeNotFound, got {:?}", result),
-        }
+        let result = engine.delete(id.into(), "test");
+        prop_assert!(result.is_ok(), "Second delete should not error or panic");
+        prop_assert!(engine.get(id.into()).unwrap().is_none());
     }
 }
 

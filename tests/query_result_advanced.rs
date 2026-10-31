@@ -29,6 +29,7 @@ fn search_request_with_profile_hybrid_snapshot() {
             mode: SearchProfileMode::Hybrid,
             rrf_k: Some(60),
             candidate_k: Some(100),
+            ..Default::default()
         }),
         range: None,
         group_by: None,
@@ -58,6 +59,7 @@ fn search_request_with_profile_keyword_snapshot() {
             mode: SearchProfileMode::Keyword,
             rrf_k: None,
             candidate_k: None,
+            ..Default::default()
         }),
         range: None,
         group_by: None,
@@ -87,6 +89,7 @@ fn search_request_with_profile_vector_snapshot() {
             mode: SearchProfileMode::Vector,
             rrf_k: None,
             candidate_k: Some(200),
+            ..Default::default()
         }),
         range: None,
         group_by: None,
@@ -182,6 +185,7 @@ fn search_request_full_complex_snapshot() {
             mode: SearchProfileMode::Hybrid,
             rrf_k: Some(100),
             candidate_k: Some(500),
+            ..Default::default()
         }),
         range: None,
         group_by: None,
