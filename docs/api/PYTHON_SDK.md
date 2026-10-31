@@ -631,6 +631,27 @@ Mark an existing memory record as superseded by another existing record (ADR-002
 db.supersede(namespace="agents/summary", old_key="draft-v1", new_key="draft-v2")
 ```
 
+#### `forget()`
+
+```python
+db.forget(
+    namespace: str,
+    key: Optional[str] = None,
+    filters: Optional[dict] = None,
+    all_in_namespace: bool = False,
+    mode: str = "soft",
+    reason: Optional[str] = None,
+    superseded_by: Optional[str] = None,
+) -> dict
+```
+
+Unified semantic and physical forgetting API across memory layers (`ForgetMode::Soft`, `ForgetMode::Hard`, `ForgetMode::Cascade`). Targets a single `key`, metadata `filters`, or `all_in_namespace=True`. Returns a dictionary with `deleted_keys`, `deleted_count`, `cascaded_nodes`, `cascaded_edges`, `certificates`, and `mode`. GIL-released.
+
+```python
+report = db.forget(namespace="agents/summary", key="draft-v1", mode="hard", reason="GDPR erasure")
+print(report["deleted_count"], report["certificates"])
+```
+
 #### `search()`
 
 ```python

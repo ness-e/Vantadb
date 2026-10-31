@@ -92,6 +92,7 @@ All configuration fields available in `Config` (Rust) and via environment variab
 | `self_healing` | `bool` | `true` | `VANTADB_SELF_HEALING` | Master switch for automated background maintenance (vacuum and index rebuild) during low-activity windows. Default: `true`. |
 | `self_healing_quiet_secs` | `u64` | `300` | `VANTADB_SELF_HEALING_QUIET_SECS` | Inactivity threshold in seconds before self-healing maintenance triggers. Default: `300` (5 minutes). |
 | `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
+| `enable_json_shredding` | `bool` | `false` | `VANTADB_ENABLE_JSON_SHREDDING` | Opt-in JSON document shredding into `ShreddedRowStore` (`default: false`). When `false`, record writes skip secondary column shredding to avoid write amplification on standard key-value/vector memory workloads; enable with `Config::with_enable_json_shredding(true)` or `VANTADB_ENABLE_JSON_SHREDDING=true` when executing columnar/shredded queries. |
 
 ### Environment Variables Outside `Config`
 

@@ -239,6 +239,7 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
 | `agent` (**default**) | 39 | Memory CRUD + search + recall + reinforce + IQL + collections + threads + scenes + context engine + wiki read. | Agent clients out of the box (the old default `full` cost ≈ 23K tokens of tool schemas per session). |
+| `brain` | 12 | Low-token cognitive surface (~2.4K schema tokens): `memory_recall`, `memory_search`, `memory_put`, `memory_forget`, `memory_reinforce`, `context_assemble`, `vanta_scene`, `vanta_dream`, `vanta_graph`, `code_search`, `code_explore`, and the universal `vanta_dispatch` meta-tool (which keeps all 88 tools callable on demand). | Autonomous agents, Cursor/Windsurf/Claude Code with strict context budgets |
 | `full` | 82 | All listed tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence (3 listed: search/explore/index), wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients (pre-0.8 default; opt-in) |
 | `dev` | 38 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
 | `memory` | 22 | Core memory CRUD (put/get/delete/list/versions/supersede/reinforce) + certificate verify + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
@@ -295,6 +296,7 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 | `memory_list_namespaces` | Lists all available namespaces in the database (API-04 canonical name). The legacy `collection_list` alias stays dispatchable but is not listed — it returns rich collection metadata (record_count/has_vector_index/created_at) while this tool returns the bare namespace list. |
 | `memory_versions` | Lists every retained version of a memory record, ascending (v1..vN); empty if the key does not exist or has no history. Expired versions are included as historical data until purged. |
 | `memory_supersede` | Marks an existing record as superseded by another existing record (durable, recoverable soft-delete). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded. |
+| `memory_forget` | Unified semantic/physical forgetting tool (`mode`: `soft` \| `hard` \| `cascade`) targeting a single `key`, metadata `filters`, or `all_in_namespace`. In `hard`/`cascade` mode, purges the record across KV, vector, lexical, and graph surfaces and returns cryptographic purge certificates. |
 | `memory_reinforce` | MEMG-02: outcome loop — report the outcome of a recalled memory and feed it back into the record's confidence (explicit host signal; the engine never infers it). `outcome`: `used` bumps confidence +0.05 (saturated at 1.0) and stamps `last_validated_at_ms`, at most once per 5-minute window; `corrected` decays −0.10 (floored at 0.0) without stamping; `unused` is neutral (audit-only). Derived records are rejected (their score is computed from parents). Returns `structuredContent {namespace, key, confidence, last_validated_at_ms, outcome}`. Policy: [scores.md §Reinforcement](./scores.md). |
 
 ### Search & Query (7)
@@ -393,12 +395,16 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 | `rehydrate` | Recovers shadow-archived nodes that belonged to a summary node from TombstoneStorage. |
 | `vacuum` | Purges tombstoned nodes from the HNSW index; returns a report with scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, and success. |
 
-### Introspection & Utility (2)
+### Introspection & Utility (6)
 
 | Tool | Description |
 |------|-------------|
 | `capabilities` | Introspects supported engine features: runtime profile, persistence, vector search, IQL queries, read-only mode. |
 | `generate_snippet` | Generates a text snippet from a payload, optionally highlighting matched query terms. |
+| `vanta_scene` | Multiplexed scene navigation and mutation gateway for the `brain` profile (`action`: `read` \| `list` \| `query` \| `write` \| `edit`). |
+| `vanta_dream` | Multiplexed idle memory consolidation and promotion gateway for the `brain` profile (`action`: `list` \| `load` \| `discard` \| `consolidate` \| `promote`). |
+| `vanta_graph` | Multiplexed property-graph analysis and traversal gateway for the `brain` profile (`action`: `neighbors` \| `traverse` \| `page_rank` \| `degree_centrality` \| `topological_sort` \| `is_dag` \| `remove_edge`). |
+| `vanta_dispatch` | Universal MCP meta-tool for the `brain` profile: invokes any of the 88 registered VantaDB tools by `{tool, arguments}` without inflating the `tools/list` schema token budget. |
 
 ### Backup & Bulk Import (4)
 
