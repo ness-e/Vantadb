@@ -48,10 +48,10 @@ pub enum Commands {
     /// Save a key-value pair to persistent memory
     Put {
         /// Namespace for the key
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// Key to store the value under
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_keys))]
         key: String,
         /// Value to store (payload text)
         #[arg(long)]
@@ -67,17 +67,17 @@ pub enum Commands {
     /// Retrieve a value from persistent memory
     Get {
         /// Namespace for the key
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// Key to retrieve the value for
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_keys))]
         key: String,
     },
 
     /// List keys and values in a namespace
     List {
         /// Namespace to list
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// Maximum number of records to return
         #[arg(long, default_value = "100")]
@@ -90,7 +90,7 @@ pub enum Commands {
     /// Validate text index integrity without repairing
     AuditIndex {
         /// Optional namespace to audit (audits all if not specified)
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: Option<String>,
         /// Perform deep structural validation
         #[arg(long)]
@@ -105,7 +105,7 @@ pub enum Commands {
     /// `vanta-seed import-md`).
     Export {
         /// Optional namespace to export (exports all if not specified)
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: Option<String>,
         /// Output path: file for `--format jsonl` (default), directory for
         /// `--format md`.
@@ -181,10 +181,10 @@ pub enum Commands {
     /// Inspect a single record showing all fields, vectors, and metadata
     Inspect {
         /// Namespace of the record
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// Key of the record to inspect
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_keys))]
         key: String,
     },
 
@@ -210,7 +210,7 @@ pub enum Commands {
     /// Search records semantically across a namespace
     Search {
         /// Namespace to search within
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// Text query (positional operand; `--query` remains as a hidden alias)
         #[arg(value_name = "QUERY", required_unless_present = "query_flag")]
@@ -229,10 +229,10 @@ pub enum Commands {
     /// Delete a record by namespace and key
     Delete {
         /// Namespace of the record
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// Key of the record to delete
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_keys))]
         key: String,
         /// Emit a purge certificate (VER-02): per-surface residue inventory +
         /// integrity hash + VER-01 WAL chain reference (JSON on stdout)
@@ -247,7 +247,7 @@ pub enum Commands {
     /// Delete all records in a namespace matching a JSON metadata filter
     DeleteByFilter {
         /// Namespace to operate on
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// JSON filter in MongoDB-like format, e.g. '{"field": {"$op": value}}'
         /// Operators: $eq, $neq, $gt, $gte, $lt, $lte
@@ -263,7 +263,7 @@ pub enum Commands {
     /// Count records in a namespace, optionally filtered by metadata
     Count {
         /// Namespace to count records in
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// Optional JSON filter (same format as delete-by-filter)
         #[arg(long)]
@@ -273,10 +273,10 @@ pub enum Commands {
     /// Find records similar to a given key using vector similarity search
     SimilarToKey {
         /// Namespace of the reference record
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
         /// Key of the reference record
-        #[arg(long)]
+        #[arg(long, add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_keys))]
         key: String,
         /// Number of similar records to return (`--top-k` kept as a hidden alias)
         #[arg(long, default_value = "10", alias = "top-k")]
@@ -439,6 +439,7 @@ pub enum NamespaceCommand {
     /// Show record count and details for a namespace
     Info {
         /// Namespace to inspect
+        #[arg(add = clap_complete::ArgValueCompleter::new(crate::cli_complete::complete_namespaces))]
         namespace: String,
     },
 }

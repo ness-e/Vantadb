@@ -81,6 +81,9 @@ pub(crate) mod cache_warmer;
 pub mod circuit_breaker;
 #[cfg(feature = "cli")]
 pub mod cli;
+/// Dynamic `--namespace` / `--key` value completion (clap `CompleteEnv`).
+#[cfg(feature = "cli")]
+pub mod cli_complete;
 #[cfg(feature = "cli")]
 pub mod cli_handlers;
 #[cfg(feature = "server")]

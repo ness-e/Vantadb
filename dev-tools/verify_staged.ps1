@@ -46,11 +46,11 @@ try {
         if (Get-Command npx -ErrorAction SilentlyContinue) { run "markdownlint skills" ("npx", "markdownlint-cli2", "--config", ".github/markdownlint-cli2.yaml") + $md }
         else { Write-Host "  npx missing: skills markdown skipped." }
     }
-    # completions/: build.rs escribe en OUT_DIR (publish-safe), NO en el repo.
-    # El snapshot versionado solo se refresca a mano -> aqui se verifica que
-    # siga siendo el que produce src/cli.rs (antes esta linea afirmaba lo
-    # contrario y por eso el snapshot estuvo stale sin que nada fallara).
-    if ($files | Where-Object { $_ -match '^src/cli(\.rs|/)' -or $_ -match '^completions/' }) {
+    # completions/: el snapshot versionado solo se refresca a mano (build.rs es
+    # no-op a proposito) -> aqui se verifica que siga siendo el que produce el
+    # binario (`vanta-cli completions --shell`). Antes esta linea afirmaba que
+    # se regeneraban solas via build.rs, y por eso el snapshot estuvo stale.
+    if ($files | Where-Object { $_ -match '^src/cli(\.rs|_complete\.rs|/)' -or $_ -match '^completions/' }) {
         if (Get-Command pwsh -ErrorAction SilentlyContinue) {
             run "completions freshness" ("pwsh", "-NoProfile", "-File", "dev-tools/check_completions.ps1")
         } else { Write-Host "  pwsh missing: completions gate skipped." }

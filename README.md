@@ -355,7 +355,10 @@ vanta-cli completions --shell bash > ~/.local/share/bash-completion/completions/
 vanta-cli completions --shell zsh  > ~/.zfunc/_vanta-cli
 
 # Dynamic completion (clap CompleteEnv): the shell calls the binary on TAB, so
-# subcommands and flags always match the installed version. Re-source on upgrade.
+# subcommands and flags always match the installed version. `--namespace` and
+# `--key` complete live values from the resolved DB (read-only open; empty DB,
+# locked backend or missing --namespace yield no candidates, never an error).
+# Re-source on upgrade.
 echo 'source <(COMPLETE=bash vanta-cli)' >> ~/.bashrc          # bash
 echo 'COMPLETE=fish vanta-cli | source' >> ~/.config/fish/config.fish   # fish
 ```

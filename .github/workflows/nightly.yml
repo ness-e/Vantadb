@@ -430,6 +430,23 @@ jobs:
   # original header). Regression policy (>10% p99 vs baseline needs
   # ADR-or-revert) is EVALUATED here but never enforced: regressions open an
   # issue, the PR stays green (Q5 informativo primero).
+  completions-freshness:
+    name: "Nightly: completions snapshot freshness"
+    # Same lane as bench-informational: PR/dispatch only, never the daily schedule.
+    # Runs dev-tools/check_completions.ps1: rebuilds vanta-cli and fails closed if
+    # completions/ drifts from src/cli.rs (no --no-verify escape: CI re-checks).
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Verify completions/ matches src/cli.rs
+        shell: pwsh
+        run: pwsh -NoProfile -File dev-tools/check_completions.ps1
+
   bench-informational:
     name: Run canonical_p99 vs baseline (informational)
     # CI-08: PR/dispatch only — never on the daily schedule (see header).
