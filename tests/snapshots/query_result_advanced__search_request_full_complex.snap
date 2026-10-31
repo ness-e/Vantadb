@@ -810,6 +810,9 @@ MemorySearchRequest {
             candidate_k: Some(
                 500,
             ),
+            dense_weight: None,
+            lexical_weight: None,
+            sparse_weight: None,
         },
     ),
     range: None,

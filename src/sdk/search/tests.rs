@@ -909,17 +909,38 @@ fn test_bitset_from_filters() {
     let bitset = db
         .bitset_from_filters("test", &filters)
         .expect("bitset from filters");
-    assert!(!bitset.is_empty(), "bitset should contain alpha records");
-    // "a" and "c" have alpha; verify via records
+    assert!(!bitset.is_empty(), "bitset should contain filter bits");
+    // "a" and "c" have alpha; verify their node bitsets match the query mask while "b" does not
     let records = db.records_for_namespace("test", &filters).unwrap();
     assert_eq!(records.len(), 2, "two alpha records");
+    for rec in &records {
+        let node = db
+            .engine_handle()
+            .unwrap()
+            .get(rec.node_id)
+            .unwrap()
+            .unwrap();
+        assert!(
+            node.bitset.matches_mask(&bitset),
+            "alpha node bitset should match query filter bitset"
+        );
+    }
+    let beta_records = db
+        .records_for_namespace(
+            "test",
+            &MemoryMetadata::from([("group".into(), Value::String("beta".into()))]),
+        )
+        .unwrap();
+    assert_eq!(beta_records.len(), 1);
+    let beta_node = db
+        .engine_handle()
+        .unwrap()
+        .get(beta_records[0].node_id)
+        .unwrap()
+        .unwrap();
     assert!(
-        bitset.has_bit(records[0].node_id as usize),
-        "bitset has first alpha node_id"
-    );
-    assert!(
-        bitset.has_bit(records[1].node_id as usize),
-        "bitset has second alpha node_id"
+        !beta_node.bitset.matches_mask(&bitset),
+        "beta node bitset should not match alpha filter bitset"
     );
 }
 

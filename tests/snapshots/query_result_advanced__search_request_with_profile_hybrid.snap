@@ -31,6 +31,9 @@ MemorySearchRequest {
             candidate_k: Some(
                 100,
             ),
+            dense_weight: None,
+            lexical_weight: None,
+            sparse_weight: None,
         },
     ),
     range: None,
