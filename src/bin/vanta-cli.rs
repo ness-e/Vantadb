@@ -2,6 +2,7 @@
 //! Handlers live in `vantadb::cli_handlers` for testability.
 
 use anyhow::Context as _;
+use clap::CommandFactory as _;
 use clap::Parser;
 
 use vantadb::cli::{Cli, Commands, ExportFormat};
@@ -24,6 +25,14 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 // La lib nunca usa anyhow; solo este bin. `?` sobre los handlers convierte
 // `Error` (Error + Send + Sync + 'static) vía el `From` genérico de anyhow.
 fn main() -> anyhow::Result<()> {
+    // Dynamic completions (clap_complete `CompleteEnv`): when the shell
+    // integration sets COMPLETE=<shell>, this writes the registration script or
+    // answers a completion request and exits. It MUST run before any stdout
+    // write and before argument parsing (clap documents both requirements).
+    // Static scripts remain available via `vanta-cli completions --shell` and
+    // build.rs; the two paths are complementary, not alternatives.
+    clap_complete::CompleteEnv::with_factory(Cli::command).complete();
+
     run().context("vanta-cli: command failed")
 }
 

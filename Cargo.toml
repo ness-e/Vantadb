@@ -118,7 +118,10 @@ opentelemetry-otlp = { version = "0.33.0", optional = true, features = ["grpc-to
 indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
-clap_complete = { version = "4.4", optional = true }
+# unstable-dynamic: habilita `CompleteEnv` (completions dinamicas via COMPLETE=<shell>).
+# API marcada inestable por clap; el modo estatico (build.rs + `completions --shell`)
+# sigue siendo el contrato estable y es lo que se versiona en completions/.
+clap_complete = { version = "4.4", features = ["unstable-dynamic"], optional = true }
 toml = { version = "1", optional = true }
 # ERR-CORE-02: anyhow es SOLO para los bins (src/bin/*), nunca para src/lib.
 # Gated tras `cli` (vanta-cli required-features=["cli"]) para no gravar a los

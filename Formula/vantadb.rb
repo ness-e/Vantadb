@@ -44,6 +44,12 @@ class Vantadb < Formula
     # ponytail: if vantadb-mcp joins the release assets, add it here.
     bin.install "vanta-cli"
     bin.install "vantadb-server"
+
+    # Shell completions generated from the installed binary (Homebrew standard:
+    # no checked-in scripts, so nothing can go stale between releases).
+    # `vanta-cli completions --shell <sh>` accepts clap's `--shell=<sh>` form.
+    generate_completions_from_executable(bin/"vanta-cli", "completions",
+                                         shell_parameter_format: :flag)
   end
 
   test do

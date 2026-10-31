@@ -345,6 +345,25 @@ vanta-cli certificate verify --file ./cert.json --db ./vanta_data
 
 *(If you are developing locally inside this repository, you can also run directly from source using `cargo run --bin vanta-cli -- <command>`).*
 
+### Shell completions
+
+Two complementary paths — static scripts for packaging, dynamic completion for live values:
+
+```bash
+# Static script (bash | zsh | fish | powershell) — write it once, source it
+vanta-cli completions --shell bash > ~/.local/share/bash-completion/completions/vanta-cli
+vanta-cli completions --shell zsh  > ~/.zfunc/_vanta-cli
+
+# Dynamic completion (clap CompleteEnv): the shell calls the binary on TAB, so
+# subcommands and flags always match the installed version. Re-source on upgrade.
+echo 'source <(COMPLETE=bash vanta-cli)' >> ~/.bashrc          # bash
+echo 'COMPLETE=fish vanta-cli | source' >> ~/.config/fish/config.fish   # fish
+```
+
+Homebrew installs bash/zsh/fish completions automatically. The checked-in
+`completions/` snapshot is gated against `src/cli.rs`
+(`dev-tools/check_completions.ps1`), so it can't drift from the CLI.
+
 ---
 
 ## Server Mode & Self-Healing Daemon

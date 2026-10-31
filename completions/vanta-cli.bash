@@ -28,6 +28,9 @@ _vanta__cli() {
             vanta__cli,completions)
                 cmd="vanta__cli__subcmd__completions"
                 ;;
+            vanta__cli,config)
+                cmd="vanta__cli__subcmd__config"
+                ;;
             vanta__cli,count)
                 cmd="vanta__cli__subcmd__count"
                 ;;
@@ -39,6 +42,9 @@ _vanta__cli() {
                 ;;
             vanta__cli,doctor)
                 cmd="vanta__cli__subcmd__doctor"
+                ;;
+            vanta__cli,encryption)
+                cmd="vanta__cli__subcmd__encryption"
                 ;;
             vanta__cli,export)
                 cmd="vanta__cli__subcmd__export"
@@ -124,6 +130,48 @@ _vanta__cli() {
             vanta__cli__subcmd__certificate__subcmd__help,verify)
                 cmd="vanta__cli__subcmd__certificate__subcmd__help__subcmd__verify"
                 ;;
+            vanta__cli__subcmd__config,doctor)
+                cmd="vanta__cli__subcmd__config__subcmd__doctor"
+                ;;
+            vanta__cli__subcmd__config,help)
+                cmd="vanta__cli__subcmd__config__subcmd__help"
+                ;;
+            vanta__cli__subcmd__config,init)
+                cmd="vanta__cli__subcmd__config__subcmd__init"
+                ;;
+            vanta__cli__subcmd__config,set)
+                cmd="vanta__cli__subcmd__config__subcmd__set"
+                ;;
+            vanta__cli__subcmd__config,show)
+                cmd="vanta__cli__subcmd__config__subcmd__show"
+                ;;
+            vanta__cli__subcmd__config__subcmd__help,doctor)
+                cmd="vanta__cli__subcmd__config__subcmd__help__subcmd__doctor"
+                ;;
+            vanta__cli__subcmd__config__subcmd__help,help)
+                cmd="vanta__cli__subcmd__config__subcmd__help__subcmd__help"
+                ;;
+            vanta__cli__subcmd__config__subcmd__help,init)
+                cmd="vanta__cli__subcmd__config__subcmd__help__subcmd__init"
+                ;;
+            vanta__cli__subcmd__config__subcmd__help,set)
+                cmd="vanta__cli__subcmd__config__subcmd__help__subcmd__set"
+                ;;
+            vanta__cli__subcmd__config__subcmd__help,show)
+                cmd="vanta__cli__subcmd__config__subcmd__help__subcmd__show"
+                ;;
+            vanta__cli__subcmd__encryption,help)
+                cmd="vanta__cli__subcmd__encryption__subcmd__help"
+                ;;
+            vanta__cli__subcmd__encryption,rotate)
+                cmd="vanta__cli__subcmd__encryption__subcmd__rotate"
+                ;;
+            vanta__cli__subcmd__encryption__subcmd__help,help)
+                cmd="vanta__cli__subcmd__encryption__subcmd__help__subcmd__help"
+                ;;
+            vanta__cli__subcmd__encryption__subcmd__help,rotate)
+                cmd="vanta__cli__subcmd__encryption__subcmd__help__subcmd__rotate"
+                ;;
             vanta__cli__subcmd__help,audit-index)
                 cmd="vanta__cli__subcmd__help__subcmd__audit__subcmd__index"
                 ;;
@@ -136,6 +184,9 @@ _vanta__cli() {
             vanta__cli__subcmd__help,completions)
                 cmd="vanta__cli__subcmd__help__subcmd__completions"
                 ;;
+            vanta__cli__subcmd__help,config)
+                cmd="vanta__cli__subcmd__help__subcmd__config"
+                ;;
             vanta__cli__subcmd__help,count)
                 cmd="vanta__cli__subcmd__help__subcmd__count"
                 ;;
@@ -147,6 +198,9 @@ _vanta__cli() {
                 ;;
             vanta__cli__subcmd__help,doctor)
                 cmd="vanta__cli__subcmd__help__subcmd__doctor"
+                ;;
+            vanta__cli__subcmd__help,encryption)
+                cmd="vanta__cli__subcmd__help__subcmd__encryption"
                 ;;
             vanta__cli__subcmd__help,export)
                 cmd="vanta__cli__subcmd__help__subcmd__export"
@@ -222,6 +276,21 @@ _vanta__cli() {
                 ;;
             vanta__cli__subcmd__help__subcmd__certificate,verify)
                 cmd="vanta__cli__subcmd__help__subcmd__certificate__subcmd__verify"
+                ;;
+            vanta__cli__subcmd__help__subcmd__config,doctor)
+                cmd="vanta__cli__subcmd__help__subcmd__config__subcmd__doctor"
+                ;;
+            vanta__cli__subcmd__help__subcmd__config,init)
+                cmd="vanta__cli__subcmd__help__subcmd__config__subcmd__init"
+                ;;
+            vanta__cli__subcmd__help__subcmd__config,set)
+                cmd="vanta__cli__subcmd__help__subcmd__config__subcmd__set"
+                ;;
+            vanta__cli__subcmd__help__subcmd__config,show)
+                cmd="vanta__cli__subcmd__help__subcmd__config__subcmd__show"
+                ;;
+            vanta__cli__subcmd__help__subcmd__encryption,rotate)
+                cmd="vanta__cli__subcmd__help__subcmd__encryption__subcmd__rotate"
                 ;;
             vanta__cli__subcmd__help__subcmd__migrate,check)
                 cmd="vanta__cli__subcmd__help__subcmd__migrate__subcmd__check"
@@ -344,7 +413,7 @@ _vanta__cli() {
 
     case "${cmd}" in
         vanta__cli)
-            opts="-d -v -h -V --db --verbose --memory-limit --json --help --version put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats verify completions search delete delete-by-filter certificate count similar-to-key migrate namespace snapshot wal search-multi search-all server mcp-call help"
+            opts="-d -v -h -V --db --verbose --memory-limit --json --help --version put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats verify completions search delete delete-by-filter certificate count similar-to-key migrate namespace snapshot wal encryption search-multi search-all server mcp-call config help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -557,6 +626,220 @@ _vanta__cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        vanta__subcmd__cli__subcmd__config)
+            opts="-d -v -h --db --verbose --memory-limit --json --help show set init doctor help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__doctor)
+            opts="-d -v -h --db --verbose --memory-limit --json --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__help)
+            opts="show set init doctor help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__help__subcmd__doctor)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__help__subcmd__init)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__help__subcmd__set)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__help__subcmd__show)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__init)
+            opts="-f -d -v -h --force --db --verbose --memory-limit --json --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__set)
+            opts="-g -d -v -h --global --db --verbose --memory-limit --json --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__config__subcmd__show)
+            opts="-d -v -h --reveal-secrets --db --verbose --memory-limit --json --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         vanta__subcmd__cli__subcmd__count)
             opts="-d -v -h --namespace --filter --db --verbose --memory-limit --json --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -689,6 +972,108 @@ _vanta__cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        vanta__subcmd__cli__subcmd__encryption)
+            opts="-d -v -h --db --verbose --memory-limit --json --help rotate help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__encryption__subcmd__help)
+            opts="rotate help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__encryption__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__encryption__subcmd__help__subcmd__rotate)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__encryption__subcmd__rotate)
+            opts="-d -v -h --new-key --new-key-file --db --verbose --memory-limit --json --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --new-key)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --new-key-file)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         vanta__subcmd__cli__subcmd__export)
             opts="-d -v -h --namespace --out --format --db --verbose --memory-limit --json --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -762,7 +1147,7 @@ _vanta__cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__help)
-            opts="put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats verify completions search delete delete-by-filter certificate count similar-to-key migrate namespace snapshot wal search-multi search-all server mcp-call help"
+            opts="put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats verify completions search delete delete-by-filter certificate count similar-to-key migrate namespace snapshot wal encryption search-multi search-all server mcp-call config help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -845,6 +1230,76 @@ _vanta__cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__config)
+            opts="show set init doctor"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__config__subcmd__doctor)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__config__subcmd__init)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__config__subcmd__set)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__config__subcmd__show)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         vanta__subcmd__cli__subcmd__help__subcmd__count)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -890,6 +1345,34 @@ _vanta__cli() {
         vanta__subcmd__cli__subcmd__help__subcmd__doctor)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__encryption)
+            opts="rotate"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__encryption__subcmd__rotate)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi

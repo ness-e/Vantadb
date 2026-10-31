@@ -751,6 +751,68 @@ esac
     ;;
 esac
 ;;
+(encryption)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_vanta-cli__subcmd__encryption_commands" \
+"*::: :->encryption" \
+&& ret=0
+
+    case $state in
+    (encryption)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-encryption-command-$line[1]:"
+        case $line[1] in
+            (rotate)
+_arguments "${_arguments_options[@]}" : \
+'(--new-key-file)--new-key=[The new master key, hex-encoded (32 bytes = 64 hex chars). Prefer \`--new-key-file\`\: a key on the command line is visible in the process list and in the shell history]:NEW_KEY:_default' \
+'--new-key-file=[A file holding the new hex master key (the recommended form)]:NEW_KEY_FILE:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__encryption__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-encryption-help-command-$line[1]:"
+        case $line[1] in
+            (rotate)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
 (search-multi)
 _arguments "${_arguments_options[@]}" : \
 '--namespaces=[Comma-separated list of namespaces to search (e.g. "ns1,ns2,ns3")]:NAMESPACES:_default' \
@@ -818,6 +880,121 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
+;;
+(config)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_vanta-cli__subcmd__config_commands" \
+"*::: :->config" \
+&& ret=0
+
+    case $state in
+    (config)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-config-command-$line[1]:"
+        case $line[1] in
+            (show)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'--reveal-secrets[Reveal sensitive secrets (API keys, JWT, passwords) instead of masking them]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-g[Save to user global config (~/.vanta/config.toml) instead of project-local (./vanta.toml)]' \
+'--global[Save to user global config (~/.vanta/config.toml) instead of project-local (./vanta.toml)]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':key -- Configuration key (e.g. storage_path, port, embedding_provider, strict_embeddings):_default' \
+':value -- Value to assign:_default' \
+&& ret=0
+;;
+(init)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-f[Overwrite existing vanta.toml if present]' \
+'--force[Overwrite existing vanta.toml if present]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__config__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-config-help-command-$line[1]:"
+        case $line[1] in
+            (show)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(init)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
@@ -1043,6 +1220,26 @@ _arguments "${_arguments_options[@]}" : \
     ;;
 esac
 ;;
+(encryption)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__help__subcmd__encryption_commands" \
+"*::: :->encryption" \
+&& ret=0
+
+    case $state in
+    (encryption)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-help-encryption-command-$line[1]:"
+        case $line[1] in
+            (rotate)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
 (search-multi)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -1058,6 +1255,38 @@ _arguments "${_arguments_options[@]}" : \
 (mcp-call)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
+;;
+(config)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__help__subcmd__config_commands" \
+"*::: :->config" \
+&& ret=0
+
+    case $state in
+    (config)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-help-config-command-$line[1]:"
+        case $line[1] in
+            (show)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(init)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
@@ -1102,10 +1331,12 @@ _vanta-cli_commands() {
 'namespace:Manage namespaces' \
 'snapshot:Manage instant filesystem snapshots' \
 'wal:Manage the Write-Ahead Log (compact, vacuum)' \
+'encryption:Manage the at-rest encryption of a database (rotate the master key)' \
 'search-multi:Search across multiple namespaces and merge results by score' \
 'search-all:Search across ALL known namespaces and merge results by score' \
 'server:Start the HTTP or MCP server wrapper' \
 'mcp-call:Call one MCP tool through a one-shot stdio server (no pwsh needed)' \
+'config:Manage, view, and validate VantaDB configuration across all 5 cascade layers (FIND-385)' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'vanta-cli commands' commands "$@"
@@ -1156,6 +1387,73 @@ _vanta-cli__subcmd__completions_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli completions commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__config_commands] )) ||
+_vanta-cli__subcmd__config_commands() {
+    local commands; commands=(
+'show:Show current effective configuration with layer origins (CLI > Env > ./vanta.toml > ~/.vanta/config.toml > Defaults)' \
+'set:Set a configuration value in local or global configuration file' \
+'init:Generate an annotated vanta.toml configuration file with defaults' \
+'doctor:Run comprehensive pre-flight health and configuration checks' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli config commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__doctor_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config doctor commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__help_commands() {
+    local commands; commands=(
+'show:Show current effective configuration with layer origins (CLI > Env > ./vanta.toml > ~/.vanta/config.toml > Defaults)' \
+'set:Set a configuration value in local or global configuration file' \
+'init:Generate an annotated vanta.toml configuration file with defaults' \
+'doctor:Run comprehensive pre-flight health and configuration checks' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli config help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__help__subcmd__doctor_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__help__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config help doctor commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__help__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config help help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__help__subcmd__init_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__help__subcmd__init_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config help init commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__help__subcmd__set_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__help__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config help set commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__help__subcmd__show_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__help__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config help show commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__init_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__init_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config init commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__set_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config set commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__config__subcmd__show_commands] )) ||
+_vanta-cli__subcmd__config__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli config show commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__count_commands] )) ||
 _vanta-cli__subcmd__count_commands() {
     local commands; commands=()
@@ -1175,6 +1473,37 @@ _vanta-cli__subcmd__delete-by-filter_commands() {
 _vanta-cli__subcmd__doctor_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli doctor commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__encryption_commands] )) ||
+_vanta-cli__subcmd__encryption_commands() {
+    local commands; commands=(
+'rotate:Rotate the master key\: the DEKs are re-wrapped, never re-derived, so no ciphertext on disk is invalidated. The previous registry is kept as \`encryption.registry.bak\` for a manual rollback' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli encryption commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__encryption__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__encryption__subcmd__help_commands() {
+    local commands; commands=(
+'rotate:Rotate the master key\: the DEKs are re-wrapped, never re-derived, so no ciphertext on disk is invalidated. The previous registry is kept as \`encryption.registry.bak\` for a manual rollback' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli encryption help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__encryption__subcmd__help__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__encryption__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli encryption help help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__encryption__subcmd__help__subcmd__rotate_commands] )) ||
+_vanta-cli__subcmd__encryption__subcmd__help__subcmd__rotate_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli encryption help rotate commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__encryption__subcmd__rotate_commands] )) ||
+_vanta-cli__subcmd__encryption__subcmd__rotate_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli encryption rotate commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__export_commands] )) ||
 _vanta-cli__subcmd__export_commands() {
@@ -1216,10 +1545,12 @@ _vanta-cli__subcmd__help_commands() {
 'namespace:Manage namespaces' \
 'snapshot:Manage instant filesystem snapshots' \
 'wal:Manage the Write-Ahead Log (compact, vacuum)' \
+'encryption:Manage the at-rest encryption of a database (rotate the master key)' \
 'search-multi:Search across multiple namespaces and merge results by score' \
 'search-all:Search across ALL known namespaces and merge results by score' \
 'server:Start the HTTP or MCP server wrapper' \
 'mcp-call:Call one MCP tool through a one-shot stdio server (no pwsh needed)' \
+'config:Manage, view, and validate VantaDB configuration across all 5 cascade layers (FIND-385)' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'vanta-cli help commands' commands "$@"
@@ -1251,6 +1582,36 @@ _vanta-cli__subcmd__help__subcmd__completions_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help completions commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__help__subcmd__config_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__config_commands() {
+    local commands; commands=(
+'show:Show current effective configuration with layer origins (CLI > Env > ./vanta.toml > ~/.vanta/config.toml > Defaults)' \
+'set:Set a configuration value in local or global configuration file' \
+'init:Generate an annotated vanta.toml configuration file with defaults' \
+'doctor:Run comprehensive pre-flight health and configuration checks' \
+    )
+    _describe -t commands 'vanta-cli help config commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__config__subcmd__doctor_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__config__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help config doctor commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__config__subcmd__init_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__config__subcmd__init_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help config init commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__config__subcmd__set_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__config__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help config set commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__config__subcmd__show_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__config__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help config show commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__count_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__count_commands() {
     local commands; commands=()
@@ -1270,6 +1631,18 @@ _vanta-cli__subcmd__help__subcmd__delete-by-filter_commands() {
 _vanta-cli__subcmd__help__subcmd__doctor_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help doctor commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__encryption_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__encryption_commands() {
+    local commands; commands=(
+'rotate:Rotate the master key\: the DEKs are re-wrapped, never re-derived, so no ciphertext on disk is invalidated. The previous registry is kept as \`encryption.registry.bak\` for a manual rollback' \
+    )
+    _describe -t commands 'vanta-cli help encryption commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__encryption__subcmd__rotate_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__encryption__subcmd__rotate_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help encryption rotate commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__export_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__export_commands() {
