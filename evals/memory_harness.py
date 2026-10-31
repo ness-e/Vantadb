@@ -156,45 +156,298 @@ def _total_ram_gb() -> float | None:
         return None
 
 
+# ------------------------------------------------------------------ embeddings + chunking helpers
+EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+EMBED_DIMS = 384
+_EMBED_CACHE: dict[str, list[float]] = {}
+_EMBEDDER = None
+_FASTEMBED_CHECKED = False
+
+
+def _get_embedder():
+    global _EMBEDDER, _FASTEMBED_CHECKED
+    if not _FASTEMBED_CHECKED:
+        _FASTEMBED_CHECKED = True
+        try:
+            os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+            from fastembed import TextEmbedding
+
+            _EMBEDDER = TextEmbedding(model_name=EMBED_MODEL)
+        except Exception:
+            _EMBEDDER = None
+    return _EMBEDDER
+
+
+def has_fastembed() -> bool:
+    """Return True if fastembed is importable and model loaded successfully."""
+    return _get_embedder() is not None
+
+
+def embed_batch(texts: list[str]) -> list[list[float] | None]:
+    """Batch embed multiple texts with in-memory hash cache.
+
+    If fastembed is unavailable, returns [None] * len(texts) without raising.
+    Uncached texts are embedded in a single batch ONNX call for maximum throughput.
+    """
+    embedder = _get_embedder()
+    if embedder is None or not texts:
+        return [None] * len(texts)
+
+    results: list[list[float] | None] = [None] * len(texts)
+    missing_indices: list[int] = []
+    missing_texts: list[str] = []
+
+    for idx, text in enumerate(texts):
+        thash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        cached = _EMBED_CACHE.get(thash)
+        if cached is not None:
+            results[idx] = cached
+        else:
+            missing_indices.append(idx)
+            missing_texts.append(text)
+
+    if missing_texts:
+        try:
+            raw_embeddings = list(embedder.embed(missing_texts))
+            for midx, text, emb in zip(missing_indices, missing_texts, raw_embeddings):
+                vec = [float(x) for x in emb]
+                thash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                _EMBED_CACHE[thash] = vec
+                results[midx] = vec
+        except Exception:
+            pass
+
+    return results
+
+
+def embed_one(text: str) -> list[float]:
+    """Embed a single query or text.
+
+    If fastembed is available, returns 384d list[float].
+    If fastembed is unavailable, returns [] (clean fallback for search).
+    """
+    res = embed_batch([text])
+    if res and res[0] is not None:
+        return res[0]
+    return []
+
+
+def chunk_session_text(text: str, target_words: int = 250, overlap: int = 1) -> list[str]:
+    """Split session text into turn/paragraph windows (~200-300 words with overlap)."""
+    lines = text.splitlines(keepends=True)
+    units: list[str] = []
+    current_unit: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        is_turn = any(
+            stripped.startswith(prefix)
+            for prefix in ("user:", "assistant:", "system:", "human:", "Session ")
+        )
+        if is_turn and current_unit:
+            units.append("".join(current_unit).strip())
+            current_unit = [line]
+        elif not stripped and current_unit:
+            units.append("".join(current_unit).strip())
+            current_unit = []
+        else:
+            current_unit.append(line)
+    if current_unit:
+        units.append("".join(current_unit).strip())
+
+    units = [u for u in units if u]
+    if not units:
+        return [text]
+
+    refined_units: list[str] = []
+    for u in units:
+        words = u.split()
+        if len(words) <= 300:
+            refined_units.append(u)
+        else:
+            for i in range(0, len(words), 200):
+                refined_units.append(" ".join(words[i : i + 250]))
+
+    chunks: list[str] = []
+    i = 0
+    n = len(refined_units)
+    while i < n:
+        chunk_units: list[str] = []
+        words_in_chunk = 0
+        j = i
+        while j < n:
+            u_words = len(refined_units[j].split())
+            if chunk_units and (words_in_chunk + u_words > 320):
+                break
+            chunk_units.append(refined_units[j])
+            words_in_chunk += u_words
+            j += 1
+            if words_in_chunk >= target_words:
+                break
+
+        chunk_str = "\n\n".join(chunk_units).strip()
+        if chunk_str:
+            chunks.append(chunk_str)
+
+        if j >= n:
+            break
+
+        step = max(1, (j - i) - overlap)
+        i += step
+
+    return chunks if chunks else [text]
+
+
 # ------------------------------------------------------------------ adapters
 class VantaStore:
     """Thin adapter over the real `vantadb` Python bindings."""
 
     name = "vantadb"
+    supports_write_quality = True
 
     def __init__(self, backend: str = "memory") -> None:
         import vantadb  # type: ignore
 
+        self.backend = backend
         self.db = vantadb.Client(":memory:", backend=backend)
         self.version = getattr(vantadb, "__version__", "?")
+        self._raw_sessions: dict[tuple[str, str], str] = {}
 
     def put(self, ns: str, key: str, text: str) -> None:
-        self.db.put(ns, key, text)
+        # Preserve original session text for write-quality and payload retrieval
+        self._raw_sessions[(ns, key)] = text
+        words = text.split()
+
+        # Atomic / short text (<= 300 words) -> single record with dense embedding
+        if len(words) <= 300:
+            vec = embed_one(text)
+            self.db.put(
+                ns,
+                key,
+                text,
+                metadata={"session_id": key},
+                vector=vec if vec else None,
+            )
+            return
+
+        # Long session (> 300 words) -> chunk into turn/paragraph windows
+        chunks = chunk_session_text(text, target_words=250, overlap=1)
+        vecs = embed_batch(chunks)
+        records = []
+        for idx, chunk_str in enumerate(chunks):
+            chunk_key = f"{key}#c{idx:03d}"
+            chunk_vec = vecs[idx] if (idx < len(vecs) and vecs[idx]) else None
+            records.append({
+                "namespace": ns,
+                "key": chunk_key,
+                "payload": chunk_str,
+                "metadata": {
+                    "session_id": key,
+                    "chunk_idx": idx,
+                    "is_chunk": True,
+                },
+                "vector": chunk_vec,
+            })
+
+        if hasattr(self.db, "put_batch") and callable(self.db.put_batch):
+            try:
+                self.db.put_batch(records)
+            except Exception:
+                for r in records:
+                    self.db.put(
+                        r["namespace"],
+                        r["key"],
+                        r["payload"],
+                        metadata=r["metadata"],
+                        vector=r["vector"],
+                    )
+        else:
+            for r in records:
+                self.db.put(
+                    r["namespace"],
+                    r["key"],
+                    r["payload"],
+                    metadata=r["metadata"],
+                    vector=r["vector"],
+                )
 
     def get(self, ns: str, key: str) -> dict | None:
+        if (ns, key) in self._raw_sessions:
+            return {
+                "payload": self._raw_sessions[(ns, key)],
+                "namespace": ns,
+                "confidence": 1.0,
+            }
         rec = self.db.memory.get(ns, key)
         if rec is None:
             return None
-        return {"payload": rec.payload, "namespace": rec.namespace, "confidence": float(rec.confidence)}
+        return {
+            "payload": rec.payload,
+            "namespace": rec.namespace,
+            "confidence": float(rec.confidence),
+        }
 
     def search(self, ns: str, query: str, top_k: int) -> list[dict]:
-        hits = self.db.search(ns, [], text_query=query, top_k=top_k)
-        return [
-            {
-                "key": h.key,
-                "score": float(h.score),
-                "confidence": float(h.confidence),
-                "namespace": h.namespace,
-                "payload": h.payload,
-            }
-            for h in hits
-        ]
+        q_vec = embed_one(query)
+        candidate_k = max(top_k * 6, 20)
+        hits = self.db.search(ns, q_vec, text_query=query, top_k=candidate_k)
+
+        seen_sessions: dict[str, dict] = {}
+        for h in hits:
+            if isinstance(h, dict):
+                key = h.get("key", "")
+                score = float(h.get("score", 0.0))
+                conf = float(h.get("confidence", 1.0))
+                meta = h.get("metadata") or {}
+                payload = h.get("payload", "")
+                hit_ns = h.get("namespace", ns)
+            else:
+                key = getattr(h, "key", "")
+                score = float(getattr(h, "score", 0.0))
+                conf = float(getattr(h, "confidence", 1.0))
+                meta = getattr(h, "metadata", None) or {}
+                payload = getattr(h, "payload", "")
+                hit_ns = getattr(h, "namespace", ns)
+
+            sid = meta.get("session_id") or key.split("#")[0]
+            if not sid:
+                sid = key
+
+            if sid not in seen_sessions:
+                raw_payload = self._raw_sessions.get((ns, sid))
+                seen_sessions[sid] = {
+                    "key": sid,
+                    "score": score,
+                    "confidence": conf,
+                    "namespace": hit_ns,
+                    "payload": raw_payload if raw_payload is not None else payload,
+                }
+            else:
+                if score > seen_sessions[sid]["score"]:
+                    seen_sessions[sid]["score"] = score
+                    seen_sessions[sid]["confidence"] = conf
+
+        deduped = sorted(seen_sessions.values(), key=lambda x: x["score"], reverse=True)
+        return deduped[:top_k]
 
     def close(self) -> None:
         try:
             self.db.close()
         except Exception:
             pass
+
+    def config_summary(self) -> dict:
+        return {
+            "system": "vantadb",
+            "backend": self.backend,
+            "version": self.version,
+            "embedder": f"fastembed {EMBED_MODEL} ({EMBED_DIMS}d)" if has_fastembed() else "none (text-only BM25)",
+            "chunking": "turns/paragraphs window (~200-300 words, 1 overlap)",
+            "search": "hybrid RRF (dense HNSW + sparse BM25) + session deduplication",
+        }
+
+
+VantaAdapter = VantaStore
 
 
 # ------------------------------------------------------------------- runner

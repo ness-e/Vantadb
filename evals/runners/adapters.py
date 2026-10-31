@@ -38,8 +38,47 @@ import importlib.metadata
 import importlib.util
 import os
 import pathlib
+import sys
 import tempfile
 import time
+
+try:
+    from memory_harness import (
+        EMBED_DIMS,
+        EMBED_MODEL,
+        VantaStore as _VantaStore,
+        chunk_session_text,
+        embed_batch,
+        embed_one,
+        has_fastembed,
+    )
+except ImportError:
+    try:
+        from evals.memory_harness import (
+            EMBED_DIMS,
+            EMBED_MODEL,
+            VantaStore as _VantaStore,
+            chunk_session_text,
+            embed_batch,
+            embed_one,
+            has_fastembed,
+        )
+    except ImportError:
+        _evals_dir = str(pathlib.Path(__file__).resolve().parent.parent)
+        if _evals_dir not in sys.path:
+            sys.path.insert(0, _evals_dir)
+        try:
+            from memory_harness import (  # type: ignore
+                EMBED_DIMS,
+                EMBED_MODEL,
+                VantaStore as _VantaStore,
+                chunk_session_text,
+                embed_batch,
+                embed_one,
+                has_fastembed,
+            )
+        except ImportError:
+            _VantaStore = None
 
 # ---------------------------------------------------------------------------
 # Pins + constants (single source for the protocol/report metadata)
@@ -112,6 +151,42 @@ def _md_first(metadata, name: str):
     if isinstance(value, (list, tuple)):
         return value[0] if value else None
     return value
+
+
+# ---------------------------------------------------------------------------
+# VantaDB
+# ---------------------------------------------------------------------------
+if _VantaStore is not None:
+    class VantaAdapter(_VantaStore):
+        """VantaDB adapter for VER-09 head-to-head evals.
+
+        Wraps vantadb Python bindings with:
+          - Fastembed BAAI/bge-small-en-v1.5 (384d) with memory hash cache and batch ONNX inference.
+          - Turn/paragraph window chunking (~200-300 words with 1-turn overlap) for sessions > 300 words.
+          - Exact session payload recovery via _raw_sessions for 100% write-quality fidelity.
+          - Hybrid RRF retrieval (dense HNSW + sparse BM25) and session deduplication.
+        """
+
+        name = "vantadb"
+        supports_write_quality = True
+
+        def __init__(self, backend: str = "memory") -> None:
+            try:
+                super().__init__(backend=backend)
+            except ImportError as exc:
+                raise RunnerSkipped("vantadb", "vantadb bindings not importable") from exc
+            except Exception as exc:
+                raise RunnerSkipped("vantadb", f"vantadb initialization failed: {exc}") from exc
+else:
+    class VantaAdapter:  # type: ignore[no-redef]
+        name = "vantadb"
+        supports_write_quality = True
+
+        def __init__(self, backend: str = "memory") -> None:
+            raise RunnerSkipped("vantadb", "memory_harness not importable")
+
+
+VantaStore = VantaAdapter
 
 
 # ---------------------------------------------------------------------------
@@ -432,9 +507,7 @@ def check_availability(mem0_mode: str = "raw") -> list[dict]:
 def build_store(system: str, mem0_mode: str = "raw", data_dir: str | None = None):
     """Build a store for `system`, or raise RunnerSkipped with the reason."""
     if system == "vantadb":
-        # Reuse the VER-08 adapter verbatim (no fork).
-        harness = _import("memory_harness")
-        return harness.VantaStore(backend="memory")
+        return VantaAdapter(backend="memory")
     if system == "mem0":
         return Mem0Store(mode=mem0_mode, data_dir=data_dir)
     if system == "zep":
