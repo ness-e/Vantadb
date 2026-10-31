@@ -34,7 +34,7 @@
 
 
 
-VantaDB is a local-first, embedded memory engine for AI agents. **One product, four surfaces** — the durable **engine** (WAL-backed storage, hybrid retrieval, and the agentic memory pipeline `vanta-memory` L0→L3: capture → dedup → scenes → persona + dream), the **agent door** (MCP for AI IDEs), the **studio** (desktop viewer) and the **lab** (bounded experiments) — delivering durable, governed agent memory with crash-safe recovery via WAL and native hybrid retrieval (BM25 + HNSW + RRF) that powers local RAG workflows. One installer, one CLI; no external services, containers, or network dependencies.
+VantaDB is the local-first cognitive memory engine for AI agents ("SQLite for agents"). **One core engine, four surfaces** — the durable **engine** (WAL-backed storage, hybrid retrieval BM25 + HNSW + RRF, and the agentic memory pipeline `vanta-memory` L0→L3: capture → dedup → scenes → persona + dream), the **agent door** (MCP for AI IDEs like Claude Code, Cursor, OpenCode), the **studio** (desktop viewer) and the **lab** (bounded experiments) — delivering durable, governed agent memory with crash-safe recovery via WAL, unified memory lifecycle (`forget()` with Soft, Hard and Certified modes) and native hybrid retrieval that powers local RAG workflows. One installer, one CLI; no external services, containers, or network dependencies.
 
 ---
 
@@ -67,22 +67,9 @@ pip install vantadb-py
 
 > **Note:** The distribution name is `vantadb-py`, and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` still works but emits a `DeprecationWarning`.
 >
-> **Naming (ADR-0047 anti-stutter):** canonical names are `Client` (legacy
-> `VantaDB` alias removed in 0.6.0, AST-010), `Record`, `SearchHit`/`Hit`,
-> `ListResult`, `Vector` (the TypeScript SDK additionally exposes a `Config`
-> type). Memory methods
-> live on the `db.memory` sub-client (`memory.get` / `memory.list` / `memory.delete`);
-> hybrid search is `db.search(...)` (AST-008/AST-012: flat `search_memory`/`get_memory` removed),
-> and pure vector ANN is `db.search_vector(...)`.
+> **Naming:** canonical names are `Client`, `Record`, `SearchHit`/`Hit`, `ListResult`, `Vector` (the TypeScript SDK additionally exposes a `Config` type). Memory methods live on the `db.memory` sub-client (`memory.get` / `memory.list` / `memory.delete` / `memory.forget`); hybrid search is `db.search(...)`, and pure vector ANN is `db.search_vector(...)`.
 >
-> **Naming convention:** the product is **VantaDB**; the Rust crate is `vantadb`,
-> the PyPI package is `vantadb-py`, the npm packages are `vantadb` (TypeScript/WASM)
-> and `vantadb-node` (native), and the GitHub repository is `ness-e/Vantadb`.
-> The three active language connectors are **TypeScript/WASM** (`vantadb` on npm),
-> **Node native** (`vantadb-node` on npm) and **Python** (`vantadb-py` on PyPI);
-> the raw WASM binding ships underneath the TypeScript SDK as `vantadb-wasm`.
-> See [ADR-0030](docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md)
-> for the full audit and rationale.
+> **Naming convention:** the product is **VantaDB**; the Rust crate is `vantadb`, the PyPI package is `vantadb-py`, the npm packages are `vantadb` (TypeScript/WASM) and `vantadb-node` (native), and the GitHub repository is `ness-e/Vantadb`. The three active language connectors are **TypeScript/WASM** (`vantadb` on npm), **Node native** (`vantadb-node` on npm) and **Python** (`vantadb-py` on PyPI); the raw WASM binding ships underneath the TypeScript SDK as `vantadb-wasm`.
 
 For development from source:
 
@@ -240,15 +227,9 @@ VantaDB is **one product** you install once (one installer → one CLI → one w
 
 *VantaDB is an embedded memory engine for agents — not a universal multimodel database or a cloud platform.*
 
-### North Star
+### Agent Continuity & Memory Retention
 
-The product North Star — **sessions with put + search in a 7-day window** — is computed from the proxy store, where both halves land (`proxy-turns` and `proxy-memory-events`):
-
-```bash
-python scripts/north_star_metric.py --db <proxy-db-path> [--days 7] [--json]
-```
-
-**Status: first measurement pending.** No proxy store with captured sessions exists yet (`vanta-proxy` ships frozen until 1.0.0), and no number is published without a reproducible run. See [PROXY.md § North Star metric](docs/api/PROXY.md#north-star-metric-icp-01) for the methodology; `--self-test` exercises the windowing logic offline.
+VantaDB is designed to maximize long-term agent effectiveness across sessions. By capturing conversation turns and memory events through its cognitive layers (`vanta-memory` L0→L3), agents maintain durable, stateful context, personal preferences, and relevant background over multi-day interactions without bloating prompt windows or losing past decisions.
 
 ### Platform notes
 
@@ -307,7 +288,7 @@ cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 
 > [!NOTE]
 > Source of truth: `README.md` § One-Line Installation and `docs/user/QUICKSTART.md` §0
-> (one-liner FIND-105 + `.sha256` verification + `--no-wizard`/`-NoWizard` wizard
+> (one-liner installation with `.sha256` verification + `--no-wizard`/`-NoWizard` wizard
 > + `--dry-run`/`-DryRun`). If this block drifts, the source wins.
 >
 > Prebuilt binaries from [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (and the install scripts above) already include the HTTP server feature. If you install from source with `cargo install` and need `vanta-cli server --http`, enable it explicitly:
@@ -406,7 +387,7 @@ export VANTADB_HOST=0.0.0.0
 
 ## Benchmarks & Performance Baseline
 
-VantaDB includes a formal Python-native performance benchmark suite (**BENCH-01**) to capture ingestion throughput and query latency profiles under synthetic, single-threaded workloads.
+VantaDB includes a formal Python-native performance benchmark suite to capture ingestion throughput and query latency profiles under synthetic workloads.
 
 ### In-Process Performance Baseline (10K Vectors, 128d, Cosine)
 
@@ -476,11 +457,8 @@ Results are printed to the console and written to `metricas/benchmarks/vanta_ben
 | [Python Release Policy](docs/user/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, production publishing, signing, release assets, and rollback. |
 | [Reliability Gate](docs/user/operations/RELIABILITY_GATE.md) | Policies for RSS memory stability, chaos injection, and WAL durability. |
 | [Experimental Features](docs/user/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
-| [CI Policy](docs/dev/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
 | [Benchmarks](docs/user/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
-| [Changelog](CHANGELOG.md) | Version history and release notes. |
-| [Deep Audit (2026-10-20)](docs/dev/reviews/2026-10-20-auditoria-profunda-v0.9.0.md) | Exhaustive self-review of the v0.9.0 tree: 141 findings with per-area coverage, the fix for each, and the limits of the verification. |
-| [v0.9.0 Release Post-Mortem](docs/dev/reviews/2026-10-20-release-v0.9.0-postmortem.md) | The 7 failures that cost the v0.9.0 release, their root causes, and the pre-flight checklist that prevents a repeat. |
+| [Changelog](CHANGELOG.md) | Version history, post-mortems, and release notes. |
 
 ---
 

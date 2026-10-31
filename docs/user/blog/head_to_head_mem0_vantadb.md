@@ -1,6 +1,6 @@
 ---
 title: Head-to-Head — VantaDB vs mem0 en memoria real
-kind: reference
+kind: howto
 status: active
 description: Comparativa honesta vantadb vs mem0 OSS sobre LongMemEval-S con el mismo harness, juez y slice
 tags: [vantadb, benchmarks, memory, head-to-head]

@@ -32,7 +32,7 @@
   <a href="README.md">🇺🇸 English</a>
 </div>
 
-VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de IA. **Un producto, cuatro superficies** — el **motor** (almacenamiento con WAL, recuperación híbrida y el pipeline de memoria agéntica `vanta-memory` L0→L3: captura → dedup → escenas → persona + dream), la **puerta de agentes** (MCP para IDEs de IA), el **estudio** (visor de escritorio) y el **laboratorio** (experimentos acotados) — que entrega memoria de agente duradera y gobernada, con recuperación resistente a fallos vía WAL y búsqueda híbrida nativa (BM25 + HNSW + RRF) que impulsa flujos de trabajo RAG locales. Un instalador, una CLI; sin necesidad de servicios externos, contenedores o dependencias de red.
+VantaDB es el motor de memoria cognitiva embebido y local-first para agentes de IA ("SQLite para agentes"). **Un núcleo de motor, cuatro superficies** — el **motor** duradero (almacenamiento con WAL, recuperación híbrida BM25 + HNSW + RRF y el pipeline de memoria agéntica `vanta-memory` L0→L3: captura → dedup → escenas → persona + dream), la **puerta de agentes** (MCP para IDEs de IA como Claude Code, Cursor, OpenCode), el **estudio** (visor de escritorio) y el **laboratorio** (experimentos acotados) — entregando memoria de agente duradera y gobernada, con recuperación resistente a fallos vía WAL, ciclo de vida unificado (`forget()` con modos Soft, Hard y Certified) y búsqueda híbrida nativa que impulsa flujos de trabajo RAG locales. Un instalador, una CLI; sin necesidad de servicios externos, contenedores o dependencias de red.
 
 ---
 
@@ -66,22 +66,9 @@ pip install vantadb-py
 > `import vantadb` (igual que el crate de Rust y el paquete de npm).
 > `import vantadb_py` sigue funcionando pero emite un `DeprecationWarning`.
 >
-> **Nombres (ADR-0047 anti-stutter):** los nombres canónicos son `Client` (el alias legacy
-> `VantaDB` fue removido en 0.6.0, AST-010), `Record`, `SearchHit`/`Hit`,
-> `ListResult`, `Vector` (el SDK de TypeScript expone además un tipo `Config`).
-> Los métodos de memoria
-> viven en el sub-cliente `db.memory` (`memory.get` / `memory.list` / `memory.delete`);
-> la búsqueda híbrida es `db.search(...)` (AST-008/AST-012: `search_memory`/`get_memory` planos removidos),
-> y la ANN vectorial pura es `db.search_vector(...)`.
+> **Nombres:** los nombres canónicos son `Client`, `Record`, `SearchHit`/`Hit`, `ListResult`, `Vector` (el SDK de TypeScript expone además un tipo `Config`). Los métodos de memoria viven en el sub-cliente `db.memory` (`memory.get` / `memory.list` / `memory.delete` / `memory.forget`); la búsqueda híbrida es `db.search(...)`, y la ANN vectorial pura es `db.search_vector(...)`.
 >
-> **Convención de nombres:** el producto es **VantaDB**; el crate de Rust es `vantadb`,
-> el paquete de PyPI es `vantadb-py`, los paquetes de npm son `vantadb` (TypeScript/WASM)
-> y `vantadb-node` (nativo), y el repositorio de GitHub es `ness-e/Vantadb`.
-> Los tres conectores de lenguaje activos son **TypeScript/WASM** (`vantadb` en npm),
-> **Node nativo** (`vantadb-node` en npm) y **Python** (`vantadb-py` en PyPI);
-> el binding WASM crudo se publica bajo el SDK de TypeScript como `vantadb-wasm`.
-> Ver [ADR-0030](docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md)
-> para la auditoría completa y la justificación.
+> **Convención de nombres:** el producto es **VantaDB**; el crate de Rust es `vantadb`, el paquete de PyPI es `vantadb-py`, los paquetes de npm son `vantadb` (TypeScript/WASM) y `vantadb-node` (nativo), y el repositorio de GitHub es `ness-e/Vantadb`. Los tres conectores de lenguaje activos son **TypeScript/WASM** (`vantadb` en npm), **Node nativo** (`vantadb-node` en npm) y **Python** (`vantadb-py` en PyPI); el binding WASM crudo se publica bajo el SDK de TypeScript como `vantadb-wasm`.
 
 Para desarrollo desde el código fuente:
 
@@ -230,7 +217,7 @@ VantaDB es **un producto** que se instala una vez (un instalador → una CLI →
 | Superficie | Qué es | Estado hasta 1.0 |
 | :--- | :--- | :--- |
 | **Motor** (núcleo) | Memoria embebida: durabilidad con WAL, recuperación vectorial HNSW, BM25 + híbrida (RRF), namespaces, índices de metadatos, export/import — más el **motor de memoria agéntica `vanta-memory` (L0→L3)**: captura → dedup → escenas → persona + consolidación (dream). | **Activa** |
-| **Agente** (MCP) | `vantadb-mcp` — la puerta para IDEs de IA y agentes ([guía de configuración](docs/api/MCP.md)). Acá se mide la North Star: **sesiones con put + search en una ventana de 7 días** ([detalles](#north-star)). | **Activa** |
+| **Agente** (MCP) | `vantadb-mcp` — la puerta para IDEs de IA y agentes ([guía de configuración](docs/api/MCP.md)). Soporte para perfil cognitivo de alta densidad (`McpProfile::Brain`) y protocolo L0→L3. | **Activa** |
 | **Estudio** (escritorio) | App Tauri, **reducida a visor** (inspeccionar memoria y sesiones). El resto de su superficie queda congelado. | **Congelado** (visor) |
 | **Laboratorio** | Experimentos explícitamente acotados: `vanta-proxy` (gateway LLM — congelado, **sin publicar hasta 1.0.0**), consola web (repo aparte), providers LLM remotos, GraphRAG, extras de IQL. | **Congelado** |
 
@@ -240,15 +227,9 @@ VantaDB es **un producto** que se instala una vez (un instalador → una CLI →
 
 *VantaDB es un motor de memoria para agentes — no una base de datos universal multimodelo ni una plataforma en la nube.*
 
-### North Star
+### Continuidad del agente y retención de memoria
 
-La North Star del producto — **sesiones con put + search en una ventana de 7 días** — se calcula a partir del almacén del proxy, donde landing ambas mitades (`proxy-turns` y `proxy-memory-events`):
-
-```bash
-python scripts/north_star_metric.py --db <proxy-db-path> [--days 7] [--json]
-```
-
-**Estado: primera medición pendiente.** Todavía no existe un almacén del proxy con sesiones capturadas (`vanta-proxy` va congelado hasta 1.0.0), y no se publica ningún número sin una corrida reproducible. Ver [PROXY.md § North Star metric](docs/api/PROXY.md#north-star-metric-icp-01) para la metodología; `--self-test` ejercita la lógica de ventanas offline.
+VantaDB está diseñado para maximizar la efectividad a largo plazo de los agentes a través de múltiples sesiones. Al capturar turnos conversacionales y eventos de memoria mediante sus capas cognitivas (`vanta-memory` L0→L3), los agentes mantienen contexto durable, preferencias de usuario y antecedentes relevantes entre sesiones sin saturar la ventana de contexto ni perder decisiones pasadas.
 
 ### Notas de plataforma
 
@@ -308,7 +289,7 @@ cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 
 > [!NOTE]
 > Fuente vigente: `README.md` § One-Line Installation y `docs/user/QUICKSTART.md` §0
-> (one-liner FIND-105 + verificación `.sha256` + wizard `--no-wizard`/`-NoWizard`
+> (instalación en una línea con verificación `.sha256` + wizard `--no-wizard`/`-NoWizard`
 > + `--dry-run`/`-DryRun`). Si este bloque difiere, manda la fuente.
 >
 > Los binarios precompilados de [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (y los scripts de instalación de arriba) ya incluyen la feature del servidor HTTP. Si instalas desde fuente con `cargo install` y necesitas `vanta-cli server --http`, actívala explícitamente:
@@ -407,7 +388,7 @@ export VANTADB_HOST=0.0.0.0
 
 ## Benchmarks y línea base de rendimiento
 
-VantaDB incluye una suite formal de benchmarks nativos de Python (**BENCH-01**) para capturar la tasa de ingesta y los perfiles de latencia de consultas bajo cargas sintéticas de un solo hilo.
+VantaDB incluye una suite formal de benchmarks nativos de Python para capturar la tasa de ingesta y los perfiles de latencia de consultas bajo cargas sintéticas de un solo hilo.
 
 ### Línea base de rendimiento en proceso (10K vectores, 128d, Coseno)
 
@@ -477,7 +458,6 @@ Los resultados se imprimen en la consola y se escriben en `metricas/benchmarks/v
 | [Política de release de Python](docs/user/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, publicación en producción, firmado, activos de release y rollback. |
 | [Puerta de fiabilidad](docs/user/operations/RELIABILITY_GATE.md) | Políticas de estabilidad de memoria RSS, inyección de caos y durabilidad del WAL. |
 | [Funcionalidades experimentales](docs/user/operations/EXPERIMENTAL_FEATURES.md) | Clasificación de superficie de producción, opcional, experimental y diferida. |
-| [Política de CI](docs/dev/operations/CI_POLICY.md) | Estrategia de integración continua, perfiles y puertas de certificación. |
 | [Benchmarks](docs/user/operations/BENCHMARKS.md) | Metodología y resultados del benchmark de rendimiento. |
 | [Changelog](CHANGELOG.md) | Historial de versiones y notas de lanzamiento. |
 

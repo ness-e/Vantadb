@@ -507,4 +507,5 @@ See [Memory Telemetry Contract](../../user/operations/MEMORY_TELEMETRY.md) for t
 
 - [Mutation and Recovery Protocol](MUTATION_RECOVERY_PROTOCOL.md) defines the canonical mutation order and rebuild behavior for ANN and derived indexes.
 - [Persistent Text Index Design](TEXT_INDEX_DESIGN.md) defines the BM25 text index, phrase-position support, and Hybrid Retrieval v1 RRF behavior for memory search.
+- [Operating Model](../OPERATING-MODEL.md) defines the strategic positioning (STRAT-01: "SQLite for agents"), worktree architecture separation, and cognitive governance model.
 - [Module Boundaries](BOUNDARIES.md) defines owners, allowed dependency directions (rules BND-01…BND-08), the storage↔index cycle as documented debt, the hybrid doctrine (slices outside, layers inside), and the Phase 3 gate for physical reorganization.

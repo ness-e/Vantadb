@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-166 documentation pages; it deliberately omits the 155 task files,
+168 documentation pages; it deliberately omits the 0 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -107,6 +107,8 @@ is in docs/index.md in the repository.
 ## Guides
 
 - [Frequently Asked Questions](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/FAQ.md): VantaDB is an embedded persistent memory engine for local-first AI applications. It combines vector similarity search (HNSW), full-text lexical search (BM25), hybrid search fusion, and structured metadata filtering in a single...
+- [GraphRAG Benchmark](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/graphrag-benchmark.md): Measured GraphRAG vs plain RAG latency and context cost on a deterministic corpus
+- [Head-to-Head — VantaDB vs mem0 en memoria real](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/head_to_head_mem0_vantadb.md): Comparativa honesta vantadb vs mem0 OSS sobre LongMemEval-S con el mismo harness, juez y slice
 - [Privacy & local LLMs — what VantaDB guarantees (and what it doesn't)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/PRIVACY.md): The exact privacy guarantees of the local-first stack — redaction-on-write, encrypted originals, certified delete, injection governance — with commands and a covered / not covered table
 - [VantaDB 5-Minute Quickstart](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/QUICKSTART.md): This quickstart validates the current v0.9.0 boundary from pre-built artifacts
 - [VantaDB for AI IDEs — persistent project memory over MCP](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/AI_IDES.md): One MCP server for persistent project memory in Claude Code, Cursor, OpenCode and Codex — what works today, how to install it, and what is not there yet
@@ -168,7 +170,7 @@ is in docs/index.md in the repository.
 - [Chaos Testing in VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/operations/chaos-testing.md): Chaos testing validates that VantaDB survives injected I/O failures without
 - [Durability Guarantees](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/DURABILITY_GUARANTEES.md): VantaDB is an embedded database, not a client-server DBMS. Durability is
 - [Error Observability — VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/OBSERVABILITY.md): Every vantadb::Error (the Rust core error enum; surfaced to Python as an
-- [Experimental Features and Product Boundary](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/EXPERIMENTAL_FEATURES.md): This document classifies the current v0.7.0 repository surface. It is the operational reference for
+- [Experimental Features and Product Boundary](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/EXPERIMENTAL_FEATURES.md): This document classifies the current v0.9.0 repository surface. It is the operational reference for
 - [Garbage Collection & TTL Guide](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/GC_TTL.md): VantaDB uses a TTL-based garbage collector implemented in src/gc.rs. The GcWorker tracks node expiration timestamps via a BTreeMap<u64, Vec<u64>> that maps expiration timestamps (seconds since UNIX epoch) to lists of node IDs
 - [Grafana Dashboard Setup](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/GRAFANA_SETUP.md): VantaDB exposes Prometheus metrics at /metrics on the HTTP port (default 8080)
 - [MCP Registry — server.json & ecosystem listings](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/MCP_REGISTRY.md): This document covers VantaDB's presence in the Model Context Protocol (MCP)

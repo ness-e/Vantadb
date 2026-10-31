@@ -1,6 +1,6 @@
 ---
 title: GraphRAG Benchmark
-kind: reference
+kind: howto
 status: active
 description: Measured GraphRAG vs plain RAG latency and context cost on a deterministic corpus
 tags: [vantadb, benchmarks, graphrag]
