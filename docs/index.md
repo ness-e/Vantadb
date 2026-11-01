@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-168 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+172 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (2)
 
@@ -23,13 +23,14 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [VantaDB Documentation](./README.md) | index | Welcome to the VantaDB documentation vault           |
 | [VantaDB Documentation](./index.md)  | index | Canonical index of the VantaDB documentation corpus. |
 
-## API reference (31)
+## API reference (32)
 
-### Index — 1
+### Index — 2
 
-| Document                        | Kind  | Summary        |
-| ------------------------------- | ----- | -------------- |
-| [API reference](./api/index.md) | index | Section index. |
+| Document                                                  | Kind  | Summary                                                                                            |
+| --------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------- |
+| [API reference](./api/index.md)                           | index | Section index.                                                                                     |
+| [Model Context Protocol (MCP) Server](./api/mcp/index.md) | index | MCP server reference for VantaDB: tools, profiles, Brain cognitive profile, and AI IDE integration |
 
 ### API reference — 30
 
@@ -66,7 +67,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Write receipts (VER-10) — attestation of writes](./api/WRITE_RECEIPTS.md)                    | reference | Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan                            |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)                  | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (85)
+## Internal / contributor (86)
 
 ### Architecture decision records — 61
 
@@ -163,11 +164,12 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Architecture Decision Records](./dev/architecture/adr/README.md) | index | Every decision VantaDB has made, with status and supersession links.                                                                                                                                                                    |
 | [GraphRAG README](./dev/graphrag/README.md)                       | index | VantaDB was designed from day one as a unified vector-graph database. Unlike projects that bolt a graph abstraction on top of a vector store, VantaDB's core primitives — nodes with typed relational fields, labeled weighted edges... |
 
-### Research — 1
+### Research — 2
 
-| Document                                                     | Kind     | Summary                                                                                                                                                   |
-| ------------------------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [WASM Crash and Durability Model](./dev/wasm/CRASH_MODEL.md) | research | Differential persistence changes when work happens, not the durability model. These gaps are tracked in WASMSTANDALONE.md (\\"Known limits (verified)\\") |
+| Document                                                         | Kind     | Summary                                                                                                                                                   |
+| ---------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Modelo Operativo del Sistema VantaDB](./dev/OPERATING-MODEL.md) | research | Modelo operativo y marco de gobernabilidad técnica de VantaDB: posicionamiento STRAT-01 ('SQLite para agentes'), arquitectura y ciclo de vida             |
+| [WASM Crash and Durability Model](./dev/wasm/CRASH_MODEL.md)     | research | Differential persistence changes when work happens, not the durability model. These gaps are tracked in WASMSTANDALONE.md (\\"Known limits (verified)\\") |
 
 ### Runbooks — 4
 
@@ -193,13 +195,20 @@ description: "Canonical index of the VantaDB documentation corpus."
 | ------------------------- | ----- | -------------- |
 | [specs](./specs/index.md) | index | Section index. |
 
-## End-user documentation (47)
+## End-user documentation (49)
 
-### Guides — 9
+### Concepts & architecture — 1
+
+| Document                                                                          | Kind    | Summary                                                                                    |
+| --------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| [VantaDB Architecture & Cognitive Memory Engine](./user/concepts/architecture.md) | concept | Architectural overview of VantaDB as the local-first cognitive memory engine for AI agents |
+
+### Guides — 10
 
 | Document                                                                                   | Kind  | Summary                                                                                                                                                                                                                               |
 | ------------------------------------------------------------------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Frequently Asked Questions](./user/FAQ.md)                                                | howto | VantaDB is an embedded persistent memory engine for local-first AI applications. It combines vector similarity search (HNSW), full-text lexical search (BM25), hybrid search fusion, and structured metadata filtering in a single... |
+| [Getting Started with VantaDB](./user/guide/getting-started.md)                            | howto | Quick start guide for embedding VantaDB as the local-first cognitive memory engine for AI agents                                                                                                                                      |
 | [GraphRAG Benchmark](./user/blog/graphrag-benchmark.md)                                    | howto | Measured GraphRAG vs plain RAG latency and context cost on a deterministic corpus                                                                                                                                                     |
 | [Head-to-Head — VantaDB vs mem0 en memoria real](./user/blog/head_to_head_mem0_vantadb.md) | howto | Comparativa honesta vantadb vs mem0 OSS sobre LongMemEval-S con el mismo harness, juez y slice                                                                                                                                        |
 | [Privacy & local LLMs — what VantaDB guarantees (and what it doesn't)](./user/PRIVACY.md)  | howto | The exact privacy guarantees of the local-first stack — redaction-on-write, encrypted originals, certified delete, injection governance — with commands and a covered / not covered table                                             |

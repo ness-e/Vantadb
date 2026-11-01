@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-168 documentation pages; it deliberately omits the 0 task files,
+172 documentation pages; it deliberately omits the 0 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -97,6 +97,7 @@ is in docs/index.md in the repository.
 - [Search Quality v2 Scoping](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/SEARCH_QUALITY_V2_SCOPING.md): Define the public API surface for snippet generation + highlighting in v0.6,
 - [Spec: MVP — VantaDB como memoria automática en agentes de código](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/SPEC.md): Contrato del MVP: memoria automática en agentes de código con un comando y cero configuración
 - [Storage Tiers](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/STORAGE-TIERS.md): Vector segments in VantaDB are stored as level-mapped VantaFile (mmap) blocks,
+- [VantaDB Architecture & Cognitive Memory Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/concepts/architecture.md): Architectural overview of VantaDB as the local-first cognitive memory engine for AI agents
 - [VantaDB Internal Architecture](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/ARCHITECTURE.md): This document reflects the current repo truth for v0.8.0 (verified 2026-10-15: WAL layout, record variants incl. WAL v2 transactions, HTTP ownership). It describes the embedded core, the durability path, the current retrieval model, and the limits that still...
 - [VantaDB Module Boundaries](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/BOUNDARIES.md): Every top-level module in src/ has exactly one owner. The owner approves
 - [WASM Storage Review](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/WASM_STORAGE_REVIEW.md): Review of all storage backends used when VantaDB runs in a browser WASM environment
@@ -107,6 +108,7 @@ is in docs/index.md in the repository.
 ## Guides
 
 - [Frequently Asked Questions](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/FAQ.md): VantaDB is an embedded persistent memory engine for local-first AI applications. It combines vector similarity search (HNSW), full-text lexical search (BM25), hybrid search fusion, and structured metadata filtering in a single...
+- [Getting Started with VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/guide/getting-started.md): Quick start guide for embedding VantaDB as the local-first cognitive memory engine for AI agents
 - [GraphRAG Benchmark](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/graphrag-benchmark.md): Measured GraphRAG vs plain RAG latency and context cost on a deterministic corpus
 - [Head-to-Head — VantaDB vs mem0 en memoria real](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/head_to_head_mem0_vantadb.md): Comparativa honesta vantadb vs mem0 OSS sobre LongMemEval-S con el mismo harness, juez y slice
 - [Privacy & local LLMs — what VantaDB guarantees (and what it doesn't)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/PRIVACY.md): The exact privacy guarantees of the local-first stack — redaction-on-write, encrypted originals, certified delete, injection governance — with commands and a covered / not covered table
@@ -122,6 +124,7 @@ is in docs/index.md in the repository.
 - [Architecture Decision Records](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/README.md): Every decision VantaDB has made, with status and supersession links.
 - [End-user documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/index.md): Section index.
 - [GraphRAG README](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/graphrag/README.md): VantaDB was designed from day one as a unified vector-graph database. Unlike projects that bolt a graph abstraction on top of a vector store, VantaDB's core primitives — nodes with typed relational fields, labeled weighted edges...
+- [Model Context Protocol (MCP) Server](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/mcp/index.md): MCP server reference for VantaDB: tools, profiles, Brain cognitive profile, and AI IDE integration
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/README.md): Welcome to the VantaDB documentation vault
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
@@ -162,6 +165,7 @@ is in docs/index.md in the repository.
 
 ## Research
 
+- [Modelo Operativo del Sistema VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/OPERATING-MODEL.md): Modelo operativo y marco de gobernabilidad técnica de VantaDB: posicionamiento STRAT-01 ('SQLite para agentes'), arquitectura y ciclo de vida
 - [WASM Crash and Durability Model](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/wasm/CRASH_MODEL.md): Differential persistence changes when work happens, not the durability model. These gaps are tracked in WASMSTANDALONE.md (\"Known limits (verified)\")
 
 ## Runbooks

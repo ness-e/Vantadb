@@ -220,7 +220,7 @@ const outputs = new Map(); // rel -> content
       L.push("");
     }
   }
-  outputs.set(target, L.join("\n"));
+  outputs.set(target, L.join("\n").trimEnd() + "\n");
 }
 
 // 2. ADR index
@@ -256,7 +256,7 @@ const outputs = new Map(); // rel -> content
       return { t, k: "", d: d || "_—_" };
     });
     L.push(table(rows));
-    outputs.set(target, L.join("\n"));
+    outputs.set(target, L.join("\n").trimEnd() + "\n");
   }
 }
 
@@ -291,7 +291,7 @@ const outputs = new Map(); // rel -> content
     L.push(`${inSection.length} documents.`);
     L.push("");
     L.push(table(inSection.sort(cmp).map((r) => rowFor(r, target))));
-    outputs.set(target, L.join("\n"));
+    outputs.set(target, L.join("\n").trimEnd() + "\n");
   }
 }
 
@@ -349,7 +349,7 @@ const outputs = new Map(); // rel -> content
     }
     L.push("");
   }
-  outputs.set(target, L.join("\n"));
+  outputs.set(target, L.join("\n").trimEnd() + "\n");
 }
 
 // --------------------------------------------------------------------- apply
