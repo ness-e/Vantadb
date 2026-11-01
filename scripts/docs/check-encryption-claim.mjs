@@ -36,7 +36,8 @@ const ROOT = process.cwd();
 
 // The files that carry the claim. They must agree with each other AND with
 // `docs/user/operations/CONFIGURATION.md` (the `encryption_key` row).
-const CLAIM_FILES = ["SECURITY.md", "src/crypto.rs"];
+const SECURITY_PATH = existsSync(join(ROOT, "SECURITY.md")) ? "SECURITY.md" : ".github/SECURITY.md";
+const CLAIM_FILES = [SECURITY_PATH, "src/crypto.rs"];
 const REFERENCE_DOC = "docs/user/operations/CONFIGURATION.md";
 
 // How the code says "the storage files are still plaintext". Any of these
@@ -123,7 +124,7 @@ function evaluate() {
       detail: unqualified,
     };
   }
-  if (wired && files["SECURITY.md"].honest) {
+  if (wired && files[SECURITY_PATH]?.honest) {
     return {
       ok: false,
       wired,
@@ -131,7 +132,7 @@ function evaluate() {
       files,
       problems: [],
       claim: "stale-negative-while-wired",
-      detail: ["SECURITY.md"],
+      detail: [SECURITY_PATH],
     };
   }
   return { ok: true, wired, markerIn, files, problems: [], claim: "consistent" };
