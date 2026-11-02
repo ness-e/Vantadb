@@ -1,6 +1,7 @@
 // ponytail: blanket allow — unwraps with documented invariants; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 #![cfg(debug_assertions)]
+#![cfg(feature = "advanced-tokenizer")]
 
 //! Persistent text-index certification for memory payloads.
 

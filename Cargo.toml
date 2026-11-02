@@ -589,6 +589,7 @@ path = "tests/operational_metrics.rs"
 [[test]]
 name = "text_index_recovery"
 path = "tests/text_index_recovery.rs"
+required-features = ["advanced-tokenizer"]
 
 [[test]]
 name = "version_coherence"

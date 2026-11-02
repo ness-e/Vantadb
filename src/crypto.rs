@@ -1405,6 +1405,11 @@ mod tests {
                 .unwrap(),
         );
         std::fs::write(&path, format!("{hex}\n")).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
 
         // A regular file holding the hex key resolves to the key bytes.
         let material = KeySource::File(path.clone()).read_key_material().unwrap();
@@ -1475,6 +1480,11 @@ mod tests {
 
         let path = dir.path().join("master.key");
         std::fs::write(&path, hex_of(&file_key)).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
         let cmd = echo_cmd(&hex_of(&cmd_key));
 
         // 1. The environment wins.

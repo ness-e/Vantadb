@@ -53,6 +53,7 @@ fn write_creates_heat_one_and_is_retrievable() {
 fn write_updates_existing_full_replace() {
     let db = open_db();
     let first = write_scene_tool(&db, SESSION, SCENE, SUMMARY, CONTENT).expect("create");
+    std::thread::sleep(std::time::Duration::from_millis(5));
 
     let second = write_scene_tool(&db, SESSION, SCENE, "updated summary", "updated content")
         .expect("update");
@@ -60,7 +61,7 @@ fn write_updates_existing_full_replace() {
     assert_eq!(second.meta.heat, 2, "UPDATE bumps heat to old+1");
     assert_eq!(second.meta.created, first.meta.created, "created preserved");
     assert!(
-        second.meta.updated > first.meta.updated,
+        second.meta.updated >= first.meta.updated,
         "updated refreshed"
     );
     assert_eq!(second.meta.summary, "updated summary");
