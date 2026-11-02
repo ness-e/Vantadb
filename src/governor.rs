@@ -115,6 +115,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::serial]
     fn test_request_allocation_granted() {
         let gov = ResourceGovernor::new(1000, 5000);
         ALLOCATED_BYTES.store(0, Ordering::SeqCst);
@@ -123,6 +124,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_request_allocation_pressure() {
         let gov = ResourceGovernor::new(1000, 5000);
         ALLOCATED_BYTES.store(850, Ordering::SeqCst);
@@ -131,6 +133,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_request_allocation_oom() {
         let gov = ResourceGovernor::new(1000, 5000);
         ALLOCATED_BYTES.store(950, Ordering::SeqCst);
@@ -139,6 +142,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_free_allocation_decrements() {
         let gov = ResourceGovernor::new(1000, 5000);
         ALLOCATED_BYTES.store(500, Ordering::SeqCst);
@@ -147,6 +151,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_request_free_cycle() {
         let gov = ResourceGovernor::new(1000, 5000);
         ALLOCATED_BYTES.store(0, Ordering::SeqCst);

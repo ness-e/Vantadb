@@ -258,6 +258,11 @@ impl LocalOnnxProvider {
         }
     }
 
+    /// Returns `true` if this provider has an active ONNX session and tokenizer loaded.
+    pub fn is_real(&self) -> bool {
+        self.session.is_some() && self.tokenizer.is_some()
+    }
+
     fn detect_dim(model_dir: &str) -> usize {
         // Try manifest.json for exact dim, else default 384 for e5-small
         if let Ok(txt) = std::fs::read_to_string("embeddings/manifest.json") {
@@ -1118,8 +1123,11 @@ mod tests {
 
     #[test]
     fn local_embed_multilingual() {
-        let provider = LocalOnnxProvider::new("embeddings/models/multilingual-e5-small/onnx")
-            .unwrap_or_else(|_| LocalOnnxProvider::new_dummy(384));
+        let provider = match LocalOnnxProvider::new("embeddings/models/multilingual-e5-small/onnx")
+        {
+            Ok(p) if p.is_real() => p,
+            _ => LocalOnnxProvider::new_dummy(384),
+        };
         let v1 = provider.embed("hola mundo").expect("embed hola mundo");
         assert_eq!(v1.len(), 384, "dim must be 384 for multilingual-e5-small");
         let v2 = provider.embed("hola mundo").expect("embed self");
@@ -1169,7 +1177,10 @@ mod tests {
     // (`--test-threads=1`, ver task file FIND-100). No añadir tests con env
     // a este módulo sin mantener el pin serial.
     #[test]
+    #[serial_test::serial]
     fn f100_incompatible_dylib_never_panics() {
+        let _allow = EnvGuard::set("VANTADB_ALLOW_DUMMY_EMBEDDINGS", "true");
+        let _strict = EnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "false");
         let key = "ORT_DYLIB_PATH";
         let saved = std::env::var(key).ok();
         std::env::set_var(key, "C:/nonexistent-dir-find100/onnxruntime.dll");

@@ -11,7 +11,10 @@ mkdir -p "$DATA_DIR"
 if [ ! -f "$GLOVE_TXT" ]; then
     if [ ! -f "$GLOVE_ZIP" ]; then
         echo "Downloading GloVe-100 (glove.6B.zip)..."
-        curl -L -o "$GLOVE_ZIP" "https://nlp.stanford.edu/data/glove.6B.zip"
+        if ! curl -fSL --retry 3 --connect-timeout 15 -o "$GLOVE_ZIP" "https://huggingface.co/stanfordnlp/glove/resolve/main/glove.6B.zip"; then
+            echo "HuggingFace mirror failed, falling back to Stanford..."
+            curl -fSL --retry 3 --connect-timeout 15 -o "$GLOVE_ZIP" "https://nlp.stanford.edu/data/glove.6B.zip"
+        fi
     fi
     echo "Extracting glove.6B.100d.txt..."
     unzip -o "$GLOVE_ZIP" "glove.6B.100d.txt" -d "$DATA_DIR"
