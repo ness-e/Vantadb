@@ -568,12 +568,16 @@ fn snapshot_of_an_encrypted_db_is_refused_without_the_key() {
 #[test]
 fn security_md_claim_matches_the_implemented_scope() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let path = if root.join("SECURITY.md").exists() {
-        root.join("SECURITY.md")
-    } else {
-        root.join(".github/SECURITY.md")
-    };
-    let text = std::fs::read_to_string(path).expect("SECURITY.md");
+    let candidates = [
+        root.join("docs/user/operations/SECURITY.md"),
+        root.join(".github/SECURITY.md"),
+        root.join("SECURITY.md"),
+    ];
+    let path = candidates
+        .into_iter()
+        .find(|p| p.exists())
+        .expect("a valid SECURITY.md file must exist");
+    let text = std::fs::read_to_string(&path).expect("read SECURITY.md");
     for artefact in ["WAL", "HNSW", "VantaFile", "backend"] {
         assert!(
             text.contains(artefact),

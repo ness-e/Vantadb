@@ -19,7 +19,7 @@ Please include reproduction steps, affected components, and potential impact. We
 
 ## Security Architecture & Scope
 
-- **AES-256-GCM encryption at rest** behind feature `encryption` with per-artifact envelopes (WAL frames, segments, index images, backend values).
+- **AES-256-GCM encryption at rest (opt-in)** behind feature `encryption` (not in `default`) with per-artifact envelopes (the **WAL**, **VantaFile** segments, **HNSW** index images, and **backend** key-value store).
 - **WAL hash-chain tamper detection** to detect corruption or unauthorized modifications in the write-ahead log.
 - **Constant-time token comparison** (`subtle::ConstantTimeEq`) for API key authentication to mitigate timing side channels.
 - **Path traversal prevention** on all filesystem operations and database paths.

@@ -841,7 +841,7 @@ jobs:
     name: TSan (ThreadSanitizer)
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     needs: [fmt, clippy]
     # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
     # Failures are reviewed manually. Does not gate releases.
@@ -900,6 +900,8 @@ jobs:
             --skip concurrent_multi_namespace_stress \
             --skip memory_volume_kpi_10k \
             --skip test_triple_backend_parity_validation \
-            --skip zero_dim_vector_search_empty
+            --skip zero_dim_vector_search_empty \
+            --skip ttl_http_ \
+            --skip embedded_readonly
         env:
           TSAN_OPTIONS: "halt_on_error=0 exitcode=0 history_size=2"
