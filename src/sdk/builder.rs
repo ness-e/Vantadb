@@ -58,6 +58,12 @@ pub struct Embedded {
     /// the first thread id (the thread then disappears from `list_threads`
     /// and the purge never reaches it). Shared across clones via `Arc`.
     pub(crate) thread_index_lock: Arc<Mutex<()>>,
+    /// Serializes skill optimistic lock check and commit (FIND-605): prevents
+    /// TOCTOU races between concurrent `update`/`patch` calls with the same
+    /// `expected_version`. Shared across clones via `Arc`.
+    pub(crate) skill_write_lock: Arc<Mutex<()>>,
+    /// FastGate deduplication filter instance shared across clones.
+    pub(crate) dedup_filter: Arc<crate::utils::duplicate_prevention::DuplicatePreventionFilter>,
 }
 
 impl std::fmt::Debug for Embedded {
@@ -85,6 +91,10 @@ impl Embedded {
             purge_lock: Arc::new(RwLock::new(())),
             thread_message_lock: Arc::new(Mutex::new(())),
             thread_index_lock: Arc::new(Mutex::new(())),
+            skill_write_lock: Arc::new(Mutex::new(())),
+            dedup_filter: Arc::new(
+                crate::utils::duplicate_prevention::DuplicatePreventionFilter::default(),
+            ),
         }
     }
 
@@ -192,6 +202,10 @@ impl Embedded {
             purge_lock: Arc::new(RwLock::new(())),
             thread_message_lock: Arc::new(Mutex::new(())),
             thread_index_lock: Arc::new(Mutex::new(())),
+            skill_write_lock: Arc::new(Mutex::new(())),
+            dedup_filter: Arc::new(
+                crate::utils::duplicate_prevention::DuplicatePreventionFilter::default(),
+            ),
         };
         if !embedded.config.read_only {
             embedded.ensure_indexes_current()?;
@@ -199,7 +213,9 @@ impl Embedded {
         Ok(embedded)
     }
 
-    pub(crate) fn engine_handle(&self) -> Result<Arc<StorageEngine>> {
+    /// Returns the underlying storage engine handle for testing and low-level engine operations.
+    #[doc(hidden)]
+    pub fn engine_handle(&self) -> Result<Arc<StorageEngine>> {
         self.engine.read().clone().ok_or(Error::NotInitialized)
     }
 
@@ -233,6 +249,10 @@ impl Embedded {
             purge_lock: Arc::new(RwLock::new(())),
             thread_message_lock: Arc::new(Mutex::new(())),
             thread_index_lock: Arc::new(Mutex::new(())),
+            skill_write_lock: Arc::new(Mutex::new(())),
+            dedup_filter: Arc::new(
+                crate::utils::duplicate_prevention::DuplicatePreventionFilter::default(),
+            ),
         }
     }
 
@@ -248,6 +268,38 @@ impl Embedded {
     ) -> Result<GraphRagResult> {
         let pipeline = GraphRagPipeline::new();
         pipeline.search(self, namespace, query, query_vector)
+    }
+
+    /// Run the GraphRAG pipeline with a custom pipeline configuration.
+    pub fn graphrag_search_with_pipeline(
+        &self,
+        namespace: &str,
+        query: Option<&str>,
+        query_vector: Option<&[f32]>,
+        pipeline: &GraphRagPipeline,
+    ) -> Result<GraphRagResult> {
+        pipeline.search(self, namespace, query, query_vector)
+    }
+
+    /// Builds a [`SkillStore`] that shares this handle's skill write lock (FIND-605).
+    pub fn skill_store<'e>(&self, engine: &'e StorageEngine) -> crate::skills::SkillStore<'e> {
+        crate::skills::SkillStore::with_shared_lock(engine, self.skill_write_lock.clone())
+    }
+
+    /// Override the deduplication filter (useful for tests or custom sizing).
+    pub fn with_dedup_filter(
+        mut self,
+        filter: Arc<crate::utils::duplicate_prevention::DuplicatePreventionFilter>,
+    ) -> Self {
+        self.dedup_filter = filter;
+        self
+    }
+
+    /// Access the active deduplication filter.
+    pub fn dedup_filter(
+        &self,
+    ) -> Arc<crate::utils::duplicate_prevention::DuplicatePreventionFilter> {
+        Arc::clone(&self.dedup_filter)
     }
 
     // ── Agentic Threads ──

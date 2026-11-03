@@ -213,6 +213,9 @@ impl<'a> ThreadStore<'a> {
     /// `gc` — if provided, the TTL expiry is registered with the garbage
     /// collector so it can be cleaned up automatically.
     pub fn create(&self, input: CreateThread<'_>, gc: Option<&mut GcWorker<'a>>) -> Result<u128> {
+        // NOT-02 / FIND-600: atomically write the thread node and update the index
+        // under the same lock so concurrent callers cannot observe partial state.
+        let _guard = self.index_lock.lock();
         let CreateThread {
             title,
             metadata,
@@ -243,7 +246,7 @@ impl<'a> ThreadStore<'a> {
         }
 
         self.engine.insert(&node)?;
-        self.add_thread_id(thread_id)?;
+        self.add_thread_id_locked(thread_id)?;
 
         Ok(thread_id)
     }
@@ -323,8 +326,9 @@ impl<'a> ThreadStore<'a> {
 
     /// Delete a thread by its ID.
     pub fn delete(&self, thread_id: u128) -> Result<()> {
+        let _guard = self.index_lock.lock();
         self.engine.delete(thread_id, "delete")?;
-        self.remove_thread_id(thread_id)
+        self.remove_thread_id_locked(thread_id)
     }
 
     /// Remove all threads whose TTL has expired.
@@ -348,18 +352,17 @@ impl<'a> ThreadStore<'a> {
         }
 
         // Rebuild the index — keep only non-expired threads that still exist
+        // NOT-02: propagate real storage errors instead of silencing them with ok().flatten().
         if purged > 0 {
-            let remaining: Vec<u128> = self
-                .load_thread_ids()?
-                .into_iter()
-                .filter(|id| {
-                    self.engine
-                        .get(*id)
-                        .ok()
-                        .flatten()
-                        .is_some_and(|node| !self.is_expired(&node, now))
-                })
-                .collect();
+            let all_ids = self.load_thread_ids()?;
+            let mut remaining = Vec::with_capacity(all_ids.len());
+            for id in all_ids {
+                if let Some(node) = self.engine.get(id)? {
+                    if !self.is_expired(&node, now) {
+                        remaining.push(id);
+                    }
+                }
+            }
             self.save_thread_ids(&remaining)?;
         }
 
@@ -435,10 +438,7 @@ impl<'a> ThreadStore<'a> {
             .put_to_partition(BackendPartition::InternalMetadata, THREAD_INDEX_KEY, &bytes)
     }
 
-    fn add_thread_id(&self, id: u128) -> Result<()> {
-        // FIND-600: the index is one JSON blob, so load -> push -> save has to
-        // be atomic or the second save drops the first id.
-        let _guard = self.index_lock.lock();
+    fn add_thread_id_locked(&self, id: u128) -> Result<()> {
         let mut ids = self.load_thread_ids()?;
         if !ids.contains(&id) {
             ids.push(id);
@@ -447,8 +447,7 @@ impl<'a> ThreadStore<'a> {
         Ok(())
     }
 
-    fn remove_thread_id(&self, id: u128) -> Result<()> {
-        let _guard = self.index_lock.lock();
+    fn remove_thread_id_locked(&self, id: u128) -> Result<()> {
         let mut ids = self.load_thread_ids()?;
         ids.retain(|&i| i != id);
         self.save_thread_ids(&ids)

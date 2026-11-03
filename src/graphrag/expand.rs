@@ -9,13 +9,23 @@ pub struct ExpandedNodes {
     pub max_hops_reached: usize,
 }
 
+/// Default upper bound on the number of edges followed out of each visited node (MEM0-03 / EGO-15).
+pub const DEFAULT_MAX_DEGREE_PER_NODE: usize = 128;
+
 pub fn expand_nodes(
     engine: &StorageEngine,
     seed_ids: &[u128],
     hops: usize,
     max_nodes: usize,
 ) -> Result<ExpandedNodes> {
-    expand_nodes_capped(engine, seed_ids, hops, max_nodes, usize::MAX, None)
+    expand_nodes_capped(
+        engine,
+        seed_ids,
+        hops,
+        max_nodes,
+        DEFAULT_MAX_DEGREE_PER_NODE,
+        None,
+    )
 }
 
 /// BFS expansion with per-node degree and weight guards (EGO-15).

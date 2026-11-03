@@ -1,4 +1,5 @@
 use crate::error::Result;
+pub use crate::graphrag::expand::DEFAULT_MAX_DEGREE_PER_NODE;
 use crate::graphrag::{context, expand, retrieve, seed};
 use crate::sdk::Embedded;
 use serde::Serialize;
@@ -8,8 +9,8 @@ pub struct GraphRagPipeline {
     pub expansion_hops: usize,
     pub max_expansion_nodes: usize,
     pub retrieval_top_k: usize,
-    /// EGO-15: max edges followed out of each node during expansion.
-    /// Caps hub fan-out (`usize::MAX` = uncapped, the pre-EGO-15 behavior).
+    /// EGO-15 / MEM0-03: max edges followed out of each node during expansion
+    /// (default: `DEFAULT_MAX_DEGREE_PER_NODE` = 128). Caps hub fan-out (`usize::MAX` = uncapped).
     pub max_degree_per_node: usize,
     /// EGO-15 (follow-up): skip edges below this weight during expansion
     /// (`None` = keep all edges, the pre-EGO-15 behavior).
@@ -67,9 +68,39 @@ impl GraphRagPipeline {
             expansion_hops: 2,
             max_expansion_nodes: 100,
             retrieval_top_k: 20,
-            max_degree_per_node: usize::MAX,
+            max_degree_per_node: DEFAULT_MAX_DEGREE_PER_NODE,
             min_edge_weight: None,
         }
+    }
+
+    pub fn with_seed_k(mut self, seed_k: usize) -> Self {
+        self.seed_k = seed_k;
+        self
+    }
+
+    pub fn with_expansion_hops(mut self, expansion_hops: usize) -> Self {
+        self.expansion_hops = expansion_hops;
+        self
+    }
+
+    pub fn with_max_expansion_nodes(mut self, max_expansion_nodes: usize) -> Self {
+        self.max_expansion_nodes = max_expansion_nodes;
+        self
+    }
+
+    pub fn with_retrieval_top_k(mut self, retrieval_top_k: usize) -> Self {
+        self.retrieval_top_k = retrieval_top_k;
+        self
+    }
+
+    pub fn with_max_degree_per_node(mut self, max_degree_per_node: usize) -> Self {
+        self.max_degree_per_node = max_degree_per_node;
+        self
+    }
+
+    pub fn with_min_edge_weight(mut self, min_edge_weight: Option<f32>) -> Self {
+        self.min_edge_weight = min_edge_weight;
+        self
     }
 
     pub fn search(

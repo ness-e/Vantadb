@@ -8,21 +8,20 @@ use super::expand::ExpandedNodes;
 use super::pipeline::{GraphRagEdge, GraphRagNode};
 
 fn extract_content(node: &crate::node::UnifiedNode) -> String {
-    let content_keys = ["content", "payload", "text", "description"];
+    // GR-03: fallback to FIELD_PAYLOAD ("__vanta_payload") when content/text are absent
+    let content_keys = [
+        "content",
+        "text",
+        "payload",
+        "description",
+        crate::sdk::FIELD_PAYLOAD,
+    ];
     for key in &content_keys {
         if let Some(FieldValue::String(s)) = node.relational.get(*key) {
             return s.clone();
         }
     }
     String::new()
-}
-
-fn degree_boost(engine: &StorageEngine, id: u128) -> f32 {
-    if let Ok(Some(node)) = engine.get(id) {
-        node.edges.len() as f32
-    } else {
-        0.0
-    }
 }
 
 pub fn retrieve_and_rank(
@@ -32,6 +31,24 @@ pub fn retrieve_and_rank(
     top_k: usize,
 ) -> Result<Vec<GraphRagNode>> {
     let seed_score_map: HashMap<u128, f32> = seed_scores.iter().copied().collect();
+
+    // MEM0-02 / FIND-608: Min-Max calibration of seed scores so small RRF values
+    // (~0.016) are scaled to [0.0, 1.0] and not crushed by hop_boost [0.33, 1.0].
+    let (min_s, max_s) = if seed_scores.is_empty() {
+        (0.0_f32, 0.0_f32)
+    } else {
+        let mut min = f32::INFINITY;
+        let mut max = f32::NEG_INFINITY;
+        for &(_, s) in seed_scores {
+            if s < min {
+                min = s;
+            }
+            if s > max {
+                max = s;
+            }
+        }
+        (min, max)
+    };
 
     let all_ids: Vec<u128> = expanded.visited.clone();
     if all_ids.is_empty() {
@@ -44,17 +61,26 @@ pub fn retrieve_and_rank(
 
     for node in &nodes {
         let content = extract_content(node);
-        let seed_score = seed_score_map.get(&node.id).copied().unwrap_or(0.0);
+        let norm_seed = if let Some(&seed_score) = seed_score_map.get(&node.id) {
+            if (max_s - min_s) > 1e-6 {
+                (seed_score - min_s) / (max_s - min_s)
+            } else {
+                1.0
+            }
+        } else {
+            0.0
+        };
         let hop_dist = expanded
             .hop_distances
             .get(&node.id)
             .copied()
             .unwrap_or(u32::MAX);
         let hop_boost = 1.0 / (1.0 + hop_dist as f32);
-        let degree = degree_boost(engine, node.id);
+        // GR-01: node is already loaded via get_many, read edge count directly to eliminate N+1 engine.get calls.
+        let degree = node.edges.len() as f32;
         let degree_factor = degree / (degree + 10.0);
 
-        let combined = 0.6 * seed_score + 0.3 * hop_boost + 0.1 * degree_factor;
+        let combined = 0.6 * norm_seed + 0.3 * hop_boost + 0.1 * degree_factor;
 
         candidates.push(GraphRagNode {
             id: node.id,

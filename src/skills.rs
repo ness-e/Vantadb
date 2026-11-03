@@ -30,7 +30,9 @@ use crate::sdk::types::{
     SkillUpdateInput, SkillWriteResult,
 };
 use crate::storage::StorageEngine;
+use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::sync::Arc;
 use web_time::{SystemTime, UNIX_EPOCH};
 
 /// Namespace holding all skill entities (contract: "namespace `skills`").
@@ -46,6 +48,9 @@ pub const KEEP_RECENT: usize = 3;
 pub struct SkillStore<'a> {
     engine: &'a StorageEngine,
     entities: EntityStore<'a>,
+    /// Serializes skill write operations (check_version + commit_new_head)
+    /// to prevent TOCTOU races between concurrent writers (NOT-03 / FIND-605).
+    write_lock: Arc<Mutex<()>>,
 }
 
 impl<'a> SkillStore<'a> {
@@ -54,6 +59,16 @@ impl<'a> SkillStore<'a> {
         Self {
             engine,
             entities: EntityStore::new(engine),
+            write_lock: Arc::new(Mutex::new(())),
+        }
+    }
+
+    /// Wrap a storage engine reference sharing an existing write lock.
+    pub fn with_shared_lock(engine: &'a StorageEngine, write_lock: Arc<Mutex<()>>) -> Self {
+        Self {
+            engine,
+            entities: EntityStore::new(engine),
+            write_lock,
         }
     }
 
@@ -149,6 +164,7 @@ impl<'a> SkillStore<'a> {
     /// `idempotent = true`. A different content under the same `(owner, name)`
     /// is rejected with `ExecutionConflict` (unique partial index).
     pub fn create(&self, input: SkillCreateInput) -> Result<SkillWriteResult> {
+        let _guard = self.write_lock.lock();
         validate_owner(&input.owner_agent)?;
         validate_name(&input.name)?;
         let content_hash = fnv1a_64(&input.content);
@@ -212,6 +228,7 @@ impl<'a> SkillStore<'a> {
         expected_version: u64,
         input: SkillUpdateInput,
     ) -> Result<SkillWriteResult> {
+        let _guard = self.write_lock.lock();
         let head = self.require_head(skill_id)?;
         self.check_version(skill_id, &head, expected_version)?;
         let new_content_hash = fnv1a_64(&input.content);
@@ -250,6 +267,7 @@ impl<'a> SkillStore<'a> {
         expected_version: u64,
         input: SkillPatchInput,
     ) -> Result<SkillWriteResult> {
+        let _guard = self.write_lock.lock();
         let head = self.require_head(skill_id)?;
         self.check_version(skill_id, &head, expected_version)?;
         let new_content = input.content.unwrap_or_else(|| head.content.clone());
@@ -290,6 +308,7 @@ impl<'a> SkillStore<'a> {
     /// `expected_version` must match the current head (optimistic lock).
     /// Returns `true` when the skill existed.
     pub fn delete(&self, skill_id: &str, expected_version: u64) -> Result<bool> {
+        let _guard = self.write_lock.lock();
         let Some(head) = self.get_head(skill_id)? else {
             return Ok(false);
         };
@@ -318,6 +337,7 @@ impl<'a> SkillStore<'a> {
     /// `cleanupExpiredVersionsForSkill`). Returns the number of versions
     /// deleted. The head is never deleted by TTL.
     pub fn cleanup_expired_versions(&self, skill_id: &str, now: u64) -> Result<usize> {
+        let _guard = self.write_lock.lock();
         validate_skill_id(skill_id)?;
         let mut rows = self.scan_versions(skill_id)?;
         rows.sort_by_key(|e| e.fields.get("version").and_then(FieldValue::as_int));

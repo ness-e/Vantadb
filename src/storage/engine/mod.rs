@@ -416,11 +416,29 @@ impl StorageEngine {
 
 // ─── Label Interning ───────────────────────────────────────
 
+/// InternalMetadata key for the persisted edge label interner (NOT-01 / FIND-609).
+pub const LABEL_INTERN_KEY: &[u8] = b"__vanta_label_intern";
+
 impl StorageEngine {
     /// Intern a label string, returning a stable u32 ID.
     /// Creates a new entry if the label hasn't been seen before.
+    /// Persists updated state to `BackendPartition::InternalMetadata` (NOT-01 / FIND-609).
     pub fn intern_label(&self, label: &str) -> u32 {
-        self.label_intern.lock().intern(label)
+        let mut intern = self.label_intern.lock();
+        let prev_len = intern.len();
+        let id = intern.intern(label);
+        if intern.len() > prev_len && !self.read_only {
+            if let Ok(bytes) = intern.to_bytes() {
+                if let Err(e) = self.put_to_partition(
+                    crate::backend::BackendPartition::InternalMetadata,
+                    LABEL_INTERN_KEY,
+                    &bytes,
+                ) {
+                    tracing::warn!(error = %e, "failed to persist label intern state");
+                }
+            }
+        }
+        id
     }
 
     /// Resolve a label_id back to its string, if known.

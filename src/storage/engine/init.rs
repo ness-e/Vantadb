@@ -196,7 +196,7 @@ impl StorageEngine {
             segment_registry,
             wal: wal_writer.map(std::sync::Arc::new),
             _lock_file: lock_file,
-            backend,
+            backend: backend.clone(),
             memory_governor: Some(std::sync::Arc::new(
                 crate::memory_governor::MemoryGovernor::new(&config),
             )),
@@ -207,7 +207,22 @@ impl StorageEngine {
             ),
             edge_index: Some(std::sync::Arc::new(crate::edge_index::EdgeIndex::new())),
             scalar_index: Some(std::sync::Arc::new(crate::scalar_index::ScalarIndex::new())),
-            label_intern: parking_lot::Mutex::new(LabelIntern::new()),
+            label_intern: parking_lot::Mutex::new(
+                match backend.get(BackendPartition::InternalMetadata, super::LABEL_INTERN_KEY) {
+                    Ok(Some(bytes)) => match LabelIntern::from_bytes(&bytes) {
+                        Ok(intern) => intern,
+                        Err(e) => {
+                            tracing::warn!(error = %e, "failed to deserialize label intern, starting empty");
+                            LabelIntern::new()
+                        }
+                    },
+                    Ok(None) => LabelIntern::new(),
+                    Err(e) => {
+                        tracing::warn!(error = %e, "failed to read label intern from metadata, starting empty");
+                        LabelIntern::new()
+                    }
+                },
+            ),
         };
 
         // OLD-20: Warm HNSW top-layer nodes on startup so the first search

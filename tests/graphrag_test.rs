@@ -398,3 +398,165 @@ fn test_expansion_min_edge_weight_filters_weak_edges() {
         result.stats.nodes_expanded
     );
 }
+
+/// MEM0-03 / EGO-15: DEFAULT_MAX_DEGREE_PER_NODE is 128 by default, capping hub fan-out.
+#[test]
+fn test_default_max_degree_per_node_caps_large_hub() {
+    use vantadb::graphrag::pipeline::DEFAULT_MAX_DEGREE_PER_NODE;
+    assert_eq!(DEFAULT_MAX_DEGREE_PER_NODE, 128);
+
+    let (db, _dir) = setup_test_db();
+    let hub = insert_vector_node(
+        &db,
+        "large_hub",
+        "hub",
+        "central mega hub for graph testing",
+        vec![0.1, 0.2, 0.3],
+    );
+
+    // Create 150 leaves
+    for i in 0..150 {
+        let leaf = insert_vector_node(
+            &db,
+            "large_hub",
+            &format!("leaf_{i}"),
+            &format!("leaf content {i}"),
+            vec![0.1 + (i as f32 * 0.001), 0.2, 0.3],
+        );
+        db.add_edge(hub, leaf, "links_to", Some(1.0), None)
+            .expect("edge");
+    }
+
+    let default_pipeline = GraphRagPipeline::new();
+    assert_eq!(default_pipeline.max_expansion_nodes, 100);
+    assert_eq!(default_pipeline.max_degree_per_node, 128);
+
+    let pipeline = GraphRagPipeline::new().with_max_expansion_nodes(256);
+    assert_eq!(pipeline.max_degree_per_node, 128);
+
+    let result = pipeline
+        .search(&db, "large_hub", Some("central mega hub"), None)
+        .expect("search");
+
+    assert_eq!(result.stats.seeds_found, 1);
+    // 1 hub seed + 128 capped leaves = 129
+    assert_eq!(
+        result.stats.nodes_expanded, 129,
+        "default pipeline must cap fan-out to 128 leaves + 1 seed = 129"
+    );
+}
+
+/// MEM0-02 / FIND-608: Min-Max calibration prevents RRF seed scores (~0.016)
+/// from being crushed by hop_boost.
+#[test]
+fn test_min_max_seed_score_calibration() {
+    let (db, _dir) = setup_test_db();
+
+    // Insert seed node
+    let seed_id = insert_vector_node(
+        &db,
+        "minmax",
+        "seed",
+        "the exact matched query seed",
+        vec![0.1, 0.2, 0.3],
+    );
+
+    // Insert 5 neighbor nodes connected to seed, giving them high degree
+    for i in 0..5 {
+        let neighbor = insert_vector_node(
+            &db,
+            "minmax",
+            &format!("neighbor_{i}"),
+            &format!("neighbor node {i}"),
+            vec![0.9, 0.9, 0.9],
+        );
+        db.add_edge(seed_id, neighbor, "neighbor_of", Some(1.0), None)
+            .expect("edge");
+    }
+
+    let pipeline = GraphRagPipeline::new();
+    let result = pipeline
+        .search(&db, "minmax", Some("exact matched query"), None)
+        .expect("search");
+
+    assert!(!result.nodes.is_empty());
+    // The seed should be the #1 ranked candidate despite neighbors having hop boost
+    assert_eq!(
+        result.nodes[0].id, seed_id,
+        "calibrated seed node must rank #1"
+    );
+    // Score should be high (norm_seed=1.0 -> 0.6*1.0 + 0.3*1.0 + degree factor > 0.9)
+    assert!(
+        result.nodes[0].score >= 0.9,
+        "calibrated seed score should be >= 0.9, got {}",
+        result.nodes[0].score
+    );
+}
+
+/// GR-03: extract_content falls back to FIELD_PAYLOAD ("__vanta_payload").
+#[test]
+fn test_extract_content_fallback_to_field_payload() {
+    let (db, _dir) = setup_test_db();
+
+    let node_id = insert_text_node(&db, "payload_fallback", "k1", "my secret payload content");
+
+    let pipeline = GraphRagPipeline::new();
+    let result = pipeline
+        .search(&db, "payload_fallback", Some("secret payload"), None)
+        .expect("search");
+
+    assert!(!result.nodes.is_empty());
+    let hit = result
+        .nodes
+        .iter()
+        .find(|n| n.id == node_id)
+        .expect("found node");
+    assert_eq!(hit.content, "my secret payload content");
+}
+
+/// NOT-01 / FIND-609: LabelIntern persistence across database close and reopen.
+#[test]
+fn test_label_intern_disk_persistence() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let label1 = "discovered_relation";
+    let label2 = "sub_task_of";
+    let id1;
+    let id2;
+
+    {
+        let db = Embedded::open(dir.path()).expect("open");
+        let a = insert_text_node(&db, "labels", "a", "entity A");
+        let b = insert_text_node(&db, "labels", "b", "entity B");
+        let c = insert_text_node(&db, "labels", "c", "entity C");
+
+        let engine = db.engine_handle().unwrap();
+        id1 = engine.intern_label(label1);
+        id2 = engine.intern_label(label2);
+
+        db.add_edge(a, b, label1, Some(1.0), None)
+            .expect("add edge 1");
+        db.add_edge(b, c, label2, Some(0.8), None)
+            .expect("add edge 2");
+
+        // Verify labels resolve in initial session
+        assert_eq!(engine.resolve_label(id1), Some(label1.to_string()));
+        assert_eq!(engine.resolve_label(id2), Some(label2.to_string()));
+        db.close().expect("close");
+    }
+
+    // Reopen database from disk and assert labels are preserved
+    {
+        let db = Embedded::open(dir.path()).expect("reopen");
+        let engine = db.engine_handle().unwrap();
+        assert_eq!(
+            engine.resolve_label(id1),
+            Some(label1.to_string()),
+            "label1 must survive reopen"
+        );
+        assert_eq!(
+            engine.resolve_label(id2),
+            Some(label2.to_string()),
+            "label2 must survive reopen"
+        );
+    }
+}

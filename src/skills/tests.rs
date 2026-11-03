@@ -515,3 +515,46 @@ fn validation_rejects_bad_identifiers() {
 
     assert_eq!(KEEP_RECENT, 3, "contract: TTL keep-recent=3");
 }
+
+// ── Concurrency & Optimistic Lock (NOT-03 / FIND-605) ──
+
+#[test]
+fn concurrent_update_with_same_expected_version_conflicts() {
+    let engine = in_memory_engine();
+    let store1 = SkillStore::new(&engine);
+    let store2 = SkillStore::with_shared_lock(&engine, store1.write_lock.clone());
+
+    let created = store1
+        .create(create_input("concurrent", "initial"))
+        .expect("create");
+    assert_eq!(created.record.version, 1);
+
+    // First update succeeds and increments head to version 2
+    let up1 = store1
+        .update(
+            &created.record.skill_id,
+            1,
+            SkillUpdateInput {
+                description: "desc 1".into(),
+                content: "v2-first".into(),
+                metadata: None,
+            },
+        )
+        .expect("first update succeeds");
+    assert_eq!(up1.record.version, 2);
+
+    // Second update with stale expected_version=1 fails with ExecutionConflict
+    let err = store2
+        .update(
+            &created.record.skill_id,
+            1,
+            SkillUpdateInput {
+                description: "desc 2".into(),
+                content: "v2-second".into(),
+                metadata: None,
+            },
+        )
+        .expect_err("stale update must fail with ExecutionConflict");
+
+    assert!(matches!(err, Error::ExecutionConflict { .. }));
+}
