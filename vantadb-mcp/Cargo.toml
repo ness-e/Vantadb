@@ -11,9 +11,8 @@ publish = false
 # WIRE-07 feature decouple: same non-`cli` default set as `vantadb-server`
 # (both are dependents of the HTTP binary; keeping either on `default` would
 # re-enable `cli` through feature unification).
-vantadb = { path = "../", default-features = false, features = [
+vantadb = { workspace = true, features = [
     "advanced-tokenizer",
-    "arrow",
     "fjall",
     "fs2",
     "memmap2",
@@ -25,21 +24,21 @@ vantadb = { path = "../", default-features = false, features = [
 # MEM-52: fachada productiva de ingest wiki — el tool wiki_ingest dispara el
 # worker de vanta-memory en un hilo de fondo (era dev-dep desde MEM-44;
 # dirección ciclo-free verificada vía cargo tree).
-vanta-memory = { path = "../vanta-memory", features = ["llm-driver"] }
-tokio = { version = "1", features = ["sync", "rt", "macros", "rt-multi-thread", "signal", "time", "io-util", "io-std", "net", "fs"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tracing = "0.1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-sysinfo = "0.39"
-axum = { version = "0.8" }
+vanta-memory = { workspace = true, features = ["llm-driver"] }
+tokio = { workspace = true, features = ["sync", "rt", "macros", "rt-multi-thread", "signal", "time", "io-util", "io-std", "net", "fs"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+reqwest = { workspace = true, features = ["json", "rustls-tls"] }
+sysinfo = { workspace = true }
+axum = { workspace = true }
 
 [features]
 embed-local = ["vantadb/embed-local"]
 remote-inference = ["vantadb/remote-inference"]
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = { workspace = true }
 
 # ICP-01: the AI-IDE demo drives the env-selected embedding provider path
 # (`remote-inference`) through a fake Ollama; without the feature it cannot

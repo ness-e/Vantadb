@@ -22,18 +22,6 @@ ignore = [
     # Issue: https://github.com/tikv/jemalloc-ctl/issues/60
     "RUSTSEC-2024-0436",
 
-    # RUSTSEC-2023-0071 (rsa 0.9.10, Marvin Attack timing sidechannel).
-    # Mirror of deny.toml [advisories] triage (AST-007, 2026-09-11) — keep in sync.
-    # rsa is pulled transitively via jsonwebtoken 11.0.0 (feature rust_crypto),
-    # but VantaDB pins Algorithm::HS256 (src/server/jwt.rs:9,64-67) and only uses
-    # DecodingKey/EncodingKey::from_secret (HMAC) — no RSA private-key op reachable
-    # (qm: no from_rsa_* in src/). Advisory states "No safe upgrade is available".
-    # Owner: vanta-lead
-    # Expiry: 2027-01-01
-    # Tracked: drop when jsonwebtoken offers HS-only features or rsa gets constant-time impl.
-    # Decided: FIND-97 (audit-quick 2026-09-16), option A mirrored-triage.
-    "RUSTSEC-2023-0071",
-
     # RUSTSEC-2024-0429 (glib <0.20.0, Unsoundness in VariantStrIter).
     # Transitive via Tauri2 Linux stack (gio/gdk/javascriptcore -> glib 0.18.5,
     # feature-freez/desktop/src-tauri/Cargo.lock:1862); root Cargo.lock has 0 hits (core/server/wasm clean).
@@ -49,10 +37,8 @@ ignore = [
     # (removed RUSTSEC-2024-0449 — serde_yaml replaced by serde-saphyr in the
     # parity test, unsafe-libyaml left the graph; mirror of deny.toml removal.)
 
-    # RUSTSEC-2026-0387 (crypto-bigint 0.5.5, timing variability — transitive via
-    # jsonwebtoken 11.1.0 -> p256/p384 -> elliptic-curve 0.13.8; VantaDB only uses HS256 HMAC).
-    # Mirror of deny.toml [advisories] triage (2026-10-25).
-    "RUSTSEC-2026-0387",
+    # (removed RUSTSEC-2023-0071 / RUSTSEC-2026-0387 — jsonwebtoken eliminated,
+    # rsa and crypto-bigint are no longer in the dependency tree.)
 
     # Removal: zstd stack fixed by tantivy 0.27.0 (zstd 0.14.3 / safe 8.2.0 / sys 2.1.2) — ignores dropped.
 ]

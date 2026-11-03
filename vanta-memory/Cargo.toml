@@ -17,23 +17,23 @@ categories = ["database-implementations"]
 [dependencies]
 # `version` requerido para publicar: crates.io no admite deps path-only (Cargo
 # book, "Local paths in published crates").
-vantadb = { path = "../", version = "0.9.0", default-features = false }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "2"
-toml = "1.1"
-tracing = "0.1"
+vantadb = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
 # chrono is re-exported via vantadb::sdk::VantaValue::DateTime; used in seed
 # round-trip parsing (MD import → DateTime detection via RFC3339).
-chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono = { workspace = true, features = ["std", "clock"] }
 # MEMG-17 (piezas b+c): DEK CSPRNG + sha256 de los recibos de erasure. Ambas
 # ya viven en el lockfile (mismas versiones que el core); optional bajo el
 # feature `erasure` — el build default queda intacto.
 rand = { version = "0.9", optional = true }
-sha2 = { version = "0.11", optional = true }
+sha2 = { workspace = true, optional = true }
 # Only pulled in with `llm-driver` (standalone OpenAI-compatible runner).
 # Matches the workspace pattern (src/llm.rs: reqwest blocking + json).
-reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls"], optional = true }
+reqwest = { workspace = true, features = ["json", "blocking", "rustls-tls"], optional = true }
 # Only pulled in with `precise-tokens` (D21 amendment, ADR-029): exact cl100k
 # BPE token counting instead of the chars/3 heuristic. Pinned minor to guard
 # against tokenizer drift vs OpenAI's API (Risk Register).
@@ -42,17 +42,17 @@ tiktoken-rs = { version = "0.12", optional = true }
 # the Tokio driver primitives (spawn/spawn_blocking, interval, watch). The
 # pull-based pass (`services/scheduler::run_pass`) adds no Tokio usage to the
 # default build (pre-mortem ADR-0054 T2).
-tokio = { version = "1", features = ["rt", "time", "sync", "macros"], optional = true }
+tokio = { workspace = true, features = ["rt", "time", "sync", "macros"], optional = true }
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = { workspace = true }
 # MEMG-17: los tests de recibos recomputan el hash canónico (paridad con el
 # atacante que edita el JSON y recalcula) — mismo sha2 del core, solo en tests.
-sha2 = "0.11"
+sha2 = { workspace = true }
 # MEM-46: unification enables `vantadb::llm` (EmbeddingProvider trait) during
 # tests so D19 fakes can implement the real core trait. Production default
 # build stays lean (no reqwest from the core).
-vantadb = { path = "../", features = ["remote-inference"] }
+vantadb = { workspace = true, features = ["remote-inference"] }
 
 [features]
 # LLM-driven paths (L1 extraction, L2 scenes, L3 persona, recall composer).

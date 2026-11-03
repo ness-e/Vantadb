@@ -12,23 +12,23 @@ name = "vantadb_native"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.30", features = ["extension-module", "abi3-py311", "chrono"] }
-rayon = "1.12"
-chrono = { version = "0.4", features = ["serde"] }
-serde_json = "1.0"
-tracing = "0.1"
+pyo3 = { workspace = true, features = ["extension-module", "abi3-py311", "chrono"] }
+rayon = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+serde_json = { workspace = true }
+tracing = { workspace = true }
 # O(1) LRU cache (AUD-039): same version the core crate resolves (0.18.x in lockfile).
 # tantivy 0.27 pins lru ^0.18.2, so 0.19 would split the graph: stay in sync here.
-lru = "0.18"
+lru = { workspace = true }
 
 # In-process reference to the core engine (zero network overhead)
-vantadb = { path = "../", default-features = false, features = ["fjall", "memmap2", "rayon"] }
+vantadb = { workspace = true, features = ["fjall", "memmap2", "rayon"] }
 # WIRE-07: durability gate (OpGate) + ERR-022 clamp policy — std-only leaf.
-vantadb-ffi-core = { path = "../vantadb-ffi-core" }
+vantadb-ffi-core = { workspace = true }
 # DIST-02: cognitive layer (L0 capture + recall). Default features keep it
 # LLM-free: without a runner the pipeline degrades per P4 (never blocks, never
 # loses data); recall falls back to keyword overlap (D38) and reports it.
-vanta-memory = { path = "../vanta-memory", default-features = false }
+vanta-memory = { workspace = true }
 
 [lints]
 workspace = true

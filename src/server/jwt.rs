@@ -6,13 +6,21 @@
 //! anything else is ignored, never trusted.
 //!
 //! Security notes:
-//! - `Algorithm::HS256` is pinned in [`Validation`] — `alg:none` and
-//!   algorithm-confusion tokens are rejected as [`JwtError::Malformed`].
+//! - Pinned to `HS256` — `alg:none` and algorithm-confusion tokens are rejected
+//!   as [`JwtError::Malformed`].
+//! - Constant-time signature verification (`verify_slice`) is executed BEFORE
+//!   parsing or trusting any claims.
 //! - `exp` is mandatory and enforced; clock skew leeway is zero (fail closed).
 //! - An empty secret is a misconfiguration: verification fails closed.
 //! - Callers must never log the token or the secret (only `sub` on success).
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 
 /// Claims accepted by the MVP verifier.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,6 +61,11 @@ impl std::fmt::Display for JwtError {
 
 impl std::error::Error for JwtError {}
 
+#[derive(Deserialize)]
+struct JwtHeader {
+    alg: String,
+}
+
 /// Verify an HS256 `token` offline against `secret`.
 ///
 /// Returns the decoded [`Claims`] on success. Fails closed on every
@@ -61,30 +74,85 @@ pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, JwtError> {
     if token.is_empty() || secret.is_empty() {
         return Err(JwtError::Malformed);
     }
-    let key = jsonwebtoken::DecodingKey::from_secret(secret.as_bytes());
-    // `Validation::new(HS256)` pins the algorithm and requires + enforces `exp`.
-    // Leeway is zeroed: an expired token is expired (fail closed, no clock-skew grace).
-    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
-    validation.leeway = 0;
-    let data = jsonwebtoken::decode::<Claims>(token, &key, &validation).map_err(|e| {
-        use jsonwebtoken::errors::ErrorKind as K;
-        match e.kind() {
-            K::ExpiredSignature => JwtError::Expired,
-            K::InvalidSignature => JwtError::InvalidSignature,
-            _ => JwtError::Malformed,
-        }
-    })?;
-    if data.claims.sub.trim().is_empty() {
+
+    let mut parts = token.split('.');
+    let (Some(header_b64), Some(claims_b64), Some(sig_b64), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return Err(JwtError::Malformed);
+    };
+    if header_b64.is_empty() || claims_b64.is_empty() || sig_b64.is_empty() {
         return Err(JwtError::Malformed);
     }
-    Ok(data.claims)
+
+    // Decode header and verify algorithm is strictly HS256
+    let header_bytes = URL_SAFE_NO_PAD
+        .decode(header_b64)
+        .map_err(|_| JwtError::Malformed)?;
+    let header: JwtHeader =
+        serde_json::from_slice(&header_bytes).map_err(|_| JwtError::Malformed)?;
+    if header.alg != "HS256" {
+        return Err(JwtError::Malformed);
+    }
+
+    // Decode signature
+    let sig_bytes = URL_SAFE_NO_PAD
+        .decode(sig_b64)
+        .map_err(|_| JwtError::Malformed)?;
+
+    // Verify HMAC-SHA256 signature in constant time BEFORE trusting/decoding claims
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(secret.as_bytes()).map_err(|_| JwtError::Malformed)?;
+    mac.update(header_b64.as_bytes());
+    mac.update(b".");
+    mac.update(claims_b64.as_bytes());
+    mac.verify_slice(&sig_bytes)
+        .map_err(|_| JwtError::InvalidSignature)?;
+
+    // Decode and parse claims
+    let claims_bytes = URL_SAFE_NO_PAD
+        .decode(claims_b64)
+        .map_err(|_| JwtError::Malformed)?;
+    let claims: Claims = serde_json::from_slice(&claims_bytes).map_err(|_| JwtError::Malformed)?;
+
+    // Verify expiration without leeway (fail closed)
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| JwtError::Malformed)?
+        .as_secs();
+    if claims.exp < now {
+        return Err(JwtError::Expired);
+    }
+
+    if claims.sub.trim().is_empty() {
+        return Err(JwtError::Malformed);
+    }
+
+    Ok(claims)
+}
+
+#[cfg(test)]
+pub(crate) fn encode_hs256(claims: &Claims, secret: &str) -> String {
+    let header_json = serde_json::json!({
+        "alg": "HS256",
+        "typ": "JWT"
+    });
+    let header_b64 = URL_SAFE_NO_PAD.encode(header_json.to_string().as_bytes());
+    let claims_bytes = serde_json::to_vec(claims).expect("serialize claims");
+    let claims_b64 = URL_SAFE_NO_PAD.encode(&claims_bytes);
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("hmac key");
+    mac.update(header_b64.as_bytes());
+    mac.update(b".");
+    mac.update(claims_b64.as_bytes());
+    let sig = mac.finalize().into_bytes();
+    let sig_b64 = URL_SAFE_NO_PAD.encode(&sig);
+    format!("{header_b64}.{claims_b64}.{sig_b64}")
 }
 
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use jsonwebtoken::{encode, EncodingKey, Header};
 
     const SECRET: &str = "test-secret-with-at-least-32-bytes!!";
     const OTHER_SECRET: &str = "a-different-secret-with-32-bytes!!!";
@@ -99,12 +167,7 @@ mod tests {
             exp: (now + exp_offset_secs).max(0) as u64,
             iat: Some(now.max(0) as u64),
         };
-        encode(
-            &Header::new(jsonwebtoken::Algorithm::HS256),
-            &claims,
-            &EncodingKey::from_secret(secret.as_bytes()),
-        )
-        .expect("mint")
+        encode_hs256(&claims, secret)
     }
 
     #[test]
@@ -152,12 +215,20 @@ mod tests {
             exp: now + 3600,
             iat: None,
         };
-        let token = encode(
-            &Header::new(jsonwebtoken::Algorithm::HS384),
-            &claims,
-            &EncodingKey::from_secret(SECRET.as_bytes()),
-        )
-        .expect("mint hs384");
+        let header_json = serde_json::json!({
+            "alg": "HS384",
+            "typ": "JWT"
+        });
+        let header_b64 = URL_SAFE_NO_PAD.encode(header_json.to_string().as_bytes());
+        let claims_bytes = serde_json::to_vec(&claims).expect("serialize claims");
+        let claims_b64 = URL_SAFE_NO_PAD.encode(&claims_bytes);
+        let mut mac = Hmac::<Sha256>::new_from_slice(SECRET.as_bytes()).expect("hmac key");
+        mac.update(header_b64.as_bytes());
+        mac.update(b".");
+        mac.update(claims_b64.as_bytes());
+        let sig = mac.finalize().into_bytes();
+        let sig_b64 = URL_SAFE_NO_PAD.encode(&sig);
+        let token = format!("{header_b64}.{claims_b64}.{sig_b64}");
         assert_eq!(verify_jwt(&token, SECRET), Err(JwtError::Malformed));
     }
 }

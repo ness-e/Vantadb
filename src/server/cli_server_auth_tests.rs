@@ -615,7 +615,6 @@ const SRV06_SECRET: &str = "srv06-test-secret-with-32-bytes!!!!";
 const SRV06_OTHER_SECRET: &str = "srv06-other-secret-with-32-bytes!!!";
 
 fn mint_srv06_jwt(sub: &str, exp_offset_secs: i64, secret: &str) -> String {
-    use jsonwebtoken::{encode, EncodingKey, Header};
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
@@ -625,12 +624,7 @@ fn mint_srv06_jwt(sub: &str, exp_offset_secs: i64, secret: &str) -> String {
         exp: (now + exp_offset_secs).max(0) as u64,
         iat: Some(now.max(0) as u64),
     };
-    encode(
-        &Header::new(jsonwebtoken::Algorithm::HS256),
-        &claims,
-        &EncodingKey::from_secret(secret.as_bytes()),
-    )
-    .expect("mint srv06 jwt")
+    crate::server::jwt::encode_hs256(&claims, secret)
 }
 
 fn server_state_with_jwt(

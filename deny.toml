@@ -14,33 +14,15 @@ ignore = [
     # VantaDB already has portable-atomic as a direct dependency.
     "RUSTSEC-2023-0089",
 
-    # RUSTSEC-2023-0071 (rsa 0.9.10, Marvin Attack timing sidechannel):
-    # AST-007 triage (2026-09-11): rsa is pulled transitively via jsonwebtoken
-    # 11.0.0, but VantaDB pins `Algorithm::HS256` in Validation (src/server/jwt.rs:9,64-67)
-    # and only uses `DecodingKey/EncodingKey::from_secret` (HMAC) — no RSA private-key
-    # op (sign/decrypt) is reachable in prod or tests (qm: no from_rsa_* in src/).
-    # Marvin key-recovery requires attacker-observable RSA private-key timing;
-    # unreachable here. Advisory states "No safe upgrade is available".
-    # Owner: vanta-lead
-    # Expiry: 2027-01-01
-    # Tracked: drop when jsonwebtoken offers HS-only features or rsa gets constant-time impl.
-    "RUSTSEC-2023-0071",
-
     # RUSTSEC-2024-0429 (glib, Tauri2 desktop lock only): ignore REMOVED here
     # 2026-10-02 — the root graph cannot reach glib, so cargo-deny reported
     # advisory-not-detected (stale ignore). Triage stays in .cargo/audit.toml
     # + VULN-C1 (owner accept-risk 2026-09-22, expiry 2027-03-22).
 
-# RUSTSEC-2024-0436 (paste unmaintained): triage lives in .cargo/audit.toml.
-    # 2026-10-30: Cargo.lock still carries paste 1.0.15 via tikv-jemalloc-ctl 0.6.1
-    # and tokenizers -> onig, so "no longer pulls paste" was false. Kept OUT of
-    # deny's ignore list because deny reports it as advisory-not-detected in this
-    # graph; `.cargo/audit.toml` carries it. Re-add here only if deny fires it.
-
     # RUSTSEC-2024-0436 (paste unmaintained): triage lives in .cargo/audit.toml.
     # 2026-10-30: Cargo.lock still carries paste 1.0.15 via tikv-jemalloc-ctl 0.6.1
     # and tokenizers -> onig, so "no longer pulls paste" was false. Kept OUT of
-    # deny's ignore list because deny reports advisory-not-detected for it in this
+    # deny's ignore list because deny reports it as advisory-not-detected in this
     # graph; `.cargo/audit.toml` carries it. Re-add here only if deny fires it.
 
     # RUSTSEC-2026-0253 (lru): REMOVED 2026-09-11 (AST-007) — cargo-deny reported
@@ -51,18 +33,8 @@ ignore = [
     # test (only consumer) — unsafe-libyaml left the dependency graph, so this
     # ignore would report advisory-not-detected. Re-add only if it reappears.
 
-    # RUSTSEC-2026-0387 (crypto-bigint 0.5.5, timing variability):
-    # Pulled transitively via jsonwebtoken 11.1.0 -> p256/p384 -> elliptic-curve 0.13.8.
-    # Same triage as RUSTSEC-2023-0071: VantaDB pins Algorithm::HS256 (HMAC) in
-    # src/server/jwt.rs and never invokes ECDSA/P-256/P-384 private-key operations.
-    # Upstream elliptic-curve 0.13 pins crypto-bigint 0.5 (no semver-compatible upgrade).
-    # Owner: vanta-lead
-    # Expiry: 2027-06-01
-    "RUSTSEC-2026-0387",
-
-
-
-
+    # RUSTSEC-2023-0071 / RUSTSEC-2026-0387: REMOVED 2026-11-02 — jsonwebtoken
+    # replaced with pure-Rust HMAC-SHA256 (ADR-039); rsa/crypto-bigint dropped.
 ]
 
 [licenses]
@@ -71,7 +43,7 @@ version = 2
 # license, no copyleft. Entró al grafo del root con la migración de reqwest a
 # rustls (cross ARM64, FIND-229); mcp/server/proxy ya la traían por sus chains.
 allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause",
-         "BSD-3-Clause", "ISC", "Zlib", "Unicode-3.0", "CC0-1.0",
+         "BSD-3-Clause", "ISC", "Zlib", "Unicode-3.0",
          "BSL-1.0", "0BSD", "CDLA-Permissive-2.0"]
 confidence-threshold = 0.8
 
@@ -106,10 +78,6 @@ skip = [
     # thiserror 1.x/2.x — thiserror-core (2) vs deps legacy (1).
     { name = "thiserror", version = "=1.0.69" },
     { name = "thiserror", version = "=2.0.21" },
-    # rand 0.8/0.9/0.10 — criterion/bolt/rand_core en majors distintos.
-    { name = "rand", version = "=0.8.7" },
-    { name = "rand", version = "=0.9.5" },
-    { name = "rand", version = "=0.10.2" },
 ]
 skip-tree = []
 

@@ -169,6 +169,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::serial]
     fn resolve_log_format_defaults_to_compact() {
         // No env vars set → default Compact
         std::env::remove_var("VANTADB_LOG_JSON");
@@ -177,14 +178,18 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn resolve_log_format_legacy_json_env() {
+        std::env::remove_var("VANTADB_LOG_FORMAT");
         std::env::set_var("VANTADB_LOG_JSON", "1");
         assert_eq!(resolve_log_format(None), LogFormat::Json);
         std::env::remove_var("VANTADB_LOG_JSON");
     }
 
     #[test]
+    #[serial_test::serial]
     fn resolve_log_format_explicit_env() {
+        std::env::remove_var("VANTADB_LOG_JSON");
         std::env::set_var("VANTADB_LOG_FORMAT", "full");
         assert_eq!(resolve_log_format(None), LogFormat::Full);
         std::env::remove_var("VANTADB_LOG_FORMAT");
