@@ -16,7 +16,7 @@ use thiserror::Error;
 
 use vantadb::error::Error;
 use vantadb::sdk::{
-    default_confidence, ConfidenceClass, Embedded, MemoryInput, MemoryMetadata, Value,
+    default_confidence, ConfidenceClass, DedupPolicy, Embedded, MemoryInput, MemoryMetadata, Value,
 };
 
 use crate::core::abstractions::{
@@ -72,11 +72,15 @@ pub fn core_embedding_hook() -> EmbedFn {
 /// Host code attaches it via `L1DedupConfig::with_local_provider()`.
 #[cfg(feature = "embed-local")]
 pub fn local_embedding_hook() -> EmbedFn {
-    // Reuse the core factory which already selects `LocalOnnxProvider` when
-    // `embed-local` is enabled (env `VANTA_LOCAL_MODEL` or default path).
-    // Wrapped in Arc so the hook is `Send+Sync + 'static`.
-    let provider = std::sync::Arc::new(vantadb::llm::get_embedding_provider());
-    Arc::new(move |text: &str| provider.embed(text).ok())
+    let mut cfg = vantadb::config::Config::default().llm_cfg();
+    cfg.strict_embeddings = false;
+    let provider = vantadb::llm::LocalOnnxProvider::from_llm_cfg(&cfg)
+        .unwrap_or_else(|_| vantadb::llm::LocalOnnxProvider::new_dummy(384));
+    let provider = std::sync::Arc::new(provider);
+    Arc::new(move |text: &str| {
+        use vantadb::llm::EmbeddingProvider;
+        provider.embed(text).ok()
+    })
 }
 
 /// Fallback for `L1DedupConfig::with_local_provider()` when `embed-local`
@@ -484,6 +488,14 @@ fn load_targets(
 /// Build the `MemoryInput` for one record under `ns` (key = sanitized record
 /// id, type/priority metadata, serialized payload, node vector separate).
 ///
+fn default_l1_dedup_policy() -> DedupPolicy {
+    match std::env::var("VANTA_L1_DEDUP_POLICY").as_deref() {
+        Ok("off") | Ok("none") | Ok("false") | Ok("0") => DedupPolicy::Off,
+        Ok("exact") => DedupPolicy::Exact,
+        _ => DedupPolicy::Semantic,
+    }
+}
+
 /// Single input builder for both write paths (MEMG-11): `put_record` (single
 /// put) and `apply_dedup_batch` (group-commit via `put_batch`). Carries the
 /// v2 write-side fields declared in `put_record`'s doc (valid_at + confidence
@@ -514,6 +526,7 @@ fn record_input(
         valid_at_ms,
         confidence_class: Some(ConfidenceClass::Asserted),
         confidence: Some(default_confidence()),
+        dedup_policy: Some(default_l1_dedup_policy()),
         ..Default::default()
     })
 }

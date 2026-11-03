@@ -21,7 +21,7 @@ pub use api::sharing::{
 pub use api::BulkImportReport;
 pub use builder::Embedded;
 pub use connect::connect;
-pub use merge::{MergeOutcome, MergeResult};
+pub use merge::{MergeOutcome, MergePolicy, MergeResult};
 #[allow(deprecated)]
 pub use serialization::memory_record_from_node;
 pub use serialization::{
@@ -31,15 +31,16 @@ pub use serialization::{
 };
 pub use types::{
     default_confidence, AbstentionReason, Bm25TermContribution, Capabilities, ConfidenceClass,
-    EdgeRecord, EntityBoost, EntityBoostProvenance, EntityBoostReport, EntityBoostedSearch,
-    ExportIntegrityVerification, ExportManifest, ExportReport, Fields, FilterOp, GroupByConfig,
-    HybridFusionReport, ImportReport, IndexRebuildReport, MemoryExportLine, MemoryFilter,
-    MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
-    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats,
-    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
-    ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit,
-    SearchProfileConfig, SearchProfileMode, SkillCreateInput, SkillListOptions, SkillListPage,
-    SkillPatchInput, SkillRecord, SkillUpdateInput, SkillWriteResult, StorageTier,
-    TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value, DERIVATION_DISCOUNT,
-    EXPORT_MANIFEST_FORMAT, EXPORT_MANIFEST_SCHEMA_VERSION, MAX_DERIVATION_DEPTH,
+    DedupPolicy, EdgeRecord, EntityBoost, EntityBoostProvenance, EntityBoostReport,
+    EntityBoostedSearch, ExportIntegrityVerification, ExportManifest, ExportReport, Fields,
+    FilterOp, GroupByConfig, HybridFusionReport, ImportReport, IndexRebuildReport,
+    MemoryExportLine, MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions,
+    MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit, MemorySearchPage,
+    MemorySearchRequest, MmrConfig, NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord,
+    OperationalMetrics, QueryResult, RangeFilter, ReinforceOutcome, RuntimeProfile,
+    SearchExplanation, SearchExplanationHit, SearchHit, SearchProfileConfig, SearchProfileMode,
+    SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
+    SkillUpdateInput, SkillWriteResult, StorageTier, TextIndexAuditReport, TextIndexRepairReport,
+    ValidWindow, Value, DERIVATION_DISCOUNT, EXPORT_MANIFEST_FORMAT,
+    EXPORT_MANIFEST_SCHEMA_VERSION, MAX_DERIVATION_DEPTH,
 };

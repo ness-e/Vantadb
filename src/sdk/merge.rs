@@ -35,6 +35,18 @@
 
 use crate::error::{Error, Result};
 use crate::sdk::types::MemoryRecord;
+use serde::{Deserialize, Serialize};
+
+/// Policy for resolving conflicting or concurrent writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MergePolicy {
+    /// Default Last-Write-Wins based on timestamp and canonical content.
+    #[default]
+    LastWriteWins,
+    /// Supersede existing record by marking it with `superseded_by` and creating a directed lineage edge.
+    Supersede,
+}
 
 /// How an incoming multi-writer record was resolved against the stored one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

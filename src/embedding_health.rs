@@ -53,6 +53,27 @@ pub struct EmbeddingHealth {
     pub model_present: Option<bool>,
     /// User-facing notice — present only when `fallback == true`.
     pub notice: Option<String>,
+    /// Diagnostic status: "Ready" (model loaded/verified), "StrictUnavailable" (model missing in strict mode),
+    /// "DegradedDummy" (model missing with dummy fallback), "NotApplicable" (no embed-local feature or remote provider).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+impl EmbeddingHealth {
+    /// Returns true if the embedding provider is fully loaded and ready for inference.
+    pub fn is_ready(&self) -> bool {
+        self.status.as_deref() == Some("Ready")
+    }
+
+    /// Returns true if this build lacks local ONNX embedding capabilities or is using a remote provider.
+    pub fn is_not_applicable(&self) -> bool {
+        self.status.as_deref() == Some("NotApplicable")
+    }
+
+    /// Returns true if local embeddings are missing and strict mode is active (fail-closed).
+    pub fn is_strict_unavailable(&self) -> bool {
+        self.status.as_deref() == Some("StrictUnavailable")
+    }
 }
 
 /// Probe the effective embedding setup (env-aware, cheap, never panics).
@@ -60,7 +81,11 @@ pub fn embedding_health() -> EmbeddingHealth {
     let cfg = Config::default().llm_cfg();
     #[cfg(feature = "embed-local")]
     {
-        health_for(&cfg.embedding_provider, &cfg.local_model_path)
+        health_for(
+            &cfg.embedding_provider,
+            &cfg.local_model_path,
+            cfg.strict_embeddings,
+        )
     }
     #[cfg(not(feature = "embed-local"))]
     {
@@ -75,15 +100,16 @@ pub fn embedding_health() -> EmbeddingHealth {
 
 /// Build the health snapshot for a given provider/model dir (pure routing).
 #[cfg(feature = "embed-local")]
-fn health_for(provider: &str, model_dir: &str) -> EmbeddingHealth {
+fn health_for(provider: &str, model_dir: &str, strict_embeddings: bool) -> EmbeddingHealth {
     // Mirrors `get_embedding_provider()` feature routing: with `remote-inference`
     // only `openai`/`ollama` are remote; without it, everything routes local.
     if routes_to_local(provider) {
-        return local_health(
+        return local_health_with_strict(
             provider,
             model_dir,
             model_files_present(model_dir),
             ort_load_error(),
+            strict_embeddings,
         );
     }
     not_applicable(
@@ -114,12 +140,23 @@ pub(crate) fn routes_to_local(provider: &str) -> bool {
 
 /// Verdict for the local ONNX path from already-probed facts (pure — testable
 /// without touching the environment).
-#[cfg(feature = "embed-local")]
+#[cfg(all(test, feature = "embed-local"))]
 fn local_health(
     provider: &str,
     model_dir: &str,
     model_present: bool,
     ort_err: Option<String>,
+) -> EmbeddingHealth {
+    local_health_with_strict(provider, model_dir, model_present, ort_err, false)
+}
+
+#[cfg(feature = "embed-local")]
+fn local_health_with_strict(
+    provider: &str,
+    model_dir: &str,
+    model_present: bool,
+    ort_err: Option<String>,
+    strict_embeddings: bool,
 ) -> EmbeddingHealth {
     let mut problems = Vec::new();
     if !model_present {
@@ -131,6 +168,13 @@ fn local_health(
         problems.push(format!("ONNX Runtime unusable: {err}"));
     }
     let degraded = !problems.is_empty();
+    let status = if !degraded {
+        Some("Ready".to_string())
+    } else if strict_embeddings {
+        Some("StrictUnavailable".to_string())
+    } else {
+        Some("DegradedDummy".to_string())
+    };
     let reason = if degraded {
         // Closed vocabulary (DISTRIBUTION §6): prefer the actionable trigger.
         Some(if model_present { "dylib" } else { "model" }.to_string())
@@ -138,7 +182,14 @@ fn local_health(
         None
     };
     let detail = if degraded {
-        Some(problems.join("; "))
+        let base = problems.join("; ");
+        if strict_embeddings {
+            Some(format!(
+                "{base}; strict mode active (operations fail closed)"
+            ))
+        } else {
+            Some(base)
+        }
     } else {
         None
     };
@@ -149,7 +200,8 @@ fn local_health(
         detail: detail.clone(),
         model_dir: Some(model_dir.to_string()),
         model_present: Some(model_present),
-        notice: detail.map(|d| build_notice(&d)),
+        notice: detail.as_ref().map(|d| build_notice(d)),
+        status,
     }
 }
 
@@ -174,6 +226,7 @@ fn not_applicable(provider: &str, detail: &str) -> EmbeddingHealth {
         model_dir: None,
         model_present: None,
         notice: None,
+        status: Some("NotApplicable".to_string()),
     }
 }
 
@@ -195,12 +248,16 @@ pub(crate) fn model_files_present(dir: &str) -> bool {
         base.join("onnx/model.onnx"),
         base.join("model_int8.onnx"),
         PathBuf::from("embeddings/models/multilingual-e5-small/onnx/model.onnx"),
+        PathBuf::from("embeddings/models/embeddinggemma-2/onnx/model.onnx"),
+        PathBuf::from("embeddings/models/embeddinggemma-300m/onnx/model.onnx"),
     ];
     let tokenizer_candidates = [
         base.join("tokenizer.json"),
         base.join("../tokenizer.json"),
         base.join("../../tokenizer.json"),
         PathBuf::from("embeddings/models/multilingual-e5-small/tokenizer.json"),
+        PathBuf::from("embeddings/models/embeddinggemma-2/tokenizer.json"),
+        PathBuf::from("embeddings/models/embeddinggemma-300m/tokenizer.json"),
     ];
     let entries = entries_one_level(dir);
     let has_onnx = onnx_candidates.iter().any(|p| p.exists())
@@ -389,5 +446,35 @@ mod tests {
         let health = not_applicable("ollama", "remote provider");
         assert_eq!(health.fallback, None);
         assert!(health.notice.is_none());
+        assert_eq!(health.status.as_deref(), Some("NotApplicable"));
+        assert!(health.is_not_applicable());
+    }
+
+    #[test]
+    fn def08_diagnostic_status_distinguishes_modes() {
+        // 1. Ready
+        let ready = local_health_with_strict("local", "anywhere", true, None, true);
+        assert_eq!(ready.status.as_deref(), Some("Ready"));
+        assert!(ready.is_ready());
+
+        // 2. StrictUnavailable (model missing + strict mode active)
+        let strict = local_health_with_strict("local", &no_such_dir(), false, None, true);
+        assert_eq!(strict.status.as_deref(), Some("StrictUnavailable"));
+        assert!(strict.is_strict_unavailable());
+        assert!(strict
+            .detail
+            .as_ref()
+            .unwrap()
+            .contains("strict mode active"));
+
+        // 3. DegradedDummy (model missing + non-strict dummy allowed)
+        let dummy = local_health_with_strict("local", &no_such_dir(), false, None, false);
+        assert_eq!(dummy.status.as_deref(), Some("DegradedDummy"));
+        assert_eq!(dummy.fallback, Some(true));
+
+        // 4. NotApplicable
+        let na = not_applicable("openai", "remote");
+        assert_eq!(na.status.as_deref(), Some("NotApplicable"));
+        assert!(na.is_not_applicable());
     }
 }

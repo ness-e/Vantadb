@@ -19,11 +19,14 @@ use super::super::serialization::{
     FIELD_QUARANTINE_REVIEW_DUE_MS, FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS, FIELD_VERSION,
 };
 use super::super::types::*;
-use super::graph::{LABEL_DERIVED_FROM, LABEL_SUPERSEDED_BY};
+use super::graph::{LABEL_DERIVED_FROM, LABEL_SUPERSEDED_BY, LABEL_SUPERSEDES_EDGE};
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use crate::sdk::merge::{resolve_merge, MergeDecision, MergeOutcome, MergeResult};
+use crate::utils::duplicate_prevention::{
+    hash_content, normalize_content, token_jaccard_similarity, FastGateDecision,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use web_time::Instant;
@@ -711,9 +714,158 @@ impl Embedded {
         Ok(())
     }
 
-    /// Shared logic for inserting/updating a single memory record.
+    /// Shared logic for inserting/updating a single memory record with FastGate deduplication.
     /// Used by both `put()` and `put_batch()`.
     fn put_one(&self, input: MemoryInput) -> Result<MemoryRecord> {
+        let dedup_policy = input.dedup_policy.unwrap_or(self.config.dedup_policy);
+        if dedup_policy == DedupPolicy::Off {
+            return self.insert_one_internal(input);
+        }
+
+        let exact_start = std::time::Instant::now();
+        let norm_text = normalize_content(&input.payload);
+        let norm_hash = hash_content(&norm_text);
+        let filter_key = format!("{}\0{}", input.namespace, norm_text);
+
+        let bloom_hit = self.dedup_filter.check_and_mark(filter_key.as_bytes());
+
+        // Check for exact duplicate match against real record
+        let mut exact_match_key = None;
+        if bloom_hit {
+            if let Some(cand_key) = self.dedup_filter.lookup_exact(&input.namespace, norm_hash) {
+                if let Ok(Some(rec)) = self.get(&input.namespace, &cand_key) {
+                    if normalize_content(&rec.payload) == norm_text {
+                        exact_match_key = Some(cand_key);
+                    }
+                }
+            }
+            if exact_match_key.is_none() {
+                if let Ok(Some(rec)) = self.get(&input.namespace, &input.key) {
+                    if normalize_content(&rec.payload) == norm_text {
+                        exact_match_key = Some(input.key.clone());
+                    }
+                }
+            }
+        }
+
+        let exact_elapsed = exact_start.elapsed();
+        tracing::debug!(
+            target: "fastgate",
+            elapsed_us = exact_elapsed.as_micros(),
+            bloom_hit = bloom_hit,
+            exact_match = exact_match_key.is_some(),
+            "FastGate exact dedup stage: {:.3} ms ({} ns)",
+            exact_elapsed.as_secs_f64() * 1000.0,
+            exact_elapsed.as_nanos()
+        );
+        eprintln!(
+            "[FastGate] Exact stage latency: {:.3} ms ({} ns), bloom_hit={}, exact_match={}",
+            exact_elapsed.as_secs_f64() * 1000.0,
+            exact_elapsed.as_nanos(),
+            bloom_hit,
+            exact_match_key.is_some()
+        );
+
+        if let Some(target_key) = exact_match_key {
+            // Exact duplicate confirmed! NoopReinforce
+            let reinforced =
+                match self.reinforce(&input.namespace, &target_key, ReinforceOutcome::Used) {
+                    Ok(r) => r,
+                    Err(_) => {
+                        let mut rec =
+                            self.get(&input.namespace, &target_key)?.ok_or_else(|| {
+                                Error::NotFound {
+                                    kind: "memory record".into(),
+                                    id: format!("{}/{}", input.namespace, target_key),
+                                }
+                            })?;
+                        rec.updated_at_ms = now_ms();
+                        rec
+                    }
+                };
+            return Ok(reinforced);
+        }
+
+        // Not an exact duplicate.
+        if dedup_policy == DedupPolicy::Exact {
+            let rec = self.insert_one_internal(input)?;
+            self.dedup_filter
+                .register_exact(&rec.namespace, norm_hash, &rec.key);
+            return Ok(rec);
+        }
+
+        // DedupPolicy::Semantic
+        let mut supersede_target: Option<String> = None;
+        if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+            if let Ok(hits) = self.search(MemorySearchRequest {
+                namespace: input.namespace.clone(),
+                query_vector: vector.to_vec(),
+                top_k: 5,
+                distance_metric: crate::node::DistanceMetric::Cosine,
+                ..Default::default()
+            }) {
+                let active_hits: Vec<_> = hits
+                    .into_iter()
+                    .filter(|h| h.record.superseded_by.is_none() && h.record.key != input.key)
+                    .collect();
+
+                if let Some(best) = active_hits.iter().max_by(|a, b| {
+                    a.score
+                        .partial_cmp(&b.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                }) {
+                    let cand_vec = best.record.vector.as_deref().unwrap_or(&[]);
+                    let cos = if !cand_vec.is_empty() && cand_vec.len() == vector.len() {
+                        crate::index::cosine_sim_f32(vector, cand_vec)
+                    } else {
+                        best.score
+                    };
+                    let jacc = token_jaccard_similarity(&input.payload, &best.record.payload);
+                    let decision = FastGateDecision::classify(cos, jacc);
+
+                    match decision {
+                        FastGateDecision::NoopReinforce => {
+                            let reinforced = match self.reinforce(
+                                &input.namespace,
+                                &best.record.key,
+                                ReinforceOutcome::Used,
+                            ) {
+                                Ok(r) => r,
+                                Err(_) => {
+                                    let mut rec = best.record.clone();
+                                    rec.updated_at_ms = now_ms();
+                                    rec
+                                }
+                            };
+                            return Ok(reinforced);
+                        }
+                        FastGateDecision::Supersede => {
+                            if input.merge_policy
+                                != Some(crate::sdk::merge::MergePolicy::LastWriteWins)
+                                && best.record.key != input.key
+                            {
+                                supersede_target = Some(best.record.key.clone());
+                            }
+                        }
+                        FastGateDecision::Add => {}
+                    }
+                }
+            }
+        }
+
+        let rec = self.insert_one_internal(input)?;
+        self.dedup_filter
+            .register_exact(&rec.namespace, norm_hash, &rec.key);
+
+        if let Some(old_key) = supersede_target {
+            let _ = self.supersede(&rec.namespace, &old_key, &rec.key);
+        }
+
+        Ok(rec)
+    }
+
+    /// Internal primitive for persisting one memory record without FastGate pre-filter.
+    fn insert_one_internal(&self, input: MemoryInput) -> Result<MemoryRecord> {
         self.check_read_only()?;
         validate_namespace(&input.namespace)?;
         validate_key(&input.key)?;
@@ -838,6 +990,18 @@ impl Embedded {
                 memory_node_id(&record.namespace, parent_key),
                 LABEL_DERIVED_FROM,
             )?;
+        }
+        if let Some(new_key) = record.superseded_by.as_deref() {
+            let _ = self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, new_key),
+                LABEL_SUPERSEDED_BY,
+            );
+            let _ = self.ensure_edge(
+                memory_node_id(&record.namespace, new_key),
+                node.id,
+                LABEL_SUPERSEDES_EDGE,
+            );
         }
 
         // Best-effort JSON shredding — only when enable_json_shredding is configured.
@@ -1721,6 +1885,11 @@ impl Embedded {
                 memory_node_id(&record.namespace, new_key),
                 LABEL_SUPERSEDED_BY,
             );
+            let _ = self.ensure_edge(
+                memory_node_id(&record.namespace, new_key),
+                node.id,
+                LABEL_SUPERSEDES_EDGE,
+            );
         }
         self.replace_derived_indexes(&engine, previous.as_ref(), Some(&record))?;
 
@@ -1977,6 +2146,11 @@ impl Embedded {
             node.id,
             memory_node_id(namespace, new_key),
             LABEL_SUPERSEDED_BY,
+        )?;
+        self.ensure_edge(
+            memory_node_id(namespace, new_key),
+            node.id,
+            LABEL_SUPERSEDES_EDGE,
         )?;
         // Best-effort version-history snapshot, same durability class as put_one.
         let _ = super::super::version_history::write_snapshot(

@@ -23,6 +23,7 @@ use crate::sdk::serialization::{now_ms, validate_vector_dimension};
 /// canonical data; the edge is derived navigability created by the op
 /// (`supersede`, derived `put`).
 pub(crate) const LABEL_SUPERSEDED_BY: &str = "superseded_by";
+pub(crate) const LABEL_SUPERSEDES_EDGE: &str = "supersedes_edge";
 pub(crate) const LABEL_DERIVED_FROM: &str = "derived_from";
 
 impl Embedded {

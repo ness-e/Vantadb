@@ -154,7 +154,7 @@ impl PrefetchMode {
 /// written to the WAL under the configured [`SyncMode`] (durable = acked).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InsertBatchConfig {
-    /// Master switch. `false` (default) = per-record path, unchanged.
+    /// Master switch. `true` (default) enables group-commit batching (WIRE-06).
     pub enabled: bool,
     /// Cycle closes when this many records are queued (bounded batch size).
     pub max_batch_records: usize,
@@ -165,18 +165,30 @@ pub struct InsertBatchConfig {
     pub max_queued_records: usize,
 }
 
+/// Canonical alias for group-commit configuration.
+pub type GroupCommitConfig = InsertBatchConfig;
+
 impl Default for InsertBatchConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
-            max_batch_records: 32,
-            max_wait_ms: 1,
+            enabled: true,
+            max_batch_records: 64,
+            max_wait_ms: 2,
             max_queued_records: 1024,
         }
     }
 }
 
 impl InsertBatchConfig {
+    /// Alias for max_wait_ms / max_delay_ms.
+    pub fn window_ms(&self) -> u64 {
+        self.max_wait_ms
+    }
+
+    /// Alias for max_batch_records.
+    pub fn max_batch_size(&self) -> usize {
+        self.max_batch_records
+    }
     /// Boundary validation for env/builder input: zero `max_batch_records`
     /// (a nonsensical bound that would silently degrade to 1-record batches)
     /// and zero `max_queued_records` (a zero-capacity channel cannot be
@@ -230,6 +242,7 @@ pub struct RbacRoleCfg {
 /// Compat alias: `RbacConfig` es el nombre historico; `RbacCfg` es el canonico F3C.
 // Sin shims de env aqui — solo alias de tipo (cero costo, cero divergencia).
 pub type RbacConfig = RbacCfg;
+pub type StorageConfig = StorageCfg;
 
 /// Storage domain view (F3C C2): organizacion interna; fuente unica sigue en [`Config`] plano.
 #[derive(Debug, Clone)]
@@ -257,6 +270,7 @@ pub struct StorageCfg {
     /// Backup directory for live snapshots (checkpoints).
     /// Configured via `VANTADB_BACKUP_DIR` (legacy `VANTA_BACKUP_DIR` is deprecated).
     pub backup_dir: Option<std::path::PathBuf>,
+    pub group_commit: GroupCommitConfig,
     pub segment_optimizer: SegmentOptimizerConfig,
 }
 
@@ -359,6 +373,7 @@ impl Default for StorageCfg {
             flat_threshold: Some(10000),
             export_base_dir: None,
             backup_dir: None,
+            group_commit: GroupCommitConfig::default(),
             segment_optimizer: SegmentOptimizerConfig::default(),
         }
     }
@@ -484,6 +499,7 @@ impl From<&Config> for StorageCfg {
             flat_threshold: cfg.flat_threshold,
             export_base_dir: cfg.export_base_dir.clone(),
             backup_dir: cfg.backup_dir.clone(),
+            group_commit: cfg.insert_batch,
             segment_optimizer: cfg.segment_optimizer,
         }
     }
@@ -1010,6 +1026,8 @@ pub struct Config {
     /// Whether to shred JSON metadata fields into a columnar representation during `put`.
     /// When disabled (default: false), `put` does not run JSON shredding on the write critical path.
     pub enable_json_shredding: bool,
+    /// Deduplication policy for memory writes (default: `DedupPolicy::Off`).
+    pub dedup_policy: crate::sdk::DedupPolicy,
     /// Hot-reloadable config snapshot.
     ///
     /// When `cfg(feature = "hot-reload")` is enabled, a background watcher
@@ -1370,19 +1388,25 @@ impl Default for Config {
             insert_batch: {
                 let d = InsertBatchConfig::default();
                 let v = InsertBatchConfig {
-                    enabled: parse_env_or("VANTADB_INSERT_BATCH_ENABLED", d.enabled),
-                    max_batch_records: parse_env_or(
-                        "VANTADB_INSERT_BATCH_MAX_RECORDS",
-                        d.max_batch_records,
+                    enabled: parse_env_or(
+                        "VANTADB_GROUP_COMMIT_ENABLED",
+                        parse_env_or("VANTADB_INSERT_BATCH_ENABLED", d.enabled),
                     ),
-                    max_wait_ms: parse_env_or("VANTADB_INSERT_BATCH_WAIT_MS", d.max_wait_ms),
+                    max_batch_records: parse_env_or(
+                        "VANTADB_GROUP_COMMIT_MAX_BATCH_SIZE",
+                        parse_env_or("VANTADB_INSERT_BATCH_MAX_RECORDS", d.max_batch_records),
+                    ),
+                    max_wait_ms: parse_env_or(
+                        "VANTADB_GROUP_COMMIT_WINDOW_MS",
+                        parse_env_or("VANTADB_INSERT_BATCH_WAIT_MS", d.max_wait_ms),
+                    ),
                     max_queued_records: parse_env_or(
                         "VANTADB_INSERT_BATCH_QUEUE",
                         d.max_queued_records,
                     ),
                 }
                 .sanitized();
-                debug!(?v, "VANTADB_INSERT_BATCH_*");
+                debug!(?v, "VANTADB_INSERT_BATCH_* / VANTADB_GROUP_COMMIT_*");
                 v
             },
             version_history_limit: {
@@ -1597,6 +1621,13 @@ impl Default for Config {
                     Err(_) => false,
                 }
             },
+            dedup_policy: {
+                match env::var("VANTADB_DEDUP_POLICY").as_deref() {
+                    Ok("exact") => crate::sdk::DedupPolicy::Exact,
+                    Ok("semantic") => crate::sdk::DedupPolicy::Semantic,
+                    _ => crate::sdk::DedupPolicy::Off,
+                }
+            },
             #[cfg(feature = "hot-reload")]
             hot_reload_config: Arc::new(RwLock::new(HotReloadConfig::default())),
         }
@@ -1786,6 +1817,11 @@ impl Config {
     pub fn with_insert_batching(mut self, config: InsertBatchConfig) -> Self {
         self.insert_batch = config.sanitized();
         self
+    }
+
+    /// Sets group-commit configuration (alias for with_insert_batching).
+    pub fn with_group_commit(self, config: GroupCommitConfig) -> Self {
+        self.with_insert_batching(config)
     }
 
     /// Sets the bulk import commit interval (records per batch).
@@ -2474,11 +2510,14 @@ mod tests {
     // ── InsertBatchConfig (WIRE-06) ────────────────────────────
 
     #[test]
-    fn test_insert_batch_default_is_disabled_and_bounded() {
+    fn test_insert_batch_default_is_enabled_and_bounded() {
         let cfg = InsertBatchConfig::default();
-        assert!(!cfg.enabled, "batching must be opt-in");
-        assert_eq!(cfg.max_batch_records, 32);
-        assert_eq!(cfg.max_wait_ms, 1);
+        assert!(
+            cfg.enabled,
+            "group-commit batching is enabled by default (ACT-03)"
+        );
+        assert_eq!(cfg.max_batch_records, 64);
+        assert_eq!(cfg.max_wait_ms, 2);
         assert_eq!(cfg.max_queued_records, 1024);
     }
 
@@ -2491,7 +2530,7 @@ mod tests {
             max_queued_records: 0,
         }
         .sanitized();
-        assert_eq!(cfg.max_batch_records, 32, "zero batch size degrades");
+        assert_eq!(cfg.max_batch_records, 64, "zero batch size degrades");
         assert_eq!(cfg.max_queued_records, 1024, "zero queue capacity degrades");
         assert_eq!(cfg.max_wait_ms, 0, "zero wait is valid (no gather window)");
         assert!(cfg.enabled, "sanitized must not flip the switch");
@@ -2500,8 +2539,8 @@ mod tests {
     #[test]
     fn test_with_insert_batching_roundtrip() {
         let wanted = InsertBatchConfig {
-            enabled: true,
-            max_batch_records: 64,
+            enabled: false,
+            max_batch_records: 128,
             max_wait_ms: 5,
             max_queued_records: 256,
         };
@@ -2510,7 +2549,7 @@ mod tests {
         assert_eq!(
             Config::default().insert_batch,
             InsertBatchConfig::default(),
-            "default config must not enable batching"
+            "default config reflects default batching"
         );
     }
 

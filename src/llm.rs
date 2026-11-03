@@ -74,7 +74,15 @@ pub(crate) fn try_embedding_provider() -> Result<Box<dyn EmbeddingProvider>> {
         "openai" => Box::new(OpenAIProvider::new(&cfg)) as Box<dyn EmbeddingProvider>,
         "ollama" => Box::new(OllamaProvider::new(&cfg)),
         // "local" | "multilingual-e5-small" | anything else → local ONNX.
-        _ => Box::new(LocalOnnxProvider::from_llm_cfg(&cfg)?),
+        _ => {
+            let provider = LocalOnnxProvider::from_llm_cfg(&cfg)?;
+            if cfg.strict_embeddings && !provider.is_real() {
+                return Err(Error::Embedding(
+                    "strict embeddings mode: ONNX runtime or model weights unavailable".to_string(),
+                ));
+            }
+            Box::new(provider)
+        }
     })
 }
 
@@ -92,7 +100,13 @@ pub(crate) fn try_embedding_provider() -> Result<Box<dyn EmbeddingProvider>> {
 #[cfg(all(not(feature = "remote-inference"), feature = "embed-local"))]
 pub(crate) fn try_embedding_provider() -> Result<Box<dyn EmbeddingProvider>> {
     let cfg = Config::default().llm_cfg();
-    Ok(Box::new(LocalOnnxProvider::from_llm_cfg(&cfg)?))
+    let provider = LocalOnnxProvider::from_llm_cfg(&cfg)?;
+    if cfg.strict_embeddings && !provider.is_real() {
+        return Err(Error::Embedding(
+            "strict embeddings mode: ONNX runtime or model weights unavailable".to_string(),
+        ));
+    }
+    Ok(Box::new(provider))
 }
 
 /// Embed a retrieval query with the effective provider (FIND-413).
@@ -160,6 +174,8 @@ enum EmbedFamily {
     E5,
     /// sentence-transformers MiniLM (`*minilm*`): raw text, no prefixes.
     MiniLM,
+    /// Google EmbeddingGemma (`*gemma*` in model dir): 768d, dual official architecture.
+    Gemma,
     /// Anything else (bge, jina, distiluse, qwen, dummy): safe default, no prefixes.
     Other,
 }
@@ -181,6 +197,8 @@ fn family_of(model_dir: &str) -> EmbedFamily {
         EmbedFamily::E5
     } else if lower.contains("minilm") {
         EmbedFamily::MiniLM
+    } else if lower.contains("gemma") {
+        EmbedFamily::Gemma
     } else {
         EmbedFamily::Other
     }
@@ -264,6 +282,13 @@ impl LocalOnnxProvider {
     }
 
     fn detect_dim(model_dir: &str) -> usize {
+        let lower = model_dir.to_ascii_lowercase();
+        if lower.contains("gemma") {
+            return 768;
+        }
+        if lower.contains("e5-small") || lower.contains("multilingual-e5-small") {
+            return 384;
+        }
         // Try manifest.json for exact dim, else default 384 for e5-small
         if let Ok(txt) = std::fs::read_to_string("embeddings/manifest.json") {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
@@ -319,6 +344,8 @@ impl LocalOnnxProvider {
                 .join("../../tokenizer.json")
                 .to_path_buf(),
             std::path::PathBuf::from("embeddings/models/multilingual-e5-small/tokenizer.json"),
+            std::path::PathBuf::from("embeddings/models/embeddinggemma-2/tokenizer.json"),
+            std::path::PathBuf::from("embeddings/models/embeddinggemma-300m/tokenizer.json"),
         ];
         for p in candidates {
             if p.exists() {
@@ -512,6 +539,8 @@ impl LocalOnnxProvider {
                 .join("model_int8.onnx")
                 .to_path_buf(),
             std::path::PathBuf::from("embeddings/models/multilingual-e5-small/onnx/model.onnx"),
+            std::path::PathBuf::from("embeddings/models/embeddinggemma-2/onnx/model.onnx"),
+            std::path::PathBuf::from("embeddings/models/embeddinggemma-300m/onnx/model.onnx"),
         ];
         for p in candidates {
             if p.exists() {
@@ -1181,16 +1210,13 @@ mod tests {
     fn f100_incompatible_dylib_never_panics() {
         let _allow = EnvGuard::set("VANTADB_ALLOW_DUMMY_EMBEDDINGS", "true");
         let _strict = EnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "false");
-        let key = "ORT_DYLIB_PATH";
-        let saved = std::env::var(key).ok();
-        std::env::set_var(key, "C:/nonexistent-dir-find100/onnxruntime.dll");
+        let _dylib = EnvGuard::set(
+            "ORT_DYLIB_PATH",
+            "C:/nonexistent-dir-find100/onnxruntime.dll",
+        );
         let built = std::panic::catch_unwind(|| {
             LocalOnnxProvider::new("embeddings/models/multilingual-e5-small/onnx")
         });
-        match saved {
-            Some(v) => std::env::set_var(key, v),
-            None => std::env::remove_var(key),
-        }
         let provider = built
             .expect("provider construction must not panic with incompatible dylib")
             .expect("new returns Ok via dummy fallback");
@@ -1200,15 +1226,10 @@ mod tests {
 
     // FIND-100: la resolución del dylib respeta `ORT_DYLIB_PATH` (pura, sin globals ORT).
     #[test]
+    #[serial_test::serial]
     fn f100_resolve_ort_dylib_path_honors_env() {
-        let key = "ORT_DYLIB_PATH";
-        let saved = std::env::var(key).ok();
-        std::env::set_var(key, "C:/custom/onnxruntime.dll");
+        let _dylib = EnvGuard::set("ORT_DYLIB_PATH", "C:/custom/onnxruntime.dll");
         let resolved = super::LocalOnnxProvider::resolve_ort_dylib_path();
-        match saved {
-            Some(v) => std::env::set_var(key, v),
-            None => std::env::remove_var(key),
-        }
         assert_eq!(
             resolved,
             std::path::PathBuf::from("C:/custom/onnxruntime.dll")
@@ -1378,6 +1399,40 @@ mod tests {
         }
     }
 
+    #[test]
+    #[serial_test::serial]
+    fn find491_env_vars_restored_cleanly() {
+        let key = "VANTADB_STRICT_EMBEDDINGS";
+        let original = std::env::var(key).ok();
+        {
+            let _g = EnvGuard::set(key, "dummy_value_for_test");
+            assert_eq!(
+                std::env::var(key).ok().as_deref(),
+                Some("dummy_value_for_test")
+            );
+        }
+        assert_eq!(
+            std::env::var(key).ok(),
+            original,
+            "env var must be restored after guard drops"
+        );
+
+        let key2 = "VANTADB_ALLOW_DUMMY_EMBEDDINGS";
+        let original2 = std::env::var(key2).ok();
+        {
+            let _g = EnvGuard::set(key2, "dummy_value_for_test2");
+            assert_eq!(
+                std::env::var(key2).ok().as_deref(),
+                Some("dummy_value_for_test2")
+            );
+        }
+        assert_eq!(
+            std::env::var(key2).ok(),
+            original2,
+            "env var must be restored after guard drops"
+        );
+    }
+
     // Prove-It (FIND-414): antes del fix, `new()` construía el `LlmCfg` desde
     // `LlmCfg::default()` → `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true` se ignoraba
     // y el provider quedaba en strict mode aunque el usuario lo hubiera
@@ -1466,17 +1521,28 @@ mod openai_provider_tests {
     // B2b RED: constructing without the env key must NOT panic; the missing
     // key surfaces as `InvalidInput` from `embed` instead.
     #[test]
+    #[serial_test::serial]
     fn missing_api_key_is_error_not_panic() {
-        let saved = std::env::var("VANTADB_OPENAI_API_KEY").ok();
+        struct KeyGuard {
+            saved: Option<String>,
+        }
+        impl Drop for KeyGuard {
+            fn drop(&mut self) {
+                match &self.saved {
+                    Some(key) => std::env::set_var("VANTADB_OPENAI_API_KEY", key),
+                    None => std::env::remove_var("VANTADB_OPENAI_API_KEY"),
+                }
+            }
+        }
+        let _guard = KeyGuard {
+            saved: std::env::var("VANTADB_OPENAI_API_KEY").ok(),
+        };
         std::env::remove_var("VANTADB_OPENAI_API_KEY");
 
         let cfg = crate::config::Config::default();
         let provider = OpenAIProvider::new(&cfg.llm_cfg());
         let res = provider.embed("hello");
 
-        if let Some(key) = saved {
-            std::env::set_var("VANTADB_OPENAI_API_KEY", key);
-        }
         let err = res.unwrap_err();
         assert!(
             matches!(err, Error::InvalidInput(ref msg) if msg.contains("VANTADB_OPENAI_API_KEY")),

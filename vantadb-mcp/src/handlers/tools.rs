@@ -1631,6 +1631,26 @@ pub fn handle_tools_call(
                 vantadb::sdk::MemoryMetadata::new()
             };
 
+            let dedup_policy = if let Some(p) = args.get("dedup_policy").and_then(|v| v.as_str()) {
+                match p {
+                    "exact" => Some(vantadb::sdk::DedupPolicy::Exact),
+                    "semantic" => Some(vantadb::sdk::DedupPolicy::Semantic),
+                    "off" => Some(vantadb::sdk::DedupPolicy::Off),
+                    _ => None,
+                }
+            } else if config.profile == crate::config::McpProfile::Brain {
+                match std::env::var("VANTADB_DEDUP_POLICY")
+                    .as_deref()
+                    .unwrap_or("semantic")
+                {
+                    "off" | "false" | "0" => Some(vantadb::sdk::DedupPolicy::Off),
+                    "exact" => Some(vantadb::sdk::DedupPolicy::Exact),
+                    _ => Some(vantadb::sdk::DedupPolicy::Semantic),
+                }
+            } else {
+                None
+            };
+
             let input = vantadb::sdk::MemoryInput {
                 key: key.to_string(),
                 namespace: namespace.to_string(),
@@ -1641,6 +1661,7 @@ pub fn handle_tools_call(
                 ttl_ms,
                 // SCH-05 (MGR-13 §4.4): write-time quarantine flag (T1).
                 quarantine: parse_optional_bool(args, "quarantine", false)?,
+                dedup_policy,
                 ..Default::default()
             };
 
@@ -4504,7 +4525,10 @@ fn embed_texts_via_provider(
         }
         let provider_name =
             std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        #[cfg(feature = "remote-inference")]
         let is_remote = provider_name == "ollama" || provider_name == "openai";
+        #[cfg(not(feature = "remote-inference"))]
+        let is_remote = false;
         match vantadb::llm::get_embedding_provider().embed_batch(texts) {
             Ok(vectors) => {
                 // EMB-14 (colateral rápido, pre-existente EMB-13): colapsar
@@ -4580,7 +4604,10 @@ fn try_provider_embed(texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
     {
         let provider_name =
             std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        #[cfg(feature = "remote-inference")]
         let is_remote = provider_name == "ollama" || provider_name == "openai";
+        #[cfg(not(feature = "remote-inference"))]
+        let is_remote = false;
         match vantadb::llm::get_embedding_provider().embed_batch(texts) {
             Ok(vectors) => {
                 if vectors.len() != texts.len() {
@@ -4735,18 +4762,28 @@ fn try_embed_query(text: &str) -> Result<Vec<f32>, String> {
 // ponytail: 1 provider por recall (igual costo que 1 put EMB-14); sin caché nueva.
 #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
 fn query_embed_hook() -> Option<vanta_memory::core::record::EmbedFn> {
-    let provider_name =
-        std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-    let is_remote = provider_name == "ollama" || provider_name == "openai";
+    #[cfg(feature = "remote-inference")]
+    let is_remote = {
+        let provider_name =
+            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        provider_name == "ollama" || provider_name == "openai"
+    };
+    #[cfg(not(feature = "remote-inference"))]
+    let is_remote = false;
     if !is_remote && !is_local_model_available() {
         // Sin archivos locales el provider daría dummies: mejor `None`
         // (keyword) que semántica falsa.
         return None;
     }
     Some(std::sync::Arc::new(move |q: &str| {
-        let name =
-            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-        let remote = name == "ollama" || name == "openai";
+        #[cfg(feature = "remote-inference")]
+        let remote = {
+            let name = std::env::var("VANTADB_EMBEDDING_PROVIDER")
+                .unwrap_or_else(|_| "ollama".to_string());
+            name == "ollama" || name == "openai"
+        };
+        #[cfg(not(feature = "remote-inference"))]
+        let remote = false;
         match vantadb::llm::get_embedding_provider().embed_query(q) {
             Ok(v)
                 if !v.is_empty()

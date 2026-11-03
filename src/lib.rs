@@ -198,15 +198,15 @@ pub use node::{
 pub use parser::IQL_VERSION;
 pub use sdk::{
     connect, default_confidence, AbstentionReason, Bm25TermContribution, BulkImportReport,
-    Capabilities, ConfidenceClass, EdgeRecord, Embedded, ExportReport, Fields, FilterOp,
-    ForgetMode, ForgetReport, ForgetTarget, GroupByConfig, HybridFusionReport, ImportReport,
-    IndexRebuildReport, MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions,
-    MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit, MemorySearchPage,
-    MemorySearchRequest, MergeOutcome, MergeResult, MmrConfig, NamespaceStats, NamespaceStatsMap,
-    NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter, ReinforceOutcome,
-    RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit, StorageTier,
-    TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value, DERIVATION_DISCOUNT,
-    MAX_DERIVATION_DEPTH,
+    Capabilities, ConfidenceClass, DedupPolicy, EdgeRecord, Embedded, ExportReport, Fields,
+    FilterOp, ForgetMode, ForgetReport, ForgetTarget, GroupByConfig, HybridFusionReport,
+    ImportReport, IndexRebuildReport, MemoryFilter, MemoryFilterItem, MemoryInput,
+    MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit,
+    MemorySearchPage, MemorySearchRequest, MergeOutcome, MergeResult, MmrConfig, NamespaceStats,
+    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
+    ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit,
+    StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
+    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
 };
 pub use sdk::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,

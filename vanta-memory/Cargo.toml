@@ -52,7 +52,7 @@ sha2 = { workspace = true }
 # MEM-46: unification enables `vantadb::llm` (EmbeddingProvider trait) during
 # tests so D19 fakes can implement the real core trait. Production default
 # build stays lean (no reqwest from the core).
-vantadb = { workspace = true, features = ["remote-inference"] }
+vantadb = { workspace = true, features = ["remote-inference", "cli", "fjall"] }
 
 [features]
 # LLM-driven paths (L1 extraction, L2 scenes, L3 persona, recall composer).

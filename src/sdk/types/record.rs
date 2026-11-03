@@ -219,6 +219,28 @@ pub struct MemoryInput {
     /// of an already-quarantined key preserves the state either way (I2).
     #[serde(default)]
     pub quarantine: bool,
+    /// Optional merge policy for multi-writer / update resolution.
+    #[serde(default)]
+    pub merge_policy: Option<crate::sdk::merge::MergePolicy>,
+    /// Optional deduplication policy (FastGate).
+    #[serde(default)]
+    pub dedup_policy: Option<DedupPolicy>,
+}
+
+/// Policy for duplicate detection and FastGate pre-LLM routing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DedupPolicy {
+    /// No deduplication check. Standard KV upsert.
+    #[default]
+    Off,
+    /// Fast exact duplicate detection (normalized content hash + namespace).
+    /// If identical content exists in the namespace, reinforces existing record without creating a new node.
+    Exact,
+    /// FastGate semantic duplicate detection.
+    /// Evaluates exact match, cosine similarity, and token Jaccard similarity.
+    /// Routes to NoopReinforce, Supersede, or Add.
+    Semantic,
 }
 
 impl MemoryInput {
@@ -243,7 +265,27 @@ impl MemoryInput {
             confidence: None,
             derived_from: None,
             quarantine: false,
+            merge_policy: None,
+            dedup_policy: None,
         }
+    }
+
+    /// Set the deduplication policy.
+    pub fn with_dedup_policy(mut self, policy: DedupPolicy) -> Self {
+        self.dedup_policy = Some(policy);
+        self
+    }
+
+    /// Set the merge policy.
+    pub fn with_merge_policy(mut self, policy: crate::sdk::merge::MergePolicy) -> Self {
+        self.merge_policy = Some(policy);
+        self
+    }
+
+    /// Set the vector.
+    pub fn with_vector(mut self, vector: Vec<f32>) -> Self {
+        self.vector = Some(vector);
+        self
     }
 }
 

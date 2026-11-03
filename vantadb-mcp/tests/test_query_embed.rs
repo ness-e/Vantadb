@@ -42,13 +42,16 @@ fn get_vector(storage: &Arc<StorageEngine>, ns: &str, key: &str) -> Value {
 /// EMB-13/14); con modelo deben PROBAR semántica (RED real pre-GREEN).
 #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
 fn real_model_available() -> bool {
-    let provider =
-        std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-    if provider == "ollama" || provider == "openai" {
-        // Remoto: solo real si el servidor responde (sin servidor → fallback avisado).
-        return vantadb::llm::get_embedding_provider()
-            .embed_query("hola")
-            .is_ok();
+    #[cfg(feature = "remote-inference")]
+    {
+        let provider =
+            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        if provider == "ollama" || provider == "openai" {
+            // Remoto: solo real si el servidor responde (sin servidor → fallback avisado).
+            return vantadb::llm::get_embedding_provider()
+                .embed_query("hola")
+                .is_ok();
+        }
     }
     let dir = std::env::var("VANTADB_LOCAL_MODEL")
         .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());

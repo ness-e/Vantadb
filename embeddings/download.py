@@ -36,18 +36,30 @@ ALLOW_PATTERNS = ["*.json", "*.txt", "tokenizer*", "onnx/*", "*.safetensors"]
 # `onnx-community/embeddinggemma-2-ONNX` (2026-10-21): 30 ficheros bajo `onnx/`.
 # La lista por modelo es cerrada (no se re-amplia el global): cada modelo que lo necesite
 # declara aqui sus ficheros exactos.
+_GEMMA_PATTERNS = [
+    "config.json",
+    "config_sentence_transformers.json",
+    "preprocessor_config.json",
+    "processor_config.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "onnx/model.onnx",
+    "onnx/model.onnx_data",
+]
+
 MODEL_PATTERNS: dict[str, list[str]] = {
     # embeddinggemma-2: solo el encoder de texto (el de audio no lo usa el motor).
-    "embeddinggemma-2": [
-        "config.json",
-        "config_sentence_transformers.json",
-        "preprocessor_config.json",
-        "processor_config.json",
-        "tokenizer.json",
-        "tokenizer_config.json",
-        "onnx/model.onnx",
-        "onnx/model.onnx_data",
-    ],
+    "embeddinggemma-2": _GEMMA_PATTERNS,
+    "embeddinggemma-300m": _GEMMA_PATTERNS,
+    "embeddinggemma-2-270m": _GEMMA_PATTERNS,
+}
+
+# Aliases de modelos solicitados hacia sus ids canónicos en manifest.json
+ALIAS_MAP: dict[str, str] = {
+    "embeddinggemma-300m": "embeddinggemma-2",
+    "embeddinggemma-2-270m": "embeddinggemma-2",
+    "google/embeddinggemma-300m": "embeddinggemma-2",
+    "intfloat/multilingual-e5-small": "multilingual-e5-small",
 }
 
 # Override explícito por modelo (lista cerrada, no glob amplio).
@@ -98,7 +110,8 @@ def parse_args() -> argparse.Namespace:
 def filter_models(manifest: dict, args: argparse.Namespace) -> list[dict]:
     models = manifest["models"]
     if args.only:
-        wanted = {s.strip() for s in args.only.split(",") if s.strip()}
+        raw_wanted = {s.strip() for s in args.only.split(",") if s.strip()}
+        wanted = {ALIAS_MAP.get(k, k) for k in raw_wanted}
         models = [m for m in models if m["id"] in wanted]
         missing = wanted - {m["id"] for m in models}
         if missing:
@@ -167,7 +180,8 @@ def main() -> int:
         ok = check_manifest(manifest)
         # --only: check por modelo, no global (pre-mortem FIND-71)
         if args.only:
-            wanted = {s.strip() for s in args.only.split(",") if s.strip()}
+            raw_wanted = {s.strip() for s in args.only.split(",") if s.strip()}
+            wanted = {ALIAS_MAP.get(k, k) for k in raw_wanted}
             targets = [m for m in manifest.get("models", []) if m["id"] in wanted]
             missing = wanted - {m["id"] for m in targets}
             if missing:

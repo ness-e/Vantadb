@@ -269,11 +269,15 @@ pub fn recall_candidates(
     embed: Option<&crate::core::record::l1_writer::EmbedFn>,
 ) -> Vec<MemoryRecord> {
     let query_vector = embed.and_then(|hook| hook(content));
+    let non_superseded: Vec<&MemoryRecord> = records
+        .iter()
+        .filter(|r| r.superseded_by.is_none())
+        .collect();
 
     // Pool 1 — legacy keyword overlap (doubles as the no-vector fallback).
-    let mut keyword_pool: Vec<(usize, &MemoryRecord)> = records
+    let mut keyword_pool: Vec<(usize, &MemoryRecord)> = non_superseded
         .iter()
-        .map(|r| (overlap_score(&r.content, content), r))
+        .map(|r| (overlap_score(&r.content, content), *r))
         .filter(|(score, _)| *score > 0)
         .collect();
     keyword_pool.sort_by(|a, b| {
@@ -283,13 +287,13 @@ pub fn recall_candidates(
 
     // Pool 2 — semantic similarity over records that carry a usable vector.
     let vector_pool: Vec<(f32, &MemoryRecord)> = match query_vector.as_deref() {
-        Some(query) => records
+        Some(query) => non_superseded
             .iter()
             .filter_map(|r| {
                 let record_vector = r.vector.as_deref()?;
                 cosine_similarity(record_vector, query)
                     .filter(|sim| *sim >= MIN_COSINE_SIMILARITY)
-                    .map(|sim| (sim, r))
+                    .map(|sim| (sim, *r))
             })
             .collect(),
         None => Vec::new(),
@@ -471,6 +475,37 @@ mod tests {
 
         let none = recall_candidates(&records, "rust cargo build", 5, None);
         assert!(none.is_empty());
+    }
+
+    #[test]
+    fn test_recall_excludes_superseded_records() {
+        let records = vec![
+            record(
+                "m1",
+                "user prefers dark mode and vim",
+                "2026-08-20T10:00:00.000Z",
+            ),
+            record("m2", "user prefers light theme", "2026-08-20T10:00:00.000Z"),
+            record("m3", "team uses postgres", "2026-08-20T10:00:00.000Z"),
+        ];
+        let mut rec_superseded = record(
+            "m0",
+            "user prefers dark mode always",
+            "2026-08-20T10:00:00.000Z",
+        );
+        rec_superseded.superseded_by = Some("m1".to_string());
+        let mut mixed = records.clone();
+        mixed.insert(0, rec_superseded);
+
+        let candidates = recall_candidates(&mixed, "user prefers dark mode", 5, None);
+        assert!(
+            !candidates.iter().any(|r| r.id == "m0"),
+            "superseded record m0 must be excluded from recall"
+        );
+        assert!(
+            candidates.iter().any(|r| r.id == "m1"),
+            "active record m1 must be recalled"
+        );
     }
 
     #[test]

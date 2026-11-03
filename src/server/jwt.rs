@@ -145,7 +145,7 @@ pub(crate) fn encode_hs256(claims: &Claims, secret: &str) -> String {
     mac.update(b".");
     mac.update(claims_b64.as_bytes());
     let sig = mac.finalize().into_bytes();
-    let sig_b64 = URL_SAFE_NO_PAD.encode(&sig);
+    let sig_b64 = URL_SAFE_NO_PAD.encode(sig);
     format!("{header_b64}.{claims_b64}.{sig_b64}")
 }
 
@@ -227,7 +227,7 @@ mod tests {
         mac.update(b".");
         mac.update(claims_b64.as_bytes());
         let sig = mac.finalize().into_bytes();
-        let sig_b64 = URL_SAFE_NO_PAD.encode(&sig);
+        let sig_b64 = URL_SAFE_NO_PAD.encode(sig);
         let token = format!("{header_b64}.{claims_b64}.{sig_b64}");
         assert_eq!(verify_jwt(&token, SECRET), Err(JwtError::Malformed));
     }
