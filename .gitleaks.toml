@@ -1,0 +1,83 @@
+# .gitleaks.toml — Configuración estricta de detección de secretos en VantaDB
+# Previene la exposición de tokens de crates.io, PyPI, npm, GitHub PATs, claves privadas y API keys.
+# Implementación de TEC-10 (Q27 Opción B) y soporte para BIZ-18.
+
+title = "VantaDB Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist para tests sintéticos, fixtures, documentación y artefactos de compilación"
+paths = [
+    '''(^|/)tests/''',
+    '''(^|/)evals/fixtures/''',
+    '''(^|/)docs/''',
+    '''(^|/)scripts/docs/''',
+    '''(^|/)target/''',
+    '''(^|/)node_modules/''',
+    '''(^|/)\.git/''',
+    '''(^|/)\.gitleaks\.toml$''',
+    '''(^|/)\.secretlintrc\.json$''',
+    '''(^|/)\.secretlintignore$'''
+]
+
+# 1. crates.io API token (scope publish / token cio...)
+[[rules]]
+id = "crates-io-token"
+description = "crates.io API token"
+regex = '''cio[a-zA-Z0-9]{32,}'''
+secretGroup = 0
+keywords = ["cio"]
+
+# 2. PyPI upload API token
+[[rules]]
+id = "pypi-api-token"
+description = "PyPI API upload token"
+regex = '''pypi-[A-Za-z0-9_-]{50,}'''
+secretGroup = 0
+keywords = ["pypi-"]
+
+# 3. npm access token (automation o publish)
+[[rules]]
+id = "npm-access-token"
+description = "npm automation or publish access token"
+regex = '''npm_[A-Za-z0-9]{36}'''
+secretGroup = 0
+keywords = ["npm_"]
+
+# 4. GitHub Personal Access Token (classic o fine-grained)
+[[rules]]
+id = "github-pat"
+description = "GitHub Personal Access Token"
+regex = '''(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})'''
+secretGroup = 0
+keywords = ["ghp_", "github_pat_"]
+
+# 5. Claves privadas PEM / SSH
+[[rules]]
+id = "private-key"
+description = "Private Key (PEM, SSH, RSA, DSA, EC, PGP)"
+regex = '''-----BEGIN (?:RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY-----'''
+keywords = ["-----BEGIN"]
+
+# 6. API Keys: OpenAI
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API Key"
+regex = '''(sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}|sk-proj-[a-zA-Z0-9_-]{50,})'''
+keywords = ["sk-", "sk-proj-"]
+
+# 7. API Keys: Anthropic
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API Key"
+regex = '''sk-ant-[a-zA-Z0-9_-]{80,}'''
+keywords = ["sk-ant-"]
+
+# 8. API Keys: HuggingFace
+[[rules]]
+id = "huggingface-token"
+description = "HuggingFace API Token"
+regex = '''hf_[a-zA-Z0-9]{34,}'''
+keywords = ["hf_"]

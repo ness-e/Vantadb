@@ -21,6 +21,9 @@ on:
       - 'vanta-memory/**'
       - 'integrations/**'
       - 'providers/**'
+      - '.gitleaks.toml'
+      - '.secretlintrc.json'
+      - '.secretlintignore'
   pull_request:
     branches: [ "main", "develop" ]
     paths:
@@ -39,6 +42,9 @@ on:
       - 'vanta-memory/**'
       - 'integrations/**'
       - 'providers/**'
+      - '.gitleaks.toml'
+      - '.secretlintrc.json'
+      - '.secretlintignore'
   workflow_dispatch:
 
 env:
@@ -54,6 +60,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secret-scan:
+    name: Secret Scan (gitleaks + secretlint)
+    # TEC-10 (Q27 Opción B) + BIZ-18: Blindaje obligatorio de secretos en CI.
+    # Detecta tokens de crates.io, PyPI, npm, GitHub PATs, private keys y APIs.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    concurrency:
+      group: secret-scan-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@e1e2d787754d6fa4b9f0611c03e6de5a19c5b244 # v2.3.8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Run secretlint
+        run: npx --yes -p secretlint -p @secretlint/secretlint-rule-preset-recommend secretlint "**/*"
+
   fmt:
     name: Format Check
     # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
@@ -248,7 +283,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [fmt, clippy]
+    needs: [fmt, clippy, secret-scan]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -288,7 +323,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     runs-on: windows-latest
     timeout-minutes: 90
-    needs: [fmt, clippy]
+    needs: [fmt, clippy, secret-scan]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -323,7 +358,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     runs-on: macos-latest
     timeout-minutes: 60
-    needs: [fmt, clippy]
+    needs: [fmt, clippy, secret-scan]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -373,7 +408,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    needs: [fmt, clippy]
+    needs: [fmt, clippy, secret-scan]
     # Matriz: las 2 combinaciones en paralelo (~18 min pared en vez de ~36).
     strategy:
       fail-fast: false
@@ -434,7 +469,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [fmt, clippy]
+    needs: [fmt, clippy, secret-scan]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
