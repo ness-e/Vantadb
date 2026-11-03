@@ -46,6 +46,9 @@ let db = Embedded::from_engine(engine);
 | `open_readonly(path)` | Open an existing database in read-only mode |
 | `open_with_config(config)` | Open or create with full `Config` |
 | `from_engine(engine)` | Wrap an existing `Arc<StorageEngine>` handle |
+| `engine_handle()` | Returns the underlying storage engine handle `Arc<StorageEngine>` for testing and low-level engine operations |
+| `with_dedup_filter(filter)` | Override the deduplication filter with a custom `DuplicatePreventionFilter` handle |
+| `dedup_filter()` | Access the active deduplication filter `Arc<DuplicatePreventionFilter>` |
 
 ### Audit Log
 
@@ -580,6 +583,7 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 | Method | Description |
 |--------|-------------|
 | `graphrag_search(namespace, query, query_vector)` | Run the GraphRAG pipeline: seed → expand → retrieve → generate context. Uses the default pipeline configuration (seed_k=10, hops=2, max=100, top_k=20). For custom settings, construct `GraphRagPipeline` directly. `query` and `query_vector` are optional |
+| `graphrag_search_with_pipeline(namespace, query, query_vector, pipeline)` | Run the GraphRAG pipeline with custom pipeline configuration (`GraphRagPipeline`). `query` and `query_vector` are optional |
 
 ## Maintenance
 

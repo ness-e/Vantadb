@@ -40,6 +40,7 @@ All configuration fields available in `Config` (Rust) and via environment variab
 | `circuit_breaker_failure_threshold` | `u32` | `5` | `VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Consecutive 5xx failures before the circuit breaker opens |
 | `circuit_breaker_open_timeout_secs` | `u64` | `30` | `VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS` | Seconds the breaker stays open before probing half-open |
 | `sync_mode` | `SyncMode` | `Periodic` | `VANTADB_SYNC_MODE` (config layer only — see note) | WAL sync: `Always`, `Periodic`, `Never`. `VANTADB_SYNC_MODE` is resolved by the `vanta config` layer (`src/cli_handlers/config.rs`, so `vanta config show` reports it and its source), but the embedded engine's `Config::from_env()` does **not** read it — set it programmatically with `Config::with_sync_mode(...)` or through the hot-reload JSON. |
+| `group_commit` | `GroupCommitConfig` | `enabled: true, max_batch_size: 64, timeout_ms: 2` | `VANTADB_GROUP_COMMIT` | Synchronous WAL group-commit policy for high-throughput batching (`src/config.rs`) |
 | `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | HNSW insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
