@@ -66,10 +66,12 @@ fn scans_supported_formats_into_chunks_with_mandatory_provenance() {
 
     let inputs = scan_ingestable_sources(root.path(), "docs", &default_ingestors()).expect("scan");
 
+    // MGR-25: .txt/.json/.md yield one chunk per file, CSV one chunk per data
+    // row (2 rows); non-UTF-8 files are skipped.
     assert_eq!(
         inputs.len(),
-        3,
-        "one chunk per small supported file; .md and non-UTF-8 are skipped"
+        5,
+        "one chunk per small file (.md included since MGR-25), one per CSV row; non-UTF-8 skipped"
     );
     for input in &inputs {
         assert_eq!(input.namespace, "docs");
@@ -80,7 +82,20 @@ fn scans_supported_formats_into_chunks_with_mandatory_provenance() {
             Some(0),
             "page=0 for formats without pagination"
         );
-        assert_eq!(meta_int(input, "chunk"), Some(0), "single chunk index 0");
+        let expected_chunk = if source.ends_with(".csv") {
+            input
+                .key
+                .rsplit('#')
+                .next()
+                .and_then(|n| n.parse::<i64>().ok())
+        } else {
+            Some(0)
+        };
+        assert_eq!(
+            meta_int(input, "chunk"),
+            expected_chunk,
+            "chunk index is 0 for single-chunk files and the row index for CSV"
+        );
     }
     let keys: BTreeSet<&str> = inputs.iter().map(|i| i.key.as_str()).collect();
     assert!(

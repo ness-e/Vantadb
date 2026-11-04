@@ -626,7 +626,9 @@ mod tests {
         // renames whole files — a torn/partial line must never appear).
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("audit.jsonl");
-        let logger = AuditLogger::with_rotation(&path, 120, 5).unwrap();
+        // Threshold sized for the Merkle-chained line (two 64-hex hashes make a
+        // line ~350 bytes): ~2 events per file keeps 10 events within 5 archives.
+        let logger = AuditLogger::with_rotation(&path, 600, 5).unwrap();
         let event = AuditEvent::new("put", "ns", "k", "ok", None);
         for _ in 0..10 {
             logger.record(&event).unwrap();
