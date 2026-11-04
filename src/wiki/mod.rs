@@ -24,8 +24,8 @@ pub mod store;
 
 pub use chunker::{chunk_text, DEFAULT_OVERLAP_CHARS, DEFAULT_TARGET_CHARS};
 pub use ingestors::{
-    default_ingestors, scan_ingestable_sources, CsvIngestor, Ingestor, JsonIngestor, TxtIngestor,
-    META_CHUNK, META_PAGE, META_SOURCE,
+    default_ingestors, scan_ingestable_sources, CsvIngestor, Ingestor, JsonIngestor, MdIngestor,
+    TxtIngestor, META_CHUNK, META_PAGE, META_SOURCE,
 };
 pub use sources::{scan_local_sources, SourceFile, SOURCE_CHAR_BUDGET};
 pub use state::WikiState;

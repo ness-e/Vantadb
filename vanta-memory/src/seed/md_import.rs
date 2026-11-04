@@ -131,7 +131,10 @@ fn parse_md_str(raw: &str, path: &Path) -> Result<ParsedMd, MdImportError> {
             path.display()
         ))
     })?;
-    let fm: FrontmatterRead = serde_json::from_str(&fm_json)?;
+    let fm: FrontmatterRead = match serde_json::from_str(&fm_json) {
+        Ok(fm) => fm,
+        Err(json_err) => parse_yaml_frontmatter(&fm_json).map_err(|_| json_err)?,
+    };
     if !(1..=MD_IMPORT_SCHEMA_VERSION).contains(&fm.schema_version) {
         return Err(MdImportError::Validation(format!(
             "unsupported md-export schema_version {} (supported: 1..={})",
@@ -305,6 +308,105 @@ fn json_to_vanta(v: &serde_json::Value) -> Value {
             // Flatten to JSON string for round-trip (object shape not in Value).
             Value::String(v.to_string())
         }
+    }
+}
+
+/// Parse YAML frontmatter into [`FrontmatterRead`].
+fn parse_yaml_frontmatter(yaml: &str) -> std::result::Result<FrontmatterRead, serde_json::Error> {
+    let mut root_map = serde_json::Map::new();
+    let mut current_map_key: Option<String> = None;
+    let mut current_sub_map = serde_json::Map::new();
+    let mut current_list_key: Option<String> = None;
+    let mut current_list = Vec::new();
+
+    for line in yaml.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
+        // Sub-item in list: - val
+        if let Some(item) = trimmed.strip_prefix('-') {
+            let item_str = item.trim().trim_matches('"').trim_matches('\'');
+            current_list.push(serde_json::Value::String(item_str.to_string()));
+            continue;
+        }
+
+        // Sub-key under a parent map (e.g. metadata): indent >= 2
+        let is_indented = line.starts_with("  ") || line.starts_with('\t');
+        if is_indented && current_map_key.is_some() {
+            if let Some((sub_k, sub_v)) = trimmed.split_once(':') {
+                let sub_k = sub_k.trim().to_string();
+                let sub_v = parse_yaml_scalar(sub_v.trim());
+                current_sub_map.insert(sub_k, sub_v);
+                continue;
+            }
+        }
+
+        // Flush active list/map if indentation dropped
+        if let Some(k) = current_list_key.take() {
+            root_map.insert(
+                k,
+                serde_json::Value::Array(std::mem::take(&mut current_list)),
+            );
+        }
+        if let Some(k) = current_map_key.take() {
+            root_map.insert(
+                k,
+                serde_json::Value::Object(std::mem::take(&mut current_sub_map)),
+            );
+        }
+
+        if let Some((k, v)) = trimmed.split_once(':') {
+            let key = k.trim().to_string();
+            let v = v.trim();
+            if v.is_empty() {
+                if key == "metadata" {
+                    current_map_key = Some(key);
+                } else {
+                    current_list_key = Some(key);
+                }
+            } else if v.starts_with('[') && v.ends_with(']') {
+                let inner = &v[1..v.len() - 1];
+                let items: Vec<serde_json::Value> = inner
+                    .split(',')
+                    .map(|s| s.trim().trim_matches('"').trim_matches('\''))
+                    .filter(|s| !s.is_empty())
+                    .map(|s| serde_json::Value::String(s.to_string()))
+                    .collect();
+                root_map.insert(key, serde_json::Value::Array(items));
+            } else {
+                root_map.insert(key, parse_yaml_scalar(v));
+            }
+        }
+    }
+
+    if let Some(k) = current_list_key {
+        root_map.insert(k, serde_json::Value::Array(current_list));
+    }
+    if let Some(k) = current_map_key {
+        root_map.insert(k, serde_json::Value::Object(current_sub_map));
+    }
+
+    serde_json::from_value(serde_json::Value::Object(root_map))
+}
+
+fn parse_yaml_scalar(v: &str) -> serde_json::Value {
+    let unquoted = v.trim_matches('"').trim_matches('\'');
+    if unquoted.eq_ignore_ascii_case("true") {
+        serde_json::Value::Bool(true)
+    } else if unquoted.eq_ignore_ascii_case("false") {
+        serde_json::Value::Bool(false)
+    } else if unquoted.eq_ignore_ascii_case("null") || unquoted == "~" {
+        serde_json::Value::Null
+    } else if let Ok(i) = unquoted.parse::<i64>() {
+        serde_json::Value::Number(i.into())
+    } else if let Ok(f) = unquoted.parse::<f64>() {
+        serde_json::Number::from_f64(f)
+            .map(serde_json::Value::Number)
+            .unwrap_or_else(|| serde_json::Value::String(unquoted.to_string()))
+    } else {
+        serde_json::Value::String(unquoted.to_string())
     }
 }
 
@@ -635,5 +737,37 @@ mod tests {
         assert_eq!(changed.updated, 1, "frontmatter edit propagates");
         let got = db.get("ns", "k").expect("get").expect("exists");
         assert_eq!(got.confidence, 0.25);
+    }
+
+    #[test]
+    fn import_md_dir_accepts_yaml_frontmatter() {
+        let db = open_db();
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let yaml_md = r#"---
+schema_version: 2
+namespace: wiki
+key: arch
+version: 1
+valid_at_ms: 1000
+confidence: 0.95
+metadata:
+  topic: architecture
+  verified: true
+---
+
+# Architecture Notes
+This is an architecture document with YAML frontmatter.
+"#;
+        write_md(tmp.path(), "wiki/arch.md", yaml_md);
+        let counts = import_md_dir(&db, tmp.path()).expect("import yaml md");
+        assert_eq!(counts.created, 1);
+
+        let got = db.get("wiki", "arch").expect("get").expect("exists");
+        assert_eq!(got.confidence, 0.95);
+        assert_eq!(
+            got.metadata.get("topic"),
+            Some(&Value::String("architecture".into()))
+        );
+        assert_eq!(got.metadata.get("verified"), Some(&Value::Bool(true)));
     }
 }
