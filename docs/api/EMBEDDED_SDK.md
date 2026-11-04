@@ -917,6 +917,7 @@ which can change without a major bump. The HTTP error envelopes in
 - `Error::IncompatibleFormat { expected_magic, expected_version, found_magic, found_version, hint }` — incompatible binary format
 - `Error::NotInitialized` — engine not open
 - `Error::ResourceLimit(String)` — resource limit exceeded (backpressure)
+- `Error::QuotaExceeded { namespace, limit_bytes, current_bytes }` — namespace storage quota exceeded (TEC-14)
 - `Error::VectorLenOverflow { id, len, limit }` — serialized vector length exceeds the u32 on-disk header field (ERR-CORE-01)
 - `Error::EdgeCountOverflow { id, count, limit }` — edge count exceeds the u16 `DiskNodeHeader` field (ERR-CORE-01, hardens ERR-029)
 - `Error::NodeIdCollision(u128)` — two nodes have colliding IDs
