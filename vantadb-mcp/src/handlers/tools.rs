@@ -1509,6 +1509,8 @@ fn absorbed_canonical(name: &str) -> Option<&'static str> {
         // absorbed here so restricted profiles (Memory, Dev, Agent) cannot use them to
         // escalate privileges and bypass WIRE-02.
         "memory_forget" => Some("memory_delete"),
+        // PI-3 / MGR-24: Bug-to-Fix resolution tools absorbed via skill_create
+        "bugfix_record" | "bugfix_query" => Some("skill_create"),
         _ => None,
     }
 }
@@ -1655,11 +1657,158 @@ pub fn handle_tools_call(
                 }
             };
 
-            let metadata = if let Some(obj) = args["metadata"].as_object() {
+            let mut metadata = if let Some(obj) = args["metadata"].as_object() {
                 parse_metadata(obj).map_err(|e| e.to_json())?
             } else {
                 vantadb::sdk::MemoryMetadata::new()
             };
+
+            // PI-2 / MGR-23: Native ADR and Convention support
+            let category_arg = args.get("category").and_then(Value::as_str);
+            let category_meta = match metadata.get("category") {
+                Some(vantadb::sdk::Value::String(s)) => Some(s.as_str()),
+                _ => None,
+            };
+            let opt_meta_decision_id = match metadata.get("decision_id") {
+                Some(vantadb::sdk::Value::String(s)) => Some(s.clone()),
+                _ => None,
+            };
+            let opt_meta_status = match metadata.get("status") {
+                Some(vantadb::sdk::Value::String(s)) => Some(s.clone()),
+                _ => None,
+            };
+
+            let category = category_arg.or(category_meta);
+
+            let mut final_payload = payload.to_string();
+
+            if let Some(cat) = category {
+                if cat == "adr" || cat == "convention" {
+                    metadata.insert(
+                        "category".into(),
+                        vantadb::sdk::Value::String(cat.to_string()),
+                    );
+                    let decision_id = args
+                        .get("decision_id")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                        .or(opt_meta_decision_id)
+                        .unwrap_or_else(|| key.to_string());
+                    metadata.insert(
+                        "decision_id".into(),
+                        vantadb::sdk::Value::String(decision_id.clone()),
+                    );
+
+                    let status = args
+                        .get("status")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                        .or(opt_meta_status)
+                        .unwrap_or_else(|| "accepted".to_string());
+                    metadata.insert("status".into(), vantadb::sdk::Value::String(status.clone()));
+
+                    if let Some(ctx) = args.get("context").and_then(Value::as_str) {
+                        metadata.insert(
+                            "context".into(),
+                            vantadb::sdk::Value::String(ctx.to_string()),
+                        );
+                    }
+                    if let Some(dec) = args.get("decision").and_then(Value::as_str) {
+                        metadata.insert(
+                            "decision".into(),
+                            vantadb::sdk::Value::String(dec.to_string()),
+                        );
+                    }
+                    if let Some(con) = args.get("consequences").and_then(Value::as_str) {
+                        metadata.insert(
+                            "consequences".into(),
+                            vantadb::sdk::Value::String(con.to_string()),
+                        );
+                    }
+                    if let Some(sub) = args.get("superseded_by").and_then(Value::as_str) {
+                        metadata.insert(
+                            "superseded_by".into(),
+                            vantadb::sdk::Value::String(sub.to_string()),
+                        );
+                    }
+                    if let Some(arr) = args.get("modules").and_then(Value::as_array) {
+                        let mods: Vec<String> = arr
+                            .iter()
+                            .filter_map(|x| x.as_str().map(str::to_string))
+                            .collect();
+                        metadata.insert("modules".into(), vantadb::sdk::Value::ListString(mods));
+                    }
+                    if final_payload.is_empty() {
+                        let ctx_str = args.get("context").and_then(Value::as_str).unwrap_or("");
+                        let dec_str = args.get("decision").and_then(Value::as_str).unwrap_or("");
+                        let con_str = args
+                            .get("consequences")
+                            .and_then(Value::as_str)
+                            .unwrap_or("");
+                        final_payload = format!("[ADR:{decision_id}] {dec_str}\n\nContext:\n{ctx_str}\n\nConsequences:\n{con_str}\n\nStatus: {status}");
+                    }
+                } else if cat == "bugfix" {
+                    // PI-3 / MGR-24: Bug->Fix pattern
+                    metadata.insert(
+                        "category".into(),
+                        vantadb::sdk::Value::String("bugfix".into()),
+                    );
+                    let symptom = args
+                        .get("symptom")
+                        .and_then(Value::as_str)
+                        .unwrap_or(payload);
+                    let root_cause = args.get("root_cause").and_then(Value::as_str).unwrap_or("");
+                    let fix_summary = args
+                        .get("fix_summary")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let regression_test = args
+                        .get("regression_test")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let files_touched: Vec<String> = args
+                        .get("files_touched")
+                        .and_then(Value::as_array)
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+
+                    metadata.insert(
+                        "symptom".into(),
+                        vantadb::sdk::Value::String(symptom.to_string()),
+                    );
+                    metadata.insert(
+                        "root_cause".into(),
+                        vantadb::sdk::Value::String(root_cause.to_string()),
+                    );
+                    metadata.insert(
+                        "fix_summary".into(),
+                        vantadb::sdk::Value::String(fix_summary.to_string()),
+                    );
+                    metadata.insert(
+                        "regression_test".into(),
+                        vantadb::sdk::Value::String(regression_test.to_string()),
+                    );
+                    metadata.insert(
+                        "files_touched".into(),
+                        vantadb::sdk::Value::ListString(files_touched.clone()),
+                    );
+
+                    let pattern = vantadb::skills::BugFixPattern {
+                        id: key.to_string(),
+                        symptom: symptom.to_string(),
+                        root_cause: root_cause.to_string(),
+                        fix_summary: fix_summary.to_string(),
+                        files_touched,
+                        regression_test: regression_test.to_string(),
+                    };
+                    let store = vantadb::skills::SkillStore::new(storage);
+                    let _ = store.record_bugfix(pattern);
+                }
+            }
 
             let dedup_policy = if let Some(p) = args.get("dedup_policy").and_then(|v| v.as_str()) {
                 match p {
@@ -1684,7 +1833,7 @@ pub fn handle_tools_call(
             let input = vantadb::sdk::MemoryInput {
                 key: key.to_string(),
                 namespace: namespace.to_string(),
-                payload: payload.to_string(),
+                payload: final_payload,
                 vector,
                 sparse_vector,
                 metadata,
@@ -3548,7 +3697,7 @@ pub fn handle_tools_call(
         }
 
         "skill_list" | "skill_view" | "skill_create" | "skill_update" | "skill_patch"
-        | "skill_files_write" | "skill_extract" => {
+        | "skill_files_write" | "skill_extract" | "bugfix_record" | "bugfix_query" => {
             crate::skills::handle_skill_tool(name, args, storage, config)
         }
         "code_search" | "code_explore" | "code_callers" | "code_callees" | "code_impact"

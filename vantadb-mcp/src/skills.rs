@@ -222,8 +222,74 @@ pub(crate) fn handle_skill_tool(
         "skill_patch" => skill_patch(args, &store, config),
         "skill_files_write" => skill_files_write(args, &store, config),
         "skill_extract" => skill_extract(args, config),
+        "bugfix_record" => bugfix_record(args, &store, config),
+        "bugfix_query" => bugfix_query(args, &store, config),
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
+}
+
+fn bugfix_record(args: &Value, store: &SkillStore, _config: &McpConfig) -> Result<Value, Value> {
+    let symptom = require_str(args, "symptom")?;
+    let root_cause = require_str(args, "root_cause")?;
+    let fix_summary = require_str(args, "fix_summary")?;
+    let regression_test = opt_str(args, "regression_test").unwrap_or_default();
+    let files_touched: Vec<String> = args
+        .get("files_touched")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let id = opt_str(args, "id").unwrap_or_else(|| {
+        format!(
+            "bf_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0)
+        )
+    });
+
+    let pattern = vantadb::skills::BugFixPattern {
+        id,
+        symptom,
+        root_cause,
+        fix_summary,
+        files_touched,
+        regression_test,
+    };
+
+    let res = store
+        .record_bugfix(pattern)
+        .map_err(|e| McpError::internal_error(e.to_string()).to_json())?;
+
+    Ok(text_content(serialize_content(&json!({
+        "status": "recorded",
+        "skill_id": res.record.skill_id,
+        "name": res.record.name,
+        "version": res.record.version,
+    }))))
+}
+
+fn bugfix_query(args: &Value, store: &SkillStore, _config: &McpConfig) -> Result<Value, Value> {
+    let matches = if let Some(file) = args.get("file").and_then(Value::as_str) {
+        store.query_bugfix_by_file(file)
+    } else {
+        let q = args
+            .get("query")
+            .or_else(|| args.get("symptom"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        store.query_bugfix(q)
+    }
+    .map_err(|e| McpError::internal_error(e.to_string()).to_json())?;
+
+    Ok(text_content(serialize_content(&json!({
+        "matches": matches,
+        "count": matches.len(),
+    }))))
 }
 
 // ── Shared helpers ──────────────────────────────────────────────────────────

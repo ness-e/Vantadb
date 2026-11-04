@@ -15,7 +15,7 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::abstractions::MemoryRecord;
+use crate::core::abstractions::{MemoryRecord, MemoryType};
 use crate::core::conversation::{sanitize_component, sanitize_key};
 use crate::core::record::lifecycle::{scan_decay, DecayPolicy, DecayReport};
 use crate::core::record::L1Error;
@@ -58,11 +58,15 @@ pub fn read_namespace_records(
         };
         let page: MemoryListPage = db.list(namespace, options)?;
         for record in page.records {
-            if let Ok(mut mem) = serde_json::from_str::<MemoryRecord>(&record.payload) {
-                mem.vector = usable_vector_filter(record.vector.as_deref());
-                records.push(mem);
-            } else {
-                tracing::debug!(key = %record.key, "l1 record failed to deserialize; skipped");
+            match serde_json::from_str::<MemoryRecord>(&record.payload) {
+                Ok(mut mem) => {
+                    mem.vector = usable_vector_filter(record.vector.as_deref());
+                    records.push(mem);
+                }
+                Err(_) => {
+                    // Fallback: construct MemoryRecord from raw SDK record (e.g. ADRs or documents)
+                    records.push(sdk_to_memory_record(record));
+                }
             }
         }
         match page.next_cursor {
@@ -72,6 +76,58 @@ pub fn read_namespace_records(
     }
 
     Ok(records)
+}
+
+/// Convert a core SDK `MemoryRecord` to a `vanta_memory` `MemoryRecord`.
+pub fn sdk_to_memory_record(rec: vantadb::sdk::MemoryRecord) -> MemoryRecord {
+    let meta_map: serde_json::Map<String, serde_json::Value> = rec
+        .metadata
+        .iter()
+        .map(|(k, v)| (k.clone(), vanta_to_json_value(v)))
+        .collect();
+    let superseded_by = rec
+        .superseded_by
+        .or_else(|| match rec.metadata.get("superseded_by") {
+            Some(vantadb::sdk::Value::String(s)) if !s.is_empty() => Some(s.clone()),
+            _ => None,
+        });
+    MemoryRecord {
+        id: rec.key.clone(),
+        content: rec.payload,
+        memory_type: MemoryType::Episodic,
+        priority: 50,
+        scene_name: String::new(),
+        source_message_ids: Vec::new(),
+        metadata: serde_json::Value::Object(meta_map),
+        timestamps: Vec::new(),
+        created_at: String::new(),
+        updated_at: String::new(),
+        version: rec.version as u32,
+        session_key: rec.namespace.clone(),
+        session_id: String::new(),
+        task_id: None,
+        team_id: None,
+        user_id: None,
+        agent_id: None,
+        vector: usable_vector_filter(rec.vector.as_deref()),
+        heat: 0,
+        superseded_by,
+    }
+}
+
+pub fn vanta_to_json_value(v: &vantadb::sdk::Value) -> serde_json::Value {
+    match v {
+        vantadb::sdk::Value::String(s) => serde_json::Value::String(s.clone()),
+        vantadb::sdk::Value::Int(i) => serde_json::json!(i),
+        vantadb::sdk::Value::Float(f) => serde_json::json!(f),
+        vantadb::sdk::Value::Bool(b) => serde_json::Value::Bool(*b),
+        vantadb::sdk::Value::Null => serde_json::Value::Null,
+        vantadb::sdk::Value::ListString(l) => serde_json::json!(l),
+        vantadb::sdk::Value::ListInt(l) => serde_json::json!(l),
+        vantadb::sdk::Value::ListFloat(l) => serde_json::json!(l),
+        vantadb::sdk::Value::ListBool(l) => serde_json::json!(l),
+        _ => serde_json::Value::Null,
+    }
 }
 
 /// Run the L1 forgetting-curve pass over one session (MEMG-07).

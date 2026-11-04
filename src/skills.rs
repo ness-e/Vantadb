@@ -24,16 +24,34 @@
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::entity::{generate_id, Entity, EntityStore};
 use crate::error::{ChainedError, Error, Result};
-use crate::node::FieldValue;
+use crate::node::{Edge, FieldValue, UnifiedNode};
 use crate::sdk::types::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
     SkillUpdateInput, SkillWriteResult,
 };
 use crate::storage::StorageEngine;
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use web_time::{SystemTime, UNIX_EPOCH};
+
+/// Bug-to-Fix resolution pattern (PI-3 / MGR-24).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BugFixPattern {
+    /// Unique identifier for this bugfix pattern (e.g. "bf_123" or deterministic name).
+    pub id: String,
+    /// Symptom / error description observed.
+    pub symptom: String,
+    /// Diagnosed root cause of the failure.
+    pub root_cause: String,
+    /// Summary of the fix applied.
+    pub fix_summary: String,
+    /// List of file paths touched to resolve the bug.
+    pub files_touched: Vec<String>,
+    /// Regression test added or verified to prevent recurrence.
+    pub regression_test: String,
+}
 
 /// Namespace holding all skill entities (contract: "namespace `skills`").
 pub const SKILL_NS: &str = "skills";
@@ -371,6 +389,256 @@ impl<'a> SkillStore<'a> {
             self.write_batch(ops)?;
         }
         Ok(deleted)
+    }
+
+    /// Record a Bug->Fix resolution pattern (PI-3 / MGR-24).
+    /// Stores the pattern in the SkillStore and creates causal edges
+    /// (`caused_by` and `resolved_by`) in the graph.
+    pub fn record_bugfix(&self, pattern: BugFixPattern) -> Result<SkillWriteResult> {
+        let name = if pattern.id.starts_with("bugfix_") {
+            pattern.id.clone()
+        } else {
+            format!("bugfix_{}", pattern.id)
+        };
+        let files_list = if pattern.files_touched.is_empty() {
+            "none".to_string()
+        } else {
+            pattern
+                .files_touched
+                .iter()
+                .map(|f| format!("- {f}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        let content = format!(
+            "# BugFix Pattern: {}\n\n## Symptom\n{}\n\n## Root Cause\n{}\n\n## Fix Summary\n{}\n\n## Files Touched\n{}\n\n## Regression Test\n{}\n",
+            pattern.id,
+            pattern.symptom,
+            pattern.root_cause,
+            pattern.fix_summary,
+            files_list,
+            pattern.regression_test
+        );
+
+        let mut metadata = std::collections::BTreeMap::new();
+        metadata.insert("category".into(), "bugfix".into());
+        metadata.insert("symptom".into(), pattern.symptom.clone());
+        metadata.insert("root_cause".into(), pattern.root_cause.clone());
+        metadata.insert("fix_summary".into(), pattern.fix_summary.clone());
+        metadata.insert(
+            "files_touched".into(),
+            serde_json::to_string(&pattern.files_touched).unwrap_or_default(),
+        );
+        metadata.insert("regression_test".into(), pattern.regression_test.clone());
+
+        let input = SkillCreateInput {
+            owner_agent: "bugfix".to_string(),
+            name,
+            description: format!("BugFix for: {}", pattern.symptom),
+            content,
+            metadata,
+            ttl_secs: None,
+        };
+
+        let result = self.create(input)?;
+
+        // Causal graph nodes and edges
+        let sym_id = rand::random::<u128>();
+        let root_id = rand::random::<u128>();
+        let fix_id = rand::random::<u128>();
+
+        let mut sym_node = UnifiedNode::new(sym_id);
+        sym_node.set_field("kind", FieldValue::String("symptom".into()));
+        sym_node.set_field("text", FieldValue::String(pattern.symptom.clone()));
+        sym_node.set_field("bug_id", FieldValue::String(pattern.id.clone()));
+
+        let mut root_node = UnifiedNode::new(root_id);
+        root_node.set_field("kind", FieldValue::String("root_cause".into()));
+        root_node.set_field("text", FieldValue::String(pattern.root_cause.clone()));
+        root_node.set_field("bug_id", FieldValue::String(pattern.id.clone()));
+
+        let mut fix_node = UnifiedNode::new(fix_id);
+        fix_node.set_field("kind", FieldValue::String("fix".into()));
+        fix_node.set_field("text", FieldValue::String(pattern.fix_summary.clone()));
+        fix_node.set_field("bug_id", FieldValue::String(pattern.id.clone()));
+
+        let caused_by_id = self.engine.intern_label("caused_by");
+        let resolved_by_id = self.engine.intern_label("resolved_by");
+        let now_ms = now_secs() * 1000;
+
+        // sym --caused_by--> root
+        sym_node.edges.push(Edge {
+            target: root_id,
+            label_id: caused_by_id,
+            weight: 1.0,
+            reverse: false,
+            created_at_ms: now_ms,
+        });
+        root_node.edges.push(Edge {
+            target: sym_id,
+            label_id: caused_by_id,
+            weight: 1.0,
+            reverse: true,
+            created_at_ms: now_ms,
+        });
+
+        // sym --resolved_by--> fix
+        sym_node.edges.push(Edge {
+            target: fix_id,
+            label_id: resolved_by_id,
+            weight: 1.0,
+            reverse: false,
+            created_at_ms: now_ms,
+        });
+        fix_node.edges.push(Edge {
+            target: sym_id,
+            label_id: resolved_by_id,
+            weight: 1.0,
+            reverse: true,
+            created_at_ms: now_ms,
+        });
+
+        self.engine.insert(&sym_node)?;
+        self.engine.insert(&root_node)?;
+        self.engine.insert(&fix_node)?;
+
+        Ok(result)
+    }
+
+    /// Query Bug->Fix patterns by symptom text or general query.
+    pub fn query_bugfix(&self, query: &str) -> Result<Vec<BugFixPattern>> {
+        let q_lower = query.to_lowercase();
+        let page = self.list(SkillListOptions {
+            owner_agent: Some("bugfix".into()),
+            limit: usize::MAX,
+            offset: 0,
+            name_prefix: None,
+        })?;
+
+        let mut matches = Vec::new();
+        for record in page.items {
+            let symptom = record.metadata.get("symptom").cloned().unwrap_or_default();
+            let root_cause = record
+                .metadata
+                .get("root_cause")
+                .cloned()
+                .unwrap_or_default();
+            let fix_summary = record
+                .metadata
+                .get("fix_summary")
+                .cloned()
+                .unwrap_or_default();
+            let regression_test = record
+                .metadata
+                .get("regression_test")
+                .cloned()
+                .unwrap_or_default();
+            let files_touched: Vec<String> = record
+                .metadata
+                .get("files_touched")
+                .and_then(|s| serde_json::from_str(s).ok())
+                .unwrap_or_default();
+
+            let id = record
+                .name
+                .strip_prefix("bugfix_")
+                .unwrap_or(&record.name)
+                .to_string();
+
+            let sym_l = symptom.to_lowercase();
+            let root_l = root_cause.to_lowercase();
+            let fix_l = fix_summary.to_lowercase();
+
+            let q_words: Vec<&str> = q_lower.split_whitespace().filter(|w| w.len() > 1).collect();
+            let all_words_match = !q_words.is_empty()
+                && q_words
+                    .iter()
+                    .all(|w| sym_l.contains(w) || root_l.contains(w) || fix_l.contains(w));
+
+            let matched = query.is_empty()
+                || sym_l.contains(&q_lower)
+                || root_l.contains(&q_lower)
+                || fix_l.contains(&q_lower)
+                || all_words_match
+                || files_touched
+                    .iter()
+                    .any(|f| f.to_lowercase().contains(&q_lower));
+
+            if matched {
+                matches.push(BugFixPattern {
+                    id,
+                    symptom,
+                    root_cause,
+                    fix_summary,
+                    files_touched,
+                    regression_test,
+                });
+            }
+        }
+
+        Ok(matches)
+    }
+
+    /// Query Bug->Fix patterns by affected file path.
+    pub fn query_bugfix_by_file(&self, file_path: &str) -> Result<Vec<BugFixPattern>> {
+        let normalized = file_path.replace('\\', "/").to_lowercase();
+        let page = self.list(SkillListOptions {
+            owner_agent: Some("bugfix".into()),
+            limit: usize::MAX,
+            offset: 0,
+            name_prefix: None,
+        })?;
+
+        let mut matches = Vec::new();
+        for record in page.items {
+            let files_touched: Vec<String> = record
+                .metadata
+                .get("files_touched")
+                .and_then(|s| serde_json::from_str(s).ok())
+                .unwrap_or_default();
+
+            let touches_file = files_touched.iter().any(|f| {
+                let f_norm = f.replace('\\', "/").to_lowercase();
+                f_norm == normalized
+                    || normalized.ends_with(&f_norm)
+                    || f_norm.ends_with(&normalized)
+            });
+
+            if touches_file {
+                let id = record
+                    .name
+                    .strip_prefix("bugfix_")
+                    .unwrap_or(&record.name)
+                    .to_string();
+                let symptom = record.metadata.get("symptom").cloned().unwrap_or_default();
+                let root_cause = record
+                    .metadata
+                    .get("root_cause")
+                    .cloned()
+                    .unwrap_or_default();
+                let fix_summary = record
+                    .metadata
+                    .get("fix_summary")
+                    .cloned()
+                    .unwrap_or_default();
+                let regression_test = record
+                    .metadata
+                    .get("regression_test")
+                    .cloned()
+                    .unwrap_or_default();
+
+                matches.push(BugFixPattern {
+                    id,
+                    symptom,
+                    root_cause,
+                    fix_summary,
+                    files_touched,
+                    regression_test,
+                });
+            }
+        }
+
+        Ok(matches)
     }
 
     // ── Internal helpers ──

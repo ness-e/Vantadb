@@ -34,7 +34,8 @@ use crate::core::profile::profile_sync::{
 };
 use crate::core::record::l1_reader::{
     cosine_similarity, l1_namespace, overlap_score, read_namespace_records, read_session_records,
-    rrf_merge_scored, significant_terms, usable_vector_filter, MIN_COSINE_SIMILARITY,
+    rrf_merge_scored, sdk_to_memory_record, significant_terms, usable_vector_filter,
+    MIN_COSINE_SIMILARITY,
 };
 use crate::core::record::l1_writer::EmbedFn;
 use crate::core::record::scoring::{composite_rank, CompositeScoring};
@@ -488,6 +489,19 @@ fn perform_auto_recall_inner(
                     &mut governance,
                 )?);
             }
+            // PI-2 / MGR-23: Also include ADRs and conventions from dedicated namespaces
+            for adr_ns in ["adr", "conventions", "architecture"] {
+                if policy.allows(adr_ns) {
+                    if let Ok(page) = db.list(adr_ns, vantadb::sdk::MemoryListOptions::default()) {
+                        for item in page.records {
+                            let mem_rec = sdk_to_memory_record(item);
+                            if !records.iter().any(|r| r.id == mem_rec.id) {
+                                records.push(mem_rec);
+                            }
+                        }
+                    }
+                }
+            }
             let (hits, used_semantic) =
                 search_records(&records, params.user_text, &config, embed, composite);
             semantic_ran = used_semantic;
@@ -728,7 +742,21 @@ fn search_records(
     let min_overlap = config.min_overlap.max(1);
     let mut keyword_pool: Vec<(usize, &MemoryRecord)> = Vec::new();
     let mut vector_pool: Vec<(f32, &MemoryRecord)> = Vec::new();
+    let mut priority_adrs: Vec<&MemoryRecord> = Vec::new();
+
     for record in records {
+        // PI-2 / MGR-23: ADR and convention prioritization / superseded exclusion
+        if is_adr_record(record) {
+            if is_adr_superseded(record) {
+                // Superseded ADRs are never recalled into agent context
+                continue;
+            }
+            if adr_matches_query(record, query) {
+                priority_adrs.push(record);
+                continue;
+            }
+        }
+
         let semantic_score = match (&record.vector, &query_vector) {
             (Some(record_vector), Some(query_vec)) => cosine_similarity(record_vector, query_vec),
             _ => None,
@@ -780,12 +808,16 @@ fn search_records(
             })
             .collect()
     };
-    let ordered: Vec<&MemoryRecord> = match composite {
-        None => candidates.into_iter().map(|(record, _)| record).collect(),
-        Some((scoring, now_ms)) => composite_rank(&candidates, scoring, now_ms)
-            .into_iter()
-            .map(|idx| candidates[idx].0)
-            .collect(),
+    let mut ordered: Vec<&MemoryRecord> = Vec::new();
+    ordered.extend(priority_adrs);
+    match composite {
+        None => ordered.extend(candidates.into_iter().map(|(record, _)| record)),
+        Some((scoring, now_ms)) => {
+            let ranked_indices = composite_rank(&candidates, scoring, now_ms);
+            for idx in ranked_indices {
+                ordered.push(candidates[idx].0);
+            }
+        }
     };
 
     let hits: Vec<RecallHit> = ordered
@@ -793,9 +825,13 @@ fn search_records(
         .take(config.max_results)
         .map(|record| {
             let line = format_memory_line(record);
-            let memory_type = serde_json::to_string(&record.memory_type)
-                .unwrap_or_else(|_| "\"unknown\"".to_string());
-            let memory_type = memory_type.trim_matches('"').to_string();
+            let memory_type = if is_adr_record(record) {
+                "adr".to_string()
+            } else {
+                let mt = serde_json::to_string(&record.memory_type)
+                    .unwrap_or_else(|_| "\"unknown\"".to_string());
+                mt.trim_matches('"').to_string()
+            };
             let content = line
                 .split_once("] ")
                 .map(|(_, rest)| rest.to_string())
@@ -807,7 +843,7 @@ fn search_records(
                     score: keyword_pool
                         .iter()
                         .find(|(_, r)| r.id == record.id)
-                        .map_or(0, |(score, _)| *score),
+                        .map_or(100, |(score, _)| *score),
                     memory_type,
                     // VER-04: source identity for the surface injection audit.
                     source_namespace: l1_namespace(&record.session_key),
@@ -833,6 +869,64 @@ fn search_records(
         })
         .collect();
     (budgeted, semantic_ran)
+}
+
+/// Helper to detect if a record represents an ADR or architecture convention.
+fn is_adr_record(r: &MemoryRecord) -> bool {
+    if let Some(cat) = r.metadata.get("category").and_then(|v| v.as_str()) {
+        if cat == "adr" || cat == "convention" {
+            return true;
+        }
+    }
+    r.content.starts_with("[ADR:") || r.metadata.get("decision_id").is_some()
+}
+
+/// Helper to detect if an ADR has been superseded.
+fn is_adr_superseded(r: &MemoryRecord) -> bool {
+    if r.superseded_by.is_some() {
+        return true;
+    }
+    if let Some(status) = r.metadata.get("status").and_then(|v| v.as_str()) {
+        if status.eq_ignore_ascii_case("superseded") {
+            return true;
+        }
+    }
+    if let Some(by) = r.metadata.get("superseded_by").and_then(|v| v.as_str()) {
+        if !by.is_empty() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Helper to check if an ADR matches the query or touched modules.
+fn adr_matches_query(r: &MemoryRecord, query: &str) -> bool {
+    let q = query.to_lowercase();
+    if let Some(mods) = r.metadata.get("modules").and_then(|v| v.as_array()) {
+        for m in mods {
+            if let Some(m_str) = m.as_str() {
+                if !m_str.is_empty() && q.contains(&m_str.to_lowercase()) {
+                    return true;
+                }
+            }
+        }
+    }
+    if let Some(did) = r.metadata.get("decision_id").and_then(|v| v.as_str()) {
+        if !did.is_empty() && q.contains(&did.to_lowercase()) {
+            return true;
+        }
+    }
+    if let Some(ctx) = r.metadata.get("context").and_then(|v| v.as_str()) {
+        if !ctx.is_empty() && q.contains(&ctx.to_lowercase()) {
+            return true;
+        }
+    }
+    if let Some(dec) = r.metadata.get("decision").and_then(|v| v.as_str()) {
+        if !dec.is_empty() && q.contains(&dec.to_lowercase()) {
+            return true;
+        }
+    }
+    overlap_score(&r.content, query) > 0
 }
 
 /// MEMG-11: rank the L1 pool with the core hybrid search — BM25 text arm
