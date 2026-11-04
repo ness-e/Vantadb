@@ -13,7 +13,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **17 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
+VantaDB has **18 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -540,6 +540,10 @@ by resolved path, and runs the Python SDK smoke suite (native targets only — t
 cross wheel is validated by its platform tag and the PyPI install verify job). Manual TestPyPI upload is available only
 through an explicit workflow input and the `TEST_PYPI_API_TOKEN` secret. Production PyPI
 publication and signing remain deferred.
+
+### 12. Weekly Adoption Metrics Collector (`metrics-collector.yml`)
+
+Runs on a weekly schedule (`0 6 * * 1`) and via `workflow_dispatch` to collect ecosystem adoption telemetry (stars, forks, PyPI/npm download stats) via `scripts/collect_adoption_metrics.py` and commit the snapshot to `docs/dev/metrics/adoption.json` with `[skip ci]`.
 
 ### 9. Release Workflows
 

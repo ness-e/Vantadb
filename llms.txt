@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-172 documentation pages; it deliberately omits the 0 task files,
+181 documentation pages; it deliberately omits the 0 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -107,16 +107,25 @@ is in docs/index.md in the repository.
 
 ## Guides
 
+- [AI Agent Memory Campaign — Measurable Deliverables](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/campaign-ai-agent-memory.md): Prior validation (docs/audit-reports/backlog-validation-2026-07-28.md:118) marked MKT-10 ❌ (\"sin materiales de campaña\"). On review 2026-08-05, the campaign's landing and demo surfaces already exist in the product/web; 1 real gap...
 - [Frequently Asked Questions](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/FAQ.md): VantaDB is an embedded persistent memory engine for local-first AI applications. It combines vector similarity search (HNSW), full-text lexical search (BM25), hybrid search fusion, and structured metadata filtering in a single...
 - [Getting Started with VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/guide/getting-started.md): Quick start guide for embedding VantaDB as the local-first cognitive memory engine for AI agents
-- [GraphRAG Benchmark](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/graphrag-benchmark.md): Measured GraphRAG vs plain RAG latency and context cost on a deterministic corpus
+- [GraphRAG Benchmark Methodology (MKT-16)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/graphrag-benchmark.md): Validar las métricas publicadas en el diseño inicial de GraphRAG (referenciado en docs/api/GRAPH_RAG.md)
 - [Head-to-Head — VantaDB vs mem0 en memoria real](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/head_to_head_mem0_vantadb.md): Comparativa honesta vantadb vs mem0 OSS sobre LongMemEval-S con el mismo harness, juez y slice
+- [How Hybrid Search Actually Works](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/how_hybrid_search_works.md): By the VantaDB Team
+- [Introducing VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/introducing_vantadb.md): By the VantaDB Team
+- [Local Agent Memory with Ollama + VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/ollama_vantadb_local_memory.md): By the VantaDB Team
 - [Privacy & local LLMs — what VantaDB guarantees (and what it doesn't)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/PRIVACY.md): The exact privacy guarantees of the local-first stack — redaction-on-write, encrypted originals, certified delete, injection governance — with commands and a covered / not covered table
+- [SQLite for AI Agents: The Missing Memory Layer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/sqlite_for_ai_agents.md): By the VantaDB Team
 - [VantaDB 5-Minute Quickstart](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/QUICKSTART.md): This quickstart validates the current v0.9.0 boundary from pre-built artifacts
+- [VantaDB as Persistent Memory for Claude Code (MCP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/claude_code_mcp_memory.md): By the VantaDB Team
 - [VantaDB for AI IDEs — persistent project memory over MCP](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/AI_IDES.md): One MCP server for persistent project memory in Claude Code, Cursor, OpenCode and Codex — what works today, how to install it, and what is not there yet
 - [VantaDB for agent frameworks — same memory code in dev and prod](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/FRAMEWORKS.md): Persistent memory adapters for LangGraph, CrewAI, DSPy, Haystack, LlamaIndex and more — same code in dev and prod, namespaces for multi-user isolation, migration guides from Mem0/Zep/Letta
 - [VantaDB vs Alternatives — Honest Comparison & Practical Limits](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/COMPARISON.md): This page answers \"why not X?\" (sqlite-vec, LanceDB, Qdrant, Chroma) with three rules
+- [VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/benchmarks_vs_lancedb_chroma.md): By the VantaDB Team
 - [VantaDB — Troubleshooting Común (Windows)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/troubleshooting.md): Síntoma: error: linking with link.exe failed: exit code: 0xc0000409
+- [Why I Built VantaDB: A Local Memory Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/why_i_built.md): By ness-e
+- [VantaDB vs Mem0: a head-to-head on LongMemEval-S (protocol first, numbers second)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/head_to_head_mem0_zep_letta.md): We ran Mem0 OSS and VantaDB through the same public harness on a declared LongMemEval-S slice, published the protocol, and report the result honestly — including the recall cells we lost
 
 ## Index
 

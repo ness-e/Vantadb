@@ -56,11 +56,16 @@ impl AutoTune {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
 
-    /// Run f with the global state temporarily reset to 50/0.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Run f with the global state temporarily reset to 50/0, holding a lock
+    /// to avoid parallel test execution clobbering the shared static.
     fn with_reset(f: impl FnOnce()) {
-        AUTO_TUNE.ef_search.store(50, Ordering::Relaxed);
-        AUTO_TUNE.hit_streak.store(0, Ordering::Relaxed);
+        let _guard = TEST_LOCK.lock().unwrap();
+        AUTO_TUNE.ef_search.store(50, Ordering::SeqCst);
+        AUTO_TUNE.hit_streak.store(0, Ordering::SeqCst);
         f();
     }
 

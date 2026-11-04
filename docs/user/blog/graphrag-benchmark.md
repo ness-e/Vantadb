@@ -2,10 +2,10 @@
 title: GraphRAG Benchmark Methodology (MKT-16)
 kind: howto
 status: run-pending-query-phase
-description: Validar las métricas publicadas en docs/user/glosario/graphrag.md
+description: Validar las métricas publicadas en el diseño inicial de GraphRAG (referenciado en docs/api/GRAPH_RAG.md)
 tags: [vantadb, benchmark, graphrag, mkt]
 date: "2026-08-05"
-links: "[Glosario GraphRAG](../glosario/graphrag.md)"
+links: "[GraphRAG API](../../api/GRAPH_RAG.md)"
 ---
 
 # GraphRAG Benchmark — Metodología y Resultados Reales
@@ -16,7 +16,7 @@ links: "[Glosario GraphRAG](../glosario/graphrag.md)"
 
 ## Propósito
 
-Validar las métricas publicadas en [`docs/user/glosario/graphrag.md`](../glosario/graphrag.md):
+Validar las métricas publicadas en el diseño inicial de GraphRAG (referenciado en [`docs/api/GRAPH_RAG.md`](../../api/GRAPH_RAG.md)):
 
 | Métrica del glosario | Claim publicado | Estado tras este trabajo |
 |---|---|---|

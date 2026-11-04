@@ -117,7 +117,7 @@ The product boundary (v0.9.0) is an embedded local-first persistent memory engin
 | BM25 lexical retrieval | Production-facing | `src/text_index.rs` · `src/sdk/search/lexical.rs` |
 | Hybrid Retrieval v1 with deterministic RRF | Production-facing | `src/sdk/search/fusion.rs` (`fuse_rrf`, `RRF_K`) |
 | MCP Brain Profile (L0-L3 + meta-tools) | Production-facing (Default in PRD-01) | `vantadb-mcp/src/config.rs` (`McpProfile::Brain`) · `docs/api/MCP.md` |
-| Certified Erasure (VER-02 receipts & audit) | Production-facing | `src/erasure.rs` · `vanta-memory/src/core/erasure/` · `docs/api/ERASURE.md` |
+| Certified Erasure (VER-02 receipts & audit) | Production-facing | `vanta-memory/src/utils/erasure.rs` · `vanta-memory/tests/erasure.rs` · `src/attestation.rs` |
 | At-Rest Encryption (AES-256-GCM + KDF) | Production-facing | `feature:encryption` (`Cargo.toml`) · `src/crypto.rs` |
 | Basic phrase filtering | Production-facing | `src/sdk/search/phrase.rs` · `src/text_index.rs` (phrase groups) |
 | Manual rebuild and structural audit flows | Production-facing | `src/sdk/api/admin.rs` (`rebuild_index`) · `src/cli.rs` (`audit-index`, `doctor`) |
@@ -130,6 +130,7 @@ The product boundary (v0.9.0) is an embedded local-first persistent memory engin
 | --- | --- | --- | --- |
 | Local `vantadb-server` binary | Optional wrapper around the embedded core | Local dev / network exposure | `feature:server` (`Cargo.toml:177`) · `vantadb-server/` |
 | Local ONNX embeddings (`embed-local` feature, `LocalOnnxProvider`) | **Optional local-first** | Offline, `ort`+`tokenizers`, 9 models (8 ≤3 GB + Qwen3 exception), default `multilingual-e5-small` 384d — see `docs/api/EMBEDDINGS.md`, `embeddings/manifest.json`, `docs/user/tutorials/05-embedding-integrations.md` | `feature:embed-local` (`Cargo.toml:160`) · `src/llm.rs` (`LocalOnnxProvider`) |
+| Remote LLM / Ollama inference (`remote-inference` feature, `OllamaProvider`/`OpenAIProvider`) | **Optional integration** | External optional integration, alternative to `embed-local` | `feature:remote-inference` (`Cargo.toml:165`) · `src/llm.rs` |
 
 The server and `embed-local` are optional wrappers around the same embedded core. `embed-local` is **not Experimental** — it is a supported offline path (BYO-vector remains default).
 
