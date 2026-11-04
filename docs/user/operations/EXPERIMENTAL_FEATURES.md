@@ -116,6 +116,9 @@ The product boundary (v0.9.0) is an embedded local-first persistent memory engin
 | HNSW vector retrieval | Production-facing | `src/index/` (HNSW build/search) · `src/index/graph/` |
 | BM25 lexical retrieval | Production-facing | `src/text_index.rs` · `src/sdk/search/lexical.rs` |
 | Hybrid Retrieval v1 with deterministic RRF | Production-facing | `src/sdk/search/fusion.rs` (`fuse_rrf`, `RRF_K`) |
+| MCP Brain Profile (L0-L3 + meta-tools) | Production-facing (Default in PRD-01) | `vantadb-mcp/src/config.rs` (`McpProfile::Brain`) · `docs/api/MCP.md` |
+| Certified Erasure (VER-02 receipts & audit) | Production-facing | `src/erasure.rs` · `vanta-memory/src/core/erasure/` · `docs/api/ERASURE.md` |
+| At-Rest Encryption (AES-256-GCM + KDF) | Production-facing | `feature:encryption` (`Cargo.toml`) · `src/crypto.rs` |
 | Basic phrase filtering | Production-facing | `src/sdk/search/phrase.rs` · `src/text_index.rs` (phrase groups) |
 | Manual rebuild and structural audit flows | Production-facing | `src/sdk/api/admin.rs` (`rebuild_index`) · `src/cli.rs` (`audit-index`, `doctor`) |
 | JSONL export/import | Production-facing | `src/cli.rs` (`export`/`import`) · `src/cli_handlers/data.rs` (jsonl) |
@@ -132,20 +135,12 @@ The server and `embed-local` are optional wrappers around the same embedded core
 
 ## Experimental or Not MVP
 
-These surfaces may exist in the repository, but they are not stable product claims for v0.9.0:
+These surfaces represent exploratory or secondary components that are explicitly not part of the stable production-facing SLA for v0.9.0:
 
 | Area | Boundary | Evidence |
 | --- | --- | --- |
-| IQL/LISP/DQL parser, evaluator, and executor paths | **IQL shipped** (2026-09-24): `POST /api/v2/query` + SDK/CLI/MCP expose SELECT/INSERT/RELATE with JOIN (no aggregations). What was archived (2024-06-10, legacy batch codename, not a release date) is the LISP runtime evaluator (borrow checker/GIL); the legacy fuzz target is preserved in [`FUZZING.md`](../../dev/operations/FUZZING.md). Syntax stabilization: API-06 (P51) | `src/parser/` · `src/server/router.rs` (`/api/v2/query`) · `src/cli.rs` (`query`) |
-| MCP API | **Shipped** — 88 tools + resources + prompts (v0.9.0). Naming/schema stabilization: API-04 (P51); profile enforcement + default `agent` profile: WIRE-02 (P56) | `vantadb-mcp/src/handlers/tools.rs:25` ("88 tool definitions, 49 base + 39 extend") · `docs/api/MCP.md:198` (80 listed across profiles — profile-filtered subset) |
-| Remote LLM/Ollama integration (`remote-inference` feature, `OllamaProvider`/`OpenAIProvider`) | External optional integration, not core dependency — alternative to `embed-local` | `feature:remote-inference` (`Cargo.toml:159`) · `src/llm.rs` |
-| Governance and maintenance semantics | Legacy framework runtime archived (2024-06-10, batch codename). Current governance: supersede/TTL/version_history (SDK) + MGR program (P49) → v0.7 manual → v1.0 automatic. Extracted utilities live in `src/utils/` (Bloom filter wiring into the write path pending — FUT-09/VER-07) | `src/sdk/api/memory.rs` (`supersede`, `versions`, `purge_expired`) · `src/utils/` |
-| Graph traversal beyond stored local edges | Experimental, not a graph database claim | `src/sdk/graph.rs` · `src/graphrag/` · MCP `graph_*` tools |
-| Docker/Ollama examples | Experimental development examples | `docs/dev/archive/docker/` (archived) · `vantadb-server/docker-compose.yml` |
-| **vanta-proxy (LLM gateway)** | **Category: labs** — multi-stage request pipeline (auth → rate-limit → session → mem-commands → inject → redact → context trim → cache/translate → forward + failover → capture/writeback; stages numbered inline in `vanta-proxy/src/server.rs`). `/snapshot` auth: ✅ API-05 (P51) — every route requires `x-vanta-user-key` (`vanta-proxy/src/auth.rs:19`; desktop: FIND-155); memory loop + cost output: WIRE-01 (P56) | `vanta-proxy/` · `docs/api/PROXY.md` |
-| **Vanta Studio (Tauri desktop)** | **Category: labs — FROZEN 2026-10-16 (FIND-341)** — desktop tree removed from the repo; desktop CI jobs removed. Promotion candidate: ICP-01's minimal "viewer" if F5 evidence requires it — viewer only, not the Studio | DEF-02 "Category: labs"; FIND-341 |
-| **Web console** | **Category: labs** — separate site in [`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web) (user docs live in its docs/user/web/ tree) | external repo — no surface in this tree |
-| **vanta-memory (L0→L3)** | **Category: core-promise** (finalized by the DEF-07 Scope Budget) — **Partially shipped — scheduler host landed (WIRE-16/ADR-0054)**: full pipeline + host in `vantadb-server` HTTP mode (writable servers: bridge always wired; loop opt-in via `VANTADB_SCHEDULER_INTERVAL_MS`, `0` = off; MCP/proxy hosts deferred); trigger trait implemented in `vanta-memory/src/services/conversation_hook.rs`; dreams dry-run/promote real: VER-07 (P52) | `vanta-memory/` · `vantadb-server/src/scheduler.rs` |
+| **vanta-proxy (LLM gateway)** | **Category: labs (Experimental)** — multi-stage request pipeline (auth → rate-limit → session → mem-commands → inject → redact → context trim → cache/translate → forward + failover → capture/writeback; stages numbered inline in `vanta-proxy/src/server.rs`). Frozen until 1.0.0. | `vanta-proxy/` · `docs/api/PROXY.md` |
+| **Unstructured data connectors & ingestors** | **Experimental** — third-party unstructured document ingestors and batch synchronizers. | `src/integrations/` |
 
 ## Extracted Utilities (Production-Ready)
 

@@ -149,6 +149,8 @@ pub mod shred;
 /// Versioned skill store (agent skills / memory skills).
 pub mod skills;
 pub mod sync_ext;
+/// Anonymous operational telemetry (TEC-09, opt-in only).
+pub mod telemetry;
 
 pub(crate) mod scalar_index;
 /// Storage schema versioning and compatibility checks.
