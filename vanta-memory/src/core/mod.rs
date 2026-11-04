@@ -62,3 +62,6 @@ pub mod dream;
 /// the original `l1/<session>` store is **never** mutated. Pull-based; the
 /// promotion to L1 and scheduler wiring are deferred (FIND-290).
 pub mod reflection;
+
+/// MEM0-04: Ontological bitemporal triplets and graph edges.
+pub mod ontology;

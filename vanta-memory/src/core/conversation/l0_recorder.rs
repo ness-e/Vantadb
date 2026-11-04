@@ -132,6 +132,101 @@ const META_ROLE: &str = "role";
 const META_SESSION: &str = "session_id";
 const META_TS: &str = "timestamp_ms";
 const META_RECORDED_AT: &str = "recorded_at";
+const META_IS_TRIVIAL_NOISE: &str = "is_trivial_noise";
+
+/// Compute Shannon entropy of a text fragment based on character frequency (NOT-04).
+pub fn calculate_entropy(text: &str) -> f64 {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return 0.0;
+    }
+    let mut counts = std::collections::HashMap::new();
+    let mut total = 0usize;
+    for ch in trimmed.chars() {
+        *counts.entry(ch).or_insert(0usize) += 1;
+        total += 1;
+    }
+    let total_f = total as f64;
+    let mut entropy = 0.0;
+    for count in counts.values() {
+        let p = (*count as f64) / total_f;
+        entropy -= p * p.log2();
+    }
+    entropy
+}
+
+/// Detect whether text contains recognizable entities (numbers, capitalized proper nouns, symbols) (NOT-04).
+pub fn has_entities(text: &str) -> bool {
+    let trimmed = text.trim();
+    // Numbers/digits indicate entities or data (dates, amounts, ids)
+    if trimmed.chars().any(|c| c.is_ascii_digit()) {
+        return true;
+    }
+    // Symbols like @, #, $, %, /, :, etc.
+    if trimmed
+        .chars()
+        .any(|c| matches!(c, '@' | '#' | '$' | '%' | '/' | ':' | '=' | '<' | '>'))
+    {
+        return true;
+    }
+    // Words starting with uppercase inside the phrase (proper nouns)
+    let words: Vec<&str> = trimmed.split_whitespace().collect();
+    if words.len() > 1
+        && words[1..]
+            .iter()
+            .any(|w| w.chars().next().is_some_and(|c| c.is_uppercase()))
+    {
+        return true;
+    }
+    false
+}
+
+/// Evaluate whether an L0 message is trivial noise that should be kept in volatile L0 buffer
+/// without being indexed into HNSW L1 (NOT-04).
+///
+/// If message length is < 15 chars and has no entities (e.g. "ok", "gracias", "vale", "bien", "thanks"),
+/// it returns `true`.
+pub fn is_trivial_noise(text: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.len() >= 15 {
+        return false;
+    }
+    if has_entities(trimmed) {
+        return false;
+    }
+    // Check known trivial conversational fillers
+    let lower = trimmed.to_lowercase();
+    let clean = lower.trim_matches(|c: char| c.is_ascii_punctuation());
+    matches!(
+        clean,
+        "" | "ok"
+            | "okay"
+            | "k"
+            | "gracias"
+            | "muchas gracias"
+            | "vale"
+            | "bien"
+            | "si"
+            | "sí"
+            | "no"
+            | "yes"
+            | "yeah"
+            | "yep"
+            | "nope"
+            | "thanks"
+            | "thx"
+            | "ty"
+            | "de nada"
+            | "perfecto"
+            | "entendido"
+            | "hola"
+            | "hello"
+            | "hi"
+            | "bye"
+            | "adiós"
+            | "adios"
+    ) || (trimmed.len() < 15 && calculate_entropy(trimmed) < 2.5)
+}
 
 /// Cursor record key and namespace prefix.
 const CURSOR_KEY: &str = "__cursor";
@@ -225,6 +320,7 @@ impl L0Recorder {
         let recorded_at = now_ms();
         for (key, msg) in pending {
             let mut metadata = MemoryMetadata::new();
+            let is_noise = is_trivial_noise(&msg.content);
             metadata.insert(META_ROLE.into(), Value::String(msg.role.to_string()));
             metadata.insert(
                 META_SESSION.into(),
@@ -232,6 +328,7 @@ impl L0Recorder {
             );
             metadata.insert(META_TS.into(), Value::Int(msg.timestamp_ms as i64));
             metadata.insert(META_RECORDED_AT.into(), Value::Int(recorded_at as i64));
+            metadata.insert(META_IS_TRIVIAL_NOISE.into(), Value::Bool(is_noise));
 
             self.db.put(MemoryInput {
                 namespace: session_ns.clone(),
@@ -291,6 +388,18 @@ impl L0Recorder {
 
         messages.sort_by_key(|m| m.timestamp_ms);
         Ok(messages)
+    }
+
+    /// Read only non-trivial messages suitable for L1 extraction / HNSW indexing (NOT-04).
+    ///
+    /// Preserves trivial messages ("ok", "gracias") in the L0 persistent buffer, but filters
+    /// them out from downstream L1 extraction and vector indexing.
+    pub fn read_indexable_messages(&self, session_id: &str) -> Result<Vec<L0Message>, L0Error> {
+        let messages = self.read_messages(session_id)?;
+        Ok(messages
+            .into_iter()
+            .filter(|m| !is_trivial_noise(&m.content))
+            .collect())
     }
 
     /// Read the persisted cursor for a session (if any).
@@ -403,4 +512,28 @@ pub(crate) fn now_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_trivial_noise_entropy_detection() {
+        // Trivial noise without entities: len < 15
+        assert!(is_trivial_noise("ok"));
+        assert!(is_trivial_noise("gracias"));
+        assert!(is_trivial_noise("muchas gracias"));
+        assert!(is_trivial_noise("vale"));
+        assert!(is_trivial_noise("thanks"));
+        assert!(is_trivial_noise("sí"));
+        assert!(is_trivial_noise("no"));
+
+        // Non-trivial messages: len >= 15 or contains entities/numbers
+        assert!(!is_trivial_noise("ok, let's deploy v2 to production"));
+        assert!(!is_trivial_noise("call me at 555-1234")); // has digits
+        assert!(!is_trivial_noise("user is Alice")); // proper noun entity
+        assert!(!is_trivial_noise("port 8080")); // digits
+        assert!(!is_trivial_noise("I prefer dark mode in UI settings")); // len >= 15
+    }
 }

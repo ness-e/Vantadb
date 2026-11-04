@@ -75,6 +75,7 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // dream_discard: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
 // dream_consolidate: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
 // dream_promote: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// memory_dream: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
 // memory_forget: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
 // vanta_scene: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
 // vanta_dream: readOnlyHint false, destructiveHint true, idempotentHint false, openWorldHint false
@@ -250,6 +251,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03/SCH-07): keep only records whose validity window contains this unix-ms instant. Omit for no temporal filter (default)" },
                     "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03/SCH-07): half-open `[from_ms, to_ms)`; `from_ms < to_ms` validated at the core boundary. Omit for no filter" },
                     "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05/SCH-07). Default false: quarantined content is excluded by default" },
+                    "exclude_superseded": { "type": "boolean", "description": "Exclude superseded/invalidated records (FIND-577). Default false" },
                     "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-07): keep only records whose confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" }
                 },
                 "required": ["namespace"]
@@ -371,6 +373,28 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             }
         },
         {
+            "name": "memory_dream",
+            "description": "TEC-07/PRD-06: consolidates unconsolidated L1 memories for a namespace/session via dreaming pass (dedupe, contradiction resolution, relative date normalization, and safe auto-promotion of high-confidence patterns).",
+            "annotations": {
+                "title": "Memory Dream",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Session or namespace to consolidate into L1/L2/L3 dream views" }
+                },
+                "required": ["namespace"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "description": "Dream consolidation run details, including run_id, inputs_scanned, and consolidation stats"
+            }
+        },
+        {
             "name": "memory_search",
             "description": "Hybrid memory search in a namespace (API-04 canonical name, mem0/Letta parity): text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. SCH-07: accepts the temporal (`as_of_ms`/`valid_window`) and quarantine-view (`include_quarantined`) query params and reports the selective-abstention signal (`abstained`/`abstention_reason`) in structuredContent when the configured `confidence_threshold` filters every candidate. The legacy `search_memory` alias stays dispatchable but is not listed.",
             "annotations": {
@@ -394,6 +418,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
                     "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
                     "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
+                    "exclude_superseded": { "type": "boolean", "description": "Exclude superseded/invalidated records (FIND-577). Default false" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -465,6 +490,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
                     "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
                     "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
+                    "exclude_superseded": { "type": "boolean", "description": "Exclude superseded/invalidated records (FIND-577). Default false" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -509,6 +535,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
                     "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
                     "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
+                    "exclude_superseded": { "type": "boolean", "description": "Exclude superseded/invalidated records (FIND-577). Default false" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -701,7 +728,9 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                 "type": "object",
                 "properties": {
                     "name": { "type": "string", "description": "Axiom name (unique key in the _axioms namespace)" },
-                    "description": { "type": "string", "description": "Axiom rule description" }
+                    "description": { "type": "string", "description": "Axiom rule description" },
+                    "corroboration_count": { "type": "number", "description": "TrustGuard (NOT-05): Number of corroborating episodes (requires >= 2 if provenance not verified)" },
+                    "verified_provenance": { "type": "boolean", "description": "TrustGuard (NOT-05): Whether the axiom originates from verified human/trusted authority" }
                 },
                 "required": ["name", "description"]
             }
@@ -1223,7 +1252,7 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
     use McpProfile::*;
     let mut set = std::collections::HashSet::new();
 
-    // Brain profile (12 listed tools): Compact cognitive surface L0-L3 + meta-tools
+    // Brain profile (13 listed tools): Compact cognitive surface L0-L3 + meta-tools
     if profile == Brain {
         let brain_tools = [
             "memory_recall",
@@ -1232,6 +1261,7 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
             "memory_get",
             "memory_forget",
             "memory_supersede",
+            "memory_dream",
             "context_assemble",
             "thread_send",
             "vanta_scene",
@@ -1678,6 +1708,9 @@ pub fn handle_tools_call(
                         if let Some(w) = warning {
                             obj.insert("warning".to_string(), json!(w));
                         }
+                        if let Some(hint) = check_unconsolidated_dream_hint(&embedded, namespace) {
+                            obj.insert("dream_hint".to_string(), json!(hint));
+                        }
                         Ok(structured_text_content(&v))
                     } else {
                         Ok(text_content_structured(&record))
@@ -1924,6 +1957,7 @@ pub fn handle_tools_call(
             let as_of_ms = parse_optional_u64(args, "as_of_ms")?;
             let valid_window = parse_valid_window(args, "valid_window")?;
             let include_quarantined = parse_optional_bool(args, "include_quarantined", false)?;
+            let exclude_superseded = parse_optional_bool(args, "exclude_superseded", false)?;
             let min_confidence = parse_optional_min_confidence(args)
                 .map_err(|msg| McpError::validation(msg).to_json())?;
 
@@ -1933,7 +1967,7 @@ pub fn handle_tools_call(
                 #[allow(deprecated)]
                 filters: vantadb::sdk::MemoryMetadata::new(),
                 filter_ops,
-                exclude_superseded: false,
+                exclude_superseded,
                 as_of_ms,
                 valid_window,
                 include_quarantined,
@@ -2217,7 +2251,7 @@ pub fn handle_tools_call(
                     );
                     let recalled: Vec<Value> = result
                         .recalled_memories
-                        .into_iter()
+                        .iter()
                         .map(|m| {
                             json!({
                                 "content": m.content,
@@ -2233,22 +2267,48 @@ pub fn handle_tools_call(
                         RecallMode::Embedding => "embedding",
                         RecallMode::Hybrid => "hybrid",
                     };
-                    let envelope = json!({
+                    let mut envelope = json!({
                         "prepend_context": result.prepend_context,
                         "recalled": recalled,
                         "effective_mode": mode_str,
                     });
+                    let target_ns = args
+                        .get("namespace")
+                        .and_then(Value::as_str)
+                        .or_else(|| args.get("session_key").and_then(Value::as_str))
+                        .unwrap_or_else(|| {
+                            result
+                                .recalled_memories
+                                .first()
+                                .map(|m| m.source_namespace.as_str())
+                                .unwrap_or("default")
+                        });
+                    if let Some(hint) = check_unconsolidated_dream_hint(&embedded, target_ns) {
+                        if let Some(obj) = envelope.as_object_mut() {
+                            obj.insert("dream_hint".to_string(), json!(hint));
+                        }
+                    }
                     Ok(recall_envelope(envelope, config.byte_budget))
                 }
-                Ok(None) => Ok(recall_envelope(
-                    json!({
+                Ok(None) => {
+                    let mut envelope = json!({
                         "prepend_context": null,
                         "recalled": [],
                         "effective_mode": "keyword",
                         "message": "No relevant memories, persona, or scenes found."
-                    }),
-                    config.byte_budget,
-                )),
+                    });
+                    let target_ns = args
+                        .get("namespace")
+                        .and_then(Value::as_str)
+                        .or_else(|| args.get("session_key").and_then(Value::as_str))
+                        .unwrap_or("default");
+                    if let Some(hint) = check_unconsolidated_dream_hint(&embedded, target_ns) {
+                        if let Some(obj) = envelope.as_object_mut() {
+                            obj.insert("dream_hint".to_string(), json!(hint));
+                        }
+                    }
+                    Ok(recall_envelope(envelope, config.byte_budget))
+                }
                 Err(e) => Ok(error_content_mcp(McpError::internal_error(format!(
                     "Recall Error: {e}"
                 )))),
@@ -2542,6 +2602,27 @@ pub fn handle_tools_call(
             validate_payload(description, config.max_payload_length).map_err(|e| e.to_json())?;
             if description.trim().is_empty() {
                 return Err(McpError::invalid_params("'description' must not be empty").to_json());
+            }
+
+            // TrustGuard (NOT-05): L3 axiom anti-poisoning defense.
+            let verified_provenance = args
+                .get("verified_provenance")
+                .and_then(Value::as_bool)
+                .unwrap_or_else(|| {
+                    args.get("corroboration_count")
+                        .map(|v| v.as_u64().unwrap_or(0) >= 2)
+                        .unwrap_or(true)
+                });
+            let corroboration_count =
+                args.get("corroboration_count")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(if verified_provenance { 2 } else { 0 }) as usize;
+
+            if let Err(msg) = vanta_memory::core::dream::validate_axiom_trust_guard(
+                corroboration_count,
+                verified_provenance,
+            ) {
+                return Err(McpError::validation(msg).to_json());
             }
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
@@ -3490,6 +3571,42 @@ pub fn handle_tools_call(
         | "thread_list"
         | "thread_delete"
         | "thread_purge_expired" => crate::threads::handle_thread_tool(name, args, storage, config),
+        "memory_dream" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let session_key = namespace.strip_prefix("l1/").unwrap_or(namespace);
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+
+            let dream_config = vanta_memory::core::dream::DreamConfig::default()
+                .with_idle_threshold_ms(0)
+                .with_auto_promote_safe(true);
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match vanta_memory::core::dream::consolidate_session(
+                &embedded,
+                session_key,
+                now_ms,
+                now_ms,
+                &dream_config,
+            ) {
+                Ok(run) => {
+                    let v = serde_json::to_value(&run).unwrap_or_else(
+                        |_| json!({ "status": "consolidated", "run_id": run.run_id }),
+                    );
+                    Ok(text_content(serialize_content(&v)))
+                }
+                Err(e) => Ok(error_content_mcp(McpError::internal_error(format!(
+                    "Dream consolidation failed: {e}"
+                )))),
+            }
+        }
         "memory_forget" => {
             let namespace = args["namespace"]
                 .as_str()
@@ -3970,6 +4087,45 @@ fn search_page_envelope(page: vantadb::sdk::MemorySearchPage, byte_budget: usize
     )
 }
 
+/// TEC-07 / PRD-06: Helper to check if a namespace has >50 unconsolidated L1 episodes.
+fn check_unconsolidated_dream_hint(
+    db: &vantadb::Embedded,
+    namespace: &str,
+) -> Option<&'static str> {
+    let options = vantadb::sdk::MemoryListOptions {
+        limit: 51,
+        cursor: None,
+        #[allow(deprecated)]
+        filters: vantadb::sdk::MemoryMetadata::new(),
+        filter_ops: None,
+        exclude_superseded: true,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
+    };
+    let l1_ns = if namespace.starts_with("l1/") {
+        namespace.to_string()
+    } else {
+        format!("l1/{}", namespace)
+    };
+    let mut count = db
+        .list(&l1_ns, options.clone())
+        .map(|p| p.records.len())
+        .unwrap_or(0);
+    if count <= 50 && !namespace.starts_with("l1/") {
+        count = db
+            .list(namespace, options)
+            .map(|p| p.records.len())
+            .unwrap_or(count);
+    }
+    if count > 50 {
+        Some("Namespace has >50 unconsolidated L1 episodes; run memory_dream to consolidate")
+    } else {
+        None
+    }
+}
+
 /// VER-04: close a recall envelope with the MCP-39 budget metadata
 /// (`byte_count` + `truncated`) so every injection surface reports the same
 /// shape as the search envelopes. Truncation pops trailing `recalled` items
@@ -4114,6 +4270,7 @@ fn parse_search_request(
     let as_of_ms = parse_optional_u64(args, "as_of_ms")?;
     let valid_window = parse_valid_window(args, "valid_window")?;
     let include_quarantined = parse_optional_bool(args, "include_quarantined", false)?;
+    let exclude_superseded = parse_optional_bool(args, "exclude_superseded", false)?;
 
     // AUD-048: unified filter semantics with the CLI channel. The search
     // request (`MemorySearchRequest`) is flat-only — it has no
@@ -4172,7 +4329,7 @@ fn parse_search_request(
             top_k,
             distance_metric,
             explain,
-            exclude_superseded: false,
+            exclude_superseded,
             // SCH-04: opt-in confidence filter (ADR-046 §D2).
             min_confidence,
             // SCH-07 (ADR-046 §D3/§D5): temporal + quarantine query params.
@@ -4811,8 +4968,8 @@ mod tests {
         let brain_set = profile_allowed_tools(McpProfile::Brain);
         assert_eq!(
             brain_set.len(),
-            12,
-            "Brain profile must have exactly 12 tools"
+            13,
+            "Brain profile must have exactly 13 tools"
         );
         for expected in [
             "memory_recall",
@@ -4821,6 +4978,7 @@ mod tests {
             "memory_get",
             "memory_forget",
             "memory_supersede",
+            "memory_dream",
             "context_assemble",
             "thread_send",
             "vanta_scene",

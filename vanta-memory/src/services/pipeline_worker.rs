@@ -370,6 +370,11 @@ pub struct MemoryTaskHandler<'a, R: LlmRunner> {
     use_batch: bool,
     /// Per-layer latency accumulator (MEM-65). Read with [`Self::telemetry`].
     telemetry: LayerTelemetry,
+    /// Threshold of stored memories to trigger auto-L2 cascade (default: 5, TEC-18).
+    pub auto_l2_threshold: usize,
+    /// Queue callback for cascading autonomous tasks (L0 -> L1 -> L2 -> L3).
+    #[allow(clippy::type_complexity)]
+    enqueue_task_fn: Option<Box<dyn Fn(TaskPayload) + 'a>>,
 }
 
 impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
@@ -389,7 +394,39 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             context_config: ContextAssemblyConfig::default(),
             use_batch: false,
             telemetry: LayerTelemetry::default(),
+            auto_l2_threshold: 5,
+            enqueue_task_fn: None,
         }
+    }
+
+    /// Provide a queue callback for cascading tasks (TEC-18).
+    pub fn with_enqueue_task<F>(mut self, f: F) -> Self
+    where
+        F: Fn(TaskPayload) + 'a,
+    {
+        self.enqueue_task_fn = Some(Box::new(f));
+        self
+    }
+
+    /// Connect a `LocalStateBackend` to automatically enqueue cascading tasks.
+    pub fn with_queue<C: Clock>(mut self, queue: &'a LocalStateBackend<C>) -> Self {
+        self.enqueue_task_fn = Some(Box::new(move |task| {
+            queue.enqueue_task(task);
+        }));
+        self
+    }
+
+    /// Enqueue a task if a callback is registered.
+    pub fn enqueue_task(&self, task: TaskPayload) {
+        if let Some(ref f) = self.enqueue_task_fn {
+            f(task);
+        }
+    }
+
+    /// Set the threshold for auto-L2 enqueue (default: 5).
+    pub fn with_auto_l2_threshold(mut self, threshold: usize) -> Self {
+        self.auto_l2_threshold = threshold;
+        self
     }
 
     /// Opt-in MEM-69 fused extract+dedup (builder-style): one
@@ -445,8 +482,11 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
     fn run_l1_inner(&mut self, session_id: &str) -> Result<(), String> {
         let recorder = L0Recorder::new(self.db.clone());
         let messages = recorder
-            .read_messages(session_id)
+            .read_indexable_messages(session_id)
             .map_err(|e| format!("L0 read failed: {e}"))?;
+        if messages.is_empty() {
+            return Ok(());
+        }
 
         let checkpoints = CheckpointManager::new(&self.db);
         let checkpoint = checkpoints.read().map_err(|e| e.to_string())?;
@@ -499,6 +539,19 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             })
             .map_err(|e| e.to_string())?;
         }
+
+        // TEC-18: Auto-cascade L1 -> L2 when memories extracted reach threshold
+        if stored_count >= self.auto_l2_threshold || stored_count > 0 {
+            self.enqueue_task(TaskPayload {
+                id: String::new(),
+                kind: TaskKind::L2,
+                session_id: session_id.to_string(),
+                priority: 1,
+                created_at_ms: crate::core::conversation::now_ms(),
+                attempts: 0,
+            });
+        }
+
         Ok(())
     }
 
@@ -626,7 +679,25 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
                 state.l2_last_extraction_time =
                     epoch_ms_to_rfc3339(crate::core::conversation::now_ms());
             })
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+
+        // MEM0-04: extract and update bitemporal triplets into graph
+        let now_ms = crate::core::conversation::now_ms();
+        let _ = crate::core::ontology::extract_and_apply_bitemporal_triplets(
+            &self.db, session_id, &records, now_ms,
+        );
+
+        // TEC-18: Auto-cascade L2 -> L3 (which executes L3 persona and triggers context assembly)
+        self.enqueue_task(TaskPayload {
+            id: String::new(),
+            kind: TaskKind::L3,
+            session_id: session_id.to_string(),
+            priority: 1,
+            created_at_ms: now_ms,
+            attempts: 0,
+        });
+
+        Ok(())
     }
 
     fn run_l3(&mut self, session_id: &str) -> Result<(), String> {

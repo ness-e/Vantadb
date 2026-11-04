@@ -90,6 +90,9 @@ pub struct DreamConfig {
     pub dreaming_runner: Option<Box<dyn Dreamer>>,
     /// Salt for run-id generation (tests use a fixed string for determinism).
     pub run_id_salt: String,
+    /// Mode for autonomous safe promotion (TEC-18): executes promote_dream_run
+    /// and triggers skill extraction when confidence >= 0.85 and 0 contradictions.
+    pub auto_promote_safe: bool,
 }
 
 impl std::fmt::Debug for DreamConfig {
@@ -101,6 +104,7 @@ impl std::fmt::Debug for DreamConfig {
                 &self.dreaming_runner.as_ref().map(|r| r.label()),
             )
             .field("run_id_salt", &self.run_id_salt)
+            .field("auto_promote_safe", &self.auto_promote_safe)
             .finish()
     }
 }
@@ -116,6 +120,7 @@ impl Clone for DreamConfig {
             idle_threshold_ms: self.idle_threshold_ms,
             dreaming_runner: None, // explicit choice: don't share trait objects
             run_id_salt: self.run_id_salt.clone(),
+            auto_promote_safe: self.auto_promote_safe,
         }
     }
 }
@@ -126,6 +131,7 @@ impl Default for DreamConfig {
             idle_threshold_ms: 600_000, // 10 minutes
             dreaming_runner: None,
             run_id_salt: String::new(),
+            auto_promote_safe: false,
         }
     }
 }
@@ -147,6 +153,24 @@ impl DreamConfig {
     pub fn with_run_id_salt(mut self, salt: impl Into<String>) -> Self {
         self.run_id_salt = salt.into();
         self
+    }
+
+    /// Builder-style override: auto_promote_safe mode (TEC-18).
+    pub fn with_auto_promote_safe(mut self, auto: bool) -> Self {
+        self.auto_promote_safe = auto;
+        self
+    }
+}
+
+/// TrustGuard (NOT-05): Validate that an L3 axiom candidate has >= 2 corroborating episodes or verified provenance.
+pub fn validate_axiom_trust_guard(
+    corroboration_count: usize,
+    verified_provenance: bool,
+) -> Result<(), &'static str> {
+    if corroboration_count >= 2 || verified_provenance {
+        Ok(())
+    } else {
+        Err("TrustGuard: L3 axiom requires >= 2 corroborating episodes or verified provenance before promotion")
     }
 }
 
@@ -812,6 +836,29 @@ fn build_promotion(
         }
     }
 
+    // TrustGuard defense (NOT-05): L3 axioms require >= 2 corroborating episodes or verified provenance
+    for record in &run.consolidated {
+        if record.memory_type == MemoryType::Persona {
+            let verified = record
+                .metadata
+                .get("verified_provenance")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if record.source_message_ids.len() < 2 && !verified {
+                let is_new_or_changed = match l1_by_id.get(record.id.as_str()) {
+                    None => true,
+                    Some(current) => canonical_payload(record)? != canonical_payload(current)?,
+                };
+                if is_new_or_changed && !record.source_message_ids.is_empty() {
+                    return Err(ConsolidationError::QualityGate(format!(
+                        "TrustGuard: L3 axiom/persona {} requires >= 2 corroborating episodes (found {}) or verified provenance before promotion",
+                        record.id, record.source_message_ids.len()
+                    )));
+                }
+            }
+        }
+    }
+
     Ok((
         PromotionPlan {
             session_id: session_id.to_string(),
@@ -1037,7 +1084,47 @@ pub fn consolidate_session(
         consolidated,
     };
     write_dream_run(db, &run)?;
+
+    // TEC-18: Continuous autonomous cascade (Dream -> Skill)
+    // When auto_promote_safe is enabled, 0 contradictions, and confidence >= 0.85,
+    // automatically promote the dream run and trigger skill extraction.
+    if config.auto_promote_safe && run.contradicted_ids.is_empty() && inputs_scanned > 0 {
+        let avg_confidence = if run.consolidated.is_empty() {
+            1.0
+        } else {
+            let sum_priority: i64 = run.consolidated.iter().map(|r| r.priority as i64).sum();
+            (sum_priority as f64) / (run.consolidated.len() as f64 * 100.0)
+        };
+
+        if avg_confidence >= 0.85 && promote_dream_run(db, session_id, &run.run_id).is_ok() {
+            trigger_skill_extraction_cascade(db, session_id);
+        }
+    }
+
     Ok(run)
+}
+
+fn trigger_skill_extraction_cascade(db: &vantadb::sdk::Embedded, session_id: &str) {
+    let recorder = crate::core::conversation::L0Recorder::new(db.clone());
+    if let Ok(messages) = recorder.read_messages(session_id) {
+        let skill_messages: Vec<crate::core::skill::conversation_add::compressor::SkillMessage> =
+            messages
+                .into_iter()
+                .map(|m| {
+                    crate::core::skill::conversation_add::compressor::SkillMessage::new(
+                        m.role.to_string(),
+                        m.content,
+                    )
+                })
+                .collect();
+        if !skill_messages.is_empty() {
+            let _ = crate::core::skill::conversation_add::trigger_archive_now(
+                db,
+                session_id,
+                &skill_messages,
+            );
+        }
+    }
 }
 
 fn apply_normalized_meta(meta: &serde_json::Value, absolute: &str) -> serde_json::Value {

@@ -36,12 +36,11 @@ use crate::services::pipeline_worker::{MemoryTaskHandler, PipelineWorker, RunSta
 use crate::utils::local_backend::LocalStateBackend;
 use crate::utils::managed_timer::Clock;
 use crate::utils::timer_scanner::TimerScanner;
+use std::time::Duration;
 use vantadb::sdk::Embedded;
 
 #[cfg(feature = "http-server")]
 use std::sync::Arc;
-#[cfg(feature = "http-server")]
-use std::time::Duration;
 
 /// L3 persona trigger cadence for scheduler passes: regenerate the persona
 /// after this many new memories (mirrors the D19 e2e full-pass cadence).
@@ -110,7 +109,8 @@ pub fn run_pass<C: Clock, R: LlmRunner>(
         L1ExtractorConfig::default(),
         L1DedupConfig::default(),
         PERSONA_TRIGGER_EVERY_N,
-    );
+    )
+    .with_queue(queue);
     let worker_stats = worker.run_once(&mut handler);
     let reclaimed = worker.reclaim_stale(
         &mut handler,
@@ -123,6 +123,64 @@ pub fn run_pass<C: Clock, R: LlmRunner>(
         worker: worker_stats,
         reclaimed,
     }
+}
+
+/// Default interval between autonomous background decay passes (24 hours, TEC-07 / Q18).
+pub const DEFAULT_DECAY_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// Run autonomous decay over active namespaces (TEC-07 / Q18 / FIND-289).
+///
+/// Discovers active sessions from the queue and active `l1/` namespaces from
+/// storage, executes `run_decay_pass`, and for any record with
+/// `effective_heat <= PRUNE_HEAT_THRESHOLD`, invokes
+/// `Embedded::forget(ns, key, ForgetMode::Soft)` without penalizing write latency.
+pub fn run_decay_maintenance_pass<C: Clock>(
+    queue: &LocalStateBackend<C>,
+    db: &Embedded,
+    policy: &crate::core::record::lifecycle::DecayPolicy,
+    now_ms: u64,
+) -> usize {
+    let mut namespaces = std::collections::BTreeSet::new();
+    for session in queue.list_active_sessions() {
+        namespaces.insert(crate::core::record::l1_namespace(&session));
+    }
+    if let Ok(all_ns) = db.list_namespaces() {
+        for ns in all_ns {
+            if ns.starts_with("l1/") {
+                namespaces.insert(ns);
+            }
+        }
+    }
+
+    let mut soft_forgotten = 0usize;
+    for ns in namespaces {
+        let session_key = ns.strip_prefix("l1/").unwrap_or(&ns);
+        let _ = crate::core::record::run_decay_pass(db, session_key, policy, now_ms);
+
+        if let Ok(records) = crate::core::record::l1_reader::read_namespace_records(db, &ns) {
+            for record in records {
+                let heat = crate::core::record::lifecycle::effective_heat(&record, policy, now_ms);
+                if heat <= crate::core::record::lifecycle::PRUNE_HEAT_THRESHOLD {
+                    match db.forget(
+                        &ns,
+                        vantadb::sdk::ForgetTarget::Key(record.id.clone()),
+                        vantadb::sdk::ForgetMode::Soft,
+                    ) {
+                        Ok(_) => soft_forgotten += 1,
+                        Err(e) => {
+                            tracing::warn!(
+                                namespace = %ns,
+                                key = %record.id,
+                                error = %e,
+                                "decay pass: soft forget failed"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    soft_forgotten
 }
 
 /// Handle for the background memory scheduler loop.
@@ -205,12 +263,33 @@ where
     F: Fn() -> Option<R> + Send + Sync + 'static,
     R: LlmRunner + Send + 'static,
 {
+    spawn_memory_scheduler_with_decay(queue, db, interval, DEFAULT_DECAY_INTERVAL, runner_factory)
+}
+
+/// Spawn the background scheduler loop with an explicit autonomous decay interval (TEC-07).
+#[cfg(feature = "http-server")]
+pub fn spawn_memory_scheduler_with_decay<F, R>(
+    queue: Arc<LocalStateBackend<crate::utils::managed_timer::SystemClock>>,
+    db: Embedded,
+    interval: Duration,
+    decay_interval: Duration,
+    runner_factory: F,
+) -> MemoryScheduler
+where
+    F: Fn() -> Option<R> + Send + Sync + 'static,
+    R: LlmRunner + Send + 'static,
+{
     debug_assert!(!interval.is_zero(), "scheduler interval must be non-zero");
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
     let runner_factory = Arc::new(runner_factory);
     let handle = tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        let mut decay_ticker =
+            tokio::time::interval_at(tokio::time::Instant::now() + decay_interval, decay_interval);
+        decay_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tokio::select! {
                 _ = shutdown_rx.changed() => break,
@@ -251,6 +330,19 @@ where
                             );
                         }
                     }
+                }
+                _ = decay_ticker.tick() => {
+                    let queue = Arc::clone(&queue);
+                    let db = db.clone();
+                    let _ = tokio::task::spawn_blocking(move || {
+                        let now_ms = queue.now_ms();
+                        let policy = crate::core::record::lifecycle::DecayPolicy::default();
+                        let forgotten = run_decay_maintenance_pass(&queue, &db, &policy, now_ms);
+                        if forgotten > 0 {
+                            tracing::info!(forgotten, "autonomous decay pass completed");
+                        }
+                    })
+                    .await;
                 }
             }
         }

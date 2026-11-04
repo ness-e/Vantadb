@@ -3,7 +3,7 @@
 //! Utilities for tracking collision counts and confidence scores per unique origin.
 //! Used in multi-agent scenarios to compute friction metrics and detect problematic agents.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Tracks collision counts and confidence scores per unique origin (`_owner_role`).
 ///
@@ -25,6 +25,8 @@ use std::collections::HashMap;
 pub struct OriginCollisionTracker {
     /// Map: owner_role → (collision_count, confidence_score_of_origin)
     origins: HashMap<String, (u64, f32)>,
+    /// Permanently slashed origins (UT-01: remain banned until explicit rehabilitation).
+    slashed: HashSet<String>,
 }
 
 impl OriginCollisionTracker {
@@ -32,6 +34,7 @@ impl OriginCollisionTracker {
     pub fn new() -> Self {
         Self {
             origins: HashMap::new(),
+            slashed: HashSet::new(),
         }
     }
 
@@ -41,13 +44,23 @@ impl OriginCollisionTracker {
     /// * `owner_role` - The agent/origin that caused the collision
     /// * `challenger_confidence` - The confidence score of the colliding operation
     pub fn record_collision(&mut self, owner_role: &str, challenger_confidence: f32) {
-        let entry = self
-            .origins
-            .entry(owner_role.to_string())
-            .or_insert((0, challenger_confidence));
+        let is_slashed = self.is_slashed(owner_role);
+        let entry = self.origins.entry(owner_role.to_string()).or_insert((
+            0,
+            if is_slashed {
+                0.0
+            } else {
+                challenger_confidence
+            },
+        ));
         entry.0 += 1;
-        // Exponential moving average for confidence smoothing
-        entry.1 = entry.1 * 0.8 + challenger_confidence * 0.2;
+        if is_slashed {
+            // UT-01: slashed agent stays at 0.0 confidence permanently
+            entry.1 = 0.0;
+        } else {
+            // Exponential moving average for confidence smoothing
+            entry.1 = entry.1 * 0.8 + challenger_confidence * 0.2;
+        }
     }
 
     /// Compute the logarithmic friction metric F_ax.
@@ -72,7 +85,9 @@ impl OriginCollisionTracker {
     /// Slash (set to zero) the confidence score for a specific origin.
     ///
     /// This is used to "ban" problematic agents by setting their confidence to 0.
+    /// Under UT-01, the agent remains banned permanently until `rehabilitate_origin` is called.
     pub fn slash_origin(&mut self, owner_role: &str) {
+        self.slashed.insert(owner_role.to_string());
         if let Some(entry) = self.origins.get_mut(owner_role) {
             entry.1 = 0.0;
         } else {
@@ -80,16 +95,30 @@ impl OriginCollisionTracker {
         }
     }
 
-    /// Check if an origin has been slashed (confidence score <= 0).
+    /// Check if an origin has been slashed (confidence score <= 0 or in slashed set).
     pub fn is_slashed(&self, owner_role: &str) -> bool {
-        self.origins
-            .get(owner_role)
-            .is_some_and(|(_, confidence)| *confidence <= 0.0)
+        self.slashed.contains(owner_role)
+            || self
+                .origins
+                .get(owner_role)
+                .is_some_and(|(_, confidence)| *confidence <= 0.0)
+    }
+
+    /// Explicitly rehabilitate a slashed origin, restoring tracking with an initial confidence (UT-01).
+    pub fn rehabilitate_origin(&mut self, owner_role: &str, initial_confidence: f32) {
+        self.slashed.remove(owner_role);
+        let conf = initial_confidence.max(0.0);
+        if let Some(entry) = self.origins.get_mut(owner_role) {
+            entry.1 = conf;
+        } else {
+            self.origins.insert(owner_role.to_string(), (0, conf));
+        }
     }
 
     /// Reset all tracking data.
     pub fn reset(&mut self) {
         self.origins.clear();
+        self.slashed.clear();
     }
 }
 
@@ -142,6 +171,16 @@ mod tests {
         assert!(!tracker.is_slashed("bad_agent"));
         tracker.slash_origin("bad_agent");
         assert!(tracker.is_slashed("bad_agent"));
+
+        // UT-01 regression: subsequent collisions must not restore confidence or un-slash
+        tracker.record_collision("bad_agent", 0.95);
+        assert!(tracker.is_slashed("bad_agent"));
+        assert_eq!(tracker.origins.get("bad_agent").unwrap().1, 0.0);
+
+        // Explicit rehabilitation restores the agent
+        tracker.rehabilitate_origin("bad_agent", 0.75);
+        assert!(!tracker.is_slashed("bad_agent"));
+        assert_eq!(tracker.origins.get("bad_agent").unwrap().1, 0.75);
     }
 
     #[test]
