@@ -148,15 +148,20 @@ describe("DX-04: Edge cases", () => {
   });
 
   it("vector with 16384 elements (large)", async () => {
-    const vec: number[] = new Array(16384).fill(0).map((_, i) => (i % 100) / 100);
-    await db.put({
-      namespace: "edge_vec_max",
-      key: "k",
-      payload: "large vec",
-      vector: vec,
-    });
-    const got = await db.get({ namespace: "edge_vec_max", key: "k" });
-    expect(got).not.toBeNull();
+    const maxDb = Client.create();
+    try {
+      const vec: number[] = new Array(16384).fill(0).map((_, i) => (i % 100) / 100);
+      await maxDb.put({
+        namespace: "edge_vec_max",
+        key: "k",
+        payload: "large vec",
+        vector: vec,
+      });
+      const got = await maxDb.get({ namespace: "edge_vec_max", key: "k" });
+      expect(got).not.toBeNull();
+    } finally {
+      maxDb.close();
+    }
   });
 
   it("metadata with many primitive values", async () => {

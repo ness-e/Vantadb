@@ -11,9 +11,9 @@ import { Client } from "../vantadb.js";
  * (serde_wasm_bindgen deserializes the HashMap that way).
  */
 
-/** Runtime metadata is a Map<string, Value> — convert for assertions. */
+/** Runtime metadata is a plain object or Map<string, Value> — convert for assertions. */
 function metaOf(m: unknown): Record<string, unknown> {
-  return Object.fromEntries(m as Map<string, unknown>);
+  return m instanceof Map ? Object.fromEntries(m) : (m as Record<string, unknown>);
 }
 
 describe("FIND-01: flat metadata input", () => {

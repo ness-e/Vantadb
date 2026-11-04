@@ -78,8 +78,8 @@ describe("Client WASM Integration", () => {
   });
 
   it("graph operations", async () => {
-    await db.insertNode(1, "root", [0.1, 0.2]);
-    await db.insertNode(2, "child", [0.3, 0.4]);
+    await db.insertNode(1, "root", [0.1, 0.2, 0.0, 0.0]);
+    await db.insertNode(2, "child", [0.3, 0.4, 0.0, 0.0]);
     await db.addEdge(1, 2, "knows", 0.8);
 
     const node = await db.getNode(1);
@@ -140,8 +140,8 @@ describe("Client WASM Integration", () => {
   });
 
   it("removeEdge removes a directed edge", async () => {
-    await db.insertNode(101, "u", [0.1]);
-    await db.insertNode(102, "v", [0.2]);
+    await db.insertNode(101, "u", [0.1, 0.0, 0.0, 0.0]);
+    await db.insertNode(102, "v", [0.2, 0.0, 0.0, 0.0]);
     await db.addEdge(101, 102, "links", 0.5);
     const before = db.getNode(101);
     expect(before).not.toBeNull();
@@ -169,19 +169,19 @@ describe("Client WASM Integration", () => {
       namespace: "ts04sim",
       key: "src",
       payload: "x",
-      vector: [1.0, 0.0, 0.0],
+      vector: [0.0, 0.0, 1.0, 0.0],
     });
     await db.put({
       namespace: "ts04sim",
       key: "near",
       payload: "y",
-      vector: [0.99, 0.01, 0.0],
+      vector: [0.0, 0.0, 0.99, 0.01],
     });
     await db.put({
       namespace: "ts04sim",
       key: "far",
       payload: "z",
-      vector: [-1.0, 0.0, 0.0],
+      vector: [0.0, 0.0, -1.0, 0.0],
     });
     const hits = db.similarToKey({ namespace: "ts04sim", key: "src", topK: 2 });
     expect(hits.length).toBeGreaterThan(0);
@@ -194,17 +194,17 @@ describe("Client WASM Integration", () => {
       namespace: "ts04m1",
       key: "k1",
       payload: "x",
-      vector: [1.0, 0.0, 0.0],
+      vector: [1.0, 0.0, 0.0, 0.0],
     });
     await db.put({
       namespace: "ts04m2",
       key: "k2",
       payload: "y",
-      vector: [0.99, 0.01, 0.0],
+      vector: [0.99, 0.01, 0.0, 0.0],
     });
     const hits = db.searchMulti({
       namespaces: ["ts04m1", "ts04m2"],
-      query_vector: [1.0, 0.0, 0.0],
+      query_vector: [1.0, 0.0, 0.0, 0.0],
       top_k: 5,
     });
     expect(hits.length).toBeGreaterThanOrEqual(1);
@@ -235,8 +235,8 @@ describe("Client WASM Integration", () => {
     expect(got).not.toBeNull();
     expect(got!.metadata).toBeDefined();
     expect(got!.metadata instanceof Map).toBe(false);
-    expect(got!.metadata.tag).toBe("test");
-    expect(got!.metadata.count).toBe(42);
+    expect(got!.metadata.tag).toEqual({ String: "test" });
+    expect(got!.metadata.count).toEqual({ Int: 42 });
   });
 
   it("TEC-03: forget supports soft, hard, and certified modes", async () => {

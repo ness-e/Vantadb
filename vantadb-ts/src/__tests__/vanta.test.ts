@@ -789,16 +789,26 @@ describe("Client edge cases", () => {
   });
 
   it("vector with single element", () => {
-    db.put({ namespace: "edge_vec", key: "min", payload: "p", vector: [0.5] });
-    const r = db.get({ namespace: "edge_vec", key: "min" });
-    expect(r).not.toBeNull();
+    const minDb = Client.create();
+    try {
+      minDb.put({ namespace: "edge_vec", key: "min", payload: "p", vector: [0.5] });
+      const r = minDb.get({ namespace: "edge_vec", key: "min" });
+      expect(r).not.toBeNull();
+    } finally {
+      minDb.close();
+    }
   });
 
   it("vector with 16384 elements", () => {
-    const vec = Array.from({ length: 16384 }, (_, i) => (i % 100) / 100);
-    db.put({ namespace: "edge_vec", key: "max", payload: "p", vector: vec });
-    const r = db.get({ namespace: "edge_vec", key: "max" });
-    expect(r).not.toBeNull();
+    const maxDb = Client.create();
+    try {
+      const vec = Array.from({ length: 16384 }, (_, i) => (i % 100) / 100);
+      maxDb.put({ namespace: "edge_vec", key: "max", payload: "p", vector: vec });
+      const r = maxDb.get({ namespace: "edge_vec", key: "max" });
+      expect(r).not.toBeNull();
+    } finally {
+      maxDb.close();
+    }
   });
 
   it("very long key (512 chars)", () => {

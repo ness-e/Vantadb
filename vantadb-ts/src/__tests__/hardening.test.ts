@@ -224,9 +224,7 @@ describe("Client input validation", () => {
   });
 
   it("put with vector containing NaN does not crash", () => {
-    expect(() =>
-      db.put({ namespace: "ns", key: "k", payload: "v", vector: [1, NaN] }),
-    ).not.toThrow();
+    expect(() => db.put({ namespace: "ns", key: "k", payload: "v", vector: [1, NaN] })).toThrow();
   });
 
   it("get with empty string namespace returns null or throws", () => {
