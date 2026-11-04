@@ -34,11 +34,9 @@ describe("FIND-412: exclude_superseded — WASM backend (reference semantics)", 
       db.supersede({ namespace: "ns", oldKey: "old", newKey: "new" });
 
       const old = db.get({ namespace: "ns", key: "old" });
-      // The WASM wire does not expose `superseded_by` (the native one does),
-      // so the discriminator here is the flag flipping the result set below:
-      // if the supersede had not landed, `exclude_superseded: true` would
-      // still return "old" and the assertion would fail.
+      // FIND-482: The WASM wire now exposes `superseded_by` with parity to native
       expect(old).not.toBeNull();
+      expect(old?.superseded_by).toBe("new");
 
       const searchExcluded = db.search({
         namespace: "ns",

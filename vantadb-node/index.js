@@ -874,7 +874,8 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`);
 }
 
-const { AbortHandle, VantaDb, VantaDB } = nativeBinding;
+const { AbortHandle, VantaDb } = nativeBinding;
+const VantaDB = nativeBinding.VantaDB ?? VantaDb;
 export { AbortHandle };
 export { VantaDb };
 export { VantaDB };

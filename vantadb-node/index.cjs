@@ -873,4 +873,4 @@ if (!nativeBinding) {
 module.exports = nativeBinding;
 module.exports.AbortHandle = nativeBinding.AbortHandle;
 module.exports.VantaDb = nativeBinding.VantaDb;
-module.exports.VantaDB = nativeBinding.VantaDB;
+module.exports.VantaDB = nativeBinding.VantaDB ?? nativeBinding.VantaDb;

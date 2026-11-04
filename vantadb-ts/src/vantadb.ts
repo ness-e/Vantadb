@@ -16,6 +16,8 @@ import type {
   ExportReport,
   FilterSpec,
   FlatValue,
+  ForgetMode,
+  ForgetOptions,
   GetInput,
   GraphBfsResult,
   GraphDegreeEntry,
@@ -32,6 +34,7 @@ import type {
   NodeId,
   NodeRecord,
   OperationalMetrics,
+  PurgeCertificate,
   QueryResult,
   ScanInput,
   SearchHit,
@@ -54,6 +57,7 @@ export interface MemoryClient {
   putBatch(inputs: MemoryInput[]): MemoryRecord[];
   get(input: GetInput): MemoryRecord | null;
   delete(input: DeleteInput): boolean;
+  forget(options: ForgetOptions): PurgeCertificate | boolean;
   deleteByFilter(input: DeleteByFilterInput): bigint;
   list(input: ListInput): MemoryListPage;
   scan(input: ScanInput): MemoryListPage;
@@ -307,6 +311,7 @@ export class Client {
       putBatch: (inputs: MemoryInput[]) => this.putBatch(inputs),
       get: (input: GetInput) => this.get(input),
       delete: (input: DeleteInput) => this.delete(input),
+      forget: (options: ForgetOptions) => this.forget(options),
       deleteByFilter: (input: DeleteByFilterInput) => this.deleteByFilter(input),
       list: (input: ListInput) => this.list(input),
       scan: (input: ScanInput) => this.scan(input),
@@ -569,6 +574,43 @@ export class Client {
         toWireString(input.namespace, "delete: namespace"),
         toWireString(input.key, "delete: key"),
       ),
+    );
+  }
+
+  /**
+   * Unified memory forgetting API (TEC-03).
+   *
+   * Supports:
+   * - `"soft"` (default): marks `invalid_at_ms = now`. Returns `true` if modified, `false` if not found.
+   * - `"hard"`: physical deletion. Returns `true` if deleted, `false` if not found.
+   * - `"certified"`: deletion with cryptographic purge certificate. Returns `PurgeCertificate`.
+   *
+   * @param options - `{ namespace, key, mode }`.
+   * @returns `PurgeCertificate` if mode is `"certified"`, or `boolean` for `"soft"` / `"hard"`.
+   * @throws {DbError} If closed or on invalid arguments.
+   *
+   * @example
+   * ```ts
+   * const cert = db.forget({ namespace: "docs", key: "old_policy", mode: "certified" });
+   * ```
+   */
+  forget(options: ForgetOptions): PurgeCertificate | boolean {
+    this._assertOpen();
+    if (!options || typeof options !== "object") {
+      throw new DbError(ERROR_CODES.VALIDATION_ERROR, "forget: options must be an object");
+    }
+    const namespace = toWireString(options.namespace, "forget: namespace");
+    const key = toWireString(options.key, "forget: key");
+    const mode = options.mode ?? "soft";
+    if (mode !== "soft" && mode !== "hard" && mode !== "certified") {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        `forget: unknown mode '${mode}', expected 'soft', 'hard', or 'certified'`,
+      );
+    }
+    return this._wasm(
+      "forget",
+      () => this.inner.forget(namespace, key, mode) as PurgeCertificate | boolean,
     );
   }
 
@@ -1779,4 +1821,12 @@ export {
   isValidVector,
   validateVector,
 } from "./guards.js";
+export type {
+  ForgetMode,
+  ForgetOptions,
+  PurgeCertificate,
+  SurfaceReport,
+  ChainEvidence,
+  CertificateIntegrity,
+} from "./types.js";
 export * from "./native.js";

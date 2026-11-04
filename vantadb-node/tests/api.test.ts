@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { VantaDb } from "../index.js";
+import { VantaDb, VantaDB } from "../index.js";
 
 /**
  * API-surface coverage (plan BND-12): search / explain_search / put_batch /
@@ -564,6 +564,60 @@ describe("vantadb-node api surface", () => {
           "Unknown",
         ),
       ).rejects.toThrow(/invalid method/);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("FIND-546: VantaDB alias is exported and functional", async () => {
+    expect(VantaDB).toBe(VantaDb);
+    const db = await VantaDB.connect(tmp("alias"));
+    try {
+      expect(db).toBeInstanceOf(VantaDb);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("TEC-03: forget supports soft, hard, and certified modes", async () => {
+    const db = await VantaDb.connect(tmp("forget"));
+    try {
+      await db.put({ namespace: "ns", key: "soft_k", payload: "soft_payload" });
+      await db.put({ namespace: "ns", key: "hard_k", payload: "hard_payload" });
+      await db.put({ namespace: "ns", key: "cert_k", payload: "cert_payload" });
+
+      // Soft forget
+      const softRes = await db.forget("ns", "soft_k", "soft");
+      expect(softRes).toBe(true);
+      const softRec = await db.get("ns", "soft_k");
+      expect(softRec).not.toBeNull();
+      expect(softRec?.invalid_at_ms).toBeDefined();
+
+      // Hard forget
+      const hardRes = await db.forget("ns", "hard_k", "hard");
+      expect(hardRes).toBe(true);
+      const hardRec = await db.get("ns", "hard_k");
+      expect(hardRec).toBeNull();
+
+      // Certified forget
+      const certRes = (await db.forget("ns", "cert_k", "certified")) as any;
+      expect(certRes).toBeDefined();
+      expect(certRes.status).toBe("purged");
+      expect(certRes.namespace).toBe("ns");
+      expect(certRes.key).toBe("cert_k");
+      expect(certRes.integrity?.sha256).toBeDefined();
+      expect(Array.isArray(certRes.surfaces)).toBe(true);
+      const certRec = await db.get("ns", "cert_k");
+      expect(certRec).toBeNull();
+
+      // Nonexistent record forget
+      const missingSoft = await db.forget("ns", "missing", "soft");
+      expect(missingSoft).toBe(false);
+
+      // Invalid mode
+      await expect(db.forget("ns", "soft_k", "invalid_mode")).rejects.toThrow(
+        /unknown forget mode/,
+      );
     } finally {
       await db.close();
     }

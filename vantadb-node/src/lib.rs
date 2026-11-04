@@ -440,6 +440,47 @@ impl VantaDB {
         spawn_blocking(move || engine.delete(&namespace, &key)).await
     }
 
+    /// Forget a memory record by namespace and key (TEC-03).
+    ///
+    /// Modes:
+    /// - `"soft"` (default): marks the record's validity window as invalid (`invalid_at_ms = now`). Returns `true` if modified, `false` if not found.
+    /// - `"hard"`: physical deletion. Returns `true` if deleted, `false` if not found.
+    /// - `"certified"`: deletion with cryptographic purge certificate. Returns `PurgeCertificate`.
+    #[napi(ts_return_type = "Promise<PurgeCertificate | boolean>")]
+    pub async fn forget(
+        &self,
+        namespace: String,
+        key: String,
+        mode: Option<String>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let forget_mode = match mode.as_deref().unwrap_or("soft").to_ascii_lowercase().as_str() {
+            "soft" => vantadb::ForgetMode::Soft,
+            "hard" => vantadb::ForgetMode::Hard,
+            "certified" => vantadb::ForgetMode::Certified,
+            other => {
+                return Err(Error::from_reason(format!(
+                    "unknown forget mode '{other}', expected 'soft', 'hard', or 'certified'"
+                )))
+            }
+        };
+        let out = spawn_blocking(move || {
+            match forget_mode {
+                vantadb::ForgetMode::Certified => {
+                    let cert = engine.delete_certified(&namespace, &key)?;
+                    serde_json::to_value(&cert).map_err(vantadb::error::Error::serialization)
+                }
+                _ => {
+                    let report = engine.forget(&namespace, vantadb::ForgetTarget::Key(key), forget_mode)?;
+                    Ok(Value::Bool(report.forgotten_count > 0))
+                }
+            }
+        })
+        .await?;
+        Ok(out)
+    }
+
     /// List records in a namespace with optional filters and cursor pagination.
     ///
     /// `options` (optional): `{ filters?: VantaMetadata, limit?: number, cursor?: number }`.
@@ -974,10 +1015,11 @@ impl VantaDB {
                 }
                 let mut owned = Vec::with_capacity(v.len());
                 for f in v {
-                    if !f.is_finite() {
+                    let f32_val = f as f32;
+                    if !f.is_finite() || !f32_val.is_finite() {
                         return Err(Error::from_reason("`query_vector` must be a number[]"));
                     }
-                    owned.push(f as f32);
+                    owned.push(f32_val);
                 }
                 Some(owned)
             }
@@ -1684,10 +1726,17 @@ fn get_f32_vec(obj: &Map<String, Value>, key: &str) -> napi::Result<Vec<f32>> {
             items
                 .iter()
                 .map(|v| {
-                    v.as_f64()
+                    let f = v
+                        .as_f64()
                         .filter(|f| f.is_finite())
-                        .map(|f| f as f32)
-                        .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))
+                        .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))?;
+                    let f32_val = f as f32;
+                    if !f32_val.is_finite() {
+                        return Err(Error::from_reason(format!(
+                            "`{key}` must contain finite numbers"
+                        )));
+                    }
+                    Ok(f32_val)
                 })
                 .collect()
         }
@@ -1710,10 +1759,17 @@ fn get_opt_f32_vec(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<V
             items
                 .iter()
                 .map(|v| {
-                    v.as_f64()
+                    let f = v
+                        .as_f64()
                         .filter(|f| f.is_finite())
-                        .map(|f| f as f32)
-                        .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))
+                        .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))?;
+                    let f32_val = f as f32;
+                    if !f32_val.is_finite() {
+                        return Err(Error::from_reason(format!(
+                            "`{key}` must contain finite numbers"
+                        )));
+                    }
+                    Ok(f32_val)
                 })
                 .collect::<napi::Result<Vec<f32>>>()
                 .map(Some)

@@ -161,6 +161,7 @@ describe("Client WASM Integration", () => {
     const oldRec = db.get({ namespace: "ts04sup", key: "old" });
     expect(oldRec).not.toBeNull();
     expect(Number(oldRec!.version)).toBeGreaterThan(1);
+    expect(oldRec!.superseded_by).toBe("new");
   });
 
   it("similarToKey returns related records", async () => {
@@ -221,5 +222,56 @@ describe("Client WASM Integration", () => {
     const got = db.get({ namespace: "ts04sp", key: "s" });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe("sparse test");
+  });
+
+  it("FIND-532: metadata is a plain JS object, not an ES Map", async () => {
+    await db.put({
+      namespace: "meta_test",
+      key: "m1",
+      payload: "meta payload",
+      metadata: { tag: "test", count: 42 },
+    });
+    const got = db.get({ namespace: "meta_test", key: "m1" });
+    expect(got).not.toBeNull();
+    expect(got!.metadata).toBeDefined();
+    expect(got!.metadata instanceof Map).toBe(false);
+    expect(got!.metadata.tag).toBe("test");
+    expect(got!.metadata.count).toBe(42);
+  });
+
+  it("TEC-03: forget supports soft, hard, and certified modes", async () => {
+    await db.put({ namespace: "f_test", key: "soft_k", payload: "soft_val" });
+    await db.put({ namespace: "f_test", key: "hard_k", payload: "hard_val" });
+    await db.put({ namespace: "f_test", key: "cert_k", payload: "cert_val" });
+
+    // Soft mode
+    const softRes = db.forget({ namespace: "f_test", key: "soft_k", mode: "soft" });
+    expect(softRes).toBe(true);
+    const softRec = db.get({ namespace: "f_test", key: "soft_k" });
+    expect(softRec).not.toBeNull();
+    expect(softRec?.invalid_at_ms).toBeDefined();
+
+    // Hard mode
+    const hardRes = db.forget({ namespace: "f_test", key: "hard_k", mode: "hard" });
+    expect(hardRes).toBe(true);
+    const hardRec = db.get({ namespace: "f_test", key: "hard_k" });
+    expect(hardRec).toBeNull();
+
+    // Certified mode
+    const certRes = db.forget({ namespace: "f_test", key: "cert_k", mode: "certified" }) as any;
+    expect(certRes).toBeDefined();
+    expect(certRes.status).toBe("purged");
+    expect(certRes.namespace).toBe("f_test");
+    expect(certRes.key).toBe("cert_k");
+    expect(certRes.integrity?.sha256).toBeDefined();
+    expect(Array.isArray(certRes.surfaces)).toBe(true);
+    const certRec = db.get({ namespace: "f_test", key: "cert_k" });
+    expect(certRec).toBeNull();
+
+    // Subclient memory.forget delegation
+    await db.put({ namespace: "f_test", key: "sub_k", payload: "sub_val" });
+    const subRes = db.memory.forget({ namespace: "f_test", key: "sub_k", mode: "hard" });
+    expect(subRes).toBe(true);
+    expect(db.get({ namespace: "f_test", key: "sub_k" })).toBeNull();
   });
 });

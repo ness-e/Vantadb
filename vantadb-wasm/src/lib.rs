@@ -505,6 +505,18 @@ fn console_warn(msg: &str) {
     }
 }
 
+#[inline]
+fn validate_vector_finitude(v: &[f32]) -> Result<(), Error> {
+    for f in v {
+        if !f.is_finite() {
+            return Err(Error::InvalidInput(
+                "vector elements must be finite numbers (no NaN or Infinity)".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 const MAX_RECORDS: usize = 1_000_000;
 
 #[wasm_bindgen]
@@ -1127,6 +1139,7 @@ impl Client {
                     MAX_F32_VEC_LEN
                 ))));
             }
+            validate_vector_finitude(v).map_err(to_js_err)?;
         }
         let vanta_input = vantadb::MemoryInput {
             namespace: input.namespace.clone(),
@@ -1163,6 +1176,7 @@ impl Client {
                         MAX_F32_VEC_LEN
                     ))));
                 }
+                validate_vector_finitude(v).map_err(to_js_err)?;
             }
         }
         for input in &inputs {
@@ -1207,6 +1221,71 @@ impl Client {
             self.mark_deleted(namespace, key);
         }
         Ok(deleted)
+    }
+
+    /// Unified memory forgetting API (TEC-03).
+    ///
+    /// Supports:
+    /// - `"soft"` (default): marks the record's validity window as invalid (`invalid_at_ms = now`). Returns `true` if modified, `false` if not found.
+    /// - `"hard"`: physical deletion. Returns `true` if deleted, `false` if not found.
+    /// - `"certified"`: deletion with cryptographic purge certificate. Returns `PurgeCertificate`.
+    pub fn forget(
+        &self,
+        namespace: &str,
+        key: &str,
+        mode: Option<String>,
+    ) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        let forget_mode = match mode
+            .as_deref()
+            .unwrap_or("soft")
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "soft" => vantadb::ForgetMode::Soft,
+            "hard" => vantadb::ForgetMode::Hard,
+            "certified" => vantadb::ForgetMode::Certified,
+            other => {
+                return Err(to_js_err(Error::InvalidInput(format!(
+                    "unknown forget mode '{other}', expected 'soft', 'hard', or 'certified'"
+                ))))
+            }
+        };
+
+        match forget_mode {
+            vantadb::ForgetMode::Certified => {
+                let cert = self
+                    .inner
+                    .delete_certified(namespace, key)
+                    .map_err(to_js_err)?;
+                if cert.status != "not_found" {
+                    self.mark_deleted(namespace, key);
+                }
+                let js_val = cert
+                    .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
+                    .map_err(|e| js_sys::Error::new(&e.to_string()))?;
+                Ok(js_val)
+            }
+            _ => {
+                let report = self
+                    .inner
+                    .forget(
+                        namespace,
+                        vantadb::ForgetTarget::Key(key.to_string()),
+                        forget_mode,
+                    )
+                    .map_err(to_js_err)?;
+                let modified = report.forgotten_count > 0;
+                if modified {
+                    if forget_mode == vantadb::ForgetMode::Soft {
+                        self.mark_dirty(namespace, key);
+                    } else {
+                        self.mark_deleted(namespace, key);
+                    }
+                }
+                Ok(JsValue::from_bool(modified))
+            }
+        }
     }
 
     /// Return all namespaces as a JS array of strings.
@@ -1287,6 +1366,7 @@ impl Client {
                 MAX_F32_VEC_LEN
             ))));
         }
+        validate_vector_finitude(&req.query_vector).map_err(to_js_err)?;
         let distance = match req.distance_metric.as_str() {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
             _ => vantadb::DistanceMetric::Cosine,
@@ -1344,6 +1424,7 @@ impl Client {
                     MAX_F32_VEC_LEN
                 ))));
             }
+            validate_vector_finitude(v).map_err(to_js_err)?;
         }
         let result = self
             .inner
@@ -1368,6 +1449,7 @@ impl Client {
                 MAX_F32_VEC_LEN
             ))));
         }
+        validate_vector_finitude(&vector).map_err(to_js_err)?;
         let hits = self
             .inner
             .search_vector(&vector, clamp_top_k_warn(top_k))
@@ -1393,6 +1475,7 @@ impl Client {
                 MAX_F32_VEC_LEN
             ))));
         }
+        validate_vector_finitude(&req.query_vector).map_err(to_js_err)?;
         let distance = match req.distance_metric.as_str() {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
             _ => vantadb::DistanceMetric::Cosine,
@@ -1538,6 +1621,7 @@ impl Client {
                 MAX_F32_VEC_LEN
             ))));
         }
+        validate_vector_finitude(&req.query_vector).map_err(to_js_err)?;
         let distance = match req.distance_metric.as_str() {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
             _ => vantadb::DistanceMetric::Cosine,
@@ -1755,6 +1839,7 @@ impl Client {
                     MAX_F32_VEC_LEN
                 ))));
             }
+            validate_vector_finitude(v).map_err(to_js_err)?;
         }
         let fields: Fields = if fields.is_undefined() || fields.is_null() {
             Fields::new()
@@ -2512,7 +2597,18 @@ fn memory_record_to_js(rec: MemoryRecord) -> JsValue {
         )
         .ok();
     }
-    if let Ok(meta) = serde_wasm_bindgen::to_value(&rec.metadata) {
+    // FIND-482: emit superseded_by and superseded_at_ms (ADR-028)
+    if let Some(by) = &rec.superseded_by {
+        js_sys::Reflect::set(&obj, &"superseded_by".into(), &by.as_str().into()).ok();
+    }
+    if let Some(at) = rec.superseded_at_ms {
+        js_sys::Reflect::set(&obj, &"superseded_at_ms".into(), &at.to_string().into()).ok();
+    }
+    // FIND-532: use Serializer::json_compatible() for plain JS object parity with Node
+    if let Ok(meta) = rec
+        .metadata
+        .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
+    {
         js_sys::Reflect::set(&obj, &"metadata".into(), &meta).ok();
     } else {
         // WSM-11: silent metadata error (serialization failure) was a
@@ -2792,6 +2888,15 @@ mod tests {
     }
 
     // ── WSM-11: metadata drop counter ──
+
+    #[test]
+    fn test_validate_vector_finitude() {
+        assert!(validate_vector_finitude(&[0.1, 0.2, 0.3]).is_ok());
+        assert!(validate_vector_finitude(&[0.0, -100.5, 999.0]).is_ok());
+        assert!(validate_vector_finitude(&[f32::NAN]).is_err());
+        assert!(validate_vector_finitude(&[1.0, f32::INFINITY]).is_err());
+        assert!(validate_vector_finitude(&[f32::NEG_INFINITY, 0.0]).is_err());
+    }
 
     #[test]
     fn test_metadata_drop_counter_accumulates() {

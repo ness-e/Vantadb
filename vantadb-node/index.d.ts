@@ -361,6 +361,43 @@ export interface GraphRagResult {
   context_text: string;
   stats: GraphRagStats;
 }
+/** One line of the per-surface inventory in a PurgeCertificate. */
+export interface SurfaceReport {
+  surface: string;
+  action: string;
+  residues: number;
+  evidence: string;
+}
+
+/** WAL linkage evidence in a PurgeCertificate. */
+export interface ChainEvidence {
+  scheme: string;
+  format_version: number;
+  chained: boolean;
+  status: string;
+  verify_command: string;
+}
+
+/** Integrity information in a PurgeCertificate. */
+export interface CertificateIntegrity {
+  algorithm: string;
+  sha256: string;
+}
+
+/** Cryptographic certificate of memory deletion (VER-02). */
+export interface PurgeCertificate {
+  schema_version: number;
+  timestamp: string;
+  namespace: string;
+  key: string;
+  node_id: string;
+  reason: string;
+  status: string;
+  surfaces: SurfaceReport[];
+  chain: ChainEvidence;
+  out_of_scope: string[];
+  integrity: CertificateIntegrity;
+}
 /**
  * DIST-20 (S4) cooperative cancellation token for long engine ops.
  *
@@ -448,6 +485,18 @@ export declare class VantaDb {
    * was actually deleted, `false` if it did not exist.
    */
   delete(namespace: string, key: string): Promise<boolean>;
+  /**
+   * Forget a memory record by namespace and key (TEC-03).
+   *
+   * - `mode = "soft"` (default): soft-deletes by closing validity window. Returns `boolean`.
+   * - `mode = "hard"`: hard-deletes record. Returns `boolean`.
+   * - `mode = "certified"`: physically deletes and returns cryptographic `PurgeCertificate`.
+   */
+  forget(
+    namespace: string,
+    key: string,
+    mode?: string | undefined | null,
+  ): Promise<PurgeCertificate | boolean>;
   /**
    * List records in a namespace with optional filters and cursor pagination.
    *
@@ -691,4 +740,5 @@ export declare class VantaDb {
    */
   checkpointLoad(path: string, quarantine?: boolean | undefined | null): Promise<any>;
 }
+export const VantaDB: typeof VantaDb;
 export type VantaDB = VantaDb;

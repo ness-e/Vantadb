@@ -502,3 +502,55 @@ export interface GraphRagResult {
   context_text: string;
   stats: GraphRagStats;
 }
+
+// ---------------------------------------------------------------------------
+// Memory Forgetting & Attestation (TEC-03, VER-02)
+// ---------------------------------------------------------------------------
+
+/** Mode of memory forgetting. */
+export type ForgetMode = "soft" | "hard" | "certified";
+
+/** Input options for `forget()`. */
+export interface ForgetOptions {
+  namespace: string;
+  key: string;
+  mode?: ForgetMode;
+}
+
+/** One line of the per-surface inventory in a PurgeCertificate. */
+export interface SurfaceReport {
+  surface: string;
+  action: string;
+  residues: number;
+  evidence: string;
+}
+
+/** WAL linkage evidence in a PurgeCertificate. */
+export interface ChainEvidence {
+  scheme: string;
+  format_version: number;
+  chained: boolean;
+  status: string;
+  verify_command: string;
+}
+
+/** Integrity information in a PurgeCertificate. */
+export interface CertificateIntegrity {
+  algorithm: string;
+  sha256: string;
+}
+
+/** Cryptographic certificate of memory deletion (VER-02). */
+export interface PurgeCertificate {
+  schema_version: number;
+  timestamp: string;
+  namespace: string;
+  key: string;
+  node_id: string;
+  reason: string;
+  status: string;
+  surfaces: SurfaceReport[];
+  chain: ChainEvidence;
+  out_of_scope: string[];
+  integrity: CertificateIntegrity;
+}

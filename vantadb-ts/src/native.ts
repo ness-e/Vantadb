@@ -9,6 +9,7 @@ import type {
   DeleteByFilterInput,
   DeleteInput,
   FilterSpec,
+  ForgetOptions,
   GetInput,
   GraphRagResult,
   ListInput,
@@ -16,6 +17,7 @@ import type {
   MemoryListPage,
   MemoryRecord,
   MetadataInput,
+  PurgeCertificate,
   ScanInput,
   SearchHit,
   SearchRequest,
@@ -81,6 +83,7 @@ export interface NativeClientBinding {
   putBatch(inputs: MemoryInput[]): Promise<MemoryRecord[]>;
   get(input: GetInput): Promise<MemoryRecord | null>;
   delete(input: DeleteInput): Promise<boolean>;
+  forget(options: ForgetOptions): Promise<PurgeCertificate | boolean>;
   listNamespaces(): Promise<string[]>;
   list(input: ListInput): Promise<MemoryListPage>;
   scan(input: ScanInput): Promise<MemoryListPage>;
@@ -469,6 +472,42 @@ export class NativeVantaDB implements NativeClientBinding {
   async delete(input: DeleteInput): Promise<boolean> {
     this._assertOpen();
     return this._native("delete", () => this.inner.delete(input.namespace, input.key));
+  }
+
+  /**
+   * Unified memory forgetting API (TEC-03).
+   *
+   * Supports:
+   * - `"soft"` (default): marks `invalid_at_ms = now`. Returns `true` if modified, `false` if not found.
+   * - `"hard"`: physical deletion. Returns `true` if deleted, `false` if not found.
+   * - `"certified"`: deletion with cryptographic purge certificate. Returns `PurgeCertificate`.
+   *
+   * @param options - `{ namespace, key, mode }`.
+   * @returns `PurgeCertificate` if mode is `"certified"`, or `boolean` for `"soft"` / `"hard"`.
+   * @throws {DbError} If closed or on invalid arguments.
+   */
+  async forget(options: ForgetOptions): Promise<PurgeCertificate | boolean> {
+    this._assertOpen();
+    if (!options || typeof options !== "object") {
+      throw new DbError(ERROR_CODES.VALIDATION_ERROR, "forget: options must be an object");
+    }
+    if (typeof options.namespace !== "string" || options.namespace.length === 0) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "forget: namespace must be a non-empty string",
+      );
+    }
+    if (typeof options.key !== "string" || options.key.length === 0) {
+      throw new DbError(ERROR_CODES.VALIDATION_ERROR, "forget: key must be a non-empty string");
+    }
+    const mode = options.mode ?? "soft";
+    if (mode !== "soft" && mode !== "hard" && mode !== "certified") {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        `forget: unknown mode '${mode}', expected 'soft', 'hard', or 'certified'`,
+      );
+    }
+    return this._native("forget", () => this.inner.forget(options.namespace, options.key, mode));
   }
 
   /** List all namespaces that contain at least one memory record. */
@@ -1021,9 +1060,22 @@ export class NativeVantaDB implements NativeClientBinding {
     const namespaces = Array.isArray(namespacesOrRequest)
       ? namespacesOrRequest
       : namespacesOrRequest.namespaces;
-    const req = Array.isArray(namespacesOrRequest)
+    if (!Array.isArray(namespaces) || namespaces.length === 0) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "searchMulti: namespaces must be a non-empty array",
+      );
+    }
+    const rawReq = Array.isArray(namespacesOrRequest)
       ? (request as SearchRequest)
       : (namespacesOrRequest as unknown as SearchRequest);
+    const req: SearchRequest = {
+      ...rawReq,
+      namespace:
+        rawReq && typeof rawReq.namespace === "string" && rawReq.namespace.length > 0
+          ? rawReq.namespace
+          : namespaces[0],
+    };
     return this._native("searchMulti", async () => {
       const raw: unknown[] = await this.inner.searchMulti(
         namespaces,

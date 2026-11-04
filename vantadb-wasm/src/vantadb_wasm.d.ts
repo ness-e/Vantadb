@@ -303,6 +303,10 @@ export interface MemoryRecord {
   vector?: Float32Array;
   /** Optional TTL expiry as a decimal string (only present if set). */
   expires_at_ms?: string;
+  /** Key of the record that supersedes this one (ADR-028); absent = current. */
+  superseded_by?: string;
+  /** Unix-ms timestamp when the supersession was recorded as a decimal string. */
+  superseded_at_ms?: string;
   /** Provenance class (ADR-046): "Asserted" (direct writer claim) or
    * "Derived" (computed by the engine from `derived_from` parents). */
   confidence_class: "Asserted" | "Derived";
@@ -384,6 +388,8 @@ export interface ListOptionsInput {
   limit?: number;
   /** Opaque cursor from a previous page's `next_cursor`; omit for first page. */
   cursor?: string | number | null;
+  /** Hide records already superseded by another record. */
+  exclude_superseded?: boolean;
   /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose
    * validity window contains this unix-ms instant. `null`/omitted = no
    * filter (default). */
@@ -458,6 +464,44 @@ export interface SearchExplanation {
 export interface Bm25TermExplanation {
   term: string;
   contribution: number;
+}
+
+/** One line of the per-surface inventory in a PurgeCertificate. */
+export interface SurfaceReport {
+  surface: string;
+  action: string;
+  residues: number;
+  evidence: string;
+}
+
+/** WAL linkage evidence in a PurgeCertificate. */
+export interface ChainEvidence {
+  scheme: string;
+  format_version: number;
+  chained: boolean;
+  status: string;
+  verify_command: string;
+}
+
+/** Integrity information in a PurgeCertificate. */
+export interface CertificateIntegrity {
+  algorithm: string;
+  sha256: string;
+}
+
+/** Cryptographic certificate of memory deletion (VER-02). */
+export interface PurgeCertificate {
+  schema_version: number;
+  timestamp: string;
+  namespace: string;
+  key: string;
+  node_id: string;
+  reason: string;
+  status: string;
+  surfaces: SurfaceReport[];
+  chain: ChainEvidence;
+  out_of_scope: string[];
+  integrity: CertificateIntegrity;
 }
 
 /** A graph node record (returned by `get_node`). */
@@ -809,6 +853,15 @@ export class Client {
 
   /** Delete a single record. Returns `true` if a record was actually deleted. */
   delete(namespace: string, key: string): boolean;
+
+  /**
+   * Forget a memory record by namespace and key (TEC-03).
+   *
+   * - `mode = "soft"` (default): soft-deletes by closing validity window. Returns `boolean`.
+   * - `mode = "hard"`: hard-deletes record. Returns `boolean`.
+   * - `mode = "certified"`: physically deletes and returns cryptographic `PurgeCertificate`.
+   */
+  forget(namespace: string, key: string, mode?: string | null): PurgeCertificate | boolean;
 
   /** Return all namespaces as a `string[]`. */
   list_namespaces(): string[];
