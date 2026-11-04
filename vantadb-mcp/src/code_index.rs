@@ -60,6 +60,8 @@ const KEY_FILE_PREFIX: &str = "file:";
 const KEY_SYMBOL_PREFIX: &str = "sym:";
 /// Edge label between a file record and its symbols.
 const EDGE_DEFINES: &str = "defines";
+/// Edge label between referencing symbols.
+const EDGE_REFERENCES: &str = "references";
 
 /// Tool definition for `tools/list` (full profile only).
 pub(crate) fn code_index_tool_definitions() -> Vec<Value> {
@@ -160,7 +162,7 @@ fn index_repo(
             "code_index: cannot read directory {root:?}: {e}"
         )));
     }
-    collect_rust_files(root, &mut files, &mut truncated, max_files);
+    collect_source_files(root, &mut files, &mut truncated, max_files);
 
     let mut indexed_files = 0usize;
     let mut skipped_unchanged = 0usize;
@@ -168,6 +170,7 @@ fn index_repo(
     let mut symbols_indexed = 0usize;
     let mut stale_symbols_removed = 0usize;
     let mut symbols_truncated = false;
+    let mut all_indexed_symbols: Vec<(u128, String, String)> = Vec::new();
 
     for abs in &files {
         let rel = rel_path(root, abs);
@@ -199,7 +202,8 @@ fn index_repo(
             }
         }
 
-        let mut symbols = extract_symbols(&source);
+        let lang = detect_language(abs);
+        let mut symbols = extract_symbols_for_lang(&source, lang);
         if symbols.len() > MAX_SYMBOLS_PER_FILE {
             symbols_truncated = true;
             symbols.truncate(MAX_SYMBOLS_PER_FILE);
@@ -232,8 +236,11 @@ fn index_repo(
         }
 
         // File record (manifest: hash + symbol keys).
-        let mut file_input =
-            MemoryInput::new(namespace, file_key.clone(), file_payload(&rel, &keyed));
+        let mut file_input = MemoryInput::new(
+            namespace,
+            file_key.clone(),
+            file_payload(&rel, &keyed, lang),
+        );
         file_input
             .metadata
             .insert("kind".into(), SdkValue::String("file".into()));
@@ -242,7 +249,7 @@ fn index_repo(
             .insert("path".into(), SdkValue::String(rel.clone()));
         file_input
             .metadata
-            .insert("language".into(), SdkValue::String("rust".into()));
+            .insert("language".into(), SdkValue::String(lang.into()));
         file_input
             .metadata
             .insert("hash".into(), SdkValue::String(hash));
@@ -294,9 +301,19 @@ fn index_repo(
                     )
                     .map_err(|e| McpError::from(e).to_json())?;
             }
+            all_indexed_symbols.push((record.node_id, sym.name.clone(), sym.text.clone()));
             symbols_indexed += 1;
         }
         indexed_files += 1;
+    }
+
+    // Connect `references` edges between symbols that call or reference each other
+    for (src_id, _, src_text) in &all_indexed_symbols {
+        for (tgt_id, tgt_name, _) in &all_indexed_symbols {
+            if src_id != tgt_id && is_symbol_referenced(src_text, tgt_name) {
+                let _ = embedded.add_edge(*src_id, *tgt_id, EDGE_REFERENCES, Some(1.0), None);
+            }
+        }
     }
 
     Ok(text_content(serialize_content(&json!({
@@ -312,10 +329,14 @@ fn index_repo(
     }))))
 }
 
-/// Recursively collect `.rs` files under `dir` in deterministic (sorted)
-/// order, skipping symlinks and [`DENY_DIRS`]. Sets `truncated` when the
-/// `max_files` cap stops further collection.
-fn collect_rust_files(dir: &Path, out: &mut Vec<PathBuf>, truncated: &mut bool, max_files: usize) {
+/// Recursively collect source files (`.rs`, `.py`, `.ts`, `.tsx`, `.js`, `.jsx`)
+/// under `dir` in deterministic (sorted) order, skipping symlinks and [`DENY_DIRS`].
+fn collect_source_files(
+    dir: &Path,
+    out: &mut Vec<PathBuf>,
+    truncated: &mut bool,
+    max_files: usize,
+) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
@@ -334,15 +355,60 @@ fn collect_rust_files(dir: &Path, out: &mut Vec<PathBuf>, truncated: &mut bool, 
                     continue;
                 }
             }
-            collect_rust_files(&path, out, truncated, max_files);
-        } else if meta.is_file() && path.extension().and_then(|e| e.to_str()) == Some("rs") {
-            if out.len() >= max_files {
-                *truncated = true;
-                continue;
+            collect_source_files(&path, out, truncated, max_files);
+        } else if meta.is_file() {
+            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if matches!(ext, "rs" | "py" | "ts" | "tsx" | "js" | "jsx") {
+                    if out.len() >= max_files {
+                        *truncated = true;
+                        continue;
+                    }
+                    out.push(path);
+                }
             }
-            out.push(path);
         }
     }
+}
+
+/// Deprecated alias kept for backwards compatibility.
+#[allow(dead_code)]
+fn collect_rust_files(dir: &Path, out: &mut Vec<PathBuf>, truncated: &mut bool, max_files: usize) {
+    collect_source_files(dir, out, truncated, max_files);
+}
+
+/// Detect source language from file path extension.
+fn detect_language(path: &Path) -> &'static str {
+    match path.extension().and_then(|e| e.to_str()) {
+        Some("rs") => "rust",
+        Some("py") => "python",
+        Some("ts") | Some("tsx") => "typescript",
+        Some("js") | Some("jsx") => "javascript",
+        _ => "rust",
+    }
+}
+
+/// Check if `target_name` appears as an identifier inside `text`.
+fn is_symbol_referenced(text: &str, target_name: &str) -> bool {
+    let bare_name = target_name.rsplit("::").next().unwrap_or(target_name);
+    if bare_name.len() < 2 {
+        return false;
+    }
+    let bytes = text.as_bytes();
+    let name_bytes = bare_name.as_bytes();
+    let mut i = 0;
+    while let Some(pos) = text[i..].find(bare_name) {
+        let abs_pos = i + pos;
+        let before_ok = abs_pos == 0
+            || (!bytes[abs_pos - 1].is_ascii_alphanumeric() && bytes[abs_pos - 1] != b'_');
+        let end_pos = abs_pos + name_bytes.len();
+        let after_ok = end_pos >= bytes.len()
+            || (!bytes[end_pos].is_ascii_alphanumeric() && bytes[end_pos] != b'_');
+        if before_ok && after_ok {
+            return true;
+        }
+        i = abs_pos + 1;
+    }
+    false
 }
 
 /// Path of `abs` relative to `root`, with `/` separators (stable keys on all
@@ -384,7 +450,7 @@ fn metadata_strings(meta: &vantadb::sdk::MemoryMetadata, key: &str) -> Vec<Strin
 
 /// File-record payload: path plus a bounded signature list (the symbols carry
 /// the searchable source text).
-fn file_payload(rel: &str, keyed: &[(String, SymbolChunk)]) -> String {
+fn file_payload(rel: &str, keyed: &[(String, SymbolChunk)], lang: &str) -> String {
     let mut names: Vec<String> = keyed
         .iter()
         .take(MAX_SYMBOL_NAMES_IN_FILE_PAYLOAD)
@@ -393,7 +459,7 @@ fn file_payload(rel: &str, keyed: &[(String, SymbolChunk)]) -> String {
     if keyed.len() > names.len() {
         names.push(format!("… (+{} more)", keyed.len() - names.len()));
     }
-    format!("{rel} (rust)\nsymbols: {}", names.join(", "))
+    format!("{rel} ({lang})\nsymbols: {}", names.join(", "))
 }
 
 /// Symbol payload: source text capped at [`MAX_SYMBOL_PAYLOAD_CHARS`].
@@ -442,6 +508,350 @@ struct ParsedHeader {
     kind: &'static str,
     name: String,
     is_container: bool,
+}
+
+/// Extract symbols for the specified programming language.
+pub(crate) fn extract_symbols_for_lang(source: &str, lang: &str) -> Vec<SymbolChunk> {
+    match lang {
+        "rust" => extract_symbols(source),
+        "python" => extract_symbols_python(source),
+        "typescript" | "javascript" => extract_symbols_typescript(source),
+        _ => extract_symbols(source),
+    }
+}
+
+/// Extract Python symbols (`def`, `class`, `import`, and methods inside classes).
+pub(crate) fn extract_symbols_python(source: &str) -> Vec<SymbolChunk> {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut out = Vec::new();
+    let mut current_class: Option<(String, usize)> = None;
+
+    for (idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
+        let indent = line.len() - line.trim_start().len();
+
+        if let Some((_, class_indent)) = &current_class {
+            if indent <= *class_indent {
+                current_class = None;
+            }
+        }
+
+        if trimmed.starts_with("class ") {
+            if let Some(rest) = trimmed.strip_prefix("class ") {
+                let name = rest
+                    .split(['(', ':'])
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if !name.is_empty() {
+                    let end_idx = find_python_block_end(&lines, idx, indent);
+                    let text = lines[idx..=end_idx].join("\n");
+                    out.push(SymbolChunk {
+                        name: name.clone(),
+                        kind: "class",
+                        line_start: idx + 1,
+                        line_end: end_idx + 1,
+                        text,
+                    });
+                    current_class = Some((name, indent));
+                }
+            }
+        } else if trimmed.starts_with("def ") || trimmed.starts_with("async def ") {
+            let rest = trimmed
+                .strip_prefix("async def ")
+                .unwrap_or_else(|| trimmed.strip_prefix("def ").unwrap_or(""));
+            let fn_name = rest.split('(').next().unwrap_or("").trim().to_string();
+            if !fn_name.is_empty() {
+                let end_idx = find_python_block_end(&lines, idx, indent);
+                let text = lines[idx..=end_idx].join("\n");
+                let (sym_name, kind) = if let Some((class_name, _)) = &current_class {
+                    (format!("{class_name}::{fn_name}"), "method")
+                } else {
+                    (fn_name, "def")
+                };
+                out.push(SymbolChunk {
+                    name: sym_name,
+                    kind,
+                    line_start: idx + 1,
+                    line_end: end_idx + 1,
+                    text,
+                });
+            }
+        } else if trimmed.starts_with("import ") || trimmed.starts_with("from ") {
+            let name = if let Some(rest) = trimmed.strip_prefix("from ") {
+                rest.split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string()
+            } else if let Some(rest) = trimmed.strip_prefix("import ") {
+                rest.split([',', ' '])
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string()
+            } else {
+                String::new()
+            };
+            if !name.is_empty() {
+                out.push(SymbolChunk {
+                    name,
+                    kind: "import",
+                    line_start: idx + 1,
+                    line_end: idx + 1,
+                    text: line.to_string(),
+                });
+            }
+        }
+    }
+
+    out
+}
+
+fn find_python_block_end(lines: &[&str], start_idx: usize, base_indent: usize) -> usize {
+    let mut end_idx = start_idx;
+    for (i, line) in lines.iter().enumerate().skip(start_idx + 1) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let indent = line.len() - line.trim_start().len();
+        if indent > base_indent {
+            end_idx = i;
+        } else {
+            break;
+        }
+    }
+    end_idx
+}
+
+/// Extract TypeScript / JavaScript symbols (`function`, `class`, `interface`, `type`, `import`, and methods).
+pub(crate) fn extract_symbols_typescript(source: &str) -> Vec<SymbolChunk> {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut out = Vec::new();
+    let mut current_class: Option<(String, usize)> = None;
+    let mut depth: i64 = 0;
+
+    for (idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        let trimmed = trimmed.strip_prefix("export ").unwrap_or(trimmed).trim();
+        let trimmed = trimmed.strip_prefix("default ").unwrap_or(trimmed).trim();
+
+        if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("/*") {
+            continue;
+        }
+
+        if let Some((_, class_depth)) = &current_class {
+            if depth <= *class_depth as i64 {
+                current_class = None;
+            }
+        }
+
+        if trimmed.starts_with("class ") {
+            let rest = trimmed.strip_prefix("class ").unwrap_or("");
+            let name = rest
+                .split([' ', '{', '<'])
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !name.is_empty() {
+                let end_idx = find_ts_brace_end(&lines, idx);
+                let text = lines[idx..=end_idx].join("\n");
+                out.push(SymbolChunk {
+                    name: name.clone(),
+                    kind: "class",
+                    line_start: idx + 1,
+                    line_end: end_idx + 1,
+                    text,
+                });
+                current_class = Some((name, depth as usize));
+            }
+        } else if trimmed.starts_with("interface ") {
+            let rest = trimmed.strip_prefix("interface ").unwrap_or("");
+            let name = rest
+                .split([' ', '{', '<'])
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !name.is_empty() {
+                let end_idx = find_ts_brace_end(&lines, idx);
+                let text = lines[idx..=end_idx].join("\n");
+                out.push(SymbolChunk {
+                    name,
+                    kind: "interface",
+                    line_start: idx + 1,
+                    line_end: end_idx + 1,
+                    text,
+                });
+            }
+        } else if trimmed.starts_with("type ") {
+            let rest = trimmed.strip_prefix("type ").unwrap_or("");
+            let name = rest
+                .split([' ', '=', '<'])
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !name.is_empty() {
+                let end_idx = find_ts_semicolon_end(&lines, idx);
+                let text = lines[idx..=end_idx].join("\n");
+                out.push(SymbolChunk {
+                    name,
+                    kind: "type",
+                    line_start: idx + 1,
+                    line_end: end_idx + 1,
+                    text,
+                });
+            }
+        } else if trimmed.starts_with("function ") || trimmed.starts_with("async function ") {
+            let rest = trimmed
+                .strip_prefix("async function ")
+                .unwrap_or_else(|| trimmed.strip_prefix("function ").unwrap_or(""));
+            let name = rest
+                .split(['(', '<', ' '])
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !name.is_empty() {
+                let end_idx = find_ts_brace_end(&lines, idx);
+                let text = lines[idx..=end_idx].join("\n");
+                out.push(SymbolChunk {
+                    name,
+                    kind: "function",
+                    line_start: idx + 1,
+                    line_end: end_idx + 1,
+                    text,
+                });
+            }
+        } else if (trimmed.starts_with("const ") || trimmed.starts_with("let "))
+            && trimmed.contains("=>")
+        {
+            let rest = trimmed
+                .strip_prefix("const ")
+                .unwrap_or_else(|| trimmed.strip_prefix("let ").unwrap_or(""));
+            if let Some((name_part, _)) = rest.split_once('=') {
+                let name = name_part
+                    .split([':', ' '])
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if !name.is_empty() {
+                    let end_idx = find_ts_brace_end(&lines, idx);
+                    let text = lines[idx..=end_idx].join("\n");
+                    out.push(SymbolChunk {
+                        name,
+                        kind: "function",
+                        line_start: idx + 1,
+                        line_end: end_idx + 1,
+                        text,
+                    });
+                }
+            }
+        } else if let Some((class_name, _)) = &current_class {
+            if trimmed.contains('(')
+                && (trimmed.contains('{') || trimmed.ends_with(';'))
+                && !trimmed.starts_with("if ")
+                && !trimmed.starts_with("for ")
+                && !trimmed.starts_with("while ")
+            {
+                let clean = trimmed.strip_prefix("async ").unwrap_or(trimmed);
+                let clean = clean.strip_prefix("public ").unwrap_or(clean);
+                let clean = clean.strip_prefix("private ").unwrap_or(clean);
+                let clean = clean.strip_prefix("protected ").unwrap_or(clean);
+                let clean = clean.strip_prefix("static ").unwrap_or(clean);
+                let fn_name = clean
+                    .split(['(', '<'])
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if !fn_name.is_empty() && fn_name != "constructor" {
+                    let end_idx = find_ts_brace_end(&lines, idx);
+                    let text = lines[idx..=end_idx].join("\n");
+                    out.push(SymbolChunk {
+                        name: format!("{class_name}::{fn_name}"),
+                        kind: "method",
+                        line_start: idx + 1,
+                        line_end: end_idx + 1,
+                        text,
+                    });
+                }
+            }
+        } else if trimmed.starts_with("import ") {
+            let name = if let Some(from_part) = trimmed.split("from").nth(1) {
+                from_part
+                    .trim()
+                    .trim_matches(['\'', '"', ';', ' '])
+                    .to_string()
+            } else {
+                trimmed
+                    .strip_prefix("import ")
+                    .unwrap_or("")
+                    .trim()
+                    .trim_matches(['\'', '"', ';'])
+                    .to_string()
+            };
+            if !name.is_empty() {
+                out.push(SymbolChunk {
+                    name,
+                    kind: "import",
+                    line_start: idx + 1,
+                    line_end: idx + 1,
+                    text: line.to_string(),
+                });
+            }
+        }
+
+        for c in line.chars() {
+            match c {
+                '{' => depth += 1,
+                '}' => depth -= 1,
+                _ => {}
+            }
+        }
+    }
+
+    out
+}
+
+fn find_ts_brace_end(lines: &[&str], start_idx: usize) -> usize {
+    let mut depth: i64 = 0;
+    let mut seen_open = false;
+    for (i, line) in lines.iter().enumerate().skip(start_idx) {
+        for c in line.chars() {
+            if c == '{' {
+                depth += 1;
+                seen_open = true;
+            } else if c == '}' {
+                depth -= 1;
+            }
+        }
+        if seen_open && depth <= 0 {
+            return i;
+        }
+        if !seen_open && line.trim().ends_with(';') {
+            return i;
+        }
+    }
+    lines.len().saturating_sub(1)
+}
+
+fn find_ts_semicolon_end(lines: &[&str], start_idx: usize) -> usize {
+    for (i, line) in lines.iter().enumerate().skip(start_idx) {
+        if line.trim().ends_with(';') {
+            return i;
+        }
+    }
+    start_idx
 }
 
 /// Extract Rust symbols from `source`.
@@ -1111,5 +1521,176 @@ mod tests {
     fn fnv1a_matches_known_vectors() {
         assert_eq!(fnv1a_hex(b""), "cbf29ce484222325");
         assert_eq!(fnv1a_hex(b"a"), "af63dc4c8601ec8c");
+    }
+
+    #[test]
+    fn test_code_index_python_extraction() {
+        let py_src = r#"import os
+from math import sqrt
+
+class Calculator:
+    def __init__(self):
+        self.val = 0
+
+    def add(self, a, b):
+        return a + b
+
+def compute():
+    calc = Calculator()
+    return calc.add(1, 2)
+"#;
+        let symbols = extract_symbols_python(py_src);
+        let pairs: Vec<(&str, &str)> = symbols.iter().map(|s| (s.kind, s.name.as_str())).collect();
+
+        assert!(pairs.contains(&("import", "os")));
+        assert!(pairs.contains(&("import", "math")));
+        assert!(pairs.contains(&("class", "Calculator")));
+        assert!(pairs.contains(&("method", "Calculator::__init__")));
+        assert!(pairs.contains(&("method", "Calculator::add")));
+        assert!(pairs.contains(&("def", "compute")));
+    }
+
+    #[test]
+    fn test_code_index_typescript_extraction() {
+        let ts_src = r#"import { helper } from "./helper";
+
+export interface Config {
+    port: number;
+}
+
+export type PortType = number;
+
+export class Server {
+    start(): void {
+        console.log("running");
+    }
+}
+
+export function createServer(config: Config): Server {
+    return new Server();
+}
+
+export const run = () => {
+    createServer({ port: 8080 });
+};
+"#;
+        let symbols = extract_symbols_typescript(ts_src);
+        let pairs: Vec<(&str, &str)> = symbols.iter().map(|s| (s.kind, s.name.as_str())).collect();
+
+        assert!(pairs.contains(&("import", "./helper")));
+        assert!(pairs.contains(&("interface", "Config")));
+        assert!(pairs.contains(&("type", "PortType")));
+        assert!(pairs.contains(&("class", "Server")));
+        assert!(pairs.contains(&("method", "Server::start")));
+        assert!(pairs.contains(&("function", "createServer")));
+        assert!(pairs.contains(&("function", "run")));
+    }
+
+    #[test]
+    fn test_code_index_multi_language_and_reconciliation() {
+        use std::fs;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+
+        // 1. Rust file
+        let rs_path = root.join("src/lib.rs");
+        fs::create_dir_all(rs_path.parent().unwrap()).unwrap();
+        fs::write(&rs_path, "pub fn core_func() {}\n").unwrap();
+
+        // 2. Python file
+        let py_path = root.join("scripts/worker.py");
+        fs::create_dir_all(py_path.parent().unwrap()).unwrap();
+        fs::write(
+            &py_path,
+            "def worker_step():\n    core_func()\n\ndef legacy_step():\n    pass\n",
+        )
+        .unwrap();
+
+        // 3. TypeScript file
+        let ts_path = root.join("web/index.ts");
+        fs::create_dir_all(ts_path.parent().unwrap()).unwrap();
+        fs::write(
+            &ts_path,
+            "export function startApp() {\n    worker_step();\n}\n",
+        )
+        .unwrap();
+
+        let engine = Arc::new(StorageEngine::open(root.join(".db").to_str().unwrap()).unwrap());
+        let embedded = Embedded::from_engine(engine.clone());
+        let ns = "test_code_ns";
+
+        // Initial index pass
+        let res = index_repo(&embedded, ns, root, 100).expect("index repo");
+        let content_str = res["content"][0]["text"].as_str().unwrap();
+        let json_val: Value = serde_json::from_str(content_str).unwrap();
+
+        assert_eq!(json_val["indexed_files"], 3);
+        assert_eq!(json_val["skipped_unchanged"], 0);
+
+        // Verify file nodes exist
+        assert!(embedded.get(ns, "file:src/lib.rs").unwrap().is_some());
+        assert!(embedded
+            .get(ns, "file:scripts/worker.py")
+            .unwrap()
+            .is_some());
+        assert!(embedded.get(ns, "file:web/index.ts").unwrap().is_some());
+
+        // Verify symbol nodes exist
+        let sym_core = embedded
+            .get(ns, "sym:src/lib.rs#fn:core_func")
+            .unwrap()
+            .expect("core_func");
+        let sym_worker = embedded
+            .get(ns, "sym:scripts/worker.py#def:worker_step")
+            .unwrap()
+            .expect("worker_step");
+        let _sym_legacy = embedded
+            .get(ns, "sym:scripts/worker.py#def:legacy_step")
+            .unwrap()
+            .expect("legacy_step");
+
+        // Verify references edge: worker_step calls core_func
+        let callees = embedded
+            .graph_bfs(
+                &[sym_worker.node_id],
+                1,
+                vantadb::graph::TraversalDirection::Forward,
+            )
+            .unwrap();
+        assert!(callees.contains(&sym_core.node_id));
+
+        // Re-run index without changes -> all skipped unchanged
+        let res2 = index_repo(&embedded, ns, root, 100).expect("index unchanged");
+        let json_val2: Value =
+            serde_json::from_str(res2["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert_eq!(json_val2["indexed_files"], 0);
+        assert_eq!(json_val2["skipped_unchanged"], 3);
+
+        // Modify Python file: remove legacy_step, add new_step
+        fs::write(
+            &py_path,
+            "def worker_step():\n    core_func()\n\ndef new_step():\n    pass\n",
+        )
+        .unwrap();
+
+        // Re-index -> only worker.py is re-indexed, legacy_step is removed (reconciliation)
+        let res3 = index_repo(&embedded, ns, root, 100).expect("re-index after edit");
+        let json_val3: Value =
+            serde_json::from_str(res3["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert_eq!(json_val3["indexed_files"], 1);
+        assert_eq!(json_val3["skipped_unchanged"], 2);
+        assert_eq!(json_val3["stale_symbols_removed"], 1);
+
+        // Old legacy symbol is gone
+        assert!(embedded
+            .get(ns, "sym:scripts/worker.py#def:legacy_step")
+            .unwrap()
+            .is_none());
+        // New symbol exists
+        assert!(embedded
+            .get(ns, "sym:scripts/worker.py#def:new_step")
+            .unwrap()
+            .is_some());
     }
 }
