@@ -2,21 +2,21 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (82 listed / 88 defined)
+## MCP Tools (84 listed / 90 defined)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: **88 tool definitions** = 49 core
-> (`handlers/tools.rs` `base_tools` — 49) + 7 `skill_*` (`skills.rs`) + 9 `code_*`
+> Verified against `vantadb-mcp/src/`: **90 tool definitions** = 49 core
+> (`handlers/tools.rs` `base_tools` — 49) + 9 `skill_*` / `bugfix_*` (`skills.rs`) + 9 `code_*`
 > (`code.rs` — 8 — plus `code_index.rs` — 1) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
 > (`context.rs`) + 5 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`) + 5 `dream_*` (`dreams.rs`). All eight sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
-> **`tools/list` returns 82 of them.** WIRE-02 absorbs 6 `code_*` projections
+> **`tools/list` returns 84 of them.** WIRE-02 absorbs 6 `code_*` projections
 > (`code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`,
 > `code_files`) as *dispatch-only*: they are callable via `tools/call` but never
 > listed, because the listed surface is what costs clients tool-schema tokens.
 > The 2 API-04 legacy aliases (`search_memory`, `collection_list`) are likewise
 > dispatch-only and are not tool definitions at all.
-> Last synced against code: 2026-10-20 — 82 listed / 88 defined = 49 core + 7 skill_* + 3 listed code_* (9 defined) + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (`thread_id` is a u128 decimal string).
+> Last synced against code: 2026-11-04 — 84 listed / 90 defined = 49 core + 9 skill_*/bugfix_* + 3 listed code_* (9 defined) + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (`thread_id` is a u128 decimal string).
 
 ### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (49)
 
@@ -75,10 +75,10 @@
 
 Detailed behavior notes (response envelope, error channels, IQL syntax, edge cases F4–F11): see [`SKILL.md`](../SKILL.md).
 
-### Review-agent Skills (7 × `skill_*`)
+### Review-agent Skills & Bugfix Patterns (9 × `skill_*` / `bugfix_*`)
 
-Versioned agent skills over the core `SkillStore` (MEM-07).
-**Precondition:** every call takes `owner_agent` as caller identity — skills owned by another agent respond exactly like missing ones (no existence leak). Writes require `expected_version` (optimistic lock).
+Versioned agent skills and bugfix resolution patterns over the core `SkillStore` (MEM-07, MGR-24).
+**Precondition:** every `skill_*` call takes `owner_agent` as caller identity — skills owned by another agent respond exactly like missing ones (no existence leak). Writes require `expected_version` (optimistic lock). `bugfix_*` tools operate across recorded bugfix patterns.
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -89,6 +89,8 @@ Versioned agent skills over the core `SkillStore` (MEM-07).
 | `skill_patch` | Substring replacement in skill content (TDAM-compatible) | `skill_id`, `owner_agent`, `expected_version`, `old_string`, `new_string`; `replace_all` (required when >1 occurrence) |
 | `skill_files_write` | Write a resource file into the skill manifest (5 MB/file, 50 MB/skill) | `skill_id`, `owner_agent`, `expected_version`, `path` (relative only), `content`; `encoding` (utf-8 \| base64), `mime_type`, `is_executable` |
 | `skill_extract` (FIND-111) | Review a transcript and return reusable-skill candidates WITHOUT writing (read-only; no LLM runner in MCP, so non-empty transcripts degrade to `{success:false, candidates:[], error}`) | `transcript` |
+| `bugfix_record` (MGR-24) | Record a structured bugfix pattern | `symptom`, `root_cause`, `fix_summary` (req); `files_touched`, `regression_test`, `id` |
+| `bugfix_query` (MGR-24) | Query bugfix patterns by symptom/query or touched file | `query`, `symptom`, `file` |
 
 ### Code Intelligence (3 listed / 9 defined × `code_*`)
 

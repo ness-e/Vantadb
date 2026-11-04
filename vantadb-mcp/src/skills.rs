@@ -199,6 +199,52 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
                 "required": ["messages"]
             }
         }),
+        json!({
+            "name": "bugfix_record",
+            "description": "Records a structured bugfix pattern (symptom, root cause, fix summary, files touched, regression test) into the skill store.",
+            "annotations": {
+                "title": "Bugfix Record",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string", "description": "Optional bugfix pattern identifier (auto-generated if omitted)" },
+                    "symptom": { "type": "string", "description": "Observed symptom or error message" },
+                    "root_cause": { "type": "string", "description": "Root cause analysis" },
+                    "fix_summary": { "type": "string", "description": "Summary of the fix" },
+                    "files_touched": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "List of modified file paths"
+                    },
+                    "regression_test": { "type": "string", "description": "Regression test name or command verifying the fix" }
+                },
+                "required": ["symptom", "root_cause", "fix_summary"]
+            }
+        }),
+        json!({
+            "name": "bugfix_query",
+            "description": "Queries previously recorded bugfix patterns by keyword/symptom or touched file path.",
+            "annotations": {
+                "title": "Bugfix Query",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Search query matching against symptom, root cause, or fix summary" },
+                    "symptom": { "type": "string", "description": "Alias for query (matches symptom, root cause, or fix summary)" },
+                    "file": { "type": "string", "description": "Filter bugfix patterns by touched file path" }
+                }
+            }
+        }),
     ]
 }
 

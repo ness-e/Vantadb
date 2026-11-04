@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **82 listed tools** (88 defined − 6 absorbed `code_*` projections): 49 core + 7 `skill_*` + 3 listed `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`. It also serves 2 static resources (plus 2 dynamic URI schemes via `resources/read`) and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **84 listed tools** (90 defined − 6 absorbed `code_*` projections): 49 core + 9 `skill_*`/`bugfix_*` + 3 listed `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`. It also serves 2 static resources (plus 2 dynamic URI schemes via `resources/read`) and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -121,15 +121,15 @@ name — the legacy `collection_list` alias stays dispatchable but is not listed
 }
 ```
 
-## Available MCP Tools (82 listed / 88 defined)
+## Available MCP Tools (84 listed / 90 defined)
 
-The full contract for all **82 listed tools** (88 defined) lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 33 are summarized here.
+The full contract for all **84 listed tools** (90 defined) lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 35 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
 | Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 49 | documented below | none beyond an open DB |
-| Review-agent Skills (`skill_*`) | 7 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write`, `skill_extract` | `owner_agent` caller identity; writes need `expected_version` |
+| Review-agent Skills & Bugfix Patterns (`skill_*` / `bugfix_*`) | 9 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write`, `skill_extract`, `bugfix_record`, `bugfix_query` | `skill_*` takes `owner_agent` caller identity; writes need `expected_version`. `bugfix_*` records/queries bugfix patterns. |
 | Code Intelligence (`code_*`) | 3 listed (9 defined) | `code_search`, `code_explore`, `code_index` | graph nodes/edges ingested first; query-only. The 6 projections `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files` stay **dispatch-only** (WIRE-02): callable via `tools/call`, never listed. |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
 | Context Engine (`context_assemble`) | 1 | `context_assemble` | read-only; session recall needs prior memory capture into the session |
@@ -591,7 +591,7 @@ VantaDB provides Python SDK integrations for popular AI frameworks:
 
 ## Editor Integration
 
-For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see the [MCP API reference](https://github.com/ness-e/Vantadb/blob/main/docs/api/MCP.md) — the complete reference for the MCP surface. The quick contract for this skill is [references/api-reference.md](references/api-reference.md) § "MCP Tools (82 listed / 88 defined)".
+For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see the [MCP API reference](https://github.com/ness-e/Vantadb/blob/main/docs/api/MCP.md) — the complete reference for the MCP surface. The quick contract for this skill is [references/api-reference.md](references/api-reference.md) § "MCP Tools (84 listed / 90 defined)".
 
 Supported editors:
 - Cursor

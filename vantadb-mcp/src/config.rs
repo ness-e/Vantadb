@@ -7,9 +7,9 @@ use vantadb::storage::StorageEngine;
 /// which names `tools/call` may dispatch (WIRE-02 enforces both symmetrically).
 ///
 /// Profiles are selected via the `VANTADB_MCP_PROFILE` environment variable:
-/// - `brain` (12 tools): Compact cognitive lifecycle surface (L0-L3) + meta-tools; dispatches all 88 tools.
+/// - `brain` (15 tools): Compact cognitive lifecycle surface (L0-L3) + meta-tools + bugfix; dispatches all 90 tools.
 /// - `agent` (39 tools, default): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
-/// - `full` (82 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
+/// - `full` (84 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
 /// - `dev` (38 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
 /// - `memory` (22 tools): Core memory CRUD + search + list only. For memory-only agents.
 ///
@@ -24,11 +24,11 @@ pub enum McpProfile {
     /// Default since WIRE-02 (previously `full`); opt back into the whole
     /// surface with `VANTADB_MCP_PROFILE=full`.
     Agent,
-    /// Brain profile (12 listed tools) — compact cognitive surface (L0-L3 + meta-tools).
-    /// Lists 12 tools (~2.8K schema tokens) while allowing execution of all 88 tools.
+    /// Brain profile (15 listed tools) — compact cognitive surface (L0-L3 + meta-tools + bugfix).
+    /// Lists 15 tools while allowing execution of all 90 tools.
     #[default]
     Brain,
-    /// Full profile (82 listed tools) — all listed base + extended families.
+    /// Full profile (84 listed tools) — all listed base + extended families.
     /// The 6 absorbed `code_*` projections stay dispatch-only (WIRE-02).
     Full,
     /// Developer profile (38 tools) — memory, graph, collections, key maintenance, axioms.

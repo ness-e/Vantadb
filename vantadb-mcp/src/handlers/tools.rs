@@ -22,17 +22,17 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // https://modelcontextprotocol.io/specification/2025-06-18/server/tools.
 // Defaults are pessimistic (readOnlyHint false, destructiveHint true,
 // idempotentHint false, openWorldHint true) — we set them explicitly.
-// Summary (88 tool definitions, 49 base + 39 extend; WIRE-02 lists 82 across
+// Summary (90 tool definitions, 49 base + 41 extend; WIRE-02 lists 84 across
 // profiles and absorbs 6 `code_*` projections as dispatch-only, on top of the
 // 2 API-04 aliases `search_memory`/`collection_list` — all 8 absorbed names
 // stay dispatchable through their canonical listed tool):
-// - readOnlyHint true (48 tools): memory_get, memory_list, memory_list_namespaces, memory_versions, memory_recall, memory_search, memory_verify_certificate, search_semantic, search_with_method, search_multi, get_node_neighbors, graph_page_rank, graph_degree_centrality, graph_traverse, graph_topological_sort, graph_is_dag, read_axioms, collection_stats, audit_text_index, capabilities, generate_snippet, list_snapshots, export, embed_texts, code_search, code_explore, code_callers, code_callees, code_impact, code_node, code_status, code_files, wiki_search, wiki_read, wiki_list, wiki_graph, wiki_ingest_status, skill_list, skill_view, skill_extract, thread_get, thread_list, scene_read, scene_list, scene_query, context_assemble, dream_list, dream_load
-// - readOnlyHint false (40 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, memory_reinforce, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write, scene_write, scene_edit, dream_discard, dream_consolidate, dream_promote, code_index
+// - readOnlyHint true (49 tools): memory_get, memory_list, memory_list_namespaces, memory_versions, memory_recall, memory_search, memory_verify_certificate, search_semantic, search_with_method, search_multi, get_node_neighbors, graph_page_rank, graph_degree_centrality, graph_traverse, graph_topological_sort, graph_is_dag, read_axioms, collection_stats, audit_text_index, capabilities, generate_snippet, list_snapshots, export, embed_texts, code_search, code_explore, code_callers, code_callees, code_impact, code_node, code_status, code_files, wiki_search, wiki_read, wiki_list, wiki_graph, wiki_ingest_status, skill_list, skill_view, skill_extract, bugfix_query, thread_get, thread_list, scene_read, scene_list, scene_query, context_assemble, dream_list, dream_load
+// - readOnlyHint false (41 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, memory_reinforce, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write, bugfix_record, scene_write, scene_edit, dream_discard, dream_consolidate, dream_promote, code_index
 // - destructiveHint true (13 tools): memory_delete, memory_delete_by_filter, memory_supersede, remove_edge, delete_axiom, collection_delete, purge_expired, vacuum, snapshot_restore, thread_delete, thread_purge_expired, dream_discard, dream_promote
-// - destructiveHint false (75 tools): all others — additive or read-only
-// - idempotentHint true (66 tools): all readOnly true (48) plus safe-retry writes (memory_delete, memory_delete_by_filter, remove_edge, delete_axiom, collection_delete, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, thread_delete, thread_purge_expired, skill_create, dream_discard, dream_promote, code_index); idempotentHint false (22 tools): memory_put, memory_put_batch, memory_supersede, memory_reinforce, query_iql, inject_context, write_axiom, rehydrate, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, skill_update, skill_patch, skill_files_write, thread_create, thread_send, scene_write, scene_edit, dream_consolidate
+// - destructiveHint false (77 tools): all others — additive or read-only
+// - idempotentHint true (67 tools): all readOnly true (49) plus safe-retry writes (memory_delete, memory_delete_by_filter, remove_edge, delete_axiom, collection_delete, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, thread_delete, thread_purge_expired, skill_create, dream_discard, dream_promote, code_index); idempotentHint false (23 tools): memory_put, memory_put_batch, memory_supersede, memory_reinforce, query_iql, inject_context, write_axiom, rehydrate, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, skill_update, skill_patch, skill_files_write, bugfix_record, thread_create, thread_send, scene_write, scene_edit, dream_consolidate
 // - openWorldHint true (3 tools): wiki_ingest, bulk_import_file, code_index — host filesystem path
-// - openWorldHint false (85 tools): closed embedded DB
+// - openWorldHint false (87 tools): closed embedded DB
 // This comment intentionally contains readOnlyHint, destructiveHint, idempotentHint, openWorldHint literals for grep coverage verification (MCP-38 contract: every listed tool carries the 4 hints; `rg -o` reaches ≥70 hits across src — no hand-maintained grand totals: measure with `rg -o "readOnlyHint|destructiveHint|idempotentHint|openWorldHint" <paths> | measure` at review time).
 // Example annotation block per tool: {"title":"...","readOnlyHint":bool,"destructiveHint":bool,"idempotentHint":bool,"openWorldHint":bool}
 // Per-tool registry for extended surface (39 tools) — each line carries the 4 hints so `rg readOnlyHint handlers/tools.rs` reaches ≥70 even before counting the distributed files:
@@ -1186,7 +1186,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "vanta_dispatch",
-            "description": "Universal meta-tool for VantaDB: executes any tool across the 88-tool catalog with full privileges. Rejects recursive dispatch.",
+            "description": "Universal meta-tool for VantaDB: executes any tool across the 90-tool catalog with full privileges. Rejects recursive dispatch.",
             "annotations": {
                 "title": "Vanta Dispatch",
                 "readOnlyHint": false,
@@ -1252,7 +1252,7 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
     use McpProfile::*;
     let mut set = std::collections::HashSet::new();
 
-    // Brain profile (13 listed tools): Compact cognitive surface L0-L3 + meta-tools
+    // Brain profile (15 listed tools): Compact cognitive surface L0-L3 + meta-tools + bugfix
     if profile == Brain {
         let brain_tools = [
             "memory_recall",
@@ -1268,6 +1268,8 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
             "vanta_dream",
             "vanta_graph",
             "vanta_dispatch",
+            "bugfix_record",
+            "bugfix_query",
         ];
         for t in brain_tools {
             set.insert(t);
@@ -1435,6 +1437,8 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
                 "skill_patch",
                 "skill_files_write",
                 "skill_extract",
+                "bugfix_record",
+                "bugfix_query",
             ];
             for t in skill_tools {
                 set.insert(t);
@@ -1509,15 +1513,13 @@ fn absorbed_canonical(name: &str) -> Option<&'static str> {
         // absorbed here so restricted profiles (Memory, Dev, Agent) cannot use them to
         // escalate privileges and bypass WIRE-02.
         "memory_forget" => Some("memory_delete"),
-        // PI-3 / MGR-24: Bug-to-Fix resolution tools absorbed via skill_create
-        "bugfix_record" | "bugfix_query" => Some("skill_create"),
         _ => None,
     }
 }
 
 /// WIRE-02: `tools/call` gate — a listed tool passes; an absorbed name passes
 /// when its canonical tool is listed in the profile.
-/// When profile is `Brain`, allows calling any known tool directly (only lists 12 in tools/list).
+/// When profile is `Brain`, allows calling any known tool directly (only lists 15 in tools/list).
 fn profile_allows_call(profile: McpProfile, name: &str) -> bool {
     if profile == McpProfile::Brain {
         return tool_is_known(name);
@@ -5117,8 +5119,8 @@ mod tests {
         let brain_set = profile_allowed_tools(McpProfile::Brain);
         assert_eq!(
             brain_set.len(),
-            13,
-            "Brain profile must have exactly 13 tools"
+            15,
+            "Brain profile must have exactly 15 tools"
         );
         for expected in [
             "memory_recall",
@@ -5134,6 +5136,8 @@ mod tests {
             "vanta_dream",
             "vanta_graph",
             "vanta_dispatch",
+            "bugfix_record",
+            "bugfix_query",
         ] {
             assert!(
                 brain_set.contains(expected),
@@ -5141,11 +5145,11 @@ mod tests {
             );
         }
 
-        // Full profile should still list 82 tools (WIRE-02 invariant)
+        // Full profile should still list 84 tools (WIRE-02 invariant)
         let full_set = profile_allowed_tools(McpProfile::Full);
         assert_eq!(
             full_set.len(),
-            82,
+            84,
             "Full profile count drift: {}",
             full_set.len()
         );
@@ -5182,7 +5186,17 @@ mod tests {
         assert!(profile_allows_call(McpProfile::Brain, "wiki_read"));
         assert!(profile_allows_call(McpProfile::Brain, "vanta_dispatch"));
         assert!(profile_allows_call(McpProfile::Brain, "memory_forget"));
+        assert!(profile_allows_call(McpProfile::Brain, "bugfix_record"));
+        assert!(profile_allows_call(McpProfile::Brain, "bugfix_query"));
         assert!(!profile_allows_call(McpProfile::Brain, "non_existent_tool"));
+
+        // Restricted profiles do not allow unlisted bugfix tools
+        assert!(!profile_allows_call(McpProfile::Agent, "bugfix_record"));
+        assert!(!profile_allows_call(McpProfile::Dev, "bugfix_record"));
+        assert!(!profile_allows_call(McpProfile::Memory, "bugfix_record"));
+        assert!(!profile_allows_call(McpProfile::Agent, "bugfix_query"));
+        assert!(!profile_allows_call(McpProfile::Dev, "bugfix_query"));
+        assert!(!profile_allows_call(McpProfile::Memory, "bugfix_query"));
 
         // Other profiles absorb memory_forget via canonical memory_delete,
         // but must NOT allow Brain-only meta-tools (AUD-MCP-01: prevent privilege escalation)

@@ -4831,7 +4831,7 @@ fn test_mcp_structured_output_and_output_schema() {
 
 /// MCP-38: Tool annotations coverage — every listed tool must expose the 4
 /// hints per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: 82 listed tools (88 defined − 6 WIRE-02 absorbed code_*
+/// Verifies: 84 listed tools (90 defined − 6 WIRE-02 absorbed code_*
 /// projections), each has title + 4 bools, destructiveHint true only on
 /// mutating tools that overwrite or delete, openWorldHint only on fs paths.
 /// MEM-59 added `memory_recall` and `memory_search` (both read-only/idempotent);
@@ -4848,8 +4848,8 @@ fn test_mcp_tool_annotations_coverage() {
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        82,
-        "expected 82 listed tools (88 defined − 6 WIRE-02 absorbed), got {}",
+        84,
+        "expected 84 listed tools (90 defined − 6 WIRE-02 absorbed), got {}",
         tools.len()
     );
 
@@ -4951,8 +4951,8 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile — 82 listed tools (49 base + 39 extend − 6 WIRE-02 absorbed
-    // code_* projections; 88 defined total).
+    // Full profile — 84 listed tools (49 base + 41 extend − 6 WIRE-02 absorbed
+    // code_* projections; 90 defined total).
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4961,9 +4961,23 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        82,
-        "Full profile should list 82 tools (88 defined − 6 WIRE-02 absorbed), got {}",
+        84,
+        "Full profile should list 84 tools (90 defined − 6 WIRE-02 absorbed), got {}",
         full_tools.len()
+    );
+
+    // Brain profile — 15 tools (compact cognitive surface: L0-L3 + meta-tools + bugfix).
+    let brain_config = McpConfig {
+        profile: McpProfile::Brain,
+        ..McpConfig::default()
+    };
+    let brain_res = handle_tools_list(&brain_config).unwrap();
+    let brain_tools = brain_res["tools"].as_array().unwrap();
+    assert_eq!(
+        brain_tools.len(),
+        15,
+        "Brain profile should list 15 tools, got {}",
+        brain_tools.len()
     );
 
     // WIRE-02: `agent` is the default profile — 39 tools (22 memory + 6
@@ -5030,6 +5044,28 @@ fn test_mcp_tool_profiles() {
         .iter()
         .filter_map(|t| t["name"].as_str())
         .collect();
+    let brain_names: std::collections::HashSet<&str> = brain_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+
+    // Bugfix tools should be listed in Full and Brain, but not restricted profiles
+    for tool in ["bugfix_record", "bugfix_query"] {
+        assert!(full_names.contains(tool), "Full profile missing {tool}");
+        assert!(brain_names.contains(tool), "Brain profile missing {tool}");
+        assert!(
+            !agent_names.contains(tool),
+            "Agent profile must not list {tool}"
+        );
+        assert!(
+            !dev_names.contains(tool),
+            "Dev profile must not list {tool}"
+        );
+        assert!(
+            !memory_names.contains(tool),
+            "Memory profile must not list {tool}"
+        );
+    }
 
     // Memory tools should be in all profiles
     for tool in [
@@ -5780,8 +5816,8 @@ fn test_api04_tools_list_canonical_names_no_duplicates() {
     );
     assert_eq!(
         names.len(),
-        82,
-        "expected 82 listed tools after WIRE-02 absorption, got {}",
+        84,
+        "expected 84 listed tools after WIRE-02 absorption, got {}",
         names.len()
     );
 }

@@ -172,3 +172,73 @@ fn test_bugfix_mcp_record_and_query() {
     assert_eq!(file_matches.len(), 1);
     assert_eq!(file_matches[0]["id"], "bf_oom_batch");
 }
+
+#[test]
+fn test_bugfix_mcp_tools_list_exposure() {
+    // 1. Brain profile exposes bugfix_record and bugfix_query with full schemas
+    let brain_config = McpConfig {
+        profile: McpProfile::Brain,
+        ..McpConfig::default()
+    };
+    let brain_res = handle_tools_list(&brain_config).unwrap();
+    let brain_tools = brain_res["tools"].as_array().unwrap();
+    assert_eq!(
+        brain_tools.len(),
+        15,
+        "Brain profile must list exactly 15 tools"
+    );
+
+    let record_tool = brain_tools
+        .iter()
+        .find(|t| t["name"] == "bugfix_record")
+        .expect("bugfix_record must be in Brain profile tools/list");
+    assert_eq!(record_tool["annotations"]["readOnlyHint"], false);
+    assert_eq!(record_tool["annotations"]["destructiveHint"], false);
+    assert_eq!(record_tool["annotations"]["idempotentHint"], false);
+    assert_eq!(record_tool["annotations"]["openWorldHint"], false);
+    let record_props = &record_tool["inputSchema"]["properties"];
+    assert!(record_props.get("symptom").is_some());
+    assert!(record_props.get("root_cause").is_some());
+    assert!(record_props.get("fix_summary").is_some());
+    assert!(record_props.get("files_touched").is_some());
+    assert!(record_props.get("regression_test").is_some());
+    let req = record_tool["inputSchema"]["required"].as_array().unwrap();
+    assert!(req.iter().any(|r| r == "symptom"));
+    assert!(req.iter().any(|r| r == "root_cause"));
+    assert!(req.iter().any(|r| r == "fix_summary"));
+
+    let query_tool = brain_tools
+        .iter()
+        .find(|t| t["name"] == "bugfix_query")
+        .expect("bugfix_query must be in Brain profile tools/list");
+    assert_eq!(query_tool["annotations"]["readOnlyHint"], true);
+    assert_eq!(query_tool["annotations"]["destructiveHint"], false);
+    assert_eq!(query_tool["annotations"]["idempotentHint"], true);
+    assert_eq!(query_tool["annotations"]["openWorldHint"], false);
+    let query_props = &query_tool["inputSchema"]["properties"];
+    assert!(query_props.get("query").is_some());
+    assert!(query_props.get("symptom").is_some());
+    assert!(query_props.get("file").is_some());
+
+    // 2. Full profile also exposes bugfix tools
+    let full_config = McpConfig {
+        profile: McpProfile::Full,
+        ..McpConfig::default()
+    };
+    let full_res = handle_tools_list(&full_config).unwrap();
+    let full_tools = full_res["tools"].as_array().unwrap();
+    assert_eq!(full_tools.len(), 84, "Full profile must list 84 tools");
+    assert!(full_tools.iter().any(|t| t["name"] == "bugfix_record"));
+    assert!(full_tools.iter().any(|t| t["name"] == "bugfix_query"));
+
+    // 3. Agent profile does NOT expose bugfix tools
+    let agent_config = McpConfig {
+        profile: McpProfile::Agent,
+        ..McpConfig::default()
+    };
+    let agent_res = handle_tools_list(&agent_config).unwrap();
+    let agent_tools = agent_res["tools"].as_array().unwrap();
+    assert_eq!(agent_tools.len(), 39, "Agent profile must list 39 tools");
+    assert!(!agent_tools.iter().any(|t| t["name"] == "bugfix_record"));
+    assert!(!agent_tools.iter().any(|t| t["name"] == "bugfix_query"));
+}
