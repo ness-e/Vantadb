@@ -260,6 +260,10 @@ pub enum Commands {
     #[command(subcommand)]
     Certificate(CertificateCommand),
 
+    /// Verification and inspection of audit logs (EU AI Act Art. 12 / TEC-13)
+    #[command(subcommand)]
+    Audit(AuditCommand),
+
     /// Count records in a namespace, optionally filtered by metadata
     Count {
         /// Namespace to count records in
@@ -535,6 +539,17 @@ pub enum CertificateCommand {
         /// Path to the certificate JSON file (emitted by `delete --attest`)
         #[arg(long)]
         file: String,
+    },
+}
+
+/// Subcommands for audit log management and verification (EU AI Act Art. 12 / TEC-13)
+#[derive(Subcommand, Debug, Clone)]
+pub enum AuditCommand {
+    /// Verify the Merkle trail hash chain of an audit.jsonl file
+    Verify {
+        /// Path to the audit.jsonl file
+        #[arg(value_name = "PATH")]
+        path: String,
     },
 }
 

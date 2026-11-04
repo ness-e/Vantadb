@@ -330,6 +330,21 @@ impl L0Recorder {
             metadata.insert(META_RECORDED_AT.into(), Value::Int(recorded_at as i64));
             metadata.insert(META_IS_TRIVIAL_NOISE.into(), Value::Bool(is_noise));
 
+            // EU AI Act Art. 50 Provenance Metadata (TEC-12)
+            if msg.role == L0Role::Assistant {
+                metadata.insert("ai_generated".into(), Value::Bool(true));
+                metadata.insert(
+                    "synthesizer_model".into(),
+                    Value::String("assistant".into()),
+                );
+                metadata.insert("confidence_score".into(), Value::Float(1.0));
+                use sha2::Digest;
+                let hash = format!("{:x}", sha2::Sha256::digest(msg.content.as_bytes()));
+                metadata.insert("prompt_hash".into(), Value::String(hash));
+            } else {
+                metadata.insert("ai_generated".into(), Value::Bool(false));
+            }
+
             self.db.put(MemoryInput {
                 namespace: session_ns.clone(),
                 key,

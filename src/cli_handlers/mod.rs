@@ -17,6 +17,7 @@ pub mod search;
 pub mod server;
 pub mod snapshot;
 pub mod util;
+pub mod verify;
 pub mod wal;
 
 pub use backup::*;
@@ -36,6 +37,7 @@ pub use search::*;
 pub use server::*;
 pub use snapshot::*;
 pub use util::*;
+pub use verify::*;
 pub use wal::*;
 
 pub use crate::sdk::{

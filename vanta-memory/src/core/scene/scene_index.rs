@@ -172,7 +172,19 @@ pub fn write_scene_block(
         namespace: ns,
         key,
         payload,
-        metadata: MemoryMetadata::new(),
+        metadata: {
+            let mut meta = MemoryMetadata::new();
+            meta.insert("ai_generated".into(), vantadb::sdk::Value::Bool(true));
+            meta.insert(
+                "synthesizer_model".into(),
+                vantadb::sdk::Value::String("scene_extractor".into()),
+            );
+            meta.insert("confidence_score".into(), vantadb::sdk::Value::Float(1.0));
+            use sha2::Digest;
+            let hash = format!("{:x}", sha2::Sha256::digest(block.content.as_bytes()));
+            meta.insert("prompt_hash".into(), vantadb::sdk::Value::String(hash));
+            meta
+        },
         vector: None,
         sparse_vector: None,
         ttl_ms: None,

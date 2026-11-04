@@ -23,10 +23,10 @@ pub enum McpProfile {
     /// Agent profile (39 tools) — memory + threads + scenes + context + wiki-read.
     /// Default since WIRE-02 (previously `full`); opt back into the whole
     /// surface with `VANTADB_MCP_PROFILE=full`.
-    #[default]
     Agent,
     /// Brain profile (12 listed tools) — compact cognitive surface (L0-L3 + meta-tools).
     /// Lists 12 tools (~2.8K schema tokens) while allowing execution of all 88 tools.
+    #[default]
     Brain,
     /// Full profile (82 listed tools) — all listed base + extended families.
     /// The 6 absorbed `code_*` projections stay dispatch-only (WIRE-02).

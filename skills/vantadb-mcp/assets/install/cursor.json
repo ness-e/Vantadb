@@ -4,7 +4,8 @@
       "command": "pwsh",
       "args": ["-NoProfile", "-File", "<REPO>/vanta-mcp-local.ps1", "-DbPath", "<DB_PATH>"],
       "env": {
-        "VANTADB_MEMORY_LIMIT": "512MB"
+        "VANTADB_MEMORY_LIMIT": "512MB",
+        "VANTADB_MCP_PROFILE": "brain"
       }
     }
   }

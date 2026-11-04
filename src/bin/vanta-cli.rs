@@ -155,6 +155,15 @@ fn run() -> anyhow::Result<()> {
             }
         },
 
+        Commands::Audit(cmd) => match cmd {
+            vantadb::cli::AuditCommand::Verify { path } => {
+                let code = cli_handlers::cmd_audit_verify(&path, args.json)?;
+                if code != 0 {
+                    std::process::exit(code);
+                }
+            }
+        },
+
         Commands::DeleteByFilter { namespace, filter } => cli_handlers::cmd_delete_by_filter(
             &args.db,
             &namespace,

@@ -1070,6 +1070,34 @@ pub fn consolidate_session(
         .map(|r| r.label().to_string())
         .unwrap_or_else(|| "none".into());
 
+    let synthesizer_name = if let Some(r) = &config.dreaming_runner {
+        r.label().to_string()
+    } else {
+        "heuristic:vanta-dream-v1".to_string()
+    };
+
+    for r in consolidated.iter_mut() {
+        if !r.metadata.is_object() {
+            r.metadata = serde_json::Value::Object(serde_json::Map::new());
+        }
+        if let serde_json::Value::Object(map) = &mut r.metadata {
+            map.entry("ai_generated".to_string())
+                .or_insert(serde_json::Value::Bool(true));
+            map.entry("synthesizer_model".to_string())
+                .or_insert(serde_json::Value::String(synthesizer_name.clone()));
+            let conf = (r.priority as f32 / 100.0).clamp(0.0, 1.0);
+            map.entry("confidence_score".to_string())
+                .or_insert(serde_json::json!(conf));
+            use sha2::Digest;
+            let p_hash = format!(
+                "{:x}",
+                sha2::Sha256::digest(format!("{}:{}", session_id, r.content).as_bytes())
+            );
+            map.entry("prompt_hash".to_string())
+                .or_insert(serde_json::Value::String(p_hash));
+        }
+    }
+
     let run = DreamRun {
         run_id: run_id.clone(),
         session_id: session_id.to_string(),

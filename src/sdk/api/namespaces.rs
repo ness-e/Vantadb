@@ -410,6 +410,15 @@ impl Embedded {
             };
             let entry = stats.entry(record.namespace).or_default();
             entry.count += 1;
+            let mut record_bytes = record.payload.len() as u64 + record.key.len() as u64 + 64;
+            if let Some(ref v) = record.vector {
+                entry.live_vector_count += 1;
+                record_bytes += (v.len() * std::mem::size_of::<f32>()) as u64;
+            }
+            for (k, v) in record.metadata.iter() {
+                record_bytes += (k.len() + v.estimated_bytes()) as u64;
+            }
+            entry.estimated_bytes += record_bytes;
             if let Some(expires_at) = record.expires_at_ms {
                 if expires_at <= now {
                     entry.expired += 1;

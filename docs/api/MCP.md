@@ -238,8 +238,8 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
-| `agent` (**default**) | 39 | Memory CRUD + search + recall + reinforce + IQL + collections + threads + scenes + context engine + wiki read. | Agent clients out of the box (the old default `full` cost ≈ 23K tokens of tool schemas per session). |
-| `brain` | 12 | Low-token cognitive surface (~2.4K schema tokens): `memory_recall`, `memory_search`, `memory_put`, `memory_forget`, `memory_reinforce`, `context_assemble`, `vanta_scene`, `vanta_dream`, `vanta_graph`, `code_search`, `code_explore`, and the universal `vanta_dispatch` meta-tool (which keeps all 88 tools callable on demand). | Autonomous agents, Cursor/Windsurf/Claude Code with strict context budgets |
+| `brain` (**default**) | 12 | Low-token cognitive surface (~2.4K schema tokens): `memory_recall`, `memory_search`, `memory_put`, `memory_forget`, `memory_reinforce`, `context_assemble`, `vanta_scene`, `vanta_dream`, `vanta_graph`, `code_search`, `code_explore`, and the universal `vanta_dispatch` meta-tool (which keeps all 88 tools callable on demand). | Autonomous agents, Cursor/Windsurf/Claude Code with strict context budgets (default since PRD-01) |
+| `agent` | 39 | Memory CRUD + search + recall + reinforce + IQL + collections + threads + scenes + context engine + wiki read. | Agent clients wanting full un-multiplexed memory/scenes surface (the pre-PRD-01 default) |
 | `full` | 82 | All listed tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence (3 listed: search/explore/index), wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients (pre-0.8 default; opt-in) |
 | `dev` | 38 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
 | `memory` | 22 | Core memory CRUD (put/get/delete/list/versions/supersede/reinforce) + certificate verify + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
@@ -247,8 +247,11 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 **Usage:**
 
 ```bash
-# Agent profile (default): memory + threads + scenes + context + wiki read
+# Brain profile (default): compact cognitive surface (L0-L3 + meta-tools)
 vanta-cli server --mcp --db ~/.vantadb
+
+# Agent profile: memory + threads + scenes + context + wiki read
+VANTADB_MCP_PROFILE=agent vanta-cli server --mcp --db ~/.vantadb
 
 # Full profile (all 82 listed tools — the pre-0.8 default; opt-in)
 VANTADB_MCP_PROFILE=full vanta-cli server --mcp --db ~/.vantadb

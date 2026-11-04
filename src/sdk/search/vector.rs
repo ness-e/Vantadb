@@ -82,6 +82,10 @@ impl Embedded {
         // worst candidates as the best ones.
         validate_vector_dimension(self.index_vector_dimension(&engine), query_vector.len())?;
 
+        if !filters.is_empty() {
+            crate::metrics::record_filtered_vector_query();
+        }
+
         // ---- Selectivity-based strategy ----
         let strategy = CostEstimator::new(&engine).select_filter_strategy(filters);
 
@@ -177,10 +181,13 @@ impl Embedded {
 
         // Brute-force fallback for PostFilter and InFilter.
         // PreFilter already handled above (no HNSW call).
-        // InFilter's query_mask approach fails because node bitsets are
-        // never populated on insert, so HNSW rejects all candidates.
-        // Fall through to records_for_namespace + brute-force vector scan.
+        // When index pruning or strict query mask filtering yielded zero candidates,
+        // ensure high recall by scanning the namespace directly.
+        // Fall through to records_for_namespace + brute-force vector scan to guarantee recall.
         if hits.is_empty() && strategy != FilterStrategy::PreFilter && !query_vector.is_empty() {
+            if !filters.is_empty() {
+                crate::metrics::record_brute_fallback_query();
+            }
             crate::index::auto_tune::AutoTune::report_brute_fallback();
             for record in self.records_for_namespace(namespace, filters)? {
                 let Some(vector) = record.vector.as_ref() else {

@@ -296,7 +296,7 @@ function Get-McpBlock($Client, $Launcher, $Db) {
     "vantadb": {
       "command": "pwsh",
       "args": ["-NoProfile", "-File", "$escLauncher", "-DbPath", "$escDb"],
-      "env": { "VANTADB_MEMORY_LIMIT": "512MB" }
+      "env": { "VANTADB_MEMORY_LIMIT": "512MB", "VANTADB_MCP_PROFILE": "brain" }
     }
   }
 }
@@ -309,7 +309,7 @@ function Get-McpBlock($Client, $Launcher, $Db) {
     "vantadb": {
       "command": "pwsh",
       "args": ["-NoProfile", "-File", "$escLauncher", "-DbPath", "$escDb"],
-      "env": { "VANTADB_MEMORY_LIMIT": "512MB" }
+      "env": { "VANTADB_MEMORY_LIMIT": "512MB", "VANTADB_MCP_PROFILE": "brain" }
     }
   }
 }

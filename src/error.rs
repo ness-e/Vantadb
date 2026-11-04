@@ -360,6 +360,17 @@ pub enum Error {
         limit: u16,
     },
 
+    /// Namespace storage or record quota exceeded (TEC-14).
+    #[error("quota exceeded for namespace '{namespace}': current {current_bytes} bytes exceeds limit {limit_bytes} bytes")]
+    QuotaExceeded {
+        /// Namespace that exceeded quota.
+        namespace: String,
+        /// Limit configured in bytes.
+        limit_bytes: u64,
+        /// Current usage in bytes.
+        current_bytes: u64,
+    },
+
     /// Embedding generation failed or strict mode violated.
     #[error("Embedding error: {0}")]
     Embedding(String),
@@ -430,7 +441,8 @@ impl Error {
             Error::DatabaseBusy(_) | Error::NotInitialized => "VANTADB_BUSY",
             Error::ResourceLimit(_)
             | Error::VectorLenOverflow { .. }
-            | Error::EdgeCountOverflow { .. } => "VANTADB_RESOURCE_LIMIT",
+            | Error::EdgeCountOverflow { .. }
+            | Error::QuotaExceeded { .. } => "VANTADB_RESOURCE_LIMIT",
             Error::WALVersionMismatch { .. }
             | Error::IncompatibleFormat { .. }
             | Error::Serialization(_)
@@ -507,6 +519,9 @@ impl Error {
             }
             Error::EdgeCountOverflow { .. } => {
                 Some("Reduce the node's outgoing edge fan-out below the persisted header limit")
+            }
+            Error::QuotaExceeded { .. } => {
+                Some("Delete records or increase the namespace quota limit")
             }
             // FIND-109: truncated-shard abort (ERR-011) is fail-closed by
             // design; point the operator at the explicit opt-in repair path.
@@ -1365,6 +1380,14 @@ mod tests {
                     id: 1,
                     count: 2,
                     limit: 3,
+                },
+                "VANTADB_RESOURCE_LIMIT",
+            ),
+            (
+                QuotaExceeded {
+                    namespace: "test".to_string(),
+                    limit_bytes: 1000,
+                    current_bytes: 2000,
                 },
                 "VANTADB_RESOURCE_LIMIT",
             ),

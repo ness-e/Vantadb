@@ -128,12 +128,13 @@ Tool surface profile for clients with tool caps (e.g. Cursor ~40 tools). Read on
 
 | Profile | Listed tools | Shape |
 |---------|--------------|-------|
-| `agent` (**default**) | 39 | memory + threads + scenes + context engine + wiki read |
+| `brain` (**default**) | 12 | compact cognitive lifecycle surface (L0-L3) + meta-tools; dispatches all 88 tools |
+| `agent` | 39 | memory + threads + scenes + context engine + wiki read |
 | `full` | 82 | everything listed (88 defined − 6 absorbed `code_*` projections) |
 | `dev` | 38 | memory + graph + collections + key maintenance + axioms — fits Cursor's ~40-tool cap |
 | `memory` | 22 | core memory CRUD + search + IQL + collections + capabilities |
 
-The default is `agent` (WIRE-02): the `full` surface costs ≈23K tokens of tool schemas per session, so it is opt-in.
+The default is `brain` (PRD-01): lists 12 tools (~2.8K schema tokens) while allowing execution of all tools. The `full` surface costs ≈23K tokens of tool schemas per session, so it is opt-in.
 
 ```bash
 export VANTADB_MCP_PROFILE=dev

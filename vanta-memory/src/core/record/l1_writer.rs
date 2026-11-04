@@ -511,6 +511,26 @@ fn record_input(
         Value::String(type_name(record.memory_type).to_string()),
     );
     metadata.insert("priority".into(), Value::Int(record.priority as i64));
+    if let Some(obj) = record.metadata.as_object() {
+        for (k, v) in obj {
+            match v {
+                serde_json::Value::Bool(b) => {
+                    metadata.insert(k.clone(), Value::Bool(*b));
+                }
+                serde_json::Value::Number(num) => {
+                    if let Some(i) = num.as_i64() {
+                        metadata.insert(k.clone(), Value::Int(i));
+                    } else if let Some(f) = num.as_f64() {
+                        metadata.insert(k.clone(), Value::Float(f));
+                    }
+                }
+                serde_json::Value::String(s) => {
+                    metadata.insert(k.clone(), Value::String(s.clone()));
+                }
+                _ => {}
+            }
+        }
+    }
     // Content birth → validity start (ADR-046 §D7/D8). `None` only when the
     // birth does not parse or is 0 — the core then defaults to write-time
     // `created_at_ms` (`materialize_valid_at`).

@@ -253,6 +253,8 @@ mod tests {
             recall_latency_ms: 30,
             recall_strategy: 3,
             offload_latency_ms: 60,
+            total_filtered_vector_queries: 0,
+            brute_fallback_queries: 0,
             memory,
         };
         let vanta: OperationalMetrics = metrics.into();

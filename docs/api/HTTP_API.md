@@ -261,9 +261,9 @@ Execute an IQL (Interactive Query Language) statement against the database.
 |-----------|--------|
 | Read | `FROM <entity> [WHERE <field> ~ "<text>" \| <field> = <value> \| <field> ~ "<text>", min = <score>] [RANK BY <field> [DESC]] [FETCH <field>,...] [PROFILE keyword\|vector\|hybrid]` |
 | Insert | `INSERT NODE#<id> TYPE <type> {<key>: <value>,...} [VECTOR [<f32>,...]]` |
-| Update | `UPDATE NODE#<id> SET <key>=<value>,...` or `UPDATE NODE#<id> VECTOR [...]` |
+| Update | `UPDATE NODE#<id> SET <key>=<value>,...` or `UPDATE NODE#<id> SET VECTOR [...]` |
 | Delete | `DELETE NODE#<id>` |
-| Relate | `RELATE <source> -> <target> AS <label> [WEIGHT <f32>]` |
+| Relate | `RELATE NODE#<src> --"<label>"--> NODE#<dst> [WEIGHT <n>]` |
 
 **Read response:**
 

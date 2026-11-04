@@ -16,14 +16,23 @@ pub const DEFAULT_AUDIT_MAX_BYTES: u64 = 10 * 1024 * 1024;
 /// Default rotated-file retention: keep `.1`..`.5`, delete older archives.
 pub const DEFAULT_AUDIT_MAX_FILES: u32 = 5;
 
-/// A single audit record: timestamp + operation + subject + target + outcome.
+/// Genesis hash for the initial entry in the Merkle trail (64 hex zeroes).
+pub const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+/// A single audit record: timestamp + operation + subject + target + outcome + Merkle trail (Art. 12).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEvent {
     /// ISO 8601 UTC timestamp (e.g. `2026-08-02T12:34:56Z`).
     pub timestamp: String,
+    /// Unix epoch millisecond timestamp (Art. 12).
+    #[serde(default = "now_ms_audit")]
+    pub timestamp_ms: u64,
     /// Operation name: `put`, `delete`, `delete_by_filter`, `put_batch`,
-    /// `export_namespace`, `export_all`, `import_file`.
+    /// `export_namespace`, `export_all`, `import_file`, `search`, etc.
     pub op: String,
+    /// Explicit/aliased operation field (Art. 12 parity with op).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<String>,
     pub namespace: String,
     /// Target record key, or `"N/A"` for operations without a single key.
     pub key: String,
@@ -36,6 +45,23 @@ pub struct AuditEvent {
     /// truncated to 256 chars. Absent for SDK-internal (non-HTTP) events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
+
+    // --- EU AI Act Art. 12 Merkle Trail fields ---
+    /// SHA-256 hash of the query text or payload for search/recall/query operations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query_hash: Option<String>,
+    /// Retrieved IDs and scores: `[(id, score)]`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub retrieved_ids_and_scores: Vec<(String, f32)>,
+    /// IDs omitted because they were superseded/invalidated.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub omitted_superseded_ids: Vec<String>,
+    /// Hash of the previous audit entry in the log (Merkle trail).
+    #[serde(default)]
+    pub prev_entry_hash: String,
+    /// SHA-256(prev_entry_hash || canonical_json) of this entry.
+    #[serde(default)]
+    pub entry_hash: String,
 }
 
 impl AuditEvent {
@@ -49,13 +75,36 @@ impl AuditEvent {
     ) -> Self {
         Self {
             timestamp: now_iso(),
+            timestamp_ms: now_ms_audit(),
             op: op.to_string(),
+            operation: Some(op.to_string()),
             namespace: namespace.to_string(),
             key: key.to_string(),
             outcome: outcome.to_string(),
             reason,
             request_id: None,
+            query_hash: None,
+            retrieved_ids_and_scores: Vec::new(),
+            omitted_superseded_ids: Vec::new(),
+            prev_entry_hash: String::new(),
+            entry_hash: String::new(),
         }
+    }
+
+    /// Build a search audit event documenting retrieved and omitted superseded IDs (Art. 12).
+    pub fn search(
+        namespace: &str,
+        query: &str,
+        retrieved: Vec<(String, f32)>,
+        omitted_superseded: Vec<String>,
+    ) -> Self {
+        use sha2::Digest;
+        let query_hash = format!("{:x}", sha2::Sha256::digest(query.as_bytes()));
+        let mut evt = Self::new("search", namespace, "N/A", "ok", None);
+        evt.query_hash = Some(query_hash);
+        evt.retrieved_ids_and_scores = retrieved;
+        evt.omitted_superseded_ids = omitted_superseded;
+        evt
     }
 
     /// Attach a request/tracing id (e.g. from an `x-request-id` header).
@@ -145,6 +194,25 @@ pub struct AuditLogger {
     path: PathBuf,
     max_bytes: u64,
     max_files: u32,
+    last_entry_hash: Mutex<String>,
+}
+
+fn read_last_entry_hash(path: &Path) -> String {
+    if let Ok(content) = fs::read_to_string(path) {
+        for line in content.lines().rev() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                    if let Some(h) = val.get("entry_hash").and_then(|v| v.as_str()) {
+                        if !h.is_empty() {
+                            return h.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    GENESIS_HASH.to_string()
 }
 
 impl AuditLogger {
@@ -170,21 +238,51 @@ impl AuditLogger {
             std::fs::create_dir_all(parent)?;
         }
         let file = OpenOptions::new().create(true).append(true).open(path)?;
+        let initial_hash = read_last_entry_hash(path);
         Ok(Self {
             writer: Mutex::new(BufWriter::new(file)),
             path: path.to_path_buf(),
             max_bytes: max_bytes.max(1),
             max_files: max_files.max(1),
+            last_entry_hash: Mutex::new(initial_hash),
         })
     }
 
     /// Append one event as a JSON line and flush (best-effort durability).
     pub fn record(&self, event: &AuditEvent) -> crate::error::Result<()> {
         let mut guard = self.writer.lock().unwrap_or_else(|e| e.into_inner());
+        let mut hash_guard = self
+            .last_entry_hash
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         if self.should_rotate(&guard) {
             self.rotate_locked(&mut guard)?;
+            *hash_guard = GENESIS_HASH.to_string();
         }
-        serde_json::to_writer(&mut *guard, event).map_err(crate::error::Error::serialization)?;
+
+        let mut entry = event.clone();
+        if entry.timestamp_ms == 0 {
+            entry.timestamp_ms = now_ms_audit();
+        }
+        if entry.operation.is_none() {
+            entry.operation = Some(entry.op.clone());
+        }
+
+        entry.prev_entry_hash = hash_guard.clone();
+        entry.entry_hash = String::new();
+
+        // Canonical JSON serialization without entry_hash
+        let canonical_bytes =
+            serde_json::to_vec(&entry).map_err(crate::error::Error::serialization)?;
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(entry.prev_entry_hash.as_bytes());
+        hasher.update(&canonical_bytes);
+        let digest = format!("{:x}", hasher.finalize());
+        entry.entry_hash = digest.clone();
+        *hash_guard = digest;
+
+        serde_json::to_writer(&mut *guard, &entry).map_err(crate::error::Error::serialization)?;
         guard.write_all(b"\n")?;
         guard.flush()?;
         Ok(())
@@ -229,6 +327,131 @@ impl AuditLogger {
     pub fn is_enabled(&self) -> bool {
         true
     }
+}
+
+/// Report returned by [`verify_merkle_trail`] on successful verification.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuditVerifyReport {
+    /// Total audit records verified.
+    pub events_verified: usize,
+    /// Head (most recent) hash in the chain.
+    pub head_hash: String,
+}
+
+/// Error returned by [`verify_merkle_trail`] when the chain is broken or a line is corrupted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuditVerifyError {
+    /// 1-based line number of the faulty record.
+    pub line_number: usize,
+    /// Failure description.
+    pub reason: String,
+    /// Expected hash value.
+    pub expected_hash: String,
+    /// Actual/recorded hash value found in the record.
+    pub actual_hash: String,
+}
+
+impl std::fmt::Display for AuditVerifyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Merkle trail verification failed at line {}: {} (expected {}, found {})",
+            self.line_number, self.reason, self.expected_hash, self.actual_hash
+        )
+    }
+}
+
+impl std::error::Error for AuditVerifyError {}
+
+/// Verify the entire SHA-256 Merkle chain in an `audit.jsonl` file (Art. 12 / TEC-13).
+pub fn verify_merkle_trail(
+    path: impl AsRef<Path>,
+) -> std::result::Result<AuditVerifyReport, AuditVerifyError> {
+    let path = path.as_ref();
+    let file = File::open(path).map_err(|e| AuditVerifyError {
+        line_number: 0,
+        reason: format!("failed to open audit file: {e}"),
+        expected_hash: String::new(),
+        actual_hash: String::new(),
+    })?;
+    use std::io::{BufRead, BufReader};
+    let reader = BufReader::new(file);
+
+    let mut prev_hash = GENESIS_HASH.to_string();
+    let mut verified_count = 0;
+
+    for (idx, line_res) in reader.lines().enumerate() {
+        let line_num = idx + 1;
+        let line = line_res.map_err(|e| AuditVerifyError {
+            line_number: line_num,
+            reason: format!("I/O read error: {e}"),
+            expected_hash: String::new(),
+            actual_hash: String::new(),
+        })?;
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let entry: AuditEvent = serde_json::from_str(trimmed).map_err(|e| AuditVerifyError {
+            line_number: line_num,
+            reason: format!("malformed JSON: {e}"),
+            expected_hash: String::new(),
+            actual_hash: String::new(),
+        })?;
+
+        // 1. Verify prev_entry_hash matches previous head
+        if entry.prev_entry_hash != prev_hash {
+            return Err(AuditVerifyError {
+                line_number: line_num,
+                reason: "prev_entry_hash broken chain".into(),
+                expected_hash: prev_hash,
+                actual_hash: entry.prev_entry_hash,
+            });
+        }
+
+        // 2. Recompute entry_hash = SHA256(prev_entry_hash || canonical_json)
+        let recorded_entry_hash = entry.entry_hash.clone();
+        let mut test_entry = entry;
+        test_entry.entry_hash = String::new();
+        let canonical_bytes = serde_json::to_vec(&test_entry).map_err(|e| AuditVerifyError {
+            line_number: line_num,
+            reason: format!("canonical serialization error: {e}"),
+            expected_hash: String::new(),
+            actual_hash: String::new(),
+        })?;
+
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(prev_hash.as_bytes());
+        hasher.update(&canonical_bytes);
+        let computed_hash = format!("{:x}", hasher.finalize());
+
+        if computed_hash != recorded_entry_hash {
+            return Err(AuditVerifyError {
+                line_number: line_num,
+                reason: "entry_hash tampering detected".into(),
+                expected_hash: computed_hash,
+                actual_hash: recorded_entry_hash,
+            });
+        }
+
+        prev_hash = recorded_entry_hash;
+        verified_count += 1;
+    }
+
+    Ok(AuditVerifyReport {
+        events_verified: verified_count,
+        head_hash: prev_hash,
+    })
+}
+
+/// Current UTC epoch milliseconds.
+pub fn now_ms_audit() -> u64 {
+    web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// Current UTC time as an ISO 8601 string (`YYYY-MM-DDTHH:MM:SSZ`).
@@ -426,5 +649,47 @@ mod tests {
             total, 10,
             "no event may be lost while under the retention cap"
         );
+    }
+
+    #[test]
+    fn test_merkle_trail_verification_and_tamper_detection() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("audit.jsonl");
+        let logger = AuditLogger::new(&path).unwrap();
+
+        // 1. Write 100 events
+        for i in 0..100 {
+            let evt = AuditEvent::new(
+                "put",
+                "default",
+                &format!("key_{i}"),
+                "ok",
+                Some(format!("event {i}")),
+            );
+            logger.record(&evt).unwrap();
+        }
+
+        // 2. Verification of intact file succeeds
+        let report = verify_merkle_trail(&path).expect("intact file must verify");
+        assert_eq!(report.events_verified, 100);
+        assert!(!report.head_hash.is_empty());
+
+        // 3. Altering a single byte in line 42 fails verification
+        let content = std::fs::read_to_string(&path).unwrap();
+        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+        assert_eq!(lines.len(), 100);
+
+        // Tamper with line 42 (change "key_41" to "key_4X")
+        let tampered_line = lines[41].replace("key_41", "key_4X");
+        assert_ne!(tampered_line, lines[41]);
+        lines[41] = tampered_line;
+
+        let tampered_path = dir.path().join("tampered_audit.jsonl");
+        std::fs::write(&tampered_path, lines.join("\n") + "\n").unwrap();
+
+        let err =
+            verify_merkle_trail(&tampered_path).expect_err("tampered file must fail verification");
+        assert_eq!(err.line_number, 42);
+        assert!(err.reason.contains("tampering"));
     }
 }

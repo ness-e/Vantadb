@@ -133,6 +133,10 @@ pub struct OperationalMetricsSnapshot {
     pub recall_strategy: u64,
     /// Offload (memory compaction) latency in milliseconds (last observed).
     pub offload_latency_ms: u64,
+    /// Total filtered vector queries executed (TEC-04).
+    pub total_filtered_vector_queries: u64,
+    /// Total brute-force fallback queries executed when ANN yielded no matches (TEC-04).
+    pub brute_fallback_queries: u64,
     /// Per-subsystem memory breakdown at snapshot time.
     pub memory: MemoryBreakdownSnapshot,
 }

@@ -4,7 +4,8 @@
       "command": "vanta-cli",
       "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"],
       "env": {
-        "VANTADB_MEMORY_LIMIT": "512MB"
+        "VANTADB_MEMORY_LIMIT": "512MB",
+        "VANTADB_MCP_PROFILE": "brain"
       }
     }
   }

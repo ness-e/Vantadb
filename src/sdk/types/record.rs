@@ -84,6 +84,12 @@ pub const DERIVATION_DISCOUNT: f32 = 0.9;
 /// ADR-046 §D4): longer chains are rejected with `Error::Validation`.
 pub const MAX_DERIVATION_DEPTH: usize = 16;
 
+/// Standard EU AI Act Art. 50 provenance metadata field names (TEC-12).
+pub const META_AI_GENERATED: &str = "ai_generated";
+pub const META_SYNTHESIZER_MODEL: &str = "synthesizer_model";
+pub const META_CONFIDENCE_SCORE: &str = "confidence_score";
+pub const META_PROMPT_HASH: &str = "prompt_hash";
+
 /// Provenance class of a memory record (ADR-046 §D2):
 /// `Asserted` = direct claim from a writer; `Derived` = computed by the engine
 /// from `derived_from` parents. `#[non_exhaustive]` — may grow (e.g.
@@ -287,6 +293,30 @@ impl MemoryInput {
         self.vector = Some(vector);
         self
     }
+
+    /// Inject EU AI Act Art. 50 provenance metadata (TEC-12).
+    pub fn with_art50_provenance(
+        mut self,
+        synthesizer_model: impl Into<String>,
+        confidence_score: f32,
+        prompt_hash: impl Into<String>,
+    ) -> Self {
+        self.metadata
+            .insert(META_AI_GENERATED.to_string(), Value::Bool(true));
+        self.metadata.insert(
+            META_SYNTHESIZER_MODEL.to_string(),
+            Value::String(synthesizer_model.into()),
+        );
+        self.metadata.insert(
+            META_CONFIDENCE_SCORE.to_string(),
+            Value::Float(confidence_score as f64),
+        );
+        self.metadata.insert(
+            META_PROMPT_HASH.to_string(),
+            Value::String(prompt_hash.into()),
+        );
+        self
+    }
 }
 
 /// Stable persistent memory view returned to external SDKs.
@@ -416,6 +446,46 @@ impl MemoryRecord {
     pub fn validity_overlaps(&self, from_ms: u64, to_ms: u64) -> bool {
         self.valid_at_ms < to_ms && self.invalid_at_ms.is_none_or(|inv| inv > from_ms)
     }
+
+    /// Whether this record carries EU AI Act Art. 50 provenance metadata (TEC-12).
+    pub fn is_ai_generated(&self) -> bool {
+        self.metadata
+            .get(META_AI_GENERATED)
+            .and_then(|v| match v {
+                Value::Bool(b) => Some(*b),
+                _ => None,
+            })
+            .unwrap_or(false)
+    }
+
+    /// The Art. 50 synthesizer model name if present (TEC-12).
+    pub fn synthesizer_model(&self) -> Option<&str> {
+        self.metadata
+            .get(META_SYNTHESIZER_MODEL)
+            .and_then(|v| match v {
+                Value::String(s) => Some(s.as_str()),
+                _ => None,
+            })
+    }
+
+    /// The Art. 50 calibrated confidence score if present (TEC-12).
+    pub fn confidence_score(&self) -> Option<f32> {
+        self.metadata
+            .get(META_CONFIDENCE_SCORE)
+            .and_then(|v| match v {
+                Value::Float(f) => Some(*f as f32),
+                Value::Int(i) => Some(*i as f32),
+                _ => None,
+            })
+    }
+
+    /// The Art. 50 prompt hash if present (TEC-12).
+    pub fn prompt_hash(&self) -> Option<&str> {
+        self.metadata.get(META_PROMPT_HASH).and_then(|v| match v {
+            Value::String(s) => Some(s.as_str()),
+            _ => None,
+        })
+    }
 }
 
 /// Stable list options for namespace-scoped memory records.
@@ -501,6 +571,12 @@ pub struct NamespaceStats {
     pub expiring_soon: u64,
     /// Records whose TTL has already passed (expired).
     pub expired: u64,
+    /// Number of records that have a live vector attached (TEC-14).
+    #[serde(default)]
+    pub live_vector_count: u64,
+    /// Estimated memory/storage size in bytes for the records in this namespace (TEC-14).
+    #[serde(default)]
+    pub estimated_bytes: u64,
 }
 
 /// Map of namespace → [`NamespaceStats`], in BTreeMap (key-sorted) order.

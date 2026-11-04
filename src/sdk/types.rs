@@ -146,6 +146,23 @@ pub enum Value {
     Null,
 }
 
+impl Value {
+    /// Estimate the in-memory/serialized byte footprint of this value (TEC-14).
+    pub fn estimated_bytes(&self) -> usize {
+        match self {
+            Value::String(s) => s.len(),
+            Value::Int(_) | Value::Float(_) | Value::DateTime(_) => 8,
+            Value::Bool(_) => 1,
+            Value::ListString(l) => l.iter().map(|s| s.len()).sum(),
+            Value::ListInt(l) => l.len() * 8,
+            Value::ListFloat(l) => l.len() * 8,
+            Value::ListBool(l) => l.len(),
+            Value::ListDateTime(l) => l.len() * 8,
+            Value::Null => 0,
+        }
+    }
+}
+
 struct ValueVisitor;
 
 /// Bare-string decoding shared by `visit_str`/`visit_string`/`visit_bytes`.

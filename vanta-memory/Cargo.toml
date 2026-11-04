@@ -30,7 +30,7 @@ chrono = { workspace = true, features = ["std", "clock"] }
 # ya viven en el lockfile (mismas versiones que el core); optional bajo el
 # feature `erasure` — el build default queda intacto.
 rand = { version = "0.9", optional = true }
-sha2 = { workspace = true, optional = true }
+sha2 = { workspace = true }
 # Only pulled in with `llm-driver` (standalone OpenAI-compatible runner).
 # Matches the workspace pattern (src/llm.rs: reqwest blocking + json).
 reqwest = { workspace = true, features = ["json", "blocking", "rustls-tls"], optional = true }
@@ -82,7 +82,7 @@ fjall = ["vantadb/fjall"]
 # wrapped with the core master key) + verifiable erasure receipts (VER-02
 # contract). Pulls the core `encryption` feature (AES-256-GCM + KDF) and the
 # DEK CSPRNG / receipt hashing. Opt-in: the default build stays lean.
-erasure = ["vantadb/encryption", "dep:rand", "dep:sha2"]
+erasure = ["vantadb/encryption", "dep:rand"]
 
 # MEM-55 + WIRE-15: bridges the core HTTP server's `/conversation/add` route
 # to the memory pipeline (`services/conversation_hook`) and enables the

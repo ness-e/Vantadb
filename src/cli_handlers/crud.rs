@@ -795,12 +795,24 @@ pub fn cmd_count(
     spinner.set_message("Counting records...");
 
     let count = db.count(namespace, filter)?;
+    let (live_vector_count, estimated_bytes) = if let Ok(stats_map) = db.namespace_stats(None) {
+        if let Some(st) = stats_map.get(namespace) {
+            (st.live_vector_count, st.estimated_bytes)
+        } else {
+            (0, 0)
+        }
+    } else {
+        (0, 0)
+    };
     spinner.finish_and_clear();
 
     if json_output {
         print_json(&serde_json::json!({
             "namespace": namespace,
             "count": count,
+            "record_count": count,
+            "live_vector_count": live_vector_count,
+            "estimated_bytes": estimated_bytes,
             "filter": filter_str,
         }))?;
         return Ok(());
@@ -809,10 +821,13 @@ pub fn cmd_count(
     let term = console::Term::stdout();
     let _ = term.write_line("");
     let _ = term.write_line(&format!(
-        "Namespace '{}': {} record{}",
+        "Namespace '{}': {} record{}, {} live vector{}, ~{} bytes",
         namespace,
         count,
-        if count == 1 { "" } else { "s" }
+        if count == 1 { "" } else { "s" },
+        live_vector_count,
+        if live_vector_count == 1 { "" } else { "s" },
+        estimated_bytes
     ));
 
     if verbose && filter_str.is_some() {

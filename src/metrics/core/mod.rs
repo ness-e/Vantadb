@@ -129,6 +129,8 @@ static LAST_RECALL_TOP_SCORE: AtomicU64 = AtomicU64::new(0);
 static LAST_RECALL_LATENCY_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_RECALL_STRATEGY: AtomicU64 = AtomicU64::new(0);
 static LAST_OFFLOAD_LATENCY_MS: AtomicU64 = AtomicU64::new(0);
+static TOTAL_FILTERED_VECTOR_QUERIES: AtomicU64 = AtomicU64::new(0);
+static BRUTE_FALLBACK_QUERIES: AtomicU64 = AtomicU64::new(0);
 
 /// Record engine startup and WAL replay duration.
 pub fn record_startup(startup_ms: u64, wal_replay_ms: u64, wal_records_replayed: u64) {
@@ -592,6 +594,47 @@ pub fn record_offload(latency_ms: u64) {
     LAST_OFFLOAD_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
 }
 
+/// Record a filtered vector query execution (TEC-04).
+pub fn record_filtered_vector_query() {
+    TOTAL_FILTERED_VECTOR_QUERIES.fetch_add(1, Ordering::Relaxed);
+    check_brute_fallback_ratio();
+}
+
+/// Record a brute-force fallback query execution during filtered vector search (TEC-04).
+pub fn record_brute_fallback_query() {
+    BRUTE_FALLBACK_QUERIES.fetch_add(1, Ordering::Relaxed);
+    check_brute_fallback_ratio();
+}
+
+/// Check if brute fallback queries exceed 5% of total filtered vector queries after >= 20 queries (TEC-04).
+pub fn check_brute_fallback_ratio() {
+    let total = TOTAL_FILTERED_VECTOR_QUERIES.load(Ordering::Relaxed);
+    if total >= 20 {
+        let fallbacks = BRUTE_FALLBACK_QUERIES.load(Ordering::Relaxed);
+        let ratio = (fallbacks as f64) / (total as f64);
+        if ratio > 0.05 {
+            tracing::warn!(
+                total_filtered = total,
+                brute_fallbacks = fallbacks,
+                ratio = ratio,
+                "TEC-04 Degradation Alert: filtered vector search fallback ratio exceeds 5% ({:.2}%) after {} queries",
+                ratio * 100.0,
+                total
+            );
+        }
+    }
+}
+
+/// Returns the current total filtered vector queries count.
+pub fn total_filtered_vector_queries() -> u64 {
+    TOTAL_FILTERED_VECTOR_QUERIES.load(Ordering::Relaxed)
+}
+
+/// Returns the current brute fallback queries count.
+pub fn brute_fallback_queries() -> u64 {
+    BRUTE_FALLBACK_QUERIES.load(Ordering::Relaxed)
+}
+
 pub(crate) fn _get_rss_virt() -> (u64, u64) {
     #[cfg(miri)]
     {
@@ -701,6 +744,8 @@ pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
         recall_latency_ms: LAST_RECALL_LATENCY_MS.load(Ordering::Relaxed),
         recall_strategy: LAST_RECALL_STRATEGY.load(Ordering::Relaxed),
         offload_latency_ms: LAST_OFFLOAD_LATENCY_MS.load(Ordering::Relaxed),
+        total_filtered_vector_queries: TOTAL_FILTERED_VECTOR_QUERIES.load(Ordering::Relaxed),
+        brute_fallback_queries: BRUTE_FALLBACK_QUERIES.load(Ordering::Relaxed),
         memory: memory_breakdown_snapshot(),
     }
 }

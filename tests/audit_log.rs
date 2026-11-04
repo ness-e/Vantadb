@@ -93,3 +93,45 @@ fn audit_log_not_created_when_unconfigured() {
         "no audit file should be created without audit_log_path"
     );
 }
+
+#[test]
+fn test_audit_merkle_trail_verification_and_tamper_detection() {
+    let dir = tempfile::tempdir().unwrap();
+    let audit_path = dir.path().join("audit.jsonl");
+
+    let db = Embedded::open_with_config(audit_config(&audit_path)).unwrap();
+
+    // Generate 100 audit events through database operations
+    for i in 0..50 {
+        db.put(MemoryInput::new("ns", format!("k{i}"), "val"))
+            .unwrap();
+        assert!(db.delete("ns", &format!("k{i}")).unwrap());
+    }
+
+    drop(db); // Flush and close
+
+    // 1. Verify that 100 events were written with valid Merkle chain
+    let report = vantadb::audit::verify_merkle_trail(&audit_path).expect("audit trail must verify");
+    assert_eq!(report.events_verified, 100);
+    assert!(!report.head_hash.is_empty());
+
+    // 2. Tamper with a single byte in line 35
+    let content = std::fs::read_to_string(&audit_path).unwrap();
+    let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+    assert_eq!(lines.len(), 100);
+
+    // Flip a value in line 35 to test cryptographic tamper detection
+    let original = &lines[34];
+    let tampered = original.replace("\"outcome\":\"ok\"", "\"outcome\":\"no\"");
+    assert_ne!(original, &tampered);
+    lines[34] = tampered;
+
+    let tampered_path = dir.path().join("tampered_audit.jsonl");
+    std::fs::write(&tampered_path, lines.join("\n") + "\n").unwrap();
+
+    // 3. Verification must fail and report line 35
+    let err =
+        vantadb::audit::verify_merkle_trail(&tampered_path).expect_err("tampered log must fail");
+    assert_eq!(err.line_number, 35);
+    assert!(err.reason.contains("tampering") || err.reason.contains("broken chain"));
+}
