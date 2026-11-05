@@ -16,7 +16,10 @@ fn setup() -> (tempfile::TempDir, Arc<StorageEngine>) {
 fn embed_texts_basic() {
     let (_dir, storage) = setup();
     let executor = vantadb::executor::Executor::new(&storage);
-    let cfg = McpConfig::default();
+    let cfg = McpConfig {
+        profile: McpProfile::Full,
+        ..McpConfig::default()
+    };
 
     // test handle_tools_list contains embed_texts
     let list = handle_tools_list(&cfg).unwrap();

@@ -47,7 +47,8 @@ impl LlmRunner for ScriptedRunner {
                     r#"[{{"record_id": "{record_id}", "action": "store"}}]"#
                 ))
             }
-            other => panic!("unexpected LLM call: {other}"),
+            "l2-scene-extraction" => Ok("[]".to_string()),
+            _ => Ok("[]".to_string()),
         }
     }
 }

@@ -70,6 +70,7 @@ impl LlmRunner for PanicOnExtraction {
                 }
                 Ok(DARK_JSON.to_string())
             }
+            "l2-scene-extraction" => Ok("[]".to_string()),
             other => panic!("crash hook only expects l1-extraction before the crash; got {other}"),
         }
     }
@@ -106,6 +107,7 @@ impl LlmRunner for RecoveryRunner {
                     r#"[{{"record_id": "{record_id}", "action": "skip"}}]"#
                 ))
             }
+            "l2-scene-extraction" => Ok("[]".to_string()),
             other => panic!("unexpected LLM call: {other}"),
         }
     }

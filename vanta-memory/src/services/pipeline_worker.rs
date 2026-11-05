@@ -541,7 +541,7 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
         }
 
         // TEC-18: Auto-cascade L1 -> L2 when memories extracted reach threshold
-        if stored_count >= self.auto_l2_threshold || stored_count > 0 {
+        if stored_count >= self.auto_l2_threshold {
             self.enqueue_task(TaskPayload {
                 id: String::new(),
                 kind: TaskKind::L2,

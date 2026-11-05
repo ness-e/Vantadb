@@ -877,6 +877,15 @@ fn build_promotion(
 fn canonical_payload(record: &MemoryRecord) -> Result<String, ConsolidationError> {
     let mut stripped = record.clone();
     stripped.vector = None;
+    if let serde_json::Value::Object(map) = &mut stripped.metadata {
+        map.remove("ai_generated");
+        map.remove("synthesizer_model");
+        map.remove("confidence_score");
+        map.remove("prompt_hash");
+        if map.is_empty() {
+            stripped.metadata = serde_json::Value::Null;
+        }
+    }
     serde_json::to_string(&stripped)
         .map_err(|e| ConsolidationError::Store(format!("serialize record {}: {e}", record.id)))
 }
