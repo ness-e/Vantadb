@@ -74,7 +74,7 @@ Telemetry init: `src/server/telemetry.rs` (`init_telemetry`, JSON/fmt/OTEL).
 
 ## 4. Error-rate metric (`vantadb_errors_total`)
 
-Wired by FIND-53 (2026-09-02) on the **in-tree** registry `src/metrics/`
+Wired on the **in-tree** registry `src/metrics/`
 (`prometheus` crate — no external `metrics` dep was added). One counter,
 incremented at the single HTTP error choke point
 `src/server/errors.rs::log_vanta_error`, so both error envelopes
@@ -99,7 +99,7 @@ the structured `ERROR`/`WARN` log lines in §3.
 ## 5. Alerting example
 
 Symptom-based, per the plan's rollout gate (§ Error-handling excellence) —
-implementable on `vantadb_errors_total` now that FIND-53 has landed (§4):
+implementable on `vantadb_errors_total` (§4):
 
 ```yaml
 # page when server-side failures spike over the 7-day baseline

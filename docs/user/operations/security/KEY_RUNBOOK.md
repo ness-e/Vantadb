@@ -83,7 +83,7 @@ por proceso** y la reparte a los cuatro artefactos.
 ## 3. Rotacion de la master key
 
 La rotacion **re-envuelve** las DEKs: **no** las re-deriva. Ningun ciphertext
-existente se invalida (`FIND-194`) y la operacion es O(artefactos) = 4, no
+existente se invalida y la operacion es O(artefactos) = 4, no
 O(datos).
 
 ```powershell

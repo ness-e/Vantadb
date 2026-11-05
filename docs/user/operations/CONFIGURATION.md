@@ -22,7 +22,7 @@ All configuration fields available in `Config` (Rust) and via environment variab
 | `host` | `String` | `127.0.0.1` | `VANTADB_HOST` (fallback `HOST`) | Bind address for HTTP server |
 | `port` | `u16` | `8080` | `VANTADB_PORT` | TCP port for HTTP server |
 | `memory_limit` | `Option<u64>` | `None` | `VANTADB_MEMORY_LIMIT` | Memory budget hint for backend and mmap selection (string with optional KB/MB/GB suffix, e.g. `500MB`) |
-| `max_records_per_namespace` | `Option<u64>` | `None` | `VANTADB_MAX_RECORDS_PER_NAMESPACE` | Opt-in per-namespace record quota (fresh inserts only; `0`/unset = unlimited; `.vdbdump` bulk import exempt — FIND-304). MEMG-04 |
+| `max_records_per_namespace` | `Option<u64>` | `None` | `VANTADB_MAX_RECORDS_PER_NAMESPACE` | Opt-in per-namespace record quota (fresh inserts only; `0`/unset = unlimited; `.vdbdump` bulk import exempt) |
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
 | `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped HNSW index |
@@ -79,18 +79,18 @@ All configuration fields available in `Config` (Rust) and via environment variab
 | `encryption_key_cmd` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY_CMD` | Command whose stdout is the master key (hex 32-byte) — the KMS / secret-manager shim. **Source 3 of 3** — used only when neither `encryption_key` (env) nor `encryption_key_file` is set. The command runs **once at open**; the output is read into a zeroizable buffer and never logged. Feature-gated: `encryption`. See [the key runbook](security/KEY_RUNBOOK.md). |
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
 | `hot_reload_config` | `Arc<RwLock<HotReloadConfig>>` | `HotReloadConfig::default()` | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`, not in `default` features). See [Hot-Reload JSON](#hot-reload-json) |
-| `rbac_config` | `RbacConfig` | `{ token_role_map: {}, roles: {} }` | - | RBAC config: token-to-role mapping + operator-declared namespace-scoped roles (MEMG-04) |
-| `roles` | `HashMap<String, RbacRoleCfg>` | `{}` | - | `RbacConfig` field (MEMG-04): namespace-scoped roles, registered in addition to the built-in `admin`/`reader`/`writer` (built-in names cannot be overridden). Programmatic only (no env/TOML yet — FIND-304). See [HTTP API — Multi-tenant](../../api/HTTP_API.md). |
+| `rbac_config` | `RbacConfig` | `{ token_role_map: {}, roles: {} }` | - | RBAC config: token-to-role mapping + operator-declared namespace-scoped roles |
+| `roles` | `HashMap<String, RbacRoleCfg>` | `{}` | - | `RbacConfig` field: namespace-scoped roles, registered in addition to the built-in `admin`/`reader`/`writer` (built-in names cannot be overridden). Programmatic only (declarative loader in roadmap). See [HTTP API — Multi-tenant](../../api/HTTP_API.md). |
 | `namespace_read` | `Vec<String>` | `[]` | - | `RbacRoleCfg` field: namespaces the role may read (and search/list/export) |
-| `namespace_write` | `Vec<String>` | `[]` | - | `RbacRoleCfg` field: namespaces the role may write (write covers delete in 0.9.0; strict per-action separation is FIND-301) |
+| `namespace_write` | `Vec<String>` | `[]` | - | `RbacRoleCfg` field: namespaces the role may write (write covers delete; per-action separation in roadmap) |
 | `require_auth` | `bool` | `false` | `VANTADB_REQUIRE_AUTH` | Refuse to start unless `api_key` is configured |
-| `allow_insecure` | `bool` | `false` | — (CLI flag `--allow-insecure`) | Dev override for the refuse-to-start guard: when the server binds a non-loopback host without an API key it refuses to start unless this is set; then it logs a prominent WARNING and starts unauthenticated (FIND-07) |
+| `allow_insecure` | `bool` | `false` | — (CLI flag `--allow-insecure`) | Dev override for the refuse-to-start guard: when the server binds a non-loopback host without an API key it refuses to start unless this is set; then it logs a prominent WARNING and starts unauthenticated |
 | `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
 | `export_base_dir` | `Option<PathBuf>` | `None` | `VANTADB_EXPORT_BASE_DIR` | Base directory for export/import path validation. When set, export and import paths are resolved canonically against this directory (symlink protection included). When `None`, only bare `..` traversal is blocked. |
 | `backup_dir` | `Option<PathBuf>` | `None` | `VANTADB_BACKUP_DIR` | Backup directory for live snapshots (checkpoints). When set, overrides the default `./vantadb_snapshots` output directory for `backup` and `snapshot create` commands. |
 | `audit_log_path` | `Option<PathBuf>` | `None` | `VANTADB_AUDIT_LOG_PATH` | Append-only JSONL audit log (ISO 8601 timestamp + op per write/delete/export/import). When `None`, audit is disabled. |
-| `audit_max_bytes` | `u64` | `10 MiB` | `VANTADB_AUDIT_MAX_BYTES` | Audit log rotation threshold (bytes; accepts `KB`/`MB`/`GB` suffixes in env). Rotates to `<path>.1` when exceeded (SRV-01). |
-| `audit_max_files` | `u32` | `5` | `VANTADB_AUDIT_MAX_FILES` | Rotated audit archives retained (`.1`..`.N`); older files deleted (SRV-01). |
+| `audit_max_bytes` | `u64` | `10 MiB` | `VANTADB_AUDIT_MAX_BYTES` | Audit log rotation threshold (bytes; accepts `KB`/`MB`/`GB` suffixes in env). Rotates to `<path>.1` when exceeded. |
+| `audit_max_files` | `u32` | `5` | `VANTADB_AUDIT_MAX_FILES` | Rotated audit archives retained (`.1`..`.N`); older files deleted. |
 | `self_healing` | `bool` | `true` | `VANTADB_SELF_HEALING` | Master switch for automated background maintenance (vacuum and index rebuild) during low-activity windows. Default: `true`. |
 | `self_healing_quiet_secs` | `u64` | `300` | `VANTADB_SELF_HEALING_QUIET_SECS` | Inactivity threshold in seconds before self-healing maintenance triggers. Default: `300` (5 minutes). |
 | `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
@@ -98,14 +98,14 @@ All configuration fields available in `Config` (Rust) and via environment variab
 
 ### Environment Variables Outside `Config`
 
-> **F3C + FIND-89 breaking (B+B, Q3=A):** all legacy `VANTA_*` vars have been unified
+> **Breaking change notice:** all legacy `VANTA_*` vars have been unified
 > to `VANTADB_*` **without shims**. The F3C change covered 7 vars owned by `Config`:
 > `VANTA_LLM_URL`→`VANTADB_LLM_URL`, `VANTA_LLM_MODEL`→`VANTADB_LLM_MODEL`,
 > `VANTA_LLM_SUMMARIZE_MODEL`→`VANTADB_LLM_SUMMARIZE_MODEL`,
 > `VANTA_LOCAL_MODEL`→`VANTADB_LOCAL_MODEL`, `VANTA_PREFETCH`→`VANTADB_PREFETCH`,
 > `VANTA_DISABLE_PREFETCH`→`VANTADB_DISABLE_PREFETCH`,
 > `VANTA_BACKEND`→`VANTADB_BACKEND`.
-> **FIND-89** completes the consolidation for the remaining vars (providers, OpenAI, backup,
+> The canonical configuration completes the consolidation for the remaining vars (providers, OpenAI, backup,
 > prefetch mirror), also without shims — same doctrine: rename in deploys, `feat!:` +
 > `BREAKING CHANGE:` footer generates the changelog via release-plz.
 > Migration note: this file documents the new canonical `VANTADB_*` names; legacy
@@ -134,12 +134,12 @@ These env vars are read at runtime outside `Config::from_env()`:
 | `VANTADB_SYNC_MODE` | `periodic` | Storage sync mode. Read by the `vanta config` layer, **not** by `Config::from_env()` (`src/cli_handlers/config.rs`) |
 | `VANTADB_SCHEDULER_INTERVAL_MS` | `60000` (60s) | Interval of the vanta-memory scheduler pass; `0` disables the loop (`vantadb-server/src/scheduler.rs`) |
 | `VANTADB_INGEST_CONFIG` | `<storage_path>/data/vanta-ingest.toml` | Ingest configuration file; takes precedence over the default path (`vantadb-server/src/scheduler.rs`) |
-| `VANTADB_REPORTED_VERSION` | crate version | Overrides the version string reported by banners and MCP surfaces (must be a valid semver, e.g. `1.2.3-rc1`; internal mechanism, excepted from Config per FIND-89) |
+| `VANTADB_REPORTED_VERSION` | crate version | Overrides the version string reported by banners and MCP surfaces (must be a valid semver, e.g. `1.2.3-rc1`; internal mechanism, excepted from standard Config loader) |
 | `VANTADB_SELF_HEALING_IDLE_SECS` | `900` (15 min) | Inactivity quiet window threshold (seconds) before automated background vacuum and HNSW index rebuild executes |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint (third-party OpenTelemetry standard, not a VantaDB config) |
 | `OTEL_SERVICE_NAME` | `vantadb-server` | Logical service name for trace identification (third-party OpenTelemetry standard) |
 
-### Five-Layer Configuration Hierarchy & CLI Wizard (FIND-385)
+### Five-Layer Configuration Hierarchy & CLI Wizard
 
 VantaDB resolves settings through a strict 5-layer hierarchy with deterministic precedence:
 
@@ -392,7 +392,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `--json` | — | `false` | Output in JSON format |
 | `--quiet` | — | `false` | Suppress non-essential output |
 
-> **Note (ADR-0012, 2026-08-05; updated FIND-89 2026-09-14):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `Config::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly (fix TECH-01). Legacy `VANTA_DB` is deprecated. See `docs/dev/architecture/adr/ADR-0012-env-var-naming.md`.
+> **Note (ADR-0012, 2026-08-05):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `Config::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly. Legacy `VANTA_DB` is deprecated. See `docs/dev/architecture/adr/ADR-0012-env-var-naming.md`.
 
 ### Commands
 

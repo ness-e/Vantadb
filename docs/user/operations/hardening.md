@@ -26,22 +26,22 @@ VantaDB is a **local-first** embedded database: by default it runs as a library 
 
 | Capability | VantaDB | Qdrant | Weaviate | Milvus | Marqo |
 |---|---|---|---|---|---|
-| **Default auth** | ✅ Refuse-to-start on non-loopback without API key (FIND-07) | ❌ Open by default | ❌ Open by default | ❌ Open by default | ❌ Open by default |
-| **Rate limiting** | ✅ Fail-closed (AUD-021), per-IP, burst control | ✅ Configurable | ✅ Configurable | ✅ Configurable | ✅ Configurable |
-| **API key rotation** | ✅ Zero-downtime via `alt_api_key` (SRV-04, Qdrant v1.17 pattern) | ✅ `alt_api_key` v1.17+ | ❌ | ❌ | ❌ |
-| **Namespace-scoped RBAC** | ✅ Per-namespace read/write (SRV-05, Qdrant v1.9 pattern) | ✅ Per-collection JWT RBAC v1.9+ | ✅ RBAC (Enterprise) | ✅ RBAC (Enterprise) | ❌ |
-| **Audit logging** | ✅ JSONL rotation + tracing IDs (SRV-01, SRV-02, Qdrant v1.17+ pattern) | ✅ v1.17+ | ✅ Enterprise | ✅ Enterprise | ❌ |
+| **Default auth** | ✅ Refuse-to-start on non-loopback without API key | ❌ Open by default | ❌ Open by default | ❌ Open by default | ❌ Open by default |
+| **Rate limiting** | ✅ Fail-closed, per-IP, burst control | ✅ Configurable | ✅ Configurable | ✅ Configurable | ✅ Configurable |
+| **API key rotation** | ✅ Zero-downtime via `alt_api_key` (Qdrant v1.17 pattern) | ✅ `alt_api_key` v1.17+ | ❌ | ❌ | ❌ |
+| **Namespace-scoped RBAC** | ✅ Per-namespace read/write (Qdrant v1.9 pattern) | ✅ Per-collection JWT RBAC v1.9+ | ✅ RBAC (Enterprise) | ✅ RBAC (Enterprise) | ❌ |
+| **Audit logging** | ✅ JSONL rotation + tracing IDs (Qdrant v1.17+ pattern) | ✅ v1.17+ | ✅ Enterprise | ✅ Enterprise | ❌ |
 | **TLS** | ✅ rustls (feature `tls`) | ✅ | ✅ | ✅ | ✅ |
-| **Network bind guard** | ✅ Loopback-only unless API key set (FIND-07) | ⚠️ Manual config | ⚠️ Manual config | ⚠️ Manual config | ⚠️ Manual config |
+| **Network bind guard** | ✅ Loopback-only unless API key set | ⚠️ Manual config | ⚠️ Manual config | ⚠️ Manual config | ⚠️ Manual config |
 | **Dependencies** | Minimal (Rust stdlib, no JVM/Go runtime) | C++/Rust | Go + Java modules | Go + C++ + etcd | Python + OpenSearch |
 
 **Key differentiators (already implemented):**
-- **Fail-closed rate limiting** (AUD-021): if governor config fails to build, server refuses to start rather than serving unthrottled.
-- **Refuse-to-start guard** (FIND-07, `HTTP_API.md:591-618`): binding `0.0.0.0` without `VANTADB_API_KEY` is a hard error unless `--allow-insecure` is passed.
-- **Audit log rotation** (SRV-01): size-based rotation with capped file count, no unbounded growth.
-- **Request tracing** (SRV-02): `x-request-id` / `x-tracing-id` / `traceparent` captured in audit events and spans.
-- **Multi-key rotation** (SRV-04): `VANTADB_API_KEY` + `VANTADB_ALT_API_KEY` accepted simultaneously for zero-downtime rollover.
-- **Namespace RBAC** (SRV-05): `token_role_map` tokens can hold `NamespaceRead("ns")` / `NamespaceWrite("ns")` permissions.
+- **Fail-closed rate limiting**: if governor config fails to build, server refuses to start rather than serving unthrottled.
+- **Refuse-to-start guard** (`HTTP_API.md:591-618`): binding `0.0.0.0` without `VANTADB_API_KEY` is a hard error unless `--allow-insecure` is passed.
+- **Audit log rotation**: size-based rotation with capped file count, no unbounded growth.
+- **Request tracing**: `x-request-id` / `x-tracing-id` / `traceparent` captured in audit events and spans.
+- **Multi-key rotation**: `VANTADB_API_KEY` + `VANTADB_ALT_API_KEY` accepted simultaneously for zero-downtime rollover.
+- **Namespace RBAC**: `token_role_map` tokens can hold `NamespaceRead("ns")` / `NamespaceWrite("ns")` permissions.
 
 ---
 
@@ -59,7 +59,7 @@ vanta-cli server --http --db ./data
 
 **What happens without it:**
 - Binding `127.0.0.1` → dev mode allowed (warns in logs)
-- Binding `0.0.0.0` / non-loopback → **hard error**, server exits (FIND-07)
+- Binding `0.0.0.0` / non-loopback → **hard error**, server exits
 
 **Override (dev only):**
 
@@ -130,7 +130,7 @@ Uses `rustls` (no OpenSSL dependency). TLS 1.2 + 1.3. Client cert validation opt
 | Host | Auth Required | Use Case |
 |---|---|---|
 | `127.0.0.1` / `localhost` / `::1` | No (dev mode) | Local development, sidecar |
-| `0.0.0.0` / specific LAN IP | **Yes** (FIND-07) | Production, multi-client |
+| `0.0.0.0` / specific LAN IP | **Yes** | Production, multi-client |
 
 ### 2.2 Reverse Proxy (Recommended)
 
@@ -175,13 +175,13 @@ export VANTADB_ALLOWED_ORIGINS="https://studio.example.com,https://admin.example
 |---|---|---|
 | `VANTADB_RATE_LIMIT_RPM` | 600 | Requests/minute per IP. `0` = disabled. |
 | Burst (no auth) | `rpm` | Full burst for local web console (REST-01). |
-| Burst (with auth) | `rpm/10` | Conservative (AUD-021 fail-closed). |
+| Burst (with auth) | `rpm/10` | Conservative (fail-closed limiter). |
 
-**Fail-closed guarantee** (AUD-021): If `GovernorConfig` fails to build (e.g., `rpm=0` edge case), the server **refuses to start** rather than serving without a limiter.
+**Fail-closed guarantee**: If `GovernorConfig` fails to build (e.g., `rpm=0` edge case), the server **refuses to start** rather than serving without a limiter.
 
 ---
 
-## 4. Audit Logging (SRV-01, SRV-02)
+## 4. Audit Logging
 
 ```bash
 export VANTADB_AUDIT_LOG_PATH=/var/log/vantadb/audit.jsonl
@@ -259,7 +259,7 @@ jq 'select(.namespace=="team-a")' /var/log/vantadb/audit.jsonl
 
 - **Qdrant Security Docs**: <https://qdrant.tech/documentation/security/> (API key types, `alt_api_key` rotation, JWT RBAC, audit logging, hardening)
 - **Qdrant Hardening**: <https://qdrant.tech/documentation/security/#hardening> (unprivileged image, read-only rootfs, capabilities)
-- **VantaDB HTTP API Spec**: `docs/api/HTTP_API.md` (FIND-07 guard, route table, auth flows)
+- **VantaDB HTTP API Spec**: `docs/api/HTTP_API.md` (refuse-to-start guard, route table, auth flows)
 - **VantaDB Config Reference**: `docs/user/operations/CONFIGURATION.md` (all `VANTADB_*` env vars)
 - **Rustls TLS**: <https://github.com/rustls/rustls> (memory-safe TLS implementation)
 - **OWASP Container Security**: <https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html>
@@ -271,7 +271,7 @@ jq 'select(.namespace=="team-a")' /var/log/vantadb/audit.jsonl
 | Version | Date | Changes |
 |---|---|---|
 | 0.5.0 | 2026-08-26 | SRV-01/02/04/05: audit rotation, tracing IDs, multi-key rotation, namespace RBAC, Docker hardening, this guide |
-| 0.4.x | — | FIND-07 refuse-to-start, AUD-021 fail-closed rate limit, basic Bearer auth |
+| 0.4.x | — | Refuse-to-start guard, fail-closed rate limit, basic Bearer auth |
 
 ---
 

@@ -145,7 +145,7 @@ let rbac_config = RbacConfig { token_role_map };
 
 A token not present in the map authenticates as a bare `Transport` identity (L1) without any role — write/read authorization then falls through to the per-handler `PermissionChecker` defaults.
 
-> **Note:** the role map is a `pub(crate)` field of `RbacConfig` and is wired into the `AuthState` by `AuthState::new`. It is not directly settable via environment variable in the current version; configure it programmatically or extend the env loader (see FIND-49 in `docs/dev/Backlog.md` for a proposed `VANTADB_TOKEN_ROLE_<KEY>=<role>` env-var loader).
+> **Note:** the role map is a `pub(crate)` field of `RbacConfig` and is wired into the `AuthState` by `AuthState::new`. It is not directly settable via environment variable in the current version; configure it programmatically or extend the env loader (see the proposed `VANTADB_TOKEN_ROLE_<KEY>=<role>` env-var loader in development roadmap).
 
 ### Auth Rate Limiting
 
@@ -233,7 +233,7 @@ Two startup invariants keep the server from accidentally serving traffic in an
 unsafe configuration. Both are documented in source under `src/cli_server.rs`
 and exercised by integration tests.
 
-### Refuse-to-start on exposed unauthenticated binds (FIND-07)
+### Refuse-to-start on exposed unauthenticated binds
 
 The server **refuses to start** when all of the following hold:
 
@@ -255,7 +255,7 @@ themselves. VantaDB flips this: the unsafe default is not a valid
 configuration. See the [competitive positioning table in
 `docs/api/HTTP_API.md`](../../api/HTTP_API.md#positioning-vs-other-vector-databases).
 
-### Rate-limit fail-closed (AUD-021)
+### Rate-limit fail-closed
 
 The HTTP rate limiter is wired through `tower::GovernorLayer` and built at
 startup. If the `GovernorConfig` fails to build (e.g. malformed RPM, clock
@@ -276,7 +276,7 @@ deployment where unbounded request rates can amplify cost or DoS impact.
 
 | Engine | Auth default | Refuse-to-start guard | Fail-closed rate limit | Source |
 |---|---|---|---|---|
-| **VantaDB** | Bearer if key set; loopback no-key in dev | ✅ Non-loopback without key (FIND-07) | ✅ Server refuses to start on limiter build failure (AUD-021) | this document |
+| **VantaDB** | Bearer if key set; loopback no-key in dev | ✅ Non-loopback without key | ✅ Server refuses to start on limiter build failure | this document |
 | **Qdrant** | Open by default unless `api_key` is set | ❌ User must configure bind host + key separately | ⚠️ `Governor` middleware is pluggable; no documented fail-closed startup | [Qdrant security doc](https://qdrant.tech/documentation/security/) (verified 2026-08-29) |
 | **Weaviate** | Anonymous access is supported; can be disabled | ❌ No documented refuse-to-start guard | ⚠️ No documented fail-closed startup | [Weaviate authorization doc](https://weaviate.io/developers/weaviate/configuration/authorization) (verified 2026-08-29) |
 | **Milvus** | User/password required by default; opt-in via `authorizationEnabled: true` | ❌ No documented refuse-to-start guard | ⚠️ No documented fail-closed startup | [Milvus authenticate doc](https://milvus.io/docs/authenticate.md) (verified 2026-08-29) |

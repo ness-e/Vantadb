@@ -85,7 +85,7 @@ let record = db.put(MemoryInput {
 > `Error` (`src/lib.rs` re-exports). The old `VantaEmbedded` / `VantaConfig` /
 > `VantaMemoryInput` / `VantaMemorySearchRequest` / `VantaNodeInput` /
 > `VantaFields` / `VantaValue` / `VantaError` aliases were removed in 0.6.0
-> (AST-010) and no longer resolve.
+> and no longer resolve.
 
 `MemoryInput` has further optional fields (`sparse_vector`, `valid_at_ms`,
 `confidence_class`, `confidence`, `derived_from`); the `..Default::default()`

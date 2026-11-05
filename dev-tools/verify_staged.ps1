@@ -26,6 +26,12 @@ function filesIn($revRange) {
 try {
     $files = filesIn $Range
     if (-not $files -or $files.Count -eq 0) { Write-Host "staged: nothing to check."; exit 0 }
+    # DOC-04: Anti-junk / OS artifacts & archives guard
+    $junk = @($files | Where-Object { $_ -match '(\.DS_Store|Thumbs\.db|\.zip|\.tar\.gz|\.tgz)$' })
+    if ($junk.Count -gt 0) {
+        Write-Host "ERROR [DOC-04]: Prohibited junk/binary files staged for commit: $($junk -join ', ')"
+        throw "prohibited junk/binary files committed"
+    }
     $rs = @($files | Where-Object { $_ -match '\.rs$' })
     # Standalone crates (not workspace members): fmt only (clippy compiles cold — CI covers it).
     $providers = @($rs | Where-Object { $_ -match '^providers/[^/]+/' } | ForEach-Object { ($_ -split '/')[0..1] -join '/' } | Sort-Object -Unique)

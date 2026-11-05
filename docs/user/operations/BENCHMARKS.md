@@ -516,7 +516,7 @@ decisión: DEFAULT_RSS_THRESHOLD=0.80 calibrado 2026-09-03 — MANTENER 0.80 (ca
 > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion
 > ```
 >
-> **Nightly coverage (FIND-70):** `heavy-bench-nightly-51.yml` (`light-benchmarks`)
+> **Nightly coverage:** `heavy-bench-nightly-51.yml` (`light-benchmarks`)
 > runs this bench with `--features async-ingestion` — the flag is load-bearing
 > (`required-features` in `Cargo.toml`, otherwise cargo silently SKIPS the bench).
 
@@ -574,11 +574,11 @@ ningún test existente depende del orden de ingesta (0 tests previos; test de ca
 añadido: `ingestion::tests::pipeline_delivers_every_submitted_task`, sin asunción de orden).
 Backpressure (pre-mortem 2): capacity 1024 intacta — no hubo cambio de canal.
 
-### Post-FIND-57 re-measurement — default `worker_count` 1 (2026-09-03)
+### Re-measurement — default `worker_count` 1 (2026-09-03)
 
 > **Source of truth:** same `benches/ingestion_concurrent.rs`, same config as the matrix
 > above (BATCH=400, DIM=16, capacity 1024, tokio worker_threads=4, fresh fjall DB
-> per batch). FIND-57 changed only the `None` default (`unwrap_or(4)` →
+> per batch). Tuning changed only the `None` default (`unwrap_or(4)` →
 > `unwrap_or(1)`, `src/ingestion.rs:45`); the bench passes `Some(workers)` explicitly,
 > so these numbers are independent of the default — they re-validate the decision
 > on the current tree. Gate D approved by the user at dispatch.
@@ -607,20 +607,20 @@ Lectura: same shape as the pre-change matrix — adding consumers degrades
 monotonically (w=4 ≈ −43/−44% vs w=1); producers don't move the lattice.
 Contract check `bench post-cambio ≥110 ops/s`: **111.5 ✅**. Default=1 confirmed;
 external `None` callers now get the fastest regime. Upgrade path unchanged:
-FIND-59/FUT-12 (serial `insert_lock` + WAL fsync ceiling).
+serial `insert_lock` + WAL fsync ceiling.
 
-### Análisis FIND-59 — decisión (d): mantener el lock global (2026-09-04)
+### Análisis de concurrencia — decisión: mantener el lock global (2026-09-04)
 
-> análisis FIND-59: el lock global es load-bearing (ERR-010, topología HNSW, protocolo
+> análisis de concurrencia: el lock global es load-bearing (ERR-010, topología HNSW, protocolo
 > delete↔consolidate) y el techo es fsync-dominado — ninguna granularidad supera el gate
 > >2× sin tocar la política de durabilidad (FUT-12). Detalle + matriz en `ADR-0037`;
-> spike de medición trackeado como FIND-61 (desglose fsync-vs-lock + prototype batch).
+> spike de medición (desglose fsync-vs-lock + prototype batch).
 
-### Spike FIND-61 — desglose insert_lock vs fsync + prototype batch (2026-09-04)
+### Spike de optimización — desglose insert_lock vs fsync + prototype batch (2026-09-04)
 
 > **Source of truth:** `benches/ingestion_concurrent.rs` (grupos bench-only
 > `find61_sync` + `find61_batch`, 0 código prod, 0 defaults cambiados).
-> Cierra FIND-61 (follow-up de FIND-59/ADR-0037).
+> Optimización de batching y fsync (follow-up de ADR-0037).
 > >
 > > **Reproduce (Regla 11):**
 > >
@@ -650,7 +650,7 @@ FIND-59/FUT-12 (serial `insert_lock` + WAL fsync ceiling).
 
 > Artifacts used: `benches/ingestion_concurrent.rs` grupos `find61_sync`/`find61_batch`
 > (×2 corridas filed) + `wal_throughput.rs` como evidencia de apoyo (diseño, no corrido acá).
-> Baseline: §13 post-FIND-57 p1/1 **111.5 ops/s** (114/109).
+> Baseline: §13 p1/1 **111.5 ops/s** (114/109).
 > Campos no medidos = `not measured` (metric-honesty: el spike mide throughput+ack,
 > no p99/RSS/binario).
 
@@ -752,7 +752,7 @@ Win11 con compactions fjall de fondo; por eso mediana-de-2, nunca mejor corrida.
 
 > **Source of truth:** `benches/ingestion_concurrent.rs`, grupos
 > `wire06_group_commit` + `wire06_paired_ab` + `wire06_attribution` (WIRE-06).
-> Productiza el prototipo FIND-61 (§13.1 Tabla 2) como **config opt-in del
+> Productiza el prototipo (§13.1 Tabla 2) como **config opt-in del
 > engine** (`Config::insert_batch` / `VANTADB_INSERT_BATCH_*`, ver
 > `CONFIGURATION.md`): el pipeline acumula ≤ `max_batch_records` tasks
 > (ventana `max_wait_ms`) y commitea con UN `batch_insert_with_opts` — 1 toma
@@ -768,7 +768,7 @@ Win11 con compactions fjall de fondo; por eso mediana-de-2, nunca mejor corrida.
 >
 > **Método §13:** criterion `sample_size(10)`, BATCH=400, DIM=16, canal default
 > (1024), DB fjall fresca por iter, p1/w1, chunk de submits en vuelo 32 (celda
-> N=32 de FIND-61); `on_serial_p1w1` usa chunk=1 (testigo de la ventana);
+> N=32 del prototipo); `on_serial_p1w1` usa chunk=1 (testigo de la ventana);
 > `wire06_paired_ab` mide OFF y ON **en la misma ventana**, alternando orden
 > por iteración (neutraliza la deriva de carga de la máquina compartida);
 > latencias por task medidas por el worker (submit→ack, µs); mediana de la
@@ -796,7 +796,7 @@ Win11 con compactions fjall de fondo; por eso mediana-de-2, nunca mejor corrida.
 Lectura: **el check de existencia (requerido para UPSERTs) y el plumbing del
 pipeline (cola + ventana + `spawn_blocking` + acks) no agregan costo medible**
 en este régimen; la ruta productizada iguala a la prototipo-equivalente dentro
-del ruido. El delta contra los **1016 ops/s / 9.1× de FIND-61 (2026-09-04)**
+del ruido. El delta contra los **1016 ops/s / 9.1× medidos (2026-09-04)**
 es del entorno: en la corrida final de hoy la misma ruta directa mide ~460
 ops/s (la máquina — laptop 15 W compartida — muestra la ruta batcheada, que es
 un burst de CPU serial, más sensible al throttle/load que la ruta OFF).
@@ -847,7 +847,7 @@ mínimo; secuencial 5.19×; atribución 1.00× sin costo medible vs prototipo).
 | Default OFF | byte-idéntica; 220/220 tests | `nextest` scoped | sin regresión | Good |
 | canonical_p99 consumo guard | compila (`--no-run`) | `cargo bench --no-run` | compile-gate §11 | Good |
 
-## 14. IVF search hot path — premisa-muerta + baseline post-`b4ff157d` (AUD-045)
+## 14. IVF search hot path — optimización y baseline post-`b4ff157d`
 
 
 > **Source of truth:** `benches/ivf_bench.rs` (REVISAR-01). `canonical_p99.rs` **no** cubre IVF
@@ -914,7 +914,7 @@ Recall@10 difiere entre corridas ((100,1): 0.0630 vs 0.0590). Causa: `IvfIndex::
 de orden por proceso → el shuffle Forgy (seeded, RNG determinista) elige centroides DISTINTOS.
 El seed garantiza el stream RNG, no el input. Impacto: el baseline IVF no es reproducible al
 dígito. Fix trivial candidato: ordenar `entries` por `id` antes del k-means. **No se ejecuta
-acá** — es determinismo, no clones; fuera del contrato AUD-045 (queda como hallazgo para
+acá** — es determinismo, no clones; fuera del alcance de la optimización (queda como hallazgo para
 fila futura si se quiere gatear recall en CI).
 
 ### Entorno (Regla 11)
@@ -1386,7 +1386,7 @@ with FINDs for the owner. Reports: `metricas/memoria/report_h2h_h2h-strat10_{van
 
 ---
 
-## 20. CI perf-bench gate — RETIRED 2026-10-29 (FIND-232/FIND-233)
+## 20. CI perf-bench gate — RETIRED 2026-10-29
 
 > **Retired:** the `perf-bench.yml` workflow no longer exists and
 > `benchmarks/compare_baseline.py` + `benchmarks/python_baseline.json` were
@@ -1403,7 +1403,7 @@ with FINDs for the owner. Reports: `metricas/memoria/report_h2h_h2h-strat10_{van
 
 ### What the always-on gate detects — and what it cannot
 
-The gate runs on push (`src/**`, `vantadb-python/**`, `benchmarks/**`, `Cargo.toml`/`Cargo.lock`) and via `workflow_dispatch`, comparing the median of 3 runs against `benchmarks/python_baseline.json`. Cross-VM spread measured on identical code (FIND-232, 2026-10-03, profile 10000/1000; runs 37088714140 / 37089421873 / 37089581213) is **1.7x–2.4x** on key metrics (`insert.p99` 16.8x) — GitHub rotates runner hardware, so the bands are calibrated to that noise floor:
+The gate runs on push (`src/**`, `vantadb-python/**`, `benchmarks/**`, `Cargo.toml`/`Cargo.lock`) and via `workflow_dispatch`, comparing the median of 3 runs against `benchmarks/python_baseline.json`. Cross-VM spread measured on identical code (measured 2026-10-03, profile 10000/1000; runs 37088714140 / 37089421873 / 37089581213) is **1.7x–2.4x** on key metrics (`insert.p99` 16.8x) — GitHub rotates runner hardware, so the bands are calibrated to that noise floor:
 
 | Family | Warn | Block |
 | :--- | :--- | :--- |
@@ -1426,7 +1426,7 @@ gh run watch <run-id> --exit-status
 gh workflow run perf-bench.yml --ref develop -f ab_ref=$(git rev-parse HEAD)
 ```
 
-- **Bands (provisional):** warn >15% / block >50% (median of paired ratios). `insert.p99` warns but never blocks (fsync jitter, 16.8x cross-VM). Calibrate the bands with the same-SHA dispatch above and tighten them with the measured noise floor (same protocol FIND-232 used).
+- **Bands (provisional):** warn >15% / block >50% (median of paired ratios). `insert.p99` warns but never blocks (fsync jitter, 16.8x cross-VM). Calibrate the bands with the same-SHA dispatch above and tighten them with the measured noise floor (calibrated using baseline noise protocol).
 - **Evidence per run:** every metric delta prints in the step log (`[ab] section.metric: B … vs A … (median delta …)`); artifact `vanta-benchmark-ab-results` carries side A's median.
 - **Cost:** ~+5-9 min per invocation (2 wheel builds + 3 extra runs + wheel swaps) — opt-in only; the push gate stays ~4.5 min (measured, run 37089421873: rust-setup 1.1 min + wheel 0.7 min + bench 2.4 min).
 
@@ -1436,7 +1436,7 @@ gh workflow run perf-bench.yml --ref develop -f ab_ref=$(git rev-parse HEAD)
 gh run list --workflow=perf-bench.yml --limit 3 --json databaseId,conclusion,headSha
 ```
 
-≥2 consecutive `success` runs on the pushed ref = the gate is stable (FIND-233 contract).
+≥2 consecutive `success` runs on the pushed ref = the gate is stable.
 
 ---
 
@@ -1471,7 +1471,7 @@ Retrieval **quality** on a real text corpus: **`recall@k` against human relevanc
 | **VantaDB** | **0.4823** | **0.7833** | **0.9250** | **0.6451** | **1.0** | 26.268 | 7.088 | 19.413 |
 | sqlite-vec 0.1.9 | 0.4823 | 0.7833 | 0.9250 | 0.6451 | 1.0 | 0.084 | 8.489 | 12.466 |
 
-**Reading the number.** At this corpus size (5,183 nodes) VantaDB's search is the **flat exact scan**, not the HNSW graph (see the bullet above; the JSON report records `vanta_search_mode_at_corpus_size: "flat-exact"`). So both engines are exact here, `index-recall` = 1.0000 for both is by construction, and the number that matters is the **retrieval quality of the declared embedding + ranking stack: recall@10 = 0.7833 / nDCG@10 = 0.6451** — equal for VantaDB, sqlite-vec and the numpy ceiling, as expected when every engine is exact over the same embeddings. The pipeline is cross-validated against the published MTEB reference for this model on SciFact — **nDCG@10 = 64.51** (MTEB paper appendix Table 11, [arXiv:2210.07316v2](https://arxiv.org/abs/2210.07316v2); for binary qrels the linear and exponential gain conventions coincide) — the measured 0.6451 reproduces it to the last published digit. Measuring the **HNSW graph** itself requires a corpus above `flat_threshold` or `VANTADB_FLAT_THRESHOLD=0` (set to 0 to disable the flat path, `src/config.rs:903`) — tracked as `FIND-315`.
+**Reading the number.** At this corpus size (5,183 nodes) VantaDB's search is the **flat exact scan**, not the HNSW graph (see the bullet above; the JSON report records `vanta_search_mode_at_corpus_size: "flat-exact"`). So both engines are exact here, `index-recall` = 1.0000 for both is by construction, and the number that matters is the **retrieval quality of the declared embedding + ranking stack: recall@10 = 0.7833 / nDCG@10 = 0.6451** — equal for VantaDB, sqlite-vec and the numpy ceiling, as expected when every engine is exact over the same embeddings. The pipeline is cross-validated against the published MTEB reference for this model on SciFact — **nDCG@10 = 64.51** (MTEB paper appendix Table 11, [arXiv:2210.07316v2](https://arxiv.org/abs/2210.07316v2); for binary qrels the linear and exponential gain conventions coincide) — the measured 0.6451 reproduces it to the last published digit. Measuring the **HNSW graph** itself requires a corpus above `flat_threshold` or `VANTADB_FLAT_THRESHOLD=0` (set to 0 to disable the flat path, `src/config.rs:903`) — tracked in development backlog.
 
 ### Methodological notes (Regla 11)
 
@@ -1479,8 +1479,8 @@ Retrieval **quality** on a real text corpus: **`recall@k` against human relevanc
 - **Seed:** 42 — controls the deterministic query subsample when `--limit-queries` is used (default: all queries). The reported run used all 300.
 - **Environment:** Windows 11 Pro · 12th Gen Intel Core i5-1235U (10c/12t) · 31.78 GB RAM · Python 3.11.9 · `vantadb-py` 0.8.0 (editable install) · `sqlite-vec` 0.1.9 · `onnxruntime` 1.26.0. VantaDB config: `flat_threshold` = 10,000 (default; `VANTADB_FLAT_THRESHOLD` unset) → **flat exact scan** at 5,183 nodes; `engine_config` in the JSON records it. (Python reports the OS as `Windows-10-10.0.26200-SP0` — a known Win11 reporting quirk; the OS is Windows 11 Pro.)
 - **Latency caveat:** single run, single machine; recall values are deterministic for this pipeline, latency/ingest values vary run-to-run (VantaDB ingest observed 12.6–26.3 s across runs on the same machine, machine load dependent). The exact-kNN row is a brute-force numpy reference (no index). VantaDB's ingest includes index + derived-index build; sqlite-vec's ingest is a row append — speed is not the axis measured here (see §7 and `competitive_bench.py`).
-- **Scale caveat:** 5,183 vectors is below `flat_threshold` (10,000) and below any meaningful HNSW operating range; the exact-scan tie here is not evidence about approximate-search quality at larger corpora (see §1 stress protocol for 10K-100K and `FIND-315` for a real-HNSW measurement).
-- **Competitor choice:** sqlite-vec was selected over pgvector because pgvector requires a PostgreSQL server (Docker unavailable in the dev environment; native install outside this harness's no-docker philosophy) — tracked as `FIND-314` in the Backlog.
+- **Scale caveat:** 5,183 vectors is below `flat_threshold` (10,000) and below any meaningful HNSW operating range; the exact-scan tie here is not evidence about approximate-search quality at larger corpora (see §1 stress protocol for 10K-100K for a real-HNSW measurement).
+- **Competitor choice:** sqlite-vec was selected over pgvector because pgvector requires a PostgreSQL server (Docker unavailable in the dev environment; native install outside this harness's no-docker philosophy) — tracked in development backlog.
 - **Ground-truth caveat (2026-10-30):** the pinned upstream snapshot
   (`98d7416`, Sept-2025 cleaning) carries disputed labels — the third-party
   review `agentscope-ai/ReMe_longmemeval_clean_s_v2` corrected 77/500 records
@@ -1560,7 +1560,7 @@ target\release\deps\wal_throughput-<hash>.exe --bench
 | Nota 2026-10-29 | `encrypted_p99` usa desde entonces GloVe-100 real (25k×100d + queries held-out); las cifras de esta sección siguen siendo válidas para el código/dataset de su fecha |
 | Protocolo | **3 corridas por variante, mediana**; variantes **intercaladas** (P1, E1, P2, E2, P3, E3); una invocacion = una corrida |
 | Commit | `4fb9f02` (`develop`); `src/`, `benches/` y `Cargo.toml` **identicos** entre las dos compilaciones (verificado: `git diff` del arbol de fuentes vacio y los commits intermedios del bot son **solo de docs**) |
-| **Estado del codigo medido** | **anterior al "Paso 0"** (`6edc635f`, 22:10: del 2026-10-21, que reduce las copias por candidato de 5 a 3 y la cache de 1 entrada a LRU). Los dos binarios se construyeron a las **18:26** y **19:45**, antes de ese commit, y **ningun commit toco `src/` entre las 18:00 y las 20:00** ⇒ las dos variantes difieren **solo** en la feature. **Esta cifra es la del estado pre-Paso 0**; la del estado **post-Paso 0** — que es el que evalua el gate hoy — esta en **§22.4** (`docs/dev/tasks/FIND-598-paso0.md`, step 5 cerrado) |
+| **Estado del codigo medido** | **anterior al "Paso 0"** (`6edc635f`, 22:10: del 2026-10-21, que reduce las copias por candidato de 5 a 3 y la cache de 1 entrada a LRU). Los dos binarios se construyeron a las **18:26** y **19:45**, antes de ese commit, y **ningun commit toco `src/` entre las 18:00 y las 20:00** ⇒ las dos variantes difieren **solo** en la feature. **Esta cifra es la del estado pre-Paso 0**; la del estado **post-Paso 0** — que es el que evalua el gate hoy — esta en **§22.4** (`docs/dev/benchmarks/`, step 5 cerrado) |
 | Binarios | claro `sha256 AF7F2EA3…` (`encrypted_p99-6d1dc71414ddeff9.exe`, 6.38 MB) · cifrado `sha256 AE24C825…` (`encrypted_p99-62f8977607dfeae8.exe`, 6.70 MB). **Los dos compilados desde el mismo arbol**, la unica diferencia es la feature |
 | Config | `Config::default()` (backend **Fjall**, `sync_mode = Periodic`, `flat_threshold = 10000`) + `with_encryption(<hex 32 B>)` + `with_flush_threshold(1000)` |
 | Clave | **Fuente 1 de 3** de la precedencia (ADR-0057 D2): `Config::encryption_key` programatica → `VANTADB_ENCRYPTION_KEY` → `…_KEY_FILE` → `…_KEY_CMD`. En la maquina de medicion no hay ninguna variable `VANTADB_*` seteada |

@@ -15,6 +15,14 @@ cd "$REPO_ROOT"
 
 FAILED=0
 
+# DOC-04: Block .DS_Store, Thumbs.db, .zip, .tar.gz, .tgz
+JUNK_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(\.DS_Store|Thumbs\.db|\.zip|\.tar\.gz|\.tgz)$' || true)
+if [ -n "$JUNK_STAGED" ]; then
+    echo "ERROR [DOC-04]: Prohibited junk/binary files staged for commit:" >&2
+    echo "$JUNK_STAGED" >&2
+    exit 1
+fi
+
 if command -v pre-commit >/dev/null 2>&1; then
     echo "pre-commit: running .githooks/pre-commit-config.yaml gates..."
     if pre-commit run --config "$REPO_ROOT/.githooks/pre-commit-config.yaml" --show-diff-on-failure "$@"; then

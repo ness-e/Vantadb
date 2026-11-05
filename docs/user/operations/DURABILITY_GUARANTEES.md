@@ -145,7 +145,7 @@ This is validated by `test_wal_replay_idempotence` in
 | Guarantee | Detail | Evidence |
 |---|---|---|
 | **No partial writes** | Every WAL record has CRC32C. Incomplete trailing records are truncated on next open. | `src/wal.rs` scan-forward |
-| **Crash consistency** | After any number of crashes (including SIGKILL), the database opens without corruption and contains all committed data. | 200+ crash injection iterations (AUD-02 + AUD-03) |
+| **Crash consistency** | After any number of crashes (including SIGKILL), the database opens without corruption and contains all committed data. | 200+ crash injection iterations |
 | **Idempotent recovery** | Reopening the same database multiple times produces identical state. | `test_wal_replay_idempotence` |
 | **Atomic checkpoint** | `checkpoint_seq` is persisted after data. If crash occurs mid-flush, WAL replay covers the gap. | `src/storage.rs:1721-1749` |
 | **Graceful shutdown** | SIGTERM and Ctrl+C flush all pending data before exit. | `src/cli_server.rs` |
