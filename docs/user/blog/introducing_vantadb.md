@@ -1,35 +1,81 @@
 ---
 title: Introducing VantaDB
 kind: howto
-description: By the VantaDB Team
-tags: [announcement, local-first, embedded-database, hybrid-search, rust, pyo3]
-version: "0.5.0"
-slug: introducing-vantadb
-date: "2026-04-10"
-author: VantaDB Team
-tag: Announcement
-readTime: "6 min"
-canonical: "https://vantadb.vercel.app/blog/introducing-vantadb"
-draft: "true"
+status: active
+description: An introduction to VantaDB 0.9.0, its embedded memory workflow, and the limits of its guarantees
+tags: [vantadb, local-first, memory]
 ---
 
 # Introducing VantaDB
 
 *By the VantaDB Team*
 
-Every vector database I've used in the last two years has the same shape: a server. You spin up a container, connect over the network, serialize your embeddings, send them across, and wait. The wait is never long in absolute terms — 20ms, 50ms, 150ms — but it is always there, always a hop, always a billable event.
+VantaDB is an embedded, local-first memory engine for AI agents. The positioning
+is "SQLite for AI agents": open a database inside your application process,
+store memories, and retrieve them without a database service. This is an analogy
+about deployment, not a claim of SQLite file-format or SQL compatibility.
 
 ## The local-first thesis
 
-VantaDB starts from a different premise: the fastest network hop is no network hop. If your application needs hybrid retrieval — BM25 for keywords, HNSW for vectors, RRF to fuse them — that retrieval should happen inside the process that already has the embeddings. No serialization. No connection pool. No API key. No per-query cost.
+The Rust engine combines BM25 lexical retrieval and HNSW vector retrieval with
+native Reciprocal Rank Fusion (RRF). Embedded access needs no HTTP daemon,
+database credentials, or per-query service fee. It still has CPU, memory,
+storage, and operational costs; crossing a language binding also requires
+conversion between host-language and Rust values.
 
-This is not a rejection of cloud databases. Pinecone and Weaviate are excellent products for teams that need managed scale, multi-region replication, and someone else to carry the pager. VantaDB is for the other cases: agents that need durable memory, RAG pipelines that can't leak data, edge devices with no cloud access, and developers who want to ship without a credit card on file.
+Remote services and other embedded databases remain valid alternatives. Choose
+according to deployment, concurrency, recovery, and retrieval requirements,
+rather than assuming that one architecture wins every workload.
 
 ## Why Rust, why PyO3
 
-We chose Rust for the core because memory safety is not optional in a database, and because deterministic performance is not optional in a retrieval engine. There is no garbage collector pause to explain away in a p99 latency chart. The PyO3 bindings expose a stable `src/sdk.rs` boundary — Python callers never touch raw pointers, and the FFI surface is narrow enough to audit by hand.
+Python uses the `vantadb-py` distribution and the canonical `vantadb` import.
+The SDK lives under `src/sdk/`, with PyO3 bindings in `vantadb-python/`.
+Native Node.js, TypeScript/WASM, and MCP provide additional integration surfaces;
+they are not interchangeable packages or identical runtime environments.
 
-The result is an engine that runs in-process, serves hybrid queries in 1.2ms, recovers from crashes via a CRC32C-checksummed WAL, and costs nothing to operate beyond the hardware you already own. It is Apache 2.0, it is on PyPI, and it is ready for you to try today.
+For VantaDB 0.9.0, this Python example uses lexical retrieval without an embedding
+provider:
+
+```python
+from vantadb import Client
+
+db = Client("./agent-memory")
+try:
+    db.put("demo", "preference", "The user prefers concise answers.")
+    db.flush()
+    record = db.memory.get("demo", "preference")
+    hits = db.search("demo", text_query="concise answers", top_k=5)
+    print(record.payload, [hit.key for hit in hits])
+finally:
+    db.close()
+```
+
+## Embeddings and cognitive memory
+
+Local model configurations include `multilingual-e5-small` (384 dimensions) and
+`EmbeddingGemma 2` (768 dimensions). Query and document vectors must use the same
+model space, not merely matching dimensions. The Python `Client` does not expose
+`embed_text`; supply vectors from a provisioned encoder to add semantic retrieval.
+
+The `vanta-memory` cognitive pipeline includes deterministic FastGate admission
+and deduplication before LLM work. This does not mean every low-level `Client.put`
+runs that pipeline, or that a fixed sub-0.1 ms latency is guaranteed.
+
+## Persistence and deletion have explicit limits
+
+The WAL includes CRC32C checks and recovery mechanisms, but durability depends on
+sync configuration and failure conditions. The default plaintext WAL format is
+v3; the encrypted variant is v4. See [WAL integrity](../../api/WAL_INTEGRITY.md)
+for the mechanisms, rather than inferring universal crash immunity.
+
+The `forget` API's `Certified` mode produces a purge receipt with SHA-256
+integrity material and declared limits. It is not independent GDPR certification
+or proof that every backup or physical medium has been overwritten. See
+[certified deletion](../../api/CERTIFIED_DELETE.md).
+
+Use [the benchmark reference](../operations/BENCHMARKS.md) for measured results
+and reproduction commands. No new performance measurements are asserted here.
 
 ```bash
 pip install vantadb-py

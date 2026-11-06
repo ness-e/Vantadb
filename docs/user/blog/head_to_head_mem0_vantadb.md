@@ -1,54 +1,57 @@
 ---
-title: Head-to-Head — VantaDB vs mem0 en memoria real
+title: "Head-to-Head: VantaDB vs Mem0 OSS"
 kind: howto
 status: active
-description: Comparativa honesta vantadb vs mem0 OSS sobre LongMemEval-S con el mismo harness, juez y slice
-tags: [vantadb, benchmarks, memory, head-to-head]
+description: An honest head-to-head of VantaDB vs Mem0 OSS on LongMemEval-S with the same harness, judge, and slice.
+tags: [vantadb, benchmarks, memory]
 ---
 
-# Head-to-Head: VantaDB vs mem0 OSS (VER-09)
+# Head-to-Head: VantaDB vs Mem0 OSS
 
-Medido con `evals/runners/head_to_head.py` sobre el **mismo** harness
-(`evals/memory_harness.py`, sin forks), mismo juez determinista, mismo slice,
-misma máquina. Protocolo completo: `evals/runners/README.md`. Números
-curados: `docs/user/operations/BENCHMARKS.md` §19.
+> Historical VantaDB 0.7.0 results are preserved below. This documentation update
+> does not rerun the evaluation or establish v0.9.0 performance.
 
-## Slice declarado
+Measured with `evals/runners/head_to_head.py` on the **same** harness
+(`evals/memory_harness.py`, unmodified), the same deterministic judge, the
+same slice, the same machine. Full protocol: `evals/runners/README.md`.
+Curated numbers: `docs/user/operations/BENCHMARKS.md` §19.
 
-Primeras 10 preguntas de cada uno de los 6 tipos (`--sample-stratified 10`)
-sobre el split LongMemEval-S completo: n=60, sin celdas `_abs`.
-Dataset sha256 `d6f21ea9…`.
+## Declared slice
 
-| Métrica | vantadb 0.7.0 (text-only) | mem0 2.2.1 (raw local) | Ganador |
+First 10 questions of each of the 6 question types
+(`--sample-stratified 10`) over the full LongMemEval-S split: n=60, no
+`_abs` cells. Dataset sha256 `d6f21ea9…`.
+
+| Metric | VantaDB 0.7.0 (text-only) | Mem0 2.2.1 (raw local) | Winner |
 |---|---|---|---|
-| **recall_all@5** | 0.7167 (43/60) | **0.9333** (56/60) | mem0 |
-| recall_any@5 | 0.8833 (53/60) | **0.9833** (59/60) | mem0 |
-| Latencia p50 / p99 | **0.65 / 1.09 ms** | 550.0 / 663.7 ms | vantadb (≈850×) |
-| Ingest QPS | **243.9 docs/s** | 1.3 docs/s | vantadb (≈187×) |
-| Fidelidad escritura | 1.0000 | 1.0000 | empate |
-| Aislamiento | 0 violaciones | 0 violaciones | empate |
+| **recall_all@5** | 0.7167 (43/60) | **0.9333** (56/60) | Mem0 |
+| recall_any@5 | 0.8833 (53/60) | **0.9833** (59/60) | Mem0 |
+| Latency p50 / p99 | **0.65 / 1.09 ms** | 550.0 / 663.7 ms | VantaDB (~850×) |
+| Ingest QPS | **243.9 docs/s** | 1.3 docs/s | VantaDB (~187×) |
+| Write fidelity | 1.0000 | 1.0000 | tie |
+| Isolation | 0 violations | 0 violations | tie |
 
-## Lectura honesta (derrotas incluidas)
+## Honest reading (losses included)
 
-mem0-raw — embeddings locales + BM25 híbrido — nos gana en recall de
-evidencia en **las 6 celdas de tipo**. El hueco grande está en multi-sesión
-(0.2 vs 0.8): las preguntas multi-evidencia exigen TODAS las sesiones en el
-top-5 y la recuperación solo-léxica pierde paráfrasis. Es la consecuencia
-directa de correr text-only contra un stack semántico, declarado desde el
-protocolo, no un empate maquillado.
+Mem0-raw — local embeddings plus hybrid BM25 — beats us on evidence recall
+in **all 6 question-type cells**. The biggest gap is multi-session
+(0.2 vs 0.8): multi-evidence questions require ALL sessions in the top-5,
+and lexical-only retrieval misses paraphrases. That is the direct
+consequence of running text-only against a semantic stack — declared
+upfront in the protocol, not a dressed-up tie.
 
-VantaDB gana lo operativo por órdenes de magnitud en la misma máquina y
-slice: ~0.65 ms vs ~550 ms por query y ~244 vs ~1.3 docs/s de ingesta —
-la config raw de mem0 paga su embedding local en escritura y lectura.
+VantaDB wins the operational side by orders of magnitude on the same
+machine and slice: ~0.65 ms vs ~550 ms per query and ~244 vs ~1.3 docs/s
+ingest — Mem0's raw config pays for its local embedding on write and read.
 
-## Límites (no sobrestimar)
+## Limits (do not overread)
 
-1. mem0-raw ≠ pipeline default de mem0 (extracción LLM apagada); native
-   tendrá su propia fila cuando se comisione.
-2. Stacks distintos declarados, no igualados: cada sistema corre su mejor
-   config local.
-3. n=60, sin `_abs` — no comparable con el headline full-500 de §19.
-4. Zep y Letta **no corridos** (sin API key / mismatch arquitectónico).
+1. Mem0-raw ≠ Mem0's default pipeline (LLM extraction off); the native
+   config gets its own row when commissioned.
+2. Declared, not equalized stacks: these are the selected local configurations,
+   not a demonstrated optimum for either system.
+3. n=60, no `_abs` — not comparable with the full-500 headline in §19.
+4. Zep and Letta **not run** (no API key / architectural mismatch).
 
 ## Reproduce
 

@@ -1,45 +1,76 @@
 ---
 title: Local Agent Memory with Ollama + VantaDB
 kind: howto
-description: By the VantaDB Team
-tags: [ollama, local-llm, ai-agents, memory, tutorial, docker]
-version: "0.5.0"
-slug: ollama-vantadb-local-memory
-date: "2026-06-19"
-author: VantaDB Team
-tag: Tutorial
-readTime: "8 min"
-canonical: "https://vantadb.vercel.app/blog/ollama-vantadb-local-memory"
-draft: "true"
+status: active
+description: Fully local agent memory — Ollama produces embeddings on localhost, VantaDB stores them in-process.
+tags: [ollama, local-llm, memory]
 ---
 
 # Local Agent Memory with Ollama + VantaDB
 
 *By the VantaDB Team*
 
-Ollama made the model local. Your agent's memory should be local too. If you run `llama3.2:3b` for chat and `nomic-embed-text` for embeddings, the only thing still reaching for the cloud is usually the vector database — a bill and a network dependency for data that never needed to leave your machine.
+Ollama made the model local. Your agent's memory should be local too. If you
+run `llama3.2:3b` for chat and `nomic-embed-text` for embeddings, the only
+thing still reaching for the cloud is usually the vector database — a bill
+and a network dependency for data that never needed to leave your machine.
 
-This post shows the other half of the local stack: Ollama produces the vectors, VantaDB keeps them. One `docker-compose.yml` runs both services; one Python script wires agent memory with `put()` and hybrid `search()`.
+This post shows the other half of the local stack: Ollama produces vectors
+on `localhost`, VantaDB keeps them **in-process** — no database container,
+no compose file, no server to start.
 
 ---
 
-## 1. The stack: two containers, zero cloud
+## 1. The stack: one local model service, one embedded engine
 
-The demo composition ships in the repo root (`docker-compose.yml`): VantaDB serving on `8080` next to `ollama/ollama:0.33.2` on the default `11434`. CPU-only by default, ~4 GB RAM for the reference models. AnythingLLM is deliberately excluded — it does not list VantaDB as a supported vector backend, so there is no glue to write and none is faked here.
+Provision the local models first; `ollama pull` may access the model registry.
+After provisioning, the example's embedding requests use the local service:
 
 ```bash
+# Your own local Ollama service (install once, runs on localhost:11434)
 ollama pull llama3.2:3b
 ollama pull nomic-embed-text
-docker compose up -d
 ```
 
-Embeddings come from `nomic-embed-text` over the local Ollama API. Nothing is sent anywhere else, ever.
+```bash
+pip install vantadb-py
+```
 
----
+VantaDB is an **embedded** engine — `Client(path)` opens a database inside
+your Python process. There is no `vantadb-server` to run and nothing to
+containerize. Ollama is the only service in this stack, and it stays on
+your machine.
 
-## 2. Memory as put() and search()
+## 2. Embeddings from the local Ollama API
 
-Each agent gets a namespace in a local VantaDB store. Observations go in with payload, metadata, and the Ollama-produced vector:
+A minimal `embed()` over the local HTTP endpoint — no extra dependencies:
+
+```python
+import json
+import urllib.request
+
+def embed(text: str) -> list[float]:
+    req = urllib.request.Request(
+        "http://localhost:11434/api/embed",
+        data=json.dumps({"model": "nomic-embed-text", "input": text}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as res:
+        return json.loads(res.read())["embeddings"][0]
+```
+
+This is an explicit local-network call to *your own* Ollama instance —
+optional, replaceable by any embedding function that returns a list of
+floats (including the local ONNX exports under `embeddings/models/`).
+The request and response follow the
+[official Ollama embedding API](https://github.com/ollama/ollama/blob/main/docs/api.md);
+`/api/embed` supersedes `/api/embeddings`. Keep the same model for writes and
+queries rather than mixing vectors from different encoders.
+
+## 3. Memory as put() and search()
+
+Each agent gets a namespace in the embedded store. Observations go in with
+payload, metadata, and the Ollama-produced vector:
 
 ```python
 from vantadb import Client
@@ -54,7 +85,8 @@ db.put(
 )
 ```
 
-Recall is hybrid search — BM25 catches the exact error string, HNSW catches the paraphrase, RRF fuses both:
+Recall is hybrid search — BM25 catches the exact error string, HNSW catches
+the paraphrase, RRF fuses both:
 
 ```python
 hits = db.search(
@@ -65,24 +97,40 @@ hits = db.search(
 )
 ```
 
-One database covers what used to be four systems: semantic recall, session state (`get()` by key), structured metadata filters, and crash-safe persistence via the CRC32C-checksummed WAL. Kill the process mid-session and the memories are still there on restart.
+One database covers what used to be several systems: semantic recall,
+session state (`memory.get()` by key), structured metadata filters, and
+WAL-backed persistence (CRC32C-checksummed log; see
+`docs/api/WAL_INTEGRITY.md`). Recovery guarantees depend on sync configuration
+and failure conditions; this example does not establish crash immunity.
 
 ---
 
-## 3. Why not just keep vectors in memory?
+## 4. Why not just keep vectors in memory?
 
-Because agents crash, laptops sleep, and demos happen on planes. An in-memory index forgets everything on exit and re-embeds the whole corpus on start. VantaDB persists the canonical records in its LSM store and rebuilds the derived HNSW/BM25 indexes from them — memory becomes infrastructure instead of a warm-up cost.
+Because agents crash, laptops sleep, and demos happen on planes. An
+memory-only index needs an application-managed persistence strategy; losing
+an index does not necessarily require re-embedding if vectors are preserved.
+VantaDB persists canonical records in its storage backend and
+rebuilds the derived HNSW/BM25 indexes from them — memory becomes
+infrastructure instead of a warm-up cost.
 
-The numbers we stand behind for this pattern (batch throughput, competitive recall) live in `docs/user/operations/BENCHMARKS.md`. Reproduce them on your hardware before quoting them — that file documents the exact commands.
+The throughput and recall numbers we stand behind live in
+`docs/user/operations/BENCHMARKS.md`, with the harness commands to
+reproduce them on your hardware before quoting them.
 
 ---
 
 ## Conclusion
 
-Local models solved half the privacy and cost problem. Local memory solves the other half: `ollama pull` for the brains, `pip install vantadb-py` for the memory, one compose file to run both.
+Local models solved half the privacy and cost problem. Local memory solves
+the other half: `ollama pull` for the brains, `pip install vantadb-py` for
+the memory. Ollama remains a separate local model service; VantaDB runs inside
+the Python application process.
 
 ```bash
 pip install vantadb-py
 ```
 
-Star the [VantaDB repository](https://github.com/ness-e/Vantadb) and join the Discord to share your agent setup. To give the same persistent memory to your IDE agent instead, read [VantaDB as Persistent Memory for Claude Code (MCP)](./claude_code_mcp_memory.md).
+Star the [VantaDB repository](https://github.com/ness-e/Vantadb) and share
+your agent setup. To give the same persistent memory to your IDE agent,
+read [VantaDB as Persistent Memory for Claude Code (MCP)](./claude_code_mcp_memory.md).

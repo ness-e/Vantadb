@@ -71,6 +71,15 @@ Use `feat!:` or `BREAKING CHANGE:` in the commit body to denote breaking changes
    - Ensure `just verify` passes cleanly with no warnings or formatting diffs.
    - Keep pull requests focused on a single concern.
 
+## AI-Generated Contributions Policy
+
+AI-assisted contributions are welcome under these rules:
+
+1. **Human ownership and review**: whoever opens the PR owns the entire diff — they must have read and understood every change, including its security implications, and be able to defend it in review.
+2. **Zero fictitious APIs**: do not introduce nonexistent imports, dependencies, feature flags, or symbols. A PR with invented APIs will be closed.
+3. **Local checks per affected language**: run the checks that match what the diff touches — `cargo fmt`, `cargo clippy`, and `cargo nextest run` scoped to the package only when Rust changes; `pytest`/`ruff` when Python changes; `npx markdownlint-cli2` when docs change — plus tests covering any behavior change. Never claim a check passed if you did not run it.
+4. **Justification and AI disclosure**: the PR must explain the problem it solves and the test method used, and **must declare which AI tools were used and which parts of the change they produced or assisted**, together with evidence of human verification and the actual gate results.
+
 ## Fuzzing
 
 Resilience testing uses `cargo-fuzz` under the `fuzz/` directory (requires Rust nightly):

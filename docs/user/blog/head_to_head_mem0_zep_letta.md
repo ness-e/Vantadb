@@ -1,21 +1,22 @@
 ---
 title: "VantaDB vs Mem0: a head-to-head on LongMemEval-S (protocol first, numbers second)"
 kind: howto
-status: draft
+status: active
 description: We ran Mem0 OSS and VantaDB through the same public harness on a declared LongMemEval-S slice, published the protocol, and report the result honestly — including the recall cells we lost
-tags: [benchmarks, memory, mem0, longmemeval, evaluation]
+tags: [benchmarks, memory, mem0]
 ---
 
 # VantaDB vs Mem0: a head-to-head on LongMemEval-S (protocol first, numbers second)
 
 *By the VantaDB team*
 
-A vector-database QPS table says almost nothing about agent memory. What matters
-is whether the right session comes back when the agent asks — and in this niche,
-that question has become almost impossible to answer from vendor material. An
-independent audit of LoCoMo found that 6.4% of the answer key itself was wrong
-and that an LLM judge accepted incorrect answers up to 63% of the time. Vendors
-publish numbers on different datasets, different judges, and different splits.
+A vector-database QPS table does not measure whether the right evidence session
+is retrieved. Datasets, judges, splits, and system configurations must be
+declared before comparing agent-memory results.
+
+> **Historical snapshot:** the VantaDB 0.7.0 and Mem0 2.2.1 results below are
+> preserved from the recorded comparison. This update does not rerun the
+> evaluation or establish current v0.9.0 performance or third-party pricing.
 
 Our answer is not another marketing number. It is a protocol: one harness, one
 judge, declared configurations — and a result table in which **we lose**.
@@ -25,7 +26,7 @@ judge, declared configurations — and a result table in which **we lose**.
 ## 1. What we ran
 
 **The harness.** [`evals/memory_harness.py`](../../../evals/memory_harness.py)
-(VER-08) is our public LongMemEval-S harness, reused unmodified for every system
+is our public LongMemEval-S harness, reused unmodified for every system
 in this comparison. Its judge is **deterministic — no LLM**. Correctness is
 session-level evidence retrieval, reported in two forms:
 
@@ -111,15 +112,14 @@ directly comparable with this table.
 A head-to-head that only runs the systems you beat is not a head-to-head. Here
 is exactly what happened to the other two:
 
-- **Zep** is cloud-first: running it requires `ZEP_API_KEY` and paid credits
-  (the full split would consume roughly 790k credits against a 10k free tier).
-  We implemented and verified the runner against the real `zep-cloud` 3.30.0
-  SDK; the row will be published when the run is commissioned. We did not
-  invent a number for it.
+- **Zep** was not run in the recorded comparison because provider access and
+  budget were not available. The recorded runner protocol references
+  `zep-cloud` 3.30.0; that is not a claim about today's pricing or a newly
+  verified cloud integration. There is no measured result to publish.
 - **Letta** is not a put/search store — it is an agent harness whose memory
   (MemFS, dreaming) is managed by the agent inside its own loop. Our
   deterministic retrieval metrics do not map onto it without a different,
-  LLM-in-the-loop protocol, which is deferred (tracked as a finding).
+  LLM-in-the-loop protocol, which is deferred.
 - **Mem0's default pipeline** (LLM extraction, `gpt-4o-mini`) is pending
   provider keys and budget; its cost estimate is declared as an estimate, not a
   measurement.

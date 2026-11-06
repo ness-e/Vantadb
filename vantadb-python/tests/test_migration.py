@@ -62,7 +62,10 @@ def chroma_source() -> Path:
     chromadb = pytest.importorskip("chromadb")
     path = Path(tempfile.mkdtemp())
     try:
-        client = chromadb.PersistentClient(path=str(path))
+        client = chromadb.PersistentClient(
+            path=str(path),
+            settings=chromadb.Settings(anonymized_telemetry=False),
+        )
         col = client.create_collection("my_docs")
         col.add(
             ids=[d[0] for d in CHROMA_DOCS],

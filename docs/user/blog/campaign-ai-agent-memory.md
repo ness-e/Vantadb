@@ -1,67 +1,100 @@
 ---
-title: AI Agent Memory Campaign — Measurable Deliverables
+title: AI Agent Memory — Durable Memory for Local Agents
 kind: howto
 status: active
-description: "Prior validation (docs/audit-reports/backlog-validation-2026-07-28.md:118) marked MKT-10 ❌ (\"sin materiales de campaña\"). On review 2026-08-05, the campaign's landing and demo surfaces already exist in the product/web; 1 real gap..."
-aliases: [MKT-10, campaign-ai-agent-memory, AI Agent Memory]
-tags: [vantadb, marketing, campaign, ai-agents, memory, agent-memory]
+description: Why agent memory should be a durable embedded database, not a re-ingest of full context on every turn.
+tags: [vantadb, ai-agents, memory]
 ---
 
-# AI Agent Memory Campaign
+# AI Agent Memory — Durable Memory for Local Agents
 
-> **Domain:** Marketing & Content
-> **Purpose:** Turn the "AI Agent Memory" campaign (backlog `MKT-10`) from a vague claim into a set of **measurable deliverables**, each with a concrete asset path and a verifiable criterion. Nothing in this checklist is vague.
-> **Tracking task:** `MKT-10` (rescued under Task 53, `docs/dev/plans/2026-08-05-backlog-validation-actions.md`).
-> **Narrative:** VantaDB is "the SQLite of agent memory" — durable, embedded, zero-dependency persistent memory so agents stop re-embedding and stop re-ingesting full context every turn.
+*By the VantaDB Team*
 
----
+An agent that re-reads its entire history on every turn is paying the same
+cost twice: once in tokens, once in latency. The "SQLite of agent memory"
+idea behind VantaDB is simple — treat memory as durable local
+infrastructure: write each fact once, read back only what the current turn
+needs, and let the database worry about surviving restarts.
 
-## Status Summary
+This post walks the real workflow the SDK exposes today: observe → put →
+flush → reopen → hybrid recall. No marketing metrics — everything shown is
+an SDK operation. The hybrid example requires an application-provided
+`embed(text)` function; it is not a built-in VantaDB API.
 
-Prior validation (`docs/audit-reports/backlog-validation-2026-07-28.md:118`) marked `MKT-10` ❌ ("sin materiales de campaña"). On review **2026-08-05**, the campaign's landing and demo surfaces already exist in the product/web; **1 real gap remains** (a benchmark post of memory-vs-full-context with real run data). Each deliverable below states its asset path and a **verifiable criterion** — no item is a vague "write a post about X".
+## The workflow
 
-High-level status: **2 of 3 deliverables covered. 1 deliverable (D2) is an open task requiring a real run.**
+```python
+from vantadb import Client
 
----
+db = Client("./agent-memory")
 
-## Deliverables checklist
+# 1. Observe: the agent writes a fact once.
+db.put(
+    "support-agent",
+    "decision-2026-11-06",
+    "Invoices export must retry with exponential backoff (max 3).",
+    metadata={"kind": "decision", "area": "billing"},
+    vector=embed("Invoices export must retry with exponential backoff"),
+)
+db.flush()
+db.close()
 
-### D1 — Landing "AI Agent Memory" — ✅ COVERED
+# 2. Reopen: read the previously flushed database.
+db = Client("./agent-memory")
 
-**Narrative asset** proving "VantaDB = persistent memory for agents".
+# 3. Recall: hybrid search — BM25 for exact terms, HNSW for meaning.
+hits = db.search(
+    "support-agent",
+    query_vector=embed("invoice export failures"),
+    text_query="invoice export",
+    top_k=5,
+)
+db.close()
+```
 
-- **Path:** `web/src/app/solutions/ai-agents/page.tsx` — route **`/solutions/ai-agents`**.
-- **Copy:** localized ES/EN in `web/src/lib/dictionaries.ts` (`solutionsAgents.*`): pain ("Memory that forgets"), solution, 4-step flow (observe → put → flush → reopen intact), metric labels (recall latency 1.2ms, network hops 0, Recall@10), CTA (`pip install vantadb-py`).
-- **Tutorial complement:** `docs/user/tutorials/01-ai-agent-memory.md` — full "Building AI Agent Memory" REPL build (`search`, `text_query`, metadata filters).
-- **Criterion (verifiable):** `cd web && npm run dev` → `http://localhost:3000/solutions/ai-agents` renders the "Give your agent a memory" section with the 4-step flow and CTA. **Status: ✅ covered.**
+Three properties do the work:
 
-### D2 — Blog benchmark: memory vs full-context — ❌ OPEN (real gap)
+- **Namespaces as scopes.** One namespace per agent, project, or user
+  separates records without separate databases. Namespace names are not
+  credentials or an authorization boundary.
+- **Hybrid retrieval.** Exact strings (`decision-2026-11-06`, error codes)
+  come back through BM25; paraphrases come back through the vector index;
+  RRF fuses both in one query plan.
+- **WAL durability.** Checksummed logging and recovery support persistence.
+  Acknowledgment and disk synchronization depend on the configured sync
+  mode; CRC32C alone does not prove crash immunity. See
+  [WAL integrity](../../api/WAL_INTEGRITY.md).
 
-**The one real gap.** Two existing posts show engine performance but **not** the memory-vs-full-context trade the campaign's "SQLite of memory" narrative hinges on (token reduction, cheaper recall):
+## What this replaces
 
-- **Existing (partial, NOT this deliverable):** `docs/user/blog/sqlite_for_ai_agents.md` (QPS 750→1,195, 4.01x batch, 2.43ms) and `docs/user/blog/benchmarks_vs_lancedb_chroma.md` (recall/QPS vs LanceDB & Chroma). Harness: `benchmarks/competitive_bench.py`.
-- **Deliverable:** draft post `docs/user/blog/benchmark_agent_memory_vs_full_context.md` (slug `benchmark-agent-memory-vs-full-context`) that runs a reproducible script and reports **real numbers**. The script measures: (1) end-to-end token cost per turn of a memory-backed agent vs a full-context-rewriting agent across N=100 turns; (2) retrieval cost and recall as history size K grows.
-- **Rule (MANDATORY):** publish only numbers from a real run; cite the exact script, dataset, and hardware in the post frontmatter. Follow the MKT-05 precedent (`benchmarks_vs_lancedb_chroma.md`). **Prohibido inventar cifras** — the plan's own caveat says the GraphRAG "40-60% token reduction" metrics "parecen claims, no runs" and require a reproducible benchmark.
-- **Criterion (verifiable):** `docs/user/blog/benchmark_agent_memory_vs_full_context.md` exists **and** its frontmatter contains `run_date`, the script path, and numbers from an actual run. **Status: PENDING** — owner: downstream content task (recommend the MKT-05 pattern: script in `benchmarks/`, numbers in `docs/user/blog/`).
+The alternatives agents grow out of:
 
-### D3 — Interactive demo — ✅ COVERED
+- **Full-context rewriting** — re-embedding and re-ingesting the whole
+  transcript each turn. Cost grows linearly with history.
+- **In-memory indexes** — FAISS-style graphs serialized by hand on exit;
+  a crash between writes loses them.
+- **A remote vector service** — network hop, API key, and a third party
+  holding the agent's interaction history for a workload that fits in a
+  file next to the application.
 
-- **Path:** `web/src/app/demo/page.tsx` + `web/src/app/playground/page.tsx` + `web/src/components/vanta/code-playground.tsx` — interactive API runnable in the browser via the WASM runtime; each run opens a fresh in-memory instance (see `code-playground.tsx` line ~620: "Each Run opens a fresh in-memory VantaDB instance (wasm32 engine)").
-- REPL illustration in `docs/user/tutorials/01-ai-agent-memory.md`.
-- **Criterion (verifiable):** `cd web && npm run dev` → `/playground` runs `put` → `get` → `search` and prints expected values without a server. **Status: ✅ covered.**
+## Limits, stated plainly
 
----
+- VantaDB stores and retrieves — it does not extract facts for you. An
+  LLM extraction pipeline (like Mem0's) is an application-layer choice
+  that sits on top; see `examples/migrate_from_mem0.py` for the adapter
+  surface.
+- `vector=` is your embedding. The engine does not pick a model; the
+  local ONNX exports under `embeddings/models/` or an external encoder
+  both work — keep query and document vectors in the same model space.
+- Throughput and recall numbers we publish live in
+  `docs/user/operations/BENCHMARKS.md` with their harness commands —
+  reproduce them before quoting them.
 
-## Open work / next actions
+```bash
+pip install vantadb-py
+```
 
-| # | Deliverable | Owner | Next concrete step | Verifiable when |
-|---|-----------|-------|--------------------|-----------------|
-| 1 | D2 blog "memory vs full-context" | MKT (content) | build the benchmark script + draft the post | `docs/user/blog/benchmark_agent_memory_vs_full_context.md` exists with a `run_date` and numbers from an actual run |
-
----
-
-## See Also
-
-- `docs/dev/strategy/BLOG_SERIES_PLAN.md` — series plan; tracks the planned GraphRAG token-reduction post (not drafted)
-- `docs/user/blog/` — drafts
-- `docs/dev/Backlog.md` → `MKT-10`
+For the IDE-agent variant of this pattern, read
+[VantaDB as Persistent Memory for Claude Code (MCP)](./claude_code_mcp_memory.md);
+for a fully local stack with local models, read
+[Local Agent Memory with Ollama + VantaDB](./ollama_vantadb_local_memory.md).

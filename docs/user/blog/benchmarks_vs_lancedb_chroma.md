@@ -1,21 +1,22 @@
 ---
 title: "VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine"
 kind: howto
-description: By the VantaDB Team
-tags: [benchmarks, vector-database, lancedb, chromadb, performance, recall, embedded-database]
-version: "0.5.0"
-slug: benchmarks-vs-lancedb-chroma
-date: "2026-06-06"
-author: VantaDB Team
-tag: Engineering
-readTime: "8 min"
-canonical: "https://vantadb.dev/blog/benchmarks-vs-lancedb-chroma"
-draft: "true"
+status: active
+description: A historical vector-search benchmark snapshot, its methodology, and limits on comparisons with current releases
+tags: [benchmarks, vector-database, performance]
 ---
 
 # VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine
 
 *By the VantaDB Team*
+
+> **Historical snapshot:** the table below is retained from the earlier article,
+> whose metadata identified VantaDB 0.5.0. Its ingest notes refer to runs after
+> July 2026; that conflicts with the original June publication date. The exact
+> tested build is therefore not established by this article. These are
+> previously reported results, not measurements of v0.9.0 performed in this
+> update. Consult [the benchmark reference](../operations/BENCHMARKS.md) for
+> curated runs and their declared versions.
 
 Every vector database blog post eventually faces the same question: *"OK, but how fast is it, really?"* Latency, throughput, recall, memory — these are the numbers engineers check before they trust a storage engine with their data.
 
@@ -36,7 +37,8 @@ A benchmark is only as trustworthy as its methodology. Here is exactly what we r
 
 **Honesty note:** this run happened on a development laptop flagged by the harness's own health check — CPU load was ~85%, with 17 VS Code processes open. That means the absolute latencies below are inflated by a noisy machine. Run the benchmark on a quiet box for clean absolute numbers; the *relative* ordering and the recall story are the signal here. ChromaDB also completed 1 of 3 iterations on Windows (a file-lock on its cleanup path), so treat its median as a single-run estimate.
 
-The harness lives in the repo, so none of this is unverifiable marketing copy — you can run it yourself in a few minutes:
+The harness is available for a new run; execution time depends on the dataset,
+installed dependencies, hardware, and engine configurations:
 
 ```bash
 pip install -r benchmarks/requirements.txt
@@ -67,16 +69,23 @@ A vector store that returns wrong neighbors fast is a vector store you can't use
 * **ChromaDB: 95.60%** — incremental HNSW with negligible recall loss.
 * **LanceDB: 22.80%** — this is the classic **IVF-PQ tradeoff**: product-quantization compresses vectors aggressively for fast, memory-slim scans, but it pays for that compression in recall. LanceDB's ingest speed (`92,294 QPS`) is the other side of that same coin.
 
-If your RAG pipeline or agent memory depends on retrieving the *right* memories, 22.80% recall means roughly 3 of 4 relevant neighbors are silently dropped. VantaDB chose recall first: no vector quantization, a full graph rebuild, and memory-mapped pages instead of compressed centroids.
+These results describe the tested index configurations, not each engine's
+maximum achievable recall. Different tuning, quantization, or search budgets
+can change both recall and latency.
 
 ### Query QPS and latency: directional, not absolute
 
 VantaDB's `241.4 QPS` beat LanceDB (`197.5 QPS`) on this run and trails ChromaDB (`591.1 QPS`). Two things matter here:
 
 1. **The machine was loaded** (see §1), so treat all three as slower than their quiet-box numbers.
-2. **The Python boundary dominates.** VantaDB's certified Rust-core benchmarks show `1.2 ms` p50 latency at 10K vectors — an order of magnitude faster than the `4.124 ms` measured through the PyO3 SDK in this harness. The engine is fast; the per-query FFI boundary is the tax you pay for a Python API. That's why the SDK ships `search_batch()`, which releases the GIL and runs queries in parallel — a `4.01x` speedup over sequential calls.
+2. **The bottleneck is not isolated here.** Comparing separate Rust and Python
+   harnesses does not measure FFI overhead. That attribution requires
+   matched-workload profiling. Batch-search measurements are documented in
+   [the benchmark reference](../operations/BENCHMARKS.md).
 
-ChromaDB's raw speed comes from its in-memory incremental HNSW: fast queries, but the index lives in RAM and, without an explicit WAL-backed store behind it, a crash between writes can lose the graph. That is exactly the durability gap VantaDB exists to close.
+This vector-search run does not test crash recovery. ChromaDB's
+`PersistentClient` is a persistent embedded option; an in-memory index is
+not evidence that its canonical records lack persistence.
 
 ### Memory: smaller than you'd expect
 
@@ -88,12 +97,19 @@ LanceDB's PQ index makes its working set smaller — and it shows: `390.7 MB` pe
 
 Benchmarks measure *queries per second*. Agent memory workloads care about a different set of properties, and this is where the numbers stop being the whole story:
 
-* **Durability.** VantaDB writes every mutation to a CRC32C-checksummed Write-Ahead Log before acknowledging it. Kill the process mid-write — `put`, `flush`, even a compaction — and the engine recovers to a consistent state. ChromaDB's in-memory HNSW and LanceDB's default configuration do not give you that guarantee for free. For an agent that has been reflecting and logging for three hours, losing that state is losing the session.
+* **Durability.** VantaDB provides checksummed WAL and recovery mechanisms.
+  Sync configuration and failure conditions matter; this benchmark does not
+  establish crash immunity for any engine. See [WAL integrity](../../api/WAL_INTEGRITY.md).
 * **Hybrid retrieval in one engine.** BM25 for exact keywords, HNSW for semantics, Reciprocal Rank Fusion to merge them — no external search index, no join of two virtual tables, no normalization math in application code. A vector-only benchmark can't even represent this workload.
-* **Zero-dependency distribution.** `pip install vantadb-py` — a pure wheel, no C++ toolchain, no Docker Compose, no server to start. LanceDB and ChromaDB are excellent libraries; they are not single-binary embedded engines you can drop into a `pip` install and ship to end users.
-* **Memory-mapped persistence.** VantaDB maps its HNSW graph to disk (`mmap`), so a 100K-vector index doesn't need to fit in RAM. ChromaDB holds its graph in memory by design.
+* **Single-process distribution.** `pip install vantadb-py` uses a prebuilt
+  wheel where available. Source builds require Rust and the C/C++ toolchain
+  needed by `croaring`. VantaDB stores a database directory, not one SQLite-like
+  file; LanceDB and ChromaDB also offer embedded operation.
+* **Memory-mapped indexing.** Memory mapping lets the operating system manage
+  resident index pages. It does not eliminate RAM requirements or establish a
+  memory advantage over another engine without a matched measurement.
 
-None of these appear in the table above. They appear the moment your agent runs for a week, survives a power loss, and still remembers yesterday's conversation.
+Long-running reliability and power-loss recovery require separate tests.
 
 ---
 
@@ -114,9 +130,12 @@ Try `--dataset sift-128-euclidean` or bump `--size 100000` — the same harness,
 
 ## Conclusion
 
-On this run, VantaDB returned **every true neighbor** (recall@10 of 100%) while staying within spitting distance of both competitors on query QPS — and it's the only engine of the three that is also a crash-safe, hybrid, zero-dependency embedded database. We'll keep publishing every run of this harness, wins and losses included, because trust in a memory engine is earned with reproducible numbers.
+The historical table reports recall@10 of 100% for VantaDB in the tested
+configuration, with both wins and losses elsewhere. It does not establish
+general superiority, equal tuning, or present-day performance for any engine.
 
-Want to check the numbers against the engine? Install it and run the local benchmark suite in one line:
+Install the Python binding, then use the harness command above to produce a new
+benchmark report:
 
 ```bash
 pip install vantadb-py

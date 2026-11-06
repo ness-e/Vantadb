@@ -1,25 +1,23 @@
 ---
 title: How Hybrid Search Actually Works
 kind: howto
-description: By the VantaDB Team
-tags: [hybrid-search, bm25, hnsw, rrf, architecture, vector-search]
-version: "0.5.0"
-slug: how-hybrid-search-works
-date: "2026-04-24"
-author: VantaDB Team
-tag: Engineering
-readTime: "9 min"
-canonical: "https://vantadb.vercel.app/blog/how-hybrid-search-works"
-draft: "true"
+status: active
+description: How lexical and vector candidates contribute to native rank fusion, without confusing embeddings with index algorithms
+tags: [hybrid-search, bm25, rrf]
 ---
 
 # How Hybrid Search Actually Works
 
 *By the VantaDB Team*
 
-Modern search systems are increasingly hybrid. Semantic search using dense vector embeddings (like HNSW) has revolutionized how applications find conceptually related information. However, semantic search has a famous blind spot: it is terrible at matching exact keywords, unique identifiers, serial numbers, or specific terminology. For that, classic lexical retrieval (like BM25) remains undefeated.
+Lexical and vector retrieval provide different evidence. BM25 ranks token matches;
+an embedding model maps text to vectors, and an index such as HNSW searches those
+vectors. Neither method wins every query. Combining their candidate rankings can
+help when an agent needs both exact terminology and paraphrase matches.
 
-To give autonomous AI agents the best possible context window payload, we cannot choose between the two. We must run both.
+VantaDB runs these retrieval operations in-process. Vector-only, text-only, and
+combined requests serve different needs; hybrid search does not remove the need
+to evaluate retrieval quality on your own corpus.
 
 In this article, we will dissect the engineering behind the hybrid search architecture of **VantaDB**—an embedded database engine written in Rust—detailing how BM25 lexical search and HNSW vector search are executed, planned, and fused at the lowest levels of the engine.
 
@@ -37,25 +35,33 @@ $$\text{Score}(D, Q) = \sum_{i=1}^{n} \text{IDF}(q_i) \cdot \frac{f(q_i, D) \cdo
 * **Strengths:** High precision for exact words, product codes, telephone numbers, code symbols (`Header`), and negative keyword filtering.
 * **Weaknesses:** Cannot handle synonyms (e.g., matching "compute" to "processor") or conceptual similarity.
 
-### Semantic Search (HNSW)
-HNSW (Hierarchical Navigable Small World) is a dense retrieval model that structures high-dimensional vectors (e.g., 1536-dimensional OpenAI embeddings or 384-dimensional local embeddings) into a hierarchical graph of links.
-* **Strengths:** Captures conceptual relationships, semantics, intent, and cross-lingual matching.
-* **Weaknesses:** High compute requirements, prone to "hallucinating" proximity (returning words that sound conceptually similar but miss the exact target key), and struggles with OOV (Out-Of-Vocabulary) terms.
+### Vector search (HNSW)
+
+HNSW is an approximate nearest-neighbor index, not an embedding model. Semantic
+and cross-lingual behavior depends on the encoder and corpus; the index returns
+nearby vectors according to the requested distance metric.
+
+Local configurations include `multilingual-e5-small` (384d) and
+`EmbeddingGemma 2` (768d). Supply compatible document and query embeddings:
+matching dimensions alone does not establish matching model spaces.
 
 ---
 
 ## 2. VantaDB's Lexical Subsystem (BM25 in LSM)
 
-To avoid external dependencies and guarantee atomic persistence, VantaDB implements a custom BM25 index stored directly inside its Log-Structured Merge-tree (LSM) storage backend.
+VantaDB provides native lexical indexing rather than requiring a separate
+search service. Lexical indexing and storage recovery are different concerns;
+the existence of a BM25 index does not establish an atomicity guarantee.
 
 ### Tokenization and Indexing
-When a text payload is inserted into VantaDB:
-1. The text is passed through our standard tokenizer, which strips punctuation, converts to ASCII lowercase, and outputs individual tokens.
-2. The engine writes **postings lists** to the LSM storage. A posting list maps a token to a list of matching document keys, the frequency of the token in that document, and the exact token offsets (positions) for phrase matching.
-3. Statistics (total document count, document lengths, and term document frequencies) are updated in a derived index namespace.
+Payload text is tokenized for lexical retrieval. Tokenization and query syntax
+depend on the configured tokenizer and API; do not assume ASCII-only behavior
+or that every punctuation-bearing identifier is matched as one token.
 
 ### Quoted Phrase Search Support
-Because VantaDB stores token positions within the posting lists, it supports quoted phrase queries (e.g., `"MMap BFS layout"`). During query execution, the engine retrieves posting lists for each term and filters out documents where the tokens do not appear consecutively, ensuring lexical precision matching.
+Check the selected API's text-query syntax before relying on quoted-phrase
+behavior. A token-ranking explanation is not a specification for every query
+entry point.
 
 ---
 
@@ -77,60 +83,30 @@ Layer 0:                                 [Node B] ───► [Result (K=1)]
 ```
 
 ### SIMD Acceleration
-To make graph traversal fast on local CPUs, VantaDB utilizes SIMD (Single Instruction, Multiple Data) intrinsics for distance calculations. Using the `wide::f32x8` crate, we compute Euclidean ($L_2$) and Cosine distances by processing 8 floating-point coordinates in a single instruction:
-
-```rust
-// A snippet of VantaDB's SIMD L2 distance calculations
-use wide::f32x8;
-
-pub fn SIMD_l2_distance(a: &[f32], b: &[f32]) -> f32 {
-    let mut sum_sq = f32x8::ZERO;
-    let chunks = a.len() / 8;
-
-    for i in 0..chunks {
-        let va = f32x8::from(&a[i * 8..]);
-        let vb = f32x8::from(&b[i * 8..]);
-        let diff = va - vb;
-        sum_sq += diff * diff;
-    }
-
-    let mut total = sum_sq.reduce_add();
-    // process remaining elements (modulo 8)...
-    total
-}
-```
+Distance kernels live under `src/index/distance/`. Available instruction sets
+and performance depend on the build and CPU. This article does not provide a
+new SIMD benchmark or a standalone replacement for those implementations.
 
 ---
 
-## 4. The Volcano Physical Planner & Cost-Based Optimizer (CBO)
+## 4. Query entry points and filtering
 
-Unlike primitive vector stores that perform vector search first and filter results post-hoc (often returning zero results if filters are strict), VantaDB uses a structured query planner based on the **Volcano Iterator Model**.
+VantaDB has both SDK search operations and a query-language execution path.
+An illustrative physical-plan diagram is not evidence that every Python
+`Client.search()` request goes through the same planner.
 
-When a hybrid query arrives, it is parsed and compiled into a physical execution tree where each node implements an iterator trait (`open`, `next`, `close`):
-
-```
-       [LimitOperator]
-              │
-      [FuseRRFOperator]
-         /         \
-        /           \
-  [BM25Operator]   [VectorSearchOperator]
-        │                     │
-  [FilterOperator]     [RefineOperator]
-        │                     │
-  [ScanOperator]       [FilterOperator]
-```
-
-### Cost-Based Optimizer Routing
-Before execution, our CBO evaluates the selectivity of relational filters. It uses the following heuristics:
-1. **High Selectivity ($<10\%$):** If a metadata query filters out more than $90\%$ of the collection, traversing the HNSW graph is inefficient (and can easily get stuck in isolated graph sub-graphs). The CBO compiles the query to a **Scan + Relational Filter + Vector Refine** plan.
-2. **Low Selectivity ($>10\%$):** If the filter matches almost all documents, the CBO compiles the query to a **Vector Search + Relational Post-Filter** plan, utilizing the HNSW graph fully.
+Use the namespace, metadata filters, query vector, text query, and result limit
+supported by your chosen SDK operation. Inspect the actual search implementation
+under `src/sdk/search/` when diagnosing candidate selection; do not assume a
+universal hard-coded selectivity threshold or identical behavior across query APIs.
 
 ---
 
 ## 5. Reciprocal Rank Fusion (RRF)
 
-Once the lexical operator and semantic operator produce their top candidates, their results must be merged. Score scales between BM25 (arbitrary positive floats) and HNSW (Cosine/L2 distances between 0 and 2) are incompatible. Normalizing them linearly requires knowing the minimum and maximum possible scores, which change per query.
+BM25 scores and vector distances are not interchangeable. In particular,
+Euclidean distance is not generally bounded by 2. Rank fusion combines positions
+in candidate lists rather than pretending these raw score scales are equal.
 
 VantaDB solves this by performing **Reciprocal Rank Fusion (RRF)**. RRF merges candidate lists based purely on their *rank* (position in the result list) rather than their raw score. The fused score for document $d$ is computed as:
 
@@ -138,15 +114,23 @@ $$\text{RRF Score}(d) = \frac{1}{k + r_{\text{lexical}}(d)} + \frac{1}{k + r_{\t
 
 Where:
 * $r(d)$ is the 1-based rank of document $d$ in the respective retrieval list (set to $\infty$ if the document did not appear in that list).
-* $k$ is a constant smoothing factor (defaulting to $60$), which prevents high ranks from dominating the score disproportionately.
+* $k$ is a positive smoothing parameter. The expression illustrates two
+  equally weighted lists; consult the implementation for the active parameters.
 
-RRF is deterministic, computationally trivial, and guarantees that documents appearing high in both lists are promoted to the very top, providing a highly relevant context window payload for the AI agent.
+RRF is deterministic for fixed candidate lists and ordering. It can reward
+agreement between lists, but does not guarantee relevance or make the retrieval
+system parameter-free. The native fusion code is in
+[`src/sdk/search/fusion.rs`](../../../src/sdk/search/fusion.rs).
 
 ---
 
 ## Conclusion
 
-By executing lexical and semantic searches natively, coordinating them with a Volcano-style physical execution engine, and fusing results with Reciprocal Rank Fusion, VantaDB achieves a level of query performance and relevance typically reserved for complex, enterprise cloud setups—all inside a lightweight, zero-dependency embedded database.
+VantaDB combines native lexical and vector retrieval without a separate search
+service. That is a deployment property, not proof of superior recall or latency.
+Use [the benchmark reference](../operations/BENCHMARKS.md) for measured workloads.
+Prebuilt wheels are available on supported platforms; source builds require the
+Rust and C/C++ toolchains.
 
 Want to see the query planner and RRF in action? Get the engine in one line:
 

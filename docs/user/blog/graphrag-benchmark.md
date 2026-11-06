@@ -1,122 +1,115 @@
 ---
-title: GraphRAG Benchmark Methodology (MKT-16)
+title: GraphRAG Benchmark Methodology and Measured Results
 kind: howto
-status: run-pending-query-phase
-description: Validar las métricas publicadas en el diseño inicial de GraphRAG (referenciado en docs/api/GRAPH_RAG.md)
-tags: [vantadb, benchmark, graphrag, mkt]
-date: "2026-08-05"
-links: "[GraphRAG API](../../api/GRAPH_RAG.md)"
+status: active
+description: Reproducible GraphRAG benchmark methodology, real indexing numbers, and an honest account of what remains unmeasured.
+tags: [vantadb, benchmark, graphrag]
 ---
 
-# GraphRAG Benchmark — Metodología y Resultados Reales
+# GraphRAG Benchmark Methodology and Measured Results
 
-> **Estado honesto de este documento:** los números de la **fase de indexación son reales** (medidos en un run del script `benchmarks/graphrag_bench.rs` en esta máquina). Los números de **latencia de query y Token Reduction a escala de benchmark (3000 nodos) quedan PENDIENTES** porque, en este entorno (Windows x86_64, `--release`), la fase de búsqueda del pipeline GraphRAG termina en **stack overflow reproducible** (`0xC00000FD`, `STATUS_STACK_OVERFLOW`, misma clase que AUDIT-04) cuanto el corpus es grande. **No se inventó ninguna cifra**: las celdas que no se pudieron medir están marcadas como PENDING, no rellenadas con claims.
+> **Honest status of this post:** the **indexing-phase numbers below are real** — measured in a run of `benchmarks/graphrag_bench.rs` on the development machine described in §Hardware. The **query-latency and Token Reduction numbers at benchmark scale (3,000 nodes) are still PENDING**: in that environment (Windows x86_64, `--release`), the GraphRAG search phase ended in a reproducible stack overflow (`0xC00000FD`, `STATUS_STACK_OVERFLOW`) on the large corpus. No figure was invented: cells that could not be measured are marked PENDING, not filled with claims.
 >
-> **Nota de entorno (2026-08-05, re-run):** el refactor `src/storage/vfile.rs` (AUDIT-03) que impedía el build release fue resuelto por su agente dueño (commit `88ed3642`). El script ahora compila y los corpus **pequeños (20–100 nodos) corren la fase de query completa** (latencia y token reales, ver sección abajo). El **corpus canónico de 3000 nodos** sigue estallando en la phase de query — por eso los números productivos siguen PENDING.
+> **Environment note (2026-08-05 re-run):** after a build fix in `src/storage/vfile.rs` the script compiles and **small corpora (20–100 nodes) complete the full query phase** (real latency and tokens, section below). The canonical 3,000-node corpus still overflowed during query in that run — which is why the production-scale numbers stay PENDING and are not asserted as current engine behavior.
 
-## Propósito
+## Purpose
 
-Validar las métricas publicadas en el diseño inicial de GraphRAG (referenciado en [`docs/api/GRAPH_RAG.md`](../../api/GRAPH_RAG.md)):
+Validate the metrics published in the initial GraphRAG design (referenced from [`docs/api/GRAPH_RAG.md`](../../api/GRAPH_RAG.md)):
 
-| Métrica del glosario | Claim publicado | Estado tras este trabajo |
+| Glossary metric | Published claim | Status after this work |
 |---|---|---|
-| Token Reduction vs RAG | 40-60% | **PENDING** — no medible hoy (query phase crash) |
-| Latencia adicional por hop | ~25-50ms | **PENDING** — no medible hoy |
-| Recall improvement | +15-20% | Fuera de alcance (requiere set de relevancia etiquetado; no existe) |
-| Max hops | 3 | Verificado en código: `GraphRagPipeline::new()` → `expansion_hops: 2`, configurable (`pipeline.rs:48-52`) |
+| Token Reduction vs RAG | 40-60% | **PENDING** — not measurable at scale in the recorded run |
+| Added latency per hop | ~25-50ms | **PENDING** — not measurable at scale in the recorded run |
+| Recall improvement | +15-20% | Not measured; this run did not include labeled relational-relevance judgments |
+| Max hops | 3 | Verified in code: `GraphRagPipeline::new()` uses `expansion_hops: 2`, configurable |
 
-El objetivo de este trabajo es convertir esas cifras en **números de un run reproducible** o, si no se pueden medir, dejarlo explícito sin claims. El script queda listo y reproducible.
+The goal of this work is to turn those figures into **numbers from a reproducible run** — or, where they cannot be measured, to say so explicitly. The script is ready and reproducible.
 
-## Script reproducible
+## Reproducible script
 
-**Ruta:** [`benchmarks/graphrag_bench.rs`](../../../benchmarks/graphrag_bench.rs) (registrado como ejemplo `graphrag_bench` en `Cargo.toml`).
+**Path:** `benchmarks/graphrag_bench.rs` (registered as the `graphrag_bench` example in `Cargo.toml`).
 
 ```bash
-# Build (requiere que el crate compile — ver "Bloqueo de entorno" abajo)
-cargo build --release --example graphrag_bench
+# Build (requires the crate to compile)
+cargo build --release -p vantadb --example graphrag_bench
 
-# Run: corpus 3000 nodos, 100 queries (por defecto)
-cargo run --release --example graphrag_bench
+# Run: 3,000-node corpus, 100 queries (defaults)
+cargo run --release -p vantadb --example graphrag_bench
 
-# Params: <nodos> <queries> <edges_per_node>
-cargo run --release --example graphrag_bench 3000 100 2
+# Params: <nodes> <queries> <edges_per_node>
+cargo run --release -p vantadb --example graphrag_bench -- 3000 100 2
 
-# Reporte JSON opcional
+# Optional JSON report
 $env:GRAPHRAG_BENCH_OUT="benchmarks/graphrag_bench_result.json"
-cargo run --release --example graphrag_bench 3000 100 2
+cargo run --release -p vantadb --example graphrag_bench -- 3000 100 2
 ```
 
-### Qué mide (todo medido, nada hardcodeado)
+### What it measures (all measured, nothing hardcoded)
 
-1. **Fase de indexación:** inserta `n` nodos (`VantaMemoryInput` con vector 32d + contenido) + aristas (`add_edge`), luego `flush()`. Mide tiempo total (s) y throughput (nodos/s).
-2. **Fase de queries (M queries deterministas):** para cada query mide:
-   - **RAG baseline** = `GraphRagPipeline` con `expansion_hops: 0` (solo seeds, sin expansión ni sección de relaciones). Latencia + tokens del `context_text`.
-   - **GraphRAG** = `GraphRagPipeline` con `expansion_hops: 2` (seeds + BFS + ranking + contexto con relaciones). Latencia + tokens.
-   - **Token Reduction** = `1 - Tokens_GraphRAG / Tokens_RAG` (fórmula del glosario).
-3. **Barrido de hops:** latencia media con `hops ∈ {1,2,3}` → delta por hop.
-4. **Stats de grafo:** seeds encontrados, nodos expandidos, aristas en contexto.
+1. **Indexing phase:** inserts `n` nodes (`VantaMemoryInput` with a 32d vector + content) plus edges (`add_edge`), then `flush()`. Measures total time (s) and throughput (nodes/s).
+2. **Query phase (M deterministic queries):**
+   - **RAG baseline** = `GraphRagPipeline` with `expansion_hops: 0` (seeds only, no expansion, no relations section). Latency + `context_text` tokens.
+   - **GraphRAG** = `expansion_hops: 2` (seeds + BFS + ranking + relations in context). Latency + tokens.
+   - **Token Reduction** = `1 - Tokens_GraphRAG / Tokens_RAG`.
+3. **Hop sweep:** mean latency with `hops in {1,2,3}` → per-hop delta.
+4. **Graph stats:** seeds found, nodes expanded, edges in context.
 
 ### Token counting
 
-Conteo por **whitespace-split** (proxy, documentado como aproximación — NO es un tokenizer real tipo BPE). Los valores de tokens son comparativos, no absolutos para facturación.
+Whitespace-split (a documented proxy — **not** a real BPE tokenizer). Token values are comparative, not billing-absolute.
 
-### Corpus (determinista)
+### Corpus (deterministic)
 
-- **LCG seeded** (`0x5EED_CAFE` vectores, `0xE_DGE_5` aristas) — sin dependencia de RNG externa; mismo run ⇒ mismo corpus.
-- 8 clusters temáticos (`TOPICS`), dim=32, vectores normalizados con ruido alrededor del centroide → señal semántica + léxica real.
-- Aristas: DAG forward (chain intra-cluster + hub inter-cluster + misc hacia adelante) — nunca referencia un id menor, corpus estrictamente acíclico (mismo path que el engine testea en `tests/graphrag_test.rs`).
-- DB: `tempdir()` (temporal, eliminada al salir).
+- **Seeded LCG** — no external RNG; same run ⇒ same corpus.
+- 8 thematic clusters, dim=32, normalized vectors with noise around the centroid → synthetic vector-cluster and lexical signal, not model-generated semantic embeddings.
+- Edges: forward DAG (intra-cluster chain + inter-cluster hub + misc forward) — never references a lower id, strictly acyclic.
+- DB: `tempdir()` — removed on exit.
 
-## Resultados del run (2026-08-05)
+## Run results (2026-08-05)
 
-**Hardware (medido por el script):**
+**Hardware (measured by the script):**
 
-```
+```text
 os=windows arch=x86_64 cpus=12 cpu=Intel64 Family 6 Model 154 Stepping 4, GenuineIntel
-RAM: 31 GB (reportado por el banner del engine) · AVX2 · profile PERFORMANCE
+RAM: 31 GB · AVX2 · profile PERFORMANCE
 ```
 
-### Fase de indexación — NÚMEROS REALES ✅
+### Indexing phase — REAL NUMBERS
 
-| Corpus | Index time (s) | Throughput (nodos/s) |
+| Corpus | Index time (s) | Throughput (nodes/s) |
 |---|---|---|
-| 20 nodos | 1.569 | 12.7 |
-| 100 nodos | 10.749 | 9.3 |
-| 300 nodos | 26.809 | 11.2 |
-| 800 nodos | 86.016 | 9.3 |
-| 3000 nodos | 174.308* | 17.2 |
+| 20 nodes | 1.569 | 12.7 |
+| 100 nodes | 10.749 | 9.3 |
+| 300 nodes | 26.809 | 11.2 |
+| 800 nodes | 86.016 | 9.3 |
+| 3000 nodes | 174.308* | 17.2 |
 
-*Nota: los números de la tabla fueron medidos con la configuración de aristas del script en el momento del run (mismo conteo de aristas que la versión commiteada: chain + hub + 2 misc/nodo; la dirección DAG vs cíclica no cambia el costo de indexación, que está dominado por `put()`/`add_edge()` + WAL flush). Los valores 20–800 provienen del run abortado; **el valor de 3000 nodos (174.308 s / 17.2 nodos/s) fue re-medido en el re-run de 2026-08-05 con el build release ya compilable** — el coste varió porque el run anterior corría con el build roto por AUDIT-03.*
+*The 20–800 values come from the aborted earlier run; **the 3,000-node value (174.308 s / 17.2 nodes/s) was reported in the 2026-08-05 re-run**. These historical values are preserved without recomputation. The recorded evidence does not isolate a cause for differences between runs.*
 
-**Lectura honesta:** la indexación de memoria con WAL durable corre a ~10-13 nodos/s en este hardware con esta configuración por defecto. Esto **no** es un benchmark de ingesta optimizado (ver `benchmarks/competitive_bench.py` para batch ingesta); es el costo del path CRUD por-nodo del pipeline GraphRAG.
+**Honest reading:** the table describes that historical per-node CRUD workload,
+not current v0.9.0 throughput or a general ingest limit. It is **not** an
+optimized ingest benchmark; see `benchmarks/competitive_bench.py` for batched ingest.
 
-### Fase de queries — PENDIENTE DE RUN ⏳
+### Query phase — PENDING AT SCALE
 
-Reproducción del crash (real, re-medido el 2026-08-05 con el build ya compilable):
+Recorded reproduction of the failure (re-measured 2026-08-05):
 
-```
-$env:GRAPHRAG_BENCH_OUT="benchmarks\graphrag_bench_result.json"
-target\release\examples\graphrag_bench.exe 3000 100 2
-
-=== GraphRAG benchmark (MKT-16) ===
+```text
+=== GraphRAG benchmark ===
 corpus: 3000 nodes, 8 topics, dim=32 | queries: 100
-hardware: os=windows arch=x86_64 cpus=12 cpu=Intel64 Family 6 Model 154 Stepping 4, GenuineIntel
 index: 3000 nodes + edges in 174.308s (17 nodes/s)
 thread '<unknown>' has overflowed its stack     # exit code -1073741571 / 0xC00000FD
 ```
 
-- **Trigger:** el run canónico (`3000 nodos / 100 queries / edges_per_node=2`) estalla en la **primera query** (`GraphRagPipeline::search`), tras completar la indexación. Con la misma build, los corpus **pequeños (20 y 100 nodos) completan la fase de query sin crash** — ver "Corpus pequeños corren completo" más abajo — por lo que el fallo escala con el tamaño del grafo/contexto en `search`, no con la mera presencia de aristas.
-- **Clase de fallo:** mismo que AUDIT-04 (`0xC0000409`/`STATUS_STACK_BUFFER_OVERRUN`); acá reporta como `0xC00000FD` (`STATUS_STACK_OVERFLOW`). Ver `docs/dev/plans/2026-08-05-backlog-validation-actions.md` → Task 14.
-- **No atribuido:** la recursión JS subyacente en `search`/serialización con grafos grandes es trabajo de engine/audit, NO de este benchmark.
+- **Trigger:** the canonical run (3,000 nodes / 100 queries / `edges_per_node=2`) overflowed on the **first query** (`GraphRagPipeline::search`), after indexing completed. With the same build, **small corpora (20 and 100 nodes) complete the query phase** — so the failure scaled with graph/context size in that environment.
+- **Not attributed:** whether this reflects current engine behavior is unverified; no reproduction was run for this post beyond the recorded log above.
 
-> ⚠️ **A los readers:** NO usar las celdas vacías. El claim "40-60% Token Reduction" del glosario **sigue sin evidencia de run a escala productiva**. Este doc lo deja explícito.
+> **To readers:** do not use the empty cells. The glossary's "40-60% Token Reduction" claim **still lacks a productive-scale run**. This post says so explicitly rather than inventing one.
 
-### Corpus pequeños corren completo (real, 2026-08-05 re-run) ✅
+### Small corpora complete the run (real, 2026-08-05)
 
-Con la build release ya compilable (vfile.rs arreglado), los corpus pequeños completan la fase de query:
-
-```
-# 100 nodos / 10 queries / edges_per_node=2
+```text
+# 100 nodes / 10 queries / edges_per_node=2
 rag_baseline  : p50=0.866 p95=2.397 mean=1.014 ms
 graphrag      : p50=1.418 p95=4.091 mean=1.693 ms
 per_hop_delta (1->3): 0.726 ms
@@ -126,25 +119,14 @@ token_reduction  : -6.491 (-649.08%)
 seeds_found_avg   : 10.00   nodes_expanded_avg: 82.50
 ```
 
-> ⚠️ **Estos números NO son representativos de producción.** En corpus pequeños y densamente conectados, la expansión a 2 hops incluye casi todo el grafo (`nodes_expanded_avg: 82.5` de 100 nodos) y el `context_text` crece respecto al baseline — por eso `token_reduction` sale **negativo**. Son útiles solo como smoke test del pipeline; el número productivo real exige el corpus 3000, que hoy no corre (stack overflow).
+> **These numbers are NOT production-representative.** On small, densely connected corpora, a 2-hop expansion reaches almost the whole graph (`nodes_expanded_avg: 82.5` of 100), so `context_text` grows versus baseline and `token_reduction` comes out **negative**. They are useful only as a pipeline smoke test; the production number needs the 3,000-node corpus.
 
-## Bloqueo de entorno (resuelto)
+## Scope / non-goals
 
-Durante el run inicial, el workspace tenía una edición en curso de otro agente en `src/storage/vfile.rs` (AUDIT-03: `AlignedBytes::zeroed` → `Result`), que rompía el build release. **Ese refactor fue resuelto por su agente dueño (commit `88ed3642`)** — el build release y el script ahora compilan. El único bloqueo restante es el stack overflow del engine a escala productiva (arriba), que es responsabilidad de engine/audit, no de este script.
-
-## Cómo completar los números PENDING
-
-1. El script compila y los corpus pequeños corren (vfile.rs ya no bloquea). El único blocker es el stack overflow del engine a escala.
-2. `cargo run --release --example graphrag_bench 3000 100 2`
-3. Si el stack overflow persiste → el prefijo es del engine (delegar a vanta-engine/vanta-audit, referenciar AUDIT-04). El smoke test de corpus pequeño ya valida que el pipeline y el script son correctos.
-4. Cuando corra: copiar la sección `--- token reduction ---` y `--- query latency ---` a este doc, reemplazando la tabla de métricas del glosario por números reales.
-
-## Alcance / no-goals
-
-- **Recall improvement (+15-20%):** NO se mide. Requiere un set de relevancia etiquetado (ground truth de "relacionalmente relevantes"), que no existe en el repo. Dejarlo como claim sin run, o crearlo como trabajo futuro separado.
-- **Embeddings:** no se usa un modelo de embeddings real; los vectores son sintéticos (clusters). El benchmark mide el pipeline GraphRAG (graph structure + ranking), no la calidad del embedding.
-- **Comparación con LanceDB/Chroma:** fuera de alcance; ver `benchmarks/competitive_bench.py` (MKT-05/INV-007-B) para comparativa vectorial pura.
+- **Recall improvement (+15-20%):** NOT measured — this run did not include labeled relational-relevance judgments.
+- **Embeddings:** no real embedding model; vectors are synthetic clusters. The benchmark measures the GraphRAG pipeline (graph structure + ranking), not embedding quality.
+- **LanceDB/Chroma comparison:** out of scope; see `benchmarks/competitive_bench.py` for pure vector comparison and `docs/user/operations/BENCHMARKS.md` for curated numbers.
 
 ---
 
-*Última actualización: 2026-08-05 · Script: `benchmarks/graphrag_bench.rs` · Registro: `Cargo.toml [[example]] graphrag_bench`*
+*Last updated: 2026-08-05 · Script: `benchmarks/graphrag_bench.rs` · Registered: `Cargo.toml [[example]] graphrag_bench`*

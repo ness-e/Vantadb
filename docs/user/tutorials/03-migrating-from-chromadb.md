@@ -2,15 +2,15 @@
 title: Migrating from ChromaDB to VantaDB
 kind: tutorial
 status: active
-description: "If you're using ChromaDB today, switching to VantaDB unlocks graph edges, MCP protocol support, WASM browser runtime, and hybrid search — while keeping your existing vector workflow. This tutorial shows the exact API mappings and..."
-tags: [vantadb, tutorial, guide, migration, chromadb]
+description: Move a ChromaDB persistent store into VantaDB with the bundled migration helper — commands, limits, and readback checks.
+tags: [migration, chromadb, tutorial]
 ---
 
 # Migrating from ChromaDB to VantaDB
 
 > **Canonical reference.**
 
-If you're using ChromaDB today, switching to VantaDB unlocks **graph edges**, **MCP protocol support**, **WASM browser runtime**, and **hybrid search** — while keeping your existing vector workflow. This tutorial shows the exact API mappings and provides a migration script you can run on your existing ChromaDB data.
+If you're using ChromaDB today, VantaDB gives you graph edges, MCP support, a WASM runtime, and hybrid search while keeping a similar embedded workflow. This tutorial shows the API mapping and the migration helper that ships in this repository.
 
 ## Side-by-side API comparison
 
@@ -22,9 +22,20 @@ If you're using ChromaDB today, switching to VantaDB unlocks **graph edges**, **
 | Semantic search | `collection.query(query_texts)` | `db.search(namespace, vector, ...)` |
 | Get by ID | `collection.get(ids)` | `db.memory.get(namespace, key)` |
 | Delete | `collection.delete(ids)` | `db.memory.delete(namespace, key)` |
-| List all | `collection.get()` | `db.memory.list(namespace)` |
+| List records | `collection.get(limit=..., offset=...)` | `db.memory.list(namespace, limit=...)` (one page) |
 
 ## 1. Setup comparison
+
+Use a VantaDB 0.9.x Python binding and install ChromaDB in the same environment:
+
+```bash
+pip install "vantadb-py==0.9.0" chromadb
+```
+
+Run the CLI from a complete checkout. Stop source writers and back up the source
+before opening it: ChromaDB's `PersistentClient` is not a filesystem read-only
+reader and can initialize or migrate its own storage. Prefer a backup copy when
+the original must remain byte-for-byte unchanged.
 
 **ChromaDB:**
 
@@ -40,14 +51,17 @@ collection = client.get_or_create_collection(
 
 **VantaDB:**
 
+These three-dimensional vectors illustrate the API only. For real semantic
+retrieval, replace them with document and query vectors from the same encoder.
+
 ```python
 from vantadb import Client
 
 db = Client("./vantadb_data")
-# HNSW with cosine is the default — nothing extra to configure.
+# Namespaces are created lazily on first put().
 ```
 
-ChromaDB separates collections from their documents. VantaDB stores records under **namespaces** — the equivalent of a collection. Namespaces are created lazily on the first `put()`.
+ChromaDB separates collections from their documents. VantaDB stores records under **namespaces** — the equivalent of a collection.
 
 ## 2. Inserting documents
 
@@ -78,12 +92,14 @@ db.put(
     "doc1",                             # key (≈ ChromaDB id)
     "VantaDB is an embedded vector database.",
     metadata={"source": "docs", "page": 1},
+    vector=[1.0, 0.0, 0.0],
 )
 db.put(
     "my_docs",
     "doc2",
     "It supports Python, TS, and Rust.",
     metadata={"source": "docs", "page": 2},
+    vector=[0.0, 1.0, 0.0],
 )
 ```
 
@@ -113,7 +129,7 @@ results = collection.query(
 **VantaDB:**
 
 ```python
-query_vector = [0.1, 0.2, 0.3]  # embeddings from your embedding model
+query_vector = [1.0, 0.0, 0.0]  # illustrative vector, not a model-generated embedding
 
 results = db.search(
     "my_docs",
@@ -127,152 +143,84 @@ VantaDB returns `SearchHit` objects with attribute access (`hit.key`, `hit.paylo
 
 ## 4. Migration script
 
-A ready-to-run migration script ships with the Python SDK. It reads every document from a ChromaDB persistent store (all collections, or one) and imports them into VantaDB, preserving ids, documents, metadatas, and pre-computed embeddings.
+A ready-to-run CLI ships in this repository at
+[`scripts/migrate_from_chroma.py`](../../../scripts/migrate_from_chroma.py).
+It loads the migration helper **from this checkout** (`vantadb-python/vantadb_py/migrate/chroma.py`), so the published `vantadb-py` wheel and this repo version stay compatible: the wheel only needs to provide the `vantadb` binding (0.9.x). It reads every document through `collection.get()` — never `collection.query()` — so no Chroma auto-embedding runs during migration, and Chroma telemetry is disabled via `Settings(anonymized_telemetry=False)`.
 
 ```bash
-# All collections → one VantaDB database
-python -m vantadb_py.migrate.chroma --source ./chroma_data --dest ./vantadb_data
+# All collections → chroma/<collection> namespaces (default prefix)
+python scripts/migrate_from_chroma.py --chroma-path ./chroma_data --vanta-path ./vanta_data
 
-# Only one collection, mapped to a custom namespace
-python -m vantadb_py.migrate.chroma \
-    --source ./chroma_data \
-    --dest ./vantadb_data \
-    --collection-name my_docs \
-    --namespace memories
+# Only one collection
+python scripts/migrate_from_chroma.py --chroma-path ./chroma_data --vanta-path ./vanta_data \
+    --collection my_docs
+
+# Custom batch size and namespace prefix
+python scripts/migrate_from_chroma.py --chroma-path ./chroma_data --vanta-path ./vanta_data \
+    --batch-size 250 --namespace-prefix "imported/"
 ```
 
 Flags:
 
 | Flag | Default | Meaning |
 |------|---------|---------|
-| `--source` | — (required) | Path to the ChromaDB persistent store |
-| `--dest` | — (required) | Path where the VantaDB database will be created |
-| `--collection-name` | all | Migrate only this collection |
-| `--namespace` | collection name | Target VantaDB namespace |
-| `--batch-size` | 500 | Records per batch |
+| `--chroma-path` | `./chroma_data` | Path to the ChromaDB persistent store (must contain `chroma.sqlite3`) |
+| `--vanta-path` | `./vanta_data` | Path where the VantaDB database will be created |
+| `--collection` | `all` | Migrate only this collection |
+| `--namespace-prefix` | `chroma/` | Prefix for derived namespaces |
+| `--batch-size` | `500` | Records per batch (must be positive) |
 
-Programmatic use:
+Programmatic use (published wheel: same function, same positional signature; the `namespace_prefix`/`on_collection` keyword-only extension lives in this checkout):
 
 ```python
 # vanta-skip: requires chromadb package for migration
 from vantadb_py.migrate import migrate_from_chroma
 
-count = migrate_from_chroma("./chroma_data", "./vantadb_data")
+count = migrate_from_chroma("./chroma_data", "./vanta_data")
 print(f"Migrated {count} records")
 ```
 
-## 5. Feature comparison: what you gain
+## 5. What changes — and what doesn't
 
-| Feature | ChromaDB | VantaDB |
-|---------|----------|---------|
-| Vector search (HNSW) | ✅ | ✅ |
-| Metadata filtering | ✅ | ✅ |
-| **Hybrid search (vector + BM25)** | ❌ | ✅ |
-| **Graph edges (knowledge graph)** | ❌ | ✅ |
-| **MCP protocol support** | ❌ | ✅ |
-| **WASM browser runtime** | ❌ | ✅ |
-| Python SDK | ✅ | ✅ |
-| TypeScript SDK | ❌ | ✅ |
-| Rust SDK | ❌ | ✅ |
-| Embedded (no server) | ✅ | ✅ |
-| Auto-embedding | ❌ (manual) | ✅ (plug-in) |
-| Single-node data model | ❌ (parallel arrays) | ✅ (rich objects) |
+- **Vectors stay vectors** — but only if both stores use the same embedding **model and space**. Matching dimensions (e.g. 384d) is *not* enough: vectors from different models are not comparable even at equal length. Keep using your Chroma embedding model for queries, or re-embed.
+- **Chroma has real persistence** — `PersistentClient` stores data on disk.
+  Migration copies records rather than deleting them from Chroma. It is not a
+  byte-level read-only snapshot; use a backup copy and quiesce writers first.
+- **Chroma auto-embeds by default; VantaDB doesn't.** The migrator reads stored embeddings directly. For new writes you provide `vector=` yourself (local ONNX exports under `embeddings/models/`, an SDK, or any callable).
+- **A batch is not a transaction.** If migration fails mid-run, the destination
+  can hold a partial import. CLI progress counts completed collections, not
+  every write in the failing collection. Re-running with the same namespace
+  prefix updates the same keys, though internal version history may grow.
 
 ## 6. Post-migration checklist
 
-After migrating, you can immediately start using VantaDB-specific features:
-
-### Add graph edges between documents
-
 ```python
-# Graph nodes take integer node IDs — link records via their node_id:
-r1 = db.put("my_docs", "doc1", "VantaDB is an embedded vector database.",
-            vector=[0.1, 0.2, 0.3])
-r2 = db.put("my_docs", "doc2", "It supports Python, TS, and Rust.",
-            vector=[0.4, 0.5, 0.6])
+from vantadb import Client
 
-db.add_edge(r1.node_id, r2.node_id, "related")
+db = Client("./vanta_data")
 
-# Traverse forward from a root node up to max_depth hops
-path = db.graph_bfs([r1.node_id], 3)
-print(path)   # [node_id of doc1, node_id of doc2]
+# Readback: verify records landed under the expected namespace.
+rec = db.memory.get("chroma/my_docs", "doc1")
+assert rec is not None
+
+page = db.memory.list("chroma/my_docs")
+print(len(page.records), "records in the first page, not the migration total")
+
+db.flush()   # persist
+db.close()   # release the writer lock
 ```
 
-### Enable hybrid search
+### Rollback
 
-```python
-query_vector = [0.1, 0.2, 0.3]  # embeddings from your embedding model
-
-# Hybrid (BM25 + HNSW) search on a text query:
-results = db.search(
-    "my_docs",
-    query_vector,          # still required; pass your query embedding
-    text_query="your query",
-    top_k=10,
-)
-```
-
-### Expose via MCP
-
-```python
-# In your MCP server config:
-# {
-#   "vantadb": {
-#     "path": "./vantadb_data"
-#   }
-# }
-# Now any MCP-compatible host (Claude Desktop, etc.) can query your data.
-```
-
-### Run in the browser
-
-```python
-# With VantaDB WASM build, the same code works in a browser:
-# import { VantaDB } from '@vantadb/wasm'
-```
-
-## Summary
-
-| Task | ChromaDB equivalent | VantaDB equivalent |
-|------|-------------------|--------------------|
-| Connect | `PersistentClient(path)` | `Client(path)` |
-| Collection | `get_or_create_collection(name)` | namespace arg (lazy) |
-| Insert | `collection.add(ids, docs, metas)` | `db.put(ns, key, payload, metadata=...)` |
-| Query | `collection.query(query_texts)` | `db.search(ns, vector, ...)` |
-| Delete | `collection.delete(ids)` | `db.memory.delete(ns, key)` |
-| Filter | `where={...}` | `filters={...}` |
-
-Migration takes ~5 minutes and you keep all your existing data and embeddings. From there, the graph engine, MCP protocol, WASM runtime, and hybrid search are available with zero additional setup.
-
----
-
-**Key takeaway:** VantaDB is a drop-in upgrade from ChromaDB — same mental model, richer feature set, and your migration script is one command.
-
-## Pre-migration checklist
-
-- [ ] VantaDB is installed (`pip install vantadb-py` or `cargo add vantadb`)
-- [ ] ChromaDB collection data is accessible
-- [ ] You have a text representation for each document (for `payload` field)
-- [ ] Embedding dimensions match between ChromaDB and VantaDB
-
-## Post-migration index management
-
-```python
-# Rebuild all indexes (HNSW + text + derived)
-report = db.rebuild_index()
-
-# Compact vector store for better page-fault locality
-db.compact_wal()  # archive + start fresh WAL
-```
+Keep an independent source backup. The migration does not delete Chroma records,
+but opening Chroma is not a promise of byte-level immutability. If the destination
+was newly created for this import, discard it only after confirming it contains
+no unrelated data. Never delete an existing shared database as a rollback step.
 
 ## Known limitations
 
-- **Collections → Namespaces**: ChromaDB collections are first-class objects with metadata. VantaDB namespaces are string prefixes on keys. There is no `create_namespace()` — namespaces are created lazily on first `put()`.
-- **No `peek()` equivalent**: Use `memory.list()` with `limit` and optional `filters`.
-- **No `where` document filter by content**: VantaDB metadata filters match on `metadata` field, not document text. Use `text_query` for payload search.
+- **Collections → Namespaces**: ChromaDB collections are first-class objects with metadata. VantaDB namespaces are string prefixes on keys, created lazily on first `put()` — there is no `create_namespace()`.
+- **No `peek()` equivalent**: use `memory.list()` with `limit` and optional `filters`.
+- **No `where` document filter by content**: VantaDB metadata filters match the `metadata` field, not document text. Use `text_query` for payload search.
 - **No `update` vs `upsert` distinction**: VantaDB `put()` is always upsert.
-- **VantaDB is embedded only**: There is no VantaDB server to connect to remotely (the optional HTTP server is for localhost tooling).
-
-## Rollback plan
-
-Keep your ChromaDB data directory intact during migration. VantaDB does not modify or delete your ChromaDB data.
+- **VantaDB is embedded**: records live next to your app; the optional HTTP server (for tooling) and the MCP launcher (`vanta-cli server --mcp --db <absolute-path>`, profile via `VANTADB_MCP_PROFILE`) are documented in `docs/api/MCP.md`.

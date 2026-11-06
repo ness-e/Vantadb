@@ -1,37 +1,38 @@
 ---
 title: VantaDB as Persistent Memory for Claude Code (MCP)
 kind: howto
-description: By the VantaDB Team
-tags: [mcp, claude-code, ai-agents, memory, tutorial, ide]
-version: "0.5.0"
-slug: claude-code-mcp-memory
-date: "2026-06-26"
-author: VantaDB Team
-tag: Tutorial
-readTime: "7 min"
-canonical: "https://vantadb.vercel.app/blog/claude-code-mcp-memory"
-draft: "true"
+status: active
+description: Configure the VantaDB MCP launcher and use project-scoped memory with explicit operational limits
+tags: [mcp, claude-code, memory]
 ---
 
 # VantaDB as Persistent Memory for Claude Code (MCP)
 
 *By the VantaDB Team*
 
-Coding agents are amnesiacs. Every new Claude Code session starts from zero: re-read the architecture, re-discover the decision you documented three weeks ago, re-fix the bug with the same root cause. The context window is short-term memory. What it needs is a long-term one — project-scoped, searchable, and crash-safe.
+Coding agents benefit from project-scoped memory that can be retrieved across
+sessions. VantaDB supplies persistent storage and search; the agent and host
+still decide which information to store and retrieve.
 
-VantaDB's MCP server (`vantadb-mcp`) is that memory. It runs as a stdio process your client spawns — no daemon, no port — and every memory operation becomes a tool the agent can call.
+VantaDB's MCP server (the `vantadb-mcp` crate) exposes a profile-dependent tool
+surface through a stdio process your client spawns.
 
 ---
 
 ## 1. Starting the server
 
-The canonical launcher is the CLI wrapper (see `docs/api/MCP.md` for the full reference, currently at MCP implementation version 0.6.1):
+The launcher is the CLI (see `docs/api/MCP.md` for the full reference):
 
 ```bash
-vanta-cli server --mcp --db ~/.vantadb
+vanta-cli server --mcp --db C:/absolute/path/to/db
 ```
 
-Requirements: the `vanta-cli` binary (0.6.1) on PATH and a writable directory for the database. The server speaks JSON-RPC 2.0 over stdin/stdout; tool definitions live in `vantadb-mcp/src/handlers/tools.rs`.
+Requirements: a `vanta-cli` build with MCP support on PATH and a writable
+database directory. Replace the example database path with an absolute path
+appropriate to your operating system. Select the profile explicitly with
+`VANTADB_MCP_PROFILE`; the configuration below uses `brain`. The server speaks
+JSON-RPC 2.0 over stdin/stdout. See [the MCP reference](../../api/MCP.md) for the
+tool names and profile behavior.
 
 ---
 
@@ -44,13 +45,14 @@ All MCP clients use the same server command; only the config file differs. Add t
   "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+      "args": ["server", "--mcp", "--db", "C:/absolute/path/to/db"],
+      "env": {"VANTADB_MCP_PROFILE": "brain"}
     }
   }
 }
 ```
 
-Use an absolute path for `--db` if your client does not expand `~`. Restart the client and the memory tools appear alongside the built-in ones.
+Restart the client and the memory tools appear alongside the built-in ones.
 
 ---
 
@@ -60,9 +62,13 @@ The pattern that works: one namespace per project, keyed records for decisions, 
 
 - **Store:** after a significant decision, fix, or architectural discovery, have the agent store it — payload plus structured metadata (`kind: adr`, `area: auth`, `session: <id>`) plus a vector when semantic recall matters.
 - **Recall:** at session start, the agent searches the project namespace for the current task area. BM25 finds the exact symbol names; HNSW finds the conceptually related notes; RRF fuses them.
-- **Survive:** everything is WAL-persisted, so memory outlives the session, the reboot, and the laptop upgrade.
+- **Persist:** use the configured durability controls and keep database backups.
+  Recovery, upgrades, and migration to another machine are separate concerns;
+  checksummed WAL does not guarantee survival of every failure.
 
-This is the same surface the Python SDK exposes (`put()`, `get()`, `search()`), now callable as agent tools. The agent stops re-deriving what the project already decided.
+The concepts correspond to Python `put()`, `memory.get()`, and `search()`, but MCP
+tool names and argument shapes differ. Namespace selection is organizational
+scoping, not authorization; apply host and filesystem access controls as needed.
 
 ---
 
@@ -71,7 +77,7 @@ This is the same surface the Python SDK exposes (`put()`, `get()`, `search()`), 
 Short-term memory is the context window. Long-term memory is a database with an MCP front door: one server command, one config block, one namespace per project.
 
 ```bash
-vanta-cli server --mcp --db ~/.vantadb
+vanta-cli server --mcp --db C:/absolute/path/to/db
 ```
 
 Star the [VantaDB repository](https://github.com/ness-e/Vantadb) and join the Discord to share your memory setup. For the fully-offline variant of this pattern with local models, read [Local Agent Memory with Ollama + VantaDB](./ollama_vantadb_local_memory.md).

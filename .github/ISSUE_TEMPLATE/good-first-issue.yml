@@ -1,0 +1,36 @@
+name: Good First Issue
+description: Well-scoped, well-defined task ideal for new contributors.
+title: "[Good First Issue]: "
+labels: ["good first issue", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value:
+        "Thanks for proposing a newcomer-friendly task. A good first issue is
+        scoped, verifiable, and does not require knowledge of the whole codebase."
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Task description
+      description: "What should be implemented, fixed, or improved."
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Key affected files
+      description: "Paths the contributor should inspect or modify."
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification steps and tests
+      description:
+        "Exact commands the contributor must run to validate the change
+        (e.g. cargo nextest, ruff, markdownlint)."
+    validations:
+      required: true
