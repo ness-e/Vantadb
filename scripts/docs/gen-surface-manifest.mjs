@@ -93,8 +93,8 @@ const STATUS_OVERRIDES = {
     "PyPI `vantadb-py` wheels (`release-wheels-60.yml`); `publish = false` (PyO3 cdylib — PyPI is the product channel)",
   ],
   "vantadb-node": [
-    "EXPERIMENTAL",
-    "npm `vantadb-node` planned, never published (registry 404, 2026-10-03); `release-npm-node.yml` on `node-v*` tags",
+    "PUBLIC",
+    "npm `vantadb-node` published via napi-rs (`release-npm-node.yml`); native Node.js binding",
   ],
   "vantadb-server": [
     "PUBLIC",
@@ -134,7 +134,7 @@ const TAG_NS = {
   "vantadb-wasm": "`v*.*.*` (npm-61)",
   "vantadb-python": "`v*.*.*` (wheels-60 → PyPI `vantadb-py`)",
   "vanta-memory": "`v*.*.*` (held — DIST-01)",
-  "vantadb-node": "`node-v*.*.*` (npm-node; first release pending)",
+  "vantadb-node": "`node-v*.*.*` (npm-node)",
   "vantadb-server": "GitHub Release assets (binaries-63)",
   "vantadb-mcp": "transitive via server binaries",
   "vanta-proxy": "none until 1.0 (frozen)",

@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-181 documentation pages; it deliberately omits the 0 task files,
+219 documentation pages; it deliberately omits the 0 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -17,6 +17,7 @@ is in docs/index.md in the repository.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [specs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/index.md): Section index.
 - [End-user documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/index.md): Section index.
+- [VantaDB Wiki](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/index.md): Wiki documental de VantaDB: navegación por audiencia y mapa de cobertura del motor, bindings, servidor, MCP y ecosistema, basada en el código presente.
 
 ## Architecture decision records
 
@@ -85,12 +86,33 @@ is in docs/index.md in the repository.
 ## Concepts & architecture
 
 - [Advanced Tokenizer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/ADVANCED_TOKENIZER.md): The advanced tokenizer provides multilingual text processing with stemming, stopwords removal, and Unicode folding for improved text search quality across multiple languages. It is built on top of Tantivy. The feature is enabled by...
+- [Arquitectura de VantaDB — visión general](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/architecture/overview.md): Qué es VantaDB, cómo se divide el workspace y qué problema resuelve cada crate, con enlaces a las fuentes reales.
 - [Cargo Feature Registry — per-feature status](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEATURES.md): Inventario honesto de las features declaradas en Cargo.toml [features]
+- [Checklist de cambio](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/contributor/change-checklist.md): Qué actualizar junto a un cambio según su tipo: snapshots, matrices, OpenAPI, índices generados y ADRs.
 - [Constraints — VantaDB Quality Bar](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/CONSTRAINTS.md): VantaDB quality bar: always enforced floors and quantified rules
+- [Contratos del proyecto](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/developer/contracts.md): Qué es contrato estable y dónde se verifica mecánicamente: API pública, wire formats, paridad, namespaces y versionado.
+- [Contribuir: primeros pasos](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/contributor/getting-started.md): Cómo empezar a contribuir al repo: guía canónica, áreas por crate y convenciones que debes conocer antes del primer cambio.
+- [Durabilidad en VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/architecture/durability.md): WAL, fsync, checkpoints, recuperación ante crash y cifrado en reposo: qué garantiza el motor y dónde están sus límites.
+- [FAQ de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/faq.md): Preguntas frecuentes con respuesta verificable en el código o la documentación canónica.
 - [FEAT-03b Core Decay Implementation Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEAT-03b-core-decay-contract.md): Status: ready for vanta-worker · Decision: ADR-0028
 - [FND-20: HNSW Trade-off (ef_search/M: recall vs latency) and why not IVF/FAISS](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FND-20-hnsw-tradeoff.md): src/index/mod.rs:27-30) with M=32, Mmax0=64, efconstruction=100,
+- [Flujo de datos en VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/architecture/data-flow.md): Recorrido de una escritura y de una búsqueda a través de SDK, WAL, backend KV e índices, con las fuentes de cada etapa.
 - [MCP-35 HTTP Fallback Discovery](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/mcp-35-http-fallback-spec.md): Enable N simultaneous vanta-cli server --mcp --db <same-path> instances to share a single database. The first instance becomes the owner (holds the exclusive lock, serves HTTP + MCP stdio). Subsequent instances become proxies (forward...
+- [Mapa del código](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/developer/code-map.md): Cómo navegar el repo: layout de crates, dónde vive cada responsabilidad y qué leer primero.
+- [Modelo de concurrencia de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/architecture/concurrency.md): Locks, estructuras concurrentes y semántica multi-proceso del motor embebido: qué está verificado y dónde.
 - [Mutation and Recovery Protocol](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/MUTATION_RECOVERY_PROTOCOL.md): Date: 2026-04-29
+- [Módulo: cognitive-memory (`vanta-memory`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/cognitive-memory.md): Crate de capa cognitiva L0–L3: captura, extracción/dedup, escenas, persona, context engine, offload e ingest — alcance por binding y fuentes.
+- [Módulo: core (`vantadb` SDK + transversales)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/core.md): SDK embebido, tipos fundamentales y módulos transversales del crate vantadb: responsabilidad, entradas públicas y fuentes.
+- [Módulo: ecosystem (server, bindings, providers, integrations)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/ecosystem.md): Todo lo que rodea al motor: módulo server del core, crates de servicio, hoja FFI compartida, bindings y adaptadores externos.
+- [Módulo: evals (evaluación, benches, fuzz, tests)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/evals.md): Harnesses de evaluación de memoria, benchmarks, fuzzing y suites de test registradas: qué existe y qué no se afirma de ellos.
+- [Módulo: graph (`graph`, `graphrag`, `gds`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/graph.md): Grafo de propiedades, traversals, GraphRAG y algoritmos GDS: superficie pública y fuentes.
+- [Módulo: indexes (`index`, `vector`, `text_index`, `tokenizer`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/indexes.md): Índices vectoriales (HNSW/IVF/ScaNN/DiskANN/flat), índice de texto BM25 y métricas de distancia: estructura, entradas y fuentes.
+- [Módulo: memory-budget (`governor`, `eviction`, `gc`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/memory-budget.md): Presupuesto de memoria: governor, backpressure por RSS, políticas de evicción ponderada/decaimiento bayesiano y GC — estructura y fuentes.
+- [Módulo: proxy (`vanta-proxy`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/proxy.md): Proxy transparente de protocolos LLM con captura de memoria, guardrails y gobernanza: estado frozen, estructura y fuentes.
+- [Módulo: query (`parser`, `planner`, `physical_plan`, `executor`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/query.md): Pipeline IQL: lexer/grammar, planner, operadores físicos y ejecutor — estructura, versión del lenguaje y fuentes.
+- [Módulo: retrieval (`sdk::search`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/retrieval.md): Pipeline de recuperación híbrida: vector, lexical, fusión RRF, MMR, multi-namespace, explain y snippets — estructura y fuentes.
+- [Módulo: storage (`storage`, `wal`, backends)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/storage.md): Motor de almacenamiento, WAL, backends KV (Fjall/RocksDB/memoria), VantaFile y versionado on-disk: estructura y fuentes.
+- [Módulo: tooling (scripts, dev-tools, CI, docs toolchain)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/modules/tooling.md): Herramientas del repo: scripts de docs, dev-tools, workflows CI/CD y gates que mantienen índices y superficies coherentes.
 - [PQ Feasibility - Product Quantization](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/PQ_FEASIBILITY.md): src/vector/quantization.rs exposes stateless packed quantizers (no codebooks,
 - [Persistent Text Index Design](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/TEXT_INDEX_DESIGN.md): Date: 2026-05-04
 - [Physical Storage Format Versioning Strategy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/STORAGE_VERSIONING.md): Status: Implemented (WEB-04)
@@ -100,14 +122,17 @@ is in docs/index.md in the repository.
 - [VantaDB Architecture & Cognitive Memory Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/concepts/architecture.md): Architectural overview of VantaDB as the local-first cognitive memory engine for AI agents
 - [VantaDB Internal Architecture](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/ARCHITECTURE.md): This document reflects the current repo truth for v0.8.0 (verified 2026-10-15: WAL layout, record variants incl. WAL v2 transactions, HTTP ownership). It describes the embedded core, the durability path, the current retrieval model, and the limits that still...
 - [VantaDB Module Boundaries](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/BOUNDARIES.md): Every top-level module in src/ has exactly one owner. The owner approves
+- [Verificación y pruebas](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/developer/verification.md): Cómo se verifica el repo: suites de test registradas, snapshots, paridad, fuzz y gates de CI — inventario, no ejecución.
 - [WASM Storage Review](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/WASM_STORAGE_REVIEW.md): Review of all storage backends used when VantaDB runs in a browser WASM environment
 - [WASM threads: lock-free multi-thread design (STRAT-04)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/WASM_THREADS.md): Design and measured first slice for lock-free multi-threaded WASM (SharedArrayBuffer + atomics), with COOP/COEP requirements and single-thread fallback
+- [Workflow local de desarrollo](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/developer/local-workflow.md): Herramientas del flujo diario: Justfile, verify scripts, perfiles de build y comandos de documentación.
 - [Experimental Governance — Proposed Design (NOT Implemented)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md): The only existing code related to this document is src/gds.rs
 - [LISP Experimental Analysis — Features to Recover](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/LISP_ANALYSIS.md): The experimental LISP DSL had fundamental architectural problems
 
 ## Guides
 
 - [AI Agent Memory Campaign — Measurable Deliverables](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/campaign-ai-agent-memory.md): Prior validation (docs/audit-reports/backlog-validation-2026-07-28.md:118) marked MKT-10 ❌ (\"sin materiales de campaña\"). On review 2026-08-05, the campaign's landing and demo surfaces already exist in the product/web; 1 real gap...
+- [Búsqueda híbrida (vector + BM25 + RRF)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/user/hybrid-search.md): Cómo funciona la búsqueda híbrida: entradas, fusión RRF, score vs distance, filtros y parámetros verificados.
 - [Frequently Asked Questions](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/FAQ.md): VantaDB is an embedded persistent memory engine for local-first AI applications. It combines vector similarity search (HNSW), full-text lexical search (BM25), hybrid search fusion, and structured metadata filtering in a single...
 - [Getting Started with VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/guide/getting-started.md): Quick start guide for embedding VantaDB as the local-first cognitive memory engine for AI agents
 - [GraphRAG Benchmark Methodology (MKT-16)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/graphrag-benchmark.md): Validar las métricas publicadas en el diseño inicial de GraphRAG (referenciado en docs/api/GRAPH_RAG.md)
@@ -115,8 +140,13 @@ is in docs/index.md in the repository.
 - [How Hybrid Search Actually Works](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/how_hybrid_search_works.md): By the VantaDB Team
 - [Introducing VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/introducing_vantadb.md): By the VantaDB Team
 - [Local Agent Memory with Ollama + VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/ollama_vantadb_local_memory.md): By the VantaDB Team
+- [Operación y mantenimiento](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/user/operations.md): Tareas operativas verificadas: métricas, mantenimiento de índices/WAL, TTL/GC, observabilidad y configuración.
+- [Persistencia y backups](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/user/persistence.md): Modos de persistencia, backups lógicos vs físicos y recuperación: qué garantiza el motor y dónde están los límites.
 - [Privacy & local LLMs — what VantaDB guarantees (and what it doesn't)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/PRIVACY.md): The exact privacy guarantees of the local-first stack — redaction-on-write, encrypted originals, certified delete, injection governance — with commands and a covered / not covered table
+- [Quickstart de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/user/quickstart.md): Primer arranque con VantaDB: qué instalar según el runtime y dónde seguir, sin duplicar el quickstart canónico.
 - [SQLite for AI Agents: The Missing Memory Layer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/sqlite_for_ai_agents.md): By the VantaDB Team
+- [Selección de runtime](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/user/runtime-selection.md): Qué superficie elegir: Rust embebido, Python, TypeScript/WASM, Node nativo, HTTP o MCP, con estado de publicación real de cada una.
+- [Troubleshooting](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/user/troubleshooting.md): Problemas frecuentes con causa verificable: locks, memoria, búsqueda lenta, índices y transportes.
 - [VantaDB 5-Minute Quickstart](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/QUICKSTART.md): This quickstart validates the current v0.9.0 boundary from pre-built artifacts
 - [VantaDB as Persistent Memory for Claude Code (MCP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/claude_code_mcp_memory.md): By the VantaDB Team
 - [VantaDB for AI IDEs — persistent project memory over MCP](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/AI_IDES.md): One MCP server for persistent project memory in Claude Code, Cursor, OpenCode and Codex — what works today, how to install it, and what is not there yet
@@ -137,10 +167,18 @@ is in docs/index.md in the repository.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/README.md): Welcome to the VantaDB documentation vault
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
+- [VantaDB Wiki](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/index.md): Wiki documental de VantaDB: navegación por audiencia y mapa de cobertura del motor, bindings, servidor, MCP y ecosistema, basada en el código presente.
 - [specs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/index.md): Section index.
 
 ## API reference
 
+- [API HTTP (`vantadb-server`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/api/http.md): Servidor HTTP con axum: endpoints verificados, auth/RBAC por namespace, maintenance, snapshots, skills y modo MCP.
+- [API MCP (`vantadb-mcp`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/api/mcp.md): Servidor Model Context Protocol stdio JSON-RPC 2.0: lanzamiento, herramientas, handlers y límite single-writer.
+- [API de Node.js nativo (`vantadb-node`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/api/node.md): Binding napi-rs para Node.js: estado de publicación, superficie frente al wrapper TS y diferencias verificadas.
+- [API de Python (`vantadb-py`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/api/python.md): Binding PyO3 publicado en PyPI: Client, sub-clientes por dominio, AsyncClient, superficie verificada y diferencias frente a otros transportes.
+- [API de Rust (crate `vantadb`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/api/rust.md): Entrada embebida al motor: Embedded, Config, tipos centrales y re-exportaciones, con el snapshot canónico de superficie pública.
+- [API de TypeScript (npm `vantadb`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/api/typescript.md): Wrapper TypeScript en npm: sub-clientes por dominio, clase Client sobre WASM por defecto y ruta nativa opcional vía vantadb-node.
+- [API de WASM (`vantadb-wasm`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/api/wasm.md): Binding wasm-bindgen: persistencia OPFS/IDB por runtime, contadores de saneamiento observables y límites del target wasm32.
 - [Bindings Namespace Map](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/BINDINGS_NAMESPACES.md): Rules for the migration window
 - [Certified delete - purge certificates (VER-02)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/CERTIFIED_DELETE.md): Per-surface purge certificate emitted by delete (CLI/MCP/Rust): residue inventory for store, JSON-shredded metadata, indexes and WAL tombstone; integrity hash, VER-01 chain reference and documented limits (logical vs physical purge, backups, exports)
 - [Compatibility Matrix & 1.0 Readiness](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/COMPATIBILITY.md): What each public API surface promises, how that promise is enforced
@@ -151,6 +189,7 @@ is in docs/index.md in the repository.
 - [Memory interchange format (JSONL v2)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/MEMORY_INTERCHANGE_FORMAT.md): The JSONL v2 contract shared by VantaDB export, import and the third-party importers (Mem0, Zep/Graphiti, Letta): mapping tables, integrity manifest, frontier-format mapping, declared limits
 - [Memory scopes: multi-level isolation model for hosts (MEMG-25 spec)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/memory-scopes.md): Spec-first scope model for memory hosts: scope levels, visibility, trust, authority, provenance, validity, retention, owner and writer; fields, defaults and wire; no enforcement
 - [Node.js Native SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/NODE_SDK.md): vantadb-node is the native Node.js binding for VantaDB, built with
+- [Paridad entre transportes](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/api/parity.md): Qué se promete igual entre Rust, Python, WASM, TS, Node, HTTP y MCP: matrices verificadas, runner de conformidad y divergencias declaradas.
 - [Public Surface Manifest](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/SURFACE_MANIFEST.md): Generated inventory of every public surface with status and version
 - [Python SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/PYTHON_SDK.md): Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors
 - [Scoring Semantics — VantaDB Official Score Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/scores.md): VantaDB hybrid search combines two independent rankers

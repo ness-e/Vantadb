@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-181 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+219 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (2)
 
@@ -279,3 +279,63 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Migrating from Mem0 to VantaDB](./user/tutorials/migrating-from-mem0.md)                            | tutorial | Export your Mem0 memories without credentials, convert them with the built-in importer, and import them into VantaDB — metadata, timestamps and provenance preserved                                                                            |
 | [Migrating from Vectara to VantaDB](./user/tutorials/migrate-from-vectara.md)                        | tutorial | Vectara shut down its self-service RAG-as-a-Service tier in 2026 and repositioned as an enterprise agent platform. If you were on the self-service tier, you need a new home for your corpora. VantaDB is a drop-in local-first replacement...  |
 | [Migrating from Zep / Graphiti to VantaDB](./user/tutorials/migrating-from-zep.md)                   | tutorial | Export your Zep or Graphiti graph without credentials, convert episodes and facts — valid-time windows and episode provenance included — and import them into VantaDB                                                                           |
+
+## wiki (38)
+
+### Concepts & architecture — 23
+
+| Document                                                                                     | Kind    | Summary                                                                                                                                       |
+| -------------------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Arquitectura de VantaDB — visión general](./wiki/architecture/overview.md)                  | concept | Qué es VantaDB, cómo se divide el workspace y qué problema resuelve cada crate, con enlaces a las fuentes reales.                             |
+| [Checklist de cambio](./wiki/contributor/change-checklist.md)                                | concept | Qué actualizar junto a un cambio según su tipo: snapshots, matrices, OpenAPI, índices generados y ADRs.                                       |
+| [Contratos del proyecto](./wiki/developer/contracts.md)                                      | concept | Qué es contrato estable y dónde se verifica mecánicamente: API pública, wire formats, paridad, namespaces y versionado.                       |
+| [Contribuir: primeros pasos](./wiki/contributor/getting-started.md)                          | concept | Cómo empezar a contribuir al repo: guía canónica, áreas por crate y convenciones que debes conocer antes del primer cambio.                   |
+| [Durabilidad en VantaDB](./wiki/architecture/durability.md)                                  | concept | WAL, fsync, checkpoints, recuperación ante crash y cifrado en reposo: qué garantiza el motor y dónde están sus límites.                       |
+| [FAQ de VantaDB](./wiki/faq.md)                                                              | concept | Preguntas frecuentes con respuesta verificable en el código o la documentación canónica.                                                      |
+| [Flujo de datos en VantaDB](./wiki/architecture/data-flow.md)                                | concept | Recorrido de una escritura y de una búsqueda a través de SDK, WAL, backend KV e índices, con las fuentes de cada etapa.                       |
+| [Mapa del código](./wiki/developer/code-map.md)                                              | concept | Cómo navegar el repo: layout de crates, dónde vive cada responsabilidad y qué leer primero.                                                   |
+| [Modelo de concurrencia de VantaDB](./wiki/architecture/concurrency.md)                      | concept | Locks, estructuras concurrentes y semántica multi-proceso del motor embebido: qué está verificado y dónde.                                    |
+| [Módulo: cognitive-memory (`vanta-memory`)](./wiki/modules/cognitive-memory.md)              | concept | Crate de capa cognitiva L0–L3: captura, extracción/dedup, escenas, persona, context engine, offload e ingest — alcance por binding y fuentes. |
+| [Módulo: core (`vantadb` SDK + transversales)](./wiki/modules/core.md)                       | concept | SDK embebido, tipos fundamentales y módulos transversales del crate vantadb: responsabilidad, entradas públicas y fuentes.                    |
+| [Módulo: ecosystem (server, bindings, providers, integrations)](./wiki/modules/ecosystem.md) | concept | Todo lo que rodea al motor: módulo server del core, crates de servicio, hoja FFI compartida, bindings y adaptadores externos.                 |
+| [Módulo: evals (evaluación, benches, fuzz, tests)](./wiki/modules/evals.md)                  | concept | Harnesses de evaluación de memoria, benchmarks, fuzzing y suites de test registradas: qué existe y qué no se afirma de ellos.                 |
+| [Módulo: graph (`graph`, `graphrag`, `gds`)](./wiki/modules/graph.md)                        | concept | Grafo de propiedades, traversals, GraphRAG y algoritmos GDS: superficie pública y fuentes.                                                    |
+| [Módulo: indexes (`index`, `vector`, `text_index`, `tokenizer`)](./wiki/modules/indexes.md)  | concept | Índices vectoriales (HNSW/IVF/ScaNN/DiskANN/flat), índice de texto BM25 y métricas de distancia: estructura, entradas y fuentes.              |
+| [Módulo: memory-budget (`governor`, `eviction`, `gc`)](./wiki/modules/memory-budget.md)      | concept | Presupuesto de memoria: governor, backpressure por RSS, políticas de evicción ponderada/decaimiento bayesiano y GC — estructura y fuentes.    |
+| [Módulo: proxy (`vanta-proxy`)](./wiki/modules/proxy.md)                                     | concept | Proxy transparente de protocolos LLM con captura de memoria, guardrails y gobernanza: estado frozen, estructura y fuentes.                    |
+| [Módulo: query (`parser`, `planner`, `physical_plan`, `executor`)](./wiki/modules/query.md)  | concept | Pipeline IQL: lexer/grammar, planner, operadores físicos y ejecutor — estructura, versión del lenguaje y fuentes.                             |
+| [Módulo: retrieval (`sdk::search`)](./wiki/modules/retrieval.md)                             | concept | Pipeline de recuperación híbrida: vector, lexical, fusión RRF, MMR, multi-namespace, explain y snippets — estructura y fuentes.               |
+| [Módulo: storage (`storage`, `wal`, backends)](./wiki/modules/storage.md)                    | concept | Motor de almacenamiento, WAL, backends KV (Fjall/RocksDB/memoria), VantaFile y versionado on-disk: estructura y fuentes.                      |
+| [Módulo: tooling (scripts, dev-tools, CI, docs toolchain)](./wiki/modules/tooling.md)        | concept | Herramientas del repo: scripts de docs, dev-tools, workflows CI/CD y gates que mantienen índices y superficies coherentes.                    |
+| [Verificación y pruebas](./wiki/developer/verification.md)                                   | concept | Cómo se verifica el repo: suites de test registradas, snapshots, paridad, fuzz y gates de CI — inventario, no ejecución.                      |
+| [Workflow local de desarrollo](./wiki/developer/local-workflow.md)                           | concept | Herramientas del flujo diario: Justfile, verify scripts, perfiles de build y comandos de documentación.                                       |
+
+### Guides — 6
+
+| Document                                                               | Kind  | Summary                                                                                                                             |
+| ---------------------------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [Búsqueda híbrida (vector + BM25 + RRF)](./wiki/user/hybrid-search.md) | howto | Cómo funciona la búsqueda híbrida: entradas, fusión RRF, score vs distance, filtros y parámetros verificados.                       |
+| [Operación y mantenimiento](./wiki/user/operations.md)                 | howto | Tareas operativas verificadas: métricas, mantenimiento de índices/WAL, TTL/GC, observabilidad y configuración.                      |
+| [Persistencia y backups](./wiki/user/persistence.md)                   | howto | Modos de persistencia, backups lógicos vs físicos y recuperación: qué garantiza el motor y dónde están los límites.                 |
+| [Quickstart de VantaDB](./wiki/user/quickstart.md)                     | howto | Primer arranque con VantaDB: qué instalar según el runtime y dónde seguir, sin duplicar el quickstart canónico.                     |
+| [Selección de runtime](./wiki/user/runtime-selection.md)               | howto | Qué superficie elegir: Rust embebido, Python, TypeScript/WASM, Node nativo, HTTP o MCP, con estado de publicación real de cada una. |
+| [Troubleshooting](./wiki/user/troubleshooting.md)                      | howto | Problemas frecuentes con causa verificable: locks, memoria, búsqueda lenta, índices y transportes.                                  |
+
+### Index — 1
+
+| Document                        | Kind  | Summary                                                                                                                                                 |
+| ------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [VantaDB Wiki](./wiki/index.md) | index | Wiki documental de VantaDB: navegación por audiencia y mapa de cobertura del motor, bindings, servidor, MCP y ecosistema, basada en el código presente. |
+
+### API reference — 8
+
+| Document                                                      | Kind      | Summary                                                                                                                                        |
+| ------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| [API HTTP (`vantadb-server`)](./wiki/api/http.md)             | reference | Servidor HTTP con axum: endpoints verificados, auth/RBAC por namespace, maintenance, snapshots, skills y modo MCP.                             |
+| [API MCP (`vantadb-mcp`)](./wiki/api/mcp.md)                  | reference | Servidor Model Context Protocol stdio JSON-RPC 2.0: lanzamiento, herramientas, handlers y límite single-writer.                                |
+| [API de Node.js nativo (`vantadb-node`)](./wiki/api/node.md)  | reference | Binding napi-rs para Node.js: estado de publicación, superficie frente al wrapper TS y diferencias verificadas.                                |
+| [API de Python (`vantadb-py`)](./wiki/api/python.md)          | reference | Binding PyO3 publicado en PyPI: Client, sub-clientes por dominio, AsyncClient, superficie verificada y diferencias frente a otros transportes. |
+| [API de Rust (crate `vantadb`)](./wiki/api/rust.md)           | reference | Entrada embebida al motor: Embedded, Config, tipos centrales y re-exportaciones, con el snapshot canónico de superficie pública.               |
+| [API de TypeScript (npm `vantadb`)](./wiki/api/typescript.md) | reference | Wrapper TypeScript en npm: sub-clientes por dominio, clase Client sobre WASM por defecto y ruta nativa opcional vía vantadb-node.              |
+| [API de WASM (`vantadb-wasm`)](./wiki/api/wasm.md)            | reference | Binding wasm-bindgen: persistencia OPFS/IDB por runtime, contadores de saneamiento observables y límites del target wasm32.                    |
+| [Paridad entre transportes](./wiki/api/parity.md)             | reference | Qué se promete igual entre Rust, Python, WASM, TS, Node, HTTP y MCP: matrices verificadas, runner de conformidad y divergencias declaradas.    |

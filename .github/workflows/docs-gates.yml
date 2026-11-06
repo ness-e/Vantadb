@@ -159,6 +159,8 @@ jobs:
         run: node scripts/docs/check-npm-versions.mjs --self-test
       - name: Gate — npm versions match the workspace version
         run: node scripts/docs/check-npm-versions.mjs
+      - name: Gate - Surface manifest reconciliation (DOC-10)
+        run: node scripts/docs/verify-surface-manifest.mjs
       - name: Machine-readable report on failure
         if: failure()
         run: node scripts/docs/check-npm-versions.mjs --json
