@@ -16,6 +16,7 @@ Most embedded vector databases (e.g. ChromaDB) index vectors and stop there. Van
 ## 📦 Installation
 
 ### From PyPI (Recommended)
+
 ```bash
 pip install vantadb-py
 ```
@@ -30,12 +31,14 @@ pip install vantadb-py
 > the same operations — `db.search(...)` ≡ `db.memory.search(...)`.
 
 ### From TestPyPI (Pre-release testing)
+
 ```bash
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-py
 ```
 
 ### From Source (Development)
 Requires [Rust](https://rustup.rs/) and [Maturin](https://github.com/PyO3/maturin).
+
 ```bash
 # Clone the repository
 git clone https://github.com/ness-e/Vantadb.git
@@ -60,7 +63,7 @@ db.put(
     key="fact_001",
     payload="The user prefers direct, technical answers.",
     metadata={"source": "chat", "priority": "high"},
-    vector=[0.1, 0.2, 0.3, 0.4]  # Dense vector (e.g. embedding from a local model)
+    vector=[0.1, 0.2, 0.3, 0.4],  # Dense vector (e.g. embedding from a local model)
 )
 
 # 3. Retrieve the exact record
@@ -74,7 +77,7 @@ results = db.search(
     namespace="agent/session_1",
     query_vector=query_vector,
     text_query="user preferences",
-    top_k=5
+    top_k=5,
 )
 
 for hit in results:
@@ -98,6 +101,7 @@ vector but does not generate embeddings — bring your own client (local
 ```python
 import json, urllib.request
 
+
 def embed(text: str) -> list[float]:
     req = urllib.request.Request(
         "http://localhost:11434/api/embed",
@@ -105,6 +109,7 @@ def embed(text: str) -> list[float]:
         headers={"Content-Type": "application/json"},
     )
     return json.load(urllib.request.urlopen(req))["embeddings"][0]
+
 
 db.put(
     namespace="agent/session_1",
