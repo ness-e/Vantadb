@@ -494,7 +494,25 @@ impl ShardedWal {
         // behind and tripping verify_shard_counts on the next recovery
         // (truncated-shard abort). WalWriter counts the durable on-disk records
         // when it opens a file, so the next write continues the sequence.
-        let durable_records: u64 = shards.iter().map(|s| s.lock().record_count()).sum();
+        // CRASH-01: also take into account durable records in rotated segments.
+        let durable_records: u64 = shards
+            .iter()
+            .map(|s| {
+                let live_path = s.lock().path().to_path_buf();
+                let rotated_count: u64 = enumerate_rotated_segments(&live_path)
+                    .iter()
+                    .filter_map(|p| WalReader::open(p).ok())
+                    .map(|mut r| {
+                        let mut c = 0u64;
+                        while r.next_record().ok().flatten().is_some() {
+                            c += 1;
+                        }
+                        c
+                    })
+                    .sum();
+                rotated_count + s.lock().record_count()
+            })
+            .sum();
         let next_shard = (durable_records % num_shards as u64) as usize;
 
         Ok(Self {
@@ -575,28 +593,43 @@ impl ShardedWal {
                 let key = ();
                 (guard.path().to_path_buf(), key)
             };
-            if !path.exists() {
+            let mut seg_paths = enumerate_rotated_segments(&path);
+            if path.exists() {
+                seg_paths.push(path.clone());
+            }
+            if seg_paths.is_empty() {
                 continue;
             }
-            #[cfg(feature = "encryption")]
-            let reader = match key {
-                Some(k) => WalReader::open_with_key(&path, k),
-                None => WalReader::open(&path),
-            };
-            #[cfg(not(feature = "encryption"))]
-            let reader = WalReader::open(&path);
-            let mut reader = reader.map_err(|e| {
-                Error::wal_error(format!("Failed to open shard {} for recovery: {}", i, e))
-            })?;
 
             let shard_skip = skip_base + if (i as u64) < extra_shards { 1 } else { 0 };
             let mut current_seq = 0u64;
-            while let Some(record) = reader.next_record()? {
-                current_seq += 1;
-                if current_seq <= shard_skip {
-                    continue;
+            for seg_path in &seg_paths {
+                if let Ok(meta) = std::fs::metadata(seg_path) {
+                    if meta.len() < crate::wal::WalHeader::SIZE as u64 {
+                        continue;
+                    }
                 }
-                records.push((current_seq, i, record));
+                #[cfg(feature = "encryption")]
+                let reader = match key {
+                    Some(k) => WalReader::open_with_key(seg_path, k),
+                    None => WalReader::open(seg_path),
+                };
+                #[cfg(not(feature = "encryption"))]
+                let reader = WalReader::open(seg_path);
+                let mut reader = reader.map_err(|e| {
+                    Error::wal_error(format!(
+                        "Failed to open segment {:?} of shard {} for recovery: {}",
+                        seg_path, i, e
+                    ))
+                })?;
+
+                while let Some(record) = reader.next_record()? {
+                    current_seq += 1;
+                    if current_seq <= shard_skip {
+                        continue;
+                    }
+                    records.push((current_seq, i, record));
+                }
             }
             shard_counts[i] = current_seq;
         }
@@ -660,6 +693,54 @@ impl ShardedWal {
             guard.sync()?;
             // The fresh segment keeps the encryption context: an encrypted WAL
             // stays encrypted across a rotation.
+            #[cfg(feature = "encryption")]
+            let writer = match guard.crypto() {
+                Some(c) => WalWriter::open_encrypted_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                    c.clone(),
+                )?,
+                None => WalWriter::open_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                )?,
+            };
+            #[cfg(not(feature = "encryption"))]
+            let writer = WalWriter::open_with_buffer(
+                &path,
+                self.sync_mode,
+                self.wal_buffer_size,
+                self.flush_threshold,
+            )?;
+            *guard = writer;
+        }
+        Ok(())
+    }
+
+    /// Archive current WAL segments to `<shard>.wal.<timestamp>` and start fresh WAL segments (CRASH-01).
+    #[allow(dead_code)]
+    pub fn force_rotate_to_archive(&self) -> Result<()> {
+        let now = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        for (i, shard) in self.shards.iter().enumerate() {
+            let mut guard = shard.lock();
+            let path = guard.path().to_path_buf();
+            guard.sync()?;
+            let archive_name = format!(
+                "{}.{}",
+                path.file_name().unwrap_or_default().to_string_lossy(),
+                now + i as u128
+            );
+            let archive_path = path.with_file_name(&archive_name);
+            std::fs::rename(&path, &archive_path)?;
+            crate::utils::fs::sync_parent_dir(&archive_path)?;
+
             #[cfg(feature = "encryption")]
             let writer = match guard.crypto() {
                 Some(c) => WalWriter::open_encrypted_with_buffer(
@@ -842,19 +923,19 @@ impl ShardedWal {
     }
 }
 
-/// The rotated segments of a shard, oldest first.
+/// The rotated segments of a shard, oldest first (chronological order).
 ///
 /// `try_auto_rotate` renames `<shard>.wal` to `<shard>.wal.<millis>`; the
-/// suffix is the rotation timestamp, so the lexicographic order of the
-/// (fixed-width) suffixes is the chronological one.
-fn rotated_segments(live: &Path) -> Vec<PathBuf> {
+/// suffix is the rotation timestamp, so the numeric order of the
+/// suffixes is the chronological one.
+pub(crate) fn enumerate_rotated_segments(live: &Path) -> Vec<PathBuf> {
     let dir = live.parent().unwrap_or(Path::new("."));
     let name = live
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
     let prefix = format!("{name}.");
-    let mut found: Vec<(String, PathBuf)> = Vec::new();
+    let mut found: Vec<(u128, PathBuf)> = Vec::new();
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -866,10 +947,16 @@ fn rotated_segments(live: &Path) -> Vec<PathBuf> {
         if suffix.is_empty() || !suffix.bytes().all(|b| b.is_ascii_digit()) {
             continue;
         }
-        found.push((file_name, entry.path()));
+        if let Ok(ts) = suffix.parse::<u128>() {
+            found.push((ts, entry.path()));
+        }
     }
-    found.sort_by(|a, b| a.0.cmp(&b.0));
+    found.sort_by_key(|(ts, _)| *ts);
     found.into_iter().map(|(_, path)| path).collect()
+}
+
+pub(crate) fn rotated_segments(live: &Path) -> Vec<PathBuf> {
+    enumerate_rotated_segments(live)
 }
 
 /// Redact a **rotated** segment (an archive): it is not open by any writer,

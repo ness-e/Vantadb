@@ -564,6 +564,7 @@ impl StorageEngine {
 
     /// Commit under one insert_lock guard (ERR-010): WAL → KV → HNSW →
     /// cache/evict → auto-flush. Same order as the inline code.
+    #[allow(dead_code)]
     pub(crate) fn commit_batch_locked(
         &self,
         nodes: &[UnifiedNode],
@@ -889,14 +890,114 @@ impl StorageEngine {
         let Some(now_ms) = self.batch_prelude(nodes)? else {
             return Ok(());
         };
-        let mut bufs = BatchStageBufs::with_capacity(nodes.len());
+
+        // ─── FASE 1: Pre-validación total en memoria (All-or-Nothing upfront) ───
+        // Valida el 100% de los elementos antes de tocar WAL, B-Tree (KV), VStore o HNSW (FIND-221).
+        self.validate_batch_elements(nodes)?;
+
+        // ─── FASE 2: Ejecución atómica en chunks con Rollback integral ───
+        const BATCH_CHUNK_SIZE: usize = 1000;
+
+        let should_insert_hnsw = batch_should_insert_hnsw(&opts, nodes.len());
+
+        struct AppliedEntry {
+            id: u128,
+            pre_existing_raw: Option<Vec<u8>>,
+            vstore_offset: u64,
+            inserted_hnsw: bool,
+        }
+
+        let mut applied_records: Vec<AppliedEntry> = Vec::with_capacity(nodes.len());
+        let mut all_staged_offsets: Vec<u64> = Vec::with_capacity(nodes.len());
+
+        let execution_result: Result<()> = (|| {
+            for chunk in nodes.chunks(BATCH_CHUNK_SIZE) {
+                let mut bufs = BatchStageBufs::with_capacity(chunk.len());
+
+                self.serialize_batch_nodes(chunk, now_ms, should_insert_hnsw, &mut bufs)?;
+                all_staged_offsets.extend_from_slice(&bufs.vstore_offsets);
+
+                let chunk_pre_existing: Vec<Option<Vec<u8>>> = if opts.skip_existing_check {
+                    vec![None; chunk.len()]
+                } else {
+                    chunk
+                        .iter()
+                        .map(|n| {
+                            self.backend
+                                .get(BackendPartition::Default, &n.id.to_le_bytes())
+                                .ok()
+                                .flatten()
+                        })
+                        .collect()
+                };
+
+                {
+                    let _guard =
+                        self.acquire_insert_lock("acquire insert_lock in batch_insert chunk")?;
+                    self.append_batch_wal(chunk, &opts)?;
+                    let kv_ops = std::mem::take(&mut bufs.kv_ops);
+                    self.write_batch_kv_or_tombstone(kv_ops, &bufs.vstore_offsets)?;
+
+                    if should_insert_hnsw {
+                        self.insert_hnsw_leveled(&bufs.hnsw_entries)?;
+                    }
+
+                    for (i, node) in chunk.iter().enumerate() {
+                        applied_records.push(AppliedEntry {
+                            id: node.id,
+                            pre_existing_raw: chunk_pre_existing[i].clone(),
+                            vstore_offset: bufs.vstore_offsets[i],
+                            inserted_hnsw: should_insert_hnsw,
+                        });
+                    }
+                }
+            }
+            Ok(())
+        })();
+
+        if let Err(err) = execution_result {
+            // ─── ROLLBACK COMPLETO ANTE FALLO ───
+            let _rollback_guard =
+                self.acquire_insert_lock("acquire insert_lock in batch_insert rollback");
+            let hnsw = self.hnsw.load();
+            let mut vstore_opt = self.vstore0().ok();
+
+            for applied in applied_records.into_iter().rev() {
+                if applied.inserted_hnsw {
+                    hnsw.remove_node(applied.id);
+                }
+                if let Some(ref mut vstore) = vstore_opt {
+                    tombstone_offset(vstore, applied.vstore_offset, &err);
+                }
+                let key = applied.id.to_le_bytes();
+                if let Some(prev_bytes) = applied.pre_existing_raw {
+                    let _ = self
+                        .backend
+                        .put(BackendPartition::Default, &key, &prev_bytes);
+                } else {
+                    let _ = self.backend.delete(BackendPartition::Default, &key);
+                }
+                self.cache.volatile.write().remove(&applied.id);
+            }
+
+            if let Some(ref mut vstore) = vstore_opt {
+                for &offset in &all_staged_offsets {
+                    tombstone_offset(vstore, offset, &err);
+                }
+            }
+
+            return Err(err);
+        }
+
+        // ─── POST-COMMIT EXITOSO: Estadísticas, caché y auto-flush ───
         #[cfg(feature = "rayon")]
         self.apply_batch_stats_rayon(nodes, &opts);
         #[cfg(not(feature = "rayon"))]
         self.apply_batch_stats_serial(nodes, &opts);
-        let should_insert_hnsw = batch_should_insert_hnsw(&opts, nodes.len());
-        self.serialize_batch_nodes(nodes, now_ms, should_insert_hnsw, &mut bufs)?;
-        self.commit_batch_locked(nodes, &opts, bufs, should_insert_hnsw)?;
+
+        let needs_eviction = self.cache_batch_hot_nodes(nodes);
+        self.run_batch_eviction_if_needed(needs_eviction);
+        self.maybe_auto_flush();
         Ok(())
     }
 

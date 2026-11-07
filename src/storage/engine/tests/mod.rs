@@ -272,3 +272,245 @@ fn test_txn_crash_physical_undo_pass_on_recovery() {
         "existing_id must be fully readable and restored"
     );
 }
+
+// ─── CRASH-01: Replay exhaustivo de segmentos WAL rotados ─────
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_crash_01_rotated_wal_segments_replay_on_recovery() {
+    // 1. Caso multi-shard (wal_shards = 2)
+    {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().to_str().unwrap();
+
+        let cfg = Config {
+            wal_shards: 2,
+            ..Config::default()
+        };
+
+        {
+            let engine =
+                StorageEngine::open_with_config(path, Some(cfg.clone())).expect("open engine");
+            let wal = engine.wal.as_ref().expect("has wal");
+
+            // Segmento 1: nodos 1..=20
+            for id in 1..=20 {
+                engine.insert(&sample_node(id)).expect("insert seg1");
+            }
+            wal.force_rotate_to_archive().expect("rotate seg1");
+
+            // Segmento 2: nodos 21..=40
+            for id in 21..=40 {
+                engine.insert(&sample_node(id)).expect("insert seg2");
+            }
+            wal.force_rotate_to_archive().expect("rotate seg2");
+
+            // Segmento activo: nodos 41..=60
+            for id in 41..=60 {
+                engine.insert(&sample_node(id)).expect("insert active seg");
+            }
+            wal.flush_all().expect("flush WAL");
+
+            // Crash simulado: drop sin engine.flush() (checkpoint_seq permanece en 0)
+        }
+
+        // Reabrir engine: recover_state debe procesar todos los segmentos rotados + el activo
+        let engine =
+            StorageEngine::open_with_config(path, Some(cfg)).expect("reopen engine after crash");
+        for id in 1..=60 {
+            assert!(
+                engine.get(id).expect("get node").is_some(),
+                "Node {id} must be recovered from rotated or active WAL segments"
+            );
+        }
+    }
+
+    // 2. Caso single-shard (wal_shards = 1)
+    {
+        let dir = tempfile::tempdir().expect("tempdir single shard");
+        let path = dir.path().to_str().unwrap();
+
+        let cfg = Config {
+            wal_shards: 1,
+            ..Config::default()
+        };
+
+        {
+            let engine = StorageEngine::open_with_config(path, Some(cfg.clone()))
+                .expect("open single shard engine");
+            let wal = engine.wal.as_ref().expect("has wal");
+
+            // Segmento 1: nodos 1..=15
+            for id in 1..=15 {
+                engine.insert(&sample_node(id)).expect("insert seg1");
+            }
+            wal.force_rotate_to_archive().expect("rotate seg1");
+
+            // Segmento 2: nodos 16..=30
+            for id in 16..=30 {
+                engine.insert(&sample_node(id)).expect("insert seg2");
+            }
+            wal.force_rotate_to_archive().expect("rotate seg2");
+
+            // Segmento activo: nodos 31..=45
+            for id in 31..=45 {
+                engine.insert(&sample_node(id)).expect("insert active seg");
+            }
+            wal.flush_all().expect("flush WAL");
+        }
+
+        let engine =
+            StorageEngine::open_with_config(path, Some(cfg)).expect("reopen single shard engine");
+        for id in 1..=45 {
+            assert!(
+                engine.get(id).expect("get node").is_some(),
+                "Node {id} must be recovered in single-shard WAL recovery"
+            );
+        }
+    }
+}
+
+// ─── FIND-221: Atomicidad All-or-Nothing en batch_insert ──────
+
+#[test]
+fn test_find_221_batch_insert_all_or_nothing_atomicity() {
+    let engine = in_memory_engine();
+
+    // Crear 1,050 nodos válidos con vectores de 64 dimensiones
+    let mut nodes: Vec<UnifiedNode> = (1..=1050)
+        .map(|id| {
+            let mut n = UnifiedNode::new(id);
+            n.vector = crate::node::VectorRepresentations::Full(vec![0.1f32; 64]);
+            n
+        })
+        .collect();
+
+    // Caso A: Registro #1,020 (índice 1019) tiene clave relacional inválida (vacía "")
+    nodes[1019].relational.insert(
+        String::new(),
+        crate::node::FieldValue::String("invalid".into()),
+    );
+
+    let res = engine.batch_insert(&nodes);
+    assert!(
+        res.is_err(),
+        "batch_insert must fail when node #1,020 has empty relational key"
+    );
+
+    // Verificar que 0 registros quedaron escritos en el motor (ni HNSW ni KV backend)
+    assert!(
+        engine.get(1).expect("get 1").is_none(),
+        "Node 1 must NOT be written"
+    );
+    assert!(
+        engine.get(500).expect("get 500").is_none(),
+        "Node 500 must NOT be written"
+    );
+    assert!(
+        engine.get(1000).expect("get 1000").is_none(),
+        "Node 1000 must NOT be written"
+    );
+    assert_eq!(
+        engine.index_coordinator().node_count(),
+        0,
+        "Index must have 0 nodes"
+    );
+    assert!(engine
+        .backend
+        .get(BackendPartition::Default, &1u128.to_le_bytes())
+        .expect("kv 1")
+        .is_none());
+    assert!(engine
+        .backend
+        .get(BackendPartition::Default, &1000u128.to_le_bytes())
+        .expect("kv 1000")
+        .is_none());
+    nodes[1019].relational.clear();
+
+    // Caso B: Registro #1,020 tiene dimensión vectorial inconsistente (128 en vez de 64)
+    nodes[1019].vector = crate::node::VectorRepresentations::Full(vec![0.1f32; 128]);
+
+    let res_dim = engine.batch_insert(&nodes);
+    assert!(
+        res_dim.is_err(),
+        "batch_insert must fail with dimension mismatch for node #1,020"
+    );
+
+    // Verificar nuevamente que 0 registros quedaron escritos
+    assert!(
+        engine.get(1).expect("get 1").is_none(),
+        "Node 1 must NOT be written after dim mismatch"
+    );
+    assert!(
+        engine.get(1000).expect("get 1000").is_none(),
+        "Node 1000 must NOT be written after dim mismatch"
+    );
+    assert_eq!(
+        engine.index_coordinator().node_count(),
+        0,
+        "Index must still have 0 nodes"
+    );
+
+    // Caso C: Registro #1,020 tiene valor float no finito (NaN)
+    nodes[1019].vector = crate::node::VectorRepresentations::Full(vec![f32::NAN; 64]);
+
+    let res_nan = engine.batch_insert(&nodes);
+    assert!(
+        res_nan.is_err(),
+        "batch_insert must fail with NaN in vector for node #1,020"
+    );
+    assert_eq!(
+        engine.index_coordinator().node_count(),
+        0,
+        "Index must remain at 0 nodes"
+    );
+
+    // Caso D: Batch con clave relacional vacía en registro #1,020 falla atómicamente
+    nodes[1019].vector = crate::node::VectorRepresentations::Full(vec![0.1f32; 64]);
+    nodes[1019]
+        .relational
+        .insert(String::new(), crate::node::FieldValue::String("val".into()));
+    let res_empty_key = engine.batch_insert(&nodes);
+    assert!(
+        res_empty_key.is_err(),
+        "batch_insert must fail with empty relational key"
+    );
+    assert_eq!(
+        engine.index_coordinator().node_count(),
+        0,
+        "Index must remain at 0 nodes"
+    );
+    nodes[1019].relational.clear();
+
+    // Caso E: Batch completamente válido de 1,050 nodos se inserta con éxito con InsertMode::Incremental
+    let res_ok = engine.batch_insert_with_opts(
+        &nodes,
+        crate::storage::engine::BatchInsertOptions {
+            insert_mode: crate::storage::engine::InsertMode::Incremental,
+            ..Default::default()
+        },
+    );
+    assert!(res_ok.is_ok(), "Fully valid batch must succeed");
+
+    assert!(
+        engine.get(1).expect("get 1").is_some(),
+        "Node 1 must be present"
+    );
+    assert!(
+        engine.get(500).expect("get 500").is_some(),
+        "Node 500 must be present"
+    );
+    assert!(
+        engine.get(1020).expect("get 1020").is_some(),
+        "Node 1020 must be present"
+    );
+    assert!(
+        engine.get(1050).expect("get 1050").is_some(),
+        "Node 1050 must be present"
+    );
+    assert_eq!(
+        engine.index_coordinator().node_count(),
+        1050,
+        "All 1,050 nodes must be indexed"
+    );
+}

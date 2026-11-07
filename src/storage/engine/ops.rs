@@ -60,6 +60,46 @@ impl BatchInsertOptions {
 }
 
 impl StorageEngine {
+    /// Pre-validate 100% of batch elements in memory before touching WAL, backend, or index (FIND-221).
+    pub(crate) fn validate_batch_elements(&self, nodes: &[UnifiedNode]) -> Result<()> {
+        let mut expected_dim = self.hnsw.load().vector_dimension();
+        for node in nodes {
+            for field in node.relational.keys() {
+                if field.is_empty() {
+                    return Err(crate::error::Error::InvalidInput(
+                        "batch_insert: relational field key must not be empty".into(),
+                    ));
+                }
+                if field.len() > 256 {
+                    return Err(crate::error::Error::InvalidInput(format!(
+                        "batch_insert: relational field key '{field}' exceeds max limit of 256 bytes"
+                    )));
+                }
+            }
+
+            let dim = node.vector.dimensions();
+            if dim > 0 {
+                if let VectorRepresentations::Full(ref v) = node.vector {
+                    for &x in v {
+                        if !x.is_finite() {
+                            return Err(crate::error::Error::InvalidInput(format!(
+                                "batch_insert: node {} vector contains non-finite float (NaN or Inf)",
+                                node.id
+                            )));
+                        }
+                    }
+                }
+                if let Some(expected) = expected_dim {
+                    if dim != expected {
+                        return Err(crate::error::Error::dimension_mismatch(expected, dim));
+                    }
+                } else {
+                    expected_dim = Some(dim);
+                }
+            }
+        }
+        Ok(())
+    }
     /// Bounds-checked write guard for the segment-0 vector store.
     ///
     /// A corrupt or empty `vector_store` (zero segments) must surface as a

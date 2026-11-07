@@ -591,9 +591,12 @@ impl StorageEngine {
                 }
             };
 
-            // With multi-shard WAL the base vanta.wal never exists; check shard0 instead.
-            let guard_path = shard_path_for(0);
-            if guard_path.exists() {
+            // With multi-shard WAL the base vanta.wal never exists; check all shard active or rotated segments.
+            let has_wal_files = (0..num_shards).any(|idx| {
+                let p = shard_path_for(idx);
+                p.exists() || !crate::wal_sharded::enumerate_rotated_segments(&p).is_empty()
+            });
+            if has_wal_files {
                 let wal_replay_started = Instant::now();
 
                 // Compute per-shard skip from global checkpoint based on round-robin distribution.
@@ -617,35 +620,54 @@ impl StorageEngine {
                 let mut shard_counts = vec![0u64; num_shards];
                 for (shard_idx, shard_count) in shard_counts.iter_mut().enumerate() {
                     let shard_path = shard_path_for(shard_idx);
-                    if !shard_path.exists() {
+                    // CRASH-01: enumerate and replay all rotated segments in chronological order first,
+                    // followed by the active segment.
+                    let mut segment_paths =
+                        crate::wal_sharded::enumerate_rotated_segments(&shard_path);
+                    if shard_path.exists() {
+                        segment_paths.push(shard_path.clone());
+                    }
+                    if segment_paths.is_empty() {
                         continue;
                     }
-                    #[cfg(feature = "encryption")]
-                    let mut reader = match &wal_key {
-                        // An encrypted (v4) WAL needs the key; a plaintext
-                        // (v3) one ignores it.
-                        Some(key) => crate::wal::WalReader::open_with_key(&shard_path, key.clone()),
-                        None => crate::wal::WalReader::open(&shard_path),
-                    }
-                    .map_err(|e| {
-                        Error::wal_error(format!(
-                            "Failed to open WAL shard {shard_idx} during recovery: {e}"
-                        ))
-                    })?;
-                    #[cfg(not(feature = "encryption"))]
-                    let mut reader = crate::wal::WalReader::open(&shard_path).map_err(|e| {
-                        Error::wal_error(format!(
-                            "Failed to open WAL shard {shard_idx} during recovery: {e}"
-                        ))
-                    })?;
+
                     let skip = full_rounds + if (shard_idx as u64) < remainder { 1 } else { 0 };
                     let mut local_pos = 0u64;
-                    while let Some(record) = reader.next_record()? {
-                        if local_pos >= skip {
-                            let global_seq = shard_idx as u64 + num_shards as u64 * local_pos;
-                            pending.push(TimedRecord { global_seq, record });
+
+                    for seg_path in &segment_paths {
+                        if let Ok(meta) = std::fs::metadata(seg_path) {
+                            if meta.len() < crate::wal::WalHeader::SIZE as u64 {
+                                continue;
+                            }
                         }
-                        local_pos += 1;
+                        #[cfg(feature = "encryption")]
+                        let mut reader = match &wal_key {
+                            // An encrypted (v4) WAL needs the key; a plaintext
+                            // (v3) one ignores it.
+                            Some(key) => {
+                                crate::wal::WalReader::open_with_key(seg_path, key.clone())
+                            }
+                            None => crate::wal::WalReader::open(seg_path),
+                        }
+                        .map_err(|e| {
+                            Error::wal_error(format!(
+                                "Failed to open WAL segment {seg_path:?} for shard {shard_idx} during recovery: {e}"
+                            ))
+                        })?;
+                        #[cfg(not(feature = "encryption"))]
+                        let mut reader = crate::wal::WalReader::open(seg_path).map_err(|e| {
+                            Error::wal_error(format!(
+                                "Failed to open WAL segment {seg_path:?} for shard {shard_idx} during recovery: {e}"
+                            ))
+                        })?;
+
+                        while let Some(record) = reader.next_record()? {
+                            if local_pos >= skip {
+                                let global_seq = shard_idx as u64 + num_shards as u64 * local_pos;
+                                pending.push(TimedRecord { global_seq, record });
+                            }
+                            local_pos += 1;
+                        }
                     }
                     *shard_count = local_pos;
                 }
