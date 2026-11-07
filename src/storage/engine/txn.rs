@@ -280,16 +280,14 @@ impl StorageEngine {
         // 1. Verify and unregister, draining the buffer in one step.
         let Some(buffer) = self.txn.take(txn_id) else {
             // Phase 1 fallback: if no buffering, just append Commit marker
-            if let Some(ref sharded) = self.wal {
-                sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
-            }
+            self.wal_coordinator()
+                .append(&crate::wal::WalRecord::Commit(txn_id))?;
             return Ok(());
         };
 
         if buffer.is_empty() {
-            if let Some(ref sharded) = self.wal {
-                sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
-            }
+            self.wal_coordinator()
+                .append(&crate::wal::WalRecord::Commit(txn_id))?;
             return Ok(());
         }
 
@@ -315,9 +313,7 @@ impl StorageEngine {
         // mutation is still queued → invisible record on recovery.
         let _guard =
             self.acquire_insert_lock("acquire insert_lock in commit_transaction (ERR-010)")?;
-        if let Some(ref sharded) = self.wal {
-            sharded.batch_append(wal_records)?;
-        }
+        self.wal_coordinator().batch_append(wal_records)?;
 
         // 5. Apply buffered ops to stores with MVCC stamps.
         //    On any error we write an Abort marker so recovery discards the
@@ -330,10 +326,19 @@ impl StorageEngine {
         //    decremented after `_guard` is released.
         let mut pre_existing_for_insert = Vec::new();
         let mut deleted_nodes_for_stats = Vec::new();
+        let mut applied_ops: Vec<(BufferedWrite, Option<Vec<u8>>)> = Vec::new();
         let apply_result: Result<()> = (|| {
             for op in &buffer {
                 match op {
                     BufferedWrite::Insert(node) => {
+                        let pre_raw = self
+                            .backend
+                            .get(
+                                crate::backend::BackendPartition::Default,
+                                &node.id.to_le_bytes(),
+                            )
+                            .ok()
+                            .flatten();
                         let pre = self.existing_meta(node.id);
                         pre_existing_for_insert.push(pre);
                         // Remove old from HNSW/cache so the new insert can take its place
@@ -343,6 +348,7 @@ impl StorageEngine {
                         }
                         self.cache.volatile.write().remove(&node.id);
                         self.apply_insert_with_txn(node, txn_id)?;
+                        applied_ops.push((op.clone(), pre_raw));
                     }
                     BufferedWrite::Delete(id) => {
                         if let Ok(Some(existing_node)) = self.get(*id) {
@@ -355,6 +361,7 @@ impl StorageEngine {
                         // inner variant with AssumeHeld — apply_delete() would
                         // re-acquire the non-reentrant lock and time out.
                         self.apply_delete_inner(*id, LockPolicy::AssumeHeld)?;
+                        applied_ops.push((op.clone(), None));
                     }
                 }
             }
@@ -362,24 +369,86 @@ impl StorageEngine {
         })();
 
         if let Err(e) = apply_result {
-            if let Some(ref sharded) = self.wal {
-                // Best-effort: append Abort. Even if this fails, the missing
-                // Commit marker still makes recovery discard the txn via the
-                // slice-mask (no Apply phase 2 ran implies no Commit on disk).
-                let _ = sharded.append(&crate::wal::WalRecord::Abort(txn_id));
+            // TXN-01 Capa A: Hot rollback of partially applied operations in this commit attempt
+            for (applied_op, pre_raw) in applied_ops.into_iter().rev() {
+                match applied_op {
+                    BufferedWrite::Insert(node) => {
+                        let key = node.id.to_le_bytes();
+                        if let Some(prev_bytes) = pre_raw {
+                            let _ = self.backend.put(
+                                crate::backend::BackendPartition::Default,
+                                &key,
+                                &prev_bytes,
+                            );
+                        } else {
+                            let _ = self
+                                .backend
+                                .delete(crate::backend::BackendPartition::Default, &key);
+                            self.index_coordinator().remove_node(node.id);
+                            self.cache.volatile.write().remove(&node.id);
+                            if let Some(packed) =
+                                self.index_coordinator().storage_offset_of(node.id)
+                            {
+                                let _ = self
+                                    .vector_store_service()
+                                    .set_tombstone_at_packed_offset(packed, true);
+                            }
+                        }
+                    }
+                    BufferedWrite::Delete(id) => {
+                        let key = id.to_le_bytes();
+                        if let Ok(Some(existing_bytes)) = self
+                            .backend
+                            .get(crate::backend::BackendPartition::Default, &key)
+                        {
+                            if let Ok(mut meta) = crate::storage::ops::deserialize_node_payload::<
+                                NodeMetadata,
+                            >(
+                                &existing_bytes, "node metadata"
+                            ) {
+                                if meta.deleted_by_txn == Some(txn_id) {
+                                    meta.deleted_by_txn = None;
+                                    if let Ok(val) = postcard::to_allocvec(&meta) {
+                                        let _ = self.backend.put(
+                                            crate::backend::BackendPartition::Default,
+                                            &key,
+                                            &val,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        if let Some(pos) = deleted_nodes_for_stats.iter().position(|n| n.id == id) {
+                            let node = deleted_nodes_for_stats.remove(pos);
+                            if let Some(packed) = self.lookup_index_offset(id) {
+                                let _ = self
+                                    .vector_store_service()
+                                    .set_tombstone_at_packed_offset(packed, false);
+                            }
+                            if node.tier == crate::node::NodeTier::Hot {
+                                self.cache.volatile.write().insert(id, node);
+                            }
+                        }
+                    }
+                }
             }
+            // Clear pending HNSW mutations from the aborted attempt
+            self.pending_hnsw_batch.lock().clear();
+
+            let _ = self
+                .wal_coordinator()
+                .append(&crate::wal::WalRecord::Abort(txn_id));
             return Err(e);
         }
 
         // FIND-62: drain the batch queued via try_push_pending_hnsw above under
         // the same guard (pattern from insert()), so the HNSW entries exist
         // before any concurrent flush can checkpoint past our WAL records.
-        self.drain_hnsw_batch_locked()?;
+        self.index_coordinator().drain_batch_locked()?;
 
         // 6. Phase 2: write the Commit marker. THIS is the durability commit point.
-        if let Some(ref sharded) = self.wal {
-            sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
-        }
+        self.wal_coordinator()
+            .append(&crate::wal::WalRecord::Commit(txn_id))?;
 
         // FIND-345: Release `insert_lock` BEFORE acquiring `cardinality_stats.write()`
         // or mutating secondary indexes (Rule 8 lock hierarchy).
@@ -408,10 +477,8 @@ impl StorageEngine {
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn abort_transaction(&self, txn_id: u64) -> Result<()> {
         self.txn.discard(txn_id);
-
-        if let Some(ref sharded) = self.wal {
-            sharded.append(&crate::wal::WalRecord::Abort(txn_id))?;
-        }
+        self.wal_coordinator()
+            .append(&crate::wal::WalRecord::Abort(txn_id))?;
         Ok(())
     }
 

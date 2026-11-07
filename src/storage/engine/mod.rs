@@ -5,6 +5,7 @@
 //! drives node archival / recovery.
 
 mod cache;
+pub mod coordinators;
 mod delete;
 mod get;
 mod init;
@@ -14,6 +15,8 @@ mod ops;
 mod partition;
 mod stats;
 mod txn;
+
+pub use self::coordinators::{IndexCoordinator, VectorStoreService, WalCoordinator};
 
 #[cfg(test)]
 mod tests;
@@ -33,7 +36,6 @@ use crate::config::Config;
 use crate::error::Result;
 pub use crate::index_port::FreshHnswReport;
 use crate::index_port::IndexPort;
-use crate::lsm::pack_offset;
 pub(crate) use crate::lsm::SegmentRegistry;
 use crate::node::{FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
 use crate::storage::vfile::File;
@@ -384,6 +386,21 @@ pub struct StorageEngine {
 // ─── Internal helpers used across sub-modules ──────────────────
 
 impl StorageEngine {
+    /// Return the IndexCoordinator facade for HNSW index and pending batch operations.
+    pub fn index_coordinator(&self) -> IndexCoordinator<'_> {
+        IndexCoordinator::new(&self.hnsw, &self.pending_hnsw_batch)
+    }
+
+    /// Return the VectorStoreService facade for multi-level vector store and segment registry.
+    pub fn vector_store_service(&self) -> VectorStoreService<'_> {
+        VectorStoreService::new(&self.vector_store, &self.segment_registry)
+    }
+
+    /// Return the WalCoordinator facade for write-ahead log operations.
+    pub fn wal_coordinator(&self) -> WalCoordinator<'_> {
+        WalCoordinator::new(self.wal.as_ref())
+    }
+
     /// Replay a single write operation during WAL recovery.
     /// Writes to L0 (always) and packs the segment_id into the offset.
     fn replay_write_node(
@@ -394,11 +411,9 @@ impl StorageEngine {
         node: &UnifiedNode,
     ) -> Result<()> {
         use crate::backend::BackendPartition;
-
         use crate::storage::ops::NodeMetadata;
-        let mut l0 = vector_store[0].write();
-        let local_off = crate::storage::ops::write_node_to_vstore(&mut l0, node)?;
-        let packed = pack_offset(0, local_off);
+
+        let (_local_off, packed) = VectorStoreService::write_node_l0_slice(vector_store, node)?;
         hnsw.add_node(node_id, node.bitset.clone(), node.vector.clone(), packed)?;
         let key = node.id.to_le_bytes();
         let metadata = NodeMetadata {

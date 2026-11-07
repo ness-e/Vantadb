@@ -11,7 +11,7 @@ use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::index_port::IndexPort;
 use crate::lsm::SegmentLevel;
-use crate::node::LabelIntern;
+use crate::node::{FilterBitset, LabelIntern, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{BackendKind, GIB, MIB};
 use crate::storage::ops;
@@ -660,6 +660,7 @@ impl StorageEngine {
                 }
                 pending.sort_by_key(|tr| tr.global_seq);
                 let mut skip_mask = vec![false; pending.len()];
+                let mut record_txn_id = vec![0u64; pending.len()];
                 // MOD-02: track the currently-open txn batch by (txn_id, start
                 // position). A txn's batch is [Begin, ops…, Commit] written by a
                 // single `batch_append`, so its records occupy contiguous
@@ -679,6 +680,7 @@ impl StorageEngine {
                                 skip_mask[start..i].fill(true);
                             }
                             open_txn = Some((*txn_id, i));
+                            record_txn_id[i] = *txn_id;
                         }
                         crate::wal::WalRecord::Commit(txn_id) => {
                             // Only the matching txn's Commit closes its batch; a
@@ -689,6 +691,7 @@ impl StorageEngine {
                                     open_txn = None;
                                 }
                             }
+                            record_txn_id[i] = *txn_id;
                         }
                         crate::wal::WalRecord::Abort(txn_id) => {
                             if let Some((open_id, start)) = open_txn {
@@ -697,14 +700,206 @@ impl StorageEngine {
                                     open_txn = None;
                                 }
                             }
+                            record_txn_id[i] = *txn_id;
                         }
-                        _ => {}
+                        _ => {
+                            if let Some((open_id, _)) = open_txn {
+                                record_txn_id[i] = open_id;
+                            }
+                        }
                     }
                 }
                 if let Some((_, start)) = open_txn {
                     // Trailing incomplete batch at EOF: nothing after it can be
                     // attributed to a different writer, so discard it fail-safe.
                     skip_mask[start..].fill(true);
+                }
+
+                // ── TXN-01 Capa B: Physical Crash Recovery Undo Pass ──
+                // Purge dirty uncommitted data left in the KV backend / stores if a crash occurred
+                // between store application (step 5) and WAL Commit marker persistence (step 6).
+                for (i, tr) in pending.iter().enumerate() {
+                    if !skip_mask[i] {
+                        continue;
+                    }
+                    let uncommitted_txn_id = record_txn_id[i];
+                    if uncommitted_txn_id == 0 {
+                        continue;
+                    }
+                    match &tr.record {
+                        crate::wal::WalRecord::Insert(node) => {
+                            let key = node.id.to_le_bytes();
+                            if let Ok(Some(bytes)) = backend.get(BackendPartition::Default, &key) {
+                                if let Ok(meta) =
+                                    crate::storage::ops::deserialize_node_payload::<
+                                        crate::storage::ops::NodeMetadata,
+                                    >(&bytes, "node metadata")
+                                {
+                                    if meta.created_by_txn == uncommitted_txn_id {
+                                        let _ = backend.delete(BackendPartition::Default, &key);
+                                        let packed = hnsw.storage_offset_of(node.id);
+                                        hnsw.remove_node(node.id);
+                                        if hnsw.entry_point() == Some(node.id) {
+                                            let new_ep =
+                                                hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+                                            hnsw.set_entry_point(new_ep);
+                                        }
+                                        if let Some(packed) = packed {
+                                            let (seg_id, local_off) =
+                                                crate::lsm::unpack_offset(packed);
+                                            if let Some(vs) = vector_store.get(seg_id as usize) {
+                                                let mut vstore = vs.write();
+                                                let _ = vstore.set_tombstone(local_off, true);
+                                            }
+                                        } else {
+                                            for vs in vector_store {
+                                                let mut vstore = vs.write();
+                                                let mut cursor =
+                                                    crate::storage::engine::STORAGE_ALIGNMENT;
+                                                let header_size = std::mem::size_of::<
+                                                    crate::node::DiskNodeHeader,
+                                                >(
+                                                )
+                                                    as u64;
+                                                while cursor + header_size <= vstore.write_cursor {
+                                                    if let Some(hdr) = vstore.read_header(cursor) {
+                                                        if hdr.id == node.id {
+                                                            let _ =
+                                                                vstore.set_tombstone(cursor, true);
+                                                            break;
+                                                        }
+                                                        cursor += vstore.node_stride(
+                                                            header_size,
+                                                            crate::storage::vfile::payload_len_for_header(&hdr),
+                                                        );
+                                                    } else {
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        crate::wal::WalRecord::Update { id, node: _ } => {
+                            let node_id = *id;
+                            let key = node_id.to_le_bytes();
+                            if let Ok(Some(bytes)) = backend.get(BackendPartition::Default, &key) {
+                                if let Ok(meta) =
+                                    crate::storage::ops::deserialize_node_payload::<
+                                        crate::storage::ops::NodeMetadata,
+                                    >(&bytes, "node metadata")
+                                {
+                                    if meta.created_by_txn == uncommitted_txn_id {
+                                        let _ = backend.delete(BackendPartition::Default, &key);
+                                        let packed = hnsw.storage_offset_of(node_id);
+                                        hnsw.remove_node(node_id);
+                                        if hnsw.entry_point() == Some(node_id) {
+                                            let new_ep =
+                                                hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+                                            hnsw.set_entry_point(new_ep);
+                                        }
+                                        if let Some(packed) = packed {
+                                            let (seg_id, local_off) =
+                                                crate::lsm::unpack_offset(packed);
+                                            if let Some(vs) = vector_store.get(seg_id as usize) {
+                                                let mut vstore = vs.write();
+                                                let _ = vstore.set_tombstone(local_off, true);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        crate::wal::WalRecord::Delete { id } => {
+                            let key = id.to_le_bytes();
+                            if let Ok(Some(bytes)) = backend.get(BackendPartition::Default, &key) {
+                                if let Ok(mut meta) =
+                                    crate::storage::ops::deserialize_node_payload::<
+                                        crate::storage::ops::NodeMetadata,
+                                    >(&bytes, "node metadata")
+                                {
+                                    if meta.deleted_by_txn == Some(uncommitted_txn_id) {
+                                        meta.deleted_by_txn = None;
+                                        if let Ok(val) = postcard::to_allocvec(&meta) {
+                                            let _ =
+                                                backend.put(BackendPartition::Default, &key, &val);
+                                        }
+                                        let mut found_offset = hnsw.storage_offset_of(*id);
+                                        if let Some(packed) = found_offset {
+                                            let (seg_id, local_off) =
+                                                crate::lsm::unpack_offset(packed);
+                                            if let Some(vs) = vector_store.get(seg_id as usize) {
+                                                let mut vstore = vs.write();
+                                                let _ = vstore.set_tombstone(local_off, false);
+                                            }
+                                        } else {
+                                            for (seg_idx, vs) in vector_store.iter().enumerate() {
+                                                let mut vstore = vs.write();
+                                                let mut cursor =
+                                                    crate::storage::engine::STORAGE_ALIGNMENT;
+                                                let header_size = std::mem::size_of::<
+                                                    crate::node::DiskNodeHeader,
+                                                >(
+                                                )
+                                                    as u64;
+                                                while cursor + header_size <= vstore.write_cursor {
+                                                    if let Some(hdr) = vstore.read_header(cursor) {
+                                                        if hdr.id == *id {
+                                                            let _ =
+                                                                vstore.set_tombstone(cursor, false);
+                                                            let packed = crate::lsm::pack_offset(
+                                                                seg_idx as u8,
+                                                                cursor,
+                                                            );
+                                                            found_offset = Some(packed);
+                                                            if !hnsw.contains_node(*id) {
+                                                                let kind = crate::node::NodeFlags::vector_kind(hdr.flags);
+                                                                let vec_data = if let Ok(
+                                                                    node_bytes,
+                                                                ) =
+                                                                    vstore.node_bytes(cursor)
+                                                                {
+                                                                    crate::storage::engine::get::decode_vector_by_kind(
+                                                                        kind,
+                                                                        hdr.vector_len,
+                                                                        hdr.vector_offset,
+                                                                        node_bytes.as_slice(),
+                                                                    ).unwrap_or(VectorRepresentations::None)
+                                                                } else {
+                                                                    VectorRepresentations::None
+                                                                };
+                                                                let _ = hnsw.add_node(
+                                                                    *id,
+                                                                    FilterBitset::from_u128(
+                                                                        hdr.bitset,
+                                                                    ),
+                                                                    vec_data,
+                                                                    packed,
+                                                                );
+                                                            }
+                                                            break;
+                                                        }
+                                                        cursor += vstore.node_stride(
+                                                            header_size,
+                                                            crate::storage::vfile::payload_len_for_header(&hdr),
+                                                        );
+                                                    } else {
+                                                        break;
+                                                    }
+                                                }
+                                                if found_offset.is_some() {
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
                 }
 
                 for (i, tr) in pending.into_iter().enumerate() {
