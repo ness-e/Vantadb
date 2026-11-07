@@ -63,6 +63,11 @@ pub mod seed;
 /// Wiki ingest: scan/chunk → extract candidates → serial merge (MEM-30).
 pub mod ingest;
 
+pub use core::{
+    forget, put_l3_axiom, CascadeForgetError, CascadeForgetExt, CascadeForgetReceipt,
+    CascadedItemDetail, IntoForgetTarget,
+};
+
 /// Crate name (used by smoke test; kept trivial on purpose).
 pub fn name() -> &'static str {
     "vanta-memory"

@@ -65,3 +65,8 @@ pub mod reflection;
 
 /// MEM0-04: Ontological bitemporal triplets and graph edges.
 pub mod ontology;
+
+pub use record::{
+    forget, put_l3_axiom, CascadeForgetError, CascadeForgetExt, CascadeForgetReceipt,
+    CascadedItemDetail, IntoForgetTarget,
+};

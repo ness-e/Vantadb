@@ -36,7 +36,8 @@ use crate::core::prompts::scene_extraction::{
 use crate::core::scene::filename_normalizer::normalize_scene_name;
 use crate::core::scene::scene_format::SceneBlock;
 use crate::core::scene::scene_index::{
-    get_scene, list_scenes, soft_delete_scene, write_scene_block, SceneError,
+    get_scene, list_scenes, soft_delete_scene, upsert_scene_with_sources, write_scene_block,
+    SceneError,
 };
 use crate::core::scene::scene_tools::{
     execute_scene_tool, validate_content, validate_scene_name, validate_text, SceneToolCall,
@@ -61,6 +62,9 @@ pub struct SceneExtraction {
     /// judgement by the LLM).
     #[serde(default)]
     pub merge_sources: Vec<String>,
+    /// Deterministic provenance: L1 source episode IDs (TEC-15).
+    #[serde(default)]
+    pub source_episode_ids: Vec<String>,
 }
 
 /// Input memory for an L2 extraction run (Vanta memory engine `extract()` L141 parity).
@@ -214,19 +218,34 @@ pub fn apply_strategy(
 ) -> Result<SceneApplyResult, SceneExtractorError> {
     match strategy {
         SceneStrategy::Update { scene_name } | SceneStrategy::Create { scene_name } => {
-            let result = execute_scene_tool(
-                db,
-                session_key,
-                &SceneToolCall::Write {
-                    scene_name: scene_name.clone(),
-                    summary: extraction.summary.clone(),
-                    content: extraction.content.clone(),
-                },
-            )?;
-            let SceneToolResult::Write { scene } = result else {
-                return Err(SceneExtractorError::Invalid(
-                    "write tool returned an unexpected result".into(),
-                ));
+            let scene = if !extraction.source_episode_ids.is_empty() {
+                validate_scene_name(scene_name)?;
+                validate_text("summary", &extraction.summary, MAX_SUMMARY_BYTES)?;
+                validate_content(&extraction.content)?;
+                upsert_scene_with_sources(
+                    db,
+                    session_key,
+                    scene_name,
+                    &extraction.summary,
+                    &extraction.content,
+                    extraction.source_episode_ids.clone(),
+                )?
+            } else {
+                let result = execute_scene_tool(
+                    db,
+                    session_key,
+                    &SceneToolCall::Write {
+                        scene_name: scene_name.clone(),
+                        summary: extraction.summary.clone(),
+                        content: extraction.content.clone(),
+                    },
+                )?;
+                let SceneToolResult::Write { scene } = result else {
+                    return Err(SceneExtractorError::Invalid(
+                        "write tool returned an unexpected result".into(),
+                    ));
+                };
+                scene
             };
             let action = if matches!(strategy, SceneStrategy::Update { .. }) {
                 SceneAction::Updated {
@@ -256,15 +275,28 @@ pub fn apply_strategy(
             // related blocks + 1), saturating so an overflow never panics.
             let target = get_scene(db, session_key, scene_name)?;
             let mut heat = 0u32;
+            let mut merged_sources = extraction.source_episode_ids.clone();
             if let Some(block) = &target {
                 heat = heat.saturating_add(block.meta.heat);
+                for ep in &block.source_episode_ids {
+                    if !merged_sources.contains(ep) {
+                        merged_sources.push(ep.clone());
+                    }
+                }
             }
             for source in sources {
                 if let Some(block) = get_scene(db, session_key, source)? {
                     heat = heat.saturating_add(block.meta.heat);
+                    for ep in &block.source_episode_ids {
+                        if !merged_sources.contains(ep) {
+                            merged_sources.push(ep.clone());
+                        }
+                    }
                 }
             }
             heat = heat.saturating_add(1);
+            merged_sources.sort();
+            merged_sources.dedup();
 
             let now = epoch_ms_to_rfc3339(now_ms());
             let created = target
@@ -275,8 +307,15 @@ pub fn apply_strategy(
                 updated: now,
                 summary: extraction.summary.clone(),
                 heat,
+                source_episode_ids: merged_sources.clone(),
             };
-            let block = SceneBlock::new(scene_name.clone(), meta, extraction.content.clone());
+            let block = SceneBlock {
+                scene_name: scene_name.clone(),
+                meta,
+                content: extraction.content.clone(),
+                deleted: false,
+                source_episode_ids: merged_sources,
+            };
             write_scene_block(db, session_key, &block)?;
 
             // Vanta memory engine order: write the target first, then soft-delete sources — a
@@ -416,7 +455,7 @@ fn extract_scenes_with_llm_inner<R: LlmRunner>(
         workspace_dir: None,
         instance_id: None,
     };
-    let extractions: Vec<SceneExtraction> = match runner.complete_json(&params) {
+    let mut extractions: Vec<SceneExtraction> = match runner.complete_json(&params) {
         Ok(extractions) => extractions,
         Err(err) => {
             return SceneExtractionResult {
@@ -427,6 +466,14 @@ fn extract_scenes_with_llm_inner<R: LlmRunner>(
             };
         }
     };
+
+    // Linaje: populate source_episode_ids deterministically from inputs if omitted
+    let default_sources: Vec<String> = memories.iter().map(|m| m.id.clone()).collect();
+    for ext in &mut extractions {
+        if ext.source_episode_ids.is_empty() {
+            ext.source_episode_ids = default_sources.clone();
+        }
+    }
 
     // LLM output is untrusted input: extract_scenes normalizes names and
     // revalidates every boundary before writing.
@@ -448,6 +495,7 @@ mod tests {
             summary: "s".into(),
             content: content.into(),
             merge_sources: vec![],
+            source_episode_ids: vec![],
         }
     }
 

@@ -35,6 +35,7 @@ fn extraction(scene_name: &str, content: &str, merge_sources: &[&str]) -> SceneE
         summary: "summary".into(),
         content: content.into(),
         merge_sources: merge_sources.iter().map(|s| s.to_string()).collect(),
+        source_episode_ids: vec![],
     }
 }
 

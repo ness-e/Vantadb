@@ -123,6 +123,12 @@ pub struct PersonaRecord {
     pub generated_at_ms: u64,
     /// Generation time (RFC3339, fixed-width — lexicographic == chrono).
     pub generated_at: String,
+    /// Deterministic provenance: L1 source episode IDs (TEC-15).
+    #[serde(default)]
+    pub source_episode_ids: Vec<String>,
+    /// Deterministic provenance: L2 source scene names (TEC-15).
+    #[serde(default)]
+    pub source_scene_names: Vec<String>,
 }
 
 /// Errors surfaced by the persona layer.
@@ -348,11 +354,30 @@ fn generate_persona_inner<R: LlmRunner>(
         format!("{body}\n\n{nav}")
     };
 
+    let mut source_episode_ids: Vec<String> = Vec::new();
+    let mut source_scene_names: Vec<String> = Vec::new();
+    for entry in &entries {
+        source_scene_names.push(entry.filename.clone());
+        if let Ok(Some(block)) = get_scene(db, params.session_key, &entry.filename) {
+            for ep_id in block.source_episode_ids {
+                if !source_episode_ids.contains(&ep_id) {
+                    source_episode_ids.push(ep_id);
+                }
+            }
+        }
+    }
+    source_episode_ids.sort();
+    source_episode_ids.dedup();
+    source_scene_names.sort();
+    source_scene_names.dedup();
+
     let record = PersonaRecord {
         content,
         mode,
         generated_at_ms: now,
         generated_at: epoch_ms_to_rfc3339(now),
+        source_episode_ids,
+        source_scene_names,
     };
     if let Err(err) = write_persona(db, params.session_key, &record) {
         return fail(format!("failed to persist persona: {err}"));
@@ -379,28 +404,50 @@ fn write_persona(
     let ns = persona_namespace(session_key);
     let key = crate::core::conversation::sanitize_key(PERSONA_KEY);
     let payload = serde_json::to_string(record)?;
+    let mut meta = MemoryMetadata::new();
+    meta.insert("ai_generated".into(), vantadb::sdk::Value::Bool(true));
+    meta.insert(
+        "synthesizer_model".into(),
+        vantadb::sdk::Value::String("persona_generator".into()),
+    );
+    meta.insert("confidence_score".into(), vantadb::sdk::Value::Float(1.0));
+    use sha2::Digest;
+    let hash = format!("{:x}", sha2::Sha256::digest(record.content.as_bytes()));
+    meta.insert("prompt_hash".into(), vantadb::sdk::Value::String(hash));
+    if !record.source_episode_ids.is_empty() {
+        meta.insert(
+            "source_episode_ids".into(),
+            vantadb::sdk::Value::ListString(record.source_episode_ids.clone()),
+        );
+        meta.insert(
+            "derived_from".into(),
+            vantadb::sdk::Value::ListString(record.source_episode_ids.clone()),
+        );
+    }
     db.put(MemoryInput {
         namespace: ns,
-        key,
+        key: key.clone(),
         payload,
-        metadata: {
-            let mut meta = MemoryMetadata::new();
-            meta.insert("ai_generated".into(), vantadb::sdk::Value::Bool(true));
-            meta.insert(
-                "synthesizer_model".into(),
-                vantadb::sdk::Value::String("persona_generator".into()),
-            );
-            meta.insert("confidence_score".into(), vantadb::sdk::Value::Float(1.0));
-            use sha2::Digest;
-            let hash = format!("{:x}", sha2::Sha256::digest(record.content.as_bytes()));
-            meta.insert("prompt_hash".into(), vantadb::sdk::Value::String(hash));
-            meta
-        },
+        metadata: meta,
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
         ..Default::default()
     })?;
+
+    // Lineage: register graph edges derived_from (TEC-15)
+    let persona_node_id =
+        crate::core::ontology::entity_node_id(&format!("persona:{session_key}:{key}"));
+    for ep_id in &record.source_episode_ids {
+        let ep_node_id =
+            crate::core::ontology::entity_node_id(&format!("episode:{session_key}:{ep_id}"));
+        let _ = db.add_edge(persona_node_id, ep_node_id, "derived_from", None, None);
+    }
+    for scene_name in &record.source_scene_names {
+        let scene_node_id =
+            crate::core::ontology::entity_node_id(&format!("scene:{session_key}:{scene_name}"));
+        let _ = db.add_edge(persona_node_id, scene_node_id, "derived_from", None, None);
+    }
     Ok(())
 }
 

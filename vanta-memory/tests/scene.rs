@@ -38,6 +38,7 @@ fn scene_block_serde_roundtrip() {
             updated: "2024-08-01T22:10:00.000Z".into(),
             summary: SUMMARY.into(),
             heat: 1,
+            source_episode_ids: vec![],
         },
         CONTENT,
     );

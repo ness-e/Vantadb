@@ -37,17 +37,29 @@ pub struct SceneBlock {
     /// before MEM-14 parse as live (backward compatible).
     #[serde(default)]
     pub deleted: bool,
+    /// Deterministic provenance: L1 source episode IDs (TEC-15).
+    #[serde(default)]
+    pub source_episode_ids: Vec<String>,
 }
 
 impl SceneBlock {
     /// Build a new scene block (live: `deleted = false`).
     pub fn new(scene_name: impl Into<String>, meta: SceneMeta, content: impl Into<String>) -> Self {
+        let source_episode_ids = meta.source_episode_ids.clone();
         Self {
             scene_name: scene_name.into(),
             meta,
             content: content.into(),
             deleted: false,
+            source_episode_ids,
         }
+    }
+
+    /// Builder override for source episode IDs.
+    pub fn with_source_episode_ids(mut self, ids: Vec<String>) -> Self {
+        self.source_episode_ids = ids.clone();
+        self.meta.source_episode_ids = ids;
+        self
     }
 
     /// Whether the block was soft-deleted (hidden from navigation, still
@@ -82,6 +94,7 @@ mod tests {
             updated: "2024-08-01T22:12:00.000Z".into(),
             summary: "user researched VantaDB pricing".into(),
             heat: 2,
+            source_episode_ids: Vec::new(),
         }
     }
 

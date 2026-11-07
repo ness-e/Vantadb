@@ -31,7 +31,7 @@ pub use scene_extractor::{
 pub use scene_format::SceneBlock;
 pub use scene_index::{
     current_scene, get_scene, list_scenes, scene_namespace, soft_delete_scene, upsert_scene,
-    write_scene_block, SceneError,
+    upsert_scene_with_sources, write_scene_block, SceneError,
 };
 pub use scene_navigation::{
     generate_scene_navigation, heat_emoji, strip_scene_navigation, NAV_HEADER,

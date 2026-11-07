@@ -77,6 +77,9 @@ pub struct ScopedPersonaRecord {
     /// stripped body; recall re-attaches fresh navigation per turn).
     pub content: String,
     pub synced_at_ms: u64,
+    /// Deterministic provenance: L1 source episode IDs (TEC-15).
+    #[serde(default)]
+    pub source_episode_ids: Vec<String>,
 }
 
 /// Errors surfaced by the profile-sync layer.
@@ -145,12 +148,24 @@ pub fn sync_persona_to_scope(
     let record = ScopedPersonaRecord {
         content: body,
         synced_at_ms: now_ms(),
+        source_episode_ids: persona.source_episode_ids.clone(),
     };
+    let mut meta = MemoryMetadata::new();
+    if !persona.source_episode_ids.is_empty() {
+        meta.insert(
+            "source_episode_ids".into(),
+            vantadb::sdk::Value::ListString(persona.source_episode_ids.clone()),
+        );
+        meta.insert(
+            "derived_from".into(),
+            vantadb::sdk::Value::ListString(persona.source_episode_ids.clone()),
+        );
+    }
     db.put(MemoryInput {
         namespace: ns,
         key,
         payload: serde_json::to_string(&record)?,
-        metadata: MemoryMetadata::new(),
+        metadata: meta,
         vector: None,
         sparse_vector: None,
         ttl_ms: None,

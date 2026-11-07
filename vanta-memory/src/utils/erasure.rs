@@ -103,6 +103,9 @@ pub struct ErasureReceipt {
     pub out_of_scope: Vec<String>,
     /// Receipt self-integrity (sha256 over the canonical body).
     pub integrity: CertificateIntegrity,
+    /// Cascaded record IDs (L2 scenes, L3 axioms/personas) purged in cascade (TEC-15 / GDPR).
+    #[serde(default)]
+    pub cascaded_ids: Vec<String>,
 }
 
 /// Register a fresh random DEK for `scope`.
@@ -220,7 +223,20 @@ pub fn erase_scope(
             algorithm: "sha256".into(),
             sha256: String::new(),
         },
+        cascaded_ids: Vec::new(),
     };
+    finalize(receipt)
+}
+
+/// Emit an erasure receipt for a scope including cascaded L2/L3 memory nodes (TEC-15).
+pub fn emit_cascade_erasure_receipt(
+    db: &Embedded,
+    scope: &str,
+    reason: &str,
+    cascaded_ids: Vec<String>,
+) -> Result<ErasureReceipt, ErasureError> {
+    let mut receipt = erase_scope(db, scope, reason)?;
+    receipt.cascaded_ids = cascaded_ids;
     finalize(receipt)
 }
 

@@ -242,6 +242,9 @@ pub struct SceneMeta {
     pub summary: String,
     /// Heat score (CREATE=1, UPDATE=old+1, MERGE=sum+1).
     pub heat: u32,
+    /// Deterministic provenance: L1 source episode IDs (TEC-15).
+    #[serde(default)]
+    pub source_episode_ids: Vec<String>,
 }
 
 /// One entry of the scene index (`scene_index.json` equivalent).

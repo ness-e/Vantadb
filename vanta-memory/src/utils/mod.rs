@@ -26,8 +26,9 @@ pub use backup::{
 pub use checkpoint::{Checkpoint, CheckpointError, CheckpointManager, RunnerSessionState};
 #[cfg(feature = "erasure")]
 pub use erasure::{
-    create_scope, erase_scope, open, seal, verify_erasure_receipt, ErasureError, ErasureReceipt,
-    ErasureVerification, ERASURE_DEK_NAMESPACE, ERASURE_RECEIPT_SCHEMA_VERSION,
+    create_scope, emit_cascade_erasure_receipt, erase_scope, open, seal, verify_erasure_receipt,
+    ErasureError, ErasureReceipt, ErasureVerification, ERASURE_DEK_NAMESPACE,
+    ERASURE_RECEIPT_SCHEMA_VERSION,
 };
 pub use local_backend::{BackendSnapshot, LocalStateBackend, PipelineSessionStatePatch};
 pub use managed_timer::{Clock, FakeClock, ManagedTimer, SystemClock};

@@ -81,6 +81,7 @@ pub fn extract_local(turns: &[LocalTurn]) -> Vec<SceneExtraction> {
                 summary,
                 content,
                 merge_sources: Vec::new(),
+                source_episode_ids: Vec::new(),
             })
         })
         .collect()

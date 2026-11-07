@@ -230,6 +230,7 @@ fn task_memory(content: &str) -> vanta_memory::context_engine::TaskMemory {
             updated: "2026-08-21T10:05:00.000Z".into(),
             summary: "task".into(),
             heat: 1,
+            source_episode_ids: vec![],
         },
         content: content.into(),
     }

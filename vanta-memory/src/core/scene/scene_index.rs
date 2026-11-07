@@ -52,23 +52,50 @@ pub fn upsert_scene(
     summary: &str,
     content: &str,
 ) -> Result<SceneBlock, SceneError> {
+    upsert_scene_with_sources(db, session_key, scene_name, summary, content, Vec::new())
+}
+
+/// Create or update the scene block with explicit L1 provenance source episode IDs (TEC-15).
+pub fn upsert_scene_with_sources(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    scene_name: &str,
+    summary: &str,
+    content: &str,
+    mut source_episode_ids: Vec<String>,
+) -> Result<SceneBlock, SceneError> {
     let now = epoch_ms_to_rfc3339(now_ms());
     let existing = get_scene(db, session_key, scene_name)?;
-    let meta = match existing {
-        Some(block) => SceneMeta {
-            created: block.meta.created,
-            updated: now.clone(),
-            summary: summary.to_string(),
-            heat: block.meta.heat + 1,
-        },
-        None => SceneMeta {
-            created: now.clone(),
-            updated: now,
-            summary: summary.to_string(),
-            heat: 1,
-        },
+    let (created, heat, existing_sources) = match existing {
+        Some(block) => (
+            block.meta.created,
+            block.meta.heat + 1,
+            block.source_episode_ids,
+        ),
+        None => (now.clone(), 1, Vec::new()),
     };
-    let block = SceneBlock::new(scene_name, meta, content);
+    for id in existing_sources {
+        if !source_episode_ids.contains(&id) {
+            source_episode_ids.push(id);
+        }
+    }
+    source_episode_ids.sort();
+    source_episode_ids.dedup();
+
+    let meta = SceneMeta {
+        created,
+        updated: now,
+        summary: summary.to_string(),
+        heat,
+        source_episode_ids: source_episode_ids.clone(),
+    };
+    let block = SceneBlock {
+        scene_name: scene_name.to_string(),
+        meta,
+        content: content.to_string(),
+        deleted: false,
+        source_episode_ids,
+    };
     write_scene_block(db, session_key, &block)?;
     Ok(block)
 }
@@ -168,28 +195,45 @@ pub fn write_scene_block(
     let ns = scene_namespace(session_key);
     let key = sanitize_key(&block.scene_name);
     let payload = serde_json::to_string(block)?;
+    let mut meta = MemoryMetadata::new();
+    meta.insert("ai_generated".into(), vantadb::sdk::Value::Bool(true));
+    meta.insert(
+        "synthesizer_model".into(),
+        vantadb::sdk::Value::String("scene_extractor".into()),
+    );
+    meta.insert("confidence_score".into(), vantadb::sdk::Value::Float(1.0));
+    use sha2::Digest;
+    let hash = format!("{:x}", sha2::Sha256::digest(block.content.as_bytes()));
+    meta.insert("prompt_hash".into(), vantadb::sdk::Value::String(hash));
+    if !block.source_episode_ids.is_empty() {
+        meta.insert(
+            "source_episode_ids".into(),
+            vantadb::sdk::Value::ListString(block.source_episode_ids.clone()),
+        );
+        meta.insert(
+            "derived_from".into(),
+            vantadb::sdk::Value::ListString(block.source_episode_ids.clone()),
+        );
+    }
     db.put(MemoryInput {
         namespace: ns,
-        key,
+        key: key.clone(),
         payload,
-        metadata: {
-            let mut meta = MemoryMetadata::new();
-            meta.insert("ai_generated".into(), vantadb::sdk::Value::Bool(true));
-            meta.insert(
-                "synthesizer_model".into(),
-                vantadb::sdk::Value::String("scene_extractor".into()),
-            );
-            meta.insert("confidence_score".into(), vantadb::sdk::Value::Float(1.0));
-            use sha2::Digest;
-            let hash = format!("{:x}", sha2::Sha256::digest(block.content.as_bytes()));
-            meta.insert("prompt_hash".into(), vantadb::sdk::Value::String(hash));
-            meta
-        },
+        metadata: meta,
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
         ..Default::default()
     })?;
+
+    // Lineage: register graph edges derived_from (TEC-15)
+    let scene_node_id =
+        crate::core::ontology::entity_node_id(&format!("scene:{session_key}:{key}"));
+    for ep_id in &block.source_episode_ids {
+        let ep_node_id =
+            crate::core::ontology::entity_node_id(&format!("episode:{session_key}:{ep_id}"));
+        let _ = db.add_edge(scene_node_id, ep_node_id, "derived_from", None, None);
+    }
     Ok(())
 }
 
@@ -275,6 +319,7 @@ mod tests {
                 updated: "2024-08-01T22:10:00.000Z".into(),
                 summary: "s".into(),
                 heat: 1,
+                source_episode_ids: vec![],
             },
             "",
         );

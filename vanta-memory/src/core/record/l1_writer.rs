@@ -527,6 +527,17 @@ fn record_input(
                 serde_json::Value::String(s) => {
                     metadata.insert(k.clone(), Value::String(s.clone()));
                 }
+                serde_json::Value::Array(arr) => {
+                    let mut strings = Vec::new();
+                    for item in arr {
+                        if let Some(s) = item.as_str() {
+                            strings.push(s.to_string());
+                        }
+                    }
+                    if !strings.is_empty() {
+                        metadata.insert(k.clone(), Value::ListString(strings));
+                    }
+                }
                 _ => {}
             }
         }
@@ -551,7 +562,7 @@ fn record_input(
     })
 }
 
-pub(crate) fn put_record(
+pub fn put_record(
     db: &Embedded,
     ns: &str,
     record: &MemoryRecord,
@@ -563,7 +574,36 @@ pub(crate) fn put_record(
     );
     // Returns the stored record carrying the core-assigned storage version —
     // the rollback lineage (MEMG-17) reads `version` off it.
-    Ok(db.put(record_input(ns, record, vector)?)?)
+    let stored = db.put(record_input(ns, record, vector)?)?;
+
+    // Graph edges for derived records/axioms (TEC-15)
+    let session_key = ns.strip_prefix("l1/").unwrap_or(ns);
+    let node_id =
+        crate::core::ontology::entity_node_id(&format!("record:{session_key}:{}", record.id));
+    let mut sources = Vec::new();
+    if let Some(arr) = record
+        .metadata
+        .get("source_episode_ids")
+        .and_then(|v| v.as_array())
+    {
+        for item in arr {
+            if let Some(s) = item.as_str() {
+                sources.push(s.to_string());
+            }
+        }
+    }
+    for src in &record.source_message_ids {
+        if !sources.contains(src) {
+            sources.push(src.clone());
+        }
+    }
+    for src_id in sources {
+        let parent_node_id =
+            crate::core::ontology::entity_node_id(&format!("episode:{session_key}:{src_id}"));
+        let _ = db.add_edge(node_id, parent_node_id, "derived_from", None, None);
+    }
+
+    Ok(stored)
 }
 
 /// Inverse of [`epoch_ms_to_rfc3339`]: the L1 record's `created_at` is the

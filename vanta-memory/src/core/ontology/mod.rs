@@ -140,6 +140,17 @@ pub fn apply_triplet(
     triplet: BitemporalTriplet,
     now_ms: u64,
 ) -> Result<(), String> {
+    apply_triplet_with_source(db, session_id, triplet, now_ms, None)
+}
+
+/// Apply a new triplet with explicit source episode ID for lineage tracking (TEC-15).
+pub fn apply_triplet_with_source(
+    db: &Embedded,
+    session_id: &str,
+    triplet: BitemporalTriplet,
+    now_ms: u64,
+    source_episode_id: Option<&str>,
+) -> Result<(), String> {
     let ns = triplets_namespace(session_id);
     let existing = read_session_triplets(db, session_id)?;
 
@@ -180,10 +191,22 @@ pub fn apply_triplet(
         now_ms
     );
     let payload = serde_json::to_string(&triplet).map_err(|e| e.to_string())?;
+    let mut metadata = BTreeMap::new();
+    if let Some(src) = source_episode_id {
+        metadata.insert(
+            "source_episode_ids".to_string(),
+            Value::ListString(vec![src.to_string()]),
+        );
+        metadata.insert(
+            "derived_from".to_string(),
+            Value::ListString(vec![src.to_string()]),
+        );
+    }
     db.put(MemoryInput {
         namespace: ns.clone(),
         key: new_key,
         payload,
+        metadata: metadata.into(),
         valid_at_ms: Some(triplet.valid_at_ms),
         ..Default::default()
     })
@@ -234,7 +257,7 @@ pub fn extract_and_apply_bitemporal_triplets(
     for rec in records {
         let extracted = extract_triplets_from_text(&rec.content, now_ms);
         for trip in extracted {
-            apply_triplet(db, session_id, trip, now_ms)?;
+            apply_triplet_with_source(db, session_id, trip, now_ms, Some(&rec.id))?;
             count += 1;
         }
     }

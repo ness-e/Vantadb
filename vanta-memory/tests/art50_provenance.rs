@@ -92,6 +92,7 @@ fn test_art50_provenance_l2_scene_blocks() {
             updated: "2026-11-04T00:00:00Z".into(),
             summary: "User introduction scene".into(),
             heat: 1,
+            source_episode_ids: vec![],
         },
         "User discussed rust compiler features",
     );

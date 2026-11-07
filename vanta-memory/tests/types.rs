@@ -84,6 +84,7 @@ fn scene_meta_roundtrip() {
         updated: "2026-08-20T10:00:00Z".into(),
         summary: "deploy runbook".into(),
         heat: 3,
+        source_episode_ids: vec![],
     };
     let json = serde_json::to_string(&meta).unwrap();
     assert!(json.contains("\"heat\":3"));

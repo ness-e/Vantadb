@@ -273,6 +273,8 @@ fn apply_persona(
         },
         generated_at_ms: now,
         generated_at: epoch_ms_to_rfc3339(now),
+        source_episode_ids: Vec::new(),
+        source_scene_names: Vec::new(),
     };
     let mut metadata = MemoryMetadata::new();
     metadata.insert("kind".into(), vantadb::sdk::Value::String("persona".into()));

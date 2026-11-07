@@ -47,8 +47,15 @@ pub mod l1_batch;
 /// MEM-68: optional capture-approval gate (default off, never-block).
 pub mod approval;
 
+/// TEC-15 (Q4-C): GDPR Art. 17 Right to Erasure cascade from L1 to L2/L3.
+pub mod cascade_forget;
+
 pub use approval::{
     should_gate, ApprovalError, CaptureApprovalConfig, CaptureApprovalQueue, PendingCapture,
+};
+pub use cascade_forget::{
+    forget, put_l3_axiom, CascadeForgetError, CascadeForgetExt, CascadeForgetReceipt,
+    CascadedItemDetail, IntoForgetTarget,
 };
 pub use l1_batch::{extract_dedup_batch, EXTRACT_DEDUP_TASK_ID};
 pub use l1_dedup::{
@@ -68,7 +75,7 @@ pub use scoring::{
 
 /// Canonical single-record L1 write (vector stripped, node vector separate).
 /// Shared with the dream promotion path (VER-07).
-pub(crate) use l1_writer::put_record;
+pub use l1_writer::put_record;
 
 #[cfg(feature = "embeddings")]
 pub use l1_writer::core_embedding_hook;

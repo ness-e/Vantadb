@@ -187,6 +187,7 @@ mod tests {
                 updated: "2026-08-21T10:05:00.000Z".into(),
                 summary: "test task".into(),
                 heat: 1,
+                source_episode_ids: vec![],
             },
             content: content.into(),
         }
