@@ -697,28 +697,62 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         let started = Instant::now();
-        // ponytail: vacuum scans L0 headers. Multi-level vacuum is handled
-        // by the compact_level path.
-        let vstore = self.vector_store[0].read();
         let hnsw = self.hnsw.load();
 
         let entries = hnsw.scan_entries();
-        let tombstone_ids: Vec<u128> = entries
-            .iter()
-            .filter_map(|(id, storage_offset, _)| {
-                let header = vstore.read_header(*storage_offset)?;
-                if (header.flags & FLAG_TOMBSTONE) != 0 {
-                    Some(*id)
-                } else {
-                    None
-                }
-            })
-            .collect();
-
         let scanned = entries.len() as u64;
+
+        let mut tombstone_ids: Vec<u128> = Vec::new();
+        for (id, storage_offset, flags) in &entries {
+            // 1. Check tombstone flag in HNSW node entry itself
+            if (flags & FLAG_TOMBSTONE) != 0 {
+                tombstone_ids.push(*id);
+                continue;
+            }
+
+            // 2. Check tombstone flag in backing segment header
+            let (seg_id, local_off) = crate::lsm::unpack_offset(*storage_offset);
+            if let Some(vs) = self.vector_store.get(seg_id as usize) {
+                let guard = vs.read();
+                if let Some(header) = guard.read_header(local_off) {
+                    if (header.flags & FLAG_TOMBSTONE) != 0 {
+                        tombstone_ids.push(*id);
+                        continue;
+                    }
+                }
+            }
+
+            // 3. Check if node was removed from backend or marked deleted by txn
+            let in_volatile = self.cache.volatile.read().contains_key(id);
+            if !in_volatile {
+                let key = id.to_le_bytes();
+                match self.backend.get(BackendPartition::Default, &key) {
+                    Ok(Some(raw)) => {
+                        if let Ok(meta) = crate::storage::ops::deserialize_node_payload::<
+                            NodeMetadata,
+                        >(&raw, "node metadata")
+                        {
+                            if meta.deleted_by_txn.is_some() {
+                                tombstone_ids.push(*id);
+                                continue;
+                            }
+                        }
+                    }
+                    Ok(None) => {
+                        // Node is missing from backend and not in volatile cache -> deleted
+                        tombstone_ids.push(*id);
+                        continue;
+                    }
+                    Err(_) => {}
+                }
+            }
+        }
+
         let removed_count = tombstone_ids.len() as u64;
 
         if removed_count == 0 {
+            // Repair any orphan neighbor links left behind by concurrent deletes
+            let _ = hnsw.repair_orphan_links();
             let elapsed_ms = started.elapsed().as_millis() as u64;
             tracing::info!(scanned, "vacuum: no tombstones found");
             return Ok(VacuumReport {
@@ -731,6 +765,7 @@ impl StorageEngine {
         }
 
         {
+            let _guard = self.acquire_insert_lock("acquire insert_lock in vacuum")?;
             for id in &tombstone_ids {
                 hnsw.remove_node(*id);
                 hnsw.decrement_total_nodes(1);
@@ -747,13 +782,14 @@ impl StorageEngine {
                     }
                 }
             }
+
+            // Repair orphan neighbor links in HNSW
+            let _fresh_report = hnsw.repair_orphan_links();
         }
 
         // ponytail: estimate reclaimed bytes — HnswNode overhead + vec + neighbor edges.
         // This is an upper bound; actual mmap pages won't be freed until compaction.
-        let reclaimed_bytes = tombstone_ids.len() as u64 * 512;
-
-        drop(vstore);
+        let reclaimed_bytes = removed_count * 512;
 
         let elapsed_ms = started.elapsed().as_millis() as u64;
         tracing::info!(

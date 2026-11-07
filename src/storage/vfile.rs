@@ -30,6 +30,26 @@ use crate::storage::engine::STORAGE_ALIGNMENT;
 use crate::storage::vfile_crypto::VFileCrypto;
 use crate::storage::vfile_crypto::VFileCryptoSlot;
 
+impl Error {
+    #[allow(dead_code)]
+    pub(crate) fn storage_corrupted(detail: impl Into<String>) -> Self {
+        #[cfg(feature = "encryption")]
+        {
+            Error::EncryptionCorrupt {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+                detail: detail.into(),
+            }
+        }
+        #[cfg(not(feature = "encryption"))]
+        {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                detail.into(),
+            ))
+        }
+    }
+}
+
 // Re-exports preserved from the pre-split single file: public paths
 // (`get_resident_bytes`), crate-internal paths (mmap types, sigbus handler,
 // aligned buffer) all keep resolving via `crate::storage::vfile::*`.
@@ -114,7 +134,7 @@ static DECRYPT_CACHE_MEMORY_LIMIT: std::sync::atomic::AtomicU64 =
 
 /// The minimum byte budget of the decrypted-node cache of one segment.
 #[cfg(feature = "encryption")]
-const MIN_DECRYPT_CACHE_BUDGET: u64 = 16 * 1024 * 1024;
+const MIN_DECRYPT_CACHE_BUDGET: u64 = 1024 * 1024;
 
 /// The maximum byte budget of the decrypted-node cache of one segment.
 #[cfg(feature = "encryption")]
@@ -132,13 +152,13 @@ const NOMINAL_NODE_BYTES: u64 = 4096;
 /// Called by the storage engine at open. Process-wide: the last open wins
 /// (the process already shares one key registry and one nonce space).
 #[cfg(feature = "encryption")]
-pub(crate) fn set_decrypt_cache_memory_limit(bytes: u64) {
+pub fn set_decrypt_cache_memory_limit(bytes: u64) {
     DECRYPT_CACHE_MEMORY_LIMIT.store(bytes, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// No-op without the `encryption` feature: there is no decrypted cache.
 #[cfg(not(feature = "encryption"))]
-pub(crate) fn set_decrypt_cache_memory_limit(_bytes: u64) {}
+pub fn set_decrypt_cache_memory_limit(_bytes: u64) {}
 
 /// The byte budget of the decrypted-node cache of **one** segment.
 ///
@@ -147,14 +167,22 @@ pub(crate) fn set_decrypt_cache_memory_limit(_bytes: u64) {}
 /// the cache is not the only consumer of the memory. The engine opens at
 /// most 4 segments (L0..L3), so the worst case is 4 × this budget.
 #[cfg(feature = "encryption")]
-fn decrypt_cache_budget() -> u64 {
+pub fn decrypt_cache_budget() -> u64 {
     let declared = DECRYPT_CACHE_MEMORY_LIMIT.load(std::sync::atomic::Ordering::Relaxed);
-    let limit = if declared == 0 {
-        crate::hardware::HardwareCapabilities::global().total_memory
+    if declared == 0 {
+        let limit = crate::hardware::HardwareCapabilities::global().total_memory;
+        (limit / 16).clamp(MIN_DECRYPT_CACHE_BUDGET, MAX_DECRYPT_CACHE_BUDGET)
     } else {
-        declared
-    };
-    (limit / 16).clamp(MIN_DECRYPT_CACHE_BUDGET, MAX_DECRYPT_CACHE_BUDGET)
+        let max_seg = (declared / 4).min(MAX_DECRYPT_CACHE_BUDGET);
+        let min_seg = MIN_DECRYPT_CACHE_BUDGET.min(max_seg);
+        (declared / 16).clamp(min_seg, max_seg)
+    }
+}
+
+/// No-op without the `encryption` feature: byte budget is 0.
+#[cfg(not(feature = "encryption"))]
+pub fn decrypt_cache_budget() -> u64 {
+    0
 }
 
 /// The bounded cache of decrypted nodes of an encrypted segment.
@@ -548,6 +576,16 @@ impl File {
         Self::open_with_mode_and_crypto(path, initial_size, read_only, crypto)
     }
 
+    #[cfg(feature = "encryption")]
+    /// Create or open an encrypted v3 File with the given 32-byte key material (for tests and audit).
+    pub fn open_encrypted(path: PathBuf, initial_size: u64, key: &[u8]) -> Result<Self> {
+        let dir = path.parent().unwrap_or_else(|| std::path::Path::new("."));
+        let crypto = Some(Arc::new(crate::storage::vfile_crypto::VFileCrypto::open(
+            dir, key,
+        )?));
+        Self::open_with_mode_and_crypto(path, initial_size, false, crypto)
+    }
+
     /// Create a File backed entirely by in-memory storage (no disk I/O).
     pub fn create_in_memory(initial_size: u64) -> Self {
         let size = initial_size.max(STORAGE_ALIGNMENT);
@@ -806,6 +844,12 @@ impl File {
 
     /// Write a `DiskNodeHeader` at the given aligned offset, replacing existing bytes.
     pub fn write_header(&mut self, offset: u64, header: &DiskNodeHeader) -> Result<()> {
+        #[cfg(feature = "encryption")]
+        if self.is_encrypted() {
+            return Err(Error::storage_corrupted(
+                "write_header cannot be called directly on an encrypted v3 segment; use re-sealing helpers",
+            ));
+        }
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
         if !offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Err(Error::Io(std::io::Error::new(
@@ -1202,7 +1246,10 @@ impl File {
         use crate::storage::vfile_crypto::{RECORD_PREFIX_LEN, TAG_LEN};
         let bytes = self.mmap_bytes();
         let start = offset as usize;
-        if start + RECORD_PREFIX_LEN > bytes.len() {
+        if start
+            .checked_add(RECORD_PREFIX_LEN)
+            .map_or(true, |p| p > bytes.len())
+        {
             return Err(Error::EncryptionCorrupt {
                 artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
                 detail: format!("node record at offset {offset} is truncated"),
@@ -1214,7 +1261,11 @@ impl File {
             bytes[start + 2],
             bytes[start + 3],
         ]) as usize;
-        if blob_len < TAG_LEN || start + RECORD_PREFIX_LEN + blob_len > bytes.len() {
+        let end = start
+            .checked_add(RECORD_PREFIX_LEN)
+            .and_then(|s| s.checked_add(blob_len))
+            .ok_or_else(|| Error::storage_corrupted("encrypted record offset+length overflow"))?;
+        if blob_len < TAG_LEN || end > bytes.len() {
             return Err(Error::EncryptionCorrupt {
                 artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
                 detail: format!(
@@ -1222,7 +1273,7 @@ impl File {
                 ),
             });
         }
-        Ok(&bytes[start..start + RECORD_PREFIX_LEN + blob_len])
+        Ok(&bytes[start..end])
     }
 }
 
@@ -1273,6 +1324,17 @@ impl crate::index_port::VectorStoreRef for File {
         offset: u64,
         header: &DiskNodeHeader,
     ) -> Option<std::borrow::Cow<'_, [f32]>> {
+        const _: () = assert!(
+            cfg!(target_endian = "little"),
+            "VantaDB vector layout requires little-endian architecture"
+        );
+        let kind = header.flags & crate::node::NodeFlags::VECTOR_KIND_MASK;
+        if kind
+            != (crate::node::NodeFlags::VECTOR_KIND_FULL
+                << crate::node::NodeFlags::VECTOR_KIND_SHIFT)
+        {
+            return None;
+        }
         if !self.is_encrypted() {
             return crate::index_port::full_vector_from_bytes(self.mmap_bytes(), header);
         }

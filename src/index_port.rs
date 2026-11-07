@@ -99,6 +99,16 @@ pub fn full_vector_from_bytes<'a>(
     bytes: &'a [u8],
     header: &DiskNodeHeader,
 ) -> Option<Cow<'a, [f32]>> {
+    const _: () = assert!(
+        cfg!(target_endian = "little"),
+        "VantaDB vector layout requires little-endian architecture"
+    );
+    let kind = header.flags & crate::node::NodeFlags::VECTOR_KIND_MASK;
+    if kind
+        != (crate::node::NodeFlags::VECTOR_KIND_FULL << crate::node::NodeFlags::VECTOR_KIND_SHIFT)
+    {
+        return None;
+    }
     let start = header.vector_offset as usize;
     let end = start.checked_add((header.vector_len as usize).checked_mul(4)?)?;
     let slice = bytes.get(start..end)?;
