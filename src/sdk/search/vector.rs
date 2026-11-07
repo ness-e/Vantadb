@@ -7,6 +7,56 @@ use crate::cost_estimator::{CostEstimator, FilterStrategy};
 use crate::error::Result;
 use crate::index::cosine_sim_f32;
 use crate::node::UnifiedNode;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static TOTAL_VECTOR_SEARCHES: AtomicU64 = AtomicU64::new(0);
+static BRUTE_FALLBACK_SEARCHES: AtomicU64 = AtomicU64::new(0);
+static LAST_WARNED_TOTAL: AtomicU64 = AtomicU64::new(0);
+
+/// Diagnostic function returning `(total_searches, brute_fallbacks, brute_fallback_ratio)` (TEC-04).
+#[allow(dead_code)]
+pub fn vector_search_fallback_stats() -> (u64, u64, f64) {
+    let total = TOTAL_VECTOR_SEARCHES.load(Ordering::Relaxed);
+    let fallbacks = BRUTE_FALLBACK_SEARCHES.load(Ordering::Relaxed);
+    let ratio = if total > 0 {
+        fallbacks as f64 / total as f64
+    } else {
+        0.0
+    };
+    (total, fallbacks, ratio)
+}
+
+/// Reset fallback statistics (useful for tests) (TEC-04).
+#[allow(dead_code)]
+pub fn reset_vector_search_fallback_stats() {
+    TOTAL_VECTOR_SEARCHES.store(0, Ordering::Relaxed);
+    BRUTE_FALLBACK_SEARCHES.store(0, Ordering::Relaxed);
+    LAST_WARNED_TOTAL.store(0, Ordering::Relaxed);
+}
+
+/// Checks if fallback ratio > 5% after minimum 20 queries and logs a warning with rate limiting (TEC-04).
+fn check_fallback_warning() {
+    let total = TOTAL_VECTOR_SEARCHES.load(Ordering::Relaxed);
+    let fallbacks = BRUTE_FALLBACK_SEARCHES.load(Ordering::Relaxed);
+    if total >= 20 {
+        let ratio = fallbacks as f64 / total as f64;
+        if ratio > 0.05 {
+            let last = LAST_WARNED_TOTAL.load(Ordering::Relaxed);
+            if total.saturating_sub(last) >= 20 {
+                LAST_WARNED_TOTAL.store(total, Ordering::Relaxed);
+                tracing::warn!(
+                    total,
+                    fallbacks,
+                    ratio,
+                    "High brute-force fallback ratio in vector search: {:.2}% ({}/{} searches) exceeds 5% threshold; consider tuning HNSW ef_search or filters (TEC-04)",
+                    ratio * 100.0,
+                    fallbacks,
+                    total
+                );
+            }
+        }
+    }
+}
 
 impl Embedded {
     /// Exact distance scan over a pre-filtered set of records (TEC-11 / Q11).
@@ -88,6 +138,8 @@ impl Embedded {
         if query_vector.is_empty() || top_k == 0 {
             return Ok(Vec::new());
         }
+
+        TOTAL_VECTOR_SEARCHES.fetch_add(1, Ordering::Relaxed);
 
         let engine = self.engine_handle()?;
 
@@ -235,16 +287,19 @@ impl Embedded {
         // ensure high recall by scanning the namespace directly.
         // Fall through to records_for_namespace + brute-force vector scan to guarantee recall.
         if hits.is_empty() && strategy != FilterStrategy::PreFilter && !query_vector.is_empty() {
+            BRUTE_FALLBACK_SEARCHES.fetch_add(1, Ordering::Relaxed);
             if !filters.is_empty() {
                 crate::metrics::record_brute_fallback_query();
             }
             crate::index::auto_tune::AutoTune::report_brute_fallback();
+            check_fallback_warning();
             let records = match matching_records {
                 Some(r) => r,
                 None => self.records_for_namespace(namespace, filters)?,
             };
             hits = self.exact_scan(records, query_vector, top_k, distance_metric)?;
         } else if !hits.is_empty() {
+            check_fallback_warning();
             crate::index::auto_tune::AutoTune::report_success();
         }
 
@@ -355,5 +410,41 @@ mod tests {
         assert_eq!(hits[0].record.key, "target_1");
         assert_eq!(hits[1].record.key, "target_2");
         assert!(hits[0].score > hits[1].score);
+    }
+
+    #[test]
+    fn test_vector_search_fallback_telemetry() {
+        reset_vector_search_fallback_stats();
+
+        let (total, fallbacks, ratio) = vector_search_fallback_stats();
+        assert_eq!(total, 0);
+        assert_eq!(fallbacks, 0);
+        assert_eq!(ratio, 0.0);
+
+        // Simulate recording 25 searches, with 2 falling back to brute-force
+        // (ratio = 2 / 25 = 0.08 = 8% > 5%)
+        for _ in 0..23 {
+            TOTAL_VECTOR_SEARCHES.fetch_add(1, Ordering::Relaxed);
+        }
+        for _ in 0..2 {
+            TOTAL_VECTOR_SEARCHES.fetch_add(1, Ordering::Relaxed);
+            BRUTE_FALLBACK_SEARCHES.fetch_add(1, Ordering::Relaxed);
+        }
+
+        let (total, fallbacks, ratio) = vector_search_fallback_stats();
+        assert_eq!(total, 25);
+        assert_eq!(fallbacks, 2);
+        assert!((ratio - 0.08).abs() < 1e-6);
+
+        // Calling check_fallback_warning() executes rate-limited warning without panic
+        check_fallback_warning();
+        assert_eq!(LAST_WARNED_TOTAL.load(Ordering::Relaxed), 25);
+
+        // Reset cleans it up
+        reset_vector_search_fallback_stats();
+        let (total_after, fallbacks_after, ratio_after) = vector_search_fallback_stats();
+        assert_eq!(total_after, 0);
+        assert_eq!(fallbacks_after, 0);
+        assert_eq!(ratio_after, 0.0);
     }
 }

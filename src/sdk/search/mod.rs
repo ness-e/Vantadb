@@ -23,6 +23,13 @@ pub(crate) mod page;
 pub(crate) mod sparse;
 pub(crate) mod vector;
 
+#[allow(unused_imports)]
+pub use mmr::{
+    mmr_score, pair_similarity, rerank as mmr_rerank, rerank_with_lambda as mmr_rerank_with_lambda,
+};
+#[allow(unused_imports)]
+pub use vector::{reset_vector_search_fallback_stats, vector_search_fallback_stats};
+
 impl Embedded {
     /// Hybrid search across memory records combining text (BM25) and vector (HNSW) retrieval.
     /// Route selection (text-only, vector-only, hybrid) is automatic based on the request payload.

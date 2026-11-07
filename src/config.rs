@@ -146,7 +146,7 @@ impl PrefetchMode {
 /// `batch_append` per shard (≤1 fsync per shard), one HNSW bulk insert —
 /// instead of one of each per record.
 ///
-/// Default (`enabled = false`) = current behavior, byte-identical.
+/// Default (`enabled = true`) = group-commit batching enabled by default.
 ///
 /// Declared latency window (Hyrum surface): with `enabled = true` a task's
 /// acknowledgement is delayed by up to `max_wait_ms` plus the batch commit
@@ -756,6 +756,10 @@ pub struct Config {
     /// text-index counter (FIND-304). Best-effort under concurrency — the
     /// isolation barrier is namespace-scoped RBAC, this is a resource control.
     pub max_records_per_namespace: Option<u64>,
+    /// Hard limit on records per namespace (TEC-14b). None = unlimited.
+    pub max_namespace_records: Option<usize>,
+    /// Hard limit on storage bytes per namespace (TEC-14b). None = unlimited.
+    pub max_namespace_bytes: Option<u64>,
     /// If true, the engine operates in read-only mode.
     pub read_only: bool,
     /// If true, force mmap-based vector storage.
@@ -1227,6 +1231,16 @@ impl Default for Config {
                 debug!(val = v, "VANTADB_MAX_RECORDS_PER_NAMESPACE");
                 (v > 0).then_some(v)
             },
+            max_namespace_records: {
+                let v = parse_env_or("VANTADB_MAX_NAMESPACE_RECORDS", 0usize);
+                debug!(val = v, "VANTADB_MAX_NAMESPACE_RECORDS");
+                (v > 0).then_some(v)
+            },
+            max_namespace_bytes: {
+                let v = parse_env_or("VANTADB_MAX_NAMESPACE_BYTES", 0u64);
+                debug!(val = v, "VANTADB_MAX_NAMESPACE_BYTES");
+                (v > 0).then_some(v)
+            },
             read_only: false,
             force_mmap: false,
             mmap_hnsw: true,
@@ -1669,6 +1683,18 @@ impl Config {
     /// Sets the per-namespace record quota (MEMG-04). `0` = unlimited.
     pub fn with_max_records_per_namespace(mut self, limit: u64) -> Self {
         self.max_records_per_namespace = (limit > 0).then_some(limit);
+        self
+    }
+
+    /// Sets the hard limit on records per namespace (TEC-14b). `0` = unlimited (`None`).
+    pub fn with_max_namespace_records(mut self, limit: usize) -> Self {
+        self.max_namespace_records = (limit > 0).then_some(limit);
+        self
+    }
+
+    /// Sets the hard limit on storage bytes per namespace (TEC-14b). `0` = unlimited (`None`).
+    pub fn with_max_namespace_bytes(mut self, limit: u64) -> Self {
+        self.max_namespace_bytes = (limit > 0).then_some(limit);
         self
     }
 
@@ -2138,6 +2164,21 @@ mod tests {
     use super::*;
 
     // ── LogFormat ──────────────────────────────────────────────
+
+    #[test]
+    fn test_config_namespace_quota_builders() {
+        let cfg = Config::in_memory()
+            .with_max_namespace_records(100)
+            .with_max_namespace_bytes(50_000);
+        assert_eq!(cfg.max_namespace_records, Some(100));
+        assert_eq!(cfg.max_namespace_bytes, Some(50_000));
+
+        let cfg_zero = cfg
+            .with_max_namespace_records(0)
+            .with_max_namespace_bytes(0);
+        assert_eq!(cfg_zero.max_namespace_records, None);
+        assert_eq!(cfg_zero.max_namespace_bytes, None);
+    }
 
     #[test]
     fn test_log_format_default() {

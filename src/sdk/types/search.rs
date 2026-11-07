@@ -15,6 +15,18 @@ pub use super::super::serialization::vector_types::{
 pub use super::super::search::fusion::{
     EntityBoost, EntityBoostProvenance, EntityBoostReport, EntityBoostedSearch,
 };
+
+impl MemorySearchRequest {
+    /// Sets MMR diversity reranking with the specified lambda trade-off in `[0.0, 1.0]` (TEC-16).
+    /// 1.0 = pure relevance, 0.0 = pure diversity.
+    pub fn with_mmr_lambda(mut self, lambda: f32) -> Self {
+        let clamped = lambda.clamp(0.0, 1.0);
+        let mut cfg = self.mmr.unwrap_or_default();
+        cfg.lambda = clamped;
+        self.mmr = Some(cfg);
+        self
+    }
+}
 /// Stable report returned by manual ANN rebuild through the SDK boundary.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IndexRebuildReport {
@@ -548,5 +560,26 @@ mod tests {
         assert_eq!(r.missing_entries, 20);
         assert_eq!(r.position_errors, 2);
         assert_eq!(r.status, "repair_recommended");
+    }
+
+    #[test]
+    fn test_memory_search_request_with_mmr_lambda() {
+        let req = MemorySearchRequest {
+            namespace: "test".into(),
+            top_k: 10,
+            ..Default::default()
+        }
+        .with_mmr_lambda(0.7);
+
+        assert!(req.mmr.is_some());
+        assert_eq!(req.mmr.unwrap().lambda, 0.7);
+
+        // Clamping to [0.0, 1.0]
+        let req_clamped = MemorySearchRequest {
+            namespace: "test".into(),
+            ..Default::default()
+        }
+        .with_mmr_lambda(1.5);
+        assert_eq!(req_clamped.mmr.unwrap().lambda, 1.0);
     }
 }

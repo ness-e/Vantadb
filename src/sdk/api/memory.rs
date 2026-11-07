@@ -656,61 +656,206 @@ impl Embedded {
     /// The quota is a resource control (best-effort under concurrent
     /// writers), not the multi-tenant security barrier — namespace isolation
     /// is enforced by the server RBAC.
-    fn check_namespace_quota(
+    /// Helper to estimate storage bytes of a record (TEC-14b).
+    fn estimate_record_bytes_parts(
+        key: &str,
+        payload: &str,
+        vector: Option<&[f32]>,
+        metadata: &MemoryMetadata,
+    ) -> u64 {
+        let mut record_bytes = payload.len() as u64 + key.len() as u64 + 64;
+        if let Some(v) = vector {
+            record_bytes += std::mem::size_of_val(v) as u64;
+        }
+        for (k, v) in metadata.iter() {
+            record_bytes += (k.len() + v.estimated_bytes()) as u64;
+        }
+        record_bytes
+    }
+
+    /// Calculate total estimated bytes stored in a namespace (TEC-14b).
+    fn current_namespace_bytes(
+        &self,
+        _engine: &crate::storage::StorageEngine,
+        namespace: &str,
+    ) -> Result<u64> {
+        let records = self.records_for_namespace(namespace, &Default::default())?;
+        let mut total = 0u64;
+        for r in &records {
+            total = total.saturating_add(Self::estimate_record_bytes_parts(
+                &r.key,
+                &r.payload,
+                r.vector.as_deref(),
+                &r.metadata,
+            ));
+        }
+        Ok(total)
+    }
+
+    /// Enforces namespace quota (record count and byte budget) on a single record write (TEC-14b).
+    fn check_namespace_write_quota(
         &self,
         engine: &crate::storage::StorageEngine,
         namespace: &str,
+        key: &str,
+        payload: &str,
+        vector: Option<&[f32]>,
+        metadata: &MemoryMetadata,
+        existing: Option<&MemoryRecord>,
     ) -> Result<()> {
-        let Some(limit) = self.config.max_records_per_namespace else {
-            return Ok(());
-        };
-        let current = Self::load_text_namespace_stats(engine, namespace)?
-            .map(|stats| stats.doc_count)
-            .unwrap_or(0);
-        if current >= limit {
-            return Err(Error::ResourceLimit(format!(
-                "namespace '{namespace}' is at its record quota ({current}/{limit}); \
-                 delete records or raise max_records_per_namespace"
-            )));
+        let is_fresh = existing.is_none();
+
+        // 1. Legacy max_records_per_namespace (ResourceLimit)
+        if is_fresh {
+            if let Some(limit) = self.config.max_records_per_namespace {
+                let current = Self::load_text_namespace_stats(engine, namespace)?
+                    .map(|stats| stats.doc_count)
+                    .unwrap_or(0);
+                if current >= limit {
+                    return Err(Error::ResourceLimit(format!(
+                        "namespace '{namespace}' is at its record quota ({current}/{limit}); \
+                         delete records or raise max_records_per_namespace"
+                    )));
+                }
+            }
         }
+
+        // 2. Hard max_namespace_records (TEC-14b, QuotaExceeded)
+        if is_fresh {
+            if let Some(limit) = self.config.max_namespace_records {
+                let current = Self::load_text_namespace_stats(engine, namespace)?
+                    .map(|stats| stats.doc_count as usize)
+                    .unwrap_or(0);
+                if current.saturating_add(1) > limit {
+                    return Err(Error::quota_exceeded(format!(
+                        "namespace '{namespace}' record quota exceeded: current {current} + 1 exceeds limit {limit}"
+                    )));
+                }
+            }
+        }
+
+        // 3. Hard max_namespace_bytes (TEC-14b, QuotaExceeded)
+        if let Some(limit) = self.config.max_namespace_bytes {
+            let new_bytes = Self::estimate_record_bytes_parts(key, payload, vector, metadata);
+            let old_bytes = existing
+                .map(|r| {
+                    Self::estimate_record_bytes_parts(
+                        &r.key,
+                        &r.payload,
+                        r.vector.as_deref(),
+                        &r.metadata,
+                    )
+                })
+                .unwrap_or(0);
+            let delta = (new_bytes as i64) - (old_bytes as i64);
+            if delta > 0 {
+                let current = self.current_namespace_bytes(engine, namespace)?;
+                if current.saturating_add(delta as u64) > limit {
+                    return Err(Error::quota_exceeded(format!(
+                        "namespace '{namespace}' storage quota exceeded: current {current} bytes + delta {delta} bytes exceeds limit {limit} bytes"
+                    )));
+                }
+            }
+        }
+
         Ok(())
     }
 
-    /// MEMG-04: batch variant — sums the **fresh** keys per namespace up front
-    /// so an over-quota batch is rejected before any chunk is written
-    /// (all-or-nothing: no partial application).
+    /// MEMG-04 / TEC-14b: batch variant — checks records and bytes limits before writing.
     fn check_batch_namespace_quota(
         &self,
         engine: &crate::storage::StorageEngine,
         inputs: &[MemoryInput],
     ) -> Result<()> {
-        let Some(limit) = self.config.max_records_per_namespace else {
+        let has_legacy = self.config.max_records_per_namespace.is_some();
+        let has_records = self.config.max_namespace_records.is_some();
+        let has_bytes = self.config.max_namespace_bytes.is_some();
+        if !has_legacy && !has_records && !has_bytes {
             return Ok(());
-        };
+        }
+
         let mut seen: HashSet<u128> = HashSet::with_capacity(inputs.len());
-        let mut fresh_per_ns: HashMap<&str, u64> = HashMap::new();
+        let mut fresh_per_ns: HashMap<&str, usize> = HashMap::new();
+        let mut byte_delta_per_ns: HashMap<&str, i64> = HashMap::new();
+
         for input in inputs {
             let node_id = memory_node_id(&input.namespace, &input.key);
             if !seen.insert(node_id) {
-                continue; // in-batch duplicate: counts once
+                continue; // duplicate within batch
             }
-            // A present-but-expired node is purged on write (net zero), so
-            // only truly absent nodes add to the count.
-            if engine.get(node_id)?.is_none() {
+            let existing_node = engine.get(node_id)?;
+            let existing_record = existing_node.as_ref().and_then(record_from_node);
+            if existing_record.is_none() {
                 *fresh_per_ns.entry(input.namespace.as_str()).or_default() += 1;
             }
-        }
-        for (namespace, fresh) in fresh_per_ns {
-            let current = Self::load_text_namespace_stats(engine, namespace)?
-                .map(|stats| stats.doc_count)
-                .unwrap_or(0);
-            if current.saturating_add(fresh) > limit {
-                return Err(Error::ResourceLimit(format!(
-                    "namespace '{namespace}' record quota exceeded: {current} existing + {fresh} new \
-                     > limit {limit}; delete records or raise max_records_per_namespace"
-                )));
+            if has_bytes {
+                let new_bytes = Self::estimate_record_bytes_parts(
+                    &input.key,
+                    &input.payload,
+                    input.vector.as_deref(),
+                    &input.metadata,
+                );
+                let old_bytes = existing_record
+                    .as_ref()
+                    .map(|r| {
+                        Self::estimate_record_bytes_parts(
+                            &r.key,
+                            &r.payload,
+                            r.vector.as_deref(),
+                            &r.metadata,
+                        )
+                    })
+                    .unwrap_or(0);
+                let delta = (new_bytes as i64) - (old_bytes as i64);
+                *byte_delta_per_ns
+                    .entry(input.namespace.as_str())
+                    .or_default() += delta;
             }
         }
+
+        // Check legacy records quota
+        if let Some(limit) = self.config.max_records_per_namespace {
+            for (&namespace, &fresh) in &fresh_per_ns {
+                let current = Self::load_text_namespace_stats(engine, namespace)?
+                    .map(|stats| stats.doc_count)
+                    .unwrap_or(0);
+                if current.saturating_add(fresh as u64) > limit {
+                    return Err(Error::ResourceLimit(format!(
+                        "namespace '{namespace}' record quota exceeded: {current} existing + {fresh} new \
+                         > limit {limit}; delete records or raise max_records_per_namespace"
+                    )));
+                }
+            }
+        }
+
+        // Check hard max_namespace_records (TEC-14b)
+        if let Some(limit) = self.config.max_namespace_records {
+            for (&namespace, &fresh) in &fresh_per_ns {
+                let current = Self::load_text_namespace_stats(engine, namespace)?
+                    .map(|stats| stats.doc_count as usize)
+                    .unwrap_or(0);
+                if current.saturating_add(fresh) > limit {
+                    return Err(Error::quota_exceeded(format!(
+                        "namespace '{namespace}' record quota exceeded: current {current} + {fresh} new exceeds limit {limit}"
+                    )));
+                }
+            }
+        }
+
+        // Check hard max_namespace_bytes (TEC-14b)
+        if let Some(limit) = self.config.max_namespace_bytes {
+            for (&namespace, &delta) in &byte_delta_per_ns {
+                if delta > 0 {
+                    let current = self.current_namespace_bytes(engine, namespace)?;
+                    if current.saturating_add(delta as u64) > limit {
+                        return Err(Error::quota_exceeded(format!(
+                            "namespace '{namespace}' storage quota exceeded: current {current} bytes + delta {delta} bytes exceeds limit {limit} bytes"
+                        )));
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -896,11 +1041,16 @@ impl Embedded {
             let expected = self.index_vector_dimension(&engine);
             validate_vector_dimension(expected, vector.len())?;
         }
-        // MEMG-04: quota applies to fresh inserts only — an update of an
-        // existing key never counts and is never blocked at the limit.
-        if existing.is_none() {
-            self.check_namespace_quota(&engine, &input.namespace)?;
-        }
+        // TEC-14b / MEMG-04: enforce namespace quotas (records and bytes limits)
+        self.check_namespace_write_quota(
+            &engine,
+            &input.namespace,
+            &input.key,
+            &input.payload,
+            input.vector.as_deref(),
+            &input.metadata,
+            existing.as_ref(),
+        )?;
 
         let timestamp = now_ms();
         let created_at_ms = existing
@@ -1077,6 +1227,7 @@ impl Embedded {
         // err outcome would otherwise be silent about *why*).
         let reason = match &res {
             Err(Error::ResourceLimit(msg)) => Some(format!("quota_rejected: {msg}")),
+            Err(Error::QuotaExceeded(msg)) => Some(format!("quota_rejected: {msg}")),
             _ => None,
         };
         self.audit(crate::audit::AuditEvent::new(
@@ -1158,6 +1309,7 @@ impl Embedded {
         // MEMG-04: same quota-reason surfacing as `put`.
         let reason = match &res {
             Err(Error::ResourceLimit(msg)) => Some(format!("quota_rejected: {msg}")),
+            Err(Error::QuotaExceeded(msg)) => Some(format!("quota_rejected: {msg}")),
             _ => None,
         };
         self.audit(crate::audit::AuditEvent::new(
@@ -1830,11 +1982,16 @@ impl Embedded {
             let expected = self.index_vector_dimension(&engine);
             validate_vector_dimension(expected, vector.len())?;
         }
-        // MEMG-04: fresh inserts respect the namespace quota on this raw
-        // transport too (import restores/imports records through here).
-        if previous.is_none() {
-            self.check_namespace_quota(&engine, &record.namespace)?;
-        }
+        // TEC-14b / MEMG-04: enforce namespace quotas (records and bytes limits)
+        self.check_namespace_write_quota(
+            &engine,
+            &record.namespace,
+            &record.key,
+            &record.payload,
+            record.vector.as_deref(),
+            &record.metadata,
+            previous.as_ref(),
+        )?;
 
         // F4 (SCH-05 review): sticky on the raw transport — an incoming record
         // that carries no quarantine state must not clear an existing one
@@ -2935,5 +3092,108 @@ impl Embedded {
         let resolved = self.resolve_export_path(std::path::Path::new(path))?;
         let mut file = std::fs::File::open(&resolved)?;
         self.bulk_import_stream(&mut file)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+    use crate::error::Error;
+
+    #[test]
+    fn test_max_namespace_records_enforced() {
+        let config = Config::in_memory().with_max_namespace_records(2);
+        let db = Embedded::open_with_config(config).expect("open db");
+
+        // First insert in ns1 succeeds
+        db.put(MemoryInput::new("ns1", "k1", "payload 1"))
+            .expect("put 1");
+        // Second insert in ns1 succeeds
+        db.put(MemoryInput::new("ns1", "k2", "payload 2"))
+            .expect("put 2");
+
+        // Third insert in ns1 with new key must fail with QuotaExceeded
+        let err = db
+            .put(MemoryInput::new("ns1", "k3", "payload 3"))
+            .expect_err("must exceed records quota");
+        match err {
+            Error::QuotaExceeded(msg) => {
+                assert!(msg.contains("record quota exceeded"));
+                assert!(msg.contains("ns1"));
+            }
+            other => panic!("expected QuotaExceeded, got {other:?}"),
+        }
+
+        // In-place update of existing key k1 in ns1 must succeed (record count doesn't increase)
+        db.put(MemoryInput::new("ns1", "k1", "payload 1 updated"))
+            .expect("in-place update should succeed");
+
+        // Insert into different namespace ns2 should succeed (per-namespace quota)
+        db.put(MemoryInput::new("ns2", "k1", "payload 1"))
+            .expect("ns2 put 1");
+    }
+
+    #[test]
+    fn test_max_namespace_bytes_enforced() {
+        // Set quota to 250 bytes.
+        let config = Config::in_memory().with_max_namespace_bytes(250);
+        let db = Embedded::open_with_config(config).expect("open db");
+
+        // First record (~75 bytes) -> total ~75 <= 250 -> OK
+        db.put(MemoryInput::new("tenant", "k1", "payload 1"))
+            .expect("put k1");
+
+        // Large record that exceeds 250 bytes limit:
+        let large_payload = "A".repeat(400);
+        let err = db
+            .put(MemoryInput::new("tenant", "k2", &large_payload))
+            .expect_err("must exceed bytes quota");
+        match err {
+            Error::QuotaExceeded(msg) => {
+                assert!(msg.contains("storage quota exceeded"));
+                assert!(msg.contains("tenant"));
+            }
+            other => panic!("expected QuotaExceeded, got {other:?}"),
+        }
+
+        // In-place update of k1 with shorter or equal payload must succeed (delta <= 0)
+        db.put(MemoryInput::new("tenant", "k1", "short"))
+            .expect("in-place smaller update must succeed");
+
+        // In-place update of k1 with huge payload exceeding budget must fail
+        let err2 = db
+            .put(MemoryInput::new("tenant", "k1", &large_payload))
+            .expect_err("in-place expansion exceeding budget must fail");
+        assert!(matches!(err2, Error::QuotaExceeded(_)));
+    }
+
+    #[test]
+    fn test_batch_namespace_quotas_enforced() {
+        let config = Config::in_memory()
+            .with_max_namespace_records(2)
+            .with_max_namespace_bytes(1000);
+        let db = Embedded::open_with_config(config).expect("open db");
+
+        // Batch of 3 new records exceeds records quota of 2
+        let batch = vec![
+            MemoryInput::new("batch_ns", "k1", "data 1"),
+            MemoryInput::new("batch_ns", "k2", "data 2"),
+            MemoryInput::new("batch_ns", "k3", "data 3"),
+        ];
+        let err = db
+            .put_batch(batch)
+            .expect_err("batch must exceed record quota");
+        assert!(matches!(err, Error::QuotaExceeded(_)));
+
+        // Batch of 2 new records within budget succeeds
+        let valid_batch = vec![
+            MemoryInput::new("batch_ns", "k1", "data 1"),
+            MemoryInput::new("batch_ns", "k2", "data 2"),
+        ];
+        let res = db
+            .put_batch(valid_batch)
+            .expect("batch within quota succeeds");
+        assert_eq!(res.len(), 2);
     }
 }

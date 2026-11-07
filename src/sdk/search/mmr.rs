@@ -31,21 +31,45 @@ pub fn resolve_fetch_k(top_k: usize, cfg: &MmrConfig) -> usize {
     fetch_k.clamp(top_k.max(1), MAX_MMR_CANDIDATES).max(top_k)
 }
 
-/// Cosine similarity between two hits' dense vectors. `None` when either
-/// record carries no vector or the dimensions differ (treated as no penalty).
-fn pair_similarity(a: &MemorySearchHit, b: &MemorySearchHit) -> Option<f32> {
-    let (va, vb) = (a.record.vector.as_ref()?, b.record.vector.as_ref()?);
-    if va.is_empty() || va.len() != vb.len() {
-        return None;
+/// Cosine similarity between two hits' dense vectors, with fallback to
+/// lexical token Jaccard similarity if either candidate has no vector (TEC-16).
+pub fn pair_similarity(a: &MemorySearchHit, b: &MemorySearchHit) -> f32 {
+    if let (Some(va), Some(vb)) = (&a.record.vector, &b.record.vector) {
+        if !va.is_empty() && va.len() == vb.len() {
+            return crate::index::cosine_sim_f32(va, vb);
+        }
     }
-    Some(crate::index::cosine_sim_f32(va, vb))
+    // Fallback: lexical Jaccard overlap of non-empty payloads
+    if a.record.payload.is_empty() || b.record.payload.is_empty() {
+        0.0
+    } else {
+        crate::utils::duplicate_prevention::token_jaccard_similarity(
+            &a.record.payload,
+            &b.record.payload,
+        )
+    }
+}
+
+/// Formal Maximal Marginal Relevance (MMR) scoring function (TEC-16):
+/// `MMR(d_i) = lambda * Rel(d_i) - (1 - lambda) * max_{d_j in S} Sim(d_i, d_j)`
+pub fn mmr_score(
+    relevance: f32,
+    candidate: &MemorySearchHit,
+    selected: &[MemorySearchHit],
+    lambda: f32,
+) -> f32 {
+    let diversity_penalty = selected
+        .iter()
+        .map(|picked| pair_similarity(candidate, picked))
+        .fold(0.0f32, f32::max);
+    lambda * relevance - (1.0 - lambda) * diversity_penalty
 }
 
 /// Rerank `candidates` (already ranked by relevance) with MMR and select at
 /// most `top_k` hits.
 ///
 /// `lambda = 1.0` is identity ordering (pure relevance); `lambda = 0.0` is pure
-/// diversity. Records without vectors only compete on relevance.
+/// diversity. Candidates without vectors use token Jaccard lexical overlap as fallback.
 // ponytail: O(top_k * candidates * top_k) pairwise recompute — fine for the
 // documented top_k range (<= ~100); precompute the similarity matrix only if
 // large-k MMR ever shows up in a profile.
@@ -84,11 +108,8 @@ pub fn rerank(
         let mut best_idx = 0usize;
         let mut best_score = f32::NEG_INFINITY;
         for (idx, candidate) in remaining.iter().enumerate() {
-            let diversity_penalty = selected
-                .iter()
-                .filter_map(|picked| pair_similarity(candidate, picked))
-                .fold(0.0f32, f32::max);
-            let score = lambda * relevance(candidate) - (1.0 - lambda) * diversity_penalty;
+            let rel = relevance(candidate);
+            let score = mmr_score(rel, candidate, &selected, lambda);
             if score > best_score {
                 best_score = score;
                 best_idx = idx;
@@ -97,6 +118,20 @@ pub fn rerank(
         selected.push(remaining.remove(best_idx));
     }
     selected
+}
+
+/// Helper to rerank candidates with a direct lambda trade-off parameter (TEC-16).
+#[allow(dead_code)]
+pub fn rerank_with_lambda(
+    candidates: Vec<MemorySearchHit>,
+    lambda: f32,
+    top_k: usize,
+) -> Vec<MemorySearchHit> {
+    let cfg = MmrConfig {
+        lambda: lambda.clamp(0.0, 1.0),
+        fetch_k: None,
+    };
+    rerank(candidates, &cfg, top_k)
 }
 
 #[cfg(test)]
@@ -210,5 +245,75 @@ mod tests {
         let candidates = vec![hit("a", 0.9, None), hit("b", 0.5, None)];
         let out = rerank(candidates, &MmrConfig::default(), 10);
         assert_eq!(out.len(), 2);
+    }
+
+    #[test]
+    fn test_mmr_diversifies_semantic_clones() {
+        // Topic A: near-identical embeddings (semantic clones)
+        // Topic B: orthogonal embeddings (distinct sub-theme)
+        let candidates = vec![
+            hit("a1", 0.95, Some(vec![1.0, 0.0])),
+            hit("a2", 0.94, Some(vec![0.999, 0.001])),
+            hit("a3", 0.93, Some(vec![0.998, 0.002])),
+            hit("b1", 0.85, Some(vec![0.0, 1.0])),
+        ];
+
+        // With lambda = 1.0 (pure relevance), top 2 are clones of Topic A
+        let cfg_pure = MmrConfig {
+            lambda: 1.0,
+            fetch_k: None,
+        };
+        let out_pure = rerank(candidates.clone(), &cfg_pure, 2);
+        let keys_pure: Vec<&str> = out_pure.iter().map(|h| h.record.key.as_str()).collect();
+        assert_eq!(keys_pure, vec!["a1", "a2"]);
+
+        // With lambda = 0.5 (balanced MMR), Topic B is chosen as 2nd pick instead of clone a2
+        let cfg_div = MmrConfig {
+            lambda: 0.5,
+            fetch_k: None,
+        };
+        let out_div = rerank(candidates.clone(), &cfg_div, 2);
+        let keys_div: Vec<&str> = out_div.iter().map(|h| h.record.key.as_str()).collect();
+        assert_eq!(
+            keys_div,
+            vec!["a1", "b1"],
+            "MMR with lambda=0.5 must diversify and pick b1 over duplicate a2"
+        );
+    }
+
+    #[test]
+    fn test_mmr_fallback_jaccard_lexical_diversification() {
+        fn text_hit(key: &str, score: f32, payload: &str) -> MemorySearchHit {
+            let mut h = hit(key, score, None);
+            h.record.payload = payload.into();
+            h
+        }
+
+        // Candidates without vectors: fallback to lexical Jaccard
+        let candidates = vec![
+            text_hit("t1", 0.95, "machine learning algorithms for optimization"),
+            text_hit(
+                "t2",
+                0.94,
+                "machine learning algorithms for optimization v2",
+            ),
+            text_hit(
+                "d1",
+                0.80,
+                "astronomy deep space telescopes planetary exploration",
+            ),
+        ];
+
+        let out_pure = rerank_with_lambda(candidates.clone(), 1.0, 2);
+        let keys_pure: Vec<&str> = out_pure.iter().map(|h| h.record.key.as_str()).collect();
+        assert_eq!(keys_pure, vec!["t1", "t2"]);
+
+        let out_div = rerank_with_lambda(candidates.clone(), 0.5, 2);
+        let keys_div: Vec<&str> = out_div.iter().map(|h| h.record.key.as_str()).collect();
+        assert_eq!(
+            keys_div,
+            vec!["t1", "d1"],
+            "MMR lexical fallback must penalize near-identical text and choose d1"
+        );
     }
 }

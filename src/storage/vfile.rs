@@ -186,6 +186,12 @@ pub fn decrypt_cache_budget() -> u64 {
 }
 
 /// The bounded cache of decrypted nodes of an encrypted segment.
+///
+/// Formal architectural exception to `INV-012` (see `ADR-0057` /
+/// `docs/dev/architecture/decisions/ADR-0057-decrypt-cache-inv012-exception.md`).
+/// Plaintext node blobs are cached in a bounded LRU to eliminate repeated
+/// ~10x AES-256-GCM decryption penalties during traversals. Cached blobs
+/// zeroize on drop (`AlignedBlob::drop`) to protect against memory inspection.
 #[cfg(feature = "encryption")]
 struct DecryptCache {
     /// The decrypted blobs, keyed by the offset of their node.
