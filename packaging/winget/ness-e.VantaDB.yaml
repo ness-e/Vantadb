@@ -1,0 +1,73 @@
+# ==============================================================================
+# VantaDB Windows Package Manager (winget) Singleton Manifest (PRD-05 / Q25 Opción B)
+# PackageIdentifier: ness-e.VantaDB
+# Version: 0.9.0
+# License: Apache-2.0
+#
+# Verification Instructions:
+# 1. SHA-256 Checksum:
+#    curl -sL "https://github.com/ness-e/Vantadb/releases/download/v0.9.0/vantadb-x86_64-pc-windows-msvc.zip.sha256"
+#    Get-FileHash vantadb-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+#
+# 2. Keyless Cosign (Sigstore OIDC) Verification:
+#    cosign verify-blob \
+#      --certificate-identity-regexp "https://github.com/ness-e/Vantadb/.github/workflows/release-binaries.yml" \
+#      --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+#      --signature vantadb-x86_64-pc-windows-msvc.zip.sig \
+#      --certificate vantadb-x86_64-pc-windows-msvc.zip.pem \
+#      vantadb-x86_64-pc-windows-msvc.zip
+#
+# 3. Minisign Verification:
+#    minisign -Vm vantadb-x86_64-pc-windows-msvc.zip -P RWQ1... -x vantadb-x86_64-pc-windows-msvc.zip.minisig
+# ==============================================================================
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
+
+PackageIdentifier: ness-e.VantaDB
+PackageVersion: 0.9.0
+PackageName: VantaDB
+Publisher: ness-e
+PublisherUrl: https://github.com/ness-e
+PublisherSupportUrl: https://github.com/ness-e/Vantadb/issues
+Author: ness-e
+Moniker: vantadb
+PackageUrl: https://vantadb.dev
+License: Apache-2.0
+LicenseUrl: https://raw.githubusercontent.com/ness-e/Vantadb/main/LICENSE
+Copyright: Copyright (c) 2026 ness-e
+CopyrightUrl: https://raw.githubusercontent.com/ness-e/Vantadb/main/LICENSE
+ShortDescription: Embedded persistent memory and hybrid retrieval engine for AI agents
+Description: |-
+  VantaDB is an embedded persistent memory and vector retrieval engine for local-first AI applications.
+  It combines BM25 full-text search, HNSW dense vector search, and Reciprocal Rank Fusion (RRF) with zero external dependencies.
+  Includes the vanta-cli developer tool and vantadb-server HTTP/MCP daemon.
+Tags:
+  - ai
+  - agent
+  - memory
+  - vector-search
+  - rag
+  - rust
+  - local-first
+  - mcp
+ReleaseNotesUrl: https://github.com/ness-e/Vantadb/releases/tag/v0.9.0
+ReleaseNotes: |-
+  VantaDB v0.9.0 release:
+  - Embedded vector & hybrid search with FastGate token reduction (<0.1ms)
+  - Zero external dependencies (no Docker, no external Postgres/Redis)
+  - Native GDPR Article 17 Purge Certificates with SHA-256 chain verification
+  - MCP daemon integration for agent runtimes (Claude, Cursor, Windsurf)
+  - Signed release binaries with Cosign keyless OIDC and minisign
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/ness-e/Vantadb/releases/download/v0.9.0/vantadb-x86_64-pc-windows-msvc.zip
+    InstallerSha256: 4f9d2d0b59bcf78dc3b99db0c473f3248352b22ecdf5c0d11be55c0a37e59b66
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: vanta-cli.exe
+        PortableCommandAlias: vanta-cli
+      - RelativeFilePath: vantadb-server.exe
+        PortableCommandAlias: vantadb-server
+PackageLocale: en-US
+ManifestType: singleton
+ManifestVersion: 1.6.0
