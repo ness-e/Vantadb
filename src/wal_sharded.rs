@@ -610,8 +610,8 @@ impl ShardedWal {
                     }
                 }
                 #[cfg(feature = "encryption")]
-                let reader = match key {
-                    Some(k) => WalReader::open_with_key(seg_path, k),
+                let reader = match &key {
+                    Some(k) => WalReader::open_with_key(seg_path, k.clone()),
                     None => WalReader::open(seg_path),
                 };
                 #[cfg(not(feature = "encryption"))]
