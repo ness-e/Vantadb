@@ -1,3 +1,11 @@
+---
+title: "ADR-0057: Formal Architectural Exception to INV-012 for DecryptCache"
+kind: concept
+status: accepted
+description: "Formal architectural exception to INV-012 for post-I/O DecryptCache under FIND-617"
+tags: [vantadb, architecture, storage, encryption]
+---
+
 # ADR-0057: Formal Architectural Exception to INV-012 for DecryptCache
 
 - **Status:** Accepted (Ratified under FIND-617)

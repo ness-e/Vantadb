@@ -69,6 +69,37 @@ paths:
         "429":
           $ref: "#/components/responses/TooManyRequests"
 
+  /_admin/config:
+    get:
+      summary: Admin configuration metadata
+      description: Returns server version, active MCP profile, read-only mode, and protocol version.
+      operationId: adminConfig
+      tags:
+        - System
+      responses:
+        "200":
+          description: Configuration metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - version
+                  - mcp_profile
+                  - read_only
+                  - protocol_version
+                properties:
+                  version:
+                    type: string
+                  mcp_profile:
+                    type: string
+                  read_only:
+                    type: boolean
+                  protocol_version:
+                    type: string
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
   /metrics:
     get:
       summary: Prometheus metrics
@@ -301,7 +332,9 @@ paths:
           $ref: "#/components/responses/InternalError"
     delete:
       summary: Delete records by metadata filter
-      description: Deletes all records in a namespace whose metadata matches the JSON filter string passed as query parameter.
+      description:
+        Deletes all records in a namespace whose metadata matches the JSON filter string passed as
+        query parameter.
       operationId: deleteRecordsByFilter
       tags:
         - Records
@@ -492,7 +525,9 @@ paths:
             default: 100
         - name: cursor
           in: query
-          description: Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients must not parse it.
+          description:
+            Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients
+            must not parse it.
           schema:
             type: string
         - name: filter_ops
@@ -603,7 +638,8 @@ paths:
   /api/v2/audit:
     get:
       summary: Audit events
-      description: Query the audit event log written when auditing is enabled. Newest-first, cursor-paginated.
+      description:
+        Query the audit event log written when auditing is enabled. Newest-first, cursor-paginated.
       operationId: listAuditEvents
       tags:
         - System
@@ -629,7 +665,9 @@ paths:
             default: 100
         - name: cursor
           in: query
-          description: Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients must not parse it.
+          description:
+            Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients
+            must not parse it.
           schema:
             type: string
       responses:
@@ -659,7 +697,9 @@ paths:
   /api/v2/export:
     post:
       summary: Export records
-      description: Export records to a JSONL file on the server, optionally filtered by namespace/metadata filter.
+      description:
+        Export records to a JSONL file on the server, optionally filtered by namespace/metadata
+        filter.
       operationId: exportRecords
       tags:
         - Records
@@ -692,7 +732,9 @@ paths:
   /api/v2/import:
     post:
       summary: Import records
-      description: 'Import records inline (`records`) or from a server-side file (`path`, JSONL default or `.vdbdump` bulk via `format: "bulk"`).'
+      description:
+        'Import records inline (`records`) or from a server-side file (`path`, JSONL default or
+        `.vdbdump` bulk via `format: "bulk"`).'
       operationId: importRecords
       tags:
         - Records
@@ -794,7 +836,9 @@ paths:
   /api/v2/graph/degree:
     post:
       summary: Node degree
-      description: In/out degree counts for the given nodes (`GraphRootsRequest` — numeric `roots` only, no `max_depth`).
+      description:
+        In/out degree counts for the given nodes (`GraphRootsRequest` — numeric `roots` only, no
+        `max_depth`).
       operationId: graphDegree
       tags:
         - Graph
@@ -824,7 +868,9 @@ paths:
   /api/v2/graph/centrality:
     post:
       summary: Centrality scores
-      description: Centrality analytics over the graph (`GraphRootsRequest` — numeric `roots` only; maps to degree centrality).
+      description:
+        Centrality analytics over the graph (`GraphRootsRequest` — numeric `roots` only; maps to
+        degree centrality).
       operationId: graphCentrality
       tags:
         - Graph
@@ -854,7 +900,9 @@ paths:
   /api/v2/graph/pagerank:
     post:
       summary: PageRank scores
-      description: PageRank analytics over the graph (`GraphPageRankRequest` — numeric `roots`; tuning parameters optional with documented defaults).
+      description:
+        PageRank analytics over the graph (`GraphPageRankRequest` — numeric `roots`; tuning
+        parameters optional with documented defaults).
       operationId: graphPagerank
       tags:
         - Graph
@@ -1114,7 +1162,8 @@ paths:
   /api/v2/maintenance/compactions:
     post:
       summary: Compact storage
-      description: Compacts underlying storage layers, creating a compaction run (generic acknowledgement).
+      description:
+        Compacts underlying storage layers, creating a compaction run (generic acknowledgement).
       operationId: compactStorage
       tags:
         - Maintenance
@@ -1167,9 +1216,8 @@ paths:
     post:
       summary: Rebuild indexes
       description: >-
-        Rebuilds secondary indexes (text/HNSW) for the database or a target
-        namespace, creating an index-rebuild run. Long-running: served under
-        the extended request timeout.
+        Rebuilds secondary indexes (text/HNSW) for the database or a target namespace, creating an
+        index-rebuild run. Long-running: served under the extended request timeout.
       operationId: rebuildIndex
       tags:
         - Maintenance
@@ -1209,7 +1257,9 @@ paths:
             default: 100
         - name: cursor
           in: query
-          description: Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients must not parse it.
+          description:
+            Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients
+            must not parse it.
           schema:
             type: string
       responses:
@@ -1395,7 +1445,8 @@ paths:
                 thread_id:
                   type: string
                   nullable: true
-                  description: Target thread (decimal u128); omitted creates/reuses the default thread
+                  description:
+                    Target thread (decimal u128); omitted creates/reuses the default thread
                 title:
                   type: string
                   nullable: true
@@ -1432,9 +1483,9 @@ paths:
     get:
       summary: List skills
       description: >-
-        Lists skill head rows (lean view: no content body), filtered by owner
-        and/or name prefix. Cursor-paginated (capped at 200 items per page,
-        default 50). Intended for prompt-injection consumers.
+        Lists skill head rows (lean view: no content body), filtered by owner and/or name prefix.
+        Cursor-paginated (capped at 200 items per page, default 50). Intended for prompt-injection
+        consumers.
       operationId: listSkills
       x-experimental: true
       tags:
@@ -1460,7 +1511,9 @@ paths:
             maximum: 200
         - name: cursor
           in: query
-          description: Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients must not parse it.
+          description:
+            Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients
+            must not parse it.
           schema:
             type: string
       responses:
@@ -1483,8 +1536,8 @@ paths:
     post:
       summary: Create skill
       description: >-
-        Creates a versioned skill (version 1). Idempotent when the same
-        `(owner_agent, name)` + content already exists (`idempotent: true`).
+        Creates a versioned skill (version 1). Idempotent when the same `(owner_agent, name)` +
+        content already exists (`idempotent: true`).
       operationId: createSkill
       tags:
         - Skills
@@ -1537,9 +1590,9 @@ paths:
     put:
       summary: Update skill
       description: >-
-        Replaces description and content, appending a new immutable version.
-        `expected_version` is the optimistic lock; a stale value returns 409.
-        A foreign `owner_agent` returns 404 identical to a missing skill.
+        Replaces description and content, appending a new immutable version. `expected_version` is
+        the optimistic lock; a stale value returns 409. A foreign `owner_agent` returns 404
+        identical to a missing skill.
       operationId: updateSkill
       tags:
         - Skills
@@ -1730,7 +1783,9 @@ paths:
   /api/v2/metrics:
     get:
       summary: Engine metrics (JSON)
-      description: Operational snapshot (`OperationalMetrics`) plus per-namespace collection counts, for the web console.
+      description:
+        Operational snapshot (`OperationalMetrics`) plus per-namespace collection counts, for the
+        web console.
       operationId: engineMetrics
       tags:
         - System
@@ -1819,10 +1874,14 @@ components:
         query:
           type: string
           description: IQL query string
-          example: FROM Test WHERE title ~ "hello" AND archived == false FETCH title, score RANK BY score DESC
+          example:
+            FROM Test WHERE title ~ "hello" AND archived == false FETCH title, score RANK BY score
+            DESC
 
     RecordInput:
-      description: Upsert payload mirroring the SDK `MemoryInput` (legacy `VantaMemoryInput` alias removed in 0.6.0, AST-010).
+      description:
+        Upsert payload mirroring the SDK `MemoryInput` (legacy `VantaMemoryInput` alias removed in
+        0.6.0, AST-010).
       type: object
       required:
         - namespace
@@ -1863,24 +1922,24 @@ components:
           nullable: true
           minimum: 0
           description: >-
-            Time-to-live in milliseconds from now. When null/omitted, the record
-            inherits the namespace's default TTL if one is configured; otherwise it
-            never expires. An explicit value always wins.
+            Time-to-live in milliseconds from now. When null/omitted, the record inherits the
+            namespace's default TTL if one is configured; otherwise it never expires. An explicit
+            value always wins.
         valid_at_ms:
           type: integer
           format: int64
           nullable: true
           minimum: 0
           description: >-
-            Valid-time start (ADR-046 §D2/§D3). Omitted = `created_at_ms`. The
-            validity interval is `[valid_at_ms, invalid_at_ms)`.
+            Valid-time start (ADR-046 §D2/§D3). Omitted = `created_at_ms`. The validity interval is
+            `[valid_at_ms, invalid_at_ms)`.
         confidence_class:
           type: string
           nullable: true
           enum: [Asserted, Derived]
           description: >-
-            Provenance class (ADR-046 §D2): `Asserted` (default; direct writer
-            claim) or `Derived` (engine-computed from `derived_from` parents).
+            Provenance class (ADR-046 §D2): `Asserted` (default; direct writer claim) or `Derived`
+            (engine-computed from `derived_from` parents).
         confidence:
           type: number
           format: float
@@ -1888,24 +1947,23 @@ components:
           minimum: 0
           maximum: 1
           description: >-
-            Declared confidence in [0, 1] for `Asserted` records (default 1.0).
-            Derived records must not declare it — the engine computes
-            `min(parents) × 0.9` (rejected at the boundary otherwise).
+            Declared confidence in [0, 1] for `Asserted` records (default 1.0). Derived records must
+            not declare it — the engine computes `min(parents) × 0.9` (rejected at the boundary
+            otherwise).
         derived_from:
           type: array
           nullable: true
           items:
             type: string
           description: >-
-            Parent record keys (same namespace) required non-empty when
-            `confidence_class` is `Derived`; forbidden for `Asserted`.
+            Parent record keys (same namespace) required non-empty when `confidence_class` is
+            `Derived`; forbidden for `Asserted`.
         quarantine:
           type: boolean
           default: false
           description: >-
-            Write-time quarantine flag T1 (ADR-046 §D5): the record enters
-            quarantine (excluded from default search/list/retrieval until
-            explicitly promoted; sticky across re-puts).
+            Write-time quarantine flag T1 (ADR-046 §D5): the record enters quarantine (excluded from
+            default search/list/retrieval until explicitly promoted; sticky across re-puts).
 
     SearchPageRequest:
       description: |
@@ -1967,24 +2025,23 @@ components:
           minimum: 0
           maximum: 1
           description: >-
-            Opt-in confidence floor (ADR-046 §D2): keep only hits whose record
-            `confidence` is >= this value (finite, within [0, 1]; rejected at the
-            boundary otherwise). Does not emit the abstention signal.
+            Opt-in confidence floor (ADR-046 §D2): keep only hits whose record `confidence` is >=
+            this value (finite, within [0, 1]; rejected at the boundary otherwise). Does not emit
+            the abstention signal.
         as_of_ms:
           type: integer
           format: int64
           nullable: true
           minimum: 0
           description: >-
-            Valid-time point (ADR-046 §D3): keep only records whose validity
-            window contains this unix-ms instant (`valid_at_ms <= T <
-            invalid_at_ms`). Omit for no temporal filter (default).
+            Valid-time point (ADR-046 §D3): keep only records whose validity window contains this
+            unix-ms instant (`valid_at_ms <= T < invalid_at_ms`). Omit for no temporal filter
+            (default).
         valid_window:
           description: >-
-            Valid-time window overlap (ADR-046 §D3): keep records whose
-            `[valid_at_ms, invalid_at_ms)` intersects the half-open
-            `[from_ms, to_ms)` window. `from_ms < to_ms` is validated at the
-            boundary (400 otherwise).
+            Valid-time window overlap (ADR-046 §D3): keep records whose `[valid_at_ms,
+            invalid_at_ms)` intersects the half-open `[from_ms, to_ms)` window. `from_ms < to_ms` is
+            validated at the boundary (400 otherwise).
           type: object
           nullable: true
           required: [from_ms, to_ms]
@@ -2001,11 +2058,11 @@ components:
           type: boolean
           default: false
           description: >-
-            Include quarantined records (ADR-046 §D5): default false excludes
-            them from search/list/retrieval. `get` always returns a quarantined
-            record with visible state.
+            Include quarantined records (ADR-046 §D5): default false excludes them from
+            search/list/retrieval. `get` always returns a quarantined record with visible state.
         search_profile:
-          description: Optional search profile (mode, RRF k, candidate budget); null uses core defaults
+          description:
+            Optional search profile (mode, RRF k, candidate budget); null uses core defaults
           type: object
           nullable: true
           additionalProperties: true
@@ -2266,7 +2323,8 @@ components:
           description: True when another page is available (equivalent to `next_cursor != null`).
         truncated_namespaces:
           type: array
-          description: All-namespaces fan-out only — namespaces still paginating (may hold more records).
+          description:
+            All-namespaces fan-out only — namespaces still paginating (may hold more records).
           items:
             type: string
 
@@ -2294,18 +2352,17 @@ components:
           type: boolean
           default: false
           description: >-
-            Selective-abstention signal (ADR-046 §D2). Always present: true when
-            the configured `confidence_threshold` removed every candidate.
-            Single-namespace searches only; the all-namespaces fan-out reports
-            false (N/A).
+            Selective-abstention signal (ADR-046 §D2). Always present: true when the configured
+            `confidence_threshold` removed every candidate. Single-namespace searches only; the
+            all-namespaces fan-out reports false (N/A).
         abstention_reason:
           type: string
           nullable: true
           description: >-
             Stable abstention reason code; null unless `abstained`. Known values:
-            `no_candidates_above_threshold` | `all_quarantined`. The code set is
-            open (Rust `#[non_exhaustive]`, ADR-046 §D2): clients must tolerate
-            unknown codes instead of rejecting the response.
+            `no_candidates_above_threshold` | `all_quarantined`. The code set is open (Rust
+            `#[non_exhaustive]`, ADR-046 §D2): clients must tolerate unknown codes instead of
+            rejecting the response.
 
     AuditPageResponse:
       description: Cursor-paginated audit events, newest-first.
@@ -2706,7 +2763,7 @@ components:
                 type: array
                 items:
                   type: string
-                  pattern: '^[0-9]+$'
+                  pattern: "^[0-9]+$"
                 description: Root node ids as decimal u128 strings
               max_depth:
                 type: integer
@@ -2863,8 +2920,8 @@ components:
       in: query
       required: true
       description: >-
-        Owning agent identifier. A mismatch with the skill's owner returns the
-        same 404 as a missing skill (anti-enumeration).
+        Owning agent identifier. A mismatch with the skill's owner returns the same 404 as a missing
+        skill (anti-enumeration).
       schema:
         type: string
     SkillExpectedVersionQuery:

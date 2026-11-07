@@ -1254,7 +1254,7 @@ impl File {
         let start = offset as usize;
         if start
             .checked_add(RECORD_PREFIX_LEN)
-            .map_or(true, |p| p > bytes.len())
+            .is_none_or(|p| p > bytes.len())
         {
             return Err(Error::EncryptionCorrupt {
                 artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),

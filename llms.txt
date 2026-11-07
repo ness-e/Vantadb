@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-220 documentation pages; it deliberately omits the 0 task files,
+222 documentation pages; it deliberately omits the 0 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -85,6 +85,7 @@ is in docs/index.md in the repository.
 
 ## Concepts & architecture
 
+- [ADR-0057: Formal Architectural Exception to INV-012 for DecryptCache](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/decisions/ADR-0057-decrypt-cache-inv012-exception.md): Formal architectural exception to INV-012 for post-I/O DecryptCache under FIND-617
 - [Advanced Tokenizer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/ADVANCED_TOKENIZER.md): The advanced tokenizer provides multilingual text processing with stemming, stopwords removal, and Unicode folding for improved text search quality across multiple languages. It is built on top of Tantivy. The feature is enabled by...
 - [Arquitectura de VantaDB — visión general](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/architecture/overview.md): Qué es VantaDB, cómo se divide el workspace y qué problema resuelve cada crate, con enlaces a las fuentes reales.
 - [Cargo Feature Registry — per-feature status](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEATURES.md): Inventario honesto de las features declaradas en Cargo.toml [features]
@@ -213,6 +214,7 @@ is in docs/index.md in the repository.
 
 ## Research
 
+- [Backlog de investigación — OpenViking → VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/Backlog-OpenViking-VantaDB.md): Registro archivístico de la evaluación estática de OpenViking (b8e8895) y propuestas de reimplementación para VantaDB
 - [Modelo Operativo del Sistema VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/OPERATING-MODEL.md): Modelo operativo y marco de gobernabilidad técnica de VantaDB: posicionamiento STRAT-01 ('SQLite para agentes'), arquitectura y ciclo de vida
 - [WASM Crash and Durability Model](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/wasm/CRASH_MODEL.md): Differential persistence changes when work happens, not the durability model. These gaps are tracked in WASMSTANDALONE.md (\"Known limits (verified)\")
 
