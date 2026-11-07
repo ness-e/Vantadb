@@ -1,7 +1,7 @@
-import { VantaDB } from "vantadb";
+import { Client } from "vantadb";
 
 async function main() {
-  const db = await VantaDB.create();
+  const db = await Client.create();
 
   // Index documents as memory records
   await db.putBatch([

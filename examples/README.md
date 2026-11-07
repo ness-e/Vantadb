@@ -1,7 +1,7 @@
 # Examples — VantaDB
 
 > 14 ejemplos + notebook, todos vigentes y corriendo en CI (`.github/workflows/ci-examples-12.yml`, 3 OS, sin `continue-on-error`).
-> Los ejemplos de TypeScript viven en [`vantadb-ts/examples/`](../vantadb-ts/examples/) (fuera de este árbol).
+> Provider-integration examples live in [`vantadb-ts/examples/`](../vantadb-ts/examples/); the Node/Bun quickstarts and the browser OPFS demo live in [`typescript/`](typescript/README.md).
 > Ver también: [showcase en la web](https://vantadb.vercel.app/showcase) · [playground interactivo](https://vantadb.vercel.app/playground) · [QUICKSTART](../docs/user/QUICKSTART.md).
 
 ## Rust (`cargo run --example <nombre>`)

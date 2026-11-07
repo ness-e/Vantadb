@@ -1,10 +1,10 @@
-import { VantaDB } from "vantadb";
+import { Client } from "vantadb";
 
 // Simulated Vercel AI SDK tool integration
 // In production, embeddings would come from an actual model provider
 
 async function main() {
-  const db = await VantaDB.create();
+  const db = await Client.create();
 
   // Seed contextual memories (as an AI tool would)
   await db.putBatch([
@@ -47,7 +47,7 @@ async function main() {
   }
 
   // Retrieve a specific memory for tool output
-  const memory = await db.get("context", "kb_calendar");
+  const memory = await db.get({ namespace: "context", key: "kb_calendar" });
   if (memory) {
     console.log(`\nUsing tool knowledge: ${memory.payload}`);
   }

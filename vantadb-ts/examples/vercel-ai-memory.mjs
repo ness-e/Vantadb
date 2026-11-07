@@ -9,12 +9,19 @@
  *   node --experimental-wasm-modules examples/vercel-ai-memory.mjs
  */
 
-import { VantaDB } from "vantadb";
-import { openai } from "@ai-sdk/openai";
-import { streamText, tool } from "ai";
-import { z } from "zod";
+import { Client } from "vantadb";
 
-const db = await VantaDB.create();
+if (process.argv.includes("--check-imports")) {
+  const { verifyClient } = await import("./client-import-smoke.mjs");
+  verifyClient(Client);
+  process.exit(0);
+}
+
+const { openai } = await import("@ai-sdk/openai");
+const { streamText, tool } = await import("ai");
+const { z } = await import("zod");
+
+const db = await Client.create();
 const NAMESPACE = "chat_history";
 const SESSION_ID = "session_001";
 

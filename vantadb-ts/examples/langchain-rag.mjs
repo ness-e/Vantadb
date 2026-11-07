@@ -9,12 +9,19 @@
  *   node --experimental-wasm-modules examples/langchain-rag.mjs
  */
 
-import { VantaDB } from "vantadb";
-import { Document } from "@langchain/core/documents";
-import { OpenAIEmbeddings } from "@langchain/openai";
-import { CharacterTextSplitter } from "@langchain/core/text_splitter";
+import { Client } from "vantadb";
 
-const db = await VantaDB.create();
+if (process.argv.includes("--check-imports")) {
+  const { verifyClient } = await import("./client-import-smoke.mjs");
+  verifyClient(Client);
+  process.exit(0);
+}
+
+const { Document } = await import("@langchain/core/documents");
+const { OpenAIEmbeddings } = await import("@langchain/openai");
+const { CharacterTextSplitter } = await import("@langchain/core/text_splitter");
+
+const db = await Client.create();
 const NAMESPACE = "docs";
 
 // Load documents

@@ -16,42 +16,55 @@ VantaDB provides a native Model Context Protocol (MCP) server implementation (`v
 
 To avoid overwhelming an agent's context window with dozens of granular database primitives, `vantadb-mcp` organizes tools into structured profiles:
 
-| Profile | Target Environment | Tool Count | Description |
+| Profile | Target Environment | Tools | Description |
 |---|---|:---:|---|
-| **`McpProfile::Brain`** | AI IDEs / Coding Agents | 12 + Dispatch | High-density cognitive memory profile with L0→L3 lifecycle and meta-dispatcher. |
-| **`McpProfile::Minimal`** | Constrained Prompts | 4 | Basic storage, search, and recall primitives. |
-| **`McpProfile::Full`** | DB Administration | 24+ | Complete engine introspection, raw queries, and index maintenance. |
+| **`McpProfile::Brain`** (default) | AI IDEs / Coding Agents | 15 | Cognitive memory surface including the meta-dispatch router. |
+| **`McpProfile::Full`** | DB Administration | 84 | Complete engine introspection, raw queries, and index maintenance. |
+| Other profiles (`agent`, `dev`, `memory`) | Scoped integrations | varies | Additional profiles exist; tool counts are reported by the server at startup. |
+
+Tool counts are build-dependent and reported by the server itself at
+startup (`tools/list`). The names below were measured on the 0.9.0 build.
 
 ---
 
-## 2. `McpProfile::Brain` Tool Surface
+## 2. `McpProfile::Brain` Tool Surface (15 tools)
 
-The Brain profile delivers high cognitive leverage with minimal token footprint:
+Memory: `memory_put`, `memory_get`, `memory_supersede`, `memory_recall`,
+`memory_dream`, `memory_search`, `memory_forget`
+Scenes & dreams: `vanta_scene`, `vanta_dream`
+Graph & dispatch: `vanta_graph`, `vanta_dispatch`
+Bugfix context: `bugfix_record`, `bugfix_query`
+Assembly & threads: `context_assemble`, `thread_send`
 
-### Memory Retrieval & Ingestion
-- `vanta_remember`: Ingests conversation turns, notes, or structured facts into working memory (L0/L1).
-- `vanta_recall`: High-speed hybrid semantic retrieval (BM25 + HNSW) tailored for agent context injection.
-- `vanta_search`: Advanced multi-filter search supporting metadata predicates and namespace isolation.
-- `vanta_forget`: Unified forgetting API supporting `soft`, `hard`, and `certified` deletion modes.
+## 3. `McpProfile::Full` Tool Surface (84 tools)
 
-### Graph & Relationship Traversal
-- `vanta_graph_query`: Traverses entity relationship graphs to uncover associative memories.
-- `vanta_nodes_related`: Finds interconnected knowledge nodes within N degrees of separation.
+Structured JSON schemas are advertised per tool via `tools/list` — tool
+names are listed here, schemas are not repeated to avoid drift:
 
-### Cognitive Abstraction (L0→L3)
-- `vanta_scene_synthesize`: Consolidates discrete turns and events into high-level episodic scenes (L2).
-- `vanta_persona_reflect`: Extracts persistent persona traits, rules, and behavioral adaptations (L3).
-- `vanta_export`: Exports memory scopes in JSONL interchange format.
-
-### Governance & Meta-Dispatch
-- `vanta_scopes_list`: Lists available memory partitions and authorization boundaries.
-- `vanta_session_checkpoint`: Creates an atomic persistence checkpoint for current agent state.
-- `vanta_stats`: Reports engine memory usage, resident vectors, and cache health.
-- `vanta_dispatch`: Unified meta-tool router accepting dynamic sub-action payloads to conserve context tokens.
+```text
+memory_put memory_put_batch memory_get memory_delete
+memory_verify_certificate memory_delete_by_filter memory_list
+memory_list_namespaces memory_versions memory_supersede memory_reinforce
+query_iql memory_recall memory_search search_semantic search_with_method
+search_multi get_node_neighbors graph_page_rank graph_degree_centrality
+graph_traverse graph_topological_sort graph_is_dag remove_edge
+inject_context read_axioms write_axiom delete_axiom collection_stats
+collection_delete rehydrate purge_expired compact_wal flush
+compact_layout vacuum rebuild_index audit_text_index repair_text_index
+capabilities generate_snippet list_snapshots snapshot_create
+snapshot_restore export import bulk_import_file bulk_import_stream
+embed_texts skill_list skill_view skill_create skill_update skill_patch
+skill_files_write skill_extract bugfix_record bugfix_query code_search
+code_explore code_index wiki_search wiki_read wiki_list wiki_graph
+wiki_ingest wiki_ingest_status context_assemble dream_list dream_load
+dream_discard dream_consolidate dream_promote scene_read scene_list
+scene_query scene_write scene_edit thread_create thread_send
+thread_get thread_list thread_delete thread_purge_expired
+```
 
 ---
 
-## 3. Configuration in AI IDEs
+## 4. Configuration in AI IDEs
 
 ### Claude Code (`claude.json` / `settings.json`)
 

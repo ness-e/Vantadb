@@ -9,10 +9,17 @@
  *   node --experimental-wasm-modules examples/llamaindex-rag.mjs
  */
 
-import { VantaDB } from "vantadb";
-import { OpenAIEmbedding } from "llamaindex";
+import { Client } from "vantadb";
 
-const db = await VantaDB.create();
+if (process.argv.includes("--check-imports")) {
+  const { verifyClient } = await import("./client-import-smoke.mjs");
+  verifyClient(Client);
+  process.exit(0);
+}
+
+const { OpenAIEmbedding } = await import("llamaindex");
+
+const db = await Client.create();
 const NAMESPACE = "knowledge";
 
 const embedModel = new OpenAIEmbedding({ model: "text-embedding-3-small" });

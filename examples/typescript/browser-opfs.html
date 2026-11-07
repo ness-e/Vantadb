@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VantaDB — OPFS Browser Demo</title>
+<style>
+  :root {
+    --base: hsl(236, 23%, 12%);
+    --surface: hsl(237, 16%, 18%);
+    --text: hsl(226, 64%, 88%);
+    --accent: hsl(174, 46%, 63%);
+    --warn: hsl(10, 57%, 63%);
+    --border: hsl(240, 12%, 34%);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: var(--base);
+    color: var(--text);
+    display: grid;
+    place-items: start center;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  main { width: min(42rem, 100%); }
+  h1 { font-size: 1.4rem; color: var(--accent); }
+  p.note { color: hsl(226, 30%, 68%); font-size: 0.9rem; }
+  .controls { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+  button {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.55rem 1rem;
+    font: inherit;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  #log {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.9rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.82rem;
+    white-space: pre-wrap;
+    min-height: 8rem;
+    max-height: 22rem;
+    overflow-y: auto;
+  }
+  .err { color: var(--warn); }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>VantaDB — OPFS persistence demo</h1>
+  <p class="note">
+    Runs the WASM build entirely in this tab — no backend, data stays in
+    this browser's Origin Private File System. Requires a secure context
+    (localhost or HTTPS) and <code>vantadb-wasm/pkg-web</code> built for
+    target <code>web</code>. Persistence is an OPFS snapshot, not WAL.
+  </p>
+  <div class="controls">
+    <button id="b-open">1. Open (persistent)</button>
+    <button id="b-put" disabled>2. Put + Save</button>
+    <button id="b-close" disabled>3. Close</button>
+    <button id="b-reopen">4. Reopen + Verify</button>
+  </div>
+  <div id="log" role="status" aria-live="polite">Idle.</div>
+</main>
+<script type="module">
+  const log = (m, cls = "") => {
+    const el = document.getElementById("log");
+    const line = document.createElement("div");
+    if (cls) line.className = cls;
+    line.textContent = m;
+    el.appendChild(line);
+  };
+  const state = { mod: null, db: null, busy: false };
+  const buttons = ["b-open", "b-put", "b-close", "b-reopen"];
+
+  function renderButtons() {
+    const enabled = {
+      "b-open": !state.db && !state.busy,
+      "b-put": !!state.db && !state.busy,
+      "b-close": !!state.db && !state.busy,
+      "b-reopen": !state.db && !state.busy,
+    };
+    for (const id of buttons) {
+      const el = document.getElementById(id);
+      el.disabled = !enabled[id];
+      el.setAttribute("aria-busy", String(state.busy));
+    }
+  }
+
+  async function run(fn) {
+    if (state.busy) return;
+    state.busy = true;
+    renderButtons();
+    try {
+      await fn();
+    } catch (e) {
+      log(`Error: ${e.message}`, "err");
+    } finally {
+      state.busy = false;
+      renderButtons();
+    }
+  }
+
+  async function loadWasm() {
+    if (state.mod) return state.mod;
+    if (!("storage" in navigator) || !("getDirectory" in navigator.storage)) {
+      throw new Error(
+        "OPFS unavailable: navigator.storage.getDirectory is not exposed " +
+          "in this browser or context (a secure context is required)."
+      );
+    }
+    let mod;
+    try {
+      mod = await import("../../vantadb-wasm/pkg-web/vantadb_wasm.js");
+    } catch (e) {
+      throw new Error(
+        "WASM asset missing: build it with `wasm-pack build vantadb-wasm --target web --out-dir pkg-web` " +
+          `(cause: ${e.message})`
+      );
+    }
+    await mod.default();
+    state.mod = mod;
+    return mod;
+  }
+
+  async function open() {
+    const mod = await loadWasm();
+    state.db = await mod.Client.connect_persistent("step23-opfs");
+    log("Open OK — persistent OPFS database 'step23-opfs'.");
+  }
+  async function putSave() {
+    const rec = state.db.put({
+      namespace: "browser/demo",
+      key: "greeting",
+      payload: "Hello from OPFS — survives reload.",
+      metadata: { source: "browser-opfs.html" },
+      vector: [0.5, 0.5, 0.0],
+    });
+    log(`put: ${rec.namespace}/${rec.key}`);
+    await state.db.save();
+    log("save() OK — snapshot flushed to OPFS (required before close).");
+  }
+  async function closeDb() {
+    state.db.close();
+    state.db = null;
+    log("close() OK.");
+  }
+  async function reopen() {
+    const mod = await loadWasm();
+    const db2 = await mod.Client.connect_persistent("step23-opfs");
+    try {
+      const rec = db2.get("browser/demo", "greeting");
+      if (!rec) throw new Error("record missing after reopen — persistence failed");
+      log(`Reopen OK — get('browser/demo','greeting') -> "${rec.payload}"`);
+      log("Verified: record persisted across close + reopen.");
+    } finally {
+      db2.close();
+    }
+  }
+
+  document.getElementById("b-open").onclick = () => run(open);
+  document.getElementById("b-put").onclick = () => run(putSave);
+  document.getElementById("b-close").onclick = () => run(closeDb);
+  document.getElementById("b-reopen").onclick = () => run(reopen);
+  renderButtons();
+</script>
+</body>
+</html>

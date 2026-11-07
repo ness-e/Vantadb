@@ -1,7 +1,7 @@
-import { VantaDB } from "vantadb";
+import { Client } from "vantadb";
 
 async function main() {
-  const db = await VantaDB.create();
+  const db = await Client.create();
 
   // Store memories with embeddings
   await db.put({
@@ -35,7 +35,7 @@ async function main() {
     vector: [0.5, 0.1, 0.8, 0.2],
   });
 
-  const memory = await db.get("conversation", "msg_001");
+  const memory = await db.get({ namespace: "conversation", key: "msg_001" });
   console.log("Retrieved memory:", memory?.payload);
 
   db.close();

@@ -2,13 +2,13 @@
 title: "VantaDB — HNSW & Lexical Engine Performance Benchmarks"
 kind: runbook
 status: active
-description: This document compiles the certified performance metrics for VantaDB at the MVP version. It covers both the internal Rust engine tests (Stress Protocol) and telemetry from the Python SDK wrapper
+description: Reproducible engine and SDK benchmarks, historical results, and a serial synthetic agent-memory comparison with sqlite-vec and LanceDB
 tags: [vantadb, operations, benchmarks]
 ---
 
 # VantaDB — HNSW & Lexical Engine Performance Benchmarks
 
-This document compiles the certified performance metrics for **VantaDB** at the MVP version. It covers both the internal Rust engine tests (**Stress Protocol**) and telemetry from the Python SDK wrapper.
+This document collects historical engine and SDK results alongside reproducible benchmark procedures. Read each section's provenance and limitations independently: projections are not measurements, and the serial synthetic comparison in section 24 is not an agent-quality or concurrency certification.
 
 ---
 
@@ -2448,7 +2448,166 @@ Comparativa frente a las cifras publicadas en la literatura por el equipo de Mem
 
 ---
 
-## 24. Benches solo-local (sin CI, sin baseline)
+## 24. Agent Memory Benchmark: VantaDB vs. sqlite-vec vs. LanceDB
+
+### 24.1 Scope and reproduction
+
+The [agent-memory harness](../../../benchmarks/agent_memory_vs_sqlite_lancedb.py)
+compares embedded, in-process Python APIs on a deterministic, synthetic dialogue-shaped
+workload. **All three engines run in-process**; this is not an embedded-versus-server
+comparison. It does not measure an LLM, semantic extraction, embedding inference,
+answer quality or crash recovery. Serial latency samples and a separate concurrent
+write-failure probe are reported independently.
+
+```bash
+python benchmarks/agent_memory_vs_sqlite_lancedb.py --help
+python benchmarks/agent_memory_vs_sqlite_lancedb.py --turns 2000 --seed 23 --targets vantadb sqlite-vec lancedb --output benchmarks/agent_memory_results.json
+python -m unittest discover -s benchmarks -p test_agent_memory_benchmark.py -v
+```
+
+Use a release-built `vantadb-py` and `psutil`. Comparison dependencies are optional;
+the measured dependency versions are recorded with each result. For example, the
+comparison environment can use `sqlite-vec==0.1.9` and `lancedb==0.34.0`. Do not
+silently replace an unavailable target with another engine.
+
+`--turns` accepts 1,000–10,000 operations, default 2,000. `--targets` accepts one or
+more of `vantadb`, `sqlite-vec`, and `lancedb`; `--output` defaults to
+`benchmarks/agent_memory_results.json`. Missing optional imports or unsupported
+optional-engine setup are reported as `skipped` with a reason, while remaining
+targets continue. Query/write failures are errors, not skipped measurements.
+The process exits nonzero if no target completes or a runtime error occurs.
+
+### 24.2 Methodology
+
+- One generated trace is serialized once and replayed byte-for-byte in a **fresh
+  subprocess and temporary on-disk database per engine**. The report includes its
+  SHA-256, the harness SHA-256, seed, timestamp, Python/platform information, CPU/RAM
+  information, and installed engine versions.
+- The initial corpus has **1,024 records across eight sessions**, with user/assistant
+  roles, `session_id`, `role`, and `timestamp` metadata, plus normalized **384d fixture
+  vectors**. These topic-clustered vectors are synthetic, not model-generated
+  embeddings. Text contains both ordinary topic keywords and per-record identifiers.
+- Each group of five measured operations performs **one write and four hybrid reads**.
+  The default run therefore measures **400 writes and 1,600 reads**, ending at
+  **1,424 records**. For a turn count not divisible by five, writes are rounded down;
+  the report records the actual fraction instead of claiming exactly 20%.
+- Reads combine vector similarity, text retrieval and `session_id` equality,
+  requesting `top_k=5`. Every returned hit is checked for session isolation.
+  The read immediately after each write also checks that the new record can be
+  retrieved. These are functional witnesses, **not semantic recall measurements**.
+- VantaDB uses its native hybrid API, with BM25 and vector results fused by the
+  engine. `sqlite-vec` uses exact cosine KNN over `vec0` metadata plus SQLite FTS5
+  BM25, fused in the harness with RRF (`k=60`, five candidates per branch).
+  LanceDB uses a native FTS index and exact flat vector search with
+  `RRFReranker(K=60)`, five candidates per branch, and prefiltering enabled.
+- Initial seeding and text-index creation are excluded from latency samples.
+  Timed calls include binding conversions and result materialization. Native plans
+  and returned shapes differ: LanceDB materializes full rows, including vectors.
+  This is an **API-level microbenchmark**, not an equal-recall ANN competition.
+- Write p50/p95/p99 and hybrid-read p50/p95 use **nearest-rank percentiles of
+  successful calls**, in milliseconds. Raw samples, attempted-operation counts,
+  failures, and worker diagnostics are retained in JSON.
+- RSS is measured after the common trace is loaded but before engine imports,
+  after setup, and after the workload but before final close. It includes Python,
+  the loaded trace, native dependencies and the database. The delta is not an
+  isolated Rust-engine allocation or a peak-RSS measurement.
+- A **separate write-only contention probe** synchronizes four threads at a barrier,
+  then attempts 25 distinct-key writes per thread (100 total), using the same frozen
+  additional 384d records for every engine. VantaDB/LanceDB share one client/table;
+  SQLite opens one connection per thread with WAL, `synchronous=NORMAL`, and its
+  normal five-second busy timeout. The report includes attempted/successful writes,
+  classified lock errors, other failures and maximum simultaneous in-flight calls.
+  These extra writes are **excluded from the serial 80/20 latency distributions**.
+  Lifecycle failures or non-lock probe errors produce a nonzero exit status.
+- SQLite explicitly uses WAL with `synchronous=NORMAL`; VantaDB and LanceDB use
+  their default write-acknowledgement behavior. These boundaries are **not certified
+  as durability-equivalent**. The worker clears only the ambient
+  `VANTADB_BACKEND` override so VantaDB uses its default Fjall backend.
+
+### 24.3 Local measurements
+
+The [complete measured report](../../../benchmarks/agent_memory_results.json)
+records one run started at **2026-11-06 23:11:27 UTC**. Its raw latency arrays were
+checked independently against all reported nearest-rank percentiles. Each engine
+completed **400 writes, 1,600 hybrid reads and 400 read-your-write checks**, with
+no reported operation errors. The 1,000-operation preflight is not the published run.
+
+**Host:** Intel Core i5-1235U, 10 physical cores / 12 logical processors,
+31.78 GiB OS-visible RAM, Windows build 10.0.26200, Python 3.11.9.
+The environment used the release-built checkout binding `vantadb-py` 0.9.0,
+`sqlite-vec` 0.1.9 with SQLite 3.45.1, and LanceDB 0.34.0.
+
+Latency values below are **milliseconds per successful API call**, not end-to-end
+agent turns. They include result materialization and exclude setup and final close.
+
+| Engine | Write p50 | Write p95 | Write p99 | Hybrid-read p50 | Hybrid-read p95 |
+|---|---:|---:|---:|---:|---:|
+| VantaDB | 2.9790 | 3.6151 | 4.2376 | 7.0531 | 10.0348 |
+| sqlite-vec | 0.2055 | 0.5172 | 4.7329 | 1.8336 | 3.0621 |
+| LanceDB | 19.4810 | 24.2665 | 27.6306 | 28.0845 | 49.2903 |
+
+The following **whole-worker RSS snapshots are MiB**, not engine-only allocations
+or peak memory. The initial snapshot already includes Python and the common trace.
+The final snapshot precedes both the contention probe and database close.
+
+| Engine | Initial RSS | After seeding | After serial workload | Delta from initial |
+|---|---:|---:|---:|---:|
+| VantaDB | 64.53 | 86.38 | 164.85 | 100.32 |
+| sqlite-vec | 64.58 | 77.83 | 79.22 | 14.64 |
+| LanceDB | 64.46 | 160.28 | 267.95 | 203.49 |
+
+The serial workload produced **0 classified lock errors out of 2,000 operations
+per engine**, but that phase has only one caller. The separate four-thread probe
+produced the following observations:
+
+| Engine | Attempted writes | Successful writes | Lock errors | Other errors | Maximum in-flight calls |
+|---|---:|---:|---:|---:|---:|
+| VantaDB | 100 | 100 | 0 | 0 | 4 |
+| sqlite-vec | 100 | 100 | 0 | 0 | 4 |
+| LanceDB | 100 | 100 | 0 | 0 | 4 |
+
+Probe lifecycle errors were also zero for all three engines. In-flight calls
+include time spent waiting in bindings or storage; their overlap does not prove
+parallel execution inside an engine. These extra writes are not included in the
+latency table or its RSS snapshots.
+
+In this run, sqlite-vec had the lowest median write latency, hybrid-read
+percentiles and final worker RSS. VantaDB had lower reported latency percentiles
+and worker RSS than LanceDB, but was not the lowest-latency or lowest-memory
+engine overall. Its measured write p99 was below sqlite-vec's in this single run.
+These results do **not** establish universal sub-2 ms VantaDB hybrid reads, a
+below-25 MB Python worker, a durability ranking, or an absence of storage locks.
+
+Reproducibility identifiers for this exact published artifact:
+
+```text
+Workload SHA-256: f39b93e37cb9832f8a5d45e11df4f77b0d36aa5f4411ea07c685596c5be13009
+Harness SHA-256:  076769e1c4d6ebe3df546b7ca74f99a219d9b32b4818f60d8ba12d7f92e7de82
+Report SHA-256:   abcf700ff6bcc893d1b0a8a472aa43fdfe945a35d55d149c7d73b897003a04dd
+```
+
+The report checksum identifies the published UTF-8/LF file after repository
+formatting. Formatting did not change any recorded JSON values.
+
+### 24.4 Interpretation limits
+
+The latency workload is serial; the additional lock-error probe exercises four
+writer threads in one process. A zero observed lock-error rate means only that no
+classified error occurred under that topology and timeout.
+**It does not demonstrate contention-free operation or multi-process write support.**
+VantaDB uses Fjall rather than SQLite, but it still has its own storage locks.
+Do not equate the absence of SQLite-specific locking with the absence of locking.
+
+Do not claim a **RAM footprint below 25 MB** from an unmeasured target or from a
+Rust-only baseline: this harness reports whole Python-worker RSS and its measured
+delta. A claim about isolated engine memory needs a different measurement boundary.
+One local pass, fixed target order, small corpus, native-plan differences and
+uncontrolled OS caches limit generalization; repeat on the deployment hardware
+and report variability before making production or marketing comparisons.
+
+<a id="24-benches-solo-local-sin-ci-sin-baseline"></a>
+
+## 25. Local-only Rust benches (no CI baseline)
 
 > Estos benches existen en `benches/` y compilan (`cargo check --benches`),
 > pero ningun job los corre y no emiten senal al tracker de regresiones.

@@ -2,6 +2,12 @@
   <img src="assets/banner-v3.gif" alt="VantaDB — Motor embebido en Rust para memoria local duradera y recuperación híbrida de vectores.">
 </div>
 
+<div align="center">
+  <a href="assets/demo.mp4"><img src="assets/demo-poster.png" alt="VantaDB demo — five-stage verified local run: health check, MCP handshake, memory capture, hybrid search and supersession, L2 scene." width="760"></a>
+  <br>
+  <sub>60 s silent demo (edited pacing of a verified local run) — <a href="assets/demo.mp4">watch MP4</a> · <a href="assets/demo.gif">animated GIF</a> (opt-in motion) · <a href="vhs/demo-transcript.txt">full transcript</a></sub>
+</div>
+
 <br>
 
 <div align="left">

@@ -18,11 +18,12 @@ BUILD FROM SOURCE (required — a stale installed binary masks drift):
   # Or via env var:
   VANTADB_MCP_BIN=target/debug/vantadb-server.exe python skills/vantadb-mcp/scripts/test-mcp.py
 
-TOOL PROFILES (VANTADB_MCP_PROFILE env var, default "agent"):
-  agent  (default): 39 tools exacto
-  full:             82 tools exacto (88 definidos - 6 code_* absorbidos)
-  dev:              38 tools exacto
-  memory:           22 tools exacto
+TOOL PROFILES (VANTADB_MCP_PROFILE env var, default "brain"):
+  brain  (default): 15 tools exact
+  agent:            39 tools exact
+  full:             84 tools exact
+  dev:              38 tools exact
+  memory:           22 tools exact
   Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
   (+ handle_tools_list/profile_allowed_tools in handlers/tools.rs).
 
@@ -53,18 +54,19 @@ if hasattr(sys.stdout, "reconfigure"):
 # (API-04: counts are exact per profile after canonicalizing the legacy
 # `search_memory`/`collection_list` aliases out of the listing).
 # agent  = 22 memory + 6 thread + 5 scene + 1 context + 5 wiki-read = 39
-# full   = 22 memory + 27 base-full + 33 extended = 82 listed (88 defined -
-#          6 WIRE-02 absorbed code_* projections)
+# full   = 84 tools listed by the verified 0.9.0 build.
+#          Counts are checked against the live tools/list response.
 # dev    = 22 memory + 16 dev-only = 38
-# memory = 22. Profile via VANTADB_MCP_PROFILE (default "agent", see
-# vantadb-mcp/src/config.rs — McpProfile::default() is Agent).
+# memory = 22. Profile via VANTADB_MCP_PROFILE (default "brain", see
+# vantadb-mcp/src/config.rs — McpProfile::default() is Brain).
 EXPECTED_TOOLS = {
+    "brain": (15, 15),
     "agent": (39, 39),
-    "full": (82, 82),
+    "full": (84, 84),
     "dev": (38, 38),
     "memory": (22, 22),
 }
-EXPECTED_RESOURCES = 2  # metrics://, schema:// (handlers/resources.rs)
+EXPECTED_RESOURCES = 4  # operational and cognitive resources (handlers/resources.rs)
 EXPECTED_PROMPTS = 4  # recall_search, analyze_namespace, summarize_context,
 # query_builder (handlers/prompts.rs)
 
@@ -80,9 +82,12 @@ def _candidate_paths(explicit):
 
 
 def _is_vanta_cli(bin_path):
-    return subprocess.run(
-        [bin_path, "server", "--help"], capture_output=True, timeout=10
-    ).returncode == 0
+    return (
+        subprocess.run(
+            [bin_path, "server", "--help"], check=False, capture_output=True, timeout=10
+        ).returncode
+        == 0
+    )
 
 
 def resolve_server(explicit):
@@ -100,7 +105,12 @@ def resolve_server(explicit):
         if "vantadb-server" in name:
             return cand, "vantadb-server"
         # Unknown binary: accept only if it answers --help (best effort).
-        if subprocess.run([cand, "--help"], capture_output=True, timeout=10).returncode == 0:
+        if (
+            subprocess.run(
+                [cand, "--help"], check=False, capture_output=True, timeout=10
+            ).returncode
+            == 0
+        ):
             return cand, "vantadb-server"
     raise RuntimeError(
         "No usable VantaDB MCP server binary found. "
@@ -111,11 +121,11 @@ def resolve_server(explicit):
 class McpSession:
     """One stdio MCP server process; all requests share it."""
 
-    def __init__(self, binary, kind, profile="agent"):
+    def __init__(self, binary, kind, profile="brain"):
         self._profile = profile
         self._db = tempfile.mkdtemp(prefix="vantadb-test-")
         # The profile must reach the child: without VANTADB_MCP_PROFILE the
-        # server falls back to its own default ("agent"), and the counts below
+        # server falls back to its own default ("brain"), and the counts below
         # would be compared against the wrong bucket (FIND-82).
         env = dict(os.environ, VANTADB_MCP_PROFILE=self._profile)
         if kind == "vanta-cli":
@@ -170,7 +180,7 @@ class McpSession:
 def main():
     explicit = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("VANTADB_MCP_BIN")
     binary, kind = resolve_server(explicit)
-    profile = os.environ.get("VANTADB_MCP_PROFILE", "agent").lower()
+    profile = os.environ.get("VANTADB_MCP_PROFILE", "brain").lower()
     if profile not in EXPECTED_TOOLS:
         print(
             f"❌ unknown VANTADB_MCP_PROFILE={profile!r} "
@@ -237,7 +247,9 @@ def main():
                         f"with argv[1]/VANTADB_MCP_BIN pointing at it."
                     )
                     continue
-                print(f"   ✅ Found {len(tools)} tools (profile {profile!r}: {lo}..{hi} OK)")
+                print(
+                    f"   ✅ Found {len(tools)} tools (profile {profile!r}: {lo}..{hi} OK)"
+                )
                 for tool in tools[:5]:
                     print(f"      - {tool['name']}")
                 if len(tools) > 5:
@@ -274,17 +286,16 @@ def main():
                 except (KeyError, IndexError, ValueError) as e:
                     print(f"   ❌ recall failed: bad envelope: {e}")
                     continue
-                missing = {"recalled", "prepend_context", "effective_mode"} - set(payload)
+                missing = {"recalled", "prepend_context", "effective_mode"} - set(
+                    payload
+                )
                 if missing:
                     print(f"   ❌ recall failed: missing keys {sorted(missing)}")
                     continue
                 if payload["recalled"] != [] or payload["prepend_context"] is not None:
                     print("   ❌ recall failed: fresh DB must recall nothing")
                     continue
-                print(
-                    f"   ✅ recall honest-empty "
-                    f"(mode {payload['effective_mode']})"
-                )
+                print(f"   ✅ recall honest-empty (mode {payload['effective_mode']})")
             passed += 1
     finally:
         session.close()

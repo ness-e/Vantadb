@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **84 listed tools** (90 defined − 6 absorbed `code_*` projections): 49 core + 9 `skill_*`/`bugfix_*` + 3 listed `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`. It also serves 2 static resources (plus 2 dynamic URI schemes via `resources/read`) and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **84 listed tools** (90 defined − 6 absorbed `code_*` projections): 49 core + 9 `skill_*`/`bugfix_*` + 3 listed `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`. It also lists 4 resources via `resources/list` (metrics, schema, the brain operating manual, and the tool catalog), supports the `memory://` and `namespace://` dynamic URI schemes via `resources/read`, and serves 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -434,12 +434,16 @@ Common JSON-RPC codes: `-32600` invalid request, `-32601` method not found, `-32
 
 ## Available MCP Resources
 
-The server lists 2 static resources in `resources/list`; 2 additional dynamic URIs are servable via `resources/read` (not listed):
+The server lists 4 resources in `resources/list`; 2 additional dynamic URI patterns are servable via `resources/read` (not listed):
 
 - **metrics://** - Operational metrics (memory usage, HNSW statistics, storage information) — listed
 - **schema://** - Database schema information (HNSW configuration, text index version) — listed
+- **vanta://brain/operating-manual** - Built-in cognitive workflow reference — listed
+- **vanta://tools/catalog** - Built-in tool catalog — listed
 - **memory://{namespace}/{key}** - Individual memory records by URI — servable, not listed
 - **namespace://{namespace}** - Namespace content listing — servable, not listed. Returns the **first page** (`default_list_limit`, 100 records) with a `next_cursor`. The URI has no cursor parameter, so paginate large namespaces via the `memory_list` tool (which accepts `cursor` and clamps at `max_list_limit`).
+
+For the active profile's listed tool names and schemas, query `tools/list`; built-in reference text can retain legacy counts.
 
 ## Available MCP Prompts
 

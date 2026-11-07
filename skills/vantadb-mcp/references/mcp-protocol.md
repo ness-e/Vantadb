@@ -4,7 +4,7 @@
 
 The Model Context Protocol (MCP) is a standardized protocol for AI agents to interact with external systems through a JSON-RPC interface over stdio.
 
-This document describes the standard MCP wire protocol as implemented by the VantaDB MCP server (`vantadb-mcp`). The server dispatches exactly these methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`. The concrete tool list (82 listed / 88 defined: 49 core + 7 skill_* + 3 listed code_* (9 defined) + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_*) is documented in `references/api-reference.md` § "MCP Tools" — the single source of truth.
+This document describes the standard MCP wire protocol as implemented by the VantaDB MCP server (`vantadb-mcp`). The server supports the following methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`. The full profile lists 84 tools in the verified 0.9.0 build; tool availability is profile- and build-dependent. The concrete tool names are documented in `references/api-reference.md` § "MCP Tools" — the single source of truth.
 
 ## Protocol Version
 
@@ -21,6 +21,7 @@ MCP servers communicate over stdio using JSON-RPC 2.0:
   "method": "initialize",
   "params": { ... }
 }
+
 ```
 
 ## Methods
@@ -30,6 +31,7 @@ MCP servers communicate over stdio using JSON-RPC 2.0:
 Initialize the MCP connection.
 
 **Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -44,9 +46,11 @@ Initialize the MCP connection.
     }
   }
 }
+
 ```
 
 **Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -65,6 +69,7 @@ Initialize the MCP connection.
     "instructions": "Recall-first policy for the agent (VantaDB serves a non-empty string here; read it before any tool call)"
   }
 }
+
 ```
 
 ### tools/list
@@ -72,15 +77,18 @@ Initialize the MCP connection.
 List available tools.
 
 **Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 2,
   "method": "tools/list"
 }
+
 ```
 
 **Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -99,6 +107,7 @@ List available tools.
     ]
   }
 }
+
 ```
 
 ### tools/call
@@ -106,6 +115,7 @@ List available tools.
 Execute a tool.
 
 **Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -116,9 +126,11 @@ Execute a tool.
     "arguments": { ... }
   }
 }
+
 ```
 
 **Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -132,6 +144,7 @@ Execute a tool.
     ]
   }
 }
+
 ```
 
 ### resources/list
@@ -139,15 +152,18 @@ Execute a tool.
 List available resources.
 
 **Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 4,
   "method": "resources/list"
 }
+
 ```
 
 **Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -163,6 +179,7 @@ List available resources.
     ]
   }
 }
+
 ```
 
 ### resources/read
@@ -170,6 +187,7 @@ List available resources.
 Read a resource.
 
 **Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -179,9 +197,11 @@ Read a resource.
     "uri": "resource-uri"
   }
 }
+
 ```
 
 **Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -196,6 +216,7 @@ Read a resource.
     ]
   }
 }
+
 ```
 
 ### prompts/list
@@ -203,15 +224,18 @@ Read a resource.
 List available prompts.
 
 **Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 6,
   "method": "prompts/list"
 }
+
 ```
 
 **Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -232,6 +256,7 @@ List available prompts.
     ]
   }
 }
+
 ```
 
 ### prompts/get
@@ -239,6 +264,7 @@ List available prompts.
 Get a specific prompt.
 
 **Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -249,9 +275,11 @@ Get a specific prompt.
     "arguments": { ... }
   }
 }
+
 ```
 
 **Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -269,6 +297,7 @@ Get a specific prompt.
     ]
   }
 }
+
 ```
 
 ## Error Handling
@@ -284,6 +313,7 @@ Errors follow JSON-RPC 2.0 format:
     "message": "Method not found"
   }
 }
+
 ```
 
 Common error codes:
@@ -309,6 +339,7 @@ returns a `result` with `isError: true` and the human-readable message inside
     ]
   }
 }
+
 ```
 
 Rule of thumb: JSON-RPC `error` is reserved for protocol/param failures

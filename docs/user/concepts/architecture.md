@@ -66,14 +66,12 @@ Agent memory is structured into four distinct cognitive abstraction tiers:
 
 ## 3. Unified Deletion & Forget Semantics
 
-Managing memory requires forgetting obsolete or sensitive data. The `forget()` interface supports three distinct operational guarantees:
+Managing memory requires forgetting obsolete or sensitive data. The Python SDK accepts `soft`, `hard`, and `certified` forgetting modes; precise cleanup semantics are SDK- and version-specific. The certified demo requests forgetting for each selected record separately.
 
-- **Soft Forget**: Inserts a tombstone, preserving audit history while excluding the item from retrieval.
-- **Hard Forget**: Purges physical records and immediately rebuilds associated HNSW and BM25 index pointers.
-- **Certified Forget**: Zeroizes bytes on disk and generates a cryptographically signed `PurgeCertificate` (VER-02) verifying absence of data remnants.
+- **Certified Forget**: Returns a `PurgeCertificate` per record containing a SHA-256 self-integrity digest (tamper detection — not a cryptographic signature) and per-surface residue reports (store, indices, version history, WAL). It is not independent legal-compliance evidence and does not certify erasure from backups, exports, archived WALs, or model weights.
 
 ---
 
 ## 4. MCP Integration (`McpProfile::Brain`)
 
-VantaDB exposes an optimized Model Context Protocol (MCP) server profile designed specifically for AI IDEs (Claude Code, Cursor, OpenCode). The `McpProfile::Brain` surface limits exposed tools to 12 focused cognitive primitives plus a meta-dispatch router (`vanta_dispatch`), preserving LLM prompt tokens while enabling full memory autonomy. For hands-on setup instructions, see the [Getting Started Guide](../guide/getting-started.md).
+VantaDB exposes an optimized Model Context Protocol (MCP) server profile designed specifically for AI IDEs (Claude Code, Cursor, OpenCode). The `McpProfile::Brain` surface lists 15 cognitive tools, including the meta-dispatch router (`vanta_dispatch`) — measured on the 0.9.0 build. For hands-on setup instructions, see the [Getting Started Guide](../guide/getting-started.md).

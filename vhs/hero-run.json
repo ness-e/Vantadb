@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "cli_version": "vanta-cli 0.9.0",
+  "mcp_version": "0.9.0",
+  "frames": [
+    {
+      "title": "Health check",
+      "command": "vanta-cli --db <temporary demo database> config doctor",
+      "output": "\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557\n\u2551                   VantaDB System Doctor Diagnostics                       \u2551\n\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d\n\n  \u2713 Storage Directory        Directory exists and is writable (<temporary demo database>)\n  \u2713 Storage Lock             Storage lock is free (clean shutdown state)\n  \u2713 Embeddings Health        Provider: ollama (this build has no `embed-local` feature: local ONNX is not compiled) | Strict mode: true\n  \u2713 Network Port             Port 8080 is available for binding\n  \u2713 Hardware Acceleration    Profile: Performance | Memory: 31 GB | Cores: 12 | Instructions: Avx2\n\n\u2713 All system pre-flight checks passed! System is healthy.\nThis run uses a separate local E5 ONNX encoder for SDK records."
+    },
+    {
+      "title": "MCP handshake",
+      "command": "vanta-cli --db <temporary demo database> server --mcp  (JSON-RPC over stdio)",
+      "output": "serverInfo: {\"name\": \"vantadb\", \"version\": \"0.9.0\"}\nprotocolVersion: 2024-11-05\ntools: 15\nmemory_put\nmemory_get\nmemory_supersede\nmemory_recall\nmemory_dream\nmemory_search\nmemory_forget\nvanta_scene\nvanta_dream\nvanta_graph\nvanta_dispatch\nbugfix_record\nbugfix_query\ncontext_assemble\nthread_send"
+    },
+    {
+      "title": "Memory capture",
+      "command": "db.memory_capture(...) + db.put(...)  # local E5 encoder",
+      "output": "captured L0 messages=2 filtered=0 cursor_ms=1794008159579\napplication-curated records=2  vector dims: 384\nApplication-curated memories; automatic L2 consolidation is not demonstrated."
+    },
+    {
+      "title": "Hybrid search & supersession",
+      "command": "db.search(...) + db.memory.supersede(...)",
+      "output": "initial hybrid RRF score=0.0328 (native score, not a probability)\ncurrent=['pref-indent-2']  history=['pref-indent', 'pref-indent-2']\nadjacency labels: {\"pref-indent\": [\"superseded_by\", \"supersedes_edge\"], \"pref-indent-2\": [\"superseded_by\", \"supersedes_edge\"]}"
+    },
+    {
+      "title": "L2 scene & engine inspection",
+      "command": "vanta-cli --db <temporary demo database> server --mcp  (vanta_scene write/read)\nvanta-cli --db <temporary demo database> --json stats",
+      "output": "L2 scene read-back verified: scene_name=formatting summary='Demo formatting preference'\nApplication-authored L2 projection; not automatic consolidation.\nstats subset: {\"namespaces\": [\"agent/hero\", \"scene/hero-session\", \"l0/hero-session\", \"l0_cursor/hero-session\"], \"node_count\": 7, \"total_records\": 7, \"total_vector_nodes\": 3}\nCLI engine counters; not whole-Python-worker RSS.\nphysical_rss maps core storage estimates, not process RAM."
+    }
+  ],
+  "disclosure": "Recorded presentation of a verified local run \u2014 edited pacing"
+}
