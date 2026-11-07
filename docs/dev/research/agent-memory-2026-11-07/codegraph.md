@@ -8,6 +8,22 @@ tags: [research, memory, engineering]
 
 # CodeGraph: evidencia revisionada y actualización de grafos por archivo
 
+## Índice
+
+- [Identidad y dictamen](#identidad-y-dictamen)
+- [1. Arquitectura, tecnologías, flujo y recomendaciones](#1-arquitectura-tecnologías-flujo-y-recomendaciones)
+- [2. Unidades mínimas para diseño independiente en Rust](#2-unidades-mínimas-para-diseño-independiente-en-rust)
+- [3. Defectos, riesgos e issues: nivel de evidencia](#3-defectos-riesgos-e-issues-nivel-de-evidencia)
+- [4. Prerrequisitos Vanta](#4-prerrequisitos-vanta)
+- [5. Qué no trasladar](#5-qué-no-trasladar)
+- [6. Método, licencia y cobertura](#6-método-licencia-y-cobertura)
+- [7. Runner upstream, entradas, métricas, dependencias y efectos](#7-runner-upstream-entradas-métricas-dependencias-y-efectos)
+- [8. Matriz frente a VantaDB](#8-matriz-frente-a-vantadb)
+- [9. Deuda sugerida sin inventar bugs de Vanta](#9-deuda-sugerida-sin-inventar-bugs-de-vanta)
+- [10. UI/escritorio y aplicación a Studio](#10-uiescritorio-y-aplicación-a-studio)
+- [11. Dossier ampliado y revalidación](#11-dossier-ampliado-y-revalidación)
+- [12. Fichas adicionales y cierre](#12-fichas-adicionales-y-cierre)
+
 ## Identidad y dictamen
 
 - Repositorio **`colbymchenry/codegraph`**, no otros productos llamados CodeGraph.
@@ -15,7 +31,8 @@ tags: [research, memory, engineering]
   `f72c9d2efb14454ff4f9fd7b8460abd82f19a287`, rama `main`.
 - Snapshot: **76 956 estrellas**, MIT según
   [candidatos](github-candidates.json) y [manifest](clone-manifest.json).
-- Método [METHOD](METHOD.md); Vanta base `c561158`, HEAD comunicado `167435a9e`.
+- Método [METHOD](METHOD.md); baseline Vanta revalidado
+  `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`; `c561158`/dirty es histórico.
 - El uso de CodeGraph como **herramienta del desarrollo** de Vanta no acredita
   que el producto Rust tenga un indexador AST equivalente. No se reaudita Vanta.
 
@@ -109,9 +126,11 @@ de memoria y adaptadores de presentación. BM25/HNSW/RRF y provenance ya existen
   del índice [C3]. Se adopta el contrato, no la implementación SQLite.
 - **Seam Vanta:** `vanta-memory/src/ingest/merge.rs`, writer/provenance,
   scheduler/checkpoints. Evitar una segunda cola o almacenamiento paralelo.
-- **DTO HIPOTÉTICO:** `SourceGeneration { source_id, revision, state }`;
-  `ImportBundle { records, relations, unresolved_refs }`;
-  `PublishReceipt { previous_revision, published_revision, cleanup_state }`.
+- **Contrato HIPOTÉTICO:** `CodeEvidenceImport` C12 de
+  [CONSOLIDATED](CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
+  La generación, revisión y productor pertenecen a su identidad; registros,
+  relaciones y evidencia no constituyen un segundo `ImportBundle`.
+  El recibo de publicación describe visibilidad/limpieza, no otro almacén.
 - **Interfaz HIPOTÉTICA:** `publish_generation(request) -> Result<Receipt,
   PublishError>`; extracción produce candidatos, aplicación coordina commit.
 - **Acciones:** inventariar atomicidad actual; preparar nueva generación;
@@ -149,8 +168,8 @@ de memoria y adaptadores de presentación. BM25/HNSW/RRF y provenance ya existen
   con digest del contenido íntegro ni con certificación byte a byte.
 - **Hipótesis:** el archivo puede cambiar tras validación y antes de entregar
   texto. No se auditó toda composición de lectura para determinar esa ventana.
-- **Issues:** no investigados. Números citados por comentarios del código son
-  contexto histórico, no auditoría de estado actual ni defectos Vanta.
+- **Issues:** muestra efectivamente leída en §11; los demás números en
+  comentarios siguen siendo contexto histórico, no auditoría de estado.
 
 ## 4. Prerrequisitos Vanta
 
@@ -226,7 +245,7 @@ Preguntas: ¿la respuesta conserva la revisión exacta de cada fuente?,
 ¿se distinguen no verificado y fresco?, ¿un extractor fallido parece una
 fuente vacía?, ¿se preservan relaciones al sustituir una generación?,
 ¿se puede diagnosticar cleanup pendiente?
-No son defectos constatados de `167435a9e`; revalidar y deduplicar tareas
+No son defectos constatados del snapshot `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`; revalidar y deduplicar tareas
 antes de implementar. El estudio base no autoriza resucitar bugs históricos.
 
 ## 10. UI/escritorio y aplicación a Studio
@@ -278,3 +297,260 @@ red, validadores documentales, commits ni push.
 [C9]: https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/ui/src/lib/adapter.ts#L1-L125
 [C10]: https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/ui/src/App.svelte#L1-L80
 [C11]: https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/LICENSE#L1-L21
+
+## 11. Dossier ampliado y revalidación
+
+### 11.1 Mapa físico, stack y modelo persistente
+
+Lectura complementaria **2026-11-07**, sobre el clon y SHA completo de
+§Identidad. `git rev-parse HEAD` coincidió y `git status --short` no emitió
+cambios. CodeGraph MCP contestó que **este clon no está indexado**; no se
+ejecutó `init`. Fast Context expiró; se continuó con lectura directa.
+El índice Vanta sí respondió, pero se contrastó el baseline con
+`git show 97c9623...:<ruta>` para no confundir snapshots.
+
+| Área | Implementación y frontera |
+|---|---|
+| `src/index.ts`, `lazy-engine.ts`, `engine.ts` | API pública CodeGraph y coordinación; AGENTS prescribe carga perezosa del engine para lecturas |
+| `src/extraction/` | AST tree-sitter/WASM y workers; nodos, edges, referencias pendientes y errores |
+| `src/resolution/` | Imports/nombres/frameworks y síntesis; sintaxis determinista no garantiza destino runtime |
+| `src/db/` | SQLite, prepared statements, esquema/migraciones; no servidor multitenant |
+| `src/graph/`, `src/context/` | Traversal, límites dinámicos y ensamblado; no memoria conversacional |
+| `src/sync/`, `src/mcp/` | Watcher/transporte; historial de emisiones de sesión distinto del grafo |
+| `src/ui-server/`, `ui/` | API JSON/lector web Svelte; `src/ui/` es la UI terminal |
+| `codegraph-kernel/`, `telemetry-*` | Localizados, no auditados íntegramente; “local-first” no acredita air-gap |
+
+[package.json:1–74](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/package.json#L1-L74)
+declara 1.6.2, TypeScript, commander, ignore/picomatch y web-tree-sitter.
+Distingue runtime anunciado `>=20 <25` de desarrollo `>=22.12`.
+El backend leído es **`node:sqlite`/DatabaseSync**, no better-sqlite3 ni SQLite
+WASM: [sqlite-adapter.ts:1–100](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/src/db/sqlite-adapter.ts#L1-L100)
+expone wrapper de forma compatible y documenta Node >=22.5 desde fuente.
+Las WASM son del parser, no un fallback de persistencia.
+
+C1 separa `nodes.id TEXT` (tipo, nombre/qname, fuente, posiciones, firma y
+docstring), `edges.id INTEGER` (extremos/kind/metadata/posición/provenance,
+cascada FK), `files.path` (hash/tamaño/mtime/errores/generated) y
+`unresolved_refs` (nombre original, tipo, posición, archivo/lenguaje,
+candidatos, pending/failed/name_tail). IDs de fila no son identidad portátil.
+Resolver elimina refs resueltas y conserva failed para retry. FTS indexa
+**nombres/qnames/docstrings/firmas**, no acredita todos los cuerpos; triggers
+acompañan insert/update/delete. El file node_count puede ser anterior al
+filtrado, no un denominador de calidad.
+
+La muestra no acredita memoria de usuario/sesiones/supersession/ACL por tenant
+equivalente a Vanta: N/A para este productor, no una razón para construir otro
+motor. MIT raíz no certifica licencias de gramáticas/kernel/transitivas.
+
+### 11.2 Traza indexación → grafo → consulta → refresh/delete
+
+1. **Admisión:** `sync` toma mutex local y file lock (C3); fallo produce
+   `LockUnavailableError`. Reabre DB reemplazada y fuerza reconciliación
+   completa. Archivo recién recreado sin estado significa rebuild en curso,
+   no un baseline vacío que pueda considerarse listo.
+2. **Store:** C2 no reemplaza evidencia por grammar-load failure. Captura nodos
+   y edges entrantes antes de cascada. Bundle pequeño usa una transacción;
+   grande divide nodos/aristas/refs en bloques **2000** y yields. Exclusión del
+   writer no implica atomicidad entre todos esos commits para lectores.
+   [3503–3515](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/src/extraction/index.ts#L3503-L3515)
+   escribe file record al final.
+3. **Refresh:** se resuelven refs de archivos cambiados y se reabren afectadas
+   por imports/barrels/default exports/nuevos candidatos. El barrido
+   [index.ts:1735–1768](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/src/index.ts#L1735-L1768)
+   recupera pendientes incluso sin cambios nuevos. No se auditó cada rama
+   multiidioma del resolver.
+4. **Delete:** [removeTracked:3896–3940](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/src/extraction/index.ts#L3896-L3940)
+   comprueba existencia física: Git puede seguir listando un borrado unstaged.
+   Antes de `deleteFile` resucita refs originales de edges entrantes para
+   rebind/failed. C2 advierte que edges legacy/sintetizados sin `refName`
+   pueden caer: inventar short-name quitaría contexto receptor/qualifier.
+5. **Query:** C4 selecciona seeds/subgrafo/bloques/archivos/resumen. Markdown
+   añade call paths y baja confianza. Es evidencia estática, no ejecución;
+   preservar provenance de wiring sintetizado.
+6. **MCP:** [tools.ts:3114–3203](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/src/mcp/tools.ts#L3114-L3203)
+   espera recovery, puede offload al pool y recibe `_cgAnswerFiles`; lo elimina
+   del resultado. **Solo con watcher antes/ahora degraded**, sin error y con
+   contribuyentes, llama a `validateAnswerFiles`. Stale/unchecked rehúsan el
+   cuerpo antes de registrar emisiones de sesión. Esto concreta el caller
+   pendiente en §1: no es verificación universal byte-a-byte de todo MCP.
+7. **Estado:** [getIndexState:2165–2193](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/src/index.ts#L2165-L2193)
+   distingue indexing/complete/partial/failed/null y build/extraction version.
+   Complete del run no certifica todas las resoluciones. Cancelación/crash
+   entre chunks y recuperación íntegra quedan pendientes manuales.
+
+### 11.3 Incidencias públicas concretas
+
+Observadas **2026-11-07** por API pública GitHub `/issues/{n}`: cuerpo y
+metadata leídos, cero comentarios en estos tres; ninguna reproducción propia.
+
+| Fuente, fecha y estado | Prueba reportada y causa acreditada/pendiente | Aplicabilidad |
+|---|---|---|
+| [#3251](https://github.com/colbymchenry/codegraph/issues/3251), 2026-11-06, open | Repro Rust `format!`, `vec!`, `write!`, `json!`; plain sí enlaza. Autor identifica npm 1.6.2 y **f72c9d2**, mismo SHA. token_tree es su explicación; no auditamos expansión de macros | “Sin callers” no prueba dead code ni permite excluir tests. Futuro caso macro/plain; revisar extractor Rust antes de atribuir causa definitiva |
+| [#3238](https://github.com/colbymchenry/codegraph/issues/3238), 2026-11-04, open | Globals `parseInt`/`new Response()` enlazan exports homónimos no importados; dos archivos, `resolvedBy: exact-match`; `Date.now` es control | Exact-match es estrategia, no certeza. Preservar binding y no promocionar confidence a confianza Vanta; matcher y PR correctivo no auditados |
+| [#3228](https://github.com/colbymchenry/codegraph/issues/3228), 2026-11-04, open | Init anuncia “Already initialized” tras run abortado; autor declara lectura estática, no repro; referencia f72c9d2/getIndexState | Installed/present/complete/usable son estados distintos. GetIndexState se leyó; no acredita fallo runtime de init ni bug Vanta |
+
+Websearch/DDG `site:github.com/colbymchenry/codegraph/issues` dio **0 resultados**;
+metasearch GitHub Graphify también cero. API pública funcionó para estos cuerpos,
+después agotó cuota (`API rate limit exceeded`); GitHub MCP falló al conectar.
+Fetch HTML keyless funcionó como fallback para Graphify #5051. No se iniciaron
+servicios ni actualizaron clones. No hay corrección/PR leído para estos tres;
+open no prueba que todas las versiones/lenguajes sufran el problema.
+
+### 11.4 Evaluador: defaults, población y adaptación
+
+C6–C8 relectura: **12 casos** hard-coded, seis search/seis explore, con nombres
+del dominio Elasticsearch; sin descarga o SHA obligatorio del corpus.
+`EVAL_CODEBASE` precede al argumento. Search usa limit 10; explore usa
+searchLimit 8, traversalDepth 3, maxNodes 80, minScore 0.2; overrides por caso
+al final. Son defaults upstream, no parámetros propuestos.
+
+Cada esperado cuenta por nombre case-insensitive; gold vacío da recall 0.
+Explore comprueba conjunto de nombres y densidad edges/nodes, no pares posibles.
+PASS_THRESHOLD 0.5 es del runner. Media recall incluye resultados emitidos;
+MRR filtra valor positivo o ID search. Un throw aborta sin recibo para cada
+caso restante. El reloj rodea query, no scoring; excluye open/indexación.
+No hay warmup explícito, percentiles, tokenizer/modelo/embeddings/answerer/juez,
+split ni sampling en esta suite fija. Gold solo va al scorer.
+
+SHA corto del cwd no fija revisión del target. `npm run eval` compilaría y
+escribiría JSON: **no se ejecutó**. Adaptación bajo [METHOD](METHOD.md) y
+[BENCHMARK-NOTES](BENCHMARK-NOTES.md): mapear `code_search`/contexto/C12 a
+refs repo/revisión/símbolo, conservar errores y separar ingesta/query/QA/agente.
+Los doce casos no son portables literalmente a Vanta Rust; selección/anotación
+de corpus o cambio del scorer compete al protocolo existente del responsable.
+No se diseñan aquí harness, prompts, métricas o umbrales nuevos. El defecto MRR
+no invalida por sí solo todas las cifras publicadas ni mide calidad del resolver.
+
+## 12. Fichas adicionales y cierre
+
+### 12.1 Contrato compartido y terminación de A/B
+
+**Propuestas Rust, no implementadas.** Importar solo mediante
+[`CodeEvidenceImport`, C12](CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory):
+identidad repo/revision/producer/schema_version/generation; refs, relation,
+direction; evidencia Ast/Heuristic/Model/Unknown, span/hash/reported_weight.
+`EvidenceSlice`, receipts e informes de consulta son vistas de aplicación de
+esa evidencia, no otros DTO persistentes de importación.
+
+Baseline inmutable para todas las fichas:
+[index_repo:152–327](https://github.com/ness-e/Vantadb/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vantadb-mcp/src/code_index.rs#L152-L327),
+[code_impact:272–309](https://github.com/ness-e/Vantadb/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vantadb-mcp/src/code.rs#L272-L309),
+[MemoryInput:184–224](https://github.com/ness-e/Vantadb/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/sdk/types/record.rs#L184-L224)
+y [VANTA-REFERENCE](VANTA-REFERENCE.md). Los enlaces relativos previos son
+navegación, no nueva revisión acreditada.
+
+| Unidad existente | Delta/alternativas | Ownership, concurrencia, errores, commit y rollback propuestos |
+|---|---|---|
+| A: frescura | Vanta ya hashea al indexar; verificar **lo entregado** es delta. Verificar al leer, snapshot retenido o aviso unchecked; preferir fuentes retenidas si existen | `verify_sources` toma generación inmutable y bytes de la misma lectura. No escribe ni reindexa; permisos/timeout/oversize son razones explícitas. Publicar informe solo si corresponde a esa generación; rollback desactiva verificación sin anunciar verified. Métricas por estado/causa, nunca snippets |
+| B: publicación | Vanta ya reconcilia símbolos; no es nueva ingesta. Extender coordinador actual, adapter C12 o full snapshot; rechazar copia de chunks como garantía atómica | Solo producer/repo dueño publica y baja; CAS de generación evita writer antiguo. Validar fuente/endpoints antes del commit de visibilidad; si API no permite batch indivisible, staging lógico y puntero pendiente de diseño, no garantía asumida. Failed extractor conserva anterior stale; cleanup posterior reintentable |
+
+A depende del catálogo/mapping de B pero no de instalar watcher; B depende de
+identidad y del writer real, no del RMW global de checkpoints por analogía.
+Aceptación manual adicional: reader concurrente solo ve generación publicada;
+cancelación antes de commit no adelanta baseline; repetir el lote converge;
+fallo de cleanup es visible sin borrar memorias humanas. No se propone migrar
+datos legacy sin owner por inferencia; modo inicial sería diagnóstico sin bajas.
+
+### 12.2 Ficha C — Referencias pendientes con contexto suficiente para retry
+
+- **Caso/unidad:** borrar una definición sin tocar callers no debe convertir
+  sus referencias en “nunca existieron”. C1 y removeTracked (§11.2) conservan
+  refName/refKind/posición; C2 no adivina cuando ese material falta.
+- **Delta/seam:** `all_indexed_symbols` de Vanta solo reúne archivos procesados
+  y `references` no lleva contrato de unresolved. Extender `index_repo` y
+  consumo `code_callers/code_callees`, no un segundo resolver obligatorio.
+- **Contrato:** `reconcile_refs(import: &CodeEvidenceImport,
+  expected_generation) -> Result<ResolutionReport, ReconcileError>`.
+  Report separa bound/ambiguous/pending/failed/unsupported; candidatos no son
+  edges confirmados. `WrongRevision`, `MissingSource`, `IncompleteManifest` y
+  `Conflict` no se traducen a cero callers.
+- **Pasos/estado:** mapear refs originales → invalidar bindings propios cuyo
+  target cambió → pedir evidencia al productor → validar receptor/import →
+  publicar resolución en generación → reintentar solo pendientes relevantes.
+  Legacy sin callee original queda unknown, no se reconstruye desde display name.
+- **Alternativas/deps:** full reimport si no hay ref portable; índice invertido
+  incremental solo después. Depende de B/C12 y coverage del productor, no de
+  portar parsers. Rollback vuelve al mapping previo marcado por revisión.
+- **FMEA:** homónimos tras delete → rebind equivocado → detectar candidatos
+  múltiples y retener ambigüedad; retry infinito → jobs repetidos → estado
+  observable y retry gobernado; otro productor borra endpoint → ownership estricto.
+- **Aceptación futura:** delete/reintroducción, overloads y line shift mantienen
+  identidad/evidencia o explican unknown; retry idempotente; logs solo conteos
+  por estado/generación. **No objetivos:** inferir dispatch runtime o recuperar
+  información que el export nunca conservó.
+
+### 12.3 Ficha D — Límite dinámico como resultado, no arista inventada
+
+- **Caso/fuente:** cuando un flow termina en dispatch, “no hay camino” es demasiado
+  fuerte. [dynamic-boundary-report.ts:1–109](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/src/graph/dynamic-boundary-report.ts#L1-L109)
+  define BoundarySite/BoundaryCandidate/continuations, lectura acotada de cuerpos
+  y representación compartida MCP/viewer; dice explícitamente que no muta grafo.
+- **Delta/seam:** `code_impact` ya tiene depth/direction, no acredita reporte de
+  cierre semántico. Extender respuesta y assembly existente, no añadir calls
+  especulativas. Reutilizar C12 para refs a evidencia; reporte es efímero.
+- **Interfaz:** `explain_boundary(snapshot, seeds, authorized_source_reader,
+  budget) -> Result<BoundaryReport, QueryError>` con stopping_ref, razón,
+  candidatos y coverage. Un candidato nunca puede participar como call confirmado.
+- **Pasos/commit:** fijar generación → recorrer relaciones admitidas → informar
+  dónde termina evidencia → shortlist opcional autorizada → presupuestar salida.
+  Sin escrituras/commit; cancelación devuelve incomplete, no path inexistente.
+- **Alternativas/deps:** solo avisar unsupported es mínimo sostenible; shortlist
+  opcional si el productor conserva dispatch key. Depende de A y de tipado de
+  relaciones, no de un LLM. Desactivar shortlist deja el límite informado.
+- **FMEA:** regex confunde strings con llamadas → candidato erróneo → rótulo
+  heurístico y fuente; hub agota presupuesto → omission explícita; stale body
+  → rechazo/unchecked por A. Métricas de límites/omisiones, sin código en logs.
+- **Aceptación futura:** callback desconocido devuelve límite; llamada real se
+  separa de candidato; cancelación y query vacía no prueban ausencia. **No
+  objetivos:** copiar constantes upstream, inventar edges o seleccionar tests.
+
+### 12.4 Ficha E — Puerto visual con errores y drift explícitos
+
+- **Caso/fuente:** C9 `GraphAdapter`/`ApiFailure`/`SourceRequest.ondrift` permite
+  mismo lector con transportes diferentes; no obliga a HTTP. Aporta distinción
+  not-found/refused/drift/current sin presentar otro símbolo bajo rango antiguo.
+- **Delta/seam:** Studio ya existe y tiene diagnóstico retrieval según
+  VANTA-REFERENCE. Proponer `read_code_view(auth, generation, selection) ->
+  Result<CodeView, ViewError>` y `open_evidence(ref)` sobre API existente;
+  jamás importar Svelte o declarar endpoint Studio ya disponible.
+- **Pasos/ownership:** autorizar repo → resolver C12 → obtener bytes/rango de
+  revisión → renderizar estado/errores → desactivar marcas si se eligen bytes
+  actuales. Lectura sin commit; selección concurrente descarta respuesta de
+  generación anterior. Cancelar navegación no cancela indexador compartido.
+- **Alternativas/deps:** enlaces a fuente son mínimo; adapter visual requiere A/B
+  y trabajo frontend separado. Desactivar panel no toca evidencia persistida.
+- **FMEA/aceptación:** symlink/ruta ajena se deniega; error no parece pantalla
+  vacía; stale no aplica anotaciones indexadas a bytes actuales; selección vieja
+  no pisa nueva. Observar errores por clase, sin roots ni contenido sensible.
+- **Límite/no objetivos:** [viewer-gate.ts:1–29](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/src/bin/viewer-gate.ts#L1-L29)
+  exige `CODEGRAPH_UI=1`; [ui/package.json](https://github.com/colbymchenry/codegraph/blob/f72c9d2efb14454ff4f9fd7b8460abd82f19a287/ui/package.json#L1-L62)
+  es private, Svelte5/XYFlow/Vite. Fuente presente ≠ viewer lanzado o paquete
+  publicado. No acreditar app desktop, Pro externo, a11y o seguridad frontend.
+
+### 12.5 Matriz final, hallazgo local y cobertura
+
+| Capacidad | Vanta en snapshot | Decisión/evidencia |
+|---|---|---|
+| Símbolos/hash/reconcile/scanners Rust/Python/TS/JS | Existe | code_index 193–235,514–520; conservar |
+| AST multilenguaje/resolver imports equivalente | No acreditado | Adapter opcional, no inferir del tooling developer |
+| Evidence source/Derived y grafo | Existe/parcial para import code | MemoryInput existe; metadata por relación no queda acreditada por `add_edge` |
+| Estado generación/completitud por productor | No acreditado | B/C, no atribuir atomicidad por nombre de API |
+| Verificación al entregar contexto | Parcial | Assembly/compaction existen; A amplía provenance de contribuyentes |
+| Cierre exhaustivo para tests | No acreditado | D explica límites; depth no demuestra cierre |
+| Visor Svelte integrado o memoria conversacional upstream | N/A | Producto/propósito distinto; Studio existente se amplía |
+
+**Negativo local sustentado:** code_index 230–233 ignora fallos de remove/delete
+con `let _` y aumenta stale_symbols_removed tras `Ok(Some(old))`; 310–315
+ignora resultado de add_edge heurística. Contador no acredita que toda mutación
+haya tenido éxito. Es observación de esas ramas, no reproducción de pérdida ni
+diagnóstico del writer global. Aceptación futura: inducir fallo aislado de
+mutación y comprobar recibo incompleto antes de usarlo para ACK.
+
+Fuentes adicionales efectivamente leídas: package manifests, sqlite-adapter,
+removeTracked, getIndexState, caller MCP y dynamic-boundary types/rationale,
+además C1–C11. No lectura exhaustiva de kernel, matcher Rust/TS, síntesis,
+transacciones backend, transports, telemetry o auth. Revisión adversarial por
+autor independiente y casos manuales pendientes; no validación global ni
+ejecución. Si pasa a specs activas, dividir A/frescura, B/C/importación,
+D/query y E/Studio; este dossier >300 líneas conserva TOC y trazabilidad
+sin crear archivos adicionales ni reservar backlog.
