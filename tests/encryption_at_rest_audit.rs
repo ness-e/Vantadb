@@ -64,7 +64,7 @@ fn test_tec05_no_plaintext_on_disk_and_full_recovery() {
         for i in 0..10 {
             let mut input = MemoryInput::new(
                 "classified_vault",
-                &format!("secret_{i}"),
+                format!("secret_{i}"),
                 format!("{MARKER}_RECORD_DATA_{i}"),
             );
             input.vector = Some(vec![i as f32 * 1.5, 2.5, 3.5, 4.5]);
@@ -188,7 +188,7 @@ fn test_ego14_ego16_physical_vacuum_and_recall() {
     // 1. Insert 50 nodes with distinctive vectors
     for i in 1..=50 {
         let mut input =
-            MemoryInput::new("vacuum_test", &format!("node_{i}"), format!("payload_{i}"));
+            MemoryInput::new("vacuum_test", format!("node_{i}"), format!("payload_{i}"));
         // Distinctive normalized 4D directional vectors
         let angle = i as f32 * 0.1;
         input.vector = Some(vec![
