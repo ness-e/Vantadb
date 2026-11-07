@@ -56,13 +56,14 @@ VantaDB organizes agent cognition into four hierarchical layers with determinist
   2. At turn end, persist the completed turn to conversational history via `thread_send`.
 
 ### L1: Episodic Memory
-- **Tools**: `memory_recall`, `memory_search`, `memory_put`, `memory_get`, `memory_forget`, `memory_supersede`
-- **Purpose**: Fast, persistent storage and retrieval of factual and conversational episodes.
+- **Tools**: `memory_recall`, `memory_search`, `memory_put`, `memory_get`, `memory_forget`, `memory_supersede`, `bugfix_record`, `bugfix_query`
+- **Purpose**: Fast, persistent storage and retrieval of factual and conversational episodes, including bugfix patterns and resolutions.
 - **Workflow**:
   1. Recall-first rule: Always query `memory_recall` before answering questions about past sessions or user preferences.
   2. Store atomic facts with `memory_put`.
   3. Update decaying facts with `memory_supersede` to maintain temporal validity.
   4. Forget outdated, superseded, or erroneous records with `memory_forget` (soft, hard, or certified).
+  5. Record and query bug fixes and recurring failure patterns via `bugfix_record` and `bugfix_query`.
 
 ### L2: Narrative Scenes
 - **Tools**: `vanta_scene` (or `scene_read`, `scene_list`, `scene_query`, `scene_write`, `scene_edit`)
@@ -70,15 +71,15 @@ VantaDB organizes agent cognition into four hierarchical layers with determinist
 - **Workflow**: Group sequential turns into topical scenes ranked by heat and semantic relevance.
 
 ### L3: Axioms & Dreams
-- **Tools**: `vanta_dream` (or `dream_list`, `dream_load`, `dream_consolidate`, `dream_promote`, `dream_discard`), `read_axioms`, `write_axiom`
+- **Tools**: `vanta_dream`, `memory_dream` (or `dream_list`, `dream_load`, `dream_consolidate`, `dream_promote`, `dream_discard`), `read_axioms`, `write_axiom`
 - **Purpose**: Offline consolidation of episodic patterns into generalized heuristics and permanent persona principles.
 - **Workflow**:
-  1. Run `vanta_dream(action: "consolidate")` over accumulated episodic memory.
+  1. Run `vanta_dream(action: "consolidate")` or `memory_dream` over accumulated episodic memory.
   2. Inspect candidate insights via `vanta_dream(action: "list")` and `load`.
   3. Promote validated insights into permanent axioms via `vanta_dream(action: "promote")`.
 
 ### Tool Access and Surface Profiles
-- **Brain Profile (`VANTADB_MCP_PROFILE=brain`)**: Advertises exactly 12 compact tools (~2.8K schema tokens) while allowing execution of all 88 tools directly or via `vanta_dispatch`.
+- **Brain Profile (`VANTADB_MCP_PROFILE=brain`)**: Advertises exactly 15 compact cognitive tools (`memory_recall`, `memory_search`, `memory_put`, `memory_get`, `memory_forget`, `memory_supersede`, `memory_dream`, `context_assemble`, `thread_send`, `vanta_scene`, `vanta_dream`, `vanta_graph`, `vanta_dispatch`, `bugfix_record`, `bugfix_query`) in `tools/list` while allowing execution of any known tool directly or via `vanta_dispatch` (query `tools/list` for the active profile surface).
 - **Universal Dispatch**: Any specialized tool (e.g. `code_explore`, `wiki_read`, `snapshot_create`) can be executed via `vanta_dispatch(tool: "<name>", arguments: {...})`.
 "#;
 

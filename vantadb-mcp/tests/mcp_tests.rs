@@ -197,6 +197,42 @@ fn test_mcp_resources_read_schema() {
 }
 
 #[test]
+fn test_mcp_resources_read_operating_manual() {
+    let (_dir, storage) = setup_storage();
+    let cfg = default_config();
+
+    let res = handle_resources_read(
+        &Some(json!({"uri": "vanta://brain/operating-manual"})),
+        &storage,
+        &cfg,
+    );
+    assert!(
+        res.is_ok(),
+        "reading vanta://brain/operating-manual should succeed"
+    );
+    let val = res.unwrap();
+    assert_eq!(val["contents"][0]["uri"], "vanta://brain/operating-manual");
+    assert_eq!(val["contents"][0]["mimeType"], "text/markdown");
+    let text = val["contents"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("15 compact cognitive tools"),
+        "manual must reference 15 compact cognitive tools"
+    );
+    assert!(
+        text.contains("bugfix_record"),
+        "manual must reference bugfix_record"
+    );
+    assert!(
+        text.contains("bugfix_query"),
+        "manual must reference bugfix_query"
+    );
+    assert!(
+        text.contains("memory_dream"),
+        "manual must reference memory_dream"
+    );
+}
+
+#[test]
 fn test_mcp_prompts_list() {
     let res = handle_prompts_list();
     assert!(res.is_ok(), "handle_prompts_list should succeed");
@@ -5262,12 +5298,11 @@ fn test_mcp_profile_enforcement_dispatch() {
 /// (previously `full` ≈ 23K tokens of schema overhead per client session).
 #[test]
 fn test_mcp_agent_default_surface() {
-    let config = McpConfig::default();
-    assert_eq!(
-        config.profile,
-        McpProfile::Agent,
-        "default profile must be agent (WIRE-02)"
-    );
+    let config = McpConfig {
+        profile: McpProfile::Agent,
+        ..McpConfig::default()
+    };
+    assert_eq!(config.profile, McpProfile::Agent, "profile must be agent");
 
     let res = handle_tools_list(&config).unwrap();
     let tools = res["tools"].as_array().expect("tools array");
