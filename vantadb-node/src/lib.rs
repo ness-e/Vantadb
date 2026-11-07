@@ -34,7 +34,7 @@ use vantadb::sdk::{
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{SparseVector, MAX_K, MAX_VEC_DIM};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
-use vantadb_ffi_core::{OpGate, OpGuard};
+use vantadb_ffi_core::{OpGate, OpGuard, VantaErrorCode};
 // DIST-19 S3: thin facade over vanta-memory (logic lives in the core/memory
 // crates — api-contract R-8; these imports are glue only).
 use vanta_memory::context_engine::{
@@ -455,7 +455,12 @@ impl VantaDB {
     ) -> napi::Result<Value> {
         let (gate, engine) = self.snapshot();
         let _g = enter(&gate)?;
-        let forget_mode = match mode.as_deref().unwrap_or("soft").to_ascii_lowercase().as_str() {
+        let forget_mode = match mode
+            .as_deref()
+            .unwrap_or("soft")
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "soft" => vantadb::ForgetMode::Soft,
             "hard" => vantadb::ForgetMode::Hard,
             "certified" => vantadb::ForgetMode::Certified,
@@ -465,16 +470,15 @@ impl VantaDB {
                 )))
             }
         };
-        let out = spawn_blocking(move || {
-            match forget_mode {
-                vantadb::ForgetMode::Certified => {
-                    let cert = engine.delete_certified(&namespace, &key)?;
-                    serde_json::to_value(&cert).map_err(vantadb::error::Error::serialization)
-                }
-                _ => {
-                    let report = engine.forget(&namespace, vantadb::ForgetTarget::Key(key), forget_mode)?;
-                    Ok(Value::Bool(report.forgotten_count > 0))
-                }
+        let out = spawn_blocking(move || match forget_mode {
+            vantadb::ForgetMode::Certified => {
+                let cert = engine.delete_certified(&namespace, &key)?;
+                serde_json::to_value(&cert).map_err(vantadb::error::Error::serialization)
+            }
+            _ => {
+                let report =
+                    engine.forget(&namespace, vantadb::ForgetTarget::Key(key), forget_mode)?;
+                Ok(Value::Bool(report.forgotten_count > 0))
             }
         })
         .await?;
@@ -1383,27 +1387,76 @@ fn runtime_profile_label(profile: vantadb::sdk::RuntimeProfile) -> &'static str 
     }
 }
 
+/// Canonical mapping from core `Error` to `VantaErrorCode`.
+///
+/// Ensures `Error::Serialization` is mapped to `VantaErrorCode::Serialization`
+/// and NEVER to `Corrupt`. Also classifies quota exceeded errors as `QuotaExceeded`.
+pub fn from_engine_error(err: &vantadb::error::Error) -> VantaErrorCode {
+    match err {
+        vantadb::error::Error::Serialization(_) => VantaErrorCode::Serialization,
+        vantadb::error::Error::DimensionMismatch { .. } => VantaErrorCode::DimensionMismatch,
+        vantadb::error::Error::NodeNotFound(_) | vantadb::error::Error::NotFound { .. } => {
+            VantaErrorCode::NotFound
+        }
+        vantadb::error::Error::Io(_) | vantadb::error::Error::Wal(_) => VantaErrorCode::Io,
+        vantadb::error::Error::DatabaseBusy(_) => VantaErrorCode::TransactionConflict,
+        vantadb::error::Error::WALVersionMismatch { .. }
+        | vantadb::error::Error::IncompatibleFormat { .. }
+        | vantadb::error::Error::Schema(_)
+        | vantadb::error::Error::Restore(_)
+        | vantadb::error::Error::Backup(_) => VantaErrorCode::Corrupt,
+        vantadb::error::Error::InvalidInput(_)
+        | vantadb::error::Error::Validation { .. }
+        | vantadb::error::Error::Iql(_)
+        | vantadb::error::Error::IqlParse { .. } => VantaErrorCode::InvalidInput,
+        _ => {
+            let msg = err.to_string().to_ascii_lowercase();
+            if msg.contains("quota exceeded") || msg.contains("quota_exceeded") {
+                VantaErrorCode::QuotaExceeded
+            } else if msg.contains("serialization") {
+                VantaErrorCode::Serialization
+            } else if msg.contains("dimension mismatch") {
+                VantaErrorCode::DimensionMismatch
+            } else if msg.contains("not found") {
+                VantaErrorCode::NotFound
+            } else if msg.contains("closed") || msg.contains("closing") {
+                VantaErrorCode::Closed
+            } else if msg.contains("corrupt") {
+                VantaErrorCode::Corrupt
+            } else {
+                VantaErrorCode::from_code(err.code())
+            }
+        }
+    }
+}
+
 /// Convert a core `Error` into a `napi::Error` whose message carries the
-/// stable machine-readable code as a `"{CODE}: {Display}"` prefix (ERR-TS-01).
-/// napi has no error-property channel, so the TS wrapper (`wrapNativeError`
-/// in `vantadb-ts/src/native.ts`) parses the prefix back into `err.code`;
-/// the codes are the canonical `VANTADB_*` set from `Error::code()`.
+/// canonical structured `[ERR_CODE:<code>]` prefix and stable `VANTADB_*` code.
 fn map_err(e: vantadb::error::Error) -> napi::Error {
-    // The Error code is inlined ahead of the napi GenericFailure status
-    // so the TS wrapper can recover `err.code` from the message alone.
+    let vanta_code = from_engine_error(&e);
     let code = e.code();
-    Error::new(napi::Status::GenericFailure, format!("{code}: {e}"))
+    Error::new(
+        napi::Status::GenericFailure,
+        format!("[ERR_CODE:{}] {code}: {e}", vanta_code.as_str()),
+    )
 }
 
 fn serde_map_err(e: serde_json::Error) -> napi::Error {
-    Error::from_reason(format!("serialization error: {e}"))
+    Error::new(
+        napi::Status::GenericFailure,
+        format!("[ERR_CODE:ERR_SERIALIZATION] VANTADB_SERIALIZATION: serialization error: {e}"),
+    )
 }
 
 /// Enter the gate for an engine operation, or fail with a descriptive error
 /// if the database is closing.
 fn enter(gate: &OpGate) -> napi::Result<OpGuard> {
-    gate.try_enter()
-        .ok_or_else(|| Error::from_reason("database is closing"))
+    gate.try_enter().ok_or_else(|| {
+        Error::new(
+            napi::Status::GenericFailure,
+            "[ERR_CODE:ERR_CLOSED] VANTADB_CLOSED: database is closing",
+        )
+    })
 }
 
 /// Run a blocking engine operation on the tokio blocking threadpool.
@@ -2235,18 +2288,37 @@ mod tests {
         assert!(parse_index_method("bogus").is_err());
     }
 
-    /// ERR-TS-01: `map_err` must carry the canonical `VANTADB_*` code as a
-    /// message prefix so `wrapNativeError` (vantadb-ts) can recover `err.code`
-    /// instead of collapsing every native failure into one bucket.
+    /// ERR-TS-01 / FFI-02: `map_err` must carry the structured `[ERR_CODE:<code>]`
+    /// and canonical `VANTADB_*` code so `wrapNativeError` (vantadb-ts) can recover
+    /// `err.code` instead of collapsing every native failure into one bucket.
     #[test]
     fn map_err_prefixes_canonical_vantadb_code() {
         let err = map_err(vantadb::error::Error::NodeNotFound(7));
         assert!(
-            err.reason.starts_with("VANTADB_NOT_FOUND: "),
-            "expected code prefix, got: {}",
+            err.reason.contains("[ERR_CODE:ERR_NOT_FOUND]"),
+            "expected structured code prefix, got: {}",
+            err.reason
+        );
+        assert!(
+            err.reason.contains("VANTADB_NOT_FOUND: "),
+            "expected canonical code, got: {}",
             err.reason
         );
         // Display text of the variant must survive after the prefix.
         assert!(err.reason.contains("not found"), "got: {}", err.reason);
+    }
+
+    #[test]
+    fn from_engine_error_classifies_serialization_and_quota_safely() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test");
+        let ser_err = vantadb::error::Error::Serialization(Box::new(io_err));
+        assert_eq!(
+            from_engine_error(&ser_err),
+            VantaErrorCode::Serialization,
+            "Serialization must NEVER map to Corrupt"
+        );
+        let quota_err =
+            vantadb::error::Error::Generic("storage quota exceeded for namespace".into());
+        assert_eq!(from_engine_error(&quota_err), VantaErrorCode::QuotaExceeded);
     }
 }

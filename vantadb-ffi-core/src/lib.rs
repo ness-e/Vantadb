@@ -172,6 +172,174 @@ pub fn clamp_top_k(requested: usize, max: usize) -> (usize, bool) {
     }
 }
 
+/// Canonical numerical and string error codes across all VantaDB FFI transports
+/// (`vantadb-node`, `vantadb-wasm`, `vantadb-python`, `vantadb-ts`).
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VantaErrorCode {
+    /// I/O error from filesystem, network, or WAL backend.
+    Io = 1,
+    /// Storage corruption, checksum mismatch, or unrecoverable layout error.
+    Corrupt = 2,
+    /// Serialization or deserialization error (e.g. JSON/bincode/CBOR).
+    Serialization = 3,
+    /// Vector dimension mismatch between record and index.
+    DimensionMismatch = 4,
+    /// Record or node not found in the queried namespace.
+    NotFound = 5,
+    /// Invalid input argument, schema violation, or unparseable query.
+    InvalidInput = 6,
+    /// Transaction conflict, database lock contention, or concurrency collision.
+    TransactionConflict = 7,
+    /// Database handle or transport is closed or closing.
+    Closed = 8,
+    /// Cryptographic or encryption error.
+    Encryption = 9,
+    /// Storage, memory, or operation quota exceeded.
+    QuotaExceeded = 10,
+    /// Internal unexpected error.
+    Internal = 99,
+}
+
+impl VantaErrorCode {
+    /// Canonical error code string identifier.
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Io => "ERR_IO",
+            Self::Corrupt => "ERR_CORRUPT",
+            Self::Serialization => "ERR_SERIALIZATION",
+            Self::DimensionMismatch => "ERR_DIMENSION_MISMATCH",
+            Self::NotFound => "ERR_NOT_FOUND",
+            Self::InvalidInput => "ERR_INVALID_INPUT",
+            Self::TransactionConflict => "ERR_TXN_CONFLICT",
+            Self::Closed => "ERR_CLOSED",
+            Self::Encryption => "ERR_ENCRYPTION",
+            Self::QuotaExceeded => "ERR_QUOTA_EXCEEDED",
+            Self::Internal => "ERR_INTERNAL",
+        }
+    }
+
+    /// Numerical representation of the error code.
+    #[must_use]
+    pub fn as_u32(&self) -> u32 {
+        *self as u32
+    }
+
+    /// Convert from a numeric u32 code, or `None` if unrecognized.
+    #[must_use]
+    pub fn from_u32(val: u32) -> Option<Self> {
+        match val {
+            1 => Some(Self::Io),
+            2 => Some(Self::Corrupt),
+            3 => Some(Self::Serialization),
+            4 => Some(Self::DimensionMismatch),
+            5 => Some(Self::NotFound),
+            6 => Some(Self::InvalidInput),
+            7 => Some(Self::TransactionConflict),
+            8 => Some(Self::Closed),
+            9 => Some(Self::Encryption),
+            10 => Some(Self::QuotaExceeded),
+            99 => Some(Self::Internal),
+            _ => None,
+        }
+    }
+
+    /// Resolve error code from string identifier (`ERR_*` or legacy `VANTADB_*`).
+    #[must_use]
+    pub fn from_code(code: &str) -> Self {
+        match code {
+            "ERR_IO" | "VANTADB_IO_ERROR" => Self::Io,
+            "ERR_CORRUPT" | "VANTADB_CORRUPT" => Self::Corrupt,
+            "ERR_SERIALIZATION" | "VANTADB_SERIALIZATION" => Self::Serialization,
+            "ERR_DIMENSION_MISMATCH" | "VANTADB_DIMENSION_MISMATCH" => Self::DimensionMismatch,
+            "ERR_NOT_FOUND" | "VANTADB_NOT_FOUND" => Self::NotFound,
+            "ERR_INVALID_INPUT"
+            | "VANTADB_INVALID_INPUT"
+            | "VANTADB_VALIDATION_ERROR"
+            | "VANTADB_INVALID_ARGUMENT" => Self::InvalidInput,
+            "ERR_TXN_CONFLICT" | "VANTADB_TXN_CONFLICT" | "VANTADB_BUSY" => {
+                Self::TransactionConflict
+            }
+            "ERR_CLOSED" | "VANTADB_CLOSED" => Self::Closed,
+            "ERR_ENCRYPTION" | "VANTADB_ENCRYPTION" => Self::Encryption,
+            "ERR_QUOTA_EXCEEDED" | "VANTADB_QUOTA_EXCEEDED" | "VANTADB_RESOURCE_LIMIT" => {
+                Self::QuotaExceeded
+            }
+            _ => Self::Internal,
+        }
+    }
+
+    /// Resolve from error code string and display message, with explicit guards
+    /// ensuring serialization is never classified as corruption.
+    #[must_use]
+    pub fn from_code_and_message(code: &str, msg: &str) -> Self {
+        let lower = msg.to_ascii_lowercase();
+        if lower.contains("quota exceeded") || lower.contains("quota_exceeded") {
+            return Self::QuotaExceeded;
+        }
+        if lower.contains("serialization") || lower.contains("failed to serialize") {
+            return Self::Serialization;
+        }
+        if lower.contains("closed") || lower.contains("closing") {
+            return Self::Closed;
+        }
+        if lower.contains("dimension mismatch") {
+            return Self::DimensionMismatch;
+        }
+        if lower.contains("not found") {
+            return Self::NotFound;
+        }
+        Self::from_code(code)
+    }
+}
+
+/// Structured FFI error type encapsulating canonical code and human-readable message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FfiError {
+    /// Canonical error code.
+    pub code: VantaErrorCode,
+    /// Detailed human message.
+    pub message: String,
+}
+
+impl FfiError {
+    /// Create a new structured FFI error.
+    pub fn new(code: VantaErrorCode, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+
+    /// Format with the canonical structured prefix `[ERR_CODE:<code>] <message>`.
+    #[must_use]
+    pub fn format(&self) -> String {
+        format!("[ERR_CODE:{}] {}", self.code.as_str(), self.message)
+    }
+
+    /// Parse a formatted string with `[ERR_CODE:<code>] <message>` prefix.
+    #[must_use]
+    pub fn parse_formatted(s: &str) -> Option<(VantaErrorCode, &str)> {
+        if let Some(rest) = s.strip_prefix("[ERR_CODE:") {
+            if let Some(idx) = rest.find(']') {
+                let code_str = &rest[..idx];
+                let msg = rest[idx + 1..].trim_start();
+                return Some((VantaErrorCode::from_code(code_str), msg));
+            }
+        }
+        None
+    }
+}
+
+impl std::fmt::Display for FfiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[ERR_CODE:{}] {}", self.code.as_str(), self.message)
+    }
+}
+
+impl std::error::Error for FfiError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,5 +395,47 @@ mod tests {
             .recv_timeout(Duration::from_secs(5))
             .expect("drain wakes after the last in-flight guard drops");
         handle.join().expect("drain thread joins");
+    }
+
+    #[test]
+    fn vanta_error_code_mapping_and_serialization_safety() {
+        assert_eq!(VantaErrorCode::Io.as_u32(), 1);
+        assert_eq!(VantaErrorCode::Corrupt.as_u32(), 2);
+        assert_eq!(VantaErrorCode::Serialization.as_u32(), 3);
+        assert_eq!(VantaErrorCode::DimensionMismatch.as_u32(), 4);
+        assert_eq!(VantaErrorCode::NotFound.as_u32(), 5);
+        assert_eq!(VantaErrorCode::InvalidInput.as_u32(), 6);
+        assert_eq!(VantaErrorCode::TransactionConflict.as_u32(), 7);
+        assert_eq!(VantaErrorCode::Closed.as_u32(), 8);
+        assert_eq!(VantaErrorCode::Encryption.as_u32(), 9);
+        assert_eq!(VantaErrorCode::QuotaExceeded.as_u32(), 10);
+        assert_eq!(VantaErrorCode::Internal.as_u32(), 99);
+
+        assert_eq!(VantaErrorCode::Serialization.as_str(), "ERR_SERIALIZATION");
+        assert_eq!(VantaErrorCode::QuotaExceeded.as_str(), "ERR_QUOTA_EXCEEDED");
+
+        // Ensure serialization error NEVER maps to Corrupt
+        assert_eq!(
+            VantaErrorCode::from_code_and_message("VANTADB_CORRUPT", "serialization error: failed"),
+            VantaErrorCode::Serialization
+        );
+        // Quota exceeded check
+        assert_eq!(
+            VantaErrorCode::from_code_and_message(
+                "VANTADB_RESOURCE_LIMIT",
+                "quota exceeded for tenant"
+            ),
+            VantaErrorCode::QuotaExceeded
+        );
+
+        let err = FfiError::new(VantaErrorCode::Serialization, "bincode deserialize failed");
+        let formatted = err.format();
+        assert_eq!(
+            formatted,
+            "[ERR_CODE:ERR_SERIALIZATION] bincode deserialize failed"
+        );
+        let parsed = FfiError::parse_formatted(&formatted).expect("parses formatted");
+        assert_eq!(parsed.0, VantaErrorCode::Serialization);
+        assert_eq!(parsed.1, "bincode deserialize failed");
     }
 }

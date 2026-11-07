@@ -22,6 +22,7 @@ Commands:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
@@ -36,6 +37,62 @@ BINS = 10
 _EPS = 1e-6
 _T_GRID_LO = 0.05
 _T_GRID_HI = 20.0
+
+# ----------------------------------------------------------------- EVAL-02 split & guards
+SEED_DEFAULT = "vantadb-longmemeval-v1"
+CALIBRATION_SPLIT_GUARD = "EVAL-02-LONGMEMEVAL-CALIBRATION-GUARD"
+
+
+def split_longmemeval_calibration_holdout(
+    questions: list[dict],
+    seed: str = SEED_DEFAULT,
+) -> tuple[list[dict], list[dict]]:
+    """EVAL-02: Deterministic, inviolable partition for LongMemEval (500 questions).
+
+    Divides questions ordered by question_id using SHA-256(f"{seed}:{question_id}") into:
+      - Calibration split: exactly 100 questions (20%) allowed for tuning.
+      - Blind Holdout split: remaining 400 questions (80%), strictly blocked from calibration.
+    For arbitrary N: calibration gets round(N * 0.2) questions (or exactly 100 when N == 500).
+    """
+    if not questions:
+        return [], []
+    # 1. Deterministic sort by question_id first
+    sorted_questions = sorted(questions, key=lambda q: str(q.get("question_id", "")))
+
+    # 2. Score by SHA-256(f"{seed}:{question_id}")
+    scored = []
+    for q in sorted_questions:
+        qid = str(q.get("question_id", ""))
+        h = hashlib.sha256(f"{seed}:{qid}".encode("utf-8")).hexdigest()
+        scored.append((h, qid, q))
+
+    # Sort deterministically by hash (with qid tie-breaker)
+    scored.sort(key=lambda item: (item[0], item[1]))
+
+    n_total = len(scored)
+    if n_total == 500:
+        n_cal = 100
+    else:
+        n_cal = max(1, int(round(n_total * 0.2))) if n_total >= 5 else 1
+        n_cal = min(n_cal, n_total)
+
+    calibration = [item[2] for item in scored[:n_cal]]
+    holdout = [item[2] for item in scored[n_cal:]]
+    return calibration, holdout
+
+
+def compute_split_ids_sha256(questions: list[dict]) -> str:
+    """Deterministic SHA-256 hash of sorted question IDs in a split."""
+    ids = sorted(str(q.get("question_id", "")) for q in questions)
+    return hashlib.sha256("\n".join(ids).encode("utf-8")).hexdigest()
+
+
+def assert_calibration_allowed(split: str) -> None:
+    """EVAL-02: Enforces that hyperparameter/temperature calibration is strictly forbidden on holdout or all."""
+    if split in ("holdout", "all", "blind_holdout"):
+        raise ValueError(
+            "EVAL-02 violation: calibration is strictly forbidden on blind holdout split"
+        )
 
 
 def _clamp(p: float) -> float:
@@ -133,13 +190,16 @@ def fit_temperature(pairs: list, grid_lo: float = _T_GRID_LO, grid_hi: float = _
     return best_t
 
 
-def calibrate(pairs: list, bins: int = BINS) -> dict:
+def calibrate(pairs: list, bins: int = BINS, split: str = "calibration") -> dict:
     """Full report: ECE before, fitted T, ECE after, reliability data, NLLs."""
+    assert_calibration_allowed(split)
     t = fit_temperature(pairs)
     after = [(apply_temperature(c, t), y) for c, y in pairs]
     return {
         "pairs": len(pairs),
         "bins": bins,
+        "split": split,
+        "guard": CALIBRATION_SPLIT_GUARD,
         "ece_before": ece(pairs, bins),
         "temperature": t,
         "nll_before": nll(pairs, 1.0),
@@ -174,7 +234,45 @@ def _selftest() -> int:
     # 6. Single pair: finite, no crash.
     rep3 = calibrate([(0.7, 1)])
     assert math.isfinite(rep3["ece_after"])
-    print("calibration selftest: OK (6 checks)")
+
+    # 7. EVAL-02: Blind holdout guard and split partition checks
+    assert_calibration_allowed("calibration")
+    try:
+        assert_calibration_allowed("holdout")
+        assert False, "must reject holdout"
+    except ValueError as e:
+        assert "EVAL-02 violation" in str(e), str(e)
+    try:
+        assert_calibration_allowed("all")
+        assert False, "must reject all"
+    except ValueError as e:
+        assert "EVAL-02 violation" in str(e), str(e)
+    try:
+        calibrate([(0.7, 1)], split="holdout")
+        assert False, "calibrate() must enforce EVAL-02 on holdout"
+    except ValueError as e:
+        assert "EVAL-02 violation" in str(e), str(e)
+
+    # 500 questions split test
+    q500 = [{"question_id": f"q_{i:04d}", "payload": f"val_{i}"} for i in range(500)]
+    cal, hold = split_longmemeval_calibration_holdout(q500)
+    assert len(cal) == 100, f"expected 100 calibration questions, got {len(cal)}"
+    assert len(hold) == 400, f"expected 400 holdout questions, got {len(hold)}"
+    cal_ids = {q["question_id"] for q in cal}
+    hold_ids = {q["question_id"] for q in hold}
+    assert cal_ids.isdisjoint(hold_ids), "calibration and holdout splits must be strictly disjoint"
+    assert len(cal_ids | hold_ids) == 500, "union must cover all 500 questions"
+
+    hash_cal = compute_split_ids_sha256(cal)
+    hash_hold = compute_split_ids_sha256(hold)
+    assert len(hash_cal) == 64 and len(hash_hold) == 64
+
+    # Determinism: same run produces identical hashes
+    cal2, hold2 = split_longmemeval_calibration_holdout(q500)
+    assert compute_split_ids_sha256(cal2) == hash_cal
+    assert compute_split_ids_sha256(hold2) == hash_hold
+
+    print("calibration selftest: OK (7 checks, EVAL-02 verified)")
     return 0
 
 
@@ -190,19 +288,26 @@ def _print_report(rep: dict) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="ECE + temperature scaling (MGR-12 §5.2).")
+    ap = argparse.ArgumentParser(description="ECE + temperature scaling (MGR-12 §5.2, EVAL-02).")
     ap.add_argument("--selftest", action="store_true", help="run assert-based self-checks")
     ap.add_argument("--pairs", help="JSON file with [[confidence, correct], ...]")
+    ap.add_argument(
+        "--split",
+        choices=["calibration", "holdout", "all"],
+        default="calibration",
+        help="split to calibrate on (holdout and all are strictly forbidden under EVAL-02)",
+    )
     ap.add_argument("--json", action="store_true", help="emit the full report as JSON")
     args = ap.parse_args()
 
     if args.selftest:
         return _selftest()
+    assert_calibration_allowed(args.split)
     if not args.pairs:
         ap.print_help()
         return 2
     pairs = [tuple(x) for x in json.loads(open(args.pairs, encoding="utf-8").read())]
-    rep = calibrate(pairs)
+    rep = calibrate(pairs, split=args.split)
     if args.json:
         print(json.dumps(rep, indent=2))
     else:

@@ -52,7 +52,7 @@ use vantadb::graph::TraversalDirection;
 use vantadb::sdk::*;
 use vantadb::{BackendKind, Error, SparseVector, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
-use vantadb_ffi_core::{OpGate, OpGuard};
+use vantadb_ffi_core::{OpGate, OpGuard, VantaErrorCode};
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
@@ -489,8 +489,18 @@ impl PersistCache {
 /// Enter the gate for an engine operation, or fail with a descriptive error
 /// if the database is closing.
 fn enter(gate: &OpGate) -> Result<OpGuard, JsValue> {
-    gate.try_enter()
-        .ok_or_else(|| JsValue::from_str("database is closing"))
+    gate.try_enter().ok_or_else(|| {
+        let msg = "[ERR_CODE:ERR_CLOSED] database is closing";
+        let err = js_sys::Error::new(msg);
+        let _ = js_sys::Reflect::set(&err, &"code".into(), &JsValue::from_str("ERR_CLOSED"));
+        let _ = js_sys::Reflect::set(
+            &err,
+            &"vanta_code".into(),
+            &JsValue::from_f64(VantaErrorCode::Closed.as_u32() as f64),
+        );
+        let _ = js_sys::Reflect::set(&err, &"message".into(), &JsValue::from_str(msg));
+        JsValue::from(err)
+    })
 }
 
 /// Emit `console.warn(msg)` when a console exists (best-effort, never throws).
@@ -1111,6 +1121,21 @@ impl Client {
         // Durability barrier: reject new ops and wait for in-flight ones to
         // finish BEFORE the engine is closed (see OpGate docs).
         self.op_gate.drain();
+        self.inner.close().map_err(to_js_err)
+    }
+
+    /// Asynchronously close the database, flushing any pending state to OPFS / IndexedDB
+    /// and draining in-flight operations before releasing the engine.
+    #[wasm_bindgen(js_name = closeAsync)]
+    pub async fn close_async(&self) -> Result<(), JsValue> {
+        // Drain any pending flush / persist to OPFS / IndexedDB
+        if self.opfs.is_some() {
+            let _ = self.save().await;
+        } else if self.persistence {
+            let _ = self.save_idb().await;
+        }
+        self.op_gate.drain();
+        let _ = self.inner.flush();
         self.inner.close().map_err(to_js_err)
     }
 
@@ -2139,28 +2164,63 @@ struct GraphDegreeEntry {
     out_degree: usize,
 }
 
-/// Map a `Error` to a JS error carrying the `{code, message}` shape
-/// shared across the TS/node/Python bindings (MOD-20 Python parity). The
-/// standard `error.message` and a `code` property are attached via
-/// `Reflect::set`; both reflect the underlying variant so consumers can
-/// classify errors without parsing the message string. Backward-compatible:
-/// `wrapWasmError` in `vantadb-ts/src/errors.ts` keeps reading `e.message`
-/// and `(e as WasmErrorLike).code` exactly as before.
+/// Canonical mapping from core `Error` to `VantaErrorCode`.
 ///
-/// ERR-TS-01: the code comes straight from the core's `Error::code()`
-/// (single source of truth) — the old 30→8 lookup table was removed once
-/// `code()` became `pub`, so WASM now emits the canonical `VANTADB_*` codes.
+/// Ensures `Error::Serialization` is mapped to `VantaErrorCode::Serialization`
+/// and NEVER to `Corrupt`. Also classifies quota exceeded errors as `QuotaExceeded`.
+pub fn from_engine_error(err: &Error) -> VantaErrorCode {
+    match err {
+        Error::Serialization(_) => VantaErrorCode::Serialization,
+        Error::DimensionMismatch { .. } => VantaErrorCode::DimensionMismatch,
+        Error::NodeNotFound(_) | Error::NotFound { .. } => VantaErrorCode::NotFound,
+        Error::Io(_) | Error::Wal(_) => VantaErrorCode::Io,
+        Error::DatabaseBusy(_) => VantaErrorCode::TransactionConflict,
+        Error::WALVersionMismatch { .. }
+        | Error::IncompatibleFormat { .. }
+        | Error::Schema(_)
+        | Error::Restore(_)
+        | Error::Backup(_) => VantaErrorCode::Corrupt,
+        Error::InvalidInput(_)
+        | Error::Validation { .. }
+        | Error::Iql(_)
+        | Error::IqlParse { .. } => VantaErrorCode::InvalidInput,
+        _ => {
+            let msg = err.to_string().to_ascii_lowercase();
+            if msg.contains("quota exceeded") || msg.contains("quota_exceeded") {
+                VantaErrorCode::QuotaExceeded
+            } else if msg.contains("serialization") {
+                VantaErrorCode::Serialization
+            } else if msg.contains("dimension mismatch") {
+                VantaErrorCode::DimensionMismatch
+            } else if msg.contains("not found") {
+                VantaErrorCode::NotFound
+            } else if msg.contains("closed") || msg.contains("closing") {
+                VantaErrorCode::Closed
+            } else if msg.contains("corrupt") {
+                VantaErrorCode::Corrupt
+            } else {
+                VantaErrorCode::from_code(err.code())
+            }
+        }
+    }
+}
+
+/// Map an `Error` to a JS error carrying the structured canonical `[ERR_CODE:<code>]`
+/// prefix and `.code` property.
 fn to_js_err(e: Error) -> JsValue {
     let message = e.to_string();
-    let err = js_sys::Error::new(&message);
-    // Attach a structured code so TS consumers can classify errors without
-    // parsing messages. Reflect::set on a fresh Error cannot fail in practice;
-    // on failure we degrade gracefully to message-only classification.
-    let _ = js_sys::Reflect::set(&err, &"code".into(), &JsValue::from_str(e.code()));
-    // Mirror `message` as an own property so the JS-side shape is the symmetric
-    // `{code, message}` documented for cross-SDK taxonomy. The standard
-    // `error.message` remains the canonical source of truth.
-    let _ = js_sys::Reflect::set(&err, &"message".into(), &JsValue::from_str(&message));
+    let vanta_code = from_engine_error(&e);
+    let code_str = vanta_code.as_str();
+    let formatted = format!("[ERR_CODE:{code_str}] {message}");
+    let err = js_sys::Error::new(&formatted);
+    let _ = js_sys::Reflect::set(&err, &"code".into(), &JsValue::from_str(code_str));
+    let _ = js_sys::Reflect::set(
+        &err,
+        &"vanta_code".into(),
+        &JsValue::from_f64(vanta_code.as_u32() as f64),
+    );
+    let _ = js_sys::Reflect::set(&err, &"raw_code".into(), &JsValue::from_str(e.code()));
+    let _ = js_sys::Reflect::set(&err, &"message".into(), &JsValue::from_str(&formatted));
     err.into()
 }
 

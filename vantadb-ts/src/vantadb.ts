@@ -124,6 +124,7 @@ export interface WikiClient {
 
 export interface SystemClient {
   close(): void;
+  closeAsync(): Promise<void>;
   capabilities(): Capabilities;
   operationalMetrics(): OperationalMetrics;
   query(query: string): QueryResult;
@@ -384,6 +385,7 @@ export class Client {
   get system(): Readonly<SystemClient> {
     return (this._system ??= Object.freeze({
       close: () => this.close(),
+      closeAsync: () => this.closeAsync(),
       capabilities: () => this.capabilities(),
       operationalMetrics: () => this.operationalMetrics(),
       query: (query: string) => this.query(query),
@@ -424,6 +426,29 @@ export class Client {
       this.inner.close();
     } catch (e) {
       throw wrapWasmError(e, "close");
+    } finally {
+      this._closed = true;
+    }
+  }
+
+  /**
+   * Asynchronously close the database, flushing any pending state to OPFS / IndexedDB
+   * and draining in-flight operations before releasing the engine.
+   *
+   * Calling closeAsync() multiple times is safe (no-op on subsequent calls).
+   *
+   * @throws {DbError} If the WASM engine fails during close.
+   */
+  async closeAsync(): Promise<void> {
+    if (this._closed) return;
+    try {
+      if (typeof (this.inner as any).closeAsync === "function") {
+        await (this.inner as any).closeAsync();
+      } else {
+        this.inner.close();
+      }
+    } catch (e) {
+      throw wrapWasmError(e, "closeAsync");
     } finally {
       this._closed = true;
     }
@@ -1811,7 +1836,7 @@ export class Client {
   }
 }
 
-export { DbError, ERROR_CODES } from "./errors.js";
+export { DbError, ERROR_CODES, VantaErrorCode, fromNativeError, wrapWasmError } from "./errors.js";
 export {
   isMemoryRecord,
   isSearchHit,

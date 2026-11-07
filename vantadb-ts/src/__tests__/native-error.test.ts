@@ -75,4 +75,42 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     }
     expect(caught).toBe(original);
   });
+
+  it("classifies serialization error as VANTADB_SERIALIZATION and NEVER as VANTADB_CORRUPT (FFI-02)", async () => {
+    // 1. Structured prefix
+    const db1 = makeDbWith({
+      get: () =>
+        Promise.reject(
+          new Error(
+            "[ERR_CODE:ERR_SERIALIZATION] VANTADB_SERIALIZATION: serialization error: failed",
+          ),
+        ),
+    });
+    await expect(db1.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
+      code: "VANTADB_SERIALIZATION",
+      message: expect.stringContaining("serialization error: failed"),
+    });
+
+    // 2. Unprefixed message heuristic fallback must NEVER map to CORRUPT
+    const db2 = makeDbWith({
+      get: () => Promise.reject(new Error("serialization error: cannot decode bincode")),
+    });
+    await expect(db2.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
+      code: "VANTADB_SERIALIZATION",
+      message: expect.stringContaining("serialization error: cannot decode bincode"),
+    });
+  });
+
+  it("classifies quota exceeded as VANTADB_QUOTA_EXCEEDED (FFI-02)", async () => {
+    const db = makeDbWith({
+      get: () =>
+        Promise.reject(
+          new Error("[ERR_CODE:ERR_QUOTA_EXCEEDED] VANTADB_QUOTA_EXCEEDED: tenant quota exceeded"),
+        ),
+    });
+    await expect(db.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
+      code: "VANTADB_QUOTA_EXCEEDED",
+      message: expect.stringContaining("tenant quota exceeded"),
+    });
+  });
 });

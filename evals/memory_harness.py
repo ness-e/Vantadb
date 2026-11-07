@@ -60,9 +60,19 @@ except Exception:
 # `calibration.py` lives next to this file; `python evals/memory_harness.py`
 # puts evals/ on sys.path[0], and pytest/import-from-root also works.
 try:
-    from calibration import calibrate as calibration_report
+    from calibration import (
+        calibrate as calibration_report,
+        split_longmemeval_calibration_holdout,
+        compute_split_ids_sha256,
+        CALIBRATION_SPLIT_GUARD,
+    )
 except ImportError:  # package-style import (evals.memory_harness)
-    from evals.calibration import calibrate as calibration_report  # type: ignore
+    from evals.calibration import (  # type: ignore
+        calibrate as calibration_report,
+        split_longmemeval_calibration_holdout,
+        compute_split_ids_sha256,
+        CALIBRATION_SPLIT_GUARD,
+    )
 
 HERE = pathlib.Path(__file__).parent
 REPO_ROOT = HERE.resolve().parent
@@ -785,7 +795,20 @@ def _selftest() -> int:
     assert q1row["bleu1_max"] is not None and q1row["bleu1_max"] > 0.3, q1row
     assert rep["answer_f1"]["n_scored"] == 1, rep["answer_f1"]
     assert rep["answer_bleu1"]["n_scored"] == 1, rep["answer_bleu1"]
-    print("memory_harness selftest: OK (19 checks)")
+
+    # EVAL-02: verify deterministic split and SHA-256 calculation
+    q500 = [{"question_id": f"q_{i:04d}", "answer_session_ids": ["s1"]} for i in range(500)]
+    cal, hold = split_longmemeval_calibration_holdout(q500)
+    assert len(cal) == 100, f"expected 100 calibration questions, got {len(cal)}"
+    assert len(hold) == 400, f"expected 400 holdout questions, got {len(hold)}"
+    h_cal = compute_split_ids_sha256(cal)
+    h_hold = compute_split_ids_sha256(hold)
+    assert len(h_cal) == 64 and len(h_hold) == 64
+    cal2, hold2 = split_longmemeval_calibration_holdout(q500)
+    assert compute_split_ids_sha256(cal2) == h_cal
+    assert compute_split_ids_sha256(hold2) == h_hold
+
+    print("memory_harness selftest: OK (20 checks, EVAL-02 verified)")
     return 0
 
 
@@ -844,6 +867,12 @@ def main() -> int:
     ap.add_argument("--label", default="", help="label recorded in the report (e.g. subset-5q)")
     ap.add_argument("--output", default=str(DEFAULT_OUTPUT))
     ap.add_argument("--no-write-quality", action="store_true", help="skip the per-record self-recovery sweep")
+    ap.add_argument(
+        "--split",
+        choices=["all", "calibration", "holdout"],
+        default="all",
+        help="EVAL-02 partition mode: all (default), calibration (100q / 20 pct), or holdout (400q / 80 pct)",
+    )
     ap.add_argument("--self-test", action="store_true", help="offline self-checks (no vantadb)")
     args = ap.parse_args()
 
@@ -852,6 +881,12 @@ def main() -> int:
 
     data_path = pathlib.Path(args.data)
     questions = _load_questions(data_path)
+    if args.split != "all":
+        cal_split, hold_split = split_longmemeval_calibration_holdout(questions)
+        if args.split == "calibration":
+            questions = cal_split
+        elif args.split == "holdout":
+            questions = hold_split
     if args.only == "nonabs":
         questions = [q for q in questions if not question_is_abs(q)]
     elif args.only == "abs":
@@ -859,7 +894,7 @@ def main() -> int:
     if args.limit:
         questions = questions[: args.limit]
     if not questions:
-        raise SystemExit(f"no questions selected from {data_path} (filter={args.only}, limit={args.limit})")
+        raise SystemExit(f"no questions selected from {data_path} (filter={args.only}, limit={args.limit}, split={args.split})")
 
     store = VantaStore(backend=args.backend)
     started = time.strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -872,16 +907,23 @@ def main() -> int:
     )
     store.close()
 
+    split_ids_sha = compute_split_ids_sha256(questions)
     report["meta"].update(
         {
             "label": args.label or f"{data_path.stem}-{len(questions)}q",
             "data_file": str(data_path),
             "data_sha256": sha256_file(data_path),
+            "split_mode": args.split,
+            "split_question_count": len(questions),
+            "split_ids_sha256": split_ids_sha,
             "backend": store.name,
             "vantadb_version": store.version,
             "started_at": started,
         }
     )
+    report["split_mode"] = args.split
+    report["split_question_count"] = len(questions)
+    report["split_ids_sha256"] = split_ids_sha
     report["hardware"] = {
         "os": platform.platform(),
         "cpu": platform.processor() or platform.machine(),

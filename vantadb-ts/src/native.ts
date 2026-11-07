@@ -1,4 +1,4 @@
-import { DbError, ERROR_CODES, classifyWasmError } from "./errors.js";
+import { DbError, ERROR_CODES, classifyWasmError, fromNativeError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 import { toFilterItems } from "./metadata.js";
 
@@ -194,17 +194,8 @@ export interface NativeClientBinding {
  * message-prefix classifier the WASM path uses — there is no separate
  * `NATIVE_ERROR` code.
  */
-const NATIVE_CODE_PREFIX = /^(VANTADB_[A-Z0-9_]+): ([\s\S]*)$/;
-
 export function wrapNativeError(e: unknown, context: string): DbError {
-  if (e instanceof DbError) return e;
-  const message = e instanceof Error ? e.message : String(e);
-  const details = e instanceof Error ? { name: e.name, stack: e.stack } : { original: e };
-  const match = NATIVE_CODE_PREFIX.exec(message);
-  if (match && (Object.values(ERROR_CODES) as readonly string[]).includes(match[1])) {
-    return new DbError(match[1], `${context}: ${match[2]}`, details, { cause: e });
-  }
-  return new DbError(classifyWasmError(message), `${context}: ${message}`, details, { cause: e });
+  return fromNativeError(e, context);
 }
 
 /**
