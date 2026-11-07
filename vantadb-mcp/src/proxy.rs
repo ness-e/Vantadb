@@ -73,6 +73,33 @@ impl ProxyHandle {
             tracing::warn!(status, "health probe degraded");
             return None;
         }
+
+        // MCP-05: Best-effort verification of writer profile against local profile
+        let config_url = format!("{}/_admin/config", base_url);
+        let mut cfg_req = client.get(&config_url);
+        if let Some(ref key) = api_key {
+            cfg_req = cfg_req.header("Authorization", format!("Bearer {}", key));
+        }
+        if let Ok(cfg_resp) = cfg_req.send().await {
+            if cfg_resp.status().is_success() {
+                if let Ok(cfg_json) = cfg_resp.json::<Value>().await {
+                    if let Some(writer_profile) =
+                        cfg_json.get("mcp_profile").and_then(|v| v.as_str())
+                    {
+                        let local_profile = std::env::var("VANTADB_MCP_PROFILE")
+                            .unwrap_or_else(|_| "brain".to_string());
+                        if writer_profile != local_profile {
+                            tracing::warn!(
+                                writer_profile,
+                                local_profile = %local_profile,
+                                "MCP-05: Proxy profile mismatch with writer instance"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
         Some(Self {
             base_url,
             client,

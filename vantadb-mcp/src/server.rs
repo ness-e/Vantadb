@@ -291,6 +291,56 @@ pub async fn spawn_writer_http(storage: Arc<StorageEngine>) -> std::io::Result<(
     Ok((guard, port))
 }
 
+// ── Cancellation registry (MCP-05 / PRD-03) ────────────────────────────────
+
+/// Thread-safe registry for cancelled JSON-RPC request IDs (MCP-05 / PRD-03).
+#[derive(Debug, Clone, Default)]
+pub struct CancellationRegistry {
+    cancelled: Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
+}
+
+impl CancellationRegistry {
+    /// Create a new empty cancellation registry.
+    pub fn new() -> Self {
+        Self {
+            cancelled: Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
+        }
+    }
+
+    /// Mark a request ID as cancelled.
+    pub fn cancel(&self, request_id: &str) {
+        if let Ok(mut set) = self.cancelled.lock() {
+            set.insert(request_id.to_string());
+        }
+    }
+
+    /// Check whether a request ID has been marked as cancelled.
+    pub fn is_cancelled(&self, request_id: &str) -> bool {
+        if let Ok(set) = self.cancelled.lock() {
+            set.contains(request_id)
+        } else {
+            false
+        }
+    }
+
+    /// Remove a request ID from the registry.
+    pub fn remove(&self, request_id: &str) {
+        if let Ok(mut set) = self.cancelled.lock() {
+            set.remove(request_id);
+        }
+    }
+
+    /// Number of active cancellations.
+    pub fn len(&self) -> usize {
+        self.cancelled.lock().map(|s| s.len()).unwrap_or(0)
+    }
+
+    /// Check if registry is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 // ── Stdio server (main entry point) ───────────────────────────────────────
 
 /// Run the MCP server over stdin/stdout (JSON-RPC 2.0).
@@ -343,6 +393,7 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
 
     let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrency));
     let metrics = Arc::new(McpMetrics::default());
+    let cancellations = Arc::new(CancellationRegistry::new());
     let running = Arc::new(AtomicBool::new(true));
 
     // Graceful shutdown on SIGINT / Ctrl-C.
@@ -380,6 +431,7 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         &config,
         &semaphore,
         &metrics,
+        &cancellations,
         &running,
         tokio::io::stdin(),
         tokio::io::stdout(),
@@ -403,6 +455,7 @@ async fn serve_lines<R, W>(
     config: &McpConfig,
     semaphore: &Arc<tokio::sync::Semaphore>,
     metrics: &Arc<McpMetrics>,
+    cancellations: &Arc<CancellationRegistry>,
     running: &AtomicBool,
     reader: R,
     writer: W,
@@ -454,17 +507,28 @@ async fn serve_lines<R, W>(
 
         // MOD-07: absent `id` ⇒ notification (JSON-RPC 2.0 §4.1). Answering
         // one is forbidden and used to surface as a spurious -32700 that
-        // broke strict MCP clients' handshake. The only inbound notifications
-        // the MCP spec defines need no server action here —
-        // `notifications/initialized` is a pure lifecycle ack and
-        // `notifications/cancelled` targets request ids this server cannot
-        // cancel mid-`spawn_blocking` — so known and unknown notifications
-        // alike are consumed silently.
+        // broke strict MCP clients' handshake. For `notifications/cancelled`,
+        // record the cancellation in CancellationRegistry (MCP-05 / PRD-03).
         let Some(req_id) = &req.id else {
-            debug!(
-                method = %req.method,
-                "JSON-RPC notification received (no response emitted)"
-            );
+            if req.method == "notifications/cancelled" {
+                if let Some(params) = req.params.as_ref() {
+                    let req_id_str = params.get("requestId").map(|v| match v {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        _ => v.to_string(),
+                    });
+                    let reason = params.get("reason").and_then(|v| v.as_str());
+                    if let Some(id_str) = req_id_str {
+                        debug!(request_id = %id_str, ?reason, "Request cancelled via notifications/cancelled");
+                        cancellations.cancel(&id_str);
+                    }
+                }
+            } else {
+                debug!(
+                    method = %req.method,
+                    "JSON-RPC notification received (no response emitted)"
+                );
+            }
             continue;
         };
         let req_id = req_id.clone();
@@ -489,15 +553,24 @@ async fn serve_lines<R, W>(
         // MOD-08: dispatch in the background so a slow `tools/call`/
         // `resources/read` never blocks reading the next line. Responses are
         // matched by JSON-RPC id, so out-of-order completion is fine.
-        let (storage, config, semaphore, metrics) = (
+        let (storage, config, semaphore, metrics, cancellations_clone) = (
             storage.clone(),
             config.clone(),
             semaphore.clone(),
             metrics.clone(),
+            cancellations.clone(),
         );
         let stdout = stdout.clone();
         inflight.spawn(async move {
-            let res = dispatch_request(&req, &storage, &config, &semaphore, &metrics).await;
+            let res = dispatch_request(
+                &req,
+                &storage,
+                &config,
+                &semaphore,
+                &metrics,
+                &cancellations_clone,
+            )
+            .await;
             let (result, error) = match res {
                 Ok(val) => (Some(val), None),
                 Err(err) => (None, Some(err)),
@@ -564,6 +637,7 @@ pub(crate) async fn dispatch_request(
     config: &McpConfig,
     semaphore: &Arc<tokio::sync::Semaphore>,
     metrics: &Arc<McpMetrics>,
+    cancellations: &CancellationRegistry,
 ) -> Result<Value, Value> {
     let _active = ActiveRequestGuard::new(&metrics.active_requests);
     let start = Instant::now();
@@ -572,6 +646,17 @@ pub(crate) async fn dispatch_request(
         "initialize" => handle_initialize(req.params.as_ref()),
         "tools/list" => handle_tools_list(config),
         "tools/call" => {
+            if let Some(ref id) = req.id {
+                let id_str = match id {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    _ => id.to_string(),
+                };
+                if cancellations.is_cancelled(&id_str) {
+                    debug!(request_id = %id_str, "Skipping cancelled tools/call");
+                    return Err(McpError::internal_error("Request cancelled").to_json());
+                }
+            }
             let sem = semaphore.clone();
             let storage_ctx = storage.clone();
             let params_ctx = req.params.clone();
@@ -628,6 +713,21 @@ pub(crate) async fn dispatch_request(
         }
         "prompts/list" => handle_prompts_list(),
         "prompts/get" => handle_prompts_get(req.params.as_ref()),
+        "notifications/cancelled" => {
+            if let Some(params) = req.params.as_ref() {
+                let req_id_str = params.get("requestId").map(|v| match v {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    _ => v.to_string(),
+                });
+                let reason = params.get("reason").and_then(|v| v.as_str());
+                if let Some(id_str) = req_id_str {
+                    debug!(request_id = %id_str, ?reason, "Request cancelled via notifications/cancelled request");
+                    cancellations.cancel(&id_str);
+                }
+            }
+            Ok(json!({}))
+        }
         _ => {
             metrics.errors_total.fetch_add(1, Ordering::Relaxed);
             McpError::method_not_found(format!("Method not found: {}", req.method)).into_err()
@@ -663,6 +763,7 @@ pub(crate) async fn dispatch_request_proxy(
     config: &McpConfig,
     semaphore: &Arc<tokio::sync::Semaphore>,
     metrics: &Arc<McpMetrics>,
+    cancellations: &CancellationRegistry,
 ) -> Result<Value, Value> {
     let _active = ActiveRequestGuard::new(&metrics.active_requests);
     let start = Instant::now();
@@ -670,6 +771,17 @@ pub(crate) async fn dispatch_request_proxy(
         "initialize" => handle_initialize(req.params.as_ref()),
         "tools/list" => handle_tools_list(config),
         "tools/call" => {
+            if let Some(ref id) = req.id {
+                let id_str = match id {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    _ => id.to_string(),
+                };
+                if cancellations.is_cancelled(&id_str) {
+                    debug!(request_id = %id_str, "Skipping cancelled tools/call (proxy)");
+                    return Err(McpError::internal_error("Request cancelled").to_json());
+                }
+            }
             let _permit = semaphore
                 .clone()
                 .acquire_owned()
@@ -703,6 +815,21 @@ pub(crate) async fn dispatch_request_proxy(
         }
         "prompts/list" => handle_prompts_list(),
         "prompts/get" => handle_prompts_get(req.params.as_ref()),
+        "notifications/cancelled" => {
+            if let Some(params) = req.params.as_ref() {
+                let req_id_str = params.get("requestId").map(|v| match v {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    _ => v.to_string(),
+                });
+                let reason = params.get("reason").and_then(|v| v.as_str());
+                if let Some(id_str) = req_id_str {
+                    debug!(request_id = %id_str, ?reason, "Request cancelled via notifications/cancelled (proxy)");
+                    cancellations.cancel(&id_str);
+                }
+            }
+            Ok(json!({}))
+        }
         _ => {
             metrics.errors_total.fetch_add(1, Ordering::Relaxed);
             McpError::method_not_found(format!("Method not found: {}", req.method)).into_err()
@@ -727,6 +854,7 @@ async fn serve_lines_proxy<R, W>(
     config: &McpConfig,
     semaphore: &Arc<tokio::sync::Semaphore>,
     metrics: &Arc<McpMetrics>,
+    cancellations: &Arc<CancellationRegistry>,
     running: &AtomicBool,
     reader: R,
     writer: W,
@@ -760,7 +888,22 @@ async fn serve_lines_proxy<R, W>(
             }
         };
         let Some(req_id) = &req.id else {
-            debug!(method = %req.method, "notification (proxy)");
+            if req.method == "notifications/cancelled" {
+                if let Some(params) = req.params.as_ref() {
+                    let req_id_str = params.get("requestId").map(|v| match v {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        _ => v.to_string(),
+                    });
+                    let reason = params.get("reason").and_then(|v| v.as_str());
+                    if let Some(id_str) = req_id_str {
+                        debug!(request_id = %id_str, ?reason, "Request cancelled via notifications/cancelled (proxy)");
+                        cancellations.cancel(&id_str);
+                    }
+                }
+            } else {
+                debug!(method = %req.method, "notification (proxy)");
+            }
             continue;
         };
         let req_id = req_id.clone();
@@ -770,15 +913,24 @@ async fn serve_lines_proxy<R, W>(
             write_json(&mut *stdout.lock().await, &json!({"jsonrpc":"2.0","id": req_id,"error": McpError::invalid_request(format!("Invalid JSON-RPC version: {}", req.jsonrpc)).to_json()})).await;
             continue;
         }
-        let (proxy, config, semaphore, metrics) = (
+        let (proxy, config, semaphore, metrics, cancellations_clone) = (
             proxy.clone(),
             config.clone(),
             semaphore.clone(),
             metrics.clone(),
+            cancellations.clone(),
         );
         let stdout = stdout.clone();
         inflight.spawn(async move {
-            let res = dispatch_request_proxy(&req, &proxy, &config, &semaphore, &metrics).await;
+            let res = dispatch_request_proxy(
+                &req,
+                &proxy,
+                &config,
+                &semaphore,
+                &metrics,
+                &cancellations_clone,
+            )
+            .await;
             let (result, error) = match res {
                 Ok(val) => (Some(val), None),
                 Err(err) => (None, Some(err)),
@@ -808,6 +960,7 @@ async fn serve_lines_proxy<R, W>(
 pub async fn run_proxy_stdio_server(proxy: crate::proxy::ProxyHandle, config: McpConfig) {
     let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrency));
     let metrics = Arc::new(McpMetrics::default());
+    let cancellations = Arc::new(CancellationRegistry::new());
     let running = Arc::new(AtomicBool::new(true));
     let sig_running = running.clone();
     tokio::spawn(async move {
@@ -821,6 +974,7 @@ pub async fn run_proxy_stdio_server(proxy: crate::proxy::ProxyHandle, config: Mc
         &config,
         &semaphore,
         &metrics,
+        &cancellations,
         &running,
         tokio::io::stdin(),
         tokio::io::stdout(),
@@ -920,6 +1074,16 @@ mod tests {
     /// Like [`serve_lines_capture`] but with an explicit `running` flag, so
     /// tests can exercise the shutdown path (MOD-09).
     async fn serve_lines_capture_with(input: &str, running: AtomicBool) -> String {
+        let cancellations = Arc::new(CancellationRegistry::new());
+        serve_lines_capture_with_cancellations(input, running, cancellations).await
+    }
+
+    /// Drive [`serve_lines`] with a specific [`CancellationRegistry`].
+    async fn serve_lines_capture_with_cancellations(
+        input: &str,
+        running: AtomicBool,
+        cancellations: Arc<CancellationRegistry>,
+    ) -> String {
         let dir = tempfile::tempdir().expect("tempdir");
         let storage = Arc::new(
             StorageEngine::open(dir.path().to_str().expect("utf8 temp path"))
@@ -944,7 +1108,14 @@ mod tests {
         drop(client_write); // EOF → the server loop breaks
 
         serve_lines(
-            &storage, &config, &semaphore, &metrics, &running, server_in, server_out,
+            &storage,
+            &config,
+            &semaphore,
+            &metrics,
+            &cancellations,
+            &running,
+            server_in,
+            server_out,
         )
         .await;
 
@@ -1080,5 +1251,42 @@ mod tests {
             vec![1, 2, 3],
             "all pipelined requests must be answered: {out}"
         );
+    }
+
+    /// MCP-05 / PRD-03: notifications/cancelled must be recorded in CancellationRegistry
+    /// and produce no response when sent as a notification (no id).
+    #[tokio::test]
+    async fn notifications_cancelled_records_in_cancellation_registry() {
+        let registry = Arc::new(CancellationRegistry::new());
+        let input = "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":\"task-42\",\"reason\":\"user abort\"}}\n";
+        let out =
+            serve_lines_capture_with_cancellations(input, AtomicBool::new(true), registry.clone())
+                .await;
+        assert!(
+            out.is_empty(),
+            "notification must not produce a response, got: {out}"
+        );
+        assert!(
+            registry.is_cancelled("task-42"),
+            "task-42 must be marked as cancelled in registry"
+        );
+    }
+
+    /// MCP-05 / PRD-03: notifications/cancelled must NOT produce Method Not Found (-32601)
+    /// even if sent as a request with an explicit id.
+    #[tokio::test]
+    async fn notifications_cancelled_as_request_does_not_fail_with_method_not_found() {
+        let registry = Arc::new(CancellationRegistry::new());
+        let input = "{\"jsonrpc\":\"2.0\",\"id\":99,\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":\"task-99\"}}\n";
+        let out =
+            serve_lines_capture_with_cancellations(input, AtomicBool::new(true), registry.clone())
+                .await;
+        let v: serde_json::Value = serde_json::from_str(out.trim()).expect("valid JSON response");
+        assert_eq!(v["id"], 99);
+        assert!(
+            v["error"].is_null(),
+            "must not return method not found or other error: {out}"
+        );
+        assert!(registry.is_cancelled("task-99"));
     }
 }

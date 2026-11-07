@@ -22,6 +22,33 @@ use std::collections::HashMap;
 /// Filters with selectivity below this value match < 1 % of rows.
 const PREFILTER_THRESHOLD: f32 = 0.01;
 
+/// Selectivity threshold below which direct **exact_scan** is chosen (TEC-11 / Q11):
+/// linear exact distance evaluation on the candidate set bypassing HNSW traversal.
+/// Filters with selectivity below this value match < 0.5 % of rows.
+pub(crate) const EXACT_SCAN_SELECTIVITY_THRESHOLD: f32 = 0.005;
+
+/// Dynamic ef_search auto-tuning based on filter selectivity (TEC-11 / Q11 Opción B+C).
+///
+/// - `s < EXACT_SCAN_SELECTIVITY_THRESHOLD` (< 0.5%): PreFilter / exact_scan path is optimal;
+///   avoids HNSW graph traversal. Returns floor `top_k.max(16)`.
+/// - `0.005 <= s < 0.10` (InFilter): Scales ef_search with sqrt(s / 0.10) to reduce sterile
+///   graph walks while preserving recall, bounded by floor `top_k.max(16)` and ceiling `base_ef.max(top_k)`.
+/// - `s >= 0.10` (PostFilter): Maintains `base_ef.max(top_k)` for full graph exploration.
+pub(crate) fn adaptive_ef_search(base_ef: usize, top_k: usize, selectivity: f32) -> usize {
+    let s = selectivity.clamp(0.0, 1.0);
+    let floor = top_k.max(16);
+    let ceiling = base_ef.max(top_k);
+
+    if s < EXACT_SCAN_SELECTIVITY_THRESHOLD {
+        floor.min(ceiling)
+    } else if s < 0.10 {
+        let scaled = (base_ef as f32 * (0.5 + 0.5 * (s / 0.10).sqrt())).round() as usize;
+        scaled.max(floor).min(ceiling)
+    } else {
+        ceiling
+    }
+}
+
 /// Average estimated size of a materialized node row, in bytes.
 ///
 /// Heuristic used to convert estimated row counts into byte costs. Not derived
@@ -181,6 +208,26 @@ impl<'a> CostEstimator<'a> {
         eq_sel.clamp(0.0, 1.0)
     }
 
+    /// Calculate estimated joint selectivity across all filters in `filters`.
+    pub(crate) fn joint_selectivity(&self, filters: &MemoryMetadata) -> f32 {
+        if filters.is_empty() {
+            return 1.0;
+        }
+
+        let mut joint_selectivity = 1.0f32;
+        for (field, value) in filters.iter() {
+            let fv = FieldValue::from(value.clone());
+            let sel = self.selectivity(field, &RelOp::Eq, &fv);
+            joint_selectivity *= sel;
+        }
+        joint_selectivity.clamp(0.0, 1.0)
+    }
+
+    /// Dynamic ef_search auto-tuning based on filter selectivity (TEC-11 / Q11 Opción B+C).
+    pub(crate) fn adaptive_ef_search(base_ef: usize, top_k: usize, selectivity: f32) -> usize {
+        adaptive_ef_search(base_ef, top_k, selectivity)
+    }
+
     /// Estimate the joint selectivity of all query filters against the
     /// engine's cardinality statistics, then pick the best filtering strategy.
     ///
@@ -190,12 +237,7 @@ impl<'a> CostEstimator<'a> {
             return FilterStrategy::PostFilter;
         }
 
-        let mut joint_selectivity = 1.0f32;
-        for (field, value) in filters.iter() {
-            let fv = FieldValue::from(value.clone());
-            let sel = self.selectivity(field, &RelOp::Eq, &fv);
-            joint_selectivity *= sel;
-        }
+        let joint_selectivity = self.joint_selectivity(filters);
 
         if joint_selectivity < PREFILTER_THRESHOLD {
             FilterStrategy::PreFilter
@@ -622,5 +664,58 @@ mod tests {
             neq, 0.5,
             "an untracked field is unknown, not 0.0 and not 1.0"
         );
+    }
+
+    #[test]
+    fn test_adaptive_ef_search_three_regimes() {
+        let base_ef = 100;
+        let top_k = 10;
+
+        // Regime 1: s < EXACT_SCAN_SELECTIVITY_THRESHOLD (0.005 / 0.5%)
+        // Optimal strategy is exact_scan/PreFilter; returns floor top_k.max(16) = 16
+        let ef_r1_zero = adaptive_ef_search(base_ef, top_k, 0.0);
+        assert_eq!(ef_r1_zero, 16, "selectivity 0.0 returns floor 16");
+
+        let ef_r1_low = adaptive_ef_search(base_ef, top_k, 0.002);
+        assert_eq!(ef_r1_low, 16, "selectivity 0.2% (< 0.5%) returns floor 16");
+
+        let ef_r1_boundary = adaptive_ef_search(base_ef, top_k, 0.0049);
+        assert_eq!(
+            ef_r1_boundary, 16,
+            "selectivity 0.49% (< 0.5%) returns floor 16"
+        );
+
+        // Regime 2: 0.005 <= s < 0.10 (InFilter scaled curve)
+        // Scaled as (base_ef as f32 * (0.5 + 0.5 * (s / 0.10).sqrt())).round() as usize
+        let ef_r2_start = adaptive_ef_search(base_ef, top_k, 0.005);
+        assert_eq!(ef_r2_start, 61, "selectivity 0.5% scales to 61");
+
+        let ef_r2_mid = adaptive_ef_search(base_ef, top_k, 0.025);
+        assert_eq!(ef_r2_mid, 75, "selectivity 2.5% scales to 75");
+
+        let ef_r2_high = adaptive_ef_search(base_ef, top_k, 0.09);
+        assert_eq!(ef_r2_high, 97, "selectivity 9.0% scales to 97");
+
+        assert!(ef_r2_start < ef_r2_mid);
+        assert!(ef_r2_mid < ef_r2_high);
+
+        // Regime 3: s >= 0.10 (PostFilter full exploration)
+        // Maintains base_ef.max(top_k) = 100
+        let ef_r3_boundary = adaptive_ef_search(base_ef, top_k, 0.10);
+        assert_eq!(ef_r3_boundary, 100, "selectivity 10% returns base_ef");
+
+        let ef_r3_common = adaptive_ef_search(base_ef, top_k, 0.50);
+        assert_eq!(ef_r3_common, 100, "selectivity 50% returns base_ef");
+
+        let ef_r3_full = adaptive_ef_search(base_ef, top_k, 1.0);
+        assert_eq!(ef_r3_full, 100, "selectivity 100% returns base_ef");
+    }
+
+    #[test]
+    fn test_adaptive_ef_search_large_top_k() {
+        let base_ef = 30;
+        let top_k = 50;
+        let ef = adaptive_ef_search(base_ef, top_k, 0.05);
+        assert_eq!(ef, 50, "must preserve top_k candidate floor");
     }
 }

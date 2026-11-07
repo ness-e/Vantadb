@@ -48,6 +48,8 @@ pub use state::{
 pub use bootstrap::build_tls13_config;
 pub use bootstrap::{run, run_with_hooks, validate_auth_config, wait_for_shutdown_signal};
 
+pub use handlers::{admin_config, AdminConfigResponse};
+
 pub use middleware::client_ip;
 pub use middleware::{auth_middleware, circuit_breaker_middleware, request_metrics_middleware};
 

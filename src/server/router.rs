@@ -170,7 +170,9 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         state.db.audit_logger(),
     );
 
-    let public = Router::new().route("/health", get(super::handlers::health_check));
+    let public = Router::new()
+        .route("/health", get(super::handlers::health_check))
+        .route("/_admin/config", get(super::handlers::admin_config));
 
     // Interactive routes: cap at REQUEST_TIMEOUT so a stuck handler can't hold
     // the connection indefinitely (DoS protection).

@@ -396,6 +396,21 @@ fn run() -> anyhow::Result<()> {
                 cli_handlers::cmd_config_doctor(&args.db, args.json)?
             }
         },
+
+        Commands::Mcp(cmd) => match cmd {
+            vantadb::cli::McpCommand::Init {
+                client,
+                profile,
+                config_path,
+                dry_run,
+            } => cli_handlers::cmd_mcp_init(
+                &client,
+                &profile,
+                config_path.as_deref(),
+                dry_run,
+                args.json,
+            )?,
+        },
     }
 
     Ok(())

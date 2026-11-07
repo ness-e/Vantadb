@@ -57,6 +57,8 @@ pub use server::run_proxy_stdio_server;
 pub use server::run_stdio_server;
 /// MCP-35: auto fallback to HTTP proxy on DatabaseBusy (writer→proxy).
 pub use server::run_stdio_server_auto;
+/// Thread-safe registry for cancelled JSON-RPC request IDs (MCP-05 / PRD-03).
+pub use server::CancellationRegistry;
 /// MCP-35 discovery file shape.
 pub use server::{discovery_path, is_pid_alive, spawn_writer_http, ServerInfo, WriterGuard};
 /// Deterministic ES/EN temporal-expression → inclusive Unix-ms range (FIND-103).

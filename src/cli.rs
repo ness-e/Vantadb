@@ -3,6 +3,7 @@
 //! Exposes the struct definitions and command enums required for parsing.
 
 use clap::{Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 
 /// VantaDB CLI - Embedded persistent memory and vector retrieval engine
 #[derive(Parser, Debug)]
@@ -404,6 +405,30 @@ pub enum Commands {
     /// Manage, view, and validate VantaDB configuration across all 5 cascade layers (FIND-385)
     #[command(subcommand)]
     Config(ConfigCommand),
+
+    /// Configure VantaDB MCP server for an IDE or AI coding client in <30s (GTM-03)
+    #[command(subcommand)]
+    Mcp(McpCommand),
+}
+
+/// Configure VantaDB MCP server for an IDE or AI coding client in <30s
+#[derive(Subcommand, Debug, Clone)]
+pub enum McpCommand {
+    /// Inject VantaDB MCP configuration into an IDE client config file
+    Init {
+        /// Target client: claude-code, cursor, windsurf, or opencode
+        #[arg(long, default_value = "claude-code")]
+        client: String,
+        /// MCP tool profile to configure (default: brain)
+        #[arg(long, default_value = "brain")]
+        profile: String,
+        /// Custom config file path (overrides default OS path for the client)
+        #[arg(long)]
+        config_path: Option<PathBuf>,
+        /// Print the resulting JSON configuration without writing to disk
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 /// Subcommands for unified configuration management (FIND-385)

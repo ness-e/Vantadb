@@ -1664,6 +1664,27 @@ pub async fn snapshots_create(
     }
 }
 
+/// Wire shape for `GET /_admin/config` (MCP-05).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct AdminConfigResponse {
+    pub version: String,
+    pub mcp_profile: String,
+    pub read_only: bool,
+    pub protocol_version: String,
+}
+
+/// `GET /_admin/config` — runtime metadata, version, active profile, and read-only status.
+#[tracing::instrument(skip(state))]
+pub async fn admin_config(State(state): State<Arc<ServerState>>) -> Json<AdminConfigResponse> {
+    let mcp_profile = std::env::var("VANTADB_MCP_PROFILE").unwrap_or_else(|_| "brain".to_string());
+    Json(AdminConfigResponse {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        mcp_profile,
+        read_only: state.storage.read_only,
+        protocol_version: "2025-06-18".to_string(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1683,5 +1704,38 @@ mod tests {
         let top_k = clamp_limit(500usize.saturating_add(page_size).saturating_add(1));
         assert_eq!(page_size, MAX_K);
         assert_eq!(top_k, MAX_K);
+    }
+
+    #[tokio::test]
+    async fn admin_config_returns_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage =
+            Arc::new(crate::storage::StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+        let db = crate::sdk::Embedded::from_engine(storage.clone());
+        let circuit_breaker = Arc::new(crate::circuit_breaker::CircuitBreaker::new(
+            5,
+            std::time::Duration::from_secs(30),
+        ));
+        let pool = Arc::new(crate::connection_pool::ConnectionPool::new(
+            10,
+            std::time::Duration::from_secs(5),
+        ));
+        let state = Arc::new(ServerState {
+            storage: storage.clone(),
+            db,
+            circuit_breaker,
+            pool,
+            api_key: None,
+            alt_api_key: None,
+            jwt_secret: None,
+            rbac_config: crate::config::RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+            conversation_trigger: None,
+            activity_tracker: Arc::new(crate::server::self_healing::ActivityTracker::new()),
+        });
+        let Json(res) = admin_config(State(state)).await;
+        assert_eq!(res.version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(res.protocol_version, "2025-06-18");
+        assert!(!res.read_only);
     }
 }
