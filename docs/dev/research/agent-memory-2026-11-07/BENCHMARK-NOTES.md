@@ -18,6 +18,58 @@ de lectura del codigo; no son resultados de ejecucion.
 Protocolo comun: [METHOD.md](METHOD.md). Los valores publicados por proveedores
 deben conservar su etiqueta de claim, aun cuando existan resultados en el repo.
 
+## Correcciones documentales de la ampliacion
+
+Estas precisiones conservan los runners y sus formulas: no introducen una
+metrica comun, una configuracion nueva ni resultados medidos. Las fichas
+enlazadas fijan fuentes, revisiones y rangos; sus revisiones independientes
+documentan el contraste y las limitaciones.
+
+- [Mem0](mem0.md): el wrapper puede agotar reintentos y devolver `[]` ante
+  un error operativo; el driver puede presentar ese vacio al juez como
+  abstencion y obtener PASS. No equivale necesariamente a cero ni a una
+  excepcion del driver. La preparacion descarga un dataset mediante
+  `resolve/main`, ordena fechas, elimina `has_answer`, forma pares y omite
+  contenido vacio; split/hash y backend efectivo no quedan fijados solo por
+  el nombre LongMemEval. Ver [cierre](reviews/corrections-memory-closure.md#mem0).
+- [Cognee](cognee.md) y [Graphiti](graphiti.md): BEAM puede depender de un
+  corpus preingerido y de configuracion efectiva distinta de la sugerida por
+  argumentos; el agregado de scores numericos no es automaticamente un censo
+  de intentos. Los grupos persistentes de Graphiti reutilizados sin reset
+  tampoco acreditan una segunda corrida sobre corpus limpio.
+- [Graphify](graphify.md): la exclusion del sentinel no-match no excluye
+  necesariamente el rechazo por ambiguedad. Una reduccion de longitud/ratio
+  que incluya ese rechazo no demuestra entrega de contexto util.
+- [Khoj](khoj.md): en el runner inspeccionado se calcula e imprime F1 pero se
+  devuelve recall; `None` se excluye del agregado. La preparacion puede fallar
+  con batch cero para muestras pequenas. No se ejecutaron esos casos.
+- [Weaviate](weaviate.md): el limite nominal no es el numero efectivamente
+  leido cuando se agrega antes de comprobarlo; envio, lectura y cardinalidad
+  solicitada deben distinguirse. La suma de tiempos de batches concurrentes
+  no es tiempo de pared de importacion ni las consultas validan vecinos contra
+  ground truth en el runner SIFT inspeccionado.
+- [AutoGen](autogen.md): AgBench tabula directorios descubiertos; una tarea
+  sin directorio no aparece automaticamente en Missing/Total. Conservar esa
+  poblacion observada, no presentarla como censo externo completo.
+- [Flowise](flowise.md): pass/fail/error y `passPcnt` proceden de evaluadores
+  simples efectivos, no de los resultados LLM guardados en otro campo.
+  La latencia cliente incluye procesamiento de metricas y awaits de coste;
+  `averageLatency` divide la suma de latencias de todos los flows por filas
+  del dataset, no por solicitudes individuales.
+- [Serviette](serviette.md): el reset documentado incluye `compose down -v`;
+  es una operacion destructiva leida, nunca ejecutada ni autorizada sobre
+  datos compartidos. Preparacion, retrieval y respuesta tienen fronteras y
+  denominadores diferentes.
+- [Chroma](chroma.md) y [Meilisearch](meilisearch.md): el `TODO: verify recall`
+  del runner Criterion inspeccionado no acredita recall medido. Los workloads
+  de embeddings de Meilisearch separan preparacion y captura de forma distinta;
+  un default de modelo no fija por si solo su identidad efectiva. No se accede
+  al forge de Meilisearch para suplir la restriccion expresa del propietario.
+
+El [registro de cobertura](REVIEW-COVERAGE.md) distingue cierre documental,
+capacidad propuesta y cobertura no acreditada. Ninguna de estas correcciones
+homologa productos, certifica runtime ni autoriza ejecucion.
+
 ## 1. VantaDB: cobertura completa de sesiones relevantes
 
 Fuente local inspeccionada en el worktree de VantaDB:
@@ -125,6 +177,34 @@ El runner LoCoMo actual de VantaDB se leyo de nuevo: permite sintetico por
 defecto y fallback a `FakeLocomoStore` fuera de self-test
 (`evals/eval_locomo.py`, bloque CLI 826-856). Es un riesgo concreto de etiquetado
 de certificacion; no niega los benchmarks propios ya publicados del Paso 23.
+
+## 6. Revalidacion estatica de LoCoMo durante la ampliacion
+
+Fuente: [`evals/eval_locomo.py`](../../../../evals/eval_locomo.py) en el snapshot
+VantaDB `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`. Esta lectura reafirma el
+riesgo del apartado 5; no es una ejecucion ni una medicion nueva.
+
+- `main`, lineas 811-868: sin `--dataset-path` ni `--smoke`, genera datos
+  sinteticos; si construir `VantaLocomoStore` lanza una excepcion, usa
+  `FakeLocomoStore` y continua al informe. El mensaje informa el fallback,
+  pero el camino no se limita a `--self-test`.
+- `run_locomo_evaluation`, lineas 624-645: calcula recall sobre identificadores
+  de sesion y F1 lexico contra payloads recuperados. Esto no es una respuesta
+  generada y evaluada por el mismo protocolo que una tabla QA de terceros.
+- `format_markdown_table`, lineas 712-766: presenta deltas frente a constantes
+  `MEM0_PUBLISHED` y factores de ventaja. La fila rotulada p50/p95 de Mem0
+  imprime dos veces `query_p50_ms` (linea 758): no acredita una medida p95.
+- `embed_batch`, lineas 197-225, permite resultados sin embedding tras capturar
+  una excepcion. La etiqueta del informe sobre disponibilidad del embedder
+  no acredita por si sola que cada consulta uso vectores correctamente.
+
+Consecuencia para estas fichas: el runner puede servir como superficie a
+extender, pero su existencia no certifica una comparacion equivalente ni
+prueba los factores impresos. Se deben conservar el modo efectivo, backend,
+dataset y errores antes de emitir conclusiones competitivas. No se propone
+aqui una nueva formula, conjunto de preguntas, umbral ni configuracion.
+Los apartados anteriores conservan sus propios snapshots y limites; esta
+revalidacion de LoCoMo no revalida automaticamente LongMemEval o fuentes remotas.
 
 ## Limites de cobertura
 

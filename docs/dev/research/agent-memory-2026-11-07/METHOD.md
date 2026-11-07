@@ -37,6 +37,19 @@ Los valores de estrellas, licencia detectada y fecha proceden exclusivamente de
 que se recalculan al renderizar los informes. `NOASSERTION` no equivale a ausencia
 de licencia ni autoriza reutilizar codigo.
 
+**Ampliación (2026-11-07):** las 37 fichas iniciales fueron dictaminadas
+insuficientes; se rehacen las 37 y se agregan **cinco excepciones expresas del
+propietario** (Weaviate, pgvector, Letta, LanceDB, Chroma) → 42 informes. Los
+requisitos de profundidad, evidencia y revisión por informe los fija el
+contrato del responsable: [EXPANSION-CONTRACT.md](EXPANSION-CONTRACT.md)
+(estado operativo: [EXPANSION-STATUS.md](EXPANSION-STATUS.md); referencia local:
+[VANTA-REFERENCE.md](VANTA-REFERENCE.md)). La captura de los cinco es evidencia
+separada — [github-additions.json](github-additions.json),
+[clone-additions-manifest.json](clone-additions-manifest.json) y
+`evidence/additions/*.json` — y la selección original de 50 candidatos se
+conserva sin cambios; las cinco adiciones **no** se presentan como superadas
+del filtro de estrellas.
+
 ## Preparacion reproducible
 
 Cada repositorio nuevo se guarda en `C:\Users\Eros\<nombre-repositorio>`.
@@ -176,4 +189,6 @@ pendiente manual cuando no se ha recibido autorizacion.
 
 ## Nota sobre enlaces y vigencia
 
-Los enlaces inmutables a upstream (SHA fijado) fijan evidencia de terceros en ese commit. Los enlaces relativos a VantaDB son navegación a rutas/rangos observados en la lectura histórica de la fase inicial (HEAD `c561158` y worktree dirty de entonces), no garantía de identidad con el HEAD vigente — avanzó por commits ajenos (`b64383e` al cierre). No se persigue cada commit: la referencia es el snapshot inicial más la historia. Ningún SHA registrado contiene cambios dirty.
+Los enlaces inmutables a upstream (SHA fijado) fijan evidencia de terceros en ese commit. Los enlaces relativos a VantaDB son navegación a rutas/rangos observados en la lectura histórica de la fase inicial (HEAD `c561158` y worktree dirty de entonces), no garantía de identidad con el HEAD vigente — avanzó por commits ajenos (`b64383e` al cierre).
+
+**Vigencia actual (Tanda 8):** la referencia VantaDB vigente es motor/adapters en `97c9623c8ef5a70fdb51aff215bfbb3b05b15612` y Studio en `0ad38c542b39a589035b0e17fdedb4c09dca24b9` (feature-freez/desktop, worktree `develop-desktop`). La fase histórica `c561158`/`b64383e` queda como antecedente, no como única referencia. No se persigue cada commit: la referencia es el pin vigente más la historia. Ningún SHA registrado contiene cambios dirty.
