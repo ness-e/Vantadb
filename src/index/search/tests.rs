@@ -611,6 +611,7 @@ fn build_index_with_vfile(metric: DistanceMetric) -> (CPIndex, File) {
             .expect("test vectors are non-zero-norm");
         let vec_offset = offset + hdr_size;
         let mut header = DiskNodeHeader::new(i);
+        header.flags = NodeFlags::with_vector_kind(0, NodeFlags::VECTOR_KIND_FULL);
         header.vector_len = vec.len() as u32;
         header.vector_offset = vec_offset;
         vfile.write_header(offset, &header).expect("write header");

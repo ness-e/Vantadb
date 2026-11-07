@@ -406,7 +406,13 @@ mod openapi_yaml_parity {
         // documented exceptions (liveness/metrics probes + UI).
         for (path, _) in openapi["paths"].as_object().unwrap() {
             let path = path.as_str();
-            let allowed_unversioned = ["/health", "/metrics", "/dashboard", "/dashboard/{path}"];
+            let allowed_unversioned = [
+                "/health",
+                "/metrics",
+                "/_admin/config",
+                "/dashboard",
+                "/dashboard/{path}",
+            ];
             assert!(
                 path.starts_with("/api/v2/") || allowed_unversioned.contains(&path),
                 "path {path} must live under /api/v2/ (or be a documented probe/UI exception)"

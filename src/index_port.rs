@@ -104,9 +104,10 @@ pub fn full_vector_from_bytes<'a>(
         "VantaDB vector layout requires little-endian architecture"
     );
     let kind = header.flags & crate::node::NodeFlags::VECTOR_KIND_MASK;
-    if kind
-        != (crate::node::NodeFlags::VECTOR_KIND_FULL << crate::node::NodeFlags::VECTOR_KIND_SHIFT)
-    {
+    let is_full = kind
+        == (crate::node::NodeFlags::VECTOR_KIND_FULL << crate::node::NodeFlags::VECTOR_KIND_SHIFT)
+        || (kind == 0 && header.vector_len > 0);
+    if !is_full {
         return None;
     }
     let start = header.vector_offset as usize;

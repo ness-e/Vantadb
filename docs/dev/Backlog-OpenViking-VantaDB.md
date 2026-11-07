@@ -12,7 +12,7 @@ tags: [openviking, backlog, research]
 > **Relación con el backlog activo:** `Backlog.md` sigue siendo la fuente del parser de `/pipeline plan`. Nada en este archivo entra al triage sin una fila `FIND-*`/`MEMG-*`/etc. propia conforme a la taxonomía oficial.
 > **Estado de ejecución:** durante toda la investigación **no se ejecutó** código, tests, benchmarks, servicios ni instalaciones de ninguno de los dos repositorios; la fase de inspección original no produjo commits de implementación. Todo el contenido es evidencia estática o claims de terceros, con fecha de corte explícita.
 > **Nota de extensión:** conservado en un archivo por solicitud del propietario; si se convierte en trabajo activo, dividir fichas en specs y enlazar este registro histórico, sin duplicar el backlog.
-> **Advertencia de vigencia:** las rutas y líneas citadas de OpenViking corresponden al snapshot `b8e8895`; las de VantaDB a la base indicada en §0.2. El worktree actual de VantaDB tiene ~119 ficheros modificados sin commit (incluidos `checkpoint.rs`, `l1_writer.rs`, `context_engine`, `ingest`); **todo hallazgo marcado [Histórico] exige revalidación contra el worktree actual antes de actuar**. No se afirma que ningún defecto siga presente ni que esté corregido.
+> **Advertencia de vigencia:** las rutas y líneas citadas de OpenViking corresponden al snapshot `b8e8895`; las de VantaDB a la base indicada en §0.2. Al cierre de la inspección el worktree de VantaDB tenía ~119 ficheros modificados sin commit (incluidos `checkpoint.rs`, `l1_writer.rs`, `context_engine`, `ingest`) — **observación histórica, no estado actual**: esos cambios fueron absorbidos por commits posteriores (a la retoma del 2026-11-07, HEAD `167435a9e`, worktree limpio). **Todo hallazgo marcado [Histórico] exige revalidación contra el estado del repo vigente antes de convertirlo en tarea**. No se afirma que ningún defecto siga presente ni que esté corregido.
 
 ## Índice
 
@@ -48,7 +48,7 @@ El usuario pidió clonar `volcengine/OpenViking` fuera del repo, evaluarlo con m
 | Repositorio | Base analizada | Estado al archivar este documento |
 |---|---|---|
 | OpenViking | `b8e88959f3ab437b4d08514eceaa7221cca470dc` (`main`, commit 2026-11-06, `feat(langchain): preserve owned-client authentication and Store cleanup (#7039)`) | Clon completo (no shallow), limpio, sin submódulos, 6.017 ficheros en `C:\Users\Eros\Open Vikings\OpenViking` |
-| VantaDB | Base consolidada `632f49187ef8fce8e21abea78fba7ecbb8c5c463` (la auditoría de incidencias registró `f6ed51d058467226b073af71eea045fca4fa875e` en su momento de ejecución) | HEAD `c561158253bb88192590fa406c61e0a27dd7df8d` con ~119 ficheros modificados sin commit, incluidos `vanta-memory/src/utils/checkpoint.rs`, `vanta-memory/src/core/record/l1_writer.rs`, `vanta-memory/src/context_engine/*`, ingest y storage engine |
+| VantaDB | Base consolidada `632f49187ef8fce8e21abea78fba7ecbb8c5c463` (la auditoría de incidencias registró `f6ed51d058467226b073af71eea045fca4fa875e` en su momento de ejecución) | Observación al cierre de la inspección (**histórica, no estado actual**): HEAD `c561158253bb88192590fa406c61e0a27dd7df8d` con ~119 ficheros modificados sin commit (incl. `vanta-memory/src/utils/checkpoint.rs`, `vanta-memory/src/core/record/l1_writer.rs`, `vanta-memory/src/context_engine/*`, ingest y storage engine); absorbidos por commits posteriores — a la retoma 2026-11-07, HEAD `167435a9e`, worktree limpio |
 
 **Regla de lectura:** toda afirmación de defecto de VantaDB en este documento es **[Histórico]** — describe la base estática analizada, no el worktree actual. Revalidar antes de crear filas de backlog.
 
@@ -96,7 +96,7 @@ Vector backends: local flat / VikingDB / Volcengine / openGauss / cuVS
 - **Matiz crítico:** `HierarchicalRetriever.retrieve` (`retrieve/hierarchical_retriever.py:102-279`) ejecuta **una única búsqueda vectorial global** filtrada por `level`/`scope` + dedup por URI + rerank opcional — **no** hay cascada automática L0→L1→L2. Lo jerárquico es el *layout de storage*, no el retrieval — **[Hecho]**, confirmado por la revisión adversarial.
 - **Los nombres no son intercambiables con los niveles cognitivos L0–L3 de VantaDB:** en OV, L0/L1/L2 son *representaciones materializadas del mismo contenido*; en VantaDB, L0–L3 es un lifecycle de memoria. Cualquier analogía directa es un error de mapeo.
 
-Rutas citadas en todo el documento son relativas al checkout `C:\Users\Eros\Open Vikings\OpenViking` salvo indicación contraria; las referencias `archivo:línea` son **[Histórico]** a `b8e8895` y deben reverificarse antes de usarse como enlace normativo.
+Rutas citadas en todo el documento son relativas al checkout `C:\Users\Eros\Open Vikings\OpenViking` salvo indicación contraria; las referencias `archivo:línea` son **[Histórico]** a `b8e8895` y deben reverificarse antes de usarse como enlace normativo. Dentro de tablas y fichas se abrevia el prefijo de paquete `openviking/` (p.ej. `storage/…` ≡ `openviking/storage/…`, `session/…` ≡ `openviking/session/…`, `retrieve/…` ≡ `openviking/retrieve/…`); las rutas completas verificadas contra el checkout figuran en §0.5.
 
 ### 0.5 Mapa de código — referencias históricas (OV `b8e8895`)
 
@@ -145,7 +145,7 @@ Alcance declarado por el subagente: lectura estática únicamente; sin ejecució
 | H7 | Low-Medium | Identidad de tenant por headers `X-OpenViking-Account/User` spoofeables en dev/trusted si el proxy no strippea (riesgo operativo; trusted mode mitiga con root key + validación header↔URL). | **[Inferencia]** depende del despliegue |
 | H8 | Low/Info | Supply chain: nativos vendored sin provenance visible (`third_party/`: croaring, leveldb-1.23, rapidjson, spdlog-1.14.1, krl) + `Cargo.lock` ~647 entradas + `setup.py` descarga binarios prebuilt. La licencia AGPL-3.0 se trata en §0.6 como cuestión legal, no como vulnerabilidad. | **[Hecho]** sin auditoría completa |
 
-**Observaciones positivas [Hecho]:** sanitización de paths exhaustiva (`path_safety.py`), confinamiento WebDAV (`Destination` al prefijo), anti Zip-Slip + salto de symlinks + verificación post-extracción (`zip_safe.py`, `git_accessor.py:692-713`), fail-closed en bind no-loopback del plugin dev (`dev.py:46-64`, `sys.exit(1)`), `hmac.compare_digest` en trusted, SSRF con hooks por request que revalidan redirects.
+**Observaciones positivas [Hecho]:** sanitización de paths exhaustiva (`path_safety.py`), confinamiento WebDAV (`Destination` al prefijo), anti Zip-Slip + salto de symlinks + verificación post-extracción (`utils/zip_safe.py`, `parse/accessors/git_accessor.py:692-713`), fail-closed en bind no-loopback del plugin dev (`server/auth/plugins/dev.py:46-64`, `sys.exit(1)`), `hmac.compare_digest` en trusted (`server/auth/plugins/trusted.py`), SSRF con hooks por request que revalidan redirects.
 
 **Recomendaciones de la auditoría:** (1) gateway `management_key` obligatorio o `management_api=false` por defecto; (2) patrón adoptable para VantaDB — gate "dev-mode solo si bind loopback" (ver §9: resultó ser **falso positivo** en VantaDB, ya existía); (3) SSRF con pinning de IP en conexión o resolver inyectado, eliminar exención allowlist; (4) hashing de keys ON por defecto + redacción de campos secretos en dumps; (5) formalizar `// SAFETY:` y contract-testing del ABI, `cargo audit`/`deny` en CI.
 
@@ -180,7 +180,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 9. **Evaluar experiencias estructuradas y watches incrementales** (fichas F8/F9) solo después de las garantías base; conectan con reflection/skills/scenes/dreaming e ingestors existentes.
 10. **Onboarding/inspector de evidencia en VantaDB Studio existente** (ficha F10): timeline captura→extracción→recall→inyección; instalado ≠ funcionando.
 11. **Disciplina de benchmark antes de claims**: dataset real explícito, backend real obligatorio, CSV por pregunta, todo pineado (§7). Ningún número publicado por OV está reproducido.
-12. **Nada de LLM obligatorio en el core ni en hot path**: OV encadena hasta ~4 llamadas de modelo por ciclo escritura+query (intent planning, generación L0/L1, extracción, rerank); eso rompería el presupuesto de latencia de VantaDB. Principio ya documentado en `l1_dedup.rs` ("el LLM es opcional, el pipeline nunca pierde datos") — mantenerlo.
+12. **LLM opcional fuera de las primitivas del motor**: la configuración de OV puede introducir llamadas opcionales de planificación, generación de resúmenes y reranking; coste y latencia dependen del flujo/configuración y **no se midieron**. Principio ya documentado en `l1_dedup.rs` ("el LLM es opcional, el pipeline nunca pierde datos") — mantenerlo.
 13. **Escritorio**: extraer *ideas de UX* (detección de integraciones con consentimiento, inspector de evidencia, sync selectivo) para Studio existente; no construir un Helper propio ni atribuir a OV funciones que ya tiene VantaDB Studio.
 
 ---
@@ -192,15 +192,15 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 ### Ficha F1 — Identidad lógica de contexto y navegación por subárbol
 
 - **Objetivo:** identidad lógica de contexto estable e independiente del path físico, con navegación paginada por hijos/ancestros y filtrado por subárbol+profundidad.
-- **Lectura de código (OV):** `core/namespace.py:187-253` (scopes `resources`/`agent`/`user/{id}`/`session`/`temp`, `default_target_directories`), `storage/scope_filter.py:36-68` (AST `PathScope("uri", target, depth)` inyectado como `req.dsl`), `viking_vector_index_backend.py:2007` (`visible_roots(ctx)` ACL), `retrieve/hierarchical_retriever.py:204-223`.
+- **Lectura de código (OV):** `core/namespace.py:187-253` (scopes `resources`/`agent`/`user/{id}`/`session`/`temp`, `default_target_directories`), `storage/scope_filter.py:36-68` (AST `PathScope("uri", target, depth)` inyectado como `req.dsl`), `storage/viking_vector_index_backend.py:2007` (`visible_roots(ctx)` ACL), `retrieve/hierarchical_retriever.py:204-223`.
 - **Anclaje en VantaDB:** namespaces planos actuales; registro de memoria/contexto existente; `FilterBitset`/filtros del motor; ingestors con claves deterministas.
-- **Contrato propuesto (hipotético):** `ContextId { source, parent, revision, kind, scope }`; `resolve(context_id) -> record existente` sin duplicar payload; `children(id, page)`, `ancestors(id)`; canonicalización de path + metadatos de subtree/depth en el registro para filtro pushdown.
+- **Contrato propuesto (hipotético):** `ContextId` es un identificador **opaco y estable**; `ContextObject { id: ContextId, source_ref, parent: Option<ContextId>, revision, kind, scope }` mantiene revisión y relaciones **fuera** de la identidad; `resolve(id)` resuelve el registro existente sin duplicar payload; `children(id, page)`, `ancestors(id)`; canonicalización de path + metadatos de subtree/depth en el registro para filtro pushdown. Un rename/move actualiza `parent`/relaciones, no la identidad; un cambio de revisión no es un cambio de identidad.
 - **Pasos:** (1) definir esquema de identidad y canonicalización; (2) persistir `parent/scope/depth` en registros; (3) índice de prefijo para scope-filter; (4) resolución id↔registro sin copia; (5) paginación estable.
 - **Dependencias:** esquema de registro; filtros existentes; spec MEMG-25.
 - **FMEA:** colisión de identidad entre tenants → id incluye scope; escape de subárbol por path no canónico → canonicalización obligatoria en escritura y consulta; rename que rompe provenance → identidad separada del path (el rename actualiza `parent`, no el id); profundidad inconsistente tras mover subárbol → recálculo o derivación al vuelo.
 - **Tests de aceptación:** colisión entre tenants, intento de escape por `..`/encoding, límites de profundidad, rename preserva provenance, paginación estable bajo inserciones concurrentes.
 - **Observabilidad:** métricas de resolución id→registro (hit/miss), cardinalidad de scope, profundidad máxima registrada.
-- **Non-goals:** scope **no** es autenticación ni enforcement de permisos (eso queda en middleware); no cambia el modelo físico de almacenamiento.
+- **Non-goals:** scope **no** es autenticación ni enforcement de permisos: el enforcement corresponde a la frontera gobernada de lectura/escritura, independiente de la navegación y de todos los transports (no solo del middleware HTTP); no cambia el modelo físico de almacenamiento.
 - **Enlace backlog:** MEMG-25 (spec de scopes), FIND-320 (trust/scope boundary) — como evidencia de diseño, no fila nueva.
 
 ### Ficha F2 — Derivados versionados abstract/overview/source
@@ -229,18 +229,18 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 - **Tests de aceptación:** presupuesto exacto, presupuesto mínimo degenerado, redistribución de remanente documentada, empates estables entre runs, exclusión por auth/supersession previa al presupuesto, descartes con razón y conteo, estimator declarado en salida.
 - **Observabilidad:** tokens estimados vs reservados, % de presupuesto usado por categoría, conteo de descartes por razón, items por tier.
 - **Non-goals:** no es compresión de prompts ni reranking; no cambia la API de recall existente; no garantiza tokens exactos (estimador declarado).
-- **Enlace backlog:** extensión de `context_assemble` existente; relacionado con trabajo de `context_engine` en curso en el worktree — **revalidar solapamiento**.
+- **Enlace backlog:** extensión de `context_assemble` existente; relacionado con trabajo de `context_engine` observado en el worktree durante la inspección — **revalidar solapamiento**.
 
 ### Ficha F4 — Ledger de contexto entregado por sesión y revisión
 
 - **Objetivo:** registrar qué contexto (id+revisión) se seleccionó, renderizó y **entregó** por sesión y ventana de turnos, con confirmación idempotente — evita reinyectar lo ya entregado y permite auditar la inyección.
 - **Lectura de código (OV):** `retrieve/context_assembler/ledger.py` (`_record_turn`, `_resolve_turn`), `session/session.py:3270-3286` (contexto para search), `session/session.py:1489-1498`.
-- **Anclaje en VantaDB:** `CheckpointManager` ([`vanta-memory/src/utils/checkpoint.rs`](../../vanta-memory/src/utils/checkpoint.rs)) y sesiones existentes; el ledger se apoya en el mecanismo de checkpoint pero requiere **CAS atómico** que hoy no tiene (§4-B).
-- **Contrato propuesto (hipotético):** `DeliveryLedger { session_id, entries: [{context_id, revision, state: Selected|Rendered|Delivered, turn}] }`; update atómico/CAS; `confirm_delivery(entry) idempotente`; ventana de turnos configurable.
-- **Pasos:** (1) resolver la carrera RMW del checkpoint (§4-B, **prerequisito duro**); (2) esquema de entradas por sesión+context_id+revisión; (3) transiciones de estado atómicas; (4) consulta "¿qué se entregó ya en esta ventana?"; (5) integración con el assembler (F3).
-- **Dependencias:** §4-B (checkpoint CAS/fusión bajo lock); F1 (context_id+revision); F3 (puntos de selección/render).
-- **FMEA:** cancelación antes de entrega → **no** suprime (estado queda Selected/Rendered, no Delivered); dos llamadas concurrentes → ambas preservadas por CAS, no lost-update; nueva revisión del mismo contexto → no suprimida por entrega previa de la vieja; fallo a mitad de update → idempotencia en retry; ventana mal dimensionada → reinjección excesiva o supresión excesiva (parámetro observable).
-- **Tests de aceptación:** dos recalls concurrentes preservan ambas entregas; cancel-before-delivery no suprime; nueva revisión no suprimida; confirmación repetida es idempotente; ventana de turnos respeta límite; restart no pierde el ledger.
+- **Anclaje en VantaDB:** sesiones existentes y store propio — estado de ledger **dedicado por sesión** (no acoplado al JSON global del checkpoint); la actualización atómica se garantiza por CAS **o** por una sección crítica compartida que cubra lectura+escritura. La carrera RMW histórica observada en [`checkpoint.rs`](../../vanta-memory/src/utils/checkpoint.rs) (§4-B) debe resolverse antes de prometer garantías basadas en estado compartido, no porque el ledger deba usar ese registro.
+- **Contrato propuesto (hipotético):** `DeliveryLedger { session_id, entries: [{context_id, revision, state: Selected|Rendered|Delivered, turn}] }`; update atómico (CAS o sección crítica compartida sobre read+write); `confirm_delivery(entry)` idempotente; ventana de turnos configurable. La confirmación de entrega es semántica de aplicación: **no** es una promesa de exactly-once de red.
+- **Pasos:** (1) resolver la carrera RMW del checkpoint global (§4-B) antes de prometer garantías sobre estado compartido; (2) esquema de entradas por sesión+context_id+revisión en estado dedicado; (3) transiciones de estado atómicas; (4) consulta "¿qué se entregó ya en esta ventana?"; (5) integración con el assembler (F3).
+- **Dependencias:** §4-B solo en cuanto desbloquea promesas sobre estado compartido; el ledger usa estado dedicado por sesión, no el JSON global; F1 (context_id+revision); F3 (puntos de selección/render).
+- **FMEA:** cancelación antes de entrega → **no** suprime (estado queda Selected/Rendered, no Delivered); dos llamadas concurrentes → ambas preservadas por la actualización atómica, no lost-update; nueva revisión del mismo contexto → no suprimida por entrega previa de la vieja; fallo a mitad de update → idempotencia en retry; ventana mal dimensionada → reinjección excesiva o supresión excesiva (parámetro observable); transport de confirmación → no garantiza exactly-once de red.
+- **Tests de aceptación:** dos recalls concurrentes preservan ambas entregas; cancel-before-delivery no suprime; nueva revisión no suprimida; confirmación repetida es idempotente; ventana de turnos respeta límite; restart no pierde el ledger; semántica de entrega declarada (sin promesa exactly-once).
 - **Observabilidad:** entregas por sesión, ratio supresión, conteo por estado, edad del ledger.
 - **Non-goals:** no es dedup semántico ni política de calidad; no persiste contenido, solo referencias id+revisión.
 - **Enlace backlog:** issue upstream [#7170](https://github.com/volcengine/OpenViking/issues/7170) como lección (§3); prerequisito §4-B.
@@ -292,11 +292,11 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 - **Objetivo:** registro de experiencias (situación, objetivo, precondiciones, acciones, resultado, evidencia, fallo, expiración) que alimente reflexión, skills y escenas — conectando subsistemas existentes.
 - **Lectura de código (OV):** `session/memory/extract_loop.py` (extracción ReAct, cap 32k tokens), skills persistentes y su procesamiento (`server/routers/skills.py`, `server/skill_ingest.py`, `utils/skill_processor.py`), dedup textual de session-skills (`session/skill/dedup.py:15-48`).
 - **Anclaje en VantaDB:** reflection (FIND-290), skills, scenes/dreaming existentes; l1_dedup para consolidación.
-- **Contrato propuesto (hipotético):** `Experience { situation, objective, preconditions, actions, outcome: Success|Failure|Partial, evidence_refs, failure_detail?, expiry? }`; `agent_claim ≠ verified_outcome`; política de promoción experiencia→skill; retrieval nunca ejecuta instrucciones recuperadas.
-- **Pasos:** (1) esquema + ciclo de vida con expiración; (2) ingestión desde sesiones/escenas con evidencia enlazada; (3) política de promoción a skill con umbral declarado; (4) recuperación contextual; (5) barrido anti-secretos y anti-contaminación train/test.
+- **Contrato propuesto (hipotético):** `Experience { situation, objective, preconditions, actions, outcome: Success|Failure|Partial, evidence_refs, evidence_status: Claimed|Observed|Verified, failure_detail?, expiry? }` — el claim del agente queda distinguido del resultado verificado por campo explícito (`evidence_refs` por sí solo no prueba el éxito); política **declarativa** de promoción experiencia→skill con evidencia y aprobación humana donde esté configurada (sin umbral numérico); retrieval nunca ejecuta instrucciones recuperadas.
+- **Pasos:** (1) esquema + ciclo de vida con expiración; (2) ingestión desde sesiones/escenas con evidencia enlazada; (3) política declarativa de promoción a skill con evidencia + aprobación humana configurable; (4) recuperación contextual; (5) barrido anti-secretos y anti-contaminación train/test.
 - **Dependencias:** §4 y F4/F7 para evidencia confiable; reflection (FIND-290), hooks (FIND-295), FIND-288.
-- **FMEA:** claim del agente tomado como verdad → `outcome` requiere `evidence_refs` verificables o queda `agent_claim`; experiencias fallidas descartadas → conservarlas (son útiles); instrucciones recuperadas ejecutadas automáticamente → prohibido por contrato (retrieval ≠ ejecución); secretos en experiencias → barrido previo a persistir; contaminación train/test → aislamiento por scope/expiry (riesgo real en benchmarks §7); promoción prematura a skill → política con evidencia mínima.
-- **Tests de aceptación:** experiencia sin evidencia no marca outcome verificado; experiencia fallida recuperable; instrucción recuperada nunca se ejecuta; barrido de secretos bloquea persistencia; promoción exige evidencia declarada.
+- **FMEA:** claim del agente tomado como verdad → `evidence_status` distingue afirmado/observado/verificado; experiencias fallidas descartadas → conservarlas (son útiles); instrucciones recuperadas ejecutadas automáticamente → prohibido por contrato (retrieval ≠ ejecución); secretos en experiencias → barrido previo a persistir; contaminación train/test → aislamiento por scope/expiry (riesgo real en benchmarks §7); promoción prematura a skill → política declarativa con evidencia y aprobación configurada.
+- **Tests de aceptación:** experiencia sin evidencia no marca `Verified`; experiencia fallida recuperable; instrucción recuperada nunca se ejecuta; barrido de secretos bloquea persistencia; promoción exige evidencia declarada y aprobación donde esté configurada.
 - **Observabilidad:** experiencias por outcome, ratio claim/verificado, promociones, hits de retrieval de experiencias.
 - **Non-goals:** no es replay de episodios ni RL; no ejecuta acciones; no es journaling de sesión crudo.
 - **Enlace backlog:** FIND-290 (reflection), FIND-288, FIND-295 (hooks).
@@ -370,15 +370,15 @@ Orden estricto — todo [Histórico], revalidar contra el worktree actual:
 
 | Rechazado | Razón |
 |---|---|
-| LLM obligatorio en el core o en hot path | OV encadena intent planning + generación L0/L1 + extracción + rerank (~4 llamadas por ciclo); incompatible con el presupuesto de latencia y con el principio documentado en `l1_dedup.rs` ("el LLM es opcional, el pipeline nunca pierde datos") |
+| LLM obligatorio en el core o en hot path | La configuración puede introducir llamadas opcionales de planificación, generación y reranking; coste y latencia dependen del flujo/configuración y no se midieron — el principio documentado en `l1_dedup.rs` ("el LLM es opcional, el pipeline nunca pierde datos") se mantiene |
 | Sistemas duplicados (assembler, dedup, auditoría, scheduler) | Todo existe; las fichas extienden seams existentes. Duplicar = deuda inmediata |
 | Migración total del producto o del modelo de servicio | OV es un *servicio* con dependencias VLM externas; VantaDB es motor embebido. Scope y modelo operativo incompatibles |
 | Reescritura "source-to-source" como bypass de licencia | Traducir/portar no exime; la raíz es AGPL-3.0. Solo reimplementación limpia de diseño tras gate legal |
 | Defaults permisivos (auth vacío, CORS `*`, hashing off) | H1/H2/H6 de §0.7 son exactamente los defaults a no copiar; VantaDB debe mantener fail-closed |
-| Runners/scripts destructivos de OV (`--step all` → borrado recursivo, reinicio de servicios, restore de estado) | `benchmark/RAG/pipeline.py:187-202` termina en `db.clear` — **nunca** sobre datos compartidos; ninguna de estas mecánicas se adopta |
-| Índice/ANN de OV | El índice local es `flat`/`flat_hybrid` (fuerza bruta); HNSW solo en backends remotos. Ninguna idea de índice es adoptable — VantaDB ya es superior |
+| Runners/scripts destructivos de OV (`--step all` → borrado recursivo, reinicio de servicios, restore de estado) | `benchmark/RAG/src/pipeline.py:187-202` termina en `db.clear` — **nunca** sobre datos compartidos; ninguna de estas mecánicas se adopta |
+| Índice/ANN de OV | El índice local declara `flat`/`flat_hybrid`; HNSW en backends remotos. No sustituir primitivas existentes de VantaDB; no hay comparación equivalente medida para establecer superioridad |
 | Retrieval "jerárquico" como feature | Ya verificado flat con filtro; la adopción es el esquema de materialización (F1/F2) |
-| Dedup semántico de OV | No existe en OV (firma textual solo para skills; el LLM decide merges) — no hay nada que importar; el enfoque `l1_dedup` es más robusto |
+| Dedup semántico de OV | No se acreditó un sistema de dedup semántica independiente equivalente en el alcance inspeccionado (firma textual solo para skills; la consolidación se hace vía LLM/merge) — no importar otro dedup ni sustituir `l1_dedup`; no acreditamos ausencia general del algoritmo upstream |
 | Bot/gateway/producto completo | VikingBot, gateway LLM y Studio son productos separados; fuera de scope de VantaDB |
 
 ---
@@ -415,7 +415,7 @@ Fuente: `README.md` + `benchmark/README.md` + [blog.openviking.ai/post/openvikin
 
 | Familia | Claim publicado |
 |---|---|
-| LoCoMo accuracy | OpenClaw 24.20 → 82.08; Hermes 33.38 → 82.86; Claude Code 57.21 → 80.32 (con OpenViking); input tokens −34.3…−91.0 %, latencia −58.45…−66.10 % |
+| LoCoMo accuracy | OpenClaw 24.20 → 82.08; Hermes 33.38 → 82.86; Claude Code 57.21 → 80.32 (con OpenViking) |
 | tau2-bench task success | Airline +11.87 pp, Retail +6.87 pp (Retail 70.94→77.81; Airline 54.38→66.25) |
 | HotpotQA | 91 (top-20), latencia 0.23 s |
 | RAG | avg 66.87, latencia 0.19 s |
@@ -448,7 +448,7 @@ Pin de: commits, datasets, agente, modelos, prompts, presupuestos, configs y con
 - **MEM0-05 (hardening LoCoMo):** dataset real y explícito; adaptador del esquema original; backend real obligatorio para certificación — nada de `Fake*` salvo en self-test explícito; sintético solo declarado como sintético.
 - **Pista A (retrieval puro):** recall/MRR/nDCG donde estén justificados, sin LLM en la medición.
 - **Pista B (memoria end-to-end):** sesiones → extracción → recall → respuesta → judge, con presupuestos de generación **idénticos** entre variantes y **sin fuga de evidencia** (evidence/groundtruth no entra al prompt del sistema evaluado).
-- **EVAL-02:** calibración del judge sobre holdout.
+- **EVAL-02:** calibracion del juez en un conjunto de desarrollo separado; holdout congelado, sin ajuste ni seleccion de estrategias sobre sus respuestas. Su estado de implementacion debe revalidarse tras los commits concurrentes.
 - **ACT-02:** corrida LongMemEval de ~500 preguntas; umbral declarado ≠ prueba de superación.
 - **tau2 (adaptado):** variante "solo memoria": baseline sin-memoria vs con-memoria con **mismo agente, herramientas, modelo, seeds y presupuestos**; experiencias solo de entrenamiento, test congelado, sin persistencia de test, repeticiones por tarea reportadas, simulador modificado declarado.
 - **RAG:** empezar por retrieval sobre Qasper/FinanceBench/SyllabusQA; después QA-sobre-recuperado y QA-oracle como diagnóstico separado; ablación flat actual vs summaries/progressive/rerank.
@@ -463,26 +463,26 @@ Capacidades OV verificadas en código vs estado VantaDB (fecha de la investigaci
 
 | Capacidad OV | Estado VantaDB | Disposición |
 |---|---|---|
-| Retrieval híbrido BM25+ANN+RRF | Existente (BM25/HNSW/RRF) | Mantener — superior |
+| Retrieval híbrido BM25+ANN+RRF | Existente (BM25/HNSW/RRF) | Mantener — mecanismo propio existente; sin comparación medida de superioridad |
 | Provenance, sesiones, supersession | Existente (`l1_dedup`, supersession) | Mantener |
-| Filesystem virtual `viking://` navegable (ls/tree/grep) | Ausente como modelo | Evaluar F1 (identidad+subárbol) |
-| Resúmenes materializados L0/L1/L2 por unidad | Ausente como entidades indexables por nivel (L0–L3 de Vanta es lifecycle, no documentos por URI) | F2 (derivados versionados) |
+| Filesystem virtual `viking://` navegable (ls/tree/grep) | No acreditado como contrato equivalente en la muestra/base histórica | Evaluar F1 (identidad+subárbol) |
+| Resúmenes materializados L0/L1/L2 por unidad | No acreditado como entidades indexables por nivel en la muestra/base histórica (L0–L3 de Vanta es lifecycle, no documentos por URI) | F2 (derivados versionados) |
 | Scope por subárbol+depth en consulta | Parcial (namespaces planos; MEMG-25 en backlog) | F1 |
 | Presupuesto de contexto con cuotas/tiers | Parcial (context_assemble con presupuesto compartido) | F3 extensión |
-| Ledger de contexto entregado por sesión | Ausente | F4 (tras prerequisito §4-B) |
+| Ledger de contexto entregado por sesión | No acreditado en la muestra/base histórica | F4 (tras prerequisito §4-B) |
 | Merge declarativo post-decisión | Parcial (decisión LLM sí; operador declarativo no) | F5 opcional |
 | Verificador FS↔índice por nivel | Parcial (auditoría de text-index existe; eje contenido↔vector no confirmado) | F6 extensión |
 | Pipeline de ingesta con estados observables | Parcial (jobs existentes, estados no explícitos) | F7 |
 | Experiencias estructuradas | Parcial (reflection/skills/scenes existentes; no hay esquema unificado) | F8 |
-| Watches incrementales | Ausente (FIND-299 en backlog) | F9 |
+| Watches incrementales | No acreditado en la muestra/base histórica (FIND-299 en backlog histórico) | F9 |
 | Inspector/onboarding de integraciones | Parcial (Studio existe con diagnóstico; no hay onboarding ni timeline de evidencia) | F10 |
 | Extracción de memoria por LLM ReAct | Parcial (dedup LLM existe; extracción ReAct completa no equivalente) | Solo si spec lo justifica; nunca obligatorio en core |
-| Intent/query planning por LLM | Ausente | Rechazado (hot path) — §5 |
-| Reranker con fallback a scores vectoriales | Ausente (no hay cross-encoder) | Evaluar solo cuando exista reranker |
+| Intent/query planning por LLM | No acreditado en la muestra/base histórica | Rechazado (hot path) — §5 |
+| Reranker con fallback a scores vectoriales | No acreditado en la muestra/base histórica | Evaluar solo cuando exista reranker |
 | Skills como contexto persistente | Existente (skills propias) | Mantener |
-| Gateway LLM / bot / compilación externa | Ausente | Fuera de scope — §5 |
-| Watches ACL/multitenant, WebDAV, Helm | Ausente | Fuera de scope |
-| TTL/expiración de memoria | Existente y más estricto (`expires_at` + GC) | Mantener — el TTL Redis de OV no garantiza borrar vectores |
+| Gateway LLM / bot / compilación externa | No acreditado en la muestra/base histórica | Fuera de scope — §5 |
+| Watches ACL/multitenant, WebDAV, Helm | No acreditado en la muestra/base histórica | Fuera de scope |
+| TTL/expiración de memoria | Existente (`expires_at` + GC) | Mantener; en OV la expiración TTL documentada (backend Redis) no garantiza borrado de vectores en el alcance documentado — sin comparación medida de superioridad |
 | Hotness/tiering cold-warm-hot | `heat` existe (`lifecycle.rs`), política host-driven | Tiering explícito barato sobre lo construido — evaluar |
 | `time_decay` en inner loop de scoring ANN | Decay solo en memoria/post-filtrado | Evaluar en `CPIndex` si medición lo justifica |
 
@@ -490,7 +490,7 @@ Capacidades OV verificadas en código vs estado VantaDB (fecha de la investigaci
 
 ## 9. Negativos y deuda detectados en VantaDB
 
-Todo **[Histórico]** — hallazgos estáticos sobre la base analizada; el worktree actual (HEAD `c561158`, ~119 ficheros sucios incluidos `checkpoint.rs`, `l1_writer.rs`, `context_engine`, `ingest`) puede haberlos alterado. Ninguno fue verificado dinámicamente; ninguno se afirma corregido ni vigente sin revalidación.
+Todo **[Histórico]** — hallazgos estáticos sobre la base analizada; el worktree de entonces (HEAD `c561158`, ~119 ficheros sucios incluidos `checkpoint.rs`, `l1_writer.rs`, `context_engine`, `ingest` — ya absorbidos por commits posteriores) puede haberlos alterado. Ninguno fue verificado dinámicamente; ninguno se afirma corregido ni vigente sin revalidación.
 
 ### 9-A. Reemplazo L1 no indivisible [Hecho estático]
 
@@ -550,7 +550,7 @@ Supersession (**FIND-277**, **FIND-577**), spill (**FIND-294**), hooks (**FIND-2
 | Revisión de benchmarks (agente principal) | Derivado | `benchmark/README.md`, harnesses LoCoMo/tau2/RAG, defectos metodológicos |
 | Evaluación escritorio/UI (subagente `b6b41d8d` + revisión directa) | Derivado | Separación Helper/WebStudio/frontend, MemoryImpact, contraste con VantaDB Studio |
 | `history_0d9354c789ee4723.md` / `history_fa79ee29c0154ae9.md` (`devin/cli/summaries/`) | Transcripción | Conversación completa de la investigación (sesiones 1 y 2) |
-| Repo VantaDB (base `632f491`/`f6ed51d`, HEAD `c561158` dirty) | Primario | Contrastes de capacidades, hallazgos §9, backlog cruzado |
+| Repo VantaDB (base `632f491`/`f6ed51d`; HEAD `c561158` dirty al cierre de la inspección — observación histórica) | Primario | Contrastes de capacidades, hallazgos §9, backlog cruzado |
 
 ## Apéndice B. Decisiones corregidas por la revisión adversarial
 
@@ -599,7 +599,7 @@ Nada de lo siguiente se ejecutó ni debe presumirse verificado:
 1. **Reproducción determinista** de la carrera de checkpoint (dos sesiones, `mutate` concurrente sobre la clave global) — prueba a diseñar, ejecutar manualmente y reportar.
 2. **Reproducción de pérdida L1** (fallo inyectado entre delete y put en ruta batch/secuencial).
 3. **Self-tests offline** (solo prueban arneses, no calidad): `python evals/memory_harness.py --self-test`, `python evals/eval_longmemeval.py --self-test`, `python evals/eval_locomo.py --self-test`.
-4. **Verificación manual de H1/H3 de seguridad OV**: levantar gateway con `management_key` vacío y confirmar el bypass de `/management/*`; ensayo DNS-rebinding del TOCTOU — hipótesis, no demostrada.
+4. **Verificación manual de H1/H3 de seguridad OV** — solo en **entorno local desechable con datos sintéticos**; ninguna explotación remota real: levantar gateway con `management_key` vacío y confirmar el bypass de `/management/*`; ensayo DNS-rebinding del TOCTOU — hipótesis, no demostrada.
 5. **Barrido SPDX completo** de `openviking/` antes de cualquier reutilización "inspirada en".
 6. **Contrato verificable por ficha adoptada** (comando + salida esperada), no auto-reporte.
 7. **Revalidación de cada hallazgo [Histórico]** contra el worktree actual antes de convertirlo en fila de backlog.

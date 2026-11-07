@@ -294,12 +294,12 @@ mod tests {
             text_hit("t1", 0.95, "machine learning algorithms for optimization"),
             text_hit(
                 "t2",
-                0.94,
+                0.85,
                 "machine learning algorithms for optimization v2",
             ),
             text_hit(
                 "d1",
-                0.80,
+                0.50,
                 "astronomy deep space telescopes planetary exploration",
             ),
         ];

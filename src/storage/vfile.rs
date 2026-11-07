@@ -1335,10 +1335,11 @@ impl crate::index_port::VectorStoreRef for File {
             "VantaDB vector layout requires little-endian architecture"
         );
         let kind = header.flags & crate::node::NodeFlags::VECTOR_KIND_MASK;
-        if kind
-            != (crate::node::NodeFlags::VECTOR_KIND_FULL
+        let is_full = kind
+            == (crate::node::NodeFlags::VECTOR_KIND_FULL
                 << crate::node::NodeFlags::VECTOR_KIND_SHIFT)
-        {
+            || (kind == 0 && header.vector_len > 0);
+        if !is_full {
             return None;
         }
         if !self.is_encrypted() {
