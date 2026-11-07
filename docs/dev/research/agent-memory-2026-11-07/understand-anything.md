@@ -20,6 +20,8 @@ tags: [research, memory, engineering]
 - [8. Matriz frente a VantaDB](#8-matriz-frente-a-vantadb)
 - [9. Debilidades sugeridas](#9-debilidades-sugeridas)
 - [10. Interfaz y disponibilidad](#10-interfaz-y-disponibilidad)
+- [11. Dossier ampliado de ejecución, persistencia e incidencias](#11-dossier-ampliado-de-ejecución-persistencia-e-incidencias)
+- [12. Contratos de adopción y cierre](#12-contratos-de-adopción-y-cierre)
 
 ## 1. Dictamen y arquitectura
 
@@ -43,7 +45,7 @@ determinista ni trasladar su pipeline de agentes al motor Rust.
   El producto mezcla estructura verificable y explicación model-enriched:
   no hay base para clasificar toda arista `calls` como evidencia de ejecución.
 
-**Vanta (lectura histórica del worktree inicial `c561158`):** [code_index.rs](../../../../vantadb-mcp/src/code_index.rs),
+**Vanta (baseline revalidado `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`):** [code_index.rs](../../../../vantadb-mcp/src/code_index.rs),
 líneas 193–315,514–520, ya indexa símbolos, `defines`, referencias heurísticas,
 hash/reconcile y despacha scanners Rust/Python/TS/JS. [code.rs](../../../../vantadb-mcp/src/code.rs)
 expone consultas sobre grafo propio. Esto es producto real, pero no paridad
@@ -64,11 +66,11 @@ que Vanta los ingiera automáticamente. Tampoco justifica incorporar otro indexe
   líneas 184–224, y [Embedded::add_edge](../../../../src/sdk/api/graph.rs),
   líneas 113–151. La arista no admite metadata arbitraria: usar evidencia asociada.
   Wiki y scene existentes sirven para navegación/documentación, no otro store.
-- **Contrato Rust propuesto:** `CodeExplanationImport { repo_id, revision,
-  graph_version, producer, nodes, relations, layers, tour, provenance }`;
-  cada `ImportedRelation { external_source, external_target, kind, direction,
-  reported_weight, evidence_keys, origin: Option<Origin> }`.
-  Si el export no acredita origen, `origin=None`, no `Ast`.
+- **Contrato Rust propuesto:** único `CodeEvidenceImport`, C12 de
+  [CONSOLIDATED](CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
+  Layers/tour son derivados asociados a sus referencias, no otro
+  `CodeExplanationImport` ni otra memoria. Si el export no acredita origen,
+  usar `Unknown`, no `Ast`; el peso queda reportado, no confianza canónica.
 - **Pasos/dependencias:** validar JSON/schema → conservar original y problemas
   de saneamiento → mapear IDs namespaced → contrastar rutas/spans contra revisión
   permitida → persistir explicación como derivada de evidencia → publicar relaciones
@@ -144,7 +146,7 @@ que Vanta los ingiera automáticamente. Tampoco justifica incorporar otro indexe
 | U7 `version` validada como string | No acredita negociación/migración exhaustiva de versiones | Aceptar export incompatible como equivalente |
 | U9 ruta normalizada + allowlist; `stat/readFile` | Control lexical localizado, no validación física demostrada | Hipótesis symlink a revisar, no vulnerabilidad reproducida |
 
-No se consultaron issues remotos ni se ejecutaron tests.
+La ampliación §11 sí lee incidencias remotas; no se ejecutaron tests.
 El dashboard genera token y protege solicitudes de datos; MCP permite resolver
 proyecto desde argumento/env/cwd (`realpathSync`) y posee herramienta de arrancar
 dashboard. El conector propuesto no debería conceder ese poder.
@@ -153,11 +155,13 @@ proceso local no es aislamiento multi-tenant. No se auditó red del agente anfit
 
 ## 4. Prerrequisitos VantaDB
 
-1. Revalidar fuente y FIND-299 en árbol concurrente; baseline HEAD
-   `c561158253bb88192590fa406c61e0a27dd7df8d`. No convertir reportes anteriores
+1. Fuente revalidada en baseline `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`;
+   `c561158`/dirty es histórico. Revalidar FIND-299 antes de spec. No convertir reportes anteriores
    sobre bugs en estado vigente sin nueva comprobación.
-2. Separar evidencia de fuente, explicación y relación inferida. `Derived`
-   en `MemoryInput` exige `derived_from` y prohíbe confidence explícita.
+2. Separar evidencia de fuente, explicación y relación inferida.
+   `MemoryInput` es **struct**: `confidence_class: Option<ConfidenceClass>`
+   puede ser `Some(ConfidenceClass::Derived)`; requiere `derived_from` y
+   prohíbe confidence explícita. No existe constructor `MemoryInput::Derived`.
 3. Namespace por repo/productor, revisión inmutable, mapping de IDs y manifiesto
    de ownership. No borrar memorias manuales al reconciliar un snapshot externo.
 4. Reutilizar [wiki/ingestors.rs](../../../../src/wiki/ingestors.rs), líneas 1–27,
@@ -203,7 +207,7 @@ No se certifica migración entre schemas o identidad estable tras movimientos.
 
 ## 7. Benchmarks existentes
 
-Runner real [scripts/benchmark-large-repo.mjs:1–67](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/scripts/benchmark-large-repo.mjs#L1-L67)
+Runner real [scripts/benchmark-large-repo.mjs:1–64](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/scripts/benchmark-large-repo.mjs#L1-L64)
 delega en [large-repo-benchmark.mjs:288–302](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/scripts/lib/large-repo-benchmark.mjs#L288-L302).
 Entrada: repo local, salida JSON requerida, etiqueta/concurrencia y opción de
 conservar artefactos. V1 declara helpers deterministas únicamente, sin LLM;
@@ -254,3 +258,287 @@ pero esa herramienta no se llamó.
 Hay paquete viewer separado y dashboard web, no escritorio nativo acreditado.
 Lo reutilizable es mostrar revisión/freshness, navegar a evidencia y explicar
 agrupaciones; no portar React Flow entero ni negar la UI existente de Studio.
+
+## 11. Dossier ampliado de ejecución, persistencia e incidencias
+
+### 11.1 Mapa y contratos de almacenamiento
+
+Continuación sobre `C:\Users\Eros\Understand-Anything`,
+`a6ea4024767df85ce4f99140d4f12ecfc5a81eb6`, según manifest fijado.
+No se ejecutó el plugin ni se refrescó el clon. Consulta pública: **2026-11-07**.
+
+| Área | Responsabilidad y frontera comprobada |
+|---|---|
+| `packages/core/src/analyzer`, `languages/` | Estructura tree-sitter y composición del grafo; cobertura de todos los lenguajes no auditada |
+| `core/src/types.ts`, `schema.ts` | Nodos, aristas, capas y tours; normalización/validación no acreditan verdad de una explicación |
+| `core/src/persistence/index.ts` | JSON local, metadata/fingerprints/config separados; no motor transaccional de memoria |
+| `core/src/fingerprint.ts`, `staleness.ts` | Comparación de fuentes y frescura; HEAD, bytes dirty y versión del productor son dimensiones distintas |
+| `skills/understand`, `agents/`, helpers | Scan/batches/análisis/merge/layers/tour; instrucciones del agente anfitrión pueden invocar modelos y arrancar UI |
+| `src/context-builder.ts`, `diff-analyzer.ts`, `onboard-builder.ts` | Vistas de consulta, impacto y guía; no aislamiento de ejecución |
+| `packages/mcp/bin/understand-anything-mcp.mjs` | MCP stdio, carga de grafo, avisos freshness y lanzamiento opt-in del dashboard |
+| `packages/dashboard`, `packages/viewer` | Web React/React Flow frente a distribución viewer; no escritorio nativo acreditado |
+| `scripts/benchmark-large-repo.mjs`, `scripts/lib/` | Pipeline determinista para escala, distinto del pipeline LLM de producto |
+
+`KnowledgeGraph` contiene version/kind/project/nodes/edges/layers/tour;
+`ProjectMeta` declara commit y analyzedAt. `Layer` y `TourStep` mantienen listas
+de nodeIds, no pruebas independientes de esos nodos. `AnalysisMeta` y
+fingerprints son sidecars: tener meta reciente no prueba que JSON y todos los
+resúmenes estén alineados. No se acreditaron tenant/ACL/sesiones/supersession
+equivalentes a Vanta en este productor.
+
+[persistence/index.ts:19–144](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/understand-anything-plugin/packages/core/src/persistence/index.ts#L19-L144)
+prioriza directorio legacy si existe y guarda con `writeFileSync` directo.
+`saveGraph` sanea rutas absolutas; `saveMeta`/`saveFingerprints` escriben otros
+archivos. No hay en esos helpers lock/CAS/rename/fsync ni commit compuesto.
+Eso **no prueba** que todo caller carezca de protección, pero impide importar
+su mera presencia como garantía de snapshot indivisible.
+`loadGraph` devuelve null si falta, lanza por JSON inválido y valida por defecto;
+`loadFingerprints` captura parseo y devuelve null. El consumidor debe retener
+“ilegible” separado de “no existe”, aunque upstream use el mismo resultado.
+
+MIT raíz leída: copyright Yuxiang Lin e Infinite Universe, Inc., 2026.
+Core/dashboard/MCP/viewer pertenecen al árbol cubierto por esa declaración;
+no se auditó cada cabecera ni las licencias de WASM/gramáticas/dependencias.
+Redistribuir viewer añade dependencias/artefactos que no quedan autorizados
+por citar solo MIT raíz. Reescritura Rust no elimina obligaciones derivadas.
+
+### 11.2 Flujos trazados y puntos de fallo
+
+1. **Selección de fuente:** [skills/understand/SKILL.md:47–73](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/understand-anything-plugin/skills/understand/SKILL.md#L47-L73)
+   resuelve `PROJECT_ROOT`; al detectar worktree puede reasignarlo al checkout
+   principal salvo opt-out. No confundir root de artefactos durables con root
+   de bytes solicitados. Las instrucciones son evidencia documental del flujo,
+   no ejecución observada del agente.
+2. **Estructura/escritura:** U2 `GraphBuilder` reúne nodos/relaciones; agentes
+   escriben batches que `merge-batch-graphs.py` normaliza. Su
+   [normalize_node_id:233–276](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/understand-anything-plugin/skills/understand/merge-batch-graphs.py#L233-L276)
+   elimina ciertos prefijos, trata alias func y añade prefix según tipo si falta.
+   No equivale al esquema TypeScript ni prueba identidad estable.
+3. **Publicación:** `saveGraph` serializa JSON y sidecars por separado (§11.1).
+   Otro lector/proceso puede necesitar comprobar que todos corresponden a una
+   generación; el helper no proporciona ese recibo. Kill a mitad de escritura
+   o dos writers son casos pendientes, no resultados medidos.
+4. **Consulta:** `SearchEngine.search` en
+   [search.ts:14–64](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/understand-anything-plugin/packages/core/src/search.ts#L14-L64)
+   busca nombre/tags/summary/languageNotes con Fuse, OR de términos, tipos
+   opcionales y límite default 50. Score bajo es mejor match, **no confidence**.
+   U5 limita seeds y luego añade vecinos; el presupuesto debe aplicarse al
+   resultado expandido. No sustituir BM25/HNSW/RRF por esta búsqueda.
+5. **MCP/error:** [resolveProjectRoot/requireGraph/freshnessSummary:54–139](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/understand-anything-plugin/packages/mcp/bin/understand-anything-mcp.mjs#L54-L139)
+   canonicaliza root con realpath; carga fallida devuelve error MCP. Frescura
+   fallida devuelve unknown; stale/dirty genera aviso. Es advertencia, no prueba
+   de que toda herramienta rehúse contexto viejo ni autorización multitenant.
+6. **Update/delete:** U4 `mergeGraphUpdate:472–507` elimina nodos de archivos
+   cambiados y todas sus aristas incidentes, añade newNodes/newEdges y actualiza
+   commit/fecha. Conserva `...existingGraph`, incluidas layers/tour. No demuestra
+   recuperación de edges desde callers no cambiados ni remapeo de esos derivados.
+   Delete se puede representar sin nodos nuevos; el helper no prueba el caller
+   que detecta todas las bajas. Move necesita correspondencia explícita.
+7. **Derivado:** [buildOnboardingGuide:7–123](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/understand-anything-plugin/src/onboard-builder.ts#L7-L123)
+   renderiza arquitectura/conceptos/tour/mapa/hotspots desde el grafo.
+   IDs no encontrados se filtran; una guía legible puede ocultar referencias
+   faltantes. No hay LLM ni nueva persistencia en ese builder.
+8. **Cancelación:** builders síncronos no acreditan propagación de cancelación
+   a todos los agentes/subprocesos. UI cancela animation frame/timers de foco
+   (U8); eso no cancela extracción compartida. Ninguna consulta read-only del
+   conector propuesto recibe permiso de arrancar dashboard o reconstruir grafo.
+
+### 11.3 Incidencias públicas efectivamente leídas
+
+Router: comparación Bing/DDG de issues devolvió cero; API pública #167 devolvió
+rate-limit. Fallback HTML leyó cuerpo #167/#758/#739 y listado oficial de issues.
+El [listado](https://github.com/Egonex-AI/Understand-Anything/issues) confirmó
+**open**, apertura **2026-11-05** para #758 y **2026-10-23** para #739,
+observados 2026-11-07. La revisión independiente completa #167 mediante
+[API oficial](https://api.github.com/repos/Egonex-AI/Understand-Anything/issues/167):
+closed, creada 2026-05-21T17:14:29Z, cerrada 2026-05-24T13:12:59Z. Su
+[comentario](https://github.com/Egonex-AI/Understand-Anything/issues/167#issuecomment-4513808773)
+atribuye lectura literal de `inherit`, sin diff causal; cierre no prueba fix.
+Fuente/fecha: [recibo independiente](reviews/memory-code-remaining.md#understand-anything),
+2026-11-07, no nueva reproducción.
+
+| Fuente | Mecanismo y alcance reportados | Contraste y validación futura |
+|---|---|---|
+| [#167](https://github.com/Egonex-AI/Understand-Anything/issues/167) | `ProviderModelNotFoundError` del project-scanner en OpenCode/DeepSeek v4; retry vuelve a fallar | CLAUDE local atribuye causa a `model: inherit` específico de Claude y dice omitir campo. El cuerpo solo acredita reporte, no esa causalidad ni merge. Adapter read-only evita dependencia de modelo; no fingir enriquecimiento completo si falla |
+| [#758](https://github.com/Egonex-AI/Understand-Anything/issues/758) | Plugin 2.9.8/macOS/Python 3.13: `script:...` termina como `file:script:...`, edges caen como missing source, layers/tours heredan IDs | Función fijada conserva la secuencia de normalización descrita; no se ejecutó repro ni se auditó toda PR. Propuesta de PR/tests del autor **no acredita merge**. Validar tipo/ID/endpoints y mapping de derivados |
+| [#739](https://github.com/Egonex-AI/Understand-Anything/issues/739) | En `e24fcf6d...`, 2.9.7, redirección worktree cambia fuente y omite archivo branch-only; repro de scanner, no calidad LLM | Snapshot estudiado aún contiene reasignación `PROJECT_ROOT` (§11.2); no se siguió toda ejecución anfitriona. Separar source/output y atar Git metadata a fuente. No extrapolar a cualquier root MCP |
+
+Los resultados y tests que citan los autores son reportes, no ejecución propia.
+#133 no se leyó: su cierre mencionado en #739 no demuestra solución de este
+problema distinto. No se leyeron todos los comentarios ni PRs correctivos;
+quedan lagunas de historia y compatibilidad de versiones.
+
+### 11.4 Runner de escala: defaults, denominadores y efectos
+
+Lectura adicional de `scripts/lib/large-repo-benchmark.mjs`, al SHA fijado:
+[parseArgs:182–283](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/scripts/lib/large-repo-benchmark.mjs#L182-L283)
+requiere repo y output, genera nombre Markdown asociado y rechaza outputs dentro
+del sujeto. Concurrencia default **5**, rango permitido 1–32; `keep-artifacts`
+es false. Son defaults upstream, no configuración de evaluación nueva.
+
+[runBenchmark:1671–1741](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/scripts/lib/large-repo-benchmark.mjs#L1671-L1741)
+crea temporal fuera del sujeto, metadata Git separada tool/subject, modo
+deterministic y `llm.invoked:false`; fases scan/imports/batching/structure.
+No sesiones/preguntas/gold/split/juez. Unidad es archivo/batch/entidad, no recall QA.
+[1938–2058](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/scripts/lib/large-repo-benchmark.mjs#L1938-L2058)
+registra batchesSucceeded/Failed, filesAnalyzed/Skipped, structure/callGraph
+success/failure/skipped y distribución de duración de batches. `maxWorkerPeakRssBytes`
+no es RSS total simultáneo. Digest determinista no prueba semántica completa.
+
+Fallo de integrity produce failed/exit 1; warnings o archivos skipped pueden
+producir **degraded/exit 0**. No usar exit 0 como cobertura íntegra.
+Catch conserva error, finally termina reloj; duración general allí calculada
+**precede cleanup y entrega de reportes**. Cleanup fallido agrega secondaryErrors,
+marca failed y exit 1. Report write puede lanzar error de entrega, no entregar
+un JSON completo por milagro. Escribe JSON+Markdown y borra temporales salvo
+keep; etapas corren subprocesos Node. Ninguno se ejecutó.
+
+Adaptación a Vanta bajo METHOD/BENCHMARK-NOTES: comparar coste de preparación
+solo con pista motor/producto equivalente; C12 aporta refs revisionadas al
+consumidor, no reemplaza extractor ni los denominadores de este runner.
+No usar estos tiempos como ahorro LLM ni el generador de grafos falsos como
+dataset de extracción. No se propusieron harness, prompts, scoring o umbrales.
+
+## 12. Contratos de adopción y cierre
+
+### 12.1 Terminación de A–C y priorización
+
+**Todo puerto/tipo de esta sección es hipotético, no código Vanta presente.**
+Único contrato canónico de importación: C12 `CodeEvidenceImport`. Snapshot,
+invalidation y view slice de B/C son controles/vistas sobre ese contrato,
+no importadores persistentes alternativos.
+
+| Ficha / escenario | Alternativas y delta | Commit, ownership, cancelación y desactivación propuestos |
+|---|---|---|
+| A: agente consume explicación sin promoverla a hecho | Ampliar scanner, adapter opcional o rechazar export sin evidencia. Preferir adapter conservando Unknown cuando corresponda | Namespace productor/repo; original y mapping retenidos, validar antes de publicar. CAS de generación y evidencia primero. Cancelación previa descarta staging; posterior consulta recibo. Rollback a generación previa, nunca delete de memorias humanas |
+| B: resumen viejo sobre cuerpo cambiado | Hash completo, fingerprint estructural o revisión Git sola. Hash de bytes más productor/revisión evita equiparar cosmetic con igualdad semántica | Invalidar propios derivados, no volver fresh antes de finish. Fallo parcial conserva anterior stale/unknown. Jobs/checkpoints ya existen. Migración sin owner solo diagnostica; medir razones/lag, no contenido |
+| C: agente inspecciona contexto y diff | Links a fuente y vistas Studio frente a portar dashboard. Un salto es ayuda, no cierre exhaustivo ni selección segura de tests | Query ligada a generación y budget final; no commit. Cancelación da incomplete/descarta respuesta vieja, no cancela writer compartido. Desactivar panel conserva evidencia. Denegar roots ajenos y no devolver error como vacío |
+
+Prioridad: **A/B/F antes de importación persistente**; **E antes de confiar
+en IDs saneados**; **C/D después para contexto/enseñanza**. Read-only con estado
+unknown puede evaluarse antes; no bloquear todo Vanta por trabajo opcional de UI.
+Dependencias reales: `code_index`, `MemoryInput`, `add_edge`, assembly y jobs;
+no construir nuevos BM25/budgets/scheduler/dedup/checkpoints.
+
+### 12.2 Ficha D — Capas y tours como derivados invalidables
+
+- **Caso/fuente:** onboarding de un agente nuevo sin cargar todo repo. Unidad
+  `onboard-builder.ts:7–123`, U1 layers/tour y U4 merge: guía reutilizable, pero
+  IDs eliminados pueden desaparecer del texto sin aviso.
+- **Delta/seam:** escenas/wiki/context assembly Vanta ya existen; delta es
+  guía de código con dependencias a refs C12, no otra memoria conversacional.
+- **Contrato:** `render_code_guide(generation, authorized_refs, budget) ->
+  Result<GuideView, GuideError>`; referencias faltantes/stale se exponen.
+  Si se materializa, el **struct** `MemoryInput` usa
+  `confidence_class: Some(ConfidenceClass::Derived)` y `derived_from` con
+  padres válidos del mismo namespace, sin confidence explícita
+  [V-derived-input]; no se puede usar guía como su propia fuente.
+- **Pasos/alternativas:** mapear nodes → verificar dependencias → proyectar
+  layers/tour → aplicar budget global → renderizar refs/estado. Alternativa
+  mínima: guía efímera; persistencia solo si lifecycle B está acordado.
+- **Ownership/commit/deps:** D depende de A/B/E, writer de derivados existente;
+  invalidar antes de declarar vigente. Cancelación no publica guía parcial como
+  completa; rollback/desactivación elimina proyección propia, no fuentes.
+- **FMEA:** ID borrado queda en tour → detectar referencia ausente y advertir;
+  renumerar layer parece identidad estable → digest de miembros; explicación
+  hostil instruye al agente → contenido citado, nunca autoridad de herramientas.
+  Materializar con clase/linaje inválidos no se subsana inventando un enum o
+  una confidence: conservar error del writer, sin anunciar guía publicada.
+- **Aceptación manual:** delete/rename/body-change invalida guía; faltantes
+  visibles; ciclos de derivación rechazados; observar conteos/estado sin resúmenes.
+  La ficha identifica campos reales del struct, no un constructor invocable;
+  rechazo de padres/clase no se presenta como guía vacía ni publicación completa.
+- **No objetivos:** aprender arquitectura verdadera por clasificación de complejidad,
+  copiar prompts de agentes o introducir evaluator/umbral pedagógico.
+
+### 12.3 Ficha E — Mapping explícito y validación sin reparación silenciosa
+
+- **Caso/unidad:** agente pide símbolo cuyo ID fue “corregido” y obtiene vacío.
+  `normalize_node_id:233–276`, #758 y U7 sustentan separación original/canónico.
+- **Delta/seam:** claves deterministas `file:`/`sym:` existen en `code_index`;
+  no reinterpretar prefijos externos como claves internas ni exigir mismos IDs.
+- **Contrato:** `map_producer_refs(&CodeEvidenceImport, mapping, schema) ->
+  Result<MappingReport, ImportError>`. Conservar original, tipo, ruta, revisión,
+  alias justificado y rechazos; `UnknownType/Collision/DanglingRef` no son éxito.
+- **Pasos/alternativas:** validar export original → construir mapping una vez →
+  comprobar endpoints/layers/tours → importar A → publicar B. Rechazo explícito
+  es alternativa a corregir ambiguamente; normalización upstream no autoriza
+  unir overloads ni rutas ajenas.
+- **Deps/ownership/rollback:** A/B, namespace productor y schema acordado. Legacy
+  sin mapping queda unknown; no migración destructiva por parecido. Dos writers
+  no comparten mapping mutable; cancelar descarta plan, rollback usa anterior.
+- **FMEA/aceptación:** doble prefijo crea entidad ajena → colisión/round-trip
+  detectable; endpoint ausente → rechazar relación sin inventarlo. Caso manual:
+  `script`, `config`, homónimos y reimport mantienen mapping estable o error
+  trazable. Métricas de remapeos/rechazos sin rutas sensibles.
+- **No objetivos:** copiar reparador Python completo ni deducir proveniencia AST
+  desde un ID bien formado.
+
+### 12.4 Ficha F — Separar identidad de fuente y destino de artefactos
+
+- **Caso/fuente:** agente analiza branch feature y consume evidencia de main.
+  §11.2 `SKILL.md:47–73`, #739 y MCP `resolveProjectRoot` muestran dos rutas
+  distintas: no generalizar fallo de una instrucción a todas las APIs.
+- **Delta/seam:** `index_repo` recibe root y namespace; C12 ya propone repo y
+  revision. Falta especificar correspondencia repo/worktree/digest para conector.
+- **Contrato:** `resolve_code_source(requested_root, declared_identity, auth)
+  -> Result<AuthorizedSource, SourceError>`; destino de staging es control
+  separado, nunca motivo para cambiar bytes analizados. Tipo de aplicación,
+  no segundo DTO de importación.
+- **Pasos/alternativas:** autorizar raíz física → registrar revisión/digest de
+  esa fuente → leer export → comprobar identidad → importar A/B. Mínimo: export
+  manual con fuente explícita; rechazar auto-redirect silencioso.
+- **Concurrency/commit/rollback:** fijar root por trabajo; cambio de rama durante
+  lectura produce conflicto/unknown, no evidencia fresh. Cancelar antes de
+  publicación conserva previo; otro worktree tiene ownership separado. Desactivar
+  auto-import no mueve ni elimina fuente; depende de A/B, no de instalar hooks.
+- **FMEA/aceptación:** root principal confunde repo común con revisión → detectar
+  fuente/commit discrepante; symlink escapa → autorización física. Futuro caso
+  branch-only+dirty+dos worktrees conserva diferencias. Observar mismatch sin
+  publicar roots secretos. No crear ni destruir worktrees desde el adaptador.
+
+### 12.5 UI, matriz revisada, negativos y cobertura
+
+Flujo web leído en [App.tsx:144–194](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/understand-anything-plugin/packages/dashboard/src/App.tsx#L144-L194):
+fetch con token → comprobar HTTP → validar grafo → Zustand → GraphView;
+fallo de transporte y formato son distintos. U8 navega selección/tour y cancela
+foco anterior. U9 permite fuente solo por path local/allowlist/tamaño/no binario;
+stat/read no acredita defensa física completa frente a symlink. Cualquier
+adopción sería extensión Studio, no incorporar dev server o compartir token en logs.
+Seam Studio releído con `git show`:
+[feature-freez/desktop/src/components/memory/MemoryLens.tsx:381-409](https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/memory/MemoryLens.tsx#L381-L409)
+consulta genlog y abre anchors; fuente inmutable 2026-11-07, no bytes dirty
+de `desktop/...` ni una guía/tour de D ya implementada.
+
+| Capacidad | Estado Vanta fijado | Decisión y fuente |
+|---|---|---|
+| Scanners/hash/símbolos/grafo | Existe | `code_index.rs:152–327,514–520`; conservar, no atribuir AST completo |
+| Provenance y memoria derivada | Existe; parcial para export por arista | `record.rs:184–224`, `graph.rs:113–151`; asociar evidencia, no confianza arbitraria |
+| Publicación completa por productor/root/generación | No acreditado | A/B/F requieren contrato; firma de `add_edge` no prueba commit compuesto |
+| Guía por código con capas/tour y dependencias | Parcial | Escenas/wiki/assembly existen; D agrega vista específica; persistencia usa campos `confidence_class/derived_from` de `MemoryInput`, no enum nuevo |
+| Budget, jobs, sesiones y Studio | Existe | VANTA-REFERENCE; no recrearlos desde plugin |
+| Portar Fuse/React Flow/agent pipeline | No aplicable | Objetivo de conector, no reemplazo de motor o aplicación |
+
+Relectura Vanta `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`:
+`code_index.rs:230–233,310–315` ignora algunas mutaciones con `let _`; contador
+de stale removidos no certifica éxito de delete. Además file manifest/hash se
+guarda antes de todos los símbolos; fallo posterior podría impedir recuperación
+por retry si éste salta hash igual. Son observación de código e hipótesis
+discriminante, respectivamente, **no reproducciones ni bugs universales**.
+Futuro caso: error entre file put y symbol put no permite recibo/ACK completo.
+
+Ledger adicional: persistence 19–144; types 61–146; merge Python 233–276;
+skill 47–73; MCP 54–139; onboard builder completo; App 144–194 y U9; benchmark
+entry point completo y rangos del módulo enlazados; licencia y tres cuerpos de
+issues. No auditados: todos los agentes/merge helpers, providers, parsers,
+sanitización física completa, viewer empaquetado, delivery/recovery completo
+del runner y todos los comentarios/PRs. No se certifica crash safety, UI, calidad
+o ejecución. Autoría no es revisión independiente ni aceptación final.
+Corrección [UA-1](reviews/memory-code-remaining.md#understand-anything)
+propagada a prerrequisito/D/matriz/aceptación; inspector de guía debe mostrar
+rechazo de linaje sin aparentar guía publicada. Pendiente de reconfirmación
+independiente; “sin bloqueantes” en la revisión no es aceptación final.
+
+[V-derived-input]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/sdk/types/record.rs#L184-L224
+Si se aprueba implementación, separar specs A/E/importación, B/F/frescura e
+identidad y C/D/Studio/guías; este dossier >300 líneas conserva TOC y evidencias.
