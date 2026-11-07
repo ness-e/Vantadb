@@ -8,7 +8,7 @@ class Vantadb < Formula
   desc "VantaDB: an embedded persistent memory and vector retrieval engine for local-first AI applications"
   homepage "https://vantadb.dev"
   license "Apache-2.0"
-  version "0.9.0"
+  version "0.10.0"
 
   livecheck do
     url :stable
