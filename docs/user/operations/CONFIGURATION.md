@@ -2,9 +2,7 @@
 title: "Operations & Configuration Manual"
 kind: runbook
 status: active
-description:
-  This document tracks the current runtime knobs for the embedded core and the optional local server
-  wrapper
+description: "Runtime knobs for the embedded core and local server wrapper"
 tags: [vantadb, operations]
 type: operations
 last_reviewed: "2026-09-02"
