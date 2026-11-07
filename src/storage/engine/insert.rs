@@ -638,17 +638,14 @@ impl StorageEngine {
         {
             self.hnsw.load().remove_node(node.id);
             let mut vstore = self.vstore0()?;
-            if let Some(mut hdr) = vstore.read_header(local_off) {
-                hdr.flags |= FLAG_TOMBSTONE;
-                if let Err(te) = vstore.write_header(local_off, &hdr) {
-                    tracing::error!(
-                        node_id = %node.id,
-                        offset = local_off,
-                        put_error = %e,
-                        header_error = %te,
-                        "failed to write tombstone header after KV put failure"
-                    );
-                }
+            if let Err(te) = vstore.set_tombstone(local_off, true) {
+                tracing::error!(
+                    node_id = %node.id,
+                    offset = local_off,
+                    put_error = %e,
+                    header_error = %te,
+                    "failed to write tombstone header after KV put failure"
+                );
             }
             return Err(e);
         }

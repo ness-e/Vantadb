@@ -136,10 +136,7 @@ impl StorageEngine {
             let (seg_id, local_off) = unpack_offset(packed);
             if let Some(vs) = self.vector_store.get(seg_id as usize) {
                 let mut vstore = vs.write();
-                if let Some(mut header) = vstore.read_header(local_off) {
-                    header.flags |= FLAG_TOMBSTONE;
-                    vstore.write_header(local_off, &header)?;
-                }
+                vstore.set_tombstone(local_off, true)?;
             }
         }
 
@@ -246,10 +243,7 @@ impl StorageEngine {
                     let (seg_id, local_off) = unpack_offset(packed);
                     if let Some(vs) = self.vector_store.get(seg_id as usize) {
                         let mut vstore = vs.write();
-                        if let Some(mut header) = vstore.read_header(local_off) {
-                            header.flags |= FLAG_TOMBSTONE;
-                            vstore.write_header(local_off, &header)?;
-                        }
+                        vstore.set_tombstone(local_off, true)?;
                     }
                 }
             }
