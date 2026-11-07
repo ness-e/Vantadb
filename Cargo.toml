@@ -834,7 +834,7 @@ toml = "1.1"
 tempfile = "3"
 pyo3 = { version = "0.30", default-features = false, features = ["macros"] }
 rayon = "1.12"
-lru = "0.18"
+lru = "0.19"
 sysinfo = "0.39"
 axum = "0.8"
 tower = "0.5"
