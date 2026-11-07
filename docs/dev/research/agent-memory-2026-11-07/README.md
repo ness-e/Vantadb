@@ -2,7 +2,7 @@
 title: "README — Investigación comparativa agent-memory (2026-11-07)"
 kind: index
 status: proposed
-description: "Indice navegable de la evaluacion estatica de 37 repositorios de memoria/contexto para agentes mas OpenViking"
+description: "Indice de 42 informes ampliados y revisados, con limites documentales y OpenViking como referencia"
 tags: [research, memory, index]
 ---
 
@@ -10,13 +10,21 @@ tags: [research, memory, index]
 
 > **Qué es:** evaluación **estática** de repositorios públicos de memoria, contexto, registro y almacenamiento para agentes, orientada a ideas adaptables a VantaDB. Sin ejecución de código, tests, benchmarks ni servicios — todo es lectura con fecha de corte UTC.
 > **No es:** un censo exhaustivo de GitHub, ni un ranking de calidad. Las estrellas fueron un **filtro de selección solicitado** (`>=30000`), no evidencia de calidad, licencia OSI ni seguridad.
+> **Estado de ampliación (2026-11-07):** las 37 fichas iniciales fueron dictaminadas **insuficientes en profundidad** por el propietario (tener diez encabezados no replica el estudio OpenViking). Se rehicieron las 37 y se agregaron 5 por excepción expresa → **42 informes con autoría y revisión independiente** según [EXPANSION-CONTRACT.md](EXPANSION-CONTRACT.md): el lead acepta documentalmente **41 con límites** y **1 limitado** (Meilisearch, E3 incidencias no acreditado por prohibición de forge del usuario — no equivale a cumplimiento de diez ejes). Estado y cierre en [EXPANSION-STATUS.md](EXPANSION-STATUS.md), cobertura por proyecto en [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) y referencia [VANTA-REFERENCE.md](VANTA-REFERENCE.md). Composición: 37 elegidos por umbral (`>=30000`) + **5 excepciones del propietario** + OpenViking como referencia ya estudiada. Aceptación documental ≠ features listas como spec ni implementación aprobada.
 
 ## Documentos
+
+- [Revisión independiente de la síntesis](reviews/consolidation-closure.md).
+- [Registro de avance de esta investigación](../../avance/investigaciones.md#agent-memory-2026-11-07-evaluación-comparativa-de-memoriacontexto-para-agentes).
 
 | Documento | Contenido |
 |---|---|
 | [CONSOLIDATED.md](CONSOLIDATED.md) | Síntesis de diez puntos: recomendaciones, candidatos unificados, prerequisitos, rechazados, advertencias, benchmarks, brechas, deuda propia, UI |
 | [METHOD.md](METHOD.md) | Protocolo de evaluación: contrato de evidencia, selección, preparación reproducible, referencia VantaDB |
+| [EXPANSION-CONTRACT.md](EXPANSION-CONTRACT.md) | Contrato de profundidad, evidencia y revisión de los 42 informes ampliados |
+| [EXPANSION-STATUS.md](EXPANSION-STATUS.md) | Estado operativo y asignaciones durables de la reanudación |
+| [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) | Cobertura por proyecto: autoría, revisión asignada, correcciones y aceptación |
+| [VANTA-REFERENCE.md](VANTA-REFERENCE.md) | Referencia local de VantaDB para la comparación |
 | [BENCHMARK-NOTES.md](BENCHMARK-NOTES.md) | Notas metodológicas de benchmarks (definiciones de métricas, claims vs ejecución) |
 | [github-candidates.json](github-candidates.json) | Snapshot UTC 2026-11-07 de los 50 candidatos (stars, licencia detectada) — valores congelados |
 | [clone-manifest.json](clone-manifest.json) | Manifiesto de clones: commit SHA, shallow, rama, omisiones por repo |
@@ -67,7 +75,21 @@ Datos `stars`/`licencia`/`SHA` **copiados** de los JSON congelados (snapshot 202
 | vectorize-io/hindsight | memoria de agente | [hindsight.md](hindsight.md) | 59509 | `eb963cb5a9` | MIT |
 | volcengine/OpenViking | context DB agentes | [Backlog-OpenViking-VantaDB.md](../../Backlog-OpenViking-VantaDB.md) | 41718 | `b8e88959f3` | AGPL-3.0 |
 
-## Excluidos por umbral de estrellas (12, conservados en el inventario)
+## Adiciones por excepción del propietario (5)
+
+Cinco proyectos **por debajo del umbral de 30k** añadidos expresamente — no los presenta como superados del filtro. Datos `stars`/`SHA`/`licencia` **copiados** de [github-additions.json](github-additions.json) y [clone-additions-manifest.json](clone-additions-manifest.json) (captura nueva congelada 2026-11-07 UTC; respuestas RAW en `evidence/additions/*.json`). Las cinco fichas existen y están revisadas; su aceptación con límites se registra en [EXPANSION-STATUS.md](EXPANSION-STATUS.md) y [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md).
+
+| Repositorio | Familia | Ficha | Stars | SHA | Licencia |
+|---|---|---|---:|---|---|
+| weaviate/weaviate | vector DB | [weaviate.md](weaviate.md) | 16942 | `85bd085e6f` | NOASSERTION |
+| pgvector/pgvector | vector index | [pgvector.md](pgvector.md) | 23612 | `724588a550` | NOASSERTION |
+| letta-ai/letta | memoria de agente | [letta.md](letta.md) | 25377 | `8816d3a851` | Apache-2.0 |
+| lancedb/lancedb | vector DB | [lancedb.md](lancedb.md) | 11857 | `bff93ff314` | Apache-2.0 |
+| chroma-core/chroma | vector DB | [chroma.md](chroma.md) | 29650 | `1a3ac2c7c6` | Apache-2.0 |
+
+## Excluidos por umbral de estrellas (12, lista histórica conservada)
+
+> Cinco de estos repos (weaviate, pgvector, letta, lancedb, chroma) fueron **agregados expresamente por el propietario** como excepciones posteriores — esta lista histórica NO se reduce retroactivamente y sus estrellas no se re-evalúan.
 
 | Repositorio | Stars | Licencia |
 |---|---:|---|
@@ -86,7 +108,13 @@ Datos `stars`/`licencia`/`SHA` **copiados** de los JSON congelados (snapshot 202
 
 ## Notas de integridad
 
+- **Excepción Meilisearch:** el usuario prohíbe acceso a forge (issues/PR/discussions); E3 incidencias queda **no acreditado** — sin lectura de cuerpos ni fallbacks, y no se equipara a cumplimiento de los diez ejes.
+- **Cierre selectivo:** la investigación es estática y selectiva — no certifica exhaustividad, inexistencia global, comportamiento en runtime, autorización, recuperación ante crash ni rendimiento.
+- **Validación documental offline final:** auditorías automatizadas acotadas sin hallazgos; enlaces internos, frontmatter, índices generados, cobertura documental, whitespace, Markdown y JSON conformes en sus alcances. Los checks globales `check-links`, `check-docs` y `gen-index --check` finalizan con exit 0. Permanecen advertencias no bloqueantes de nombres duplicados ajenos al estudio. No se ejecutaron tests, aplicaciones, builds ni benchmarks.
+- **Versionado:** entrega incorporada mediante commits locales selectivos en `develop`, sin push. `MASTER_PROMPT_EJECUCION_EXTERNA.md` permanece intacto, sin versionar y fuera de índices mediante exclusión local `.git/info/exclude`; `.gitignore` no se modifica. Evidencia documental: logs `Temp/final-*.log` y `vantadb-final-validation.md`.
+
 - OpenViking (`volcengine/OpenViking`, 41718 stars, AGPL-3.0) ya estaba clonado y estudiado: figura en el inventario con su ficha central fuera de este directorio.
 - `FlowiseAI/Flowise` está **archivado** upstream (estado de mantenimiento declarado en su ficha).
-- Licencias `NOASSERTION` / source-available se registran por proyecto; **no** todos son OSI-validated.
-- Las 37 fichas están completas (22 iniciales + 15 de la segunda tanda). `.gitignore` cubre `docs/dev/research/` y se **preserva** para el resto; los 43 archivos de esta investigación fueron incorporados selectivamente con force-add (revisión del propietario).
+- Licencias `NOASSERTION` / source-available se registran por proyecto; **no** todos son OSI-validated. `NOASSERTION` no prueba ausencia de licencia ni permiso de reutilización.
+- Los **42 informes** (37 de la selección original + 5 excepciones) tienen autoría y revisión independiente: **41 aceptados con límites + 1 limitado** (Meilisearch, E3 incidencias no acreditado). Aceptación documental no equivale a cumplimiento total de ejes ni a spec de implementación. El mapeo durable está en [EXPANSION-STATUS.md](EXPANSION-STATUS.md) y [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md). Los `NOASSERTION` del snapshot se conservan RAW: lecturas locales posteriores acreditaron `LICENSE` **PostgreSQL License** en pgvector y **BSD-3-Clause fuera de `wl/` + Weaviate License dentro de `wl/`** en Weaviate — los JSON congelados no se reescriben.
+- `.gitignore` (línea 268) ignora `docs/dev/research/` y se **preserva** para el resto del árbol; los archivos de esta entrega se incorporan selectivamente con `force-add`, sin modificar reglas globales ni incluir archivos ajenos.
