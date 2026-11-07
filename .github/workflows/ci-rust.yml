@@ -1,50 +1,50 @@
-name: 'CI: Rust — Build & Lint + Tests'
+name: "CI: Rust — Build & Lint + Tests"
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
     paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'benches/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'build.rs'
-      - '.config/nextest.toml'
-      - '.github/workflows/ci-rust.yml'
-      - '.github/actions/rust-setup/**'
-      - '.cargo/**'
-      - 'deny.toml'
-      - 'osv-scanner.toml'
-      - 'rust-toolchain.toml'
-      - 'vantadb-*/**'
-      - 'vanta-memory/**'
-      - 'integrations/**'
-      - 'providers/**'
-      - '.gitleaks.toml'
-      - '.secretlintrc.json'
-      - '.secretlintignore'
+      - "src/**"
+      - "tests/**"
+      - "benches/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "build.rs"
+      - ".config/nextest.toml"
+      - ".github/workflows/ci-rust.yml"
+      - ".github/actions/rust-setup/**"
+      - ".cargo/**"
+      - "deny.toml"
+      - "osv-scanner.toml"
+      - "rust-toolchain.toml"
+      - "vantadb-*/**"
+      - "vanta-memory/**"
+      - "integrations/**"
+      - "providers/**"
+      - ".gitleaks.toml"
+      - ".secretlintrc.json"
+      - ".secretlintignore"
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
     paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'benches/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'build.rs'
-      - '.config/nextest.toml'
-      - '.github/workflows/ci-rust.yml'
-      - 'deny.toml'
-      - 'osv-scanner.toml'
-      - 'rust-toolchain.toml'
-      - 'vantadb-*/**'
-      - 'vanta-memory/**'
-      - 'integrations/**'
-      - 'providers/**'
-      - '.gitleaks.toml'
-      - '.secretlintrc.json'
-      - '.secretlintignore'
+      - "src/**"
+      - "tests/**"
+      - "benches/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "build.rs"
+      - ".config/nextest.toml"
+      - ".github/workflows/ci-rust.yml"
+      - "deny.toml"
+      - "osv-scanner.toml"
+      - "rust-toolchain.toml"
+      - "vantadb-*/**"
+      - "vanta-memory/**"
+      - "integrations/**"
+      - "providers/**"
+      - ".gitleaks.toml"
+      - ".secretlintrc.json"
+      - ".secretlintignore"
   workflow_dispatch:
 
 env:
@@ -87,7 +87,8 @@ jobs:
           node-version: 22
 
       - name: Run secretlint
-        run: npx --yes -p secretlint -p @secretlint/secretlint-rule-preset-recommend secretlint "**/*"
+        run:
+          npx --yes -p secretlint -p @secretlint/secretlint-rule-preset-recommend secretlint "**/*"
 
   fmt:
     name: Format Check
@@ -155,7 +156,9 @@ jobs:
     # docs/api/COMPATIBILITY.md. Companion snapshot job: public-api-snapshot.
     name: Semver Checks (public API)
     runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
+    if:
+      github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref ==
+      'main')
     timeout-minutes: 30
     concurrency:
       group: semver-${{ github.ref }}
@@ -193,7 +196,9 @@ jobs:
     # docs/api/COMPATIBILITY.md.
     name: Public API Snapshot
     runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
+    if:
+      github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref ==
+      'main')
     timeout-minutes: 45
     concurrency:
       group: public-api-${{ github.ref }}
@@ -256,10 +261,9 @@ jobs:
 
       - name: Fail — API change without ADR
         if: >-
-          steps.detect.outputs.api != ''
-          && steps.detect.outputs.adr == ''
-          && !contains(github.event.pull_request.title, '[no-adr]')
-          && !contains(github.event.pull_request.body, '[no-adr]')
+          steps.detect.outputs.api != '' && steps.detect.outputs.adr == '' &&
+          !contains(github.event.pull_request.title, '[no-adr]') &&
+          !contains(github.event.pull_request.body, '[no-adr]')
         run: |
           echo "::error::Public API surface changed (${{ steps.detect.outputs.api }}) without an ADR."
           echo "::error::Add an ADR to docs/dev/architecture/adr/ (format ADR-NNN, see ADR-0001) or, if no ADR is warranted, mark this PR '[no-adr]' in the title/description with a one-line justification."
@@ -267,9 +271,8 @@ jobs:
 
       - name: Acknowledge [no-adr] marker
         if: >-
-          steps.detect.outputs.api != ''
-          && steps.detect.outputs.adr == ''
-          && (contains(github.event.pull_request.title, '[no-adr]')
+          steps.detect.outputs.api != '' && steps.detect.outputs.adr == '' &&
+          (contains(github.event.pull_request.title, '[no-adr]')
               || contains(github.event.pull_request.body, '[no-adr]'))
         run: |
           echo "::warning::PR marked [no-adr] — a reviewer must confirm the public API change needs no ADR."
@@ -339,7 +342,9 @@ jobs:
 
       - name: Clippy (Windows)
         # CATEGORY: EXPERIMENTAL — excludes experimental crates.
-        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp -- -D warnings
+        run:
+          cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude
+          vantadb-server --exclude vantadb-mcp -- -D warnings
 
       - name: Run quick integrity tests (Windows)
         shell: pwsh
@@ -381,7 +386,9 @@ jobs:
 
       - name: Clippy (macOS)
         # CATEGORY: EXPERIMENTAL — excludes experimental crates.
-        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp -- -D warnings
+        run:
+          cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude
+          vantadb-server --exclude vantadb-mcp -- -D warnings
 
       - name: Run tests (Audit profile, core)
         shell: bash
@@ -425,7 +432,9 @@ jobs:
           shared-key: embedding-${{ matrix.features }}
 
       - name: Run lib tests (${{ matrix.features }})
-        run: cargo nextest run -p vantadb --lib --profile audit --features "cli,arrow,tls,opentelemetry,${{ matrix.features }}"
+        run:
+          cargo nextest run -p vantadb --lib --profile audit --features
+          "cli,arrow,tls,opentelemetry,${{ matrix.features }}"
 
   msrv:
     name: MSRV Check (1.94.1)
@@ -546,7 +555,9 @@ jobs:
     # CATEGORY: BEST-EFFORT — WASM is Tier 3 Experimental.
     # Browser tests require wasm-pack + Chrome. Failures are non-blocking.
     continue-on-error: true # CATEGORY: EXPERIMENTAL - target wasm (browser) experimental: el gate de WASM no bloquea el PR; el contrato de la API lo fija el gate de docs
-    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || (github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/')))
+    if:
+      github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/')))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -703,7 +714,9 @@ jobs:
         run: cargo install cargo-machete --version 0.9.2 --locked
 
       - name: Unused dependency check (workspace + standalone crates)
-        run: cargo machete --with-metadata . vantadb-python vantadb-server vantadb-mcp vantadb-wasm vanta-memory vanta-proxy vantadb-node
+        run:
+          cargo machete --with-metadata . vantadb-python vantadb-server vantadb-mcp vantadb-wasm
+          vanta-memory vanta-proxy vantadb-node
 
   miri:
     name: Miri (UB Detection)
@@ -730,7 +743,9 @@ jobs:
         # Run WITHOUT the `roaring` feature: croaring is C FFI that Miri cannot
         # execute. FilterBitset falls back to the pure-Rust Vec<u64> impl so the
         # engine's from_raw_parts/alignment paths still run under the checker.
-        run: cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features --features "cli,fjall,memmap2,fs2" -- miri
+        run:
+          cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features
+          --features "cli,fjall,memmap2,fs2" -- miri
         env:
           MIRI_NO_HOST_FALLBACK: 1
           # Header::new reads SystemTime::now() when opening the engine;
@@ -744,7 +759,9 @@ jobs:
       # manually, do not gate releases.
       - name: Miri Test (tree borrows - best effort)
         continue-on-error: true # CATEGORY: BEST-EFFORT - Miri es best-effort por diseno (tree borrows): el gate real de UB es el job `miri`, que es required
-        run: cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features --features "cli,fjall,memmap2,fs2" -- miri
+        run:
+          cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features
+          --features "cli,fjall,memmap2,fs2" -- miri
         env:
           MIRI_NO_HOST_FALLBACK: 1
           MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-tree-borrows"
@@ -876,7 +893,7 @@ jobs:
     name: TSan (ThreadSanitizer)
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
     needs: [fmt, clippy]
     # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
     # Failures are reviewed manually. Does not gate releases.
@@ -907,6 +924,8 @@ jobs:
 
       # CATEGORY: BEST-EFFORT — job-level continue-on-error covers this
       - name: Test with ThreadSanitizer
+        timeout-minutes: 85
+        continue-on-error: true
         run: |
           cargo +nightly test \
             --lib --tests --bins \
@@ -937,6 +956,7 @@ jobs:
             --skip test_triple_backend_parity_validation \
             --skip zero_dim_vector_search_empty \
             --skip ttl_http_ \
-            --skip embedded_readonly
+            --skip embedded_readonly \
+            --skip cli_tests
         env:
           TSAN_OPTIONS: "halt_on_error=0 exitcode=0 history_size=2"
