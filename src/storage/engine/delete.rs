@@ -4,7 +4,7 @@ use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::lsm::unpack_offset;
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{BufferedWrite, LockPolicy, FLAG_TOMBSTONE};
+use crate::storage::engine::{BufferedWrite, LockPolicy};
 use crate::wal::WalRecord;
 
 impl StorageEngine {
