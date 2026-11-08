@@ -35,6 +35,8 @@ on:
       - '.github/actions/rust-setup/**'
       - '.cargo/**'
       - 'release-plz.toml'
+      - 'integrations/**'
+      - 'cliff.toml'
   pull_request:
     branches: [main, develop]
     paths:
@@ -56,6 +58,8 @@ on:
       - '.github/actions/rust-setup/**'
       - '.cargo/**'
       - 'release-plz.toml'
+      - 'integrations/**'
+      - 'cliff.toml'
   schedule:
     - cron: '0 3 * * 0'
   workflow_dispatch:

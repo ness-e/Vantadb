@@ -24,6 +24,9 @@ on:
       - ".gitleaks.toml"
       - ".secretlintrc.json"
       - ".secretlintignore"
+      - "release-plz.toml"
+      - "release-manifest.json"
+      - "cliff.toml"
   pull_request:
     branches: ["main", "develop"]
     paths:
@@ -45,6 +48,9 @@ on:
       - ".gitleaks.toml"
       - ".secretlintrc.json"
       - ".secretlintignore"
+      - "release-plz.toml"
+      - "release-manifest.json"
+      - "cliff.toml"
   workflow_dispatch:
 
 env:
