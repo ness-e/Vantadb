@@ -241,13 +241,29 @@ jobs:
           npm pkg set "dependencies.vantadb-wasm=^${WASM_VER}"
           node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); let changed = false; for (const field of ['dependencies', 'optionalDependencies', 'devDependencies']) { if (pkg[field]?.['vantadb-node']?.startsWith('file:')) { delete pkg[field]['vantadb-node']; changed = true; } } if (changed) { fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
 
+      # FIND-550: the rewrite above strips `vantadb-node` (file: dep) so
+      # `npm ci` never resolves an unpublished version (ETARGET propagation
+      # race, PUBLISH.md trap 5). Re-inject it as an optionalDependency —
+      # exact version of this release (vantadb-node tracks the workspace
+      # version from its first publish; npm skips optional deps it cannot
+      # install, so installs still succeed while it is not yet on npm —
+      # PUBLISH.md:206) — AFTER npm ci/build and BEFORE npm pack/publish.
+      # Without this, the tarball ships without the native binding and Node
+      # users silently fall back to WASM (breaks EGO-17).
+      - name: Restore vantadb-node optionalDependency (FIND-550)
+        working-directory: vantadb-ts
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          npm pkg set "optionalDependencies.vantadb-node=${VERSION}"
+          node -e "const p=require('./package.json'); const v=p.optionalDependencies && p.optionalDependencies['vantadb-node']; if(!v){console.error('ERROR: optionalDependencies[vantadb-node] missing — tarball would ship without the native binding (FIND-550)');process.exit(1);} if(v!==p.version){console.error('ERROR: optionalDependencies[vantadb-node]='+v+' != pkg.version '+p.version);process.exit(1);} if(p.dependencies && p.dependencies['vantadb-node']){console.error('ERROR: vantadb-node still present in dependencies');process.exit(1);} console.log('optionalDependencies.vantadb-node =', v);"
+
       # TS-05 guard: a tarball without engines.node fails confusingly on
       # Node < 22.12 (`require(esm)` syntax error). Fail the release here
       # instead of shipping it.
       - name: Verify package.json integrity (TS-05)
         working-directory: vantadb-ts
         run: |
-          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (TS-05)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines));"
+          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (TS-05)');process.exit(1);} const v=p.optionalDependencies&&p.optionalDependencies['vantadb-node']; if(v!==p.version){console.error('ERROR: optionalDependencies[vantadb-node] missing or != pkg.version ('+v+' vs '+p.version+') — tarball would ship without the native binding (FIND-550)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines), '| optionalDependencies.vantadb-node =', v);"
 
       # TS-07: install the packed tarball in a clean temp dir and run a
       # minimal quickstart against it before anything reaches npm.
