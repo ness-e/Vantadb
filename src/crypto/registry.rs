@@ -293,7 +293,7 @@ impl NonceAllocator {
 }
 
 /// One artefact's entry in the registry.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ArtifactEntry {
     /// The DEK itself (in memory, wiped on drop).
     dek: Zeroizing<[u8; 32]>,
@@ -311,7 +311,7 @@ struct ArtifactEntry {
 /// database (ADR-0057 W6): the four artefacts open the registry
 /// independently, and a `persist` from one of them must never drop the
 /// entries of the others (FIND-514).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct RegistryState {
     /// The database salt (public; domain-separates this database's keys).
     db_salt: [u8; 32],
@@ -742,6 +742,12 @@ impl KeyRegistry {
                 CryptoError::RegistryIo(format!("cannot sync the registry backup directory: {e}"))
             })?;
         }
+        // Snapshot for rollback: any failure below — during the staged
+        // re-wrap or the persist — must leave the in-memory state coherent
+        // with the on-disk registry (audit R-1/R-2). Staging computes every
+        // crypto result **before** touching `state`, so a mid-loop failure
+        // cannot half-rotate it.
+        let snapshot = self.shared.state.lock().clone();
         let new_version = {
             let mut state = self.shared.state.lock();
             let new_version = state.key_version.checked_add(1).ok_or_else(|| {
@@ -750,8 +756,11 @@ impl KeyRegistry {
             // The salt is public and stays: only the wrapping changes.
             let master = master_from_material(new_material, &state.db_salt)?;
             let new_kek = Cipher::new(&master[..]).derive_kek(&state.db_salt, new_version)?;
-            let artifacts: Vec<Artifact> = state.entries.keys().copied().collect();
-            for artifact in artifacts {
+            // Stage phase: every fallible operation happens here, before any
+            // mutation of `state`.
+            let mut staged: Vec<(Artifact, Vec<u8>, [u8; DEK_ID_LEN])> =
+                Vec::with_capacity(state.entries.len());
+            for artifact in state.entries.keys().copied().collect::<Vec<_>>() {
                 let dek = state
                     .entries
                     .get(&artifact)
@@ -762,19 +771,30 @@ impl KeyRegistry {
                 let wrapped = wrap_dek(&new_kek, &dek, artifact, new_version)?;
                 let mut dek_id = [0u8; DEK_ID_LEN];
                 rand::rng().fill_bytes(&mut dek_id);
+                staged.push((artifact, wrapped, dek_id));
+            }
+            // The sentinel is re-wrapped too: it must prove the **new** key.
+            let key_check = wrap_key_check(&new_kek, new_version)?;
+            // Commit phase: infallible — no crypto, no allocation that can
+            // fail observably.
+            for (artifact, wrapped, dek_id) in staged {
                 if let Some(entry) = state.entries.get_mut(&artifact) {
                     entry.wrapped = wrapped;
                     // A new label: a re-wrap is detectable.
                     entry.dek_id = dek_id;
                 }
             }
-            // The sentinel is re-wrapped too: it must prove the **new** key.
-            state.key_check = wrap_key_check(&new_kek, new_version)?;
+            state.key_check = key_check;
             state.key_version = new_version;
             state.kek = new_kek;
             new_version
         };
-        self.persist()?;
+        if let Err(e) = self.persist() {
+            // The disk still holds the OLD registry: restore the in-memory
+            // state so a later `persist` cannot write a half-rotated one.
+            *self.shared.state.lock() = snapshot;
+            return Err(e);
+        }
         Ok(new_version)
     }
 
