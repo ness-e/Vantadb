@@ -30,14 +30,14 @@ go back to `v0.9.0`.
 | Constant / artefact | v0.9.0 | v0.10.0 (HEAD) | Behaviour when a v0.9.0 value is opened | Evidence |
 |---|---|---|---|---|
 | `VFILE_VERSION` (VantaFile `VFLE` segments `vstore_L{0..3}.vanta`) | 2 | 2 (plain) / 3 (`VFILE_ENCRYPTED_VERSION`) | Read in place — `Header::validate_compat` accepts any `format_version ≤ VFILE_MAX_READABLE_VERSION` | `src/storage/vfile.rs:72,90,96`; `src/binary_header.rs:115-149` |
-| `WAL_FORMAT_VERSION` (`VWAL` `vanta.wal` / `vanta.shardN.wal`) | 3 | 3 (plain) / 4 (`WAL_ENCRYPTED_FORMAT_VERSION`) | Read in place — range-based check `≤ WAL_FORMAT_VERSION` plus `WAL_POSTCARD_VERSION == 1` in `schema_version` | `src/wal.rs:26,45,74,219-249` |
+| `WAL_FORMAT_VERSION` (`VWAL` `vanta.wal` / `vanta.shardN.wal`) | 3 | 3 (plain) / 4 (`WAL_ENCRYPTED_FORMAT_VERSION`) | Read in place — range-based check `≤ WAL_MAX_READABLE_VERSION` (= 3 without `encryption`) plus `WAL_POSTCARD_VERSION == 1` in `schema_version` | `src/wal.rs:26,45,74,283,306-310` |
 | `WAL_CHAIN_VERSION` (hash-chain framing) | 3 | 3 | Unchanged — v0.9.0 already chains records | `src/wal.rs:60` (v0.9.0 `:31`) |
 | `VECTOR_INDEX_VERSION` (`VNDX` `vector_index.bin`) | 8 | 8 (plain) / 9 (`VECTOR_INDEX_ENCRYPTED_VERSION`) | Read in place; a v8 image deserializes or, if unreadable, the engine rebuilds it from the VantaFile (`None` → rebuild) | `src/index/graph/types.rs:27,44`; `src/index/serialize/file.rs:100-127,164,181`; `src/storage/engine/init.rs:548` |
-| `CURRENT_SCHEMA_VERSION` / `MIN_COMPAT_VERSION` (`.vanta.schema`) | 2 / 1 | 2 / 1 | `check_schema_compatibility` accepts; `version > CURRENT` → `SchemaError::TooNew`, `< min_compat` → `TooOld` | `src/schema.rs:17,19,90-104`; `src/storage/engine/init.rs:370-377` |
+| `CURRENT_SCHEMA_VERSION` / `MIN_COMPAT_VERSION` (`.vanta.schema`) | 2 / 1 | 2 / 1 | `load_or_create_schema` (write path) / `check_schema_compatibility` (read-only) both run `StorageHeader::is_compatible`; `version > CURRENT` → `SchemaError::TooNew`, `< min_compat` → `TooOld` | `src/schema.rs:17,19,90-104`; `src/storage/engine/init.rs:370-377` |
 | `TEXT_INDEX_SCHEMA_VERSION` (+ `TOKENIZER_VERSION`, `ADVANCED_TOKENIZER_VERSION`) | 4 / 3 (cfg `advanced-tokenizer`) | 4 / 3 — identical | Persisted `TextIndexState` matches spec → kept; on any mismatch `ensure_text_index_current_with` rebuilds lazily at open | `src/text_index.rs:16,19,23,29`; `src/sdk/serialization/impl_text_index.rs:12-56,111-117` |
 | `DERIVED_INDEX_SCHEMA_VERSION` (`DerivedIndexState`) | 1 | 1 | Same-value match kept; a stale version triggers `rebuild_derived_indexes_with_report` at open | `src/sdk/serialization/mod.rs:55`; `src/sdk/serialization/impl_index.rs:33-77` |
 | `SPARSE_INDEX_SCHEMA_VERSION` (`SparseIndexState`) | 1 | 1 | Same-value match kept; a stale version triggers a sparse rebuild at open | `src/sdk/serialization/mod.rs:59`; `src/sdk/serialization/impl_sparse_index.rs:163-195` |
-| `EXPORT_SCHEMA_VERSION` / `EXPORT_MANIFEST_SCHEMA_VERSION` / `MD_EXPORT_SCHEMA_VERSION` | 2 / 1 / 2 | 2 / 1 / 2 | Export files only — not part of the database image; importers accept `1..=EXPORT_SCHEMA_VERSION` | `src/sdk/serialization/mod.rs:54,707-712`; `src/sdk/types/record.rs:607`; `src/cli_handlers/export_md.rs:48` |
+| `EXPORT_SCHEMA_VERSION` / `EXPORT_MANIFEST_SCHEMA_VERSION` / `MD_EXPORT_SCHEMA_VERSION` | 2 / 1 / 2 | 2 / 1 / 2 | Export files only — not part of the database image; importers accept `1..=EXPORT_SCHEMA_VERSION` | `src/sdk/serialization/mod.rs:54,801-806`; `src/sdk/types/record.rs:607`; `src/cli_handlers/export_md.rs:48` |
 | `PURGE_CERTIFICATE_SCHEMA_VERSION` / `WRITE_RECEIPT_SCHEMA_VERSION` | 1 / 1 | 1 / 1 | Attestation artefacts; version check is equality → typed error on mismatch | `src/attestation.rs:44,535-540,657,974-979` |
 | `CURSOR_VERSION` (search page tokens) | 1 | 1 | Opaque API token, not on-disk state | `src/sdk/search/page.rs:49,231` |
 | `KDF_FRAME_VERSION` (key-derivation frame) | 0x01 | 0x01 | Unchanged | `src/crypto.rs:594` (v0.9.0 `:115`) |
@@ -109,7 +109,8 @@ database cannot contain. No persisted format *requires* migration for a `v0.9.0`
    affect rollback — their state versions are unchanged.
 6. **Encrypting an existing database.** Still out of the open path (ADR-0057 D7): a key
    configured against an existing plaintext database opens it **plaintext with a
-   warning**; an existing database is never implicitly re-encrypted (`is_new_database`,
+   warning** (`warn_encryption_not_applied`, `src/storage/engine/init.rs:1130`); an
+   existing database is never implicitly re-encrypted (`is_new_database`,
    `src/storage/engine/init.rs:1334-1365`). The supported path to encrypt a `v0.9.0` base
    in `v0.10.0` is **export → import into a new encrypted database**. In-place encryption
    of an existing database is **not supported in v0.10.0**.
