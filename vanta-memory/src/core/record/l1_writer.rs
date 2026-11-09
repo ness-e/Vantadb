@@ -389,7 +389,29 @@ fn mark_contradicted_targets(
         // Preserve the old record's node vector on re-persist (vectors live
         // on the node, not inside the payload — see `put_record`).
         let vector = old.vector.take();
-        put_record(db, ns, &old, vector)?;
+        // FIND-281: the L1 payload carries no confidence field — confidence
+        // lives on the engine record. Read it back so the re-persist keeps
+        // the stored value (e.g. decayed by feedback) instead of resetting
+        // to `default_confidence()`. A miss/race keeps the old behavior.
+        let confidence = match db.get(ns, &sanitize_key(target_id)) {
+            Ok(Some(stored)) => Some((stored.confidence_class, stored.confidence)),
+            Ok(None) => {
+                tracing::debug!(
+                    record_id = %target_id,
+                    "l1 contradiction target vanished before re-persist; using default confidence"
+                );
+                None
+            }
+            Err(e) => {
+                tracing::debug!(
+                    record_id = %target_id,
+                    error = %e,
+                    "l1 stored confidence unreadable; using default confidence"
+                );
+                None
+            }
+        };
+        put_record_with_confidence(db, ns, &old, vector, confidence)?;
     }
     Ok(())
 }
@@ -451,7 +473,7 @@ pub fn apply_dedup_batch(
     // loss of the previous state.
     let inputs = planned_writes
         .iter()
-        .map(|planned| record_input(&ns, &planned.record, planned.vector.clone()))
+        .map(|planned| record_input(&ns, &planned.record, planned.vector.clone(), None))
         .collect::<Result<Vec<MemoryInput>, L1Error>>()?;
     if !inputs.is_empty() {
         db.put_batch(inputs)?;
@@ -544,6 +566,7 @@ fn record_input(
     ns: &str,
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
+    confidence_override: Option<(ConfidenceClass, f32)>,
 ) -> Result<MemoryInput, L1Error> {
     let mut metadata = MemoryMetadata::new();
     metadata.insert(
@@ -595,8 +618,16 @@ fn record_input(
         sparse_vector: None,
         ttl_ms: None,
         valid_at_ms,
-        confidence_class: Some(ConfidenceClass::Asserted),
-        confidence: Some(default_confidence()),
+        confidence_class: Some(
+            confidence_override
+                .map(|(class, _)| class)
+                .unwrap_or(ConfidenceClass::Asserted),
+        ),
+        confidence: Some(
+            confidence_override
+                .map(|(_, confidence)| confidence)
+                .unwrap_or_else(default_confidence),
+        ),
         dedup_policy: Some(default_l1_dedup_policy()),
         ..Default::default()
     })
@@ -608,13 +639,28 @@ pub fn put_record(
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
 ) -> Result<vantadb::sdk::MemoryRecord, L1Error> {
+    put_record_with_confidence(db, ns, record, vector, None)
+}
+
+/// `put_record` with an explicit confidence override (FIND-281): the engine
+/// record's `confidence`/`confidence_class` fields (which the L1 payload does
+/// not carry) are declared from `confidence_override` instead of the asserted
+/// default. `None` is identical to [`put_record`]. Only the contradiction
+/// re-persist path passes `Some` — new/merged records keep the default.
+fn put_record_with_confidence(
+    db: &Embedded,
+    ns: &str,
+    record: &MemoryRecord,
+    vector: Option<Vec<f32>>,
+    confidence_override: Option<(ConfidenceClass, f32)>,
+) -> Result<vantadb::sdk::MemoryRecord, L1Error> {
     debug_assert!(
         record.vector.is_none(),
         "put_record expects the vector stripped from the record; pass it via the vector arg"
     );
     // Returns the stored record carrying the core-assigned storage version —
     // the rollback lineage (MEMG-17) reads `version` off it.
-    let stored = db.put(record_input(ns, record, vector)?)?;
+    let stored = db.put(record_input(ns, record, vector, confidence_override)?)?;
 
     // Graph edges for derived records/axioms (TEC-15)
     let session_key = ns.strip_prefix("l1/").unwrap_or(ns);

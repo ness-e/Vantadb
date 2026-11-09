@@ -20,6 +20,7 @@ use vanta_memory::core::record::{
     write_memory, L1DedupConfig,
 };
 use vantadb::config::Config;
+use vantadb::sdk::ConfidenceClass;
 use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 use vantadb::storage::BackendKind;
 
@@ -399,4 +400,111 @@ fn run_l1_dedup_marks_contradiction_end_to_end() {
         "canonical: the old record is flagged as superseded by the new one"
     );
     assert_eq!(read_session_records(&db, "sess-e2e").unwrap().len(), 2);
+}
+
+// ── FIND-281: re-persisting a contradicted record preserves its stored
+// confidence instead of resurrecting it at `default_confidence()` ──────
+
+/// Persistent-backend config (precedent: `tests/scheduler_crash.rs`) so the
+/// stored confidence is asserted after a REAL close/reopen, not just an
+/// in-process re-read.
+fn fjall_config(storage_path: &str) -> Config {
+    Config {
+        storage_path: storage_path.to_string(),
+        backend_kind: BackendKind::Fjall,
+        ..Config::default()
+    }
+}
+
+/// FIND-281 (a): a contradicted record re-persisted via
+/// `mark_contradicted_targets` must keep the exact confidence (and class)
+/// the engine has stored for its key — never `default_confidence()`.
+///
+/// RED against the pre-fix code: `record_input` hardcodes
+/// `ConfidenceClass::Asserted` + `default_confidence()`, so the re-put
+/// resurrects the record at 1.0 instead of preserving the stored 0.3.
+#[test]
+fn contradiction_repersist_preserves_stored_confidence() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path = dir.path().to_string_lossy().to_string();
+
+    {
+        let db = Embedded::open_with_config(fjall_config(&db_path)).expect("open fjall");
+        // Engine-stored confidence decoupled from the default: a direct SDK
+        // write pins `m_old` at Asserted/0.3 (e.g. after feedback decay).
+        db.put(MemoryInput {
+            namespace: l1_namespace("sess-conf"),
+            key: "m_old".into(),
+            payload: serde_json::to_string(&record("m_old", "me gusta el cafe"))
+                .expect("serialize"),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+            confidence_class: Some(ConfidenceClass::Asserted),
+            confidence: Some(0.3),
+            ..Default::default()
+        })
+        .expect("seed at 0.3");
+        let seeded = db
+            .get(&l1_namespace("sess-conf"), "m_old")
+            .expect("get")
+            .expect("seeded record");
+        assert_eq!(seeded.confidence, 0.3, "seed sanity: stored at 0.3");
+
+        let d = decision("m_new", DedupAction::Store, &["m_old"]);
+        write_memory(
+            &db,
+            "sess-conf",
+            "si",
+            &memory("ya no me gusta el cafe"),
+            &d,
+            5,
+            0,
+            None,
+        )
+        .expect("write")
+        .expect("stored");
+    } // drop → close
+
+    let db = Embedded::open_with_config(fjall_config(&db_path)).expect("reopen fjall");
+    let stored = db
+        .get(&l1_namespace("sess-conf"), "m_old")
+        .expect("get after reopen")
+        .expect("contradicted record must survive");
+    assert_eq!(
+        stored.confidence, 0.3,
+        "re-persist must preserve the engine-stored confidence, not resurrect 1.0"
+    );
+    assert_eq!(stored.confidence_class, ConfidenceClass::Asserted);
+    assert!(
+        (0.0..=1.0).contains(&stored.confidence),
+        "confidence stays in [0,1] — the engine enforces the range at the \
+         write boundary (src/sdk/serialization/mod.rs validate_confidence)"
+    );
+
+    let old = read_record(&db, "sess-conf", "m_old").unwrap().unwrap();
+    assert_eq!(old.superseded_by.as_deref(), Some("m_new"));
+}
+
+/// FIND-281 (b): a brand-new store still gets `default_confidence()` — the
+/// override only applies to the contradiction re-persist path.
+#[test]
+fn new_record_still_gets_default_confidence() {
+    let db = open_db();
+    let d = decision("m_new", DedupAction::Store, &[]);
+    write_memory(&db, "sess-def", "si", &memory("a fact"), &d, 5, 0, None)
+        .expect("write")
+        .expect("stored");
+
+    let stored = db
+        .get(&l1_namespace("sess-def"), "m_new")
+        .expect("get")
+        .expect("new record stored");
+    assert_eq!(
+        stored.confidence,
+        vantadb::sdk::default_confidence(),
+        "new record born at the semantic default D_a"
+    );
+    assert_eq!(stored.confidence_class, ConfidenceClass::Asserted);
 }
