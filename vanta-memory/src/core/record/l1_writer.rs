@@ -2,8 +2,9 @@
 //!
 //! Phase 2 persistence: each [`DedupDecision`] maps to a store mutation:
 //! - `store` → `put` a brand-new record (id = decision.record_id or generated).
-//! - `update`/`merge` → `delete` target records + `put` the merged/updated
-//!   record with `version = max(targets)+1` and merged_* fields.
+//! - `update`/`merge` → `put` the merged/updated record with
+//!   `version = max(targets)+1` and merged_* fields, then prune the target
+//!   records the write did not overwrite (write-first, MEMG-27).
 //! - `skip` → no-op.
 //!
 //! Persistence goes through the VantaDB SDK (Principio 2) — namespace
