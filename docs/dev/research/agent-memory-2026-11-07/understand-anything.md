@@ -418,7 +418,7 @@ Prioridad: **A/B/F antes de importación persistente**; **E antes de confiar
 en IDs saneados**; **C/D después para contexto/enseñanza**. Read-only con estado
 unknown puede evaluarse antes; no bloquear todo Vanta por trabajo opcional de UI.
 Dependencias reales: `code_index`, `MemoryInput`, `add_edge`, assembly y jobs;
-no construir nuevos BM25/budgets/scheduler/dedup/checkpoints.
+no construir nuevos BM25, budgets, scheduler, dedup ni checkpoints.
 
 ### 12.2 Ficha D — Capas y tours como derivados invalidables
 
