@@ -1145,6 +1145,20 @@ impl DbEncryption {
                 artifact: "database".to_string(),
             });
         }
+        // FIND-508 / ADR-0001 (Read-Only Barrier): a `read_only` open reads
+        // the registry — the **mode record** of the database — and stops
+        // there. `open_existing` never creates nor persists the file, and
+        // `ensure_dek` is skipped: a missing entry cannot be repaired
+        // without writing, so the artefact stays out of `self.encrypted`
+        // (the mode record governs what reads as encrypted).
+        if self.read_only {
+            let registry =
+                crate::crypto::registry::KeyRegistry::open_existing(data_dir, &material[..])
+                    .map_err(crypto_error)?;
+            self.encrypted = registry.artifacts();
+            crate::crypto::register_process_key(&self.root, Some(material.clone()));
+            return Ok(());
+        }
         // The registry is the **mode record**: it says which artefacts are
         // encrypted. A brand-new database gets the four entries, so every
         // artefact is encrypted from its first byte (ADR-0057 D7). The
@@ -1180,6 +1194,12 @@ impl DbEncryption {
     /// database.
     fn wal_context(&self, data_dir: &Path) -> Result<Option<crate::wal::WalCrypto>> {
         use crate::crypto::registry::Artifact;
+        // FIND-508 / ADR-0001: a read-only open has no WAL writer — and
+        // `WalCrypto::open` allocates a fresh nonce epoch, which persists
+        // the registry. The read side uses `wal_key` instead.
+        if self.read_only {
+            return Ok(None);
+        }
         if self.mode != EncryptionMode::Encrypted || !self.encrypted.contains(&Artifact::Wal) {
             return Ok(None);
         }

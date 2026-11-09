@@ -402,7 +402,9 @@ impl WalKey {
                 artifact: Artifact::Wal.as_str().to_string(),
             });
         }
-        let registry = KeyRegistry::open_or_create(data_dir, key_material).map_err(crypto_error)?;
+        // FIND-508 / ADR-0001: this is the read side — `open_existing`
+        // never creates nor persists the registry.
+        let registry = KeyRegistry::open_existing(data_dir, key_material).map_err(crypto_error)?;
         let dek = registry
             .dek(Artifact::Wal)
             .ok_or_else(|| Error::EncryptionKeyRequired {

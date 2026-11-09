@@ -407,6 +407,34 @@ impl KeyRegistry {
     /// [`CryptoError::DecryptionFailed`] when the master key does not unwrap
     /// the registry (wrong key **or** tampered registry — indistinguishable).
     pub fn open_or_create(data_dir: &Path, key_material: &[u8]) -> Result<Self, CryptoError> {
+        Self::open(data_dir, key_material, true)
+    }
+
+    /// Open the registry of `data_dir` **for reading only** (ADR-0001
+    /// Read-Only Barrier).
+    ///
+    /// Unlike [`KeyRegistry::open_or_create`] this open **never** creates the
+    /// file and **never** persists it: a `read_only` engine open must not
+    /// write a single byte, and on a read-only-mounted volume any write
+    /// would fail outright. The registry must already exist — the callers
+    /// (the read-side contexts of the four artefacts) check
+    /// [`KeyRegistry::path_in`] first and translate a missing file into the
+    /// domain error ADR-0057 D2 prescribes (`EncryptionKeyRequired`).
+    ///
+    /// # Errors
+    ///
+    /// [`CryptoError::RegistryIo`] when the file does not exist or cannot be
+    /// read, [`CryptoError::RegistryInvalid`] when it is malformed and
+    /// [`CryptoError::DecryptionFailed`] when the master key does not unwrap
+    /// it (wrong key **or** tampered registry — indistinguishable).
+    pub fn open_existing(data_dir: &Path, key_material: &[u8]) -> Result<Self, CryptoError> {
+        Self::open(data_dir, key_material, false)
+    }
+
+    /// The shared body of [`KeyRegistry::open_or_create`] and
+    /// [`KeyRegistry::open_existing`]. `create` is the only behavioural
+    /// difference: a missing file is minted-and-persisted only when `true`.
+    fn open(data_dir: &Path, key_material: &[u8], create: bool) -> Result<Self, CryptoError> {
         let path = Self::path_in(data_dir);
         // The table lock is held across the read: two databases opened at the
         // same time in one process serialise here. The open is a startup
@@ -418,6 +446,12 @@ impl KeyRegistry {
             // reuse its state instead of reading a stale copy from disk.
             return Self::from_shared(path, shared, key_material);
         }
+        if !create && !path.exists() {
+            return Err(CryptoError::RegistryIo(format!(
+                "registry {} does not exist (read-only open)",
+                path.display()
+            )));
+        }
         let state = Self::read_state(&path, key_material)?;
         let shared = Arc::new(RegistryShared {
             state: Mutex::new(state),
@@ -425,8 +459,11 @@ impl KeyRegistry {
         table.insert(path.clone(), Arc::downgrade(&shared));
         let registry = Self::from_shared(path, shared, key_material)?;
         // A brand-new registry is persisted immediately: the key check must
-        // exist before the first open, so a wrong key is detected then.
-        if registry.is_fresh() {
+        // exist before the first open, so a wrong key is detected then. A
+        // read-only open (`create == false`) never reaches this: the file
+        // exists, so `is_fresh` can only be true for a zero-entry registry —
+        // and even then the barrier forbids the write.
+        if create && registry.is_fresh() {
             registry.persist()?;
         }
         Ok(registry)
@@ -1057,6 +1094,43 @@ mod tests {
         // Reopening with a wrong key fails: the key check does not unwrap.
         let err = KeyRegistry::open_or_create(dir.path(), &material(0x22)).unwrap_err();
         assert!(matches!(err, CryptoError::DecryptionFailed), "got: {err}");
+    }
+
+    /// FIND-508 / ADR-0001 (Read-Only Barrier): `open_existing` never creates
+    /// nor modifies the registry file — a missing registry is an error, and
+    /// an existing one is read byte-identically.
+    #[test]
+    fn read_only_open_existing_never_creates_the_registry() {
+        let dir = tempfile::tempdir().unwrap();
+        let key = material(0x77);
+
+        // Missing registry: error, and the file is NOT created.
+        let err = KeyRegistry::open_existing(dir.path(), &key).unwrap_err();
+        assert!(matches!(err, CryptoError::RegistryIo(_)), "got: {err}");
+        assert!(
+            !KeyRegistry::path_in(dir.path()).exists(),
+            "open_existing must not create the registry"
+        );
+
+        // Existing registry: readable, and the bytes do not move.
+        {
+            let mut registry = KeyRegistry::open_or_create(dir.path(), &key).unwrap();
+            registry.ensure_dek(Artifact::Wal).unwrap();
+        }
+        let before = std::fs::read(KeyRegistry::path_in(dir.path())).unwrap();
+        let ro = KeyRegistry::open_existing(dir.path(), &key).unwrap();
+        assert!(ro.artifacts().contains(&Artifact::Wal));
+        assert_eq!(
+            ro.key_version(),
+            1,
+            "open_existing reads the persisted state"
+        );
+        drop(ro);
+        assert_eq!(
+            before,
+            std::fs::read(KeyRegistry::path_in(dir.path())).unwrap(),
+            "open_existing must not modify the registry"
+        );
     }
 
     #[test]

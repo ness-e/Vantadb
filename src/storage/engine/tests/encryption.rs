@@ -354,6 +354,149 @@ fn deleted_registry_without_key_also_fails_closed() {
     );
 }
 
+/// FIND-508 / ADR-0001 (Read-Only Barrier): a `read_only` open of an
+/// encrypted database must **never** create nor modify `encryption.registry`
+/// — and must not mutate a single file of the storage root. The database
+/// still reads.
+#[test]
+fn read_only_open_never_writes_the_registry() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let key = key_hex(0x61);
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+            .expect("open with a key");
+        engine
+            .insert(&node(53, "vantadb-find508-read-only"))
+            .expect("insert");
+        engine.flush().expect("flush");
+    }
+
+    let registry = dir.path().join("data").join("encryption.registry");
+    assert!(registry.exists(), "the encrypted database wrote a registry");
+
+    // Snapshot the storage root: file set + byte content. The `keyspaces`
+    // tree and the fjall journal (`*.jnl`) are **excluded**: they belong to
+    // the backend, which rotates its `v{N}` version markers and appends to
+    // its journal even on a read-only open — a separate ADR-0001 violation
+    // outside the registry barrier this test pins (deuda: the backend must
+    // stop writing version/journal files in read_only).
+    let is_backend_marker =
+        |p: &std::path::Path| p.components().any(|c| c.as_os_str() == "keyspaces");
+    let is_backend_journal = |p: &std::path::Path| p.extension().is_some_and(|ext| ext == "jnl");
+    let before: std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> = files_under(dir.path())
+        .into_iter()
+        .filter(|p| !is_backend_marker(p) && !is_backend_journal(p))
+        .map(|p| {
+            let bytes = std::fs::read(&p).expect("read before");
+            (p, bytes)
+        })
+        .collect();
+
+    let mut ro_config = keyed_config(path, &key);
+    ro_config.read_only = true;
+    {
+        let engine = StorageEngine::open_with_config(path, Some(ro_config))
+            .expect("a read-only open of an encrypted database");
+        let read = engine.get(53).expect("get").expect("the node is there");
+        assert_eq!(
+            field(&read, "w6_canary"),
+            Some("vantadb-find508-read-only".to_string()),
+            "a read-only open still reads the data"
+        );
+    }
+
+    let after: std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> = files_under(dir.path())
+        .into_iter()
+        .filter(|p| !is_backend_marker(p) && !is_backend_journal(p))
+        .map(|p| {
+            let bytes = std::fs::read(&p).expect("read after");
+            (p, bytes)
+        })
+        .collect();
+
+    assert_eq!(
+        before.len(),
+        after.len(),
+        "a read_only open must not create files (ADR-0001): {:?} vs {:?}",
+        before.keys().collect::<Vec<_>>(),
+        after.keys().collect::<Vec<_>>()
+    );
+    for (file, bytes) in &before {
+        assert_eq!(
+            bytes,
+            &after[file],
+            "a read_only open must not modify {} (ADR-0001)",
+            file.display()
+        );
+    }
+}
+
+/// FIND-508 / ADR-0001: a `read_only` open of a **plaintext** database with a
+/// key configured stays plaintext and creates no registry.
+#[test]
+fn read_only_open_plaintext_db_with_key_creates_no_registry() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(plain_config(path))).expect("open");
+        engine
+            .insert(&node(59, "vantadb-find508-plaintext"))
+            .expect("insert");
+        engine.flush().expect("flush");
+    }
+
+    let key = key_hex(0x62);
+    let mut ro_config = keyed_config(path, &key);
+    ro_config.read_only = true;
+    let engine = StorageEngine::open_with_config(path, Some(ro_config))
+        .expect("a read-only open of a plaintext database");
+    drop(engine);
+
+    assert!(
+        !dir.path().join("data").join("encryption.registry").exists(),
+        "a read_only open of a plaintext database must not create a registry"
+    );
+}
+
+/// FIND-508 / ADR-0057 R-7: `read_only` + encrypted database + missing
+/// registry fails closed with `EncryptionKeyRequired` — never mints a fresh
+/// registry over ciphertext.
+#[test]
+fn read_only_open_encrypted_db_missing_registry_fails_closed() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let key = key_hex(0x63);
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+            .expect("open with a key");
+        engine
+            .insert(&node(61, "vantadb-find508-missing-registry"))
+            .expect("insert");
+        engine.flush().expect("flush");
+    }
+
+    let registry = dir.path().join("data").join("encryption.registry");
+    std::fs::remove_file(&registry).expect("delete the registry");
+
+    let mut ro_config = keyed_config(path, &key);
+    ro_config.read_only = true;
+    let err = StorageEngine::open_with_config(path, Some(ro_config))
+        .err()
+        .expect("a read-only open with a lost registry must fail closed");
+    assert!(
+        matches!(err, Error::EncryptionKeyRequired { .. }),
+        "a lost registry is EncryptionKeyRequired (ADR-0057 R-7): got {err}"
+    );
+    assert!(
+        !registry.exists(),
+        "the failed read-only open must not re-initialise a registry"
+    );
+}
+
 /// ADR-0057 W6: the registry is part of the snapshot mirror.
 #[test]
 fn registry_is_included_in_the_snapshot_mirror() {

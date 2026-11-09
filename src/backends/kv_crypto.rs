@@ -137,7 +137,9 @@ impl BackendKvCrypto {
                 artifact: ARTIFACT.to_string(),
             });
         }
-        let registry = KeyRegistry::open_or_create(data_dir, key_material).map_err(crypto_error)?;
+        // FIND-508 / ADR-0001: a read-only open must not write anything —
+        // `open_existing` never creates nor persists the registry.
+        let registry = KeyRegistry::open_existing(data_dir, key_material).map_err(crypto_error)?;
         let dek =
             registry
                 .dek(Artifact::BackendKv)
@@ -1072,8 +1074,10 @@ mod tests {
         std::fs::create_dir_all(&path).unwrap();
         let data_dir = path.join("data");
         std::fs::create_dir_all(&data_dir).unwrap();
-        let mut config = Config::default();
-        config.encryption_key = Some("cd".repeat(32));
+        let config = Config {
+            encryption_key: Some("cd".repeat(32)),
+            ..Config::default()
+        };
 
         // A backend that already holds data and no registry anywhere.
         let inner = FjallBackend::open(path.to_str().unwrap(), &config).unwrap();
@@ -1100,7 +1104,7 @@ mod tests {
         );
 
         let result = backend_kv_crypto_from_config(&data_dir, &config, is_empty);
-        let err = result.err().expect(
+        let err = result.expect_err(
             "a populated backend under an 'encrypt' decision and no registry must fail closed",
         );
         assert!(
@@ -1124,8 +1128,10 @@ mod tests {
         std::fs::create_dir_all(&path).unwrap();
         let data_dir = path.join("data");
         std::fs::create_dir_all(&data_dir).unwrap();
-        let mut config = Config::default();
-        config.encryption_key = Some("ef".repeat(32));
+        let config = Config {
+            encryption_key: Some("ef".repeat(32)),
+            ..Config::default()
+        };
 
         let inner = FjallBackend::open(path.to_str().unwrap(), &config).unwrap();
         inner
@@ -1159,8 +1165,10 @@ mod tests {
         std::fs::create_dir_all(&path).unwrap();
         let data_dir = path.join("data");
         std::fs::create_dir_all(&data_dir).unwrap();
-        let mut config = Config::default();
-        config.encryption_key = Some("09".repeat(32));
+        let config = Config {
+            encryption_key: Some("09".repeat(32)),
+            ..Config::default()
+        };
 
         // The engine's verdict: encrypt, **because ciphertext was detected**
         // on disk at resolve time (not a brand-new database).
@@ -1180,9 +1188,7 @@ mod tests {
         drop(inner);
 
         let result = backend_kv_crypto_from_config(&data_dir, &config, true);
-        let err = result
-            .err()
-            .expect("a registry lost mid-open must fail closed even when empty");
+        let err = result.expect_err("a registry lost mid-open must fail closed even when empty");
         assert!(
             matches!(err, Error::EncryptionCorrupt { .. }),
             "a lost registry is corruption: got {err}"

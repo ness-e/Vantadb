@@ -184,7 +184,9 @@ impl HnswImageCrypto {
                 artifact: ARTIFACT.to_string(),
             });
         }
-        let registry = KeyRegistry::open_or_create(data_dir, key_material).map_err(crypto_error)?;
+        // FIND-508 / ADR-0001: a read-only open must not write anything —
+        // `open_existing` never creates nor persists the registry.
+        let registry = KeyRegistry::open_existing(data_dir, key_material).map_err(crypto_error)?;
         let dek =
             registry
                 .dek(Artifact::HnswImage)
