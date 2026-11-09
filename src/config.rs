@@ -14,6 +14,7 @@ use crate::tokenizer::AdvancedTokenizerConfig;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::env;
+use std::fmt;
 use std::str::FromStr;
 #[cfg(feature = "hot-reload")]
 use std::sync::{Arc, RwLock};
@@ -28,6 +29,21 @@ pub(crate) const MAX_TEXT_STATS_CACHE: usize = 100_000;
 pub(crate) const MAX_TEXT_NS_CACHE: usize = 1_000;
 /// Maximum field→value pairs in cardinality_stats before eviction.
 pub(crate) const MAX_CARDINALITY_PAIRS: usize = 10_000;
+
+/// Debug-only marker for secret fields (FIND-588): `"[REDACTED]"` when a value
+/// is set, `"None"` when unset — so `{:?}` still tells you *whether* a secret
+/// is configured without printing it. Deliberately display-only redaction:
+/// key-material zeroization happens where the key is actually used
+/// (`crate::crypto`, `Zeroizing`), and `Config` fields stay `pub` movable
+/// `String`s — a `Drop` impl would forbid moving fields out of the struct
+/// (E0509) and break the public API right before the `v0.10.0` freeze.
+fn redacted(v: &Option<String>) -> &'static str {
+    if v.is_some() {
+        "[REDACTED]"
+    } else {
+        "None"
+    }
+}
 
 // FFI guard constants — single source of truth for transport-specific limits
 // (WSM-09, research-vantadb-wasm-20260825 H-12). Values are `max()` across all
@@ -211,7 +227,7 @@ impl InsertBatchConfig {
 }
 
 /// RBAC domain configuration mapping API tokens to roles (Q1=B: propio, 6to dominio).
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct RbacCfg {
     /// Map of token values to role names.
     pub token_role_map: HashMap<String, String>,
@@ -223,6 +239,32 @@ pub struct RbacCfg {
     /// `token_role_map`) to a namespace-scoped role can only touch the
     /// namespaces granted here — on every namespace-enforced surface.
     pub roles: HashMap<String, RbacRoleCfg>,
+}
+
+/// Debug view of `token_role_map` (FIND-588): the map's *keys* are live API
+/// tokens, so only the mapped roles are printed, keyed by `[REDACTED]`.
+struct RedactedTokenRoleMap<'a>(&'a HashMap<String, String>);
+
+impl fmt::Debug for RedactedTokenRoleMap<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut map = f.debug_map();
+        for role in self.0.values() {
+            map.entry(&"[REDACTED]", &role);
+        }
+        map.finish()
+    }
+}
+
+impl fmt::Debug for RbacCfg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RbacCfg")
+            .field(
+                "token_role_map",
+                &RedactedTokenRoleMap(&self.token_role_map),
+            )
+            .field("roles", &self.roles)
+            .finish()
+    }
 }
 
 /// MEMG-04: namespace grants for one operator-declared role.
@@ -245,7 +287,7 @@ pub type RbacConfig = RbacCfg;
 pub type StorageConfig = StorageCfg;
 
 /// Storage domain view (F3C C2): organizacion interna; fuente unica sigue en [`Config`] plano.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct StorageCfg {
     pub storage_path: String,
     pub read_only: bool,
@@ -274,8 +316,34 @@ pub struct StorageCfg {
     pub segment_optimizer: SegmentOptimizerConfig,
 }
 
+impl fmt::Debug for StorageCfg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StorageCfg")
+            .field("storage_path", &self.storage_path)
+            .field("read_only", &self.read_only)
+            .field("force_mmap", &self.force_mmap)
+            .field("mmap_hnsw", &self.mmap_hnsw)
+            .field("backend_kind", &self.backend_kind)
+            .field("sync_mode", &self.sync_mode)
+            .field("version_history_limit", &self.version_history_limit)
+            .field("bulk_commit_interval", &self.bulk_commit_interval)
+            .field("wal_buffer_size", &self.wal_buffer_size)
+            .field("flush_threshold", &self.flush_threshold)
+            .field("encryption_key", &redacted(&self.encryption_key))
+            .field("encryption_key_file", &self.encryption_key_file)
+            .field("encryption_key_cmd", &redacted(&self.encryption_key_cmd))
+            .field("wal_shards", &self.wal_shards)
+            .field("flat_threshold", &self.flat_threshold)
+            .field("export_base_dir", &self.export_base_dir)
+            .field("backup_dir", &self.backup_dir)
+            .field("group_commit", &self.group_commit)
+            .field("segment_optimizer", &self.segment_optimizer)
+            .finish()
+    }
+}
+
 /// Server domain view (F3C C1, polo dominante 9/14 churn).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ServerCfg {
     pub host: String,
     pub port: u16,
@@ -298,8 +366,34 @@ pub struct ServerCfg {
     pub self_healing_quiet_secs: u64,
 }
 
+impl fmt::Debug for ServerCfg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ServerCfg")
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("api_key", &redacted(&self.api_key))
+            .field("alt_api_key", &redacted(&self.alt_api_key))
+            .field("jwt_secret", &redacted(&self.jwt_secret))
+            .field("require_auth", &self.require_auth)
+            .field("allow_insecure", &self.allow_insecure)
+            .field("rate_limit_rpm", &self.rate_limit_rpm)
+            .field("trusted_proxies", &self.trusted_proxies)
+            .field("allowed_origins", &self.allowed_origins)
+            .field("dashboard_dir", &self.dashboard_dir)
+            .field("tls_cert_path", &self.tls_cert_path)
+            .field("tls_key_path", &self.tls_key_path)
+            .field("log_format", &self.log_format)
+            .field("audit_log_path", &self.audit_log_path)
+            .field("audit_max_bytes", &self.audit_max_bytes)
+            .field("audit_max_files", &self.audit_max_files)
+            .field("self_healing", &self.self_healing)
+            .field("self_healing_quiet_secs", &self.self_healing_quiet_secs)
+            .finish()
+    }
+}
+
 /// LLM domain view (F3C C3).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LlmCfg {
     pub llm_url: String,
     pub llm_model: String,
@@ -319,6 +413,23 @@ pub struct LlmCfg {
     pub strict_embeddings: bool,
     #[cfg(feature = "advanced-tokenizer")]
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
+}
+
+impl fmt::Debug for LlmCfg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("LlmCfg");
+        s.field("llm_url", &self.llm_url)
+            .field("llm_model", &self.llm_model)
+            .field("llm_summarize_model", &self.llm_summarize_model)
+            .field("local_model_path", &self.local_model_path)
+            .field("openai_api_key", &redacted(&self.openai_api_key))
+            .field("openai_model", &self.openai_model)
+            .field("embedding_provider", &self.embedding_provider)
+            .field("strict_embeddings", &self.strict_embeddings);
+        #[cfg(feature = "advanced-tokenizer")]
+        s.field("advanced_tokenizer_config", &self.advanced_tokenizer_config);
+        s.finish()
+    }
 }
 
 /// Eviction/memory domain view (F3C C4).
@@ -715,7 +826,7 @@ impl HotReloadConfig {
 /// let db = Embedded::open_with_config(config).expect("open database");
 /// db.close().expect("close database");
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Config {
     /// Directory path for persistent storage.
     pub storage_path: String,
@@ -1039,6 +1150,104 @@ pub struct Config {
     /// Read via [`Config::hot_reload()`].
     #[cfg(feature = "hot-reload")]
     pub hot_reload_config: Arc<RwLock<HotReloadConfig>>,
+}
+
+impl fmt::Debug for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("Config");
+        s.field("storage_path", &self.storage_path)
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("llm_url", &self.llm_url)
+            .field("llm_model", &self.llm_model)
+            .field("llm_summarize_model", &self.llm_summarize_model)
+            .field("local_model_path", &self.local_model_path)
+            .field("openai_api_key", &redacted(&self.openai_api_key))
+            .field("openai_model", &self.openai_model)
+            .field("embedding_provider", &self.embedding_provider)
+            .field("strict_embeddings", &self.strict_embeddings)
+            .field("memory_limit", &self.memory_limit)
+            .field("max_records_per_namespace", &self.max_records_per_namespace)
+            .field("max_namespace_records", &self.max_namespace_records)
+            .field("max_namespace_bytes", &self.max_namespace_bytes)
+            .field("read_only", &self.read_only)
+            .field("force_mmap", &self.force_mmap)
+            .field("mmap_hnsw", &self.mmap_hnsw)
+            .field("prefetch_mode", &self.prefetch_mode)
+            .field("rss_threshold", &self.rss_threshold)
+            .field("eviction_weight_hits", &self.eviction_weight_hits)
+            .field(
+                "eviction_weight_confidence",
+                &self.eviction_weight_confidence,
+            )
+            .field(
+                "eviction_weight_importance",
+                &self.eviction_weight_importance,
+            )
+            .field("eviction_weight_recency", &self.eviction_weight_recency)
+            .field("eviction_ratio", &self.eviction_ratio)
+            .field("backend_kind", &self.backend_kind)
+            .field("max_blocking_threads", &self.max_blocking_threads)
+            .field("max_connections", &self.max_connections)
+            .field("pool_acquire_timeout_ms", &self.pool_acquire_timeout_ms)
+            .field(
+                "circuit_breaker_failure_threshold",
+                &self.circuit_breaker_failure_threshold,
+            )
+            .field(
+                "circuit_breaker_open_timeout_secs",
+                &self.circuit_breaker_open_timeout_secs,
+            )
+            .field("sync_mode", &self.sync_mode)
+            .field("api_key", &redacted(&self.api_key))
+            .field("alt_api_key", &redacted(&self.alt_api_key))
+            .field("jwt_secret", &redacted(&self.jwt_secret))
+            .field("require_auth", &self.require_auth)
+            .field("allow_insecure", &self.allow_insecure)
+            .field("rate_limit_rpm", &self.rate_limit_rpm)
+            .field("trusted_proxies", &self.trusted_proxies)
+            .field("allowed_origins", &self.allowed_origins)
+            .field("dashboard_dir", &self.dashboard_dir)
+            .field("batch_size", &self.batch_size)
+            .field("insert_batch", &self.insert_batch)
+            .field("version_history_limit", &self.version_history_limit)
+            .field("memory_default_ttl_ms", &self.memory_default_ttl_ms)
+            .field(
+                "quarantine_review_default_days",
+                &self.quarantine_review_default_days,
+            )
+            .field("confidence_threshold", &self.confidence_threshold)
+            .field("ttl_sweep_interval_ms", &self.ttl_sweep_interval_ms)
+            .field("self_healing", &self.self_healing)
+            .field("self_healing_quiet_secs", &self.self_healing_quiet_secs)
+            .field("bulk_commit_interval", &self.bulk_commit_interval)
+            .field("wal_buffer_size", &self.wal_buffer_size)
+            .field("flush_threshold", &self.flush_threshold)
+            .field("tls_cert_path", &self.tls_cert_path)
+            .field("tls_key_path", &self.tls_key_path)
+            .field("log_format", &self.log_format)
+            .field("insert_lock_timeout_ms", &self.insert_lock_timeout_ms)
+            .field("file_lock_timeout_ms", &self.file_lock_timeout_ms);
+        #[cfg(feature = "advanced-tokenizer")]
+        s.field("advanced_tokenizer_config", &self.advanced_tokenizer_config);
+        s.field("rbac_config", &self.rbac_config)
+            .field("encryption_key", &redacted(&self.encryption_key))
+            .field("encryption_key_file", &self.encryption_key_file)
+            .field("encryption_key_cmd", &redacted(&self.encryption_key_cmd))
+            .field("wal_shards", &self.wal_shards)
+            .field("flat_threshold", &self.flat_threshold)
+            .field("export_base_dir", &self.export_base_dir)
+            .field("backup_dir", &self.backup_dir)
+            .field("audit_log_path", &self.audit_log_path)
+            .field("audit_max_bytes", &self.audit_max_bytes)
+            .field("audit_max_files", &self.audit_max_files)
+            .field("segment_optimizer", &self.segment_optimizer)
+            .field("enable_json_shredding", &self.enable_json_shredding)
+            .field("dedup_policy", &self.dedup_policy);
+        #[cfg(feature = "hot-reload")]
+        s.field("hot_reload_config", &self.hot_reload_config);
+        s.finish()
+    }
 }
 
 /// Parse a memory limit string into bytes.
@@ -2797,6 +3006,86 @@ mod tests {
         let cfg = LlmCfg::for_local_model("C:/models/explicit/onnx");
 
         assert_eq!(cfg.local_model_path, "C:/models/explicit/onnx");
+    }
+
+    // ── FIND-588: Debug nunca imprime secretos ────────────────
+
+    /// Canary values are unique per field so a leak can be traced back to the
+    /// exact field that printed it. `token_role_map` keys are API tokens and
+    /// must never appear either — only the mapped role is visible.
+    #[test]
+    fn config_debug_redacts_every_secret() {
+        const CANARIES: &[&str] = &[
+            "CANARY_OPENAI_KEY",
+            "CANARY_API_KEY",
+            "CANARY_ALT_KEY",
+            "CANARY_JWT_SECRET",
+            "CANARY_ENCRYPTION_KEY",
+            "CANARY_INLINE_IN_CMD",
+            "CANARY_RBAC_TOKEN",
+        ];
+
+        let mut rbac = RbacCfg::default();
+        rbac.token_role_map
+            .insert("CANARY_RBAC_TOKEN".to_string(), "admin".to_string());
+
+        let cfg = Config {
+            openai_api_key: Some("CANARY_OPENAI_KEY".to_string()),
+            api_key: Some("CANARY_API_KEY".to_string()),
+            alt_api_key: Some("CANARY_ALT_KEY".to_string()),
+            jwt_secret: Some("CANARY_JWT_SECRET".to_string()),
+            encryption_key: Some("CANARY_ENCRYPTION_KEY".to_string()),
+            encryption_key_cmd: Some("echo CANARY_INLINE_IN_CMD".to_string()),
+            encryption_key_file: Some(std::path::PathBuf::from("visible/key/path.hex")),
+            rbac_config: rbac,
+            ..Config::in_memory()
+        };
+
+        let outputs = vec![
+            format!("{cfg:?}"),
+            format!("{cfg:#?}"),
+            format!("{:?}", cfg.storage_cfg()),
+            format!("{:#?}", cfg.storage_cfg()),
+            format!("{:?}", cfg.server_cfg()),
+            format!("{:?}", cfg.llm_cfg()),
+            format!("{:?}", cfg.rbac_cfg()),
+        ];
+
+        for out in &outputs {
+            for canary in CANARIES {
+                assert!(
+                    !out.contains(canary),
+                    "Debug output leaked secret canary {canary}:\n{out}"
+                );
+            }
+            assert!(
+                out.contains("[REDACTED]"),
+                "expected [REDACTED] marker in Debug output:\n{out}"
+            );
+        }
+
+        #[cfg(feature = "advanced-tokenizer")]
+        {
+            let out = format!("{:?}", cfg.advanced_tokenizer_config);
+            for canary in CANARIES {
+                assert!(
+                    !out.contains(canary),
+                    "Debug output leaked secret canary {canary}:\n{out}"
+                );
+            }
+        }
+
+        // Non-secret path stays visible for diagnostics.
+        let flat = format!("{cfg:?}");
+        assert!(
+            flat.contains("visible/key/path.hex"),
+            "encryption_key_file (a path, not a secret) must stay visible:\n{flat}"
+        );
+        // Roles (values of token_role_map) stay visible; the token key does not.
+        assert!(
+            flat.contains("admin"),
+            "RBAC role names must stay visible:\n{flat}"
+        );
     }
 
     // Sin env y sin argumento explícito → el default documentado.
