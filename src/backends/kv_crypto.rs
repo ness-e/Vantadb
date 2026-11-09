@@ -526,7 +526,14 @@ pub(crate) fn backend_kv_crypto_from_config(
         )?)));
     }
 
-    let registry = KeyRegistry::open_or_create(data_dir, &material[..]).map_err(crypto_error)?;
+    // FIND-508 / ADR-0001 (R-1): a read-only open must not write — a
+    // zero-entry registry would hit `is_fresh()` and `persist()` under
+    // `open_or_create`, so the read path goes through `open_existing`.
+    let registry = if config.read_only {
+        KeyRegistry::open_existing(data_dir, &material[..]).map_err(crypto_error)?
+    } else {
+        KeyRegistry::open_or_create(data_dir, &material[..]).map_err(crypto_error)?
+    };
     if registry.dek(Artifact::BackendKv).is_none() {
         // The registry exists (another artefact is encrypted) but the backend
         // KV was never encrypted: it stays plaintext — no mixed mode

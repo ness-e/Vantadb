@@ -1112,6 +1112,22 @@ mod tests {
             "open_existing must not create the registry"
         );
 
+        // A **zero-entry** registry (created by `open_or_create`, before any
+        // `ensure_dek`): `is_fresh` would make `open_or_create` persist it
+        // again — `open_existing` must leave the bytes untouched (FIND-508
+        // review R-1).
+        {
+            let _registry = KeyRegistry::open_or_create(dir.path(), &key).unwrap();
+        }
+        let zero_entry = std::fs::read(KeyRegistry::path_in(dir.path())).unwrap();
+        let ro = KeyRegistry::open_existing(dir.path(), &key).unwrap();
+        drop(ro);
+        assert_eq!(
+            zero_entry,
+            std::fs::read(KeyRegistry::path_in(dir.path())).unwrap(),
+            "open_existing must not re-persist a zero-entry registry"
+        );
+
         // Existing registry: readable, and the bytes do not move.
         {
             let mut registry = KeyRegistry::open_or_create(dir.path(), &key).unwrap();
