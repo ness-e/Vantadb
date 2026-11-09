@@ -317,7 +317,13 @@ jobs:
         shell: bash
 
       - name: Run tests (Audit profile, core)
-        run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+        # FIND-392: explicit -p per default-member (vantadb, python, memory,
+        # server, mcp) preserves prior default-members coverage; --locked
+        # prevents Cargo.lock drift.
+        run:
+          cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+          -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server -p vantadb-mcp
+          --locked
 
       - name: Upload test report (failures only)
         if: failure()
@@ -344,7 +350,10 @@ jobs:
           shared-key: windows-stable
 
       - name: Cargo check (Windows smoke test)
-        run: cargo check
+        # FIND-392: -p per default-member + --locked (same coverage as before).
+        run:
+          cargo check -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server
+          -p vantadb-mcp --locked
 
       - name: Clippy (Windows)
         # CATEGORY: EXPERIMENTAL — excludes experimental crates.
@@ -354,7 +363,11 @@ jobs:
 
       - name: Run quick integrity tests (Windows)
         shell: pwsh
-        run: cargo nextest run --profile ci-windows --features "cli,arrow,tls,opentelemetry"
+        # FIND-392: -p per default-member + --locked (same coverage as before).
+        run:
+          cargo nextest run --profile ci-windows --features "cli,arrow,tls,opentelemetry"
+          -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server -p vantadb-mcp
+          --locked
 
       - name: Upload test report (failures only)
         if: failure()
@@ -388,7 +401,10 @@ jobs:
           echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> "$GITHUB_ENV"
 
       - name: Cargo check (macOS smoke test)
-        run: cargo check
+        # FIND-392: -p per default-member + --locked (same coverage as before).
+        run:
+          cargo check -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server
+          -p vantadb-mcp --locked
 
       - name: Clippy (macOS)
         # CATEGORY: EXPERIMENTAL — excludes experimental crates.
@@ -398,7 +414,11 @@ jobs:
 
       - name: Run tests (Audit profile, core)
         shell: bash
-        run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+        # FIND-392: -p per default-member + --locked (same coverage as before).
+        run:
+          cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+          -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server -p vantadb-mcp
+          --locked
 
       - name: Upload test report (failures only)
         if: failure()
