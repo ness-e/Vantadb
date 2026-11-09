@@ -451,7 +451,18 @@ pub fn apply_dedup_batch(
     // A target key that coincides with a new record's key was already
     // overwritten atomically inside `put_batch`; deleting it now would
     // destroy the record the flush just wrote (silently — the merge would
-    // look committed yet be gone).
+    // look committed yet be gone). The union is GLOBAL (every planned
+    // write), not per-plan: a target of plan A whose key equals the new
+    // record of plan B is likewise protected.
+    //
+    // Semantics note (MEMG-27 review R-1): for coincident keys the batch
+    // path now UPSERTS (storage version increments, `read_record_versions`
+    // keeps the pre-merge history) while the sequential `persist_planned`
+    // path still delete-then-puts (version resets to 1, history erased).
+    // The divergence is deliberate and conservative — the upsert retains
+    // strictly more provenance; the serialized `MemoryRecord.version`
+    // (merge version = max(targets)+1) stays identical across paths.
+    // Homogenizing `write_memory` to write-first is tracked as debt.
     let new_keys: BTreeSet<String> = planned_writes
         .iter()
         .map(|planned| sanitize_key(&planned.record.id))
@@ -857,6 +868,44 @@ mod tests {
         assert!(
             !ids.contains(&"old_a") && !ids.contains(&"old_b"),
             "orphan merge targets must be pruned; got {ids:?}"
+        );
+    }
+
+    /// MEMG-27 (review O-1): cross-plan coincidence — a merge target of plan
+    /// A whose storage key equals the NEW record key of plan B. The prune
+    /// union is global, so plan A's delete must not wipe plan B's write.
+    /// This is the regression a per-plan refactor would silently reintroduce.
+    #[test]
+    fn cross_plan_key_coincidence_survives_prune() {
+        let db = open_db();
+        put_raw(&db, "l1/sess", &existing_record("shared", "stale content"));
+
+        // Plan A: update that deletes target "shared" and writes "m_a".
+        let mut update = decision("m_a", DedupAction::Update);
+        update.target_ids = vec!["shared".into()];
+        update.merged_content = Some("merged A".into());
+        // Plan B: store a brand-new record whose key IS "shared".
+        let memories = [memory("update into m_a"), memory("fresh shared")];
+        let decisions = [update, decision("shared", DedupAction::Store)];
+
+        apply_dedup_batch(
+            &db,
+            "sess",
+            "sess",
+            &memories,
+            &decisions,
+            1_700_000_000_000,
+            None,
+        )
+        .expect("batch write");
+
+        let shared = read_record(&db, "sess", "shared")
+            .expect("read")
+            .expect("plan B record must survive plan A's stale-key prune");
+        assert_eq!(shared.content, "fresh shared");
+        assert!(
+            read_record(&db, "sess", "m_a").expect("read").is_some(),
+            "plan A merged record persisted"
         );
     }
 
