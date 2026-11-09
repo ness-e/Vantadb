@@ -373,7 +373,7 @@ jobs:
         # prevents Cargo.lock drift.
         run:
           cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
-          -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server -p vantadb-mcp
+          -p vantadb -p vantadb_py -p vanta-memory -p vantadb-server -p vantadb-mcp
           --locked
 
       - name: Upload test report (failures only)
@@ -403,7 +403,7 @@ jobs:
       - name: Cargo check (Windows smoke test)
         # FIND-392: -p per default-member + --locked (same coverage as before).
         run:
-          cargo check -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server
+          cargo check -p vantadb -p vantadb_py -p vanta-memory -p vantadb-server
           -p vantadb-mcp --locked
 
       - name: Clippy (Windows)
@@ -417,7 +417,7 @@ jobs:
         # FIND-392: -p per default-member + --locked (same coverage as before).
         run:
           cargo nextest run --profile ci-windows --features "cli,arrow,tls,opentelemetry"
-          -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server -p vantadb-mcp
+          -p vantadb -p vantadb_py -p vanta-memory -p vantadb-server -p vantadb-mcp
           --locked
 
       - name: Upload test report (failures only)
@@ -454,7 +454,7 @@ jobs:
       - name: Cargo check (macOS smoke test)
         # FIND-392: -p per default-member + --locked (same coverage as before).
         run:
-          cargo check -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server
+          cargo check -p vantadb -p vantadb_py -p vanta-memory -p vantadb-server
           -p vantadb-mcp --locked
 
       - name: Clippy (macOS)
@@ -468,7 +468,7 @@ jobs:
         # FIND-392: -p per default-member + --locked (same coverage as before).
         run:
           cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
-          -p vantadb -p vantadb-python -p vanta-memory -p vantadb-server -p vantadb-mcp
+          -p vantadb -p vantadb_py -p vanta-memory -p vantadb-server -p vantadb-mcp
           --locked
 
       - name: Upload test report (failures only)
