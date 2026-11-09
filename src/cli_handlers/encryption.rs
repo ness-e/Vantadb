@@ -201,50 +201,6 @@ pub fn cmd_encryption_rotate(
 
     let backup = data_dir.join(REGISTRY_BACKUP_FILE_NAME);
 
-    // FIND-587: the `.bak` is the manual-rollback path — it must be durable.
-    // `rotate` wrote it with a plain `std::fs::copy`; fsync the file and its
-    // parent directory now (the directory fsync is a deliberate no-op on
-    // Windows inside `sync_parent_dir`).
-    //
-    // IMPORTANT: at this point the rotation is already **committed and
-    // durable** (`persist` is tmp→fsync→rename→dir fsync). A failure here
-    // means "rotated, but the backup may not be durable" — never "the
-    // rotation failed" (audit R-5). The residual crash window between
-    // `persist` and this fsync is documented as debt: closing it needs the
-    // fsync inside `KeyRegistry::rotate` (`registry.rs`, out of this task's
-    // file scope).
-    {
-        // Opened read+write: on Windows `sync_all` on a read-only handle
-        // fails with `PermissionDenied` (os error 5) — FlushFileBuffers needs
-        // a writable handle there.
-        let bak_file = std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&backup)
-            .map_err(|e| {
-                Error::generic_error(format!(
-                    "the rotation committed (key_version {new_version}) but the backup \
-                     cannot be opened: {}: {e}. The database now opens with the NEW key; \
-                     the rollback .bak may be missing.",
-                    backup.display()
-                ))
-            })?;
-        bak_file.sync_all().map_err(|e| {
-            Error::generic_error(format!(
-                "the rotation committed (key_version {new_version}) but the backup fsync \
-                 failed: {}: {e}. The database now opens with the NEW key; the rollback \
-                 .bak may not be durable.",
-                backup.display()
-            ))
-        })?;
-    }
-    crate::utils::fs::sync_parent_dir(&backup).map_err(|e| {
-        Error::generic_error(format!(
-            "the rotation committed (key_version {new_version}) but the backup directory \
-             fsync failed: {e}. The database now opens with the NEW key; the rollback \
-             .bak may not be durable."
-        ))
-    })?;
     if json_output {
         return print_json(&serde_json::json!({
             "rotated": true,

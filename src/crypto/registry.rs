@@ -696,16 +696,22 @@ impl KeyRegistry {
     ///
     /// The previous registry is left as `encryption.registry.bak`: copying it
     /// back is a manual rollback, possible while the **old** master key still
-    /// exists (ADR-0057 §7.2).
+    /// exists (ADR-0057 §7.2). The backup is written **and made durable**
+    /// (fsync + parent-dir fsync) before the new registry is persisted; a
+    /// backup failure aborts the rotation with no changes on disk
+    /// (FIND-587 audit #1).
     ///
     /// # Errors
     ///
     /// [`CryptoError::RegistryIo`] when the registry or its backup cannot be
-    /// written, and [`CryptoError::RegistryInvalid`] when the key version is
-    /// exhausted.
+    /// written or synced, and [`CryptoError::RegistryInvalid`] when the key
+    /// version is exhausted.
     pub fn rotate(&mut self, new_material: &[u8]) -> Result<u8, CryptoError> {
-        // The backup first: a crash after this point leaves the old registry
-        // recoverable.
+        // The backup first, made durable **before** the state is mutated and
+        // persisted: a crash after `persist` must leave a recoverable old
+        // registry, and a `.bak` that cannot be synced means the rotation
+        // never happened. Done outside the `state` lock — no fsync under the
+        // mutex.
         if self.path.exists() {
             let backup = Self::backup_path_in(self.path.parent().unwrap_or(Path::new(".")));
             std::fs::copy(&self.path, &backup).map_err(|e| {
@@ -713,6 +719,27 @@ impl KeyRegistry {
                     "cannot write the registry backup {}: {e}",
                     backup.display()
                 ))
+            })?;
+            // Opened read+write: on Windows `sync_all` on a read-only handle
+            // fails with `PermissionDenied` (os error 5).
+            let bak_file = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&backup)
+                .map_err(|e| {
+                    CryptoError::RegistryIo(format!(
+                        "cannot open the registry backup {}: {e}",
+                        backup.display()
+                    ))
+                })?;
+            bak_file.sync_all().map_err(|e| {
+                CryptoError::RegistryIo(format!(
+                    "cannot sync the registry backup {}: {e}",
+                    backup.display()
+                ))
+            })?;
+            sync_parent_dir(&backup).map_err(|e| {
+                CryptoError::RegistryIo(format!("cannot sync the registry backup directory: {e}"))
             })?;
         }
         let new_version = {
@@ -1375,5 +1402,40 @@ mod tests {
             .decrypt_with_nonce(&[2u8; 12], &sealed, &aad)
             .unwrap_err();
         assert!(matches!(err, CryptoError::DecryptionFailed), "got: {err}");
+    }
+
+    /// FIND-587 audit #1: when the backup cannot be written (a **directory**
+    /// occupies the `.bak` path, so `copy` fails deterministically), the
+    /// rotation aborts: `encryption.registry` stays byte-for-byte identical
+    /// and `key_version` does not move. The fsync failure itself is not
+    /// portably injectable — the invariant is "backup not durable -> nothing
+    /// persisted".
+    #[test]
+    fn rotate_aborts_without_change_when_backup_cannot_be_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let key = material(0x91);
+        let mut registry = KeyRegistry::open_or_create(dir.path(), &key).unwrap();
+        let version_before = registry.key_version();
+        let registry_path = dir.path().join(REGISTRY_FILE_NAME);
+        let bytes_before = std::fs::read(&registry_path).unwrap();
+
+        // A directory with the backup name: `std::fs::copy` fails.
+        std::fs::create_dir(dir.path().join(REGISTRY_BACKUP_FILE_NAME)).unwrap();
+
+        let err = registry.rotate(&material(0x92)).unwrap_err();
+        assert!(
+            matches!(err, CryptoError::RegistryIo(_)),
+            "expected RegistryIo, got: {err}"
+        );
+        assert_eq!(
+            registry.key_version(),
+            version_before,
+            "the key version must not move when the rotation aborts"
+        );
+        assert_eq!(
+            std::fs::read(&registry_path).unwrap(),
+            bytes_before,
+            "the registry must be byte-for-byte identical when the backup fails"
+        );
     }
 }
