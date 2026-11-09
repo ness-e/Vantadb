@@ -83,14 +83,19 @@ runs:
         shared-key: ${{ inputs.shared-key }}
         workspaces: ${{ inputs.workspaces }}
 
+    # sccache is an optional cache: a transient download failure of the
+    # binary (e.g. HTTP 504 from GitHub releases) must degrade to an uncached
+    # build, not fail the job. The wrapper is enabled only if setup succeeded.
     - name: Set up sccache
+      id: sccache
       if: ${{ inputs.use-sccache == 'true' }}
+      continue-on-error: true
       uses: mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11
       with:
         version: v0.19.0
 
     - name: Enable sccache for cargo
-      if: ${{ inputs.use-sccache == 'true' }}
+      if: ${{ inputs.use-sccache == 'true' && steps.sccache.outcome == 'success' }}
       shell: bash
       run: |
         echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
