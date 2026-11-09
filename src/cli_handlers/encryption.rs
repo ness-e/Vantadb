@@ -341,6 +341,41 @@ mod tests {
         );
     }
 
+    /// FIND-587: the new key goes through `read_key_file`, so on Unix a key
+    /// file readable by group or other is refused before anything is
+    /// rotated — the registry stays byte-for-byte identical.
+    #[cfg(unix)]
+    #[test]
+    fn rotate_rejects_a_new_key_file_readable_by_others() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().to_str().expect("path");
+        let old_key = key_hex(0x45);
+        {
+            let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &old_key)))
+                .expect("open with the old key");
+            engine.flush().expect("flush");
+        }
+        let registry = dir.path().join("data").join("encryption.registry");
+        let before = std::fs::read(&registry).expect("registry");
+
+        std::env::set_var("VANTADB_ENCRYPTION_KEY", &old_key);
+        let key_file = dir.path().join("new.key");
+        std::fs::write(&key_file, key_hex(0x46)).expect("new key file");
+        std::fs::set_permissions(&key_file, std::fs::Permissions::from_mode(0o644))
+            .expect("make the key file world-readable");
+        let err = cmd_encryption_rotate(path, key_file.to_str(), false, true)
+            .expect_err("a key file readable by others must be refused");
+        std::env::remove_var("VANTADB_ENCRYPTION_KEY");
+
+        assert!(format!("{err:?}").contains("0600"), "got: {err:?}");
+        assert_eq!(
+            std::fs::read(&registry).expect("registry"),
+            before,
+            "a refused rotation must not touch the registry"
+        );
+    }
+
     /// FIND-587 (c): a rotation fed by `--new-key-file` re-wraps the DEKs —
     /// the database opens with the new key, is rejected with the old one, and
     /// the previous registry survives as `encryption.registry.bak`.
@@ -361,6 +396,14 @@ mod tests {
         std::env::set_var("VANTADB_ENCRYPTION_KEY", &old_key);
         let key_file = dir.path().join("new.key");
         std::fs::write(&key_file, &new_key).expect("new key file");
+        // `read_key_file` rejects a key file readable by group or other on
+        // Unix; the default umask leaves it 0644.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&key_file, std::fs::Permissions::from_mode(0o600))
+                .expect("restrict the key file to 0600");
+        }
 
         cmd_encryption_rotate(path, key_file.to_str(), false, true)
             .expect("the rotation must succeed");
