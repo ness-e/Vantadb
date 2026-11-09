@@ -164,7 +164,9 @@ pub fn write_memory(
 struct PlannedWrite {
     record: MemoryRecord,
     vector: Option<Vec<f32>>,
-    /// Storage keys (`sanitize_key`) of update/merge targets, deleted first.
+    /// Storage keys (`sanitize_key`) of update/merge targets. In the batch
+    /// path they are pruned AFTER the `put_batch` commit and only when the
+    /// batch did not rewrite the same key (write-first, MEMG-27).
     deletes: Vec<String>,
     /// Explicit contradiction record ids (MEMG-01), flagged post-commit.
     contradicts: Vec<String>,
@@ -427,23 +429,39 @@ pub fn apply_dedup_batch(
         }
     }
 
-    // Phase 2 — delete update/merge targets first (same order as the
-    // sequential path: replaced records go away, then the merged one lands).
-    // Partial-write model unchanged: a mid-flush failure leaves the deletes
-    // already applied, exactly like a mid-batch failure did before.
-    for planned in &planned_writes {
-        for key in &planned.deletes {
-            db.delete(&ns, key)?;
-        }
-    }
-
-    // Phase 3 — group-commit: one `put_batch` for the whole flush.
+    // Phase 2 — group-commit FIRST (write-first protocol, MEMG-27): the
+    // consolidated state lands in one `put_batch` before any old key is
+    // removed. If the batch fails — upfront validation is all-or-nothing
+    // (shape, vector dimension, quota; src/sdk/api/memory.rs) — it returns
+    // `Err` here and zero deletes have run, so every pre-flush record
+    // survives. Past validation, `put_batch` commits per `batch_size` chunk;
+    // deletes still only run after an `Ok` covering the whole flush, so even
+    // a mid-batch failure leaves old and new records coexisting — never a
+    // loss of the previous state.
     let inputs = planned_writes
         .iter()
         .map(|planned| record_input(&ns, &planned.record, planned.vector.clone()))
         .collect::<Result<Vec<MemoryInput>, L1Error>>()?;
     if !inputs.is_empty() {
         db.put_batch(inputs)?;
+    }
+
+    // Phase 3 — prune ONLY the keys the batch did not rewrite:
+    //   keys_to_prune = old_keys \ new_batch_keys
+    // A target key that coincides with a new record's key was already
+    // overwritten atomically inside `put_batch`; deleting it now would
+    // destroy the record the flush just wrote (silently — the merge would
+    // look committed yet be gone).
+    let new_keys: BTreeSet<String> = planned_writes
+        .iter()
+        .map(|planned| sanitize_key(&planned.record.id))
+        .collect();
+    for planned in &planned_writes {
+        for key in &planned.deletes {
+            if !new_keys.contains(key) {
+                db.delete(&ns, key)?;
+            }
+        }
     }
 
     // Phase 4 — post-commit per-record side effects (generation log +
@@ -632,13 +650,213 @@ fn type_name(memory_type: MemoryType) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::generate_memory_id;
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use vantadb::config::Config;
+    use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
+    use vantadb::storage::BackendKind;
+
+    use super::{apply_dedup_batch, generate_memory_id, EmbedFn};
+    use crate::core::abstractions::{
+        DedupAction, DedupDecision, ExtractedMemory, MemoryRecord, MemoryType,
+    };
+    use crate::core::record::l1_reader::{read_record, read_session_records};
+
+    fn open_db() -> Embedded {
+        Embedded::open_with_config(Config {
+            backend_kind: BackendKind::InMemory,
+            ..Config::default()
+        })
+        .expect("open embedded")
+    }
+
+    fn memory(content: &str) -> ExtractedMemory {
+        ExtractedMemory {
+            content: content.into(),
+            memory_type: MemoryType::Persona,
+            priority: 80,
+            source_message_ids: vec![],
+            scene_name: "prefs".into(),
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    fn decision(record_id: &str, action: DedupAction) -> DedupDecision {
+        DedupDecision {
+            record_id: record_id.into(),
+            action,
+            target_ids: vec![],
+            contradicts: vec![],
+            merged_content: None,
+            merged_type: None,
+            merged_priority: None,
+            merged_timestamps: None,
+        }
+    }
+
+    fn existing_record(id: &str, content: &str) -> MemoryRecord {
+        MemoryRecord {
+            id: id.into(),
+            content: content.into(),
+            memory_type: MemoryType::Persona,
+            priority: 80,
+            scene_name: "prefs".into(),
+            source_message_ids: vec![],
+            metadata: serde_json::Value::Null,
+            timestamps: vec!["2026-08-20T10:00:00.000Z".into()],
+            created_at: "2026-08-20T10:00:00.000Z".into(),
+            updated_at: "2026-08-20T10:00:00.000Z".into(),
+            version: 1,
+            session_key: "sess".into(),
+            session_id: "".into(),
+            task_id: None,
+            team_id: None,
+            user_id: None,
+            agent_id: None,
+            vector: None,
+            heat: 0,
+            superseded_by: None,
+        }
+    }
+
+    fn put_raw(db: &Embedded, ns: &str, record: &MemoryRecord) {
+        db.put(MemoryInput {
+            namespace: ns.to_string(),
+            key: record.id.clone(),
+            payload: serde_json::to_string(record).expect("serialize"),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+            ..Default::default()
+        })
+        .expect("put");
+    }
 
     #[test]
     fn id_is_deterministic() {
         assert_eq!(
             generate_memory_id(1_700_000_000_000, 3),
             "m_1700000000000_3"
+        );
+    }
+
+    /// MEMG-27 RED: a flush whose `put_batch` fails must not lose the
+    /// pre-existing records. The old order (delete targets → put_batch)
+    /// left `old1` deleted with no replacement; the write-first order fails
+    /// before any delete runs.
+    ///
+    /// Failure injection: two planned records carry vectors of different
+    /// dims — `put_batch` upfront dimension validation is all-or-nothing
+    /// (FIND-411), so the batch errors deterministically on every backend.
+    #[test]
+    fn failed_flush_preserves_preexisting_records() {
+        let db = open_db();
+        put_raw(&db, "l1/sess", &existing_record("old1", "user used emacs"));
+
+        let mut update = decision("m_c", DedupAction::Update);
+        update.target_ids = vec!["old1".into()];
+        update.merged_content = Some("user switched to vim".into());
+        let memories = [memory("merge into old1"), memory("fresh store")];
+        let decisions = [update, decision("m_d", DedupAction::Store)];
+
+        // Embed hook yields dim 3 for the first record and dim 4 for the
+        // second → the batch fails dimension validation before any write.
+        let next_dim = AtomicUsize::new(3);
+        let embed: EmbedFn = Arc::new(move |_| {
+            let dim = next_dim.swap(4, Ordering::SeqCst);
+            Some(vec![0.1_f32; dim])
+        });
+
+        let res = apply_dedup_batch(
+            &db,
+            "sess",
+            "sess",
+            &memories,
+            &decisions,
+            1_700_000_000_000,
+            Some(&embed),
+        );
+        assert!(res.is_err(), "mixed vector dims must fail the batch");
+
+        let remaining = read_session_records(&db, "sess").expect("read session");
+        assert!(
+            remaining.iter().any(|r| r.id == "old1"),
+            "write-first: a failed flush must leave pre-existing records intact; \
+             got: {:?}",
+            remaining.iter().map(|r| r.id.clone()).collect::<Vec<_>>()
+        );
+    }
+
+    /// MEMG-27: an update whose new record id sanitizes to the SAME storage
+    /// key as its target. `put_batch` already overwrote that key; the prune
+    /// phase must only delete `old_keys \ new_batch_keys` — a naive
+    /// delete-all would destroy the record the batch just wrote.
+    #[test]
+    fn coincident_key_survives_write_first_prune() {
+        let db = open_db();
+        put_raw(&db, "l1/sess", &existing_record("m_same", "v1 content"));
+
+        let mut update = decision("m_same", DedupAction::Update);
+        update.target_ids = vec!["m_same".into()];
+        update.merged_content = Some("v2 content".into());
+        let memories = [memory("update in place")];
+
+        let written = apply_dedup_batch(
+            &db,
+            "sess",
+            "sess",
+            &memories,
+            &[update],
+            1_700_000_000_000,
+            None,
+        )
+        .expect("batch write");
+        assert_eq!(written.len(), 1);
+
+        let rec = read_record(&db, "sess", "m_same")
+            .expect("read")
+            .expect("record rewritten by the batch must survive the prune");
+        assert_eq!(rec.content, "v2 content");
+        assert_eq!(rec.version, 2, "merge bumps payload version");
+    }
+
+    /// MEMG-27: merge targets whose keys are NOT rewritten by the batch
+    /// (merge A+B → new id C) must still be purged after the commit.
+    #[test]
+    fn merged_orphan_keys_are_pruned() {
+        let db = open_db();
+        put_raw(&db, "l1/sess", &existing_record("old_a", "fact A"));
+        put_raw(&db, "l1/sess", &existing_record("old_b", "fact B"));
+
+        let mut merge = decision("m_new", DedupAction::Merge);
+        merge.target_ids = vec!["old_a".into(), "old_b".into()];
+        merge.merged_content = Some("facts A+B".into());
+        let memories = [memory("merge A and B")];
+
+        apply_dedup_batch(
+            &db,
+            "sess",
+            "sess",
+            &memories,
+            &[merge],
+            1_700_000_000_000,
+            None,
+        )
+        .expect("batch write");
+
+        let remaining = read_session_records(&db, "sess").expect("read session");
+        let ids: Vec<&str> = remaining.iter().map(|r| r.id.as_str()).collect();
+        assert!(
+            ids.contains(&"m_new"),
+            "merged record persisted; got {ids:?}"
+        );
+        assert!(
+            !ids.contains(&"old_a") && !ids.contains(&"old_b"),
+            "orphan merge targets must be pruned; got {ids:?}"
         );
     }
 
