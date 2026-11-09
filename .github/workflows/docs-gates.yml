@@ -163,6 +163,16 @@ jobs:
         run: node scripts/docs/check-npm-versions.mjs --self-test
       - name: Gate — npm versions match the workspace version
         run: node scripts/docs/check-npm-versions.mjs
+      # FIND-468/FIND-469: single audit of every version-coupled manifest
+      # (package.json, Cargo manifests incl. [workspace.dependencies] path-dep
+      # reqs, openapi.yaml, MCP.md, pyproject bounds, release-manifest.json,
+      # package-lock.json). Without this step, drift between registries is only
+      # discovered at publish time — the class of failure that shipped the
+      # broken 0.9.0 manifests (post-mortem docs/dev/reviews/2026-10-20).
+      - name: Self-test — sync-workspace-version
+        run: node scripts/docs/sync-workspace-version.mjs --self-test
+      - name: Gate — all versioned manifests match workspace version
+        run: node scripts/docs/sync-workspace-version.mjs --check
       - name: Gate - Surface manifest reconciliation (DOC-10)
         run: node scripts/docs/verify-surface-manifest.mjs
       - name: Machine-readable report on failure

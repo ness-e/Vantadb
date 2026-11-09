@@ -19,13 +19,21 @@
 //      version/tag with each core release)
 //   8. vantadb-ts/package-lock.json: root "version" (2 places: root and
 //      packages[""]). The lockfile ships inside the published npm tarball.
+//   9. Cargo.toml [workspace.dependencies]: literal "version" requirements of
+//      the internal path deps `vantadb` and `vanta-memory` (FIND-468). Members
+//      inherit them via `dep = { workspace = true }` (Cargo Book, workspaces:
+//      https://doc.rust-lang.org/cargo/reference/workspaces.html), so this
+//      single table is where their publishable version requirement lives.
 //
 // USAGE / EXIT CODES
 //   node scripts/docs/sync-workspace-version.mjs [--check]  (default)
 //     0 = all manifests match Cargo.toml workspace version
 //     1 = drift detected (lists out-of-sync files)
 //   node scripts/docs/sync-workspace-version.mjs --write
-//     updates all drifted manifests on disk; exits 0
+//     updates all drifted manifests on disk
+//     0 = every drifted manifest was rewritten and re-verified
+//     1 = at least one transform missed (file left drifted) or write failed —
+//         fail-closed so a silent regex miss cannot ship a half-synced release
 //   node scripts/docs/sync-workspace-version.mjs --self-test
 //     in-memory assertions on version extraction & transformation logic; exits 0
 //   2 = unrecoverable error (e.g. root Cargo.toml unreadable)
@@ -204,24 +212,37 @@ export function transformNodeCargoToml(text, newVersion) {
     .replace(/^(vanta-memory\s*=\s*\{[^}]*version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`);
 }
 
-// vanta-memory depende del crate raiz del workspace con un requisito de
-// version literal: `vantadb = { path = "../", version = "0.9.0" }`. Ese
-// requisito tiene que seguir a la version del workspace, porque el path dep
-// local debe SATISFACERLO: si el workspace pasa a 0.10.0 y el requisito
-// sigue en 0.9.0, cargo no resuelve el workspace entero
-// ("failed to select a version for the requirement `vantadb = ^0.9.0`").
+// FIND-468: los path-deps internos publicables (`vantadb`, `vanta-memory`)
+// llevan un requisito de version literal en [workspace.dependencies] del
+// Cargo.toml raiz — los miembros los heredan con `dep = { workspace = true }`
+// (Cargo Book, workspaces). Ese requisito tiene que seguir a la version del
+// workspace, porque el path dep local debe SATISFACERLO: si el workspace pasa
+// a 0.10.0 y el requisito sigue en 0.9.0, cargo no resuelve el workspace
+// entero ("failed to select a version for the requirement `vantadb = ^0.9.0`").
 // release-plz no lo actualiza, porque vanta-memory esta en hold
 // (`release = false`) y por tanto no se procesa.
-export function parseVantaMemoryDepRequirement(text) {
-  const m = String(text).match(/^vantadb\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"/m);
-  return m ? m[1] : null;
+export const WORKSPACE_DEP_TARGETS = ["vantadb", "vanta-memory"];
+
+export function parseWorkspaceInternalDeps(text, names = WORKSPACE_DEP_TARGETS) {
+  const found = [];
+  for (const name of names) {
+    const re = new RegExp(`^${name}\\s*=\\s*\\{[^}]*version\\s*=\\s*"([^"]+)"`, "m");
+    const m = String(text).match(re);
+    if (!m) return null;
+    found.push(m[1]);
+  }
+  return found.every((v) => v === found[0])
+    ? found[0]
+    : names.map((n, i) => `${n}=${found[i]}`).join(" ");
 }
 
-export function transformVantaMemoryDepRequirement(text, newVersion) {
-  return String(text).replace(
-    /^(vantadb\s*=\s*\{[^}]*version\s*=\s*)"[^"]+"/m,
-    `$1"${newVersion}"`,
-  );
+export function transformWorkspaceInternalDeps(text, newVersion, names = WORKSPACE_DEP_TARGETS) {
+  let out = String(text);
+  for (const name of names) {
+    const re = new RegExp(`^(${name}\\s*=\\s*\\{[^}]*version\\s*=\\s*)"[^"]+"`, "m");
+    out = out.replace(re, `$1"${newVersion}"`);
+  }
+  return out;
 }
 
 // --------------------------------------------------------------- evaluation
@@ -318,11 +339,11 @@ export function buildTargetSpecs(workspaceVersion) {
   });
 
   specs.push({
-    name: "vanta-memory/Cargo.toml",
-    relPath: "vanta-memory/Cargo.toml",
+    name: "Cargo.toml [workspace.dependencies]",
+    relPath: "Cargo.toml",
     expected: workspaceVersion,
-    parse: parseVantaMemoryDepRequirement,
-    transform: transformVantaMemoryDepRequirement,
+    parse: parseWorkspaceInternalDeps,
+    transform: transformWorkspaceInternalDeps,
   });
 
   return specs;
@@ -439,17 +460,26 @@ export function selfTest() {
     );
   });
 
-  // 10. vanta-memory: el requisito del path dep debe seguir al workspace
-  check("vanta-memory/Cargo.toml: bumps the vantadb path-dep requirement", () => {
+  // 10. Cargo.toml raiz: los requisitos literales de los path-deps internos
+  // en [workspace.dependencies] deben seguir al workspace (FIND-468: los
+  // miembros los heredan via `dep = { workspace = true }`).
+  check("Cargo.toml [workspace.dependencies]: bumps internal path-dep requirements", () => {
     const fixture =
-      '[package]\nname = "vanta-memory"\nversion.workspace = true\n\n[dependencies]\nvantadb = { path = "../", version = "0.8.0", default-features = false }\n';
-    const out = transformVantaMemoryDepRequirement(fixture, "0.9.0");
+      '[workspace.dependencies]\nvantadb = { path = ".", version = "0.8.0", default-features = false }\nvanta-memory = { path = "vanta-memory", version = "0.8.0", default-features = false }\nserde = "1.0"\n';
+    const out = transformWorkspaceInternalDeps(fixture, "0.9.0");
+    assert(parseWorkspaceInternalDeps(out) === "0.9.0", `got ${parseWorkspaceInternalDeps(out)}`);
+    assert(out.includes('vantadb = { path = ".", version = "0.9.0"'), `output mismatch: ${out}`);
     assert(
-      parseVantaMemoryDepRequirement(out) === "0.9.0",
-      `got ${parseVantaMemoryDepRequirement(out)}`,
+      out.includes('vanta-memory = { path = "vanta-memory", version = "0.9.0"'),
+      `output mismatch: ${out}`,
     );
-    assert(out.includes('version = "0.9.0"'), `output mismatch: ${out}`);
-    assert(out.includes('path = "../"'), "path dep lost");
+  });
+
+  check("Cargo.toml [workspace.dependencies]: reports drift when reqs disagree", () => {
+    const fixture =
+      '[workspace.dependencies]\nvantadb = { path = ".", version = "0.9.0" }\nvanta-memory = { path = "vanta-memory", version = "0.8.0" }\n';
+    const got = parseWorkspaceInternalDeps(fixture);
+    assert(got === "vantadb=0.9.0 vanta-memory=0.8.0", `got ${got}`);
   });
 
   const failed = results.filter((r) => !r.ok);
@@ -510,6 +540,7 @@ console.log(`Mode: ${writeMode ? "WRITE (sync to disk)" : "CHECK (read-only audi
 const specs = buildTargetSpecs(workspaceVersion);
 let driftedCount = 0;
 let updatedCount = 0;
+let failedCount = 0;
 
 for (const spec of specs) {
   const fullPath = abs(spec.relPath);
@@ -519,6 +550,9 @@ for (const spec of specs) {
   } catch (e) {
     console.error(`FAIL: ${spec.name}: unable to read file (${e.message})`);
     driftedCount++;
+    // In write mode an unreadable target can never be synced: count it as a
+    // failure so --write stays fail-closed (FIND-468).
+    if (writeMode) failedCount++;
     continue;
   }
 
@@ -535,11 +569,23 @@ for (const spec of specs) {
 
     if (writeMode) {
       const transformed = spec.transform(content, workspaceVersion);
+      // Fail-closed (FIND-468): a transform whose regex missed returns the
+      // input unchanged and used to count as success. Re-parse the result;
+      // if it still does not satisfy the expectation, do not write and count
+      // it as a failure so --write cannot exit 0 on a half-synced release.
+      if (spec.parse(transformed) !== spec.expected) {
+        failedCount++;
+        console.error(
+          `  -> FAIL ${spec.name}: transform did not produce '${spec.expected}' (regex miss?); file left untouched`,
+        );
+        continue;
+      }
       try {
         writeFileSync(fullPath, transformed, "utf8");
         console.log(`  -> updated ${spec.name} on disk`);
         updatedCount++;
       } catch (e) {
+        failedCount++;
         console.error(`  -> ERROR writing ${spec.name}: ${e.message}`);
       }
     }
@@ -570,6 +616,15 @@ if (writeMode) {
   }
 
   console.log(`\nSync complete: ${updatedCount} file(s) updated.`);
+  if (failedCount > 0) {
+    console.error(
+      `FAILED: ${failedCount} target(s) could not be synchronized to ${workspaceVersion}.`,
+    );
+    process.exit(1);
+  }
+  if (driftedCount > 0) {
+    console.error(`Note: ${driftedCount} target(s) were drifted; all rewrites verified.`);
+  }
   process.exit(0);
 }
 
