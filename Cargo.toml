@@ -256,6 +256,8 @@ serde_json = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 serde-saphyr = "2"
 insta = "1.48"
+# FIND-631: compat_v090 fixture hash verification (same sha2 the lib already uses).
+sha2 = { workspace = true }
 # HARD-01: public API snapshot rails (tests/api/public_api.rs). Version family
 # must stay aligned with the cargo-public-api CLI used to read the snapshot.
 public-api = "0.52.2"

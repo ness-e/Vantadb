@@ -14,3 +14,6 @@
 *.woff2 binary
 *.bin binary
 *.gif binary
+
+# FIND-631: v0.9.0 on-disk fixture must stay byte-exact (no EOL normalisation)
+tests/fixtures/v0.9.0/** binary
