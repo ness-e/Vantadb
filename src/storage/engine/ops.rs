@@ -330,36 +330,18 @@ impl StorageEngine {
                 // the decrypted node blob, not in the mapping.
                 let node_bytes = vstore.node_bytes(local_off)?;
 
-                let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
-                    continue;
-                };
-                let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
-                    continue;
-                };
-                if vec_end > node_bytes.as_slice().len() as u64 {
-                    continue;
-                }
-                let vec_start = header.vector_offset as usize;
-                let vec_end = vec_end as usize;
-
-                let vec_bytes = &node_bytes.as_slice()[vec_start..vec_end];
-                debug_assert_eq!(
-                    vec_bytes.as_ptr().align_offset(4),
-                    0,
-                    "f32 vector must be 4-byte aligned"
-                );
-                // SAFETY: 1) bounds ΓÇö guarded above, `vec_bytes` is an in-mapping byte
-                // slice of exactly `vector_len*4` bytes; 2) alignment ΓÇö `read_header`
-                // rejects non-4-multiple `vector_offset` (INV-024 M-1 central guard),
-                // so `vec_bytes.as_ptr()` is 4-byte aligned even in release; 3) the
-                // immediate .to_vec() eliminates aliasing concerns.
-                let f32_vec: Vec<f32> = unsafe {
-                    std::slice::from_raw_parts(
-                        vec_bytes.as_ptr() as *const f32,
-                        header.vector_len as usize,
+                // FIND-591: shared, alignment-agnostic decoder — `None`
+                // means corrupt bounds and the node is skipped, exactly
+                // like the inline branch did.
+                let Some(VectorRepresentations::Full(f32_vec)) =
+                    crate::storage::engine::get::decode_full_bytes(
+                        header.vector_len,
+                        header.vector_offset,
+                        node_bytes.as_slice(),
                     )
-                }
-                .to_vec();
+                else {
+                    continue;
+                };
 
                 collected.push((id, metadata, header, f32_vec));
             }

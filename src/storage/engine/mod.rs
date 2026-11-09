@@ -7,7 +7,9 @@
 mod cache;
 pub mod coordinators;
 mod delete;
-mod get;
+// FIND-591: `pub(crate)` so `storage::archive` reaches the shared,
+// alignment-agnostic vector decoders (`decode_vector_by_kind` et al.).
+pub(crate) mod get;
 mod init;
 pub(crate) mod insert;
 mod maintenance;

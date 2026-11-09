@@ -500,6 +500,104 @@ fn read_only_open_encrypted_db_missing_registry_fails_closed() {
     );
 }
 
+/// FIND-591: a FULL vector written into an **encrypted** segment reads
+/// back byte-exact through the decrypted-blob decode path — across a
+/// close/reopen so the cache cannot serve it and the AEAD envelope has to
+/// be opened. Before the fix this path decoded via `from_raw_parts` /
+/// `align_to` over a heap blob (latent UB / silent `None`).
+#[test]
+fn vector_decode_encrypted_roundtrip_full() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let key = key_hex(0x71);
+    let vector = vec![0.25f32, -1.5, 0.0, 42.75, 1e-3];
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+            .expect("open with a key");
+        let mut n = node(81, "vantadb-find591-full");
+        n.vector = VectorRepresentations::Full(vector.clone());
+        engine.insert(&n).expect("insert");
+        engine.flush().expect("flush");
+    }
+
+    // Reopen: the decrypted blob must decode the vector byte-exact.
+    let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+        .expect("reopen with the key");
+    let read = engine.get(81).expect("get").expect("the node is there");
+    assert_eq!(
+        read.vector.as_f32_slice(),
+        Some(vector.as_slice()),
+        "the FULL vector must round-trip byte-exact through the encrypted segment"
+    );
+}
+
+/// FIND-591: same contract for a BINARY vector — the words must survive
+/// `to_le_bytes` sealing and the `u64` decode without alignment drops.
+#[test]
+fn vector_decode_encrypted_roundtrip_binary() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let key = key_hex(0x72);
+    let words: Box<[u64]> =
+        vec![0xDEADBEEFu64, 0x0123456789ABCDEF, 0x55AA55AA55AA55AA].into_boxed_slice();
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+            .expect("open with a key");
+        let mut n = node(83, "vantadb-find591-binary");
+        n.vector = VectorRepresentations::Binary(words.clone());
+        engine.insert(&n).expect("insert");
+        engine.flush().expect("flush");
+    }
+
+    let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+        .expect("reopen with the key");
+    let read = engine.get(83).expect("get").expect("the node is there");
+    match &read.vector {
+        VectorRepresentations::Binary(w) => assert_eq!(w.as_ref(), words.as_ref()),
+        other => panic!("expected Binary, got {other:?}"),
+    }
+}
+
+/// FIND-591: the archive/rebuild path (`rebuild_vector_index` →
+/// `rebuild_hnsw_from_vstore`) decodes vectors out of the same decrypted
+/// blobs — exercise it on an encrypted store and re-read afterwards.
+#[test]
+fn vector_decode_encrypted_roundtrip_after_index_rebuild() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let key = key_hex(0x73);
+    let vector = vec![3.5f32, -0.125, 7.0];
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+            .expect("open with a key");
+        let mut n = node(85, "vantadb-find591-rebuild");
+        n.vector = VectorRepresentations::Full(vector.clone());
+        engine.insert(&n).expect("insert");
+        engine.flush().expect("flush");
+
+        let report = engine
+            .rebuild_vector_index()
+            .expect("rebuild over encrypted vstore");
+        assert!(report.success, "rebuild must succeed: {report:?}");
+        assert!(
+            report.indexed_vectors >= 1,
+            "the encrypted node vector must be indexed, not silently dropped: {report:?}"
+        );
+
+        let read = engine.get(85).expect("get").expect("the node is there");
+        assert_eq!(read.vector.as_f32_slice(), Some(vector.as_slice()));
+    }
+
+    // And the rebuilt index survives a reopen.
+    let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+        .expect("reopen with the key");
+    let read = engine.get(85).expect("get").expect("the node is there");
+    assert_eq!(read.vector.as_f32_slice(), Some(vector.as_slice()));
+}
+
 /// ADR-0057 W6: the registry is part of the snapshot mirror.
 #[test]
 fn registry_is_included_in_the_snapshot_mirror() {

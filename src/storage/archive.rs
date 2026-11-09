@@ -361,149 +361,25 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                     // ADR-0057 W3: in an encrypted segment the payload lives
                     // inside the decrypted node blob, not in the mapping.
                     let node_bytes = vstore.node_bytes(cursor)?;
-                    let vec_data = if kind == 0 {
-                        // legacy pre-ADR-032: kind 0 with len>0 is FULL, with len==0 is NONE
-                        if header.vector_len == 0 {
-                            crate::node::VectorRepresentations::None
-                        } else if let Some(end) = (header.vector_len as u64)
-                            .checked_mul(4)
-                            .and_then(|b| header.vector_offset.checked_add(b))
-                            .filter(|&end| end <= node_bytes.as_slice().len() as u64)
-                        {
-                            let start = header.vector_offset as usize;
-                            let slice = &node_bytes.as_slice()[start..end as usize];
-                            debug_assert_eq!(
-                                slice.as_ptr().align_offset(4),
-                                0,
-                                "legacy f32 must be 4-aligned"
-                            );
-                            indexed_vectors += 1;
-                            crate::node::VectorRepresentations::Full(
-                                unsafe {
-                                    std::slice::from_raw_parts(
-                                        slice.as_ptr() as *const f32,
-                                        header.vector_len as usize,
-                                    )
-                                }
-                                .to_vec(),
-                            )
-                        } else {
-                            crate::node::VectorRepresentations::None
-                        }
-                    } else {
-                        match kind {
-                            crate::node::NodeFlags::VECTOR_KIND_FULL => {
-                                if header.vector_len == 0 {
-                                    crate::node::VectorRepresentations::None
-                                } else if let Some(end) = (header.vector_len as u64)
-                                    .checked_mul(4)
-                                    .and_then(|b| header.vector_offset.checked_add(b))
-                                    .filter(|&end| end <= node_bytes.as_slice().len() as u64)
-                                {
-                                    let start = header.vector_offset as usize;
-                                    let slice = &node_bytes.as_slice()[start..end as usize];
-                                    debug_assert_eq!(
-                                        slice.as_ptr().align_offset(4),
-                                        0,
-                                        "f32 vector must be 4-byte aligned"
-                                    );
-                                    indexed_vectors += 1;
-                                    crate::node::VectorRepresentations::Full(
-                                        unsafe {
-                                            std::slice::from_raw_parts(
-                                                slice.as_ptr() as *const f32,
-                                                header.vector_len as usize,
-                                            )
-                                        }
-                                        .to_vec(),
-                                    )
-                                } else {
-                                    crate::node::VectorRepresentations::None
-                                }
-                            }
-                            crate::node::NodeFlags::VECTOR_KIND_BINARY => {
-                                if header.vector_len == 0 {
-                                    crate::node::VectorRepresentations::None
-                                } else if let Some(end) = (header.vector_len as u64)
-                                    .checked_mul(8)
-                                    .and_then(|b| header.vector_offset.checked_add(b))
-                                    .filter(|&end| end <= node_bytes.as_slice().len() as u64)
-                                {
-                                    let start = header.vector_offset as usize;
-                                    let slice = &node_bytes.as_slice()[start..end as usize];
-                                    debug_assert_eq!(
-                                        slice.as_ptr().align_offset(8),
-                                        0,
-                                        "u64 vector must be 8-byte aligned"
-                                    );
-                                    let (_, u64_slice, _) = unsafe { slice.align_to::<u64>() };
-                                    if u64_slice.len() != header.vector_len as usize {
-                                        crate::node::VectorRepresentations::None
-                                    } else {
-                                        indexed_vectors += 1;
-                                        crate::node::VectorRepresentations::Binary(
-                                            u64_slice.to_vec().into_boxed_slice(),
-                                        )
-                                    }
-                                } else {
-                                    crate::node::VectorRepresentations::None
-                                }
-                            }
-                            crate::node::NodeFlags::VECTOR_KIND_TURBO => {
-                                if header.vector_len == 0 {
-                                    crate::node::VectorRepresentations::None
-                                } else if let Some(end) = header
-                                    .vector_offset
-                                    .checked_add(header.vector_len as u64)
-                                    .filter(|&end| end <= node_bytes.as_slice().len() as u64)
-                                {
-                                    let start = header.vector_offset as usize;
-                                    let slice = &node_bytes.as_slice()[start..end as usize];
-                                    indexed_vectors += 1;
-                                    crate::node::VectorRepresentations::Turbo(
-                                        slice.to_vec().into_boxed_slice(),
-                                    )
-                                } else {
-                                    crate::node::VectorRepresentations::None
-                                }
-                            }
-                            crate::node::NodeFlags::VECTOR_KIND_SQ8 => {
-                                if header.vector_len == 0 {
-                                    crate::node::VectorRepresentations::None
-                                } else if let Some(payload_end) = (header.vector_len as u64)
-                                    .checked_add(4)
-                                    .and_then(|b| header.vector_offset.checked_add(b))
-                                    .filter(|&end| end <= node_bytes.as_slice().len() as u64)
-                                {
-                                    let start = header.vector_offset as usize;
-                                    let payload =
-                                        &node_bytes.as_slice()[start..payload_end as usize];
-                                    let n = header.vector_len as usize;
-                                    let d_slice = &payload[..n];
-                                    let scale_bytes: [u8; 4] =
-                                        payload[n..n + 4].try_into().unwrap_or([0; 4]);
-                                    let scale = f32::from_le_bytes(scale_bytes);
-                                    if !scale.is_finite() {
-                                        crate::node::VectorRepresentations::None
-                                    } else {
-                                        indexed_vectors += 1;
-                                        let data: Vec<i8> =
-                                            d_slice.iter().map(|&b| b as i8).collect();
-                                        crate::node::VectorRepresentations::SQ8(
-                                            data.into_boxed_slice(),
-                                            scale,
-                                        )
-                                    }
-                                } else {
-                                    crate::node::VectorRepresentations::None
-                                }
-                            }
-                            crate::node::NodeFlags::VECTOR_KIND_NONE => {
-                                crate::node::VectorRepresentations::None
-                            }
-                            _ => crate::node::VectorRepresentations::None,
-                        }
-                    };
+                    // FIND-591: shared, alignment-agnostic decoders — a
+                    // corrupt header/bounds decodes to `None` (no vector)
+                    // and the node is still indexed, like every inline
+                    // branch did. `indexed_vectors` counts only the
+                    // payloads that actually decoded, same as before.
+                    // Deliberate homogenization: a `vector_len == 0` header
+                    // now decodes to `Full([])`/`Binary([])`/etc. (as the
+                    // get/txn paths already did) instead of `None`, so it
+                    // counts as an indexed vector.
+                    let vec_data = crate::storage::engine::get::decode_vector_by_kind(
+                        kind,
+                        header.vector_len,
+                        header.vector_offset,
+                        node_bytes.as_slice(),
+                    )
+                    .unwrap_or(crate::node::VectorRepresentations::None);
+                    if !matches!(vec_data, crate::node::VectorRepresentations::None) {
+                        indexed_vectors += 1;
+                    }
                     let storage_offset = match segment_id {
                         Some(sid) => crate::lsm::pack_offset(sid, cursor),
                         None => cursor,

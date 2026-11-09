@@ -1619,6 +1619,36 @@ mod tests {
         assert!(ns.decrypt_with_nonce(&[7u8; 12], &sealed, b"aad").is_err());
     }
 
+    /// FIND-591: the AEAD envelope VFile seals/opens (`seal_node`/
+    /// `open_node` → `Cipher::{encrypt,decrypt}_with_nonce`) runs under
+    /// Miri — `cpufeatures` disables CPU-feature detection under
+    /// `cfg(miri)`, so `aes`/`polyval` exercise their software backend.
+    /// The `miri_` prefix makes the CI `-- miri` filter pick this up.
+    #[test]
+    fn miri_aead_envelope_roundtrip() {
+        let cipher = Cipher::new(&[0x5Au8; 32]);
+        let nonce = [3u8; 12];
+        // Same AAD shape `vfile_crypto::seal_node` binds: artifact + slot.
+        let aad = b"vantafile-v3-slot-64";
+        let plaintext = b"node-header-and-vector-payload";
+
+        let sealed = cipher
+            .encrypt_with_nonce(&nonce, plaintext, aad)
+            .expect("seal");
+        assert_eq!(
+            cipher
+                .decrypt_with_nonce(&nonce, &sealed, aad)
+                .expect("open"),
+            plaintext
+        );
+        // AAD binds the envelope to its slot: a different slot rejects.
+        assert!(cipher
+            .decrypt_with_nonce(&nonce, &sealed, b"vantafile-v3-slot-128")
+            .is_err());
+        // A wrong nonce rejects as well.
+        assert!(cipher.decrypt_with_nonce(&[9u8; 12], &sealed, aad).is_err());
+    }
+
     #[test]
     fn raw_key_bytes_rejects_a_passphrase_cipher() {
         let raw = [0x77u8; 32];

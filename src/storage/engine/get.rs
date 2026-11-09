@@ -70,6 +70,38 @@ impl Drop for PrefetchGuard {
 // header maps to `None` (the caller converts it to `Ok(None)` / `continue`,
 // exactly like the inline code did). No I/O, no locks, no effects.
 
+// ─── FIND-591: alignment-agnostic word decoders (no `unsafe`) ───
+//
+// The on-disk vector format is **little-endian**: the encrypted writer
+// emits `word.to_le_bytes()` explicitly (`storage/ops.rs`,
+// `materialize_payload`) and the plaintext writer's native byte cast is
+// equivalent because VantaDB only compiles on little-endian targets
+// (`const _` asserts in `index_port.rs` and `storage/vfile.rs`).
+//
+// Decoding byte-by-byte instead of `from_raw_parts`/`align_to` removes the
+// alignment precondition: in an encrypted segment `node_bytes` is a
+// decrypted heap blob whose base alignment is an implementation detail
+// (today `AlignedBlob`, a `Vec<u64>`), so a typed cast over it was latent
+// UB and `align_to` silently dropped the vector on a misaligned base.
+
+/// Decode `bytes` into `f32` words, little-endian, no alignment needed.
+/// A trailing <4-byte remainder is dropped (`chunks_exact`).
+pub(crate) fn f32s_from_le_bytes(bytes: &[u8]) -> Vec<f32> {
+    bytes
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect()
+}
+
+/// Decode `bytes` into `u64` words, little-endian, no alignment needed.
+/// A trailing <8-byte remainder is dropped (`chunks_exact`).
+pub(crate) fn u64s_from_le_bytes(bytes: &[u8]) -> Vec<u64> {
+    bytes
+        .chunks_exact(8)
+        .map(|c| u64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]))
+        .collect()
+}
+
 /// Decode a FULL (f32) vector payload. `None` = corrupt header/bounds.
 pub(crate) fn decode_full_bytes(
     vector_len: u32,
@@ -82,12 +114,7 @@ pub(crate) fn decode_full_bytes(
         return None;
     }
     let slice = &bytes[vector_offset as usize..vec_end as usize];
-    debug_assert_eq!(slice.as_ptr().align_offset(4), 0);
-    // SAFETY: slice is bounds-checked above with the exact f32 count and
-    // alignment is debug-asserted — same guarantees as the inline code.
-    let f32_vec: &[f32] =
-        unsafe { std::slice::from_raw_parts(slice.as_ptr() as *const f32, vector_len as usize) };
-    Some(VectorRepresentations::Full(f32_vec.to_vec()))
+    Some(VectorRepresentations::Full(f32s_from_le_bytes(slice)))
 }
 
 /// Decode a BINARY (u64 words) payload. `None` = corrupt header/bounds.
@@ -102,13 +129,7 @@ pub(crate) fn decode_binary_bytes(
         return None;
     }
     let slice = &bytes[vector_offset as usize..vec_end as usize];
-    debug_assert_eq!(slice.as_ptr().align_offset(8), 0);
-    // SAFETY: bounds-checked above; `align_to` yields only aligned words.
-    let (_, u64_slice, _) = unsafe { slice.align_to::<u64>() };
-    if u64_slice.len() != vector_len as usize {
-        return None;
-    }
-    let words = u64_slice.to_vec().into_boxed_slice();
+    let words = u64s_from_le_bytes(slice).into_boxed_slice();
     Some(VectorRepresentations::Binary(words))
 }
 
@@ -569,123 +590,31 @@ impl StorageEngine {
             let node_bytes = vstore.node_bytes(local_off)?;
 
             let kind = crate::node::NodeFlags::vector_kind(header.flags);
-            let vector = if kind == 0 {
-                // legacy pre-ADR-032: kind 0 with len>0 is FULL, with len==0 is NONE (or rescue)
-                if header.vector_len == 0 {
-                    if let crate::node::VectorRepresentations::Binary(b) = &index_vec {
-                        VectorRepresentations::Binary(b.clone())
-                    } else if let crate::node::VectorRepresentations::SQ8(d, s) = &index_vec {
-                        VectorRepresentations::SQ8(d.clone(), *s)
-                    } else if let crate::node::VectorRepresentations::Turbo(t) = &index_vec {
-                        VectorRepresentations::Turbo(t.clone())
-                    } else {
-                        VectorRepresentations::None
-                    }
+            let vector = if kind == 0 && header.vector_len == 0 {
+                // legacy pre-ADR-032 rescue: kind 0 with len==0 takes the
+                // index-resident quantized payload when there is one.
+                if let crate::node::VectorRepresentations::Binary(b) = &index_vec {
+                    VectorRepresentations::Binary(b.clone())
+                } else if let crate::node::VectorRepresentations::SQ8(d, s) = &index_vec {
+                    VectorRepresentations::SQ8(d.clone(), *s)
+                } else if let crate::node::VectorRepresentations::Turbo(t) = &index_vec {
+                    VectorRepresentations::Turbo(t.clone())
                 } else {
-                    let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
-                        continue;
-                    };
-                    let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
-                        continue;
-                    };
-                    if vec_end > node_bytes.as_slice().len() as u64 {
-                        continue;
-                    }
-                    let vec_start = header.vector_offset as usize;
-                    let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
-                    let f32_vec: &[f32] = unsafe {
-                        std::slice::from_raw_parts(
-                            slice.as_ptr() as *const f32,
-                            header.vector_len as usize,
-                        )
-                    };
-                    VectorRepresentations::Full(f32_vec.to_vec())
+                    VectorRepresentations::None
                 }
             } else {
-                match kind {
-                    crate::node::NodeFlags::VECTOR_KIND_FULL => {
-                        let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
-                            continue;
-                        };
-                        let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
-                            continue;
-                        };
-                        if vec_end > node_bytes.as_slice().len() as u64 {
-                            continue;
-                        }
-                        let vec_start = header.vector_offset as usize;
-                        let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
-                        debug_assert_eq!(
-                            slice.as_ptr().align_offset(4),
-                            0,
-                            "f32 must be 4-aligned"
-                        );
-                        let f32_vec: &[f32] = unsafe {
-                            std::slice::from_raw_parts(
-                                slice.as_ptr() as *const f32,
-                                header.vector_len as usize,
-                            )
-                        };
-                        VectorRepresentations::Full(f32_vec.to_vec())
-                    }
-                    crate::node::NodeFlags::VECTOR_KIND_BINARY => {
-                        let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(8) else {
-                            continue;
-                        };
-                        let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
-                            continue;
-                        };
-                        if vec_end > node_bytes.as_slice().len() as u64 {
-                            continue;
-                        }
-                        let vec_start = header.vector_offset as usize;
-                        let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
-                        debug_assert_eq!(
-                            slice.as_ptr().align_offset(8),
-                            0,
-                            "u64 must be 8-aligned"
-                        );
-                        let (_, u64_slice, _) = unsafe { slice.align_to::<u64>() };
-                        if u64_slice.len() != header.vector_len as usize {
-                            continue;
-                        }
-                        VectorRepresentations::Binary(u64_slice.to_vec().into_boxed_slice())
-                    }
-                    crate::node::NodeFlags::VECTOR_KIND_TURBO => {
-                        let Some(vec_end) =
-                            header.vector_offset.checked_add(header.vector_len as u64)
-                        else {
-                            continue;
-                        };
-                        if vec_end > node_bytes.as_slice().len() as u64 {
-                            continue;
-                        }
-                        let vec_start = header.vector_offset as usize;
-                        let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
-                        VectorRepresentations::Turbo(slice.to_vec().into_boxed_slice())
-                    }
-                    crate::node::NodeFlags::VECTOR_KIND_SQ8 => {
-                        let Some(payload_end) = (header.vector_len as u64)
-                            .checked_add(4)
-                            .and_then(|b| header.vector_offset.checked_add(b))
-                            .filter(|&end| end <= node_bytes.as_slice().len() as u64)
-                        else {
-                            continue;
-                        };
-                        let vec_start = header.vector_offset as usize;
-                        let payload = &node_bytes.as_slice()[vec_start..payload_end as usize];
-                        let n = header.vector_len as usize;
-                        let scale =
-                            f32::from_le_bytes(payload[n..n + 4].try_into().unwrap_or([0; 4]));
-                        if !scale.is_finite() {
-                            continue;
-                        }
-                        let data: Vec<i8> = payload[..n].iter().map(|&b| b as i8).collect();
-                        VectorRepresentations::SQ8(data.into_boxed_slice(), scale)
-                    }
-                    crate::node::NodeFlags::VECTOR_KIND_NONE => VectorRepresentations::None,
-                    _ => VectorRepresentations::None,
-                }
+                // FIND-591: shared, alignment-agnostic decoders — `None`
+                // means corrupt bounds and the node is skipped, exactly
+                // like every inline branch did.
+                let Some(decoded) = decode_vector_by_kind(
+                    kind,
+                    header.vector_len,
+                    header.vector_offset,
+                    node_bytes.as_slice(),
+                ) else {
+                    continue;
+                };
+                decoded
             };
 
             let mut node = UnifiedNode::new(id);
@@ -713,5 +642,97 @@ impl StorageEngine {
         }
 
         Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod vector_decode_tests {
+    //! FIND-591: the decoders must be alignment-agnostic — in an encrypted
+    //! segment `node_bytes` is a decrypted heap blob, not a page-aligned
+    //! mapping. Tests feed every decoder a deliberately **misaligned**
+    //! buffer (1-byte prefix + `&buf[1..]`); the `miri_` prefix makes the
+    //! CI `-- miri` filter pick them up.
+    use super::*;
+
+    /// A `Vec<u8>` whose `[1..]` view is NOT 4/8-byte aligned.
+    fn unaligned_buf(payload: &[u8]) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(payload.len() + 1);
+        buf.push(0xAA);
+        buf.extend_from_slice(payload);
+        buf
+    }
+
+    #[test]
+    fn miri_vector_decode_full_unaligned() {
+        let values = [1.5f32, -2.25, 0.0, 42.75];
+        let payload: Vec<u8> = values.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let buf = unaligned_buf(&payload);
+        let decoded = decode_full_bytes(4, 1, &buf).expect("decodes");
+        match decoded {
+            VectorRepresentations::Full(v) => assert_eq!(v, values),
+            other => panic!("expected Full, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn miri_vector_decode_binary_unaligned() {
+        let words = [0xDEADBEEFu64, 0x0123456789ABCDEF];
+        let payload: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let buf = unaligned_buf(&payload);
+        let decoded = decode_binary_bytes(2, 1, &buf).expect("decodes");
+        match decoded {
+            VectorRepresentations::Binary(w) => assert_eq!(w.as_ref(), words),
+            other => panic!("expected Binary, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn miri_vector_decode_full_via_dispatch_unaligned() {
+        use crate::node::NodeFlags;
+        let values = [3.25f32, -0.5];
+        let payload: Vec<u8> = values.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let buf = unaligned_buf(&payload);
+        let decoded =
+            decode_vector_by_kind(NodeFlags::VECTOR_KIND_FULL, 2, 1, &buf).expect("decodes");
+        match decoded {
+            VectorRepresentations::Full(v) => assert_eq!(v, values),
+            other => panic!("expected Full, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn miri_vector_decode_invalid_bounds_return_none() {
+        let buf = [0u8; 32];
+        // `end > len`.
+        assert!(decode_full_bytes(4, 20, &buf).is_none());
+        assert!(decode_binary_bytes(2, 20, &buf).is_none());
+        // `checked_add` overflow on `vector_offset`.
+        assert!(decode_full_bytes(1, u64::MAX, &buf).is_none());
+        assert!(decode_binary_bytes(1, u64::MAX, &buf).is_none());
+        // A huge `vector_len` that cannot fit the buffer.
+        assert!(decode_full_bytes(u32::MAX, 0, &buf).is_none());
+        assert!(decode_binary_bytes(u32::MAX, 0, &buf).is_none());
+        // Dispatch must map the same failures to `None`.
+        use crate::node::NodeFlags;
+        assert!(decode_vector_by_kind(NodeFlags::VECTOR_KIND_FULL, 4, 20, &buf).is_none());
+        assert!(decode_vector_by_kind(NodeFlags::VECTOR_KIND_BINARY, 2, 20, &buf).is_none());
+    }
+
+    #[test]
+    fn miri_vector_decode_zero_len_keeps_contract() {
+        // FULL with len 0 decodes to an empty vector (not `None`).
+        match decode_full_bytes(0, 0, &[]).expect("decodes") {
+            VectorRepresentations::Full(v) => assert!(v.is_empty()),
+            other => panic!("expected Full, got {other:?}"),
+        }
+        match decode_binary_bytes(0, 0, &[]).expect("decodes") {
+            VectorRepresentations::Binary(w) => assert!(w.is_empty()),
+            other => panic!("expected Binary, got {other:?}"),
+        }
+        // Legacy kind 0 with len 0 is `None`-valued, not corrupt.
+        assert!(matches!(
+            decode_vector_by_kind(0, 0, 0, &[]),
+            Some(VectorRepresentations::None)
+        ));
     }
 }

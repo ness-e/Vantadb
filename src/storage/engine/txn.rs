@@ -14,6 +14,7 @@ use web_time::{SystemTime, UNIX_EPOCH};
 use crate::error::Result;
 use crate::lsm::unpack_offset;
 use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
+use crate::storage::engine::get::decode_vector_by_kind;
 use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{LockPolicy, PendingHnswOp, Snapshot, FLAG_TOMBSTONE};
 use crate::storage::ops::NodeMetadata;
@@ -626,99 +627,16 @@ impl StorageEngine {
         let node_bytes = vstore.node_bytes(local_off)?;
 
         let kind = crate::node::NodeFlags::vector_kind(header.flags);
-        let vector = if kind == 0 {
-            if header.vector_len == 0 {
-                VectorRepresentations::None
-            } else {
-                let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
-                    return Ok(None);
-                };
-                let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
-                    return Ok(None);
-                };
-                if vec_end > node_bytes.as_slice().len() as u64 {
-                    return Ok(None);
-                }
-                let vec_start = header.vector_offset as usize;
-                let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
-                let f32_vec: Vec<f32> = slice
-                    .chunks_exact(4)
-                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                    .collect();
-                VectorRepresentations::Full(f32_vec)
-            }
-        } else {
-            match kind {
-                crate::node::NodeFlags::VECTOR_KIND_FULL => {
-                    let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
-                        return Ok(None);
-                    };
-                    let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
-                        return Ok(None);
-                    };
-                    if vec_end > node_bytes.as_slice().len() as u64 {
-                        return Ok(None);
-                    }
-                    let vec_start = header.vector_offset as usize;
-                    let vec_end = vec_end as usize;
-                    let vec_bytes = &node_bytes.as_slice()[vec_start..vec_end];
-                    let f32_vec: Vec<f32> = vec_bytes
-                        .chunks_exact(4)
-                        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                        .collect();
-                    VectorRepresentations::Full(f32_vec)
-                }
-                crate::node::NodeFlags::VECTOR_KIND_BINARY => {
-                    let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(8) else {
-                        return Ok(None);
-                    };
-                    let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
-                        return Ok(None);
-                    };
-                    if vec_end > node_bytes.as_slice().len() as u64 {
-                        return Ok(None);
-                    }
-                    let vec_start = header.vector_offset as usize;
-                    let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
-                    let (_, u64_slice, _) = unsafe { slice.align_to::<u64>() };
-                    if u64_slice.len() != header.vector_len as usize {
-                        return Ok(None);
-                    }
-                    VectorRepresentations::Binary(u64_slice.to_vec().into_boxed_slice())
-                }
-                crate::node::NodeFlags::VECTOR_KIND_TURBO => {
-                    let Some(vec_end) = header.vector_offset.checked_add(header.vector_len as u64)
-                    else {
-                        return Ok(None);
-                    };
-                    if vec_end > node_bytes.as_slice().len() as u64 {
-                        return Ok(None);
-                    }
-                    let vec_start = header.vector_offset as usize;
-                    let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
-                    VectorRepresentations::Turbo(slice.to_vec().into_boxed_slice())
-                }
-                crate::node::NodeFlags::VECTOR_KIND_SQ8 => {
-                    let Some(payload_end) = (header.vector_len as u64)
-                        .checked_add(4)
-                        .and_then(|b| header.vector_offset.checked_add(b))
-                        .filter(|&end| end <= node_bytes.as_slice().len() as u64)
-                    else {
-                        return Ok(None);
-                    };
-                    let vec_start = header.vector_offset as usize;
-                    let payload = &node_bytes.as_slice()[vec_start..payload_end as usize];
-                    let n = header.vector_len as usize;
-                    let scale = f32::from_le_bytes(payload[n..n + 4].try_into().unwrap_or([0; 4]));
-                    if !scale.is_finite() {
-                        return Ok(None);
-                    }
-                    let data: Vec<i8> = payload[..n].iter().map(|&b| b as i8).collect();
-                    VectorRepresentations::SQ8(data.into_boxed_slice(), scale)
-                }
-                crate::node::NodeFlags::VECTOR_KIND_NONE => VectorRepresentations::None,
-                _ => VectorRepresentations::None,
-            }
+        // FIND-591: shared, alignment-agnostic decoders — `None` means
+        // corrupt header/bounds and the node reads as absent, exactly like
+        // every inline branch did.
+        let Some(vector) = decode_vector_by_kind(
+            kind,
+            header.vector_len,
+            header.vector_offset,
+            node_bytes.as_slice(),
+        ) else {
+            return Ok(None);
         };
 
         let mut node = UnifiedNode::new(id);
