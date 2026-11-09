@@ -319,7 +319,9 @@ function extractRust(reader) {
     const modFile = read(rel) ?? read(`src/${prefix.replace(/::/g, "/")}/mod.rs`);
     if (modFile == null) continue;
     filesRead++;
-    const text = stripRust(modFile);
+    // Normalize CRLF: worktree files on Windows arrive with `\r\n` and the
+    // line-anchored regexes below (`\{[ \t]*$`, `^}`) must not see the `\r`.
+    const text = stripRust(modFile).replace(/\r\n/g, "\n");
     const q = (n) => (prefix ? `${prefix}::${n}` : n);
 
     for (const m of text.matchAll(/^[ \t]*pub\s+mod\s+([A-Za-z_]\w*)\s*(?::\s*pub)?\s*;/gm)) {
@@ -962,6 +964,26 @@ function selfTest() {
     assert(has("reexport", "MAX_K"), "nested re-export");
     assert(has("reexport", "Result"), "single re-export");
     assert(has("reexport", "Input"), "`as` rename re-export");
+  });
+
+  check("rust: CRLF line endings produce the same surface as LF", () => {
+    // On Windows the worktree is checked out with CRLF. A `\r` left at the end
+    // of `impl Foo {` defeated the `\{[ \t]*$` anchor and made EVERY inherent
+    // impl vanish from the surface — the gate then reported 126 phantom
+    // removals on a clean tree (FIND-257).
+    const files = {
+      "src/lib.rs": "pub mod engine;",
+      "src/engine.rs": [
+        "pub struct Engine;",
+        "impl Engine {",
+        "    pub fn open() -> Self { Engine }",
+        "}",
+      ].join("\r\n"),
+    };
+    const out = new Set();
+    extractRust(stubReader(files)).forEach((e) => out.add(e));
+    assert(out.has("rust\timpl\tengine::Engine"), "impl block under CRLF");
+    assert(out.has("rust\tmethod\tengine::Engine::open"), "impl method under CRLF");
   });
 
   check("python: classes, methods, properties, __all__ extracted; docstrings skipped", () => {
