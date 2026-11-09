@@ -158,6 +158,16 @@ impl FjallInner {
 pub(crate) struct FjallBackend {
     /// Path to the data directory (kept for reopening after compaction).
     path: PathBuf,
+    /// FIND-632 / ADR-0001 (logical read-only barrier): when the engine is
+    /// opened with `config.read_only`, every mutating `StorageBackend` call
+    /// (`put`, `delete`, `write_batch`, `flush`, `compact`) is rejected with a
+    /// typed error. Fjall exposes no physical read-only open (fjall#313): it
+    /// always takes an exclusive `.lock` and replays/persists its journal, so
+    /// the barrier here is *logical* — the engine's metadata, registry and
+    /// data are never written, while Fjall's own open-time metadata (the
+    /// allowlist pinned by `fjall_read_only_open_never_mutates_files`) may
+    /// still change on disk.
+    read_only: bool,
     /// Guarded handles. Every read-path operation takes `RwLock::read()`.
     /// `compact()` takes `RwLock::write()` for the full atomic rewrite.
     inner: RwLock<FjallInner>,
@@ -169,10 +179,15 @@ impl FjallBackend {
     /// Creates the database directory if it does not exist.
     /// Opens (or creates) one keyspace per `BackendPartition` using the
     /// same names as the RocksDB column families for semantic continuity.
-    pub(crate) fn open(path: &str, _config: &Config) -> Result<Self> {
+    ///
+    /// When `config.read_only` is set the open still succeeds (Fjall has no
+    /// physical read-only mode) but the backend enforces a logical barrier:
+    /// no `StorageBackend` mutation is performed afterwards. Two failure
+    /// modes are mapped to typed errors (see [`Self::map_open_error`]).
+    pub(crate) fn open(path: &str, config: &Config) -> Result<Self> {
         let db = Database::builder(path)
             .open()
-            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Self::map_open_error(e, path, config.read_only))?;
 
         let inner = FjallInner::open_keyspaces(db)?;
 
@@ -180,8 +195,75 @@ impl FjallBackend {
 
         Ok(Self {
             path: PathBuf::from(path),
+            read_only: config.read_only,
             inner: RwLock::new(inner),
         })
+    }
+
+    /// Map a `fjall::Error` from `Database::open` to a typed `Error`.
+    ///
+    /// - `Locked` → [`Error::DatabaseBusy`]: another handle or process holds
+    ///   the exclusive `.lock` (fjall-3.1.12 `src/locked_file.rs:55-77` —
+    ///   `try_acquire` retries 3×100ms then returns `Error::Locked`).
+    /// - `Io(PermissionDenied | ReadOnlyFilesystem)` on a `read_only` open →
+    ///   [`Error::Io`] with an actionable message: Fjall writes its lock and
+    ///   journal even on read-only opens (fjall-3.1.12 `src/db.rs:585` opens
+    ///   `.lock` with `write(true)`; `src/db.rs:597` persists the journal
+    ///   with `SyncAll`), so it cannot run on a non-writable filesystem.
+    ///   Physical read-only requires the RocksDB backend.
+    fn map_open_error(error: fjall::Error, path: &str, read_only: bool) -> Error {
+        match error {
+            fjall::Error::Locked => Error::DatabaseBusy(format!(
+                "the Fjall backend at '{path}' is already locked by another handle or \
+                 process: Fjall takes an exclusive `.lock` file lock on every open — \
+                 read_only opens included (fjall-3.1.12 src/locked_file.rs:55-77). \
+                 Close the other handle/process and retry."
+            )),
+            fjall::Error::Io(inner)
+                if read_only
+                    && matches!(
+                        inner.kind(),
+                        std::io::ErrorKind::PermissionDenied
+                            | std::io::ErrorKind::ReadOnlyFilesystem
+                    ) =>
+            {
+                Error::Io(std::io::Error::new(
+                    inner.kind(),
+                    format!(
+                        "the Fjall backend cannot open '{path}' on a non-writable \
+                         filesystem: Fjall needs write access for its `.lock` file and \
+                         journal recovery even on a read_only open (fjall-3.1.12 \
+                         src/db.rs:585 opens `.lock` with write(true); src/db.rs:597 \
+                         persists the journal with SyncAll). A physical read-only open \
+                         requires the RocksDB backend (backend_kind = \"rocksdb\"). \
+                         Cause: {inner}"
+                    ),
+                ))
+            }
+            other => Error::Io(std::io::Error::other(other.to_string())),
+        }
+    }
+
+    /// FIND-632 / ADR-0001: reject every mutating call on a `read_only` open
+    /// with a typed error — never silently write, never panic.
+    ///
+    /// Same `Validation { field: "read_only" }` contract as
+    /// `StorageEngine::guard_write_allowed` (`storage/engine/stats.rs:16`),
+    /// so callers observe one uniform error shape at both barriers.
+    #[inline]
+    fn ensure_writable(&self, op: &str) -> Result<()> {
+        if self.read_only {
+            return Err(Error::Validation {
+                field: "read_only".into(),
+                reason: format!(
+                    "the Fjall backend at '{}' was opened read_only; `{op}` rejected \
+                     (ADR-0001 logical barrier — Fjall has no physical read-only mode, \
+                     see fjall#313)",
+                    self.path.display()
+                ),
+            });
+        }
+        Ok(())
     }
 }
 
@@ -189,6 +271,7 @@ impl FjallBackend {
 
 impl StorageBackend for FjallBackend {
     fn put(&self, partition: BackendPartition, key: &[u8], value: &[u8]) -> Result<()> {
+        self.ensure_writable("put")?;
         self.inner
             .read()
             .keyspace(partition)
@@ -222,6 +305,7 @@ impl StorageBackend for FjallBackend {
     }
 
     fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()> {
+        self.ensure_writable("delete")?;
         self.inner
             .read()
             .keyspace(partition)
@@ -230,6 +314,7 @@ impl StorageBackend for FjallBackend {
     }
 
     fn write_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
+        self.ensure_writable("write_batch")?;
         // OwnedWriteBatch (type-aliased as WriteBatch) provides native atomic
         // writes across multiple Keyspaces within the same Database.
         // All operations are committed atomically via the shared journal.
@@ -264,6 +349,7 @@ impl StorageBackend for FjallBackend {
     /// provides crash consistency regardless; this call ensures data survives
     /// power loss.
     fn flush(&self) -> Result<()> {
+        self.ensure_writable("flush")?;
         self.inner
             .read()
             .db
@@ -403,6 +489,9 @@ impl Scannable for FjallBackend {
 /// the filesystem operations.
 impl Compactable for FjallBackend {
     fn compact(&self) -> Result<bool> {
+        // FIND-632 / ADR-0001: compaction rewrites the whole data directory —
+        // it is a mutating operation and is rejected on a read_only open.
+        self.ensure_writable("compact")?;
         // ── 1. Acquire exclusive write lock ──────────────────────────────────
         let mut guard = self.inner.write();
 

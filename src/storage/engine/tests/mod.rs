@@ -22,6 +22,15 @@ mod types;
 #[cfg(all(feature = "encryption", any(feature = "fjall", feature = "rocksdb")))]
 mod encryption;
 
+/// FIND-632 / ADR-0001: shared filesystem snapshot + Fjall open-metadata
+/// allowlist used by every `read_only` file-mutation test.
+#[cfg(any(feature = "fjall", all(feature = "encryption", feature = "rocksdb")))]
+mod read_only_files;
+
+/// FIND-632 / ADR-0001: the logical `read_only` barrier of the Fjall backend.
+#[cfg(feature = "fjall")]
+mod read_only;
+
 // ─── Shared helpers used by all sub-modules ───────────────────
 
 pub(super) fn in_memory_engine() -> StorageEngine {

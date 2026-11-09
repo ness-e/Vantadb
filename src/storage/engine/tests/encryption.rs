@@ -376,18 +376,21 @@ fn read_only_open_never_writes_the_registry() {
     let registry = dir.path().join("data").join("encryption.registry");
     assert!(registry.exists(), "the encrypted database wrote a registry");
 
-    // Snapshot the storage root: file set + byte content. The `keyspaces`
-    // tree and the fjall journal (`*.jnl`) are **excluded**: they belong to
-    // the backend, which rotates its `v{N}` version markers and appends to
-    // its journal even on a read-only open — a separate ADR-0001 violation
-    // outside the registry barrier this test pins (deuda: the backend must
-    // stop writing version/journal files in read_only).
-    let is_backend_marker =
-        |p: &std::path::Path| p.components().any(|c| c.as_os_str() == "keyspaces");
-    let is_backend_journal = |p: &std::path::Path| p.extension().is_some_and(|ext| ext == "jnl");
+    // Snapshot the storage root: file set + byte content. The only files
+    // excluded are the **exact** Fjall open-time metadata allowlist shared
+    // with `fjall_read_only_open_never_mutates_files`
+    // (`read_only_files::fjall_open_allowlist`, FIND-632): Fjall has no
+    // physical read-only open (fjall#313), so a logical-barrier open still
+    // touches its lock/journal/keyspace version markers. Every other file —
+    // the `encryption.registry` pinned here, VantaFile/WAL/index artefacts,
+    // SST/blob data files — must remain byte-identical.
+    let is_allowed_fjall_metadata = |p: &std::path::Path| {
+        let rel = p.strip_prefix(dir.path()).expect("path under tempdir");
+        super::read_only_files::fjall_open_allowlist(rel)
+    };
     let before: std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> = files_under(dir.path())
         .into_iter()
-        .filter(|p| !is_backend_marker(p) && !is_backend_journal(p))
+        .filter(|p| !is_allowed_fjall_metadata(p))
         .map(|p| {
             let bytes = std::fs::read(&p).expect("read before");
             (p, bytes)
@@ -409,7 +412,7 @@ fn read_only_open_never_writes_the_registry() {
 
     let after: std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> = files_under(dir.path())
         .into_iter()
-        .filter(|p| !is_backend_marker(p) && !is_backend_journal(p))
+        .filter(|p| !is_allowed_fjall_metadata(p))
         .map(|p| {
             let bytes = std::fs::read(&p).expect("read after");
             (p, bytes)
