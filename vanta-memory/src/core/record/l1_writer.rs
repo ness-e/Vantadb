@@ -164,9 +164,10 @@ pub fn write_memory(
 struct PlannedWrite {
     record: MemoryRecord,
     vector: Option<Vec<f32>>,
-    /// Storage keys (`sanitize_key`) of update/merge targets. In the batch
-    /// path they are pruned AFTER the `put_batch` commit and only when the
-    /// batch did not rewrite the same key (write-first, MEMG-27).
+    /// Storage keys (`sanitize_key`) of update/merge targets. In both paths
+    /// they are pruned AFTER the write commits (`put` / `put_batch`) and
+    /// only when the write did not rewrite the same key (write-first,
+    /// MEMG-27).
     deletes: Vec<String>,
     /// Explicit contradiction record ids (MEMG-01), flagged post-commit.
     contradicts: Vec<String>,
@@ -286,13 +287,22 @@ fn plan_write(
     }
 }
 
-/// Persist one planned write: delete update/merge targets, then upsert the
-/// record (vector on the node, stripped from the payload).
+/// Persist one planned write (write-first protocol, MEMG-27): upsert the
+/// record FIRST — vector on the node, stripped from the payload — and only
+/// on `Ok` prune the update/merge targets the write did not already
+/// overwrite (`deletes \ {new_key}`). If the `put` fails (up-front
+/// validation: shape, vector dimension FIND-411, quota) zero deletes have
+/// run, so every pre-existing record survives. A target key that coincides
+/// with the new record's key was atomically overwritten by the `put`;
+/// deleting it would destroy the record just written.
 fn persist_planned(db: &Embedded, ns: &str, planned: &PlannedWrite) -> Result<(), L1Error> {
-    for key in &planned.deletes {
-        db.delete(ns, key)?;
-    }
     put_record(db, ns, &planned.record, planned.vector.clone())?;
+    let new_key = sanitize_key(&planned.record.id);
+    for key in &planned.deletes {
+        if *key != new_key {
+            db.delete(ns, key)?;
+        }
+    }
     Ok(())
 }
 
@@ -455,14 +465,14 @@ pub fn apply_dedup_batch(
     // write), not per-plan: a target of plan A whose key equals the new
     // record of plan B is likewise protected.
     //
-    // Semantics note (MEMG-27 review R-1): for coincident keys the batch
-    // path now UPSERTS (storage version increments, `read_record_versions`
-    // keeps the pre-merge history) while the sequential `persist_planned`
-    // path still delete-then-puts (version resets to 1, history erased).
-    // The divergence is deliberate and conservative — the upsert retains
-    // strictly more provenance; the serialized `MemoryRecord.version`
-    // (merge version = max(targets)+1) stays identical across paths.
-    // Homogenizing `write_memory` to write-first is tracked as debt.
+    // Semantics note (MEMG-27 review R-1, rework): both paths UPSERT — the
+    // sequential `persist_planned` was homogenized to write-first and now
+    // shares the same storage-version lineage (version increments,
+    // `read_record_versions` keeps the pre-merge history) instead of the
+    // old delete-then-put (version reset to 1, history erased). The upsert
+    // retains strictly more provenance; the serialized
+    // `MemoryRecord.version` (merge version = max(targets)+1) is computed
+    // in `plan_write` and stays identical across paths.
     let new_keys: BTreeSet<String> = planned_writes
         .iter()
         .map(|planned| sanitize_key(&planned.record.id))
@@ -670,7 +680,7 @@ mod tests {
     use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
     use vantadb::storage::BackendKind;
 
-    use super::{apply_dedup_batch, generate_memory_id, EmbedFn};
+    use super::{apply_dedup_batch, generate_memory_id, write_memory, EmbedFn};
     use crate::core::abstractions::{
         DedupAction, DedupDecision, ExtractedMemory, MemoryRecord, MemoryType,
     };
@@ -907,6 +917,90 @@ mod tests {
             read_record(&db, "sess", "m_a").expect("read").is_some(),
             "plan A merged record persisted"
         );
+    }
+
+    /// MEMG-27 rework RED (sequential path): a `write_memory` whose `put`
+    /// fails must not lose the pre-existing target. The old order
+    /// (delete targets → put) left `old1` deleted with no replacement; the
+    /// write-first order fails before any delete runs.
+    ///
+    /// Failure injection: a seed vector of dim 3 fixes the index
+    /// dimension, then the embed hook yields dim 4 — `put`'s up-front
+    /// dimension validation (FIND-411, `memory.rs`) errors deterministically
+    /// on every backend before anything is written.
+    #[test]
+    fn failed_write_memory_preserves_preexisting_record() {
+        let db = open_db();
+        db.put(MemoryInput {
+            namespace: "l1/sess".into(),
+            key: "seed".into(),
+            payload: serde_json::to_string(&existing_record("seed", "seed vec"))
+                .expect("serialize"),
+            metadata: MemoryMetadata::new(),
+            vector: Some(vec![0.1_f32; 3]),
+            sparse_vector: None,
+            ttl_ms: None,
+            ..Default::default()
+        })
+        .expect("seed put fixes index dim = 3");
+        put_raw(&db, "l1/sess", &existing_record("old1", "user used emacs"));
+
+        let mut update = decision("m_c", DedupAction::Update);
+        update.target_ids = vec!["old1".into()];
+        update.merged_content = Some("user switched to vim".into());
+        let embed: EmbedFn = Arc::new(|_| Some(vec![0.1_f32; 4]));
+
+        let res = write_memory(
+            &db,
+            "sess",
+            "sess",
+            &memory("merge into old1"),
+            &update,
+            1_700_000_000_000,
+            0,
+            Some(&embed),
+        );
+        assert!(res.is_err(), "wrong-dim vector must fail the put");
+
+        let rec = read_record(&db, "sess", "old1").expect("read");
+        assert!(
+            rec.is_some(),
+            "write-first: a failed put must leave the pre-existing target intact"
+        );
+    }
+
+    /// MEMG-27 rework (sequential path): an update whose new record id
+    /// sanitizes to the SAME storage key as its target. The `put` already
+    /// overwrote that key; the prune must only delete `deletes \ {new_key}`
+    /// — a naive delete-all would destroy the record just written.
+    #[test]
+    fn write_memory_coincident_key_survives() {
+        let db = open_db();
+        put_raw(&db, "l1/sess", &existing_record("m_same", "v1 content"));
+
+        let mut update = decision("m_same", DedupAction::Update);
+        update.target_ids = vec!["m_same".into()];
+        update.merged_content = Some("v2 content".into());
+
+        let written = write_memory(
+            &db,
+            "sess",
+            "sess",
+            &memory("update in place"),
+            &update,
+            1_700_000_000_000,
+            0,
+            None,
+        )
+        .expect("write_memory")
+        .expect("update persists a record");
+        assert_eq!(written.id, "m_same");
+
+        let rec = read_record(&db, "sess", "m_same")
+            .expect("read")
+            .expect("record rewritten in place must survive the prune");
+        assert_eq!(rec.content, "v2 content");
+        assert_eq!(rec.version, 2, "merge bumps payload version");
     }
 
     #[cfg(feature = "embed-local")]
