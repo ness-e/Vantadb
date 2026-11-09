@@ -9,6 +9,17 @@
 #
 # Usage:  pwsh dev-tools/scripts/gen-fixture-v090.ps1
 # Stop conditions: fixture must stay <= 5 MB.
+#
+# Coverage note (ADR-0060 D8a): "sparse" vectors are NOT reachable through the
+# v0.9.0 CLI — `put` accepts only a dense `--vector` (cli.rs@v0.9.0). The
+# fixture therefore covers records + dense vectors + text + WAL with rotated
+# segments; SparseIndexState compat ("same-value match kept") is exercised by
+# the absent-state path. Flagged for ADR amendment.
+#
+# Rollback check (ADR-0060 D5/D8b): after generation, run
+#   pwsh dev-tools/scripts/run-compat-v090-rollback.ps1
+# which reuses the cached binary in %TEMP%\vanta-v090-target and runs the
+# gated `compat_v090_rollback_*` test with VANTADB_V090_CLI set.
 
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
@@ -115,7 +126,11 @@ try {
             $buf = New-Object byte[] 8
             [void]$fs.Seek(16, 'Begin')
             [void]$fs.Read($buf, 0, 8)
-            $cursor = [Math]::Max([BitConverter]::ToUInt64($buf, 0), 64)
+            $cursor = [BitConverter]::ToUInt64($buf, 0)
+            $size = $fs.Length
+            if ($cursor -lt 64 -or $cursor -gt $size) {
+                throw "refusing to truncate $($_.Name): write_cursor=$cursor outside [64, $size]"
+            }
         } finally { $fs.Close() }
         $w = [System.IO.File]::Open($_.FullName, 'Open', 'Write')
         try { $w.SetLength($cursor) } finally { $w.Close() }
@@ -167,6 +182,11 @@ try {
             text_hits_docs = @('doc1','doc3','doc5','doc7')
         }
         files_sha256 = $files
+        coverage_notes = @(
+            'sparse vectors: not reachable via v0.9.0 vanta-cli (put has no sparse flag); SparseIndexState compat exercised via absent-state path — ADR-0060 D8a gap',
+            'WAL rotation: simulated by renaming live shards to <name>.<epoch_ms>, byte-identical to WalWriter::rotate output; genuine rotation unreachable (256MiB threshold > 5MB budget)',
+            'vstore_L*.vanta truncated at write_cursor; tail was zero padding from the 64MiB pre-allocation'
+        )
     }
     # UTF-8 *without* BOM — serde_json rejects a BOM at byte 0.
     [System.IO.File]::WriteAllText(

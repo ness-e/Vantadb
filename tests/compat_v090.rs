@@ -54,6 +54,35 @@ fn sha256_hex(path: &Path) -> String {
     digest.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// Map of relative path -> sha256 for every file under `root` (sorted).
+fn dir_hashes(root: &Path) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(&dir).expect("readdir") {
+            let entry = entry.expect("entry");
+            let path = entry.path();
+            if entry.file_type().expect("ft").is_dir() {
+                stack.push(path);
+            } else {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                // Held under an exclusive OS lock while the db is open.
+                if name == ".vanta.lock" || name == "lock" {
+                    continue;
+                }
+                let rel = path
+                    .strip_prefix(root)
+                    .expect("under root")
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                out.push((rel, sha256_hex(&path)));
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
 fn expected_keys(m: &Value, ns: &str) -> Vec<String> {
     m["expected"]["namespaces"][ns]
         .as_array()
@@ -156,16 +185,19 @@ fn compat_v090_search_text_and_vector() {
         })
         .expect("text search over v0.9.0 base");
     let hit_keys: Vec<&str> = hits.iter().map(|h| h.record.key.as_str()).collect();
-    for want in m["expected"]["text_hits_docs"]
+    let mut want_keys: Vec<&str> = m["expected"]["text_hits_docs"]
         .as_array()
         .expect("text hits")
-    {
-        let want = want.as_str().expect("str");
-        assert!(
-            hit_keys.contains(&want),
-            "text search for {text_query:?} must return docs/{want}; got {hit_keys:?}"
-        );
-    }
+        .iter()
+        .map(|v| v.as_str().expect("str"))
+        .collect();
+    want_keys.sort_unstable();
+    let mut got_sorted = hit_keys.clone();
+    got_sorted.sort_unstable();
+    assert_eq!(
+        got_sorted, want_keys,
+        "text search for {text_query:?} must return exactly the expected docs keys"
+    );
 
     // Dense vector search over the v0.9.0 HNSW image.
     let query: Vec<f32> = m["expected"]["vector_query"]
@@ -253,10 +285,17 @@ fn compat_v090_index_state_self_heals_and_is_idempotent() {
         "rebuilt index must answer correctly"
     );
     // ADR-0060 D8(b): a forced secondary-state rebuild converges and a re-run
-    // is a no-op — the reconciliation is idempotent.
+    // is a no-op — the reconciliation is idempotent. Observable check: after
+    // the first explicit reconcile, hashing every file must not change.
     db.ensure_indexes_current().expect("first reconcile");
+    let snapshot = dir_hashes(&db_path);
     db.ensure_indexes_current()
         .expect("second reconcile is a no-op");
+    assert_eq!(
+        dir_hashes(&db_path),
+        snapshot,
+        "idempotent reconcile must not rewrite any persisted state"
+    );
     db.close().expect("close");
 }
 
