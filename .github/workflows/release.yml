@@ -122,7 +122,11 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin
-          PR_BRANCH=$(gh pr list --state open --base main --json headRefName --jq '[.[] | select(.headRefName | startswith("release-plz-"))][0].headRefName // empty')
+          # FIND-467: ancla regex explicita `^release-plz-` (no startswith
+          # suelto): solo la rama del Release PR de release-plz (prefijo
+          # `release-plz-`, ver docs release-plz pr_branch_prefix) puede ser
+          # seleccionada para el sync de manifiestos.
+          PR_BRANCH=$(gh pr list --state open --base main --json headRefName --jq '[.[] | select(.headRefName | test("^release-plz-"))][0].headRefName // empty')
           if [ -z "$PR_BRANCH" ]; then
             echo "No open release-plz PR branch found; skipping manifest sync."
             exit 0

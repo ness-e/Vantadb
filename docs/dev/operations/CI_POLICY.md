@@ -550,7 +550,7 @@ Runs on a weekly schedule (`0 6 * * 1`) and via `workflow_dispatch` to collect e
 | Workflow | File | Trigger |
 |----------|------|---------|
 | Release Automation | `release.yml` | Push to `main` — `release-plz` auto-version, changelog, tag, publish |
-| Python Wheels | `release-wheels.yml` | Tag `v*.*.*`, `pull_request` to `main` (paths src/python), or `workflow_dispatch` |
+| Python Wheels | `release-wheels.yml` | `workflow_dispatch` via fanout de `release.yml` sobre tag `v*.*.*` (FIND-467, `push.tags` eliminado por doble disparo), `pull_request` to `main` (paths src/python), o `workflow_dispatch` manual |
 | NPM Publish (WASM+TS) | `release-npm-wasm.yml` | Tag `v*.*.*`, `pull_request` (paths wasm/ts), or `workflow_dispatch` — includes Fast Gate job `tests` (`npm ci && npm run build && npx vitest run`, measured 27s <5min, no `continue-on-error`, PR+tags gate per TS-06) |
 | NPM Publish (Node) | `release-npm-node.yml` | Tag `node-v*.*.*`, `pull_request` (paths node), or `workflow_dispatch` |
 | PyPI Adapters | `release-adapters.yml` | Tag `adapters-v*.*.*` or `workflow_dispatch` (TestPyPI) |

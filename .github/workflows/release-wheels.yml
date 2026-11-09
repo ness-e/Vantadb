@@ -15,8 +15,12 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/release-wheels.yml"
-  push:
-    tags: ["v*.*.*"]
+  # FIND-467: sin `push.tags`. El tag `v*.*.*` ya dispara este workflow via el
+  # job `fanout` de `release.yml` (`gh workflow run release-wheels.yml --ref
+  # <tag>`); tener ambos disparaba el workflow dos veces por release (PAT no
+  # suprime eventos -> push.tags + dispatch) y la carrera devolvia HTTP 400 en
+  # PyPI (post-mortem 0.9.0). Recuperacion manual: `workflow_dispatch`
+  # (`gh workflow run release-wheels.yml --ref vX.Y.Z`, PUBLISH.md).
 
 permissions:
   contents: read
