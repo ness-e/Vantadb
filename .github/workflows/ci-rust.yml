@@ -96,6 +96,57 @@ jobs:
         run:
           npx --yes -p secretlint -p @secretlint/secretlint-rule-preset-recommend secretlint "**/*"
 
+  main-ancestry-gate:
+    # FIND-455: mechanical ancestry gate — a PR targeting `main` must already
+    # contain every commit on `main`. Without it, a `develop → main` merge can
+    # silently revert hotfixes that only live on `main` (post-release hygiene:
+    # sync main → develop after every release, .opencode/AGENTS.md).
+    # Scope: pull_request events only — `github.base_ref`/`github.head_ref` are
+    # undefined on push (docs.github.com contexts reference).
+    # `release-plz-*` branches are exempt: release-plz rebases its release PR on
+    # every run and the branch only touches version/CHANGELOG metadata — it
+    # cannot revert code hotfixes. Same prefix family as FIND-467's selector
+    # `^release-plz-[0-9]{4}-` in release.yml.
+    # `fetch-depth: 0` is mandatory: on a shallow clone `git merge-base` fails
+    # unconditionally. The explicit fetch guarantees `origin/main` resolves —
+    # a PR checkout only guarantees the merge ref, not the base remote branch.
+    # KNOWN SCOPE (accepted, FIND-455): this workflow's pull_request trigger is
+    # paths-filtered, so the gate only runs on PRs that touch the listed paths.
+    # A `develop → main` PR carries code changes by construction, so it always
+    # matches; hotfix-only-main reverts in unlisted paths (docs/, scripts/) are
+    # out of scope for this file — a dedicated unfiltered workflow would be
+    # needed to close that gap.
+    name: Main Ancestry Gate (PRs → main)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event_name == 'pull_request' && github.base_ref == 'main' &&
+      !startsWith(github.head_ref, 'release-plz-')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # CRITICAL: checkout the PR head commit, not the default merge ref
+          # (refs/pull/N/merge). The merge commit's first parent is main, so
+          # testing ancestry on it is tautological — the gate would never fire.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Fetch base ref (origin/main)
+        run: git fetch --no-tags origin main
+
+      - name: Require origin/main to be an ancestor of the PR head
+        # Exit 0 = ancestor, 1 = not ancestor, other non-zero = git error
+        # (git-scm.com/docs/git-merge-base). Any non-zero fails the step.
+        run: |
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "OK: origin/main is an ancestor of the PR head."
+          else
+            rc=$?
+            echo "::error::This PR does not contain all commits currently on main (merge-base exit ${rc})."
+            echo "::error::Sync the head branch with main first (merge origin/main into it) — otherwise merging could revert hotfixes that only live on main."
+            exit 1
+          fi
+
   fmt:
     name: Format Check
     # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
