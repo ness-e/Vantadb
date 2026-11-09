@@ -11,6 +11,7 @@ use crate::backend::BackendKind;
 use crate::storage::engine::SegmentOptimizerConfig;
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::AdvancedTokenizerConfig;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::env;
@@ -43,6 +44,33 @@ fn redacted(v: &Option<String>) -> &'static str {
     } else {
         "None"
     }
+}
+
+/// Debug-only redaction of URL userinfo (FIND-588 audit): a URL may embed
+/// credentials as `scheme://user[:pass]@host`, so the userinfo segment is
+/// replaced with `[REDACTED]` while the rest of the URL stays visible for
+/// diagnostics. Minimal manual parse — no URL-crate dependency: the
+/// authority is delimited by the first `/`, `?`, or `#` after `://` (or end
+/// of string), and the userinfo ends at the **last** `@` inside it. Without
+/// `://`, or without `@` inside the authority, the URL is returned untouched
+/// (an `@` in the path or query is never treated as userinfo).
+fn redact_url_userinfo(url: &str) -> Cow<'_, str> {
+    let Some(scheme_end) = url.find("://") else {
+        return Cow::Borrowed(url);
+    };
+    let auth_start = scheme_end + 3;
+    let auth_end = url[auth_start..]
+        .find(['/', '?', '#'])
+        .map(|i| auth_start + i)
+        .unwrap_or(url.len());
+    let Some(at) = url[auth_start..auth_end].rfind('@') else {
+        return Cow::Borrowed(url);
+    };
+    let mut out = String::with_capacity(url.len());
+    out.push_str(&url[..auth_start]);
+    out.push_str("[REDACTED]");
+    out.push_str(&url[auth_start + at..]);
+    Cow::Owned(out)
 }
 
 // FFI guard constants — single source of truth for transport-specific limits
@@ -418,7 +446,7 @@ pub struct LlmCfg {
 impl fmt::Debug for LlmCfg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("LlmCfg");
-        s.field("llm_url", &self.llm_url)
+        s.field("llm_url", &redact_url_userinfo(&self.llm_url))
             .field("llm_model", &self.llm_model)
             .field("llm_summarize_model", &self.llm_summarize_model)
             .field("local_model_path", &self.local_model_path)
@@ -1158,7 +1186,7 @@ impl fmt::Debug for Config {
         s.field("storage_path", &self.storage_path)
             .field("host", &self.host)
             .field("port", &self.port)
-            .field("llm_url", &self.llm_url)
+            .field("llm_url", &redact_url_userinfo(&self.llm_url))
             .field("llm_model", &self.llm_model)
             .field("llm_summarize_model", &self.llm_summarize_model)
             .field("local_model_path", &self.local_model_path)
@@ -3086,6 +3114,53 @@ mod tests {
             flat.contains("admin"),
             "RBAC role names must stay visible:\n{flat}"
         );
+    }
+
+    /// URL userinfo (`scheme://user[:pass]@host`) is credentials-bearing and
+    /// must be redacted in `Debug` too (FIND-588 audit finding on `llm_url`).
+    #[test]
+    fn config_debug_redacts_url_userinfo() {
+        // Case 1: user:pass in authority → both redacted, host/path kept.
+        let cfg = Config {
+            llm_url: "http://user:CANARY_PW@host:11434/v1".to_string(),
+            ..Config::in_memory()
+        };
+        for out in [format!("{cfg:?}"), format!("{:?}", cfg.llm_cfg())] {
+            assert!(
+                !out.contains("CANARY_PW"),
+                "Debug leaked URL password:\n{out}"
+            );
+            assert!(!out.contains("user:"), "Debug leaked URL userinfo:\n{out}");
+            assert!(
+                out.contains("[REDACTED]@host:11434/v1"),
+                "expected redacted userinfo with host intact:\n{out}"
+            );
+        }
+
+        // Case 2: no userinfo → URL intact.
+        let cfg = Config {
+            llm_url: "http://localhost:11434".to_string(),
+            ..Config::in_memory()
+        };
+        let out = format!("{cfg:?}");
+        assert!(out.contains("http://localhost:11434"), "{out}");
+
+        // Case 3: `@` in the path is not userinfo → intact.
+        let cfg = Config {
+            llm_url: "http://host/path@notuserinfo".to_string(),
+            ..Config::in_memory()
+        };
+        let out = format!("{cfg:?}");
+        assert!(out.contains("http://host/path@notuserinfo"), "{out}");
+
+        // Case 4: only the userinfo token is redacted; `@` in query survives.
+        let cfg = Config {
+            llm_url: "https://tok@host?x=a@b".to_string(),
+            ..Config::in_memory()
+        };
+        let out = format!("{cfg:?}");
+        assert!(!out.contains("tok@"), "Debug leaked URL token:\n{out}");
+        assert!(out.contains("[REDACTED]@host?x=a@b"), "{out}");
     }
 
     // Sin env y sin argumento explícito → el default documentado.
