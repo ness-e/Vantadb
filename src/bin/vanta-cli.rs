@@ -325,12 +325,12 @@ fn run() -> anyhow::Result<()> {
 
         Commands::Encryption(cmd) => match cmd {
             vantadb::cli::EncryptionCommand::Rotate {
-                new_key,
                 new_key_file,
+                new_key_stdin,
             } => cli_handlers::cmd_encryption_rotate(
                 &args.db,
-                new_key.as_deref(),
                 new_key_file.as_deref(),
+                new_key_stdin,
                 args.json,
             )?,
         },

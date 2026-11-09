@@ -73,8 +73,9 @@ por proceso** y la reparte a los cuatro artefactos.
   passphrase mas corta se estira con PBKDF2-HMAC-SHA256 (210 000 iteraciones)
   y el registro de la base, pero la forma recomendada sigue siendo la key
   aleatoria.
-- **Nunca** la pases por la linea de comandos (`--new-key` la deja en el
-  historial del shell y en la lista de procesos): usa `--new-key-file`.
+- **Nunca** la pases por la linea de comandos (quedaria en el historial del
+  shell y en la lista de procesos). `vanta-cli` no acepta una clave en la
+  linea: usa `--new-key-file` o `--new-key-stdin` (lee una linea de stdin).
 - La master key **no** se persiste en ningun sitio de VantaDB. Si se pierde,
   la base cifrada **no** se puede abrir (ver §4).
 
@@ -90,6 +91,9 @@ O(datos).
 # La base debe estar CERRADA (el registro lo reescribe el motor en vivo).
 $env:VANTADB_ENCRYPTION_KEY_FILE = "C:\keys\vanta-old.key"
 vanta-cli encryption rotate --db ./mi-db --new-key-file "C:\keys\vanta-new.key"
+
+# Alternativa: la clave nueva por stdin (una linea).
+Get-Content "C:\keys\vanta-new.key" | vanta-cli encryption rotate --db ./mi-db --new-key-stdin
 ```
 
 Que hace:

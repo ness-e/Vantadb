@@ -460,7 +460,10 @@ fn process_decision() -> Option<Option<std::sync::Arc<Zeroizing<Vec<u8>>>>> {
 
 /// Read the hex master key from a file, enforcing the Unix permission rules
 /// (ADR-0057 D2): regular file, never a symlink, `0600`-equivalent mode.
-fn read_key_file(path: &std::path::Path) -> Result<Vec<u8>, CryptoError> {
+///
+/// `pub(crate)` so `vanta-cli encryption rotate --new-key-file` applies the
+/// same policy to the **new** key as to the current one (FIND-587 R-2).
+pub(crate) fn read_key_file(path: &std::path::Path) -> Result<Vec<u8>, CryptoError> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

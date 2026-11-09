@@ -2,7 +2,7 @@
 //!
 //! Exposes the struct definitions and command enums required for parsing.
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 /// VantaDB CLI - Embedded persistent memory and vector retrieval engine
@@ -542,15 +542,23 @@ pub enum EncryptionCommand {
     /// Rotate the master key: the DEKs are re-wrapped, never re-derived, so
     /// no ciphertext on disk is invalidated. The previous registry is kept as
     /// `encryption.registry.bak` for a manual rollback.
+    ///
+    /// Exactly one new-key source is required. There is deliberately **no**
+    /// `--new-key <hex>` flag (FIND-587): a key on the command line is visible
+    /// in the process list (`ps`, `/proc/<pid>/cmdline`) and in the shell
+    /// history.
+    #[command(group = ArgGroup::new("new_key_source")
+        .args(["new_key_file", "new_key_stdin"])
+        .required(true)
+        .multiple(false))]
     Rotate {
-        /// The new master key, hex-encoded (32 bytes = 64 hex chars).
-        /// Prefer `--new-key-file`: a key on the command line is visible in
-        /// the process list and in the shell history.
-        #[arg(long, conflicts_with = "new_key_file")]
-        new_key: Option<String>,
-        /// A file holding the new hex master key (the recommended form).
+        /// A file holding the new hex master key (32 bytes = 64 hex chars).
         #[arg(long)]
         new_key_file: Option<String>,
+        /// Read the new hex master key from stdin: one line, the trailing
+        /// newline is stripped.
+        #[arg(long)]
+        new_key_stdin: bool,
     },
 }
 
@@ -619,46 +627,92 @@ impl From<Shell> for clap_complete::Shell {
 mod tests {
     use super::*;
 
-    /// ADR-0057 W6: `encryption rotate` must parse — it is the only way to
-    /// change the master key without invalidating a single ciphertext.
+    /// ADR-0057 W6 / FIND-587: `encryption rotate` parses with
+    /// `--new-key-file` — the only way to change the master key without
+    /// invalidating a single ciphertext, without leaking it in `ps`.
     #[test]
     fn encryption_rotate_command_parses() {
-        let hex = "ab".repeat(32);
         let cli = Cli::try_parse_from([
+            "vanta-cli",
+            "encryption",
+            "rotate",
+            "--new-key-file",
+            "C:\\keys\\new.key",
+        ])
+        .expect("`encryption rotate --new-key-file` must parse");
+        match cli.command {
+            Commands::Encryption(EncryptionCommand::Rotate {
+                new_key_file,
+                new_key_stdin,
+            }) => {
+                assert_eq!(new_key_file.as_deref(), Some("C:\\keys\\new.key"));
+                assert!(!new_key_stdin);
+            }
+            other => panic!("expected `encryption rotate`, got {other:?}"),
+        }
+    }
+
+    /// FIND-587: `--new-key-stdin` is the second accepted key source.
+    #[test]
+    fn encryption_rotate_parses_new_key_stdin() {
+        let cli = Cli::try_parse_from(["vanta-cli", "encryption", "rotate", "--new-key-stdin"])
+            .expect("`encryption rotate --new-key-stdin` must parse");
+        match cli.command {
+            Commands::Encryption(EncryptionCommand::Rotate {
+                new_key_file,
+                new_key_stdin,
+            }) => {
+                assert!(new_key_file.is_none());
+                assert!(new_key_stdin);
+            }
+            other => panic!("expected `encryption rotate`, got {other:?}"),
+        }
+    }
+
+    /// FIND-587: `--new-key <hex>` was removed — a key on the command line is
+    /// visible in the process list and the shell history. Clap must reject it.
+    #[test]
+    fn encryption_rotate_rejects_new_key_flag() {
+        let hex = "ab".repeat(32);
+        let err = Cli::try_parse_from([
             "vanta-cli",
             "encryption",
             "rotate",
             "--new-key",
             hex.as_str(),
         ])
-        .expect("`encryption rotate --new-key` must parse");
-        match cli.command {
-            Commands::Encryption(EncryptionCommand::Rotate {
-                new_key,
-                new_key_file,
-            }) => {
-                assert_eq!(new_key.as_deref(), Some(hex.as_str()));
-                assert!(new_key_file.is_none());
-            }
-            other => panic!("expected `encryption rotate`, got {other:?}"),
-        }
+        .expect_err("`--new-key` no longer exists and must be rejected");
+        assert!(
+            err.to_string().contains("unexpected argument"),
+            "unexpected error: {err}"
+        );
     }
 
-    /// ADR-0057 W6: the two ways of giving the new key are exclusive.
+    /// FIND-587: the two ways of giving the new key are exclusive.
     #[test]
     fn encryption_rotate_rejects_both_key_sources() {
         let err = Cli::try_parse_from([
             "vanta-cli",
             "encryption",
             "rotate",
-            "--new-key",
-            "ab",
+            "--new-key-stdin",
             "--new-key-file",
             "C:\\keys\\new.key",
         ])
         .expect_err("the two key sources must be exclusive");
         assert!(
             err.to_string().contains("cannot be used with"),
+            "unexpected error: {err}"
+        );
+    }
+
+    /// FIND-587: exactly one new-key source is required — none is an error.
+    #[test]
+    fn encryption_rotate_requires_a_key_source() {
+        let err = Cli::try_parse_from(["vanta-cli", "encryption", "rotate"])
+            .expect_err("a new-key source is required");
+        assert!(
+            err.to_string().contains("required"),
             "unexpected error: {err}"
         );
     }
