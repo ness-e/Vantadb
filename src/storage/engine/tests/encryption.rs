@@ -284,6 +284,76 @@ fn plaintext_db_with_key_opens_plaintext_and_warns() {
     );
 }
 
+/// FIND-585 (a): deleting `encryption.registry` from a **populated**
+/// encrypted database must fail **closed** — the open must not
+/// re-initialise a fresh registry (new salt, new DEKs) over existing
+/// ciphertext, which would silently corrupt every later read.
+#[test]
+fn deleted_registry_on_populated_encrypted_db_fails_closed() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let key = key_hex(0x51);
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+            .expect("open with a key");
+        engine
+            .insert(&node(43, "vantadb-find585-lost-registry"))
+            .expect("insert");
+        engine.flush().expect("flush");
+    }
+
+    let registry = dir.path().join("data").join("encryption.registry");
+    assert!(registry.exists(), "the encrypted database wrote a registry");
+    std::fs::remove_file(&registry).expect("delete the registry");
+
+    // The encrypted artefacts are still on disk (encrypted WAL headers), so
+    // the database is detectably encrypted — but its DEKs are gone.
+    // ADR-0057 R-7: the failure is `EncryptionKeyRequired`, never a silent
+    // re-key.
+    let err = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+        .err()
+        .expect("a lost registry must fail closed, never re-initialise");
+    assert!(
+        matches!(err, Error::EncryptionKeyRequired { .. }),
+        "a lost registry is EncryptionKeyRequired (ADR-0057 R-7): got {err}"
+    );
+    assert!(
+        !registry.exists(),
+        "the failed open must not re-initialise a fresh registry"
+    );
+}
+
+/// FIND-585 (b): an encrypted database whose registry was lost must also
+/// fail closed when opened **without** a key — ADR-0057 R-7: it is
+/// `EncryptionKeyRequired`, not a silent re-key and not plaintext.
+#[test]
+fn deleted_registry_without_key_also_fails_closed() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let key = key_hex(0x52);
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+            .expect("open with a key");
+        engine
+            .insert(&node(47, "vantadb-find585-lost-registry-nokey"))
+            .expect("insert");
+        engine.flush().expect("flush");
+    }
+
+    let registry = dir.path().join("data").join("encryption.registry");
+    std::fs::remove_file(&registry).expect("delete the registry");
+
+    let err = StorageEngine::open_with_config(path, Some(plain_config(path)))
+        .err()
+        .expect("a lost registry must fail closed even without a key");
+    assert!(
+        matches!(err, Error::EncryptionKeyRequired { .. }),
+        "a lost registry is EncryptionKeyRequired (ADR-0057 R-7): got {err}"
+    );
+}
+
 /// ADR-0057 W6: the registry is part of the snapshot mirror.
 #[test]
 fn registry_is_included_in_the_snapshot_mirror() {

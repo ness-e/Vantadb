@@ -1053,6 +1053,21 @@ impl DbEncryption {
         let mode = detect_encryption_mode(&data_dir);
         let new_database = is_new_database(root, &data_dir);
 
+        // FIND-585 / ADR-0057 R-7: encrypted artefacts exist on disk (the
+        // mode is decided by their headers) but `encryption.registry` is
+        // gone — the DEKs it wrapped are unrecoverable. Fail closed instead
+        // of re-initialising a fresh registry (new salt, new DEKs) over
+        // existing ciphertext, which would silently corrupt every later
+        // read. Recovery is manual: restore `encryption.registry` (or
+        // `encryption.registry.bak`) from a snapshot.
+        if mode == EncryptionMode::Encrypted
+            && !crate::crypto::registry::KeyRegistry::path_in(&data_dir).exists()
+        {
+            return Err(Error::EncryptionKeyRequired {
+                artifact: "database".to_string(),
+            });
+        }
+
         let env_key = config
             .encryption_key
             .clone()
@@ -1088,6 +1103,11 @@ impl DbEncryption {
             EncryptionMode::Plaintext => new_database && material.is_some() && !in_memory,
         };
         crate::crypto::register_process_key(root, if encrypt { material.clone() } else { None });
+        // FIND-585: also record *why* — the backend needs to tell an
+        // "encrypt" verdict backed by ciphertext on disk from a brand-new
+        // one, so a registry lost mid-open fails closed even on an empty
+        // backend.
+        crate::crypto::register_detected_mode(root, mode == EncryptionMode::Encrypted);
 
         Ok(Self {
             material,
@@ -1116,6 +1136,15 @@ impl DbEncryption {
                 artifact: "database".to_string(),
             });
         };
+        // FIND-585: the same fail-closed guard as `resolve`, repeated here
+        // because the registry could have been deleted between the two
+        // checks — `open_or_create` below would otherwise mint a fresh
+        // registry over existing ciphertext (ADR-0057 R-7).
+        if !crate::crypto::registry::KeyRegistry::path_in(data_dir).exists() {
+            return Err(Error::EncryptionKeyRequired {
+                artifact: "database".to_string(),
+            });
+        }
         // The registry is the **mode record**: it says which artefacts are
         // encrypted. A brand-new database gets the four entries, so every
         // artefact is encrypted from its first byte (ADR-0057 D7). The
@@ -1284,6 +1313,13 @@ fn detect_encryption_mode(data_dir: &Path) -> EncryptionMode {
 /// (ADR-0057 D7); an existing database — even one that was only *opened* —
 /// stays plaintext: a key never migrates it (no implicit migration, no
 /// mixed mode).
+///
+/// FIND-585: this is the **authoritative** half of the "brand new"
+/// predicate — the artefact half (registry, WAL, segments, index image,
+/// storage-root files). Its counterpart is the backend's `is_empty()` —
+/// the data half — which `backend_kv_crypto_from_config` uses only as a
+/// *consistency guard* against the decision this function feeds (via
+/// `register_process_key`), never as a competing predicate.
 #[cfg(feature = "encryption")]
 fn is_new_database(root: &Path, data_dir: &Path) -> bool {
     if crate::crypto::registry::KeyRegistry::path_in(data_dir).exists() {

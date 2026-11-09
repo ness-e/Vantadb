@@ -419,13 +419,20 @@ impl Scannable for EncryptedBackend {
 /// Returns `None` when the backend KV must stay **plaintext**:
 ///
 /// * no key resolved — the bytes on disk are then byte-identical to the
-///   layout before this change; or
-/// * the database already holds data and the registry has no `backend`
-///   entry: an existing plaintext database is **never** migrated implicitly
-///   (ADR-0057 D7).
+///   layout before this change;
+/// * the engine decided "plaintext" for this database (ADR-0057 D7 — the
+///   key is ignored); or
+/// * the database already holds data, the registry has no `backend` entry
+///   and **no** engine decision says otherwise: an existing plaintext
+///   database is **never** migrated implicitly (ADR-0057 D7).
 ///
-/// `is_empty` tells a brand-new database (which is encrypted from its first
-/// byte) from an existing plaintext one.
+/// `is_empty` is a **consistency guard** (FIND-585): the authoritative
+/// "brand new" predicate is `is_new_database` in `init.rs` (the artefact
+/// half) — its verdict arrives via `register_process_key`. When the engine
+/// decided "encrypted" but the backend holds data and the registry is
+/// missing, the state is contradictory: this function fails closed with
+/// [`Error::EncryptionCorrupt`] instead of degrading to plaintext
+/// (ADR-0057 D1 rule 3 — no mixed mode).
 pub(crate) fn backend_kv_crypto_from_config(
     data_dir: &Path,
     config: &Config,
@@ -445,9 +452,60 @@ pub(crate) fn backend_kv_crypto_from_config(
         Err(err) => return Err(crypto_error(err)),
     };
 
+    // FIND-585: the engine's registered decision for this storage root is
+    // the **authoritative** one — `is_new_database` (the artefact half)
+    // already ran in `DbEncryption::resolve` and the verdict travels here
+    // through `register_process_key`. The backend does not re-decide "brand
+    // new" on its own; `is_empty` below is a consistency guard, not a
+    // competing predicate.
+    let root = data_dir.parent().unwrap_or(data_dir);
+    let decision = crate::crypto::encryption_decision_for(root);
+    if matches!(&decision, Some(None)) {
+        // The engine decided "plaintext" for this database (ADR-0057 D7):
+        // the key is ignored — whatever the sources hold.
+        return Ok(None);
+    }
+
     if !KeyRegistry::path_in(data_dir).exists() {
+        // FIND-585 (TOCTOU): the engine saw encrypted artefacts at `resolve`
+        // (`detected_encrypted`) but the registry is gone now — it was lost
+        // between `resolve` and this open. Minting a fresh registry here
+        // would orphan the ciphertext that `resolve` just saw, and
+        // `after_open` would then find a registry and not notice. Fail
+        // closed even on an empty backend.
+        if matches!(&decision, Some(Some(_)))
+            && crate::crypto::encrypted_detected_for(root) == Some(true)
+        {
+            return Err(Error::EncryptionCorrupt {
+                artifact: ARTIFACT.to_string(),
+                detail: "encrypted artefacts were detected at open but \
+                         encryption.registry disappeared before the backend \
+                         initialised: refusing to mint a fresh registry over \
+                         existing ciphertext — restore it from a snapshot or \
+                         encryption.registry.bak"
+                    .to_string(),
+            });
+        }
         // No artefact of this database was ever encrypted.
         if !is_empty {
+            if matches!(&decision, Some(Some(_))) {
+                // The engine decided "encrypted" (a brand-new database
+                // from its artefact scan) but the backend already holds
+                // data and the registry is missing: a contradiction —
+                // lost registry or a stale verdict. Continuing in
+                // plaintext would produce exactly the mixed mode ADR-0057
+                // D1 rule 3 forbids (WAL/segments/image encrypted, backend
+                // values in cleartext). Fail closed (FIND-585).
+                return Err(Error::EncryptionCorrupt {
+                    artifact: ARTIFACT.to_string(),
+                    detail: "the engine decided this database is encrypted but \
+                             the backend already holds data and \
+                             encryption.registry is missing: refusing to run \
+                             in mixed mode — restore the registry from a \
+                             snapshot or encryption.registry.bak"
+                        .to_string(),
+                });
+            }
             tracing::warn!(
                 "encryption key configured but this database already holds data: \
                  the backend key-value store stays plaintext (no implicit migration)"
@@ -999,6 +1057,140 @@ mod tests {
                 path.display()
             );
         }
+    }
+
+    /// FIND-585 (b): the engine decided "this database is encrypted" but the
+    /// backend already holds data and `encryption.registry` is missing —
+    /// that contradiction (lost registry, or a stale "brand new" verdict)
+    /// must fail **closed**. The old code logged a warning and continued in
+    /// plaintext, which is exactly the mixed mode ADR-0057 D1 rule 3 forbids
+    /// (WAL/segments/image encrypted, backend values in cleartext).
+    #[test]
+    fn backend_kv_encrypt_decision_with_populated_backend_fails_closed() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("db");
+        std::fs::create_dir_all(&path).unwrap();
+        let data_dir = path.join("data");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let mut config = Config::default();
+        config.encryption_key = Some("cd".repeat(32));
+
+        // A backend that already holds data and no registry anywhere.
+        let inner = FjallBackend::open(path.to_str().unwrap(), &config).unwrap();
+        inner
+            .put(BackendPartition::Default, b"k", b"plaintext value")
+            .unwrap();
+        let is_empty = inner.is_empty().unwrap();
+        assert!(!is_empty, "the fixture backend must hold data");
+        assert!(
+            !KeyRegistry::path_in(&data_dir).exists(),
+            "no registry on disk"
+        );
+
+        // Simulate the engine's registered decision for this root: encrypt.
+        // `register_process_key` is the same mechanism `DbEncryption::resolve`
+        // uses; the backend must not second-guess it with its own "brand new"
+        // notion — it must refuse the contradictory state instead.
+        let root = path.clone();
+        crate::crypto::register_process_key(
+            &root,
+            Some(Arc::new(crate::crypto::Zeroizing::new(
+                material(0xcd).to_vec(),
+            ))),
+        );
+
+        let result = backend_kv_crypto_from_config(&data_dir, &config, is_empty);
+        let err = result.err().expect(
+            "a populated backend under an 'encrypt' decision and no registry must fail closed",
+        );
+        assert!(
+            matches!(err, Error::EncryptionCorrupt { .. }),
+            "a lost registry / contradictory state is corruption: got {err}"
+        );
+        assert!(
+            !KeyRegistry::path_in(&data_dir).exists(),
+            "the failed open must not re-initialise a fresh registry"
+        );
+    }
+
+    /// FIND-585 / ADR-0057 D7: the same populated plaintext backend opened
+    /// **without** an engine decision (a standalone open, the legacy path)
+    /// stays plaintext with a warning — the key is ignored, never a
+    /// half-encrypted database.
+    #[test]
+    fn backend_kv_populated_backend_without_decision_stays_plaintext() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("db");
+        std::fs::create_dir_all(&path).unwrap();
+        let data_dir = path.join("data");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let mut config = Config::default();
+        config.encryption_key = Some("ef".repeat(32));
+
+        let inner = FjallBackend::open(path.to_str().unwrap(), &config).unwrap();
+        inner
+            .put(BackendPartition::Default, b"k", b"plaintext value")
+            .unwrap();
+        let is_empty = inner.is_empty().unwrap();
+        drop(inner);
+
+        // No `register_process_key` for this root: a standalone open (or a
+        // legacy plaintext database) keeps the ADR-0057 D7 contract.
+        let crypto = backend_kv_crypto_from_config(&data_dir, &config, is_empty)
+            .expect("a legacy plaintext backend must still open");
+        assert!(
+            crypto.is_none(),
+            "plaintext database: no encryption context is applied"
+        );
+        assert!(
+            !KeyRegistry::path_in(&data_dir).exists(),
+            "no registry may be created for a plaintext database"
+        );
+    }
+
+    /// FIND-585 (TOCTOU, audit Medium): the engine saw encrypted artefacts
+    /// at `resolve`, but the registry disappeared before the backend open —
+    /// even an **empty** backend must fail closed: minting a fresh registry
+    /// would orphan the ciphertext `resolve` just saw.
+    #[test]
+    fn backend_kv_registry_lost_mid_open_fails_closed_even_when_empty() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("db");
+        std::fs::create_dir_all(&path).unwrap();
+        let data_dir = path.join("data");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let mut config = Config::default();
+        config.encryption_key = Some("09".repeat(32));
+
+        // The engine's verdict: encrypt, **because ciphertext was detected**
+        // on disk at resolve time (not a brand-new database).
+        let root = path.clone();
+        crate::crypto::register_process_key(
+            &root,
+            Some(Arc::new(crate::crypto::Zeroizing::new(
+                material(0x09).to_vec(),
+            ))),
+        );
+        crate::crypto::register_detected_mode(&root, true);
+
+        // An empty backend (e.g. an encrypted engine that only wrote WAL so
+        // far): the registry is gone — the contradiction must fail closed.
+        let inner = FjallBackend::open(path.to_str().unwrap(), &config).unwrap();
+        assert!(inner.is_empty().unwrap());
+        drop(inner);
+
+        let result = backend_kv_crypto_from_config(&data_dir, &config, true);
+        let err = result
+            .err()
+            .expect("a registry lost mid-open must fail closed even when empty");
+        assert!(
+            matches!(err, Error::EncryptionCorrupt { .. }),
+            "a lost registry is corruption: got {err}"
+        );
+        assert!(
+            !KeyRegistry::path_in(&data_dir).exists(),
+            "no fresh registry may be minted over existing ciphertext"
+        );
     }
 
     /// ADR-0057 W4 / D3: the nonce counter never wraps — when it is

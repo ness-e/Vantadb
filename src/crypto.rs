@@ -388,6 +388,61 @@ pub fn register_process_key(
     table.insert(root.to_path_buf(), material);
 }
 
+/// The engine's encryption decision for the storage root `root`, if one was
+/// registered (FIND-585).
+///
+/// * `Some(Some(_))` — the engine decided "encrypt" for this database;
+/// * `Some(None)` — the engine decided "plaintext" (the key is ignored,
+///   ADR-0057 D7);
+/// * `None` — no decision registered for this root (a standalone open, or
+///   an ambiguous process).
+///
+/// `backend_kv_crypto_from_config` reads it so the backend **does not**
+/// second-guess the engine's brand-new-database predicate with its own:
+/// the `is_empty` flag it receives is a consistency guard, not a second
+/// decision (FIND-585).
+pub(crate) fn encryption_decision_for(
+    root: &std::path::Path,
+) -> Option<Option<std::sync::Arc<Zeroizing<Vec<u8>>>>> {
+    process_keys().lock().get(root).cloned()
+}
+
+/// Whether `detect_encryption_mode` saw encrypted artefacts at `resolve`
+/// time, keyed by the storage root (FIND-585).
+///
+/// The decision table above records *what* the engine decided; this table
+/// records *why* — whether the "encrypt" verdict came from ciphertext
+/// already on disk (`mode == Encrypted`) or from a brand-new-database
+/// verdict. The backend needs the distinction in exactly one case: the
+/// registry is deleted between `resolve` and the backend open (TOCTOU).
+/// Then `decision == Some(Some)` alone cannot tell "brand new" from
+/// "registry lost mid-open" — minting a fresh registry would orphan the
+/// ciphertext that `resolve` just saw.
+static DETECTED_MODES: std::sync::OnceLock<
+    parking_lot::Mutex<std::collections::HashMap<std::path::PathBuf, bool>>,
+> = std::sync::OnceLock::new();
+
+/// The table of detected modes.
+fn detected_modes(
+) -> &'static parking_lot::Mutex<std::collections::HashMap<std::path::PathBuf, bool>> {
+    DETECTED_MODES.get_or_init(|| parking_lot::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Record whether `detect_encryption_mode` reported `Encrypted` for `root`
+/// at `resolve` time. Called once per open, right where the decision is
+/// registered.
+pub(crate) fn register_detected_mode(root: &std::path::Path, encrypted_detected: bool) {
+    detected_modes()
+        .lock()
+        .insert(root.to_path_buf(), encrypted_detected);
+}
+
+/// Whether `resolve` detected encrypted artefacts for `root` — `None` when
+/// the engine never resolved this root (a standalone open).
+pub(crate) fn encrypted_detected_for(root: &std::path::Path) -> Option<bool> {
+    detected_modes().lock().get(root).copied()
+}
+
 /// The decision of the process, when it is unambiguous.
 ///
 /// `None` — no decision, or more than one database in the process: the
