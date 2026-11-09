@@ -366,17 +366,21 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                     // and the node is still indexed, like every inline
                     // branch did. `indexed_vectors` counts only the
                     // payloads that actually decoded, same as before.
-                    // Deliberate homogenization: a `vector_len == 0` header
-                    // now decodes to `Full([])`/`Binary([])`/etc. (as the
-                    // get/txn paths already did) instead of `None`, so it
-                    // counts as an indexed vector.
-                    let vec_data = crate::storage::engine::get::decode_vector_by_kind(
-                        kind,
-                        header.vector_len,
-                        header.vector_offset,
-                        node_bytes.as_slice(),
-                    )
-                    .unwrap_or(crate::node::VectorRepresentations::None);
+                    // `vector_len == 0` keeps the previous contract for
+                    // EVERY kind: `VectorRepresentations::None`, uncounted
+                    // — a zero-length `Full([])` in HNSW would change the
+                    // rebuilt index.
+                    let vec_data = if header.vector_len == 0 {
+                        crate::node::VectorRepresentations::None
+                    } else {
+                        crate::storage::engine::get::decode_vector_by_kind(
+                            kind,
+                            header.vector_len,
+                            header.vector_offset,
+                            node_bytes.as_slice(),
+                        )
+                        .unwrap_or(crate::node::VectorRepresentations::None)
+                    };
                     if !matches!(vec_data, crate::node::VectorRepresentations::None) {
                         indexed_vectors += 1;
                     }
@@ -598,6 +602,42 @@ mod tests {
         );
         let fresh = fresh_index_like(&hnsw, PathBuf::from("test.idx"));
         assert_eq!(fresh.nodes.len(), 0);
+    }
+
+    /// FIND-591 (rework): a node with `vector_len == 0` must not enter the
+    /// rebuilt HNSW as a zero-length vector — `Full([])` would change the
+    /// index. `indexed_vectors` counts only payloads that actually decoded.
+    #[test]
+    fn test_archive_rebuild_skips_zero_len_vector() {
+        let mut vstore = File::create_in_memory(8192);
+        let hs = hdr_size();
+        let full_kind =
+            crate::node::NodeFlags::with_vector_kind(0, crate::node::NodeFlags::VECTOR_KIND_FULL);
+        // Node 1: FULL kind but vector_len == 0 (degenerate header).
+        write_node_to_vstore(&mut vstore, 1, 64, &[], full_kind);
+        // Node 2: valid FULL vector right after the empty node's slot.
+        let off2 = 64 + hs + aligned_vec_size(0);
+        write_node_to_vstore(&mut vstore, 2, off2, &[0.3, 0.4], full_kind);
+        vstore.write_cursor = off2 + hs + aligned_vec_size(2);
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+        assert_eq!(
+            report.indexed_vectors, 1,
+            "only the real vector counts as indexed: {report:?}"
+        );
+        assert!(
+            matches!(
+                hnsw.stored_vector(1),
+                None | Some(VectorRepresentations::None)
+            ),
+            "the zero-length node must not carry a vector into HNSW"
+        );
+        assert!(matches!(
+            hnsw.stored_vector(2),
+            Some(VectorRepresentations::Full(_))
+        ));
     }
 
     // ── compact_layout ───────────────────────────────────────────
