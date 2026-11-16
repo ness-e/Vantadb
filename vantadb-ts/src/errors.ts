@@ -176,9 +176,10 @@ export function mapCodeToCanonical(code: string): ErrorCode {
     case "VANTADB_NOT_FOUND":
     case "NOT_FOUND":
       return ERROR_CODES.NOT_FOUND;
+    case "VANTADB_VALIDATION_ERROR":
+      return ERROR_CODES.VALIDATION_ERROR;
     case "ERR_INVALID_INPUT":
     case "VANTADB_INVALID_INPUT":
-    case "VANTADB_VALIDATION_ERROR":
     case "VANTADB_INVALID_ARGUMENT":
     case "INVALID_ARGUMENT":
       return ERROR_CODES.INVALID_ARGUMENT;
@@ -197,9 +198,10 @@ export function mapCodeToCanonical(code: string): ErrorCode {
     case "ERR_QUOTA_EXCEEDED":
     case "VANTADB_QUOTA_EXCEEDED":
     case "QUOTA_EXCEEDED":
+      return ERROR_CODES.QUOTA_EXCEEDED;
     case "VANTADB_RESOURCE_LIMIT":
     case "RESOURCE_LIMIT":
-      return ERROR_CODES.QUOTA_EXCEEDED;
+      return ERROR_CODES.RESOURCE_LIMIT;
     case "ERR_INTERNAL":
     case "VANTADB_WASM_ERROR":
       return ERROR_CODES.WASM_ERROR;

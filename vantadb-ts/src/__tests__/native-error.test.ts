@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { NativeVantaDB } from "../native.js";
-import { DbError, ERROR_CODES } from "../errors.js";
+import { DbError, ERROR_CODES, mapCodeToCanonical } from "../errors.js";
 
 /**
  * TS-02 regression tests: every failure raised by the native binding —
@@ -112,5 +112,24 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
       code: "VANTADB_QUOTA_EXCEEDED",
       message: expect.stringContaining("tenant quota exceeded"),
     });
+  });
+});
+
+describe("mapCodeToCanonical keeps the core wire codes (ERROR_HANDLING.md §1.1)", () => {
+  // Every code `Error::code()` emits in the Rust core must reach TS callers
+  // unchanged; FFI-02's coarse numeric aliases must never rewrite them.
+  it.each([
+    "VANTADB_VALIDATION_ERROR",
+    "VANTADB_NOT_FOUND",
+    "VANTADB_TIMEOUT",
+    "VANTADB_BUSY",
+    "VANTADB_RESOURCE_LIMIT",
+    "VANTADB_CORRUPT",
+    "VANTADB_INVALID_ARGUMENT",
+    "VANTADB_IO_ERROR",
+    "VANTADB_WASM_ERROR",
+    "VANTADB_CLOSED",
+  ])("%s maps to itself", (code) => {
+    expect(mapCodeToCanonical(code)).toBe(code);
   });
 });
