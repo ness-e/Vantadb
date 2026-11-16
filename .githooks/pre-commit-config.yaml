@@ -20,7 +20,7 @@ repos:
         files: '\.rs$'
       - id: cargo-clippy
         name: cargo clippy (subset rápido)
-        entry: cargo clippy -p vantadb --no-default-features --features cli,fjall,memmap2,fs2,roaring -j 2 -- -D warnings
+        entry: cargo clippy -p vantadb --no-default-features --features cli,fjall,memmap2,fs2,roaring --tests -j 2 -- -D warnings
         language: system
         pass_filenames: false
         files: '\.rs$'

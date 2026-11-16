@@ -30,6 +30,7 @@ try {
     run "fmt" ("cargo", "fmt", "--all", "--", "--check")
     run "check" (("cargo", "check", "-p", "vantadb") + $feats + @("-j", "2"))
     run "clippy" (("cargo", "clippy", "-p", "vantadb") + $feats + @("-j", "2", "--", "-D", "warnings"))
+    run "clippy-tests" (("cargo", "clippy", "-p", "vantadb") + $feats + @("--tests", "-j", "2", "--", "-D", "warnings"))
 
     # docs-coverage: solo si cambió código fuente/bindings/docs/api y el script existe (si no, skip silencioso)
     $docsScript = "$ProjectRoot\scripts\validate-docs-coverage.ps1"

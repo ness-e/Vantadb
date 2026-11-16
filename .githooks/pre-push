@@ -57,8 +57,8 @@ STATUS=0
 # Git Bash/WSL (/c/... or /mnt/c/...). Pure-POSIX conversion, no deps.
 winpath() {
     case "$1" in
-        /mnt/[a-zA-Z]/*) p=$(echo "$1" | cut -c6-); d=$(echo "$p" | cut -c1 | tr 'a-z' 'A-Z'); r=$(echo "$p" | cut -c3- | tr '/' '\'); printf '%s:%s' "$d" "\\$r" ;;
-        /[a-zA-Z]/*) d=$(echo "$1" | cut -c2 | tr 'a-z' 'A-Z'); r=$(echo "$1" | cut -c3- | tr '/' '\'); printf '%s:%s' "$d" "\\$r" ;;
+        /mnt/[a-zA-Z]/*) p=$(echo "$1" | cut -c6-); d=$(echo "$p" | cut -c1 | tr 'a-z' 'A-Z'); r=$(echo "$p" | cut -c3- | tr '/' '\\'); printf '%s:%s' "$d" "\\$r" ;;
+        /[a-zA-Z]/*) d=$(echo "$1" | cut -c2 | tr 'a-z' 'A-Z'); r=$(echo "$1" | cut -c4- | tr '/' '\\'); printf '%s:%s' "$d" "\\$r" ;;
         *) printf '%s' "$1" ;;
     esac
 }
@@ -75,6 +75,22 @@ if [ $STATUS -ne 0 ]; then
     echo ""
     echo "pre-push: Rust gate FAILED (exit code: $STATUS). Push BLOCKED."
     exit $STATUS
+fi
+
+# --- Type-check Unix (archivos Rust o Cargo tocados) ---
+if [ "$RS_CHANGED" -eq 1 ]; then
+    if ! command -v pwsh >/dev/null 2>&1; then
+        echo "pre-push: ERROR — pwsh required for Unix check. Push BLOCKED."
+        exit 1
+    fi
+    echo "pre-push: Rust touched — running check-unix..."
+    UNIX_STATUS=0
+    pwsh -NoProfile -File "$(winpath "$REPO_ROOT/dev-tools/check-unix.ps1")" || UNIX_STATUS=$?
+    case "$UNIX_STATUS" in
+        0) echo "pre-push: Unix check passed." ;;
+        2) echo "pre-push: Unix check skipped (CI covers)." ;;
+        *) echo "pre-push: Unix check FAILED (exit code: $UNIX_STATUS). Push BLOCKED."; exit 1 ;;
+    esac
 fi
 
 # --- Node (solo si se toco + hay node_modules) ---
