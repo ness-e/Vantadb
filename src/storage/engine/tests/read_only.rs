@@ -153,6 +153,33 @@ fn fjall_read_only_reports_typed_error_on_unwritable_dir() {
         backend.flush().expect("flush");
     }
 
+    // Chmod-ing only the root is not enough: Fjall reopens the existing
+    // `lock` file and journal for writing, which a 0555 directory still
+    // allows. Make the whole tree read-only to simulate a read-only mount,
+    // and restore it on drop so the TempDir can be removed.
+    fn chmod_tree(root: &std::path::Path, dir_mode: u32, file_mode: u32) -> std::io::Result<()> {
+        for entry in std::fs::read_dir(root)? {
+            let p = entry?.path();
+            let mode = if p.is_dir() {
+                chmod_tree(&p, dir_mode, file_mode)?;
+                dir_mode
+            } else {
+                file_mode
+            };
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(mode))?;
+        }
+        Ok(())
+    }
+    struct RestoreWritable<'a>(&'a std::path::Path);
+    impl Drop for RestoreWritable<'_> {
+        fn drop(&mut self) {
+            let _ = std::fs::set_permissions(self.0, std::fs::Permissions::from_mode(0o755));
+            let _ = chmod_tree(self.0, 0o755, 0o644);
+        }
+    }
+
+    let _restore = RestoreWritable(dir.path());
+    chmod_tree(dir.path(), 0o555, 0o444).expect("chmod tree read-only");
     std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555))
         .expect("chmod 0555");
 
