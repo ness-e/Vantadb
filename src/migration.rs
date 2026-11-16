@@ -1016,16 +1016,12 @@ mod tests {
         let dir = TempDir::new()?;
         let wal_path = data_dir(&dir).join("vanta.wal");
         write_wal_file(&wal_path, WAL_ENCRYPTED_FORMAT_VERSION);
+        let before = std::fs::read(&wal_path)?;
 
         let engine = MigrationEngine::new(dir.path());
         engine.migrate_format(FormatKind::Wal)?;
 
-        let migrated = std::fs::read(&wal_path)?;
-        let migrated_wal = WalHeader::deserialize(&migrated[..WalHeader::SIZE])?;
-        assert_eq!(
-            migrated_wal.base.format_version,
-            WAL_ENCRYPTED_FORMAT_VERSION
-        );
+        assert_eq!(std::fs::read(&wal_path)?, before);
         assert!(!wal_path.with_extension("wal.bak").exists());
         Ok(())
     }
