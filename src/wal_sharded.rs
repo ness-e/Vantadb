@@ -1003,6 +1003,41 @@ mod tests {
         WalRecord::Insert(UnifiedNode::new(id))
     }
 
+    #[test]
+    fn test_verify_shard_counts_shapes() {
+        let accepted: &[&[u64]] = &[
+            &[],
+            &[5],
+            &[0, 0, 0, 0],
+            &[1, 0, 0, 0],
+            &[2, 1, 1],
+            &[2, 2, 2, 1],
+            &[3, 3, 3, 3],
+        ];
+        for counts in accepted {
+            assert!(
+                verify_shard_counts(counts).is_none(),
+                "coherent counts rejected: {counts:?}"
+            );
+        }
+
+        let rejected: &[(&[u64], usize)] = &[
+            (&[2, 1, 2, 2], 1),
+            (&[0, 1, 1, 1], 0),
+            (&[3, 1, 1, 1], 1),
+            (&[1, 2], 0),
+            (&[2, 2, 1, 2], 2),
+        ];
+        for (counts, shard) in rejected {
+            let message = verify_shard_counts(counts)
+                .unwrap_or_else(|| panic!("incoherent counts accepted: {counts:?}"));
+            assert!(
+                message.contains(&format!("shard {shard}")),
+                "expected shard {shard} in error for {counts:?}: {message}"
+            );
+        }
+    }
+
     /// Helper: remove shard files for cleanup.
     fn clean_shards(base: &Path, count: usize) {
         for i in 0..count {

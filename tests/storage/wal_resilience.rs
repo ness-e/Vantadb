@@ -410,6 +410,108 @@ fn test_sharded_wal_truncated_shard_recovery_fails_closed() {
     session.finish(true);
 }
 
+fn truncate_one_complete_shard_record(
+    config: &Config,
+    shard_to_truncate: usize,
+) -> tempfile::TempDir {
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+    {
+        let storage = StorageEngine::open_with_config(db_path, Some(config.clone())).unwrap();
+        for id in 401..=408 {
+            storage.insert(&UnifiedNode::new(id)).unwrap();
+        }
+    }
+
+    for shard in 0..4 {
+        let path = dir
+            .path()
+            .join("data")
+            .join(format!("vanta.shard{shard}.wal"));
+        let bytes = std::fs::read(&path).unwrap();
+        let version = u16::from_le_bytes(bytes[4..6].try_into().unwrap());
+        let expected_version = if config.encryption_key.is_some() {
+            vantadb::wal::WAL_ENCRYPTED_FORMAT_VERSION
+        } else {
+            vantadb::wal::WAL_FORMAT_VERSION
+        };
+        assert_eq!(version, expected_version);
+        let nonce_len = if version >= vantadb::wal::WAL_ENCRYPTED_FORMAT_VERSION {
+            12
+        } else {
+            0
+        };
+        let mut offset = vantadb::wal::WalHeader::SIZE;
+        let mut ends = Vec::new();
+        while offset < bytes.len() {
+            assert!(offset + 4 <= bytes.len(), "incomplete frame length");
+            let len = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+            offset += 4 + len + 4 + nonce_len + wal_chain_extra(&bytes);
+            assert!(offset <= bytes.len(), "incomplete WAL frame");
+            ends.push(offset);
+        }
+        assert_eq!(ends.len(), 2, "shard {shard} must contain two records");
+        if shard == shard_to_truncate {
+            OpenOptions::new()
+                .write(true)
+                .open(&path)
+                .unwrap()
+                .set_len(ends[0] as u64)
+                .unwrap();
+        }
+    }
+    dir
+}
+
+fn assert_middle_shard_single_record_loss_fails_closed(config: Config) {
+    let dir = truncate_one_complete_shard_record(&config, 1);
+    let db_path = dir.path().to_str().unwrap();
+    let error = match StorageEngine::open_with_config(db_path, Some(config)) {
+        Ok(_) => panic!("a complete missing middle-shard record must fail recovery"),
+        Err(error) => error,
+    };
+    assert!(matches!(error, vantadb::Error::Wal(_)), "{error:?}");
+    assert_eq!(error.code(), "VANTADB_IO_ERROR");
+    assert!(error.to_string().contains("shard 1"), "{error}");
+}
+
+#[test]
+fn test_sharded_wal_middle_shard_single_record_loss_fails_closed() {
+    let config = Config {
+        backend_kind: BackendKind::Fjall,
+        wal_shards: 4,
+        ..Default::default()
+    };
+    assert_middle_shard_single_record_loss_fails_closed(config);
+}
+
+#[cfg(feature = "encryption")]
+#[test]
+fn test_sharded_wal_middle_shard_single_record_loss_encrypted_fails_closed() {
+    let config = Config {
+        backend_kind: BackendKind::Fjall,
+        wal_shards: 4,
+        encryption_key: Some("31".repeat(32)),
+        ..Default::default()
+    };
+    assert_middle_shard_single_record_loss_fails_closed(config);
+}
+
+#[test]
+fn test_sharded_wal_last_shard_single_record_loss_recovers_coherent_prefix() {
+    let config = Config {
+        backend_kind: BackendKind::Fjall,
+        wal_shards: 4,
+        ..Default::default()
+    };
+    let dir = truncate_one_complete_shard_record(&config, 3);
+    let db_path = dir.path().to_str().unwrap();
+    let storage = StorageEngine::open_with_config(db_path, Some(config)).unwrap();
+    for id in 401..=407 {
+        assert!(storage.get(id).unwrap().is_some(), "missing node {id}");
+    }
+}
+
 #[test]
 fn test_wal_write_failure_simulated() {
     TerminalReporter::suite_banner("WAL WRITE FAILURE SIMULATION", 1);
