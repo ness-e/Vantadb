@@ -506,18 +506,19 @@ mod sweeper_tests {
 
         // The sweeper — not a manual `purge_expired` call — must physically remove
         // the node (absent from the engine, not merely hidden by lazy read filtering).
+        //
+        // Index-level proof: the expiry entry must leave the scalar index too.
+        // `engine.delete` hides the node under `insert_lock` and drops its
+        // scalar-index entry right after, outside the lock, so both conditions
+        // are awaited together instead of asserting the index the instant the
+        // node disappears (that window raced under ThreadSanitizer).
         wait_until(Duration::from_secs(3), || {
             engine.get(record.node_id).expect("engine get").is_none()
+                && !engine
+                    .scalar_lookup_int_le(FIELD_EXPIRES_AT_MS, i64::MAX)
+                    .contains(&record.node_id)
         })
         .await;
-
-        // Index-level proof: the expiry entry is gone from the scalar index too.
-        assert!(
-            !engine
-                .scalar_lookup_int_le(FIELD_EXPIRES_AT_MS, i64::MAX)
-                .contains(&record.node_id),
-            "sweeper must purge the derived index entry, not only the node"
-        );
 
         sweeper.shutdown().await;
     }
