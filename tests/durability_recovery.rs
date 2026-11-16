@@ -446,6 +446,119 @@ fn test_checkpoint_not_advanced_on_snapshot_failure() {
     session.finish(true);
 }
 
+#[cfg(feature = "failpoints")]
+fn assert_index_persist_failure_keeps_previous_image(use_mmap: bool, encrypted: bool) {
+    let dir = tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    let config = Config {
+        backend_kind: BackendKind::Fjall,
+        mmap_hnsw: use_mmap,
+        force_mmap: use_mmap,
+        wal_shards: 1,
+        encryption_key: encrypted.then(|| "31".repeat(32)),
+        ..Default::default()
+    };
+    let image_path = dir.path().join("data").join("vector_index.bin");
+    let tmp_path = dir.path().join("data").join("vector_index.bin.tmp");
+    let engine = StorageEngine::open_with_config(path, Some(config.clone())).unwrap();
+    assert_eq!(engine.hnsw.load().is_mmap(), use_mmap);
+
+    for id in 0..8 {
+        let mut node = UnifiedNode::new(id);
+        node.vector = vantadb::node::VectorRepresentations::Full(vec![id as f32, 0.25, 0.5, 1.0]);
+        node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
+        engine.insert(&node).unwrap();
+    }
+    engine.flush().unwrap();
+    let old_image = std::fs::read(&image_path).unwrap();
+
+    for id in 8..13 {
+        let mut node = UnifiedNode::new(id);
+        node.vector = vantadb::node::VectorRepresentations::Full(vec![id as f32, 0.25, 0.5, 1.0]);
+        node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
+        engine.insert(&node).unwrap();
+    }
+    fail::cfg("atomic_write_before_rename", "return").unwrap();
+    let result = engine.flush();
+    fail::remove("atomic_write_before_rename");
+    assert!(
+        result.is_err(),
+        "injected index write failure must propagate"
+    );
+    assert!(
+        std::fs::read(&image_path).unwrap() == old_image,
+        "failed index write changed the live image"
+    );
+    assert!(!tmp_path.exists(), "temporary index image was not removed");
+    drop(engine);
+
+    let reopened = StorageEngine::open_with_config(path, Some(config)).unwrap();
+    for id in 0..13 {
+        assert!(reopened.get(id).unwrap().is_some(), "node {id} was lost");
+        assert!(
+            reopened.hnsw.load().contains_node(id),
+            "node {id} is invisible in the vector index"
+        );
+    }
+}
+
+#[cfg(feature = "failpoints")]
+#[test]
+fn test_index_persist_failure_keeps_previous_image_and_checkpoint() {
+    assert_index_persist_failure_keeps_previous_image(false, false);
+}
+
+#[cfg(feature = "failpoints")]
+#[test]
+fn test_index_persist_failure_keeps_previous_image_mmap() {
+    assert_index_persist_failure_keeps_previous_image(true, false);
+}
+
+#[cfg(all(feature = "failpoints", feature = "encryption"))]
+#[test]
+fn test_index_persist_failure_keeps_previous_encrypted_image() {
+    assert_index_persist_failure_keeps_previous_image(false, true);
+}
+
+#[cfg(all(feature = "failpoints", feature = "encryption"))]
+#[test]
+fn test_index_persist_failure_keeps_previous_encrypted_image_mmap() {
+    assert_index_persist_failure_keeps_previous_image(true, true);
+}
+
+#[test]
+fn test_stale_index_tmp_removed_on_writable_open() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    let config = Config {
+        backend_kind: BackendKind::Fjall,
+        mmap_hnsw: false,
+        wal_shards: 1,
+        ..Default::default()
+    };
+    let tmp_path = dir.path().join("data").join("vector_index.bin.tmp");
+    {
+        let engine = StorageEngine::open_with_config(path, Some(config.clone())).unwrap();
+        engine.insert(&UnifiedNode::new(42)).unwrap();
+        engine.flush().unwrap();
+    }
+    std::fs::write(&tmp_path, b"stale index").unwrap();
+    {
+        let read_only = Config {
+            read_only: true,
+            ..config.clone()
+        };
+        let engine = StorageEngine::open_with_config(path, Some(read_only)).unwrap();
+        assert!(engine.get(42).unwrap().is_some());
+        assert_eq!(std::fs::read(&tmp_path).unwrap(), b"stale index");
+    }
+    {
+        let engine = StorageEngine::open_with_config(path, Some(config)).unwrap();
+        assert!(!tmp_path.exists(), "stale index tmp survived writable open");
+        assert!(engine.get(42).unwrap().is_some());
+    }
+}
+
 // ─── SUMMARY ──────────────────────────────────────────────────
 
 #[test]

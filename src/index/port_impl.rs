@@ -6,6 +6,7 @@
 //! so every edge here points downward or stays in-crate).
 
 use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
@@ -150,10 +151,10 @@ impl IndexPort for CPIndex {
     }
 
     fn persist_mmap(&self, path: &Path) -> Result<Box<dyn IndexPort>, Error> {
-        // Moved `save_vector_index` mmap dance, byte-identical (F3X): serialize to a
-        // temp file + mapping, rename into place with no open handles (Windows),
-        // re-map the final file and attach it as the live backend. RCU-friendly:
-        // builds a NEW index instead of mutating through the shared handle.
+        // Serialize to a temp file and rename it with no open temp handle
+        // (Windows) via `write_atomic`, then re-map the final file and attach
+        // it as the live backend. RCU-friendly: build a NEW index instead of
+        // mutating through the shared handle.
         //
         // ADR-0057 W5: when the database is encrypted the temp file holds the
         // **ciphertext** (one AEAD envelope over the whole image) and the new
@@ -168,35 +169,8 @@ impl IndexPort for CPIndex {
         };
         #[cfg(not(feature = "encryption"))]
         let (data, payload) = (self.serialize_to_bytes(), None::<Vec<u8>>);
-        let temp_path = path.with_extension("bin.tmp");
-
         let result = (|| -> std::io::Result<Box<CPIndex>> {
-            // Scope the temp file + its mapping so both are released (dropped)
-            // BEFORE the rename. Windows refuses `rename` while the source file
-            // has ANY open handle — including a live memory map. This ordering is
-            // the same proven pattern used in `CPIndex::sync_to_mmap`.
-            {
-                let file = OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(&temp_path)?;
-                file.set_len(data.len() as u64)?;
-
-                // SAFETY: `file` is a newly created/truncated handle at `data.len()` bytes.
-                // `MmapMut::map_mut` creates a writable mapping of matching size.
-                // The mapped memory is immediately initialized via `copy_from_slice` below.
-                let mut mapped = unsafe { MmapMut::map_mut(&file)? };
-                mapped.copy_from_slice(&data);
-                mapped.flush()?;
-                // `mapped` and `file` drop here — no handles left open on `temp_path`.
-            }
-
-            // Atomic swap into place. `temp_path` has no open handles now (mapping +
-            // File dropped above), so rename succeeds on Windows too. The destination
-            // `path` is re-mapped fresh below, after the rename takes effect.
-            std::fs::rename(&temp_path, path)?;
+            crate::utils::fs::write_atomic(path, |writer| writer.write_all(&data))?;
 
             // Re-open the final file and map it as the new zero-copy backend. Deserialize
             // from the in-memory `data` (source of truth) rather than the mapping so the

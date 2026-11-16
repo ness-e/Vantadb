@@ -641,15 +641,14 @@ fn test_rebuild_vector_index_twice_idempotent() {
 // ─── save_vector_index (mmap round-trip persistence) ─────────
 //
 // AUDREP-18: `save_vector_index` must survive a cold-start round trip. It
-// writes the serialized index to a `.bin.tmp` file under a live `MmapMut`,
-// then calls `std::fs::rename` into `vector_index.bin`. On Windows, rename
-// fails while ANY handle (including the memory map) is still open on the
-// source file, so the temp mapping must be dropped before the rename — the
-// same ordering `CPIndex::sync_to_mmap` already uses. This test runs the full
-// mmap flavor of `flush() -> save_vector_index` and then reopens the engine
-// to prove the index round-trips. Linux/macOS tolerates the open-handle
-// rename, so CI-Linux passes even vs the buggy ordering; on Windows the test
-// is the regression gate for the mapping-before-rename strictness.
+// writes the serialized index to a `.bin.tmp` file through `utils::fs::write_atomic`,
+// which syncs the file and drops its handle before renaming to `vector_index.bin`.
+// On Windows, rename fails while ANY handle (including a memory map) is still
+// open on the source file, so the temp handle must be dropped before the rename.
+// This test runs the full mmap flavor of `flush() -> save_vector_index` and then
+// reopens the engine to prove the index round-trips. Linux/macOS tolerates the
+// open-handle rename, so CI-Linux passes even vs the buggy ordering; on Windows
+// the test is the regression gate for the handle-before-rename strictness.
 #[cfg(any(feature = "fjall", feature = "rocksdb"))]
 #[test]
 fn test_save_vector_index_mmap_roundtrip() {
@@ -693,6 +692,39 @@ fn test_save_vector_index_mmap_roundtrip() {
     assert_eq!(engine2.get(1).expect("get 1").unwrap().id, 1);
     assert_eq!(engine2.get(2).expect("get 2").unwrap().id, 2);
     assert_eq!(engine2.get(3).expect("get 3").unwrap().id, 3);
+}
+
+#[cfg(all(feature = "failpoints", feature = "fjall"))]
+#[test]
+fn flush_does_not_advance_checkpoint_when_index_rename_fails() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let config = Config {
+        backend_kind: BackendKind::Fjall,
+        mmap_hnsw: false,
+        wal_shards: 1,
+        ..Config::default()
+    };
+    let engine = StorageEngine::open_with_config(path, Some(config)).expect("open");
+    engine.insert(&sample_node(1)).expect("insert first");
+    engine.flush().expect("initial flush");
+    let checkpoint = engine
+        .wal_coordinator()
+        .read_checkpoint_seq(&*engine.backend)
+        .expect("initial checkpoint");
+    assert!(checkpoint > 0);
+    engine.insert(&sample_node(2)).expect("insert second");
+    fail::cfg("atomic_write_before_rename", "return").expect("enable failpoint");
+    let result = engine.flush();
+    fail::remove("atomic_write_before_rename");
+    assert!(result.is_err());
+    assert_eq!(
+        engine
+            .wal_coordinator()
+            .read_checkpoint_seq(&*engine.backend)
+            .expect("checkpoint after failed flush"),
+        checkpoint
+    );
 }
 
 // ─── Recover archived nodes ───────────────────────────────────

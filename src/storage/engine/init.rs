@@ -445,6 +445,13 @@ impl StorageEngine {
         crate::lsm::SegmentRegistry,
     )> {
         let index_path = data_dir.join("vector_index.bin");
+        if !config.read_only {
+            let tmp = crate::utils::fs::tmp_path_for(&index_path);
+            if tmp.exists() {
+                tracing::warn!(path = %tmp.display(), "Removing stale HNSW index temporary file");
+                std::fs::remove_file(tmp).map_err(Error::Io)?;
+            }
+        }
 
         let use_mmap = config.mmap_hnsw
             && (config.force_mmap

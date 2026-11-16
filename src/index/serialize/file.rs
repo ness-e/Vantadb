@@ -6,7 +6,7 @@ use crate::storage::vfile_mmap::MmapMut;
 #[cfg(feature = "memmap2")]
 use memmap2::MmapMut;
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::Path;
 use tracing::{info, warn};
 
@@ -48,9 +48,7 @@ impl CPIndex {
         #[cfg(feature = "encryption")]
         if let Some(crypto) = self.image_write_crypto(path).map_err(io_error)? {
             let (file_bytes, _payload) = self.encrypted_image_bytes(&crypto).map_err(io_error)?;
-            let mut writer = BufWriter::new(File::create(path)?);
-            writer.write_all(&file_bytes)?;
-            writer.flush()?;
+            crate::utils::fs::write_atomic(path, |writer| writer.write_all(&file_bytes))?;
             info!(
                 path = %path.display(),
                 node_count = self.nodes.len(),
@@ -59,10 +57,7 @@ impl CPIndex {
             );
             return Ok(());
         }
-        let file = File::create(path)?;
-        let mut writer = BufWriter::new(file);
-        self.serialize_to_writer(&mut writer)?;
-        writer.flush()?;
+        crate::utils::fs::write_atomic(path, |writer| self.serialize_to_writer(writer))?;
         info!(path = %path.display(), node_count = self.nodes.len(), "HNSW index persisted (streaming)");
         Ok(())
     }
@@ -291,21 +286,8 @@ impl CPIndex {
         #[cfg(not(feature = "encryption"))]
         let (data, payload) = (self.serialize_to_bytes(), None::<Vec<u8>>);
 
-        let temp_path = path.with_extension("bin.tmp");
-
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&temp_path)?;
-        file.set_len(data.len() as u64)?;
-
-        // SAFETY: `file` is a newly created/truncated handle at `data.len()` bytes;
-        // `map_mut` validates the pointer internally.
-        let mut mapped = unsafe { MmapMut::map_mut(&file)? };
-        mapped.copy_from_slice(&data);
-        mapped.flush()?;
+        // `write_atomic` closes the temp handle before rename (required on Windows).
+        crate::utils::fs::write_atomic(&path, |writer| writer.write_all(&data))?;
 
         let new_index = match &payload {
             // The encrypted image: the payload was decrypted in RAM.
@@ -317,12 +299,6 @@ impl CPIndex {
         };
         self.nodes = new_index.nodes;
         self.entry_point = new_index.entry_point;
-
-        // Drop mmap and file handle before rename (Windows requires the temp file
-        // to have no open handles for rename to succeed). Re-create after.
-        drop(mapped);
-        drop(file);
-        std::fs::rename(&temp_path, &path)?;
 
         let file = OpenOptions::new().read(true).write(true).open(&path)?;
         let new_mmap = unsafe { MmapMut::map_mut(&file)? };
@@ -475,6 +451,23 @@ mod tests {
         }
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(feature = "failpoints")]
+    #[test]
+    fn test_mmap_sync_failure_preserves_image() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("index.bin");
+        let mut index = single_full_node_index();
+        index.backend = IndexBackend::new_mmap(path.clone());
+        index.sync_to_mmap().unwrap();
+        let old_image = std::fs::read(&path).unwrap();
+        fail::cfg("atomic_write_before_rename", "return").unwrap();
+        let result = index.sync_to_mmap();
+        fail::remove("atomic_write_before_rename");
+        assert!(result.is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), old_image);
+        assert!(!crate::utils::fs::tmp_path_for(&path).exists());
     }
 
     #[test]
