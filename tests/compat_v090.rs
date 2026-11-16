@@ -16,7 +16,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use vantadb::migration::MigrationEngine;
-use vantadb::{Config, DistanceMetric, Embedded, Error, Header, MemoryInput, MemorySearchRequest};
+#[cfg(feature = "encryption")]
+use vantadb::{Config, Header};
+use vantadb::{DistanceMetric, Embedded, Error, MemoryInput, MemorySearchRequest};
 
 const FIXTURE_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/v0.9.0");
 
@@ -403,6 +405,7 @@ fn compat_v090_future_version_is_typed_error_never_panic() {
         Err(Error::IncompatibleFormat { found_version, .. }) => {
             assert_eq!(found_version, u16::MAX, "error names the found version");
         }
+        #[cfg(feature = "encryption")]
         Err(Error::EncryptionKeyRequired { .. }) => {}
         Err(other) => panic!("expected a typed refusal, got {other:?}"),
         Ok(_) => panic!("a future artefact version must not open"),
