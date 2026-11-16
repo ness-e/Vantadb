@@ -9,7 +9,7 @@ name: 'CI: Fleet - examples, bindings parity, adapters, providers'
 #   (CARGO_TERM_COLOR + CARGO_INCREMENTAL=0, valores coincidentes).
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'examples/**'
       - 'src/**'
