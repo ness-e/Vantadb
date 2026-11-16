@@ -227,10 +227,6 @@ jobs:
             vantadb-ts/package-lock.json
             vantadb-node/package-lock.json
 
-      # Node lockfile uses npm 11; Node 22's npm 10 requires the optional @emnapi/runtime peer.
-      - name: Upgrade npm for Node lockfile
-        run: npm install -g npm@11
-
       - name: Build WASM package
         working-directory: vantadb-wasm
         run: wasm-pack build --release
