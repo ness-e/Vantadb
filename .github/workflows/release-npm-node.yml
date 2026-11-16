@@ -59,6 +59,10 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      # Node lockfile uses npm 11; Node 22's npm 10 requires the optional @emnapi/runtime peer.
+      - name: Upgrade npm for Node lockfile
+        run: npm install -g npm@11
+
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
         with:
@@ -123,6 +127,10 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
+      # Node lockfile uses npm 11; Node 22's npm 10 requires the optional @emnapi/runtime peer.
+      - name: Upgrade npm for Node lockfile
+        run: npm install -g npm@11
+
       - name: Install dependencies (vitest binary; artifacts above carry no node_modules)
         run: npm ci
         working-directory: vantadb-node
