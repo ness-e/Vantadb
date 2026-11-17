@@ -54,7 +54,16 @@ pub(crate) fn validate_path_segment(
     max_len: usize,
 ) -> Result<(), McpError> {
     validate_identifier(value, label, max_len)?;
-    if value.contains('/') || value.contains('\\') || value == "." || value == ".." {
+    let mut components = std::path::Path::new(value).components();
+    let single_normal = matches!(components.next(), Some(std::path::Component::Normal(_)))
+        && components.next().is_none();
+    if value.contains('/')
+        || value.contains('\\')
+        || value == "."
+        || value == ".."
+        || !single_normal
+        || (cfg!(windows) && (value.contains(':') || value.ends_with(['.', ' '])))
+    {
         return Err(McpError::validation(format!(
             "'{label}' must be a plain identifier (no path separators, '.', or '..')"
         )));
@@ -995,6 +1004,19 @@ mod tests {
         // the split so the surface doesn't collapse them later.
         validate_identifier("mmd/s1/history", "namespace", 256)
             .expect("namespaces may contain '/'");
+    }
+
+    #[test]
+    fn validate_path_segment_platform_specific_names() {
+        #[cfg(windows)]
+        for bad in ["C:example", "file:stream", "name.", "name "] {
+            let error = validate_path_segment(bad, "name", 512).expect_err("unsafe name");
+            assert!(error.message.contains("plain identifier"), "{bad:?}");
+        }
+        #[cfg(unix)]
+        for good in ["C:example", "file:stream", "name.", "name "] {
+            validate_path_segment(good, "name", 512).expect("valid Unix name");
+        }
     }
 
     #[test]

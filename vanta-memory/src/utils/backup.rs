@@ -19,11 +19,9 @@
 //! reopened [`Embedded`] with indexes rebuilt from storage (core contract,
 //! `Embedded::restore_from`).
 //!
-//! Scope of the restore (core contract): only the `data/` directory is
-//! swapped back; the live backend KV (Fjall LSM) is intentionally left in
-//! place (FIND-33 decision). Post-snapshot additions disappear with `data/`,
-//! while post-snapshot deletions/supersessions keep their backend tombstones
-//! and are **not** rolled back (FIND-287).
+//! Scope of the restore (core contract): complete snapshots with a format marker
+//! and backend manifest restore both `data/` and backend KV. Legacy snapshots restore only `data/`;
+//! post-snapshot backend deletions and supersessions then remain (FIND-287).
 
 use vantadb::config::Config;
 use vantadb::error::Result;
@@ -31,7 +29,9 @@ use vantadb::sdk::Embedded;
 use vantadb::storage::FsSnapshot;
 
 /// Create a point-in-time snapshot of the memory store (core
-/// `Embedded::create_snapshot`: quiesce + mirror, FIND-25/FIND-33).
+/// `Embedded::create_snapshot`: flush + mirror, FIND-25/FIND-33).
+/// Quiesce writers first: concurrent writes are not guaranteed coherent
+/// across data and backend (FIND-651).
 ///
 /// `name` must be a plain identifier — the core validates it (no path
 /// separators, `.`/`..`, or control characters) before touching the
@@ -58,8 +58,8 @@ pub fn restore_snapshot(config: Config, name: &str) -> Result<Embedded> {
 }
 
 /// Declared scope of a [`rollback_snapshot`] (MEMG-17): what the restore
-/// reverts and — explicitly — what it does not (FIND-287: the restore is
-/// data-only). Always populated, never silent.
+/// reverts and — explicitly — what it does not. Legacy restores are
+/// data-only (FIND-287). Always populated, never silent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotRollbackReport {
     /// Snapshot name that was restored.
@@ -77,31 +77,38 @@ pub struct SnapshotRollbackReport {
 ///
 /// Thin wrapper over [`restore_snapshot`] (the core owns the semantics, MEMG-13
 /// delegation contract): same flow (close → restore → reopen) and same errors;
-/// the addition is the [`SnapshotRollbackReport`] making the data-only scope
-/// explicit — the `data/` swap is reverted, while the live backend KV
-/// (post-snapshot deletes/supersessions keep their tombstones/metadata) is
-/// **not** rolled back (FIND-287, FIND-33 decision).
+/// the addition is the [`SnapshotRollbackReport`] making the restored scope
+/// explicit. Legacy snapshots retain live backend KV and its tombstones
+/// (FIND-287); complete snapshots with both markers restore backend state as well.
 pub fn rollback_snapshot(config: Config, name: &str) -> Result<(Embedded, SnapshotRollbackReport)> {
-    let db = restore_snapshot(config, name)?;
-    Ok((db, rollback_scope(name)))
+    let (db, backend_restored) = Embedded::restore_from_with_backend(config, name)?;
+    Ok((db, rollback_scope(name, backend_restored)))
 }
 
-/// The static declared scope of a snapshot rollback.
-fn rollback_scope(name: &str) -> SnapshotRollbackReport {
-    SnapshotRollbackReport {
+/// The declared scope of a snapshot rollback.
+fn rollback_scope(name: &str, backend_restored: bool) -> SnapshotRollbackReport {
+    let mut report = SnapshotRollbackReport {
         snapshot: name.to_string(),
         reverted: vec![
             "the `data/` directory is swapped back to the snapshot point: post-snapshot additions disappear; the snapshot's files are back on disk (record visibility still subject to the live backend tombstones — see `not_reverted`)".into(),
             "in-memory indexes rebuild from the restored storage on reopen (fresh `Embedded`)".into(),
         ],
         not_reverted: vec![
-            "live backend KV (`<storage_root>/backend/`, Fjall LSM) is left in place: deletes and supersessions recorded after the snapshot keep their tombstones/metadata — data-only restore (FIND-287; FIND-33 decision)".into(),
+            "live backend KV (Fjall LSM at `<storage_root>/`) is left in place: deletes and supersessions recorded after the snapshot keep their tombstones/metadata — data-only restore (FIND-287; FIND-33 decision)".into(),
             "retained version history (Versions partition, live backend) is not rolled back to the snapshot point (same data-only gap, FIND-287)".into(),
-            "audit logs, WAL archives and any snapshot other than the restored one are untouched".into(),
+            "other snapshots and resources outside the storage root are untouched".into(),
         ],
         caveats: vec![
             "requires the engine closed first (fs2 lock) — flow: close -> restore -> reopened `Embedded`".into(),
-            "fails with `NotFound` when the snapshot does not exist; the live `data/` directory is staged aside with rollback-on-failure (core contract)".into(),
+            "fails with `NotFound` when the snapshot does not exist; live directories are staged aside with rollback on I/O errors, not crash-atomic; leftover staging requires manual recovery".into(),
         ],
+    };
+    if backend_restored {
+        report.reverted[0] = "the `data/` directory is swapped back to the snapshot point".into();
+        report.reverted.push(
+            "backend KV and retained version history are restored to the snapshot point".into(),
+        );
+        report.not_reverted.drain(..2);
     }
+    report
 }

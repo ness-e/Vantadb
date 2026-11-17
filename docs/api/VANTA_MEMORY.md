@@ -371,12 +371,19 @@ let db = restore_snapshot(config, "mem-2026-10-05")?;  // reopened over restored
 ```
 
 Thin delegation to the core (`Embedded::create_snapshot`/`list_snapshots`/`restore_from`);
-the core owns quiesce/mirror/rollback and validates the snapshot name (anti
+the core owns flush/mirror/rollback and validates the snapshot name (anti
 path-traversal — the wrapper never relaxes it). Requires an on-disk store
-(Fjall); `InMemory` keeps no files. Restore scope (core contract): only
-`<storage_path>/data` is swapped back — post-snapshot additions disappear,
-while post-snapshot deletions/supersessions keep their live backend-KV
-tombstones and are **not** rolled back (FIND-287).
+(Fjall or RocksDB with its core feature); `InMemory` keeps no files. Quiesce writers first: snapshots taken
+while writers are active are not guaranteed coherent across data and backend
+(FIND-651). Complete snapshots with a format marker and backend inventory
+restore both data and backend; legacy snapshots without either marker restore
+only data, retaining live backend tombstones and supersessions (FIND-287).
+RocksDB captures a native checkpoint. The inventory records its backend kind;
+the SDK rejects a mismatch with the configured backend before staging and does
+not migrate between backends. Legacy snapshots have no kind to compare.
+Restore stages both trees and rolls back I/O errors, but is not crash-atomic.
+If staging directories remain after interruption, opening fails until manual
+recovery.
 
 **Evaluated, not consumed:** the recall cursor is already consumed
 (`read_namespace_records` pages via `MemoryListOptions.cursor`);
@@ -394,7 +401,7 @@ DEK destruction and verifiable erasure receipts (VER-02 certificate contract).
 | Function | Contract |
 |---|---|
 | `rollback_record(db, session_key, record_id, target_version, now_ms) -> RollbackReport` | Restores the target version's payload as a **new** version (append-only lineage: nothing is rewritten or dropped). Bookkeeping advances to the rollback write (`version`/`updated_at`/`timestamps`); the report carries `from_version`/`to_version`/`new_version`, the store delta (`changes = diff_records(live, restored)`, name-ordered) and the declared `out_of_scope` (supersession restored verbatim, no cross-record cascade, deletes not resurrected, audit surfaces append-only). `NotFound` when the record or version is absent — a deleted record's history is purged, it is not resurrectable from versions |
-| `rollback_snapshot(config, name) -> (Embedded, SnapshotRollbackReport)` | `restore_snapshot` plus the explicit declared scope: `reverted` (the `data/` swap + index rebuild) vs `not_reverted` (live backend KV: post-snapshot deletes/supersessions keep their tombstones/metadata — FIND-287) and the flow `caveats`. Same flow as `restore_snapshot`: close → rollback → reopened `Embedded` |
+| `rollback_snapshot(config, name) -> (Embedded, SnapshotRollbackReport)` | `restore_snapshot` plus explicit restored scope and flow `caveats`. Backend and retained versions are restored when a complete format marker and inventory are present; legacy restores leave live backend KV in place (FIND-287). Same flow: close → rollback → reopened `Embedded` |
 
 **Cryptographic erasure** (feature `erasure`) — per-scope random DEK registry
 under `erasure/dek`, wrapped with the core master `Cipher`

@@ -5,6 +5,410 @@ use super::{in_memory_engine, in_memory_read_only, in_memory_tiered_engine, samp
 use crate::backend::BackendPartition;
 use crate::config::Config;
 use crate::node::{NodeTier, UnifiedNode};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+#[test]
+fn test_snapshot_name_validation_platform_specific() {
+    for bad in ["", ".", "..", "../x", "a/b", "a\\b", "a\nb"] {
+        assert!(
+            StorageEngine::validate_snapshot_name(bad).is_err(),
+            "{bad:?}"
+        );
+    }
+    #[cfg(windows)]
+    for bad in ["C:example", "file:stream", "name.", "name "] {
+        assert!(
+            StorageEngine::validate_snapshot_name(bad).is_err(),
+            "{bad:?}"
+        );
+    }
+    #[cfg(unix)]
+    for good in ["C:example", "file:stream", "name.", "name "] {
+        assert!(
+            StorageEngine::validate_snapshot_name(good).is_ok(),
+            "{good:?}"
+        );
+    }
+}
+
+#[test]
+fn test_snapshot_backend_mirror_excludes_unmanaged_root_entries() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let snap = dir.path().join("snap");
+    std::fs::create_dir_all(root.join("exports")).expect("exports");
+    std::fs::create_dir_all(&snap).expect("snapshot");
+    std::fs::write(root.join("notes.txt"), b"notes").expect("notes");
+    std::fs::write(root.join("exports/file.bin"), b"export").expect("export");
+    std::fs::write(root.join("9.jnl"), b"journal").expect("journal");
+    mirror_backend_to(&root, &snap, SnapshotBackendKind::Fjall).expect("mirror");
+    assert!(!snap.join("backend/notes.txt").exists());
+    assert!(!snap.join("backend/exports").exists());
+    assert!(snap.join("backend/9.jnl").is_file());
+}
+
+#[test]
+fn test_snapshot_backend_allowlist_requires_exact_numeric_patterns() {
+    use std::ffi::OsStr;
+    for (name, is_dir) in [
+        ("keyspaces", true),
+        ("version", false),
+        ("lock", false),
+        ("0.jnl", false),
+    ] {
+        let name = OsStr::new(name);
+        assert_eq!(
+            backend_entry_is_dir(name, SnapshotBackendKind::Fjall),
+            Some(is_dir)
+        );
+        assert!(!is_backend_entry(name, SnapshotBackendKind::RocksDb));
+    }
+    for (name, is_dir) in [
+        ("CURRENT", false),
+        ("LOCK", false),
+        ("IDENTITY", false),
+        ("LOG", false),
+        ("LOG.old.12", false),
+        ("MANIFEST-12", false),
+        ("OPTIONS-12", false),
+        ("OPTIONS-12.dbtmp", false),
+        ("12.log", false),
+        ("12.sst", false),
+        ("12.ldb", false),
+        ("12.blob", false),
+        ("12.dbtmp", false),
+        ("archive", true),
+    ] {
+        let name = OsStr::new(name);
+        assert_eq!(
+            backend_entry_is_dir(name, SnapshotBackendKind::RocksDb),
+            Some(is_dir)
+        );
+        assert!(!is_backend_entry(name, SnapshotBackendKind::Fjall));
+    }
+    for backend_kind in [SnapshotBackendKind::Fjall, SnapshotBackendKind::RocksDb] {
+        assert_eq!(
+            backend_entry_is_dir(OsStr::new(".vanta.schema"), backend_kind),
+            Some(false)
+        );
+        for name in [
+            "notes.txt",
+            "exports",
+            ".restore_pending",
+            ".restore_pending.lock",
+            ".restore_pending.1.2.3.tmp",
+            ".vanta.lock",
+            "data.pre_restore_1",
+            ".jnl",
+            "x.jnl",
+            "LOG.old.",
+            "LOG.old.x",
+            "MANIFEST-",
+            "MANIFEST-x",
+            "OPTIONS-.dbtmp",
+            "OPTIONS-1x.dbtmp",
+            ".sst",
+            "1a.log",
+            "١.jnl",
+        ] {
+            assert!(!is_backend_entry(OsStr::new(name), backend_kind), "{name}");
+        }
+    }
+    assert_eq!(
+        serde_json::to_string(&SnapshotBackendKind::Fjall).expect("serialize"),
+        "\"fjall\""
+    );
+    assert_eq!(
+        serde_json::to_string(&SnapshotBackendKind::RocksDb).expect("serialize"),
+        "\"rocksdb\""
+    );
+}
+
+#[test]
+fn test_snapshot_in_memory_rejected_before_creating_directory() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut engine = in_memory_engine();
+    engine.data_dir = dir.path().to_path_buf();
+    let error = engine
+        .create_snapshot("memory")
+        .expect_err("in-memory snapshot");
+    assert!(matches!(error, crate::error::Error::InvalidInput(_)));
+    assert!(!dir.path().join("snapshots").exists());
+}
+
+#[test]
+fn test_snapshot_restore_staging_names_require_ascii_digits() {
+    use std::ffi::OsStr;
+    for name in ["data.pre_restore_0", "backend.pre_restore_123"] {
+        assert!(is_restore_staging(OsStr::new(name)), "{name}");
+    }
+    for name in [
+        "data.pre_restore_",
+        "data.pre_restore_backup",
+        "backend.pre_restore_notes",
+        "data.pre_restore_1x",
+        "backend.pre_restore_١",
+    ] {
+        assert!(!is_restore_staging(OsStr::new(name)), "{name}");
+    }
+}
+
+struct MockSnapshotable {
+    calls: AtomicUsize,
+    fail: bool,
+    native_table: PathBuf,
+}
+
+impl crate::backend::Snapshotable for MockSnapshotable {
+    fn checkpoint(&self, path: &std::path::Path) -> crate::error::Result<()> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        assert!(!path.exists(), "checkpoint destination must not exist");
+        if self.fail {
+            return Err(crate::error::Error::backend_error(
+                "mock checkpoint failure",
+            ));
+        }
+        std::fs::create_dir(path)?;
+        std::fs::write(path.join("CURRENT"), b"native")?;
+        std::fs::write(path.join("MANIFEST-1"), b"native")?;
+        std::fs::hard_link(&self.native_table, path.join("1.sst"))?;
+        Ok(())
+    }
+}
+
+#[test]
+fn test_snapshot_rocksdb_checkpoint_copies_native_files_and_schema() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let snap = dir.path().join("snapshot");
+    std::fs::create_dir(&root).expect("root");
+    std::fs::create_dir(&snap).expect("snapshot");
+    for name in ["CURRENT", "MANIFEST-1", "1.sst", "notes.txt"] {
+        std::fs::write(root.join(name), b"live").expect("live file");
+    }
+    std::fs::write(root.join(".vanta.schema"), b"schema").expect("schema");
+    let native_table = dir.path().join("native-table");
+    std::fs::write(&native_table, b"native").expect("native table");
+    let mock = MockSnapshotable {
+        calls: AtomicUsize::new(0),
+        fail: false,
+        native_table: native_table.clone(),
+    };
+
+    mirror_rocksdb_checkpoint(&mock, &root, &snap).expect("checkpoint mirror");
+    assert_eq!(mock.calls.load(Ordering::SeqCst), 1);
+    for name in ["CURRENT", "MANIFEST-1", "1.sst"] {
+        assert_eq!(
+            std::fs::read(snap.join("backend").join(name)).expect("snapshot file"),
+            b"native"
+        );
+        assert_eq!(std::fs::read(root.join(name)).expect("live file"), b"live");
+    }
+    assert_eq!(
+        std::fs::read(snap.join("backend/.vanta.schema")).expect("schema"),
+        b"schema"
+    );
+    assert!(!snap.join("backend/notes.txt").exists());
+    assert!(!snap.join(".backend_checkpoint").exists());
+    std::fs::write(native_table, b"changed").expect("mutate checkpoint source");
+    assert_eq!(
+        std::fs::read(snap.join("backend/1.sst")).expect("snapshot table"),
+        b"native",
+        "final snapshot must not retain the checkpoint hard link"
+    );
+}
+
+#[test]
+fn test_snapshot_rocksdb_checkpoint_failure_never_copies_live_backend() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let snap = dir.path().join("snapshot");
+    std::fs::create_dir(&root).expect("root");
+    std::fs::create_dir(&snap).expect("snapshot");
+    std::fs::write(root.join("CURRENT"), b"live").expect("live current");
+    let mock = MockSnapshotable {
+        calls: AtomicUsize::new(0),
+        fail: true,
+        native_table: dir.path().join("unused"),
+    };
+
+    let error = mirror_rocksdb_checkpoint(&mock, &root, &snap).expect_err("checkpoint failure");
+    assert!(matches!(error, crate::error::Error::Backend(_)));
+    assert_eq!(mock.calls.load(Ordering::SeqCst), 1);
+    assert!(!snap.join("backend").exists());
+    assert_eq!(std::fs::read(root.join("CURRENT")).expect("live"), b"live");
+}
+
+#[test]
+fn test_snapshot_rocksdb_checkpoint_allows_missing_schema() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let snap = dir.path().join("snapshot");
+    std::fs::create_dir(&root).expect("root");
+    std::fs::create_dir(&snap).expect("snapshot");
+    let native_table = dir.path().join("native-table");
+    std::fs::write(&native_table, b"native").expect("native table");
+    let mock = MockSnapshotable {
+        calls: AtomicUsize::new(0),
+        fail: false,
+        native_table,
+    };
+    mirror_rocksdb_checkpoint(&mock, &root, &snap).expect("checkpoint without schema");
+    assert!(!snap.join("backend/.vanta.schema").exists());
+    assert!(!snap.join(".backend_checkpoint").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_snapshot_rocksdb_checkpoint_rejects_symlink_schema() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let snap = dir.path().join("snapshot");
+    std::fs::create_dir(&root).expect("root");
+    std::fs::create_dir(&snap).expect("snapshot");
+    let native_table = dir.path().join("native-table");
+    let target = dir.path().join("external-schema");
+    std::fs::write(&native_table, b"native").expect("native table");
+    std::fs::write(&target, b"outside").expect("external schema");
+    std::os::unix::fs::symlink(&target, root.join(".vanta.schema")).expect("symlink");
+    let mock = MockSnapshotable {
+        calls: AtomicUsize::new(0),
+        fail: false,
+        native_table,
+    };
+    assert!(mirror_rocksdb_checkpoint(&mock, &root, &snap).is_err());
+    assert_eq!(mock.calls.load(Ordering::SeqCst), 1);
+    assert!(!snap.join("backend").exists());
+    assert_eq!(std::fs::read(target).expect("external schema"), b"outside");
+}
+
+#[test]
+fn test_snapshot_rocksdb_missing_checkpoint_capability_is_error() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let engine = in_memory_engine();
+    assert!(engine.backend.as_snapshotable().is_none());
+    let error = engine
+        .capture_rocksdb_backend(dir.path(), dir.path())
+        .expect_err("missing checkpoint capability");
+    assert!(matches!(error, crate::error::Error::Backend(_)));
+    assert!(!dir.path().join("backend").exists());
+    assert!(!dir.path().join(".backend_checkpoint").exists());
+}
+
+#[test]
+fn test_snapshot_backend_current_requires_referenced_version() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let snap = dir.path().join("snap");
+    for base in [&root, &snap] {
+        std::fs::create_dir_all(base.join("keyspaces/1")).expect("keyspace");
+        std::fs::write(base.join("keyspaces/1/current"), 2u64.to_le_bytes()).expect("current");
+        std::fs::write(base.join("keyspaces/1/v1"), b"old version").expect("old version");
+    }
+    assert!(!backend_currents_match(&root, &snap).expect("compare currents"));
+    std::fs::write(snap.join("keyspaces/1/v2"), b"new version").expect("version");
+    assert!(backend_currents_match(&root, &snap).expect("compare currents"));
+}
+
+#[cfg(unix)]
+#[test]
+fn test_snapshot_mirror_rejects_symlinks_inside_managed_trees() {
+    use std::os::unix::fs::symlink;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let snap = dir.path().join("snap");
+    std::fs::create_dir_all(root.join("keyspaces/1/tables")).expect("tables");
+    std::fs::create_dir_all(&snap).expect("snapshot");
+    symlink(
+        dir.path().join("outside"),
+        root.join("keyspaces/1/tables/1"),
+    )
+    .expect("symlink");
+    assert!(mirror_backend_to(&root, &snap, SnapshotBackendKind::Fjall).is_err());
+
+    let data = dir.path().join("data");
+    let copy = dir.path().join("copy");
+    std::fs::create_dir_all(&data).expect("data");
+    std::fs::create_dir_all(&copy).expect("copy");
+    symlink(dir.path().join("outside"), data.join("link")).expect("symlink");
+    assert!(mirror_data_dir(&data, &copy).is_err());
+
+    let other_root = dir.path().join("other-root");
+    let other_snap = dir.path().join("other-snap");
+    std::fs::create_dir_all(&other_root).expect("other root");
+    std::fs::create_dir_all(&other_snap).expect("other snapshot");
+    symlink(
+        dir.path().join("outside"),
+        other_root.join("unmanaged-link"),
+    )
+    .expect("symlink");
+    assert!(mirror_backend_to(&other_root, &other_snap, SnapshotBackendKind::Fjall).is_err());
+}
+
+#[test]
+fn test_snapshot_backend_mirror_links_only_immutable_files() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let snapshot = dir.path().join("snapshot");
+    let keyspace = root.join("keyspaces/1");
+    std::fs::create_dir_all(keyspace.join("tables")).expect("tables");
+    std::fs::create_dir_all(keyspace.join("blobs")).expect("blobs");
+    std::fs::create_dir_all(&snapshot).expect("snapshot");
+    for (name, contents) in [
+        ("1.jnl", "sealed"),
+        ("2.jnl", "active"),
+        ("keyspaces/1/v1", "version"),
+        ("keyspaces/1/tables/10", "table"),
+        ("keyspaces/1/blobs/11", "blob"),
+        (".restore_pending.2.3.4.tmp", "partial"),
+    ] {
+        std::fs::write(root.join(name), contents).expect("write fixture");
+    }
+    std::fs::write(keyspace.join("current"), 1u64.to_le_bytes()).expect("current");
+    mirror_backend_to(&root, &snapshot, SnapshotBackendKind::Fjall).expect("mirror");
+    let mirrored = snapshot.join("backend");
+    assert!(!mirrored.join(".restore_pending.2.3.4.tmp").exists());
+    for name in [
+        "1.jnl",
+        "2.jnl",
+        "keyspaces/1/current",
+        "keyspaces/1/v1",
+        "keyspaces/1/tables/10",
+        "keyspaces/1/blobs/11",
+    ] {
+        assert_eq!(
+            std::fs::read(root.join(name)).expect("live"),
+            std::fs::read(mirrored.join(name)).expect("snapshot"),
+        );
+    }
+    std::fs::write(root.join("2.jnl"), "changed").expect("change active journal");
+    assert_eq!(
+        std::fs::read(mirrored.join("2.jnl")).expect("snapshot"),
+        b"active"
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        for name in ["1.jnl", "keyspaces/1/tables/10", "keyspaces/1/blobs/11"] {
+            assert_eq!(
+                std::fs::metadata(root.join(name)).expect("live").ino(),
+                std::fs::metadata(mirrored.join(name))
+                    .expect("snapshot")
+                    .ino(),
+                "{name} must be linked"
+            );
+        }
+        for name in ["2.jnl", "keyspaces/1/current", "keyspaces/1/v1"] {
+            assert_ne!(
+                std::fs::metadata(root.join(name)).expect("live").ino(),
+                std::fs::metadata(mirrored.join(name))
+                    .expect("snapshot")
+                    .ino(),
+                "{name} must be copied"
+            );
+        }
+    }
+}
 
 // ─── Eviction ─────────────────────────────────────────────────
 

@@ -600,6 +600,25 @@ fn vector_decode_encrypted_roundtrip_after_index_rebuild() {
 
 /// ADR-0057 W6: the registry is part of the snapshot mirror.
 #[test]
+fn pending_restore_lock_does_not_disable_encryption_for_a_new_database() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let key = key_hex(0x56);
+    std::fs::write(dir.path().join(".restore_pending.lock"), b"").expect("pending lock");
+    let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+        .expect("open new keyed database");
+    assert!(
+        dir.path().join("data/encryption.registry").is_file(),
+        "pending lock must not make a new database look plaintext"
+    );
+    drop(engine);
+    let err = StorageEngine::open_with_config(path, Some(plain_config(path)))
+        .err()
+        .expect("encrypted database requires a key");
+    assert!(matches!(err, Error::EncryptionKeyRequired { .. }), "{err}");
+}
+
+#[test]
 fn registry_is_included_in_the_snapshot_mirror() {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().to_str().expect("path");

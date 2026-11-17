@@ -402,6 +402,27 @@ _Note: Available backends include rocksdb and fjall (default)._
 - Memory records use `namespace + key` identity with scalar metadata and optional vectors.
 - Derived namespace/payload indexes are persisted and rebuilt from canonical records.
 
+### Snapshot restore bookkeeping
+
+RocksDB snapshots copy a native checkpoint rather than the live backend root.
+Complete inventories record the backend kind; SDK and scheduled restores
+reject a mismatch with the configured kind before staging. Static engine
+restore has no config to compare and warns: reopen with the snapshot's backend.
+Restore does not migrate backends; legacy snapshots have no kind to compare.
+
+The storage root reserves `.vanta.lock`, `.restore_pending`,
+`.restore_pending.lock`, and `.restore_pending.*.tmp` for locking and scheduled
+restores. It also reserves `data.pre_restore_<digits>` and
+`backend.pre_restore_<digits>`, where `<digits>` is a nonempty sequence of ASCII
+digits. Do not use these names for user files.
+
+Read-only opens do not consume a pending restore marker. To cancel a corrupt
+marker, close all database handles and delete only `.restore_pending`, then
+reopen. If a `data.pre_restore_<digits>` or `backend.pre_restore_<digits>`
+entry remains, opening fails closed and manual recovery is required. Deleting
+the marker does not cancel recovery or make it safe to delete staging entries;
+they may contain the only recoverable copies.
+
 ## 4. Embedded CLI
 
 The CLI uses the embedded core directly and does not require the optional HTTP server.
@@ -456,8 +477,8 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 > `export [--namespace <ns>] --out <path>` | Export records to a JSONL file | | `import --in <path>`
 > | Import records from a JSONL file (`--input` alias) | | `namespace list` | List all namespaces |
 > | `namespace info <ns>` | Show record count and details for a namespace | |
-> `snapshot create --name <name>` | Create an instant filesystem snapshot by hard-linking all data
-> files (copy on Windows) | | `snapshot list` | List all existing snapshots | | `wal compact` |
+> `snapshot create --name <name>` | Create a filesystem snapshot, copying mutable files and linking
+> immutable files on Unix (copy on Windows); quiesce writers first (FIND-651) | | `snapshot list` | List all existing snapshots | | `wal compact` |
 > Compact the WAL: flush all data, archive the current WAL file, and start a fresh one | |
 > `wal vacuum` | Remove tombstoned nodes from HNSW and reclaim space | | `wal salvage [--dry-run]` |
 > Salvage a truncated sharded WAL (explicit opt-in): replay the coherent prefix and report explicit

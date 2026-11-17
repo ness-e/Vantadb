@@ -1226,7 +1226,7 @@ fn test_hardlink_snapshot_instant() {
                 "snapshot must contain at least one file, got {file_count}"
             );
 
-            // Snapshot must be near-instant (hard link is O(1) per file).
+            // Keep the small fixture within the snapshot latency bound.
             // On Windows (copy fallback) this may be slower, so use a generous limit.
             assert!(
                 elapsed.as_secs() < 5,
@@ -1632,4 +1632,1611 @@ fn test_snapshot_restore_failpoint_aborts_before_swap() {
             TerminalReporter::success("Failpoint aborted restore cleanly; live data untouched.");
         },
     );
+}
+
+#[cfg(feature = "fjall")]
+fn force_snapshot_tables(path: &std::path::Path) {
+    let db = fjall::Database::builder(path)
+        .open()
+        .expect("open fjall directly");
+    for name in db.list_keyspace_names() {
+        db.keyspace(&name, fjall::KeyspaceCreateOptions::default)
+            .expect("open keyspace")
+            .rotate_memtable_and_wait()
+            .expect("flush memtable");
+    }
+}
+
+#[cfg(feature = "fjall")]
+fn snapshot_file_set(root: &std::path::Path) -> std::collections::BTreeSet<std::path::PathBuf> {
+    fn visit(
+        root: &std::path::Path,
+        dir: &std::path::Path,
+        files: &mut std::collections::BTreeSet<std::path::PathBuf>,
+    ) {
+        for entry in fs::read_dir(dir).expect("read directory") {
+            let entry = entry.expect("directory entry");
+            let path = entry.path();
+            if path.is_dir() {
+                visit(root, &path, files);
+            } else if path.is_file() {
+                files.insert(
+                    path.strip_prefix(root)
+                        .expect("relative path")
+                        .to_path_buf(),
+                );
+            }
+        }
+    }
+    let mut files = std::collections::BTreeSet::new();
+    visit(root, root, &mut files);
+    files
+}
+
+#[cfg(feature = "fjall")]
+fn snapshot_config(path: &std::path::Path, encrypted: bool) -> vantadb::config::Config {
+    let mut config = vantadb::config::Config {
+        storage_path: path.to_string_lossy().into_owned(),
+        backend_kind: BackendKind::Fjall,
+        ..Default::default()
+    };
+    if encrypted {
+        config.encryption_key = Some("31".repeat(32));
+    }
+    config
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+fn snapshot_live_tree_bytes(
+    root: &std::path::Path,
+) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
+    let mut paths = std::collections::BTreeSet::new();
+    for tree in ["data", "keyspaces"] {
+        for path in snapshot_file_set(&root.join(tree)) {
+            paths.insert(std::path::PathBuf::from(tree).join(path));
+        }
+    }
+    for entry in fs::read_dir(root).expect("root") {
+        let entry = entry.expect("entry");
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        let journal = name_str
+            .strip_suffix(".jnl")
+            .is_some_and(|id| !id.is_empty() && id.bytes().all(|byte| byte.is_ascii_digit()));
+        if matches!(name_str.as_ref(), "version" | "lock" | ".vanta.schema") || journal {
+            paths.insert(name.into());
+        }
+    }
+    paths
+        .into_iter()
+        .map(|path| {
+            let contents = fs::read(root.join(&path)).expect("live file");
+            (path, contents)
+        })
+        .collect()
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+fn assert_no_snapshot_restore_staging(root: &std::path::Path) {
+    assert!(!fs::read_dir(root).expect("root").any(|entry| {
+        let entry = entry.expect("entry");
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        name.starts_with("data.pre_restore_") || name.starts_with("backend.pre_restore_")
+    }));
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+fn seed_backend_kind_mismatch(root: &std::path::Path) -> vantadb::config::Config {
+    let config = snapshot_config(root, false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open Fjall");
+        db.put(record("backend-kind", "a", "before", "test"))
+            .expect("put A");
+        db.create_snapshot("backend-kind").expect("snapshot");
+        db.put(record("backend-kind", "b", "after", "test"))
+            .expect("put B");
+        db.flush().expect("flush");
+    }
+    config
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_sdk_backend_mismatch_rejected_before_staging() {
+    let dir = tempdir().expect("tempdir");
+    let config = seed_backend_kind_mismatch(dir.path());
+    let live = snapshot_live_tree_bytes(dir.path());
+    let mut wrong = config.clone();
+    wrong.backend_kind = BackendKind::RocksDb;
+    let mismatch = "snapshot backend 'fjall' does not match requested backend 'rocksdb'";
+
+    for with_report in [false, true] {
+        let result = if with_report {
+            Embedded::restore_from_with_backend(wrong.clone(), "backend-kind").map(|_| ())
+        } else {
+            Embedded::restore_from(wrong.clone(), "backend-kind").map(|_| ())
+        };
+        let error = result.expect_err("mismatched backend must fail");
+        assert!(
+            matches!(error, vantadb::error::Error::Validation { ref field, ref reason }
+                if field == "backend_kind" && reason == mismatch),
+            "{error}"
+        );
+        assert_eq!(snapshot_live_tree_bytes(dir.path()), live);
+        assert_no_snapshot_restore_staging(dir.path());
+    }
+
+    wrong.backend_kind = BackendKind::InMemory;
+    let error = Embedded::restore_from(wrong, "backend-kind").expect_err("in-memory backend");
+    assert!(matches!(error, vantadb::error::Error::InvalidInput(_)));
+    assert_eq!(snapshot_live_tree_bytes(dir.path()), live);
+    assert_no_snapshot_restore_staging(dir.path());
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_pending_backend_mismatch_preserves_marker_and_live_state() {
+    let dir = tempdir().expect("tempdir");
+    let config = seed_backend_kind_mismatch(dir.path());
+    let live = snapshot_live_tree_bytes(dir.path());
+    let marker =
+        StorageEngine::schedule_snapshot_restore(dir.path(), "backend-kind").expect("schedule");
+    let marker_contents = fs::read(&marker).expect("marker");
+    let mut wrong = config.clone();
+    wrong.backend_kind = BackendKind::RocksDb;
+    let error = Embedded::open_with_config(wrong).expect_err("mismatched backend must fail");
+    assert!(
+        error
+            .to_string()
+            .contains("snapshot backend 'fjall' does not match requested backend 'rocksdb'"),
+        "{error}"
+    );
+    assert_eq!(fs::read(&marker).expect("marker retained"), marker_contents);
+    assert_eq!(snapshot_live_tree_bytes(dir.path()), live);
+    assert_no_snapshot_restore_staging(dir.path());
+
+    let db = Embedded::open_with_config(config).expect("open with correct backend");
+    assert!(!marker.exists());
+    assert_eq!(
+        db.get("backend-kind", "a")
+            .expect("A")
+            .expect("record")
+            .payload,
+        "before"
+    );
+    assert!(db.get("backend-kind", "b").expect("B").is_none());
+}
+
+#[cfg(all(feature = "rocksdb", feature = "fs2"))]
+#[test]
+fn test_snapshot_rocksdb_native_checkpoint_roundtrip() {
+    let dir = tempdir().expect("tempdir");
+    let config = vantadb::config::Config {
+        storage_path: dir.path().to_string_lossy().into_owned(),
+        backend_kind: BackendKind::RocksDb,
+        ..Default::default()
+    };
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open RocksDB");
+        db.put(record("rocks-checkpoint", "a", "before", "test"))
+            .expect("put A");
+        db.create_snapshot("rocks-native").expect("snapshot");
+        db.put(record("rocks-checkpoint", "b", "after", "test"))
+            .expect("put B");
+        db.flush().expect("flush");
+    }
+    let db = Embedded::restore_from(config, "rocks-native").expect("restore RocksDB");
+    assert_eq!(
+        db.get("rocks-checkpoint", "a")
+            .expect("A")
+            .expect("record")
+            .payload,
+        "before"
+    );
+    assert!(db.get("rocks-checkpoint", "b").expect("B").is_none());
+}
+
+#[cfg(feature = "fjall")]
+fn snapshot_seed(path: &std::path::Path, encrypted: bool) -> vantadb::config::Config {
+    let config = snapshot_config(path, encrypted);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        for key in ["a0", "a1", "a2"] {
+            db.put(record(
+                "snapshot-test",
+                key,
+                "alpha snapshot original",
+                "snapshot",
+            ))
+            .expect("put");
+        }
+        db.flush().expect("flush");
+    }
+    force_snapshot_tables(path);
+    config
+}
+
+#[cfg(feature = "fjall")]
+fn assert_snapshot_tables_exist(path: &std::path::Path) {
+    let files = snapshot_file_set(&path.join("keyspaces"));
+    assert!(
+        files.iter().any(|p| p
+            .parent()
+            .and_then(|p| p.file_name())
+            .is_some_and(|n| n == "tables")),
+        "Fjall must have persisted a table before snapshot: {files:?}"
+    );
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_snapshot_captures_fjall_keyspaces() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), false);
+    let db = Embedded::open_with_config(config).expect("open");
+    assert_snapshot_tables_exist(dir.path());
+    let snapshot = db.create_snapshot("tables").expect("snapshot");
+    assert!(snapshot.path.join("backend.manifest").is_file());
+    assert_eq!(
+        fs::read(snapshot.path.join("snapshot.format")).expect("format"),
+        b"vantadb-snapshot v1\n"
+    );
+    let manifest = fs::read(snapshot.path.join("backend.manifest")).expect("manifest");
+    let payload = manifest
+        .strip_prefix(b"vantadb-snapshot-backend v1\n")
+        .expect("manifest header");
+    let inventory: serde_json::Value = serde_json::from_slice(payload).expect("inventory");
+    assert_eq!(inventory["backend_kind"], "fjall");
+    let files = inventory["files"].as_array().expect("files");
+    let paths: Vec<_> = files
+        .iter()
+        .map(|file| file["path"].as_str().expect("path"))
+        .collect();
+    assert!(paths.windows(2).all(|pair| pair[0] < pair[1]));
+    assert!(paths.iter().any(|path| path.starts_with("data/")));
+    assert!(paths.iter().any(|path| path.starts_with("backend/")));
+    for file in files {
+        let path = file["path"].as_str().expect("path");
+        assert_eq!(
+            fs::metadata(snapshot.path.join(path)).expect("file").len(),
+            file["len"].as_u64().expect("length"),
+            "{path}"
+        );
+    }
+    assert_eq!(
+        snapshot_file_set(&dir.path().join("keyspaces")),
+        snapshot_file_set(&snapshot.path.join("backend/keyspaces"))
+    );
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+const FOREIGN_ROCKS_ENTRIES: [&str; 4] = ["archive/user.bin", "CURRENT", "MANIFEST-123", "12.sst"];
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+fn write_foreign_rocks_entries(root: &std::path::Path, contents: &[u8]) {
+    fs::create_dir_all(root.join("archive")).expect("foreign archive");
+    for name in FOREIGN_ROCKS_ENTRIES {
+        fs::write(root.join(name), contents).expect("foreign RocksDB-shaped entry");
+    }
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+fn assert_foreign_rocks_entries(root: &std::path::Path, contents: &[u8]) {
+    for name in FOREIGN_ROCKS_ENTRIES {
+        assert_eq!(
+            fs::read(root.join(name)).expect("foreign RocksDB-shaped entry"),
+            contents,
+            "{name}"
+        );
+    }
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_foreign_root_files_survive_success_and_scheduled_restore() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    fs::create_dir(dir.path().join("exports")).expect("exports");
+    fs::write(dir.path().join("notes.txt"), b"before").expect("notes before");
+    fs::write(dir.path().join("exports/file.bin"), b"before").expect("export before");
+    write_foreign_rocks_entries(dir.path(), b"before");
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.put(record("foreign", "a", "A", "test")).expect("put");
+        let snap = db.create_snapshot("foreign").expect("snapshot");
+        assert!(!snap.path.join("backend/notes.txt").exists());
+        assert!(!snap.path.join("backend/exports").exists());
+        for name in FOREIGN_ROCKS_ENTRIES {
+            assert!(!snap.path.join("backend").join(name).exists(), "{name}");
+        }
+        db.put(record("foreign", "b", "B", "test")).expect("put");
+    }
+    fs::write(dir.path().join("notes.txt"), b"after").expect("notes after");
+    fs::write(dir.path().join("exports/file.bin"), b"after").expect("export after");
+    fs::write(dir.path().join("exports/new.bin"), b"new").expect("new export");
+    write_foreign_rocks_entries(dir.path(), b"after");
+    let future_journal = dir.path().join("999999999.jnl");
+    fs::write(&future_journal, b"future journal").expect("future journal");
+    StorageEngine::snapshot_restore(dir.path(), "foreign").expect("restore");
+    assert!(
+        !future_journal.exists(),
+        "future journal must not be replayed"
+    );
+    assert_foreign_rocks_entries(dir.path(), b"after");
+    assert_eq!(
+        fs::read(dir.path().join("notes.txt")).expect("notes"),
+        b"after"
+    );
+    assert_eq!(
+        fs::read(dir.path().join("exports/file.bin")).expect("export"),
+        b"after"
+    );
+    assert_eq!(
+        fs::read(dir.path().join("exports/new.bin")).expect("new"),
+        b"new"
+    );
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open restored");
+        assert!(db.get("foreign", "b").expect("get").is_none());
+        db.put(record("foreign", "c", "C", "test")).expect("put");
+        StorageEngine::schedule_snapshot_restore(dir.path(), "foreign").expect("schedule");
+    }
+    fs::write(dir.path().join("notes.txt"), b"scheduled").expect("notes");
+    fs::write(dir.path().join("exports/file.bin"), b"scheduled").expect("export");
+    write_foreign_rocks_entries(dir.path(), b"scheduled");
+    let db = Embedded::open_with_config(config).expect("apply scheduled restore");
+    assert!(db.get("foreign", "c").expect("get").is_none());
+    assert_foreign_rocks_entries(dir.path(), b"scheduled");
+    assert_eq!(
+        fs::read(dir.path().join("notes.txt")).expect("notes"),
+        b"scheduled"
+    );
+    assert_eq!(
+        fs::read(dir.path().join("exports/file.bin")).expect("export"),
+        b"scheduled"
+    );
+    assert_eq!(
+        fs::read(dir.path().join("exports/new.bin")).expect("new"),
+        b"new"
+    );
+}
+
+#[cfg(all(windows, feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_restore_rejects_case_aliases_of_foreign_entries() {
+    for (managed, foreign, is_dir) in [
+        ("version", "VERSION", false),
+        ("keyspaces", "KEYSPACES", true),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        let config = snapshot_config(dir.path(), false);
+        {
+            let db = Embedded::open_with_config(config.clone()).expect("open");
+            db.create_snapshot("case-alias").expect("snapshot");
+        }
+        let original = dir.path().join(managed);
+        let intermediate = dir.path().join("case-alias-intermediate");
+        let alias = dir.path().join(foreign);
+        fs::rename(&original, &intermediate).expect("move managed entry");
+        fs::rename(&intermediate, &alias).expect("create foreign case alias");
+        let probe = if is_dir {
+            alias.join("foreign.bin")
+        } else {
+            alias.clone()
+        };
+        fs::write(&probe, b"foreign bytes").expect("foreign content");
+
+        assert!(
+            StorageEngine::snapshot_restore(dir.path(), "case-alias").is_err(),
+            "restore must reject {foreign} rather than overwriting it"
+        );
+        assert_eq!(fs::read(&probe).expect("foreign content"), b"foreign bytes");
+        assert!(!fs::read_dir(dir.path()).expect("root").any(|entry| {
+            let name = entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned();
+            name.starts_with("data.pre_restore_") || name.starts_with("backend.pre_restore_")
+        }));
+        StorageEngine::schedule_snapshot_restore(dir.path(), "case-alias").expect("schedule");
+        let error = Embedded::open_with_config(config).expect_err("scheduled restore must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("pending snapshot restore failed"),
+            "{error}"
+        );
+        assert!(dir.path().join(".restore_pending").is_file());
+        assert_eq!(fs::read(&probe).expect("foreign content"), b"foreign bytes");
+    }
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2", feature = "failpoints"))]
+#[test]
+fn test_snapshot_foreign_root_files_survive_restore_rollback() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    fs::create_dir(dir.path().join("exports")).expect("exports");
+    fs::write(dir.path().join("notes.txt"), b"before").expect("notes");
+    fs::write(dir.path().join("exports/file.bin"), b"before").expect("export");
+    write_foreign_rocks_entries(dir.path(), b"before");
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        let snapshot = db.create_snapshot("rollback-foreign").expect("snapshot");
+        for name in FOREIGN_ROCKS_ENTRIES {
+            assert!(!snapshot.path.join("backend").join(name).exists(), "{name}");
+        }
+        db.put(record("foreign", "later", "later", "test"))
+            .expect("put");
+        db.flush().expect("flush");
+    }
+    fs::write(dir.path().join("notes.txt"), b"after").expect("notes");
+    fs::write(dir.path().join("exports/file.bin"), b"after").expect("export");
+    write_foreign_rocks_entries(dir.path(), b"after");
+    fail::cfg("snapshot_restore_backend_fail", "return").expect("failpoint");
+    let result = StorageEngine::snapshot_restore(dir.path(), "rollback-foreign");
+    fail::remove("snapshot_restore_backend_fail");
+    assert!(result.is_err());
+    assert_foreign_rocks_entries(dir.path(), b"after");
+    assert_eq!(
+        fs::read(dir.path().join("notes.txt")).expect("notes"),
+        b"after"
+    );
+    assert_eq!(
+        fs::read(dir.path().join("exports/file.bin")).expect("export"),
+        b"after"
+    );
+    let db = Embedded::open_with_config(config).expect("reopen");
+    assert!(db.get("foreign", "later").expect("get").is_some());
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2", feature = "failpoints"))]
+#[test]
+fn test_snapshot_rollback_failure_preserves_staging_and_reports_paths() {
+    let dir = tempdir().expect("tempdir");
+    {
+        let db = Embedded::open(dir.path()).expect("open");
+        db.create_snapshot("rollback-failure").expect("snapshot");
+        db.put(record("rollback", "later", "later", "test"))
+            .expect("put");
+        db.flush().expect("flush");
+    }
+    fail::cfg("snapshot_restore_backend_fail", "return").expect("restore failpoint");
+    fail::cfg("snapshot_restore_rollback_fail", "return").expect("rollback failpoint");
+    let err =
+        StorageEngine::snapshot_restore(dir.path(), "rollback-failure").expect_err("restore fails");
+    fail::remove("snapshot_restore_backend_fail");
+    fail::remove("snapshot_restore_rollback_fail");
+    let message = err.to_string();
+    assert!(message.contains("rollback incomplete"), "{message}");
+    assert!(message.contains("backend.pre_restore_"), "{message}");
+    let staging: Vec<_> = fs::read_dir(dir.path())
+        .expect("root")
+        .filter_map(|entry| {
+            let entry = entry.expect("entry");
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("backend.pre_restore_")
+                .then_some(entry.path())
+        })
+        .collect();
+    assert_eq!(staging.len(), 1, "{staging:?}");
+    assert!(fs::read_dir(&staging[0]).expect("staging").next().is_some());
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2", feature = "failpoints"))]
+#[test]
+fn test_snapshot_restore_sync_failure_rolls_back_both_trees() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.put(record("sync", "before", "before", "test"))
+            .expect("put before");
+        db.create_snapshot("sync-failure").expect("snapshot");
+        db.put(record("sync", "later", "later", "test"))
+            .expect("put later");
+        db.flush().expect("flush");
+    }
+    fail::cfg("snapshot_restore_sync_fail", "return").expect("sync failpoint");
+    let result = StorageEngine::snapshot_restore(dir.path(), "sync-failure");
+    fail::remove("snapshot_restore_sync_fail");
+    assert!(result.is_err(), "sync failure must abort the restore");
+    assert!(!fs::read_dir(dir.path()).expect("root").any(|entry| {
+        let name = entry
+            .expect("entry")
+            .file_name()
+            .to_string_lossy()
+            .into_owned();
+        name.starts_with("data.pre_restore_") || name.starts_with("backend.pre_restore_")
+    }));
+    let db = Embedded::open_with_config(config).expect("reopen");
+    assert!(db.get("sync", "before").expect("before").is_some());
+    assert!(db.get("sync", "later").expect("later").is_some());
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2", feature = "failpoints"))]
+#[test]
+fn test_snapshot_pending_rollback_failure_requires_manual_recovery() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.create_snapshot("rollback-incomplete").expect("snapshot");
+        db.put(record("rollback", "later", "later", "test"))
+            .expect("put");
+        db.flush().expect("flush");
+        StorageEngine::schedule_snapshot_restore(dir.path(), "rollback-incomplete")
+            .expect("schedule");
+    }
+    fail::cfg("snapshot_restore_backend_fail", "return").expect("restore failpoint");
+    fail::cfg("snapshot_restore_rollback_fail", "return").expect("rollback failpoint");
+    let error = match Embedded::open_with_config(config.clone()) {
+        Ok(_) => panic!("pending restore must fail"),
+        Err(error) => error,
+    };
+    fail::remove("snapshot_restore_backend_fail");
+    fail::remove("snapshot_restore_rollback_fail");
+    let message = error.to_string();
+    assert!(message.contains("rollback incomplete"), "{message}");
+    assert!(message.contains("manual recovery"), "{message}");
+    assert!(message.contains("backend.pre_restore_"), "{message}");
+    assert!(!message.contains("to open the current state"), "{message}");
+    let marker = dir.path().join(".restore_pending");
+    assert!(marker.is_file());
+    fs::remove_file(marker).expect("remove marker");
+    let error = match Embedded::open_with_config(config) {
+        Ok(_) => panic!("orphaned staging must still block the open"),
+        Err(error) => error,
+    };
+    assert!(
+        matches!(error, vantadb::error::Error::Validation { ref field, .. } if field == "snapshot_restore"),
+        "{error}"
+    );
+}
+
+#[cfg(all(unix, feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_restore_rejects_symlink_in_live_backend_before_staging() {
+    use std::os::unix::fs::symlink;
+    let dir = tempdir().expect("tempdir");
+    {
+        let db = Embedded::open(dir.path()).expect("open");
+        db.create_snapshot("backend-symlink").expect("snapshot");
+    }
+    let keyspace = fs::read_dir(dir.path().join("keyspaces"))
+        .expect("keyspaces")
+        .map(|entry| entry.expect("entry"))
+        .find(|entry| entry.file_type().expect("type").is_dir())
+        .expect("keyspace")
+        .path();
+    let outside = dir.path().join("outside.txt");
+    fs::write(&outside, b"untouched").expect("outside");
+    let link = keyspace.join("unsafe-link");
+    symlink(&outside, &link).expect("symlink");
+    assert!(StorageEngine::snapshot_restore(dir.path(), "backend-symlink").is_err());
+    assert!(fs::symlink_metadata(&link)
+        .expect("link")
+        .file_type()
+        .is_symlink());
+    assert_eq!(fs::read(outside).expect("outside"), b"untouched");
+    assert!(!fs::read_dir(dir.path()).expect("root").any(|entry| {
+        let name = entry
+            .expect("entry")
+            .file_name()
+            .to_string_lossy()
+            .into_owned();
+        name.starts_with("data.pre_restore_") || name.starts_with("backend.pre_restore_")
+    }));
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2", feature = "failpoints"))]
+fn assert_pending_consumer_serializes_scheduler(wait_for_busy: bool) {
+    use std::sync::{mpsc, Arc, Barrier};
+    use std::time::Duration;
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.put(record("pending-race", "a", "A", "test"))
+            .expect("put A");
+        db.create_snapshot("pending-a").expect("snapshot A");
+        db.put(record("pending-race", "b", "B", "test"))
+            .expect("put B");
+        db.create_snapshot("pending-b").expect("snapshot B");
+        db.put(record("pending-race", "c", "C", "test"))
+            .expect("put C");
+        StorageEngine::schedule_snapshot_restore(dir.path(), "pending-a").expect("schedule A");
+    }
+    let read = Arc::new(Barrier::new(2));
+    let resume = Arc::new(Barrier::new(2));
+    let (events, receiver) = mpsc::channel::<&'static str>();
+    {
+        let read = read.clone();
+        let resume = resume.clone();
+        fail::cfg_callback("snapshot_pending_after_read", move || {
+            read.wait();
+            resume.wait();
+        })
+        .expect("read callback");
+    }
+    {
+        let events = events.clone();
+        fail::cfg_callback("snapshot_pending_lock_contended", move || {
+            let _ = events.send("contended");
+        })
+        .expect("contention callback");
+    }
+    let root = dir.path().to_path_buf();
+    let open_config = config.clone();
+    let consumer = std::thread::spawn(move || {
+        let db = Embedded::open_with_config(open_config).expect("consume A");
+        assert!(db.get("pending-race", "a").expect("A").is_some());
+        assert!(db.get("pending-race", "b").expect("B").is_none());
+    });
+    read.wait();
+    let scheduler = std::thread::spawn(move || {
+        let result = StorageEngine::schedule_snapshot_restore(&root, "pending-b");
+        events.send("finished").expect("completion");
+        result
+    });
+    let first = receiver
+        .recv_timeout(Duration::from_secs(5))
+        .expect("scheduler reached lock or finished");
+    let scheduled = if wait_for_busy {
+        let result = scheduler.join().expect("scheduler");
+        resume.wait();
+        result
+    } else {
+        resume.wait();
+        scheduler.join().expect("scheduler")
+    };
+    consumer.join().expect("consumer");
+    fail::remove("snapshot_pending_after_read");
+    fail::remove("snapshot_pending_lock_contended");
+    assert_eq!(first, "contended", "scheduler must wait for consumer");
+    if wait_for_busy {
+        assert!(
+            matches!(&scheduled, Err(vantadb::error::Error::DatabaseBusy(_))),
+            "expected DatabaseBusy while consumer holds the lock, got {scheduled:?}"
+        );
+    }
+    match scheduled {
+        Ok(_) => assert!(!wait_for_busy, "busy path must not schedule B"),
+        Err(vantadb::error::Error::DatabaseBusy(_)) => {
+            assert!(
+                !dir.path().join(".restore_pending").exists(),
+                "A marker must be consumed before retry"
+            );
+            StorageEngine::schedule_snapshot_restore(dir.path(), "pending-b")
+                .expect("retry schedule B");
+        }
+        Err(error) => panic!("unexpected scheduling error: {error}"),
+    }
+    assert_eq!(
+        fs::read(dir.path().join(".restore_pending")).expect("B marker"),
+        b"vantadb-restore-pending v1\npending-b\n"
+    );
+    let db = Embedded::open_with_config(config).expect("consume B");
+    assert!(db.get("pending-race", "a").expect("A").is_some());
+    assert!(db.get("pending-race", "b").expect("B").is_some());
+    assert!(db.get("pending-race", "c").expect("C").is_none());
+    assert!(!dir.path().join(".restore_pending").exists());
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2", feature = "failpoints"))]
+#[test]
+fn test_snapshot_pending_consumer_serializes_scheduler() {
+    assert_pending_consumer_serializes_scheduler(false);
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2", feature = "failpoints"))]
+#[test]
+fn test_snapshot_pending_consumer_busy_timeout_can_retry() {
+    assert_pending_consumer_serializes_scheduler(true);
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_duplicate_name_never_replaces_previous_capture() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+    db.put(record("duplicate", "a", "A", "test")).expect("put");
+    let snap = db.create_snapshot("duplicate").expect("first snapshot");
+    let before = fs::read(snap.path.join("data/vstore_L0.vanta")).expect("snapshot data");
+    db.put(record("duplicate", "b", "B", "test")).expect("put");
+    assert!(
+        db.create_snapshot("duplicate").is_err(),
+        "must reject duplicate"
+    );
+    assert_eq!(
+        fs::read(snap.path.join("data/vstore_L0.vanta")).expect("snapshot data"),
+        before
+    );
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2", feature = "failpoints"))]
+#[test]
+fn test_snapshot_failed_capture_cannot_be_restored() {
+    let dir = tempdir().expect("tempdir");
+    {
+        let db = Embedded::open(dir.path()).expect("open");
+        fail::cfg("snapshot_create_fail", "return").expect("failpoint");
+        let result = db.create_snapshot("failed-capture");
+        fail::remove("snapshot_create_fail");
+        assert!(result.is_err());
+    }
+    let snap = dir.path().join("data/snapshots/failed-capture");
+    let error = StorageEngine::snapshot_restore(dir.path(), "failed-capture")
+        .expect_err("incomplete capture");
+    if snap.exists() {
+        assert!(snap.join("snapshot.format").is_file());
+        assert!(
+            matches!(error, vantadb::error::Error::Validation { ref field, .. } if field == "snapshot"),
+            "{error}"
+        );
+    } else {
+        assert!(
+            matches!(error, vantadb::error::Error::NotFound { .. }),
+            "{error}"
+        );
+    }
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_incomplete_or_corrupt_capture_rejected_before_staging() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    let snap = {
+        let db = Embedded::open_with_config(config).expect("open");
+        db.put(record("incomplete", "a", "A", "test")).expect("put");
+        db.create_snapshot("incomplete").expect("snapshot").path
+    };
+    let format = snap.join("snapshot.format");
+    let manifest = snap.join("backend.manifest");
+    let format_bytes = fs::read(&format).expect("format marker");
+    let manifest_bytes = fs::read(&manifest).expect("manifest");
+    let segment = snap.join("data/vstore_L0.vanta");
+    let segment_bytes = fs::read(&segment).expect("segment");
+    let live = fs::read(dir.path().join("data/vstore_L0.vanta")).expect("live");
+    for case in 0..9 {
+        match case {
+            0 => fs::remove_file(&manifest).expect("remove manifest"),
+            1 => fs::write(&manifest, b"unknown\n").expect("corrupt manifest"),
+            2 => fs::write(&format, b"unknown\n").expect("corrupt format"),
+            3 => fs::remove_file(&format).expect("remove format"),
+            4 => fs::remove_file(&segment).expect("remove segment"),
+            5 => fs::write(&segment, b"truncated").expect("truncate segment"),
+            6 => fs::write(&manifest, b"vantadb-snapshot-backend v1\n{\"backend_kind\":\"fjall\",\"files\":[{\"path\":\"data/../escape\",\"len\":0}]}").expect("unsafe inventory"),
+            7 | 8 => {
+                let payload = manifest_bytes
+                    .strip_prefix(b"vantadb-snapshot-backend v1\n")
+                    .expect("manifest header");
+                let mut inventory: serde_json::Value =
+                    serde_json::from_slice(payload).expect("inventory");
+                if case == 7 {
+                    inventory["backend_kind"] = serde_json::json!("unknown");
+                } else {
+                    inventory
+                        .as_object_mut()
+                        .expect("object")
+                        .remove("backend_kind");
+                }
+                let mut bytes = b"vantadb-snapshot-backend v1\n".to_vec();
+                bytes.extend(serde_json::to_vec(&inventory).expect("inventory JSON"));
+                fs::write(&manifest, bytes).expect("invalid backend kind");
+            }
+            _ => unreachable!(),
+        }
+        for result in [
+            StorageEngine::snapshot_restore(dir.path(), "incomplete").map(|_| ()),
+            StorageEngine::schedule_snapshot_restore(dir.path(), "incomplete").map(|_| ()),
+        ] {
+            assert!(
+                matches!(result, Err(vantadb::error::Error::Validation { ref field, .. }) if field == "snapshot"),
+                "case {case}: {result:?}"
+            );
+        }
+        assert!(!dir.path().join(".restore_pending").exists(), "case {case}");
+        assert_eq!(
+            fs::read(dir.path().join("data/vstore_L0.vanta")).expect("live"),
+            live
+        );
+        assert!(
+            !fs::read_dir(dir.path()).expect("root").any(|entry| {
+                let name = entry
+                    .expect("entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned();
+                name.starts_with("data.pre_restore_") || name.starts_with("backend.pre_restore_")
+            }),
+            "case {case}"
+        );
+        fs::write(&format, &format_bytes).expect("restore format");
+        fs::write(&manifest, &manifest_bytes).expect("restore manifest");
+        fs::write(&segment, &segment_bytes).expect("restore segment");
+    }
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_non_numeric_staging_prefixes_are_preserved() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    let backup = dir.path().join("data.pre_restore_backup");
+    let notes = dir.path().join("backend.pre_restore_notes");
+    fs::create_dir(&backup).expect("backup directory");
+    fs::create_dir(&notes).expect("notes directory");
+    fs::write(backup.join("user.bin"), b"backup").expect("backup file");
+    fs::write(notes.join("user.bin"), b"notes").expect("notes file");
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open with foreign names");
+        db.create_snapshot("foreign-staging-prefixes")
+            .expect("snapshot");
+    }
+    StorageEngine::snapshot_restore(dir.path(), "foreign-staging-prefixes").expect("restore");
+    for read_only in [false, true] {
+        let mut options = config.clone();
+        options.read_only = read_only;
+        let _db = Embedded::open_with_config(options).expect("reopen with foreign names");
+    }
+    assert_eq!(
+        fs::read(backup.join("user.bin")).expect("backup"),
+        b"backup"
+    );
+    assert_eq!(fs::read(notes.join("user.bin")).expect("notes"), b"notes");
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_orphaned_stagings_block_every_open_and_restore() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.create_snapshot("orphan").expect("snapshot");
+    }
+    let data_stage = dir.path().join("data.pre_restore_123");
+    let backend_stage = dir.path().join("backend.pre_restore_456");
+    let file_stage = dir.path().join("data.pre_restore_789");
+    fs::create_dir(&data_stage).expect("data staging");
+    fs::create_dir(&backend_stage).expect("backend staging");
+    fs::write(&file_stage, b"file staging").expect("file staging");
+    fs::write(data_stage.join("original"), b"data").expect("data");
+    fs::write(backend_stage.join("original"), b"backend").expect("backend");
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink("missing", dir.path().join("backend.pre_restore_101"))
+            .expect("symlink staging");
+    }
+    for read_only in [false, true] {
+        let mut options = config.clone();
+        options.read_only = read_only;
+        let err = match Embedded::open_with_config(options) {
+            Ok(_) => panic!("open must reject orphaned staging"),
+            Err(err) => err,
+        };
+        assert!(
+            matches!(err, vantadb::error::Error::Validation { ref field, .. } if field == "snapshot_restore"),
+            "{err}"
+        );
+        assert!(err.to_string().contains("data.pre_restore_123"));
+        assert!(err.to_string().contains("backend.pre_restore_456"));
+        assert!(err.to_string().contains("data.pre_restore_789"));
+        #[cfg(unix)]
+        assert!(err.to_string().contains("backend.pre_restore_101"));
+    }
+    let err = StorageEngine::snapshot_restore(dir.path(), "orphan")
+        .expect_err("restore must reject staging");
+    assert!(
+        matches!(err, vantadb::error::Error::Validation { ref field, .. } if field == "snapshot_restore"),
+        "{err}"
+    );
+    assert_eq!(
+        fs::read(data_stage.join("original")).expect("data"),
+        b"data"
+    );
+    assert_eq!(
+        fs::read(backend_stage.join("original")).expect("backend"),
+        b"backend"
+    );
+    assert_eq!(fs::read(file_stage).expect("file staging"), b"file staging");
+    #[cfg(unix)]
+    assert!(
+        fs::symlink_metadata(dir.path().join("backend.pre_restore_101"))
+            .expect("symlink staging")
+            .file_type()
+            .is_symlink()
+    );
+}
+
+#[cfg(all(feature = "fjall", not(feature = "fs2")))]
+#[test]
+fn test_snapshot_restore_and_pending_open_require_fs2() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.create_snapshot("no-fs2").expect("snapshot");
+    }
+    for result in [
+        StorageEngine::snapshot_restore(dir.path(), "no-fs2").map(|_| ()),
+        StorageEngine::schedule_snapshot_restore(dir.path(), "no-fs2").map(|_| ()),
+    ] {
+        assert!(
+            matches!(result, Err(vantadb::error::Error::Validation { .. })),
+            "{result:?}"
+        );
+    }
+    let marker = dir.path().join(".restore_pending");
+    assert!(!marker.exists());
+    fs::write(&marker, b"vantadb-restore-pending v1\nno-fs2\n").expect("marker");
+    let before = fs::read(dir.path().join(".vanta.lock")).expect("lock metadata");
+    let err = match Embedded::open_with_config(config) {
+        Ok(_) => panic!("pending open must require fs2"),
+        Err(err) => err,
+    };
+    assert!(
+        matches!(err, vantadb::error::Error::Validation { .. }),
+        "{err}"
+    );
+    assert_eq!(
+        fs::read(marker).expect("marker"),
+        b"vantadb-restore-pending v1\nno-fs2\n"
+    );
+    assert_eq!(
+        fs::read(dir.path().join(".vanta.lock")).expect("lock metadata"),
+        before
+    );
+}
+
+#[cfg(all(feature = "fjall", any(unix, windows)))]
+#[test]
+fn test_pending_restore_symlink_marker_fails_closed() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.put(record("symlink", "key", "original", "test"))
+            .expect("put");
+        db.create_snapshot("symlink-marker").expect("snapshot");
+    }
+    let marker = dir.path().join(".restore_pending");
+    let target = dir.path().join("external-marker");
+    let lock_contents = fs::read(dir.path().join(".vanta.lock")).expect("lock metadata");
+
+    for target_exists in [false, true] {
+        if target_exists {
+            fs::write(&target, b"vantadb-restore-pending v1\nsymlink-marker\n")
+                .expect("external target");
+        }
+        #[cfg(unix)]
+        let result = std::os::unix::fs::symlink(&target, &marker);
+        #[cfg(windows)]
+        let result = std::os::windows::fs::symlink_file(&target, &marker);
+        if let Err(error) = result {
+            #[cfg(windows)]
+            if error.raw_os_error() == Some(1314) {
+                eprintln!("symlink fixture unavailable: {error}");
+                return;
+            }
+            panic!("create symlink fixture: {error}");
+        }
+
+        let read_only = vantadb::config::Config {
+            read_only: true,
+            ..config.clone()
+        };
+        let db = Embedded::open_with_config(read_only).expect("read-only open");
+        assert!(db.get("symlink", "key").expect("get").is_some());
+        drop(db);
+
+        let error = match Embedded::open_with_config(config.clone()) {
+            Ok(_) => panic!("writable open must reject a symlink marker"),
+            Err(error) => error,
+        };
+        assert!(
+            matches!(error, vantadb::error::Error::Validation { .. }),
+            "{error}"
+        );
+        assert!(
+            StorageEngine::schedule_snapshot_restore(dir.path(), "symlink-marker").is_err(),
+            "scheduler must not read or replace a symlink marker"
+        );
+        assert!(fs::symlink_metadata(&marker)
+            .expect("marker")
+            .file_type()
+            .is_symlink());
+        if target_exists {
+            assert_eq!(
+                fs::read(&target).expect("external target"),
+                b"vantadb-restore-pending v1\nsymlink-marker\n"
+            );
+        } else {
+            assert!(!target.exists());
+        }
+        #[cfg(not(feature = "fs2"))]
+        assert_eq!(
+            fs::read(dir.path().join(".vanta.lock")).expect("lock metadata"),
+            lock_contents
+        );
+        fs::remove_file(&marker).expect("remove fixture symlink");
+    }
+    #[cfg(feature = "fs2")]
+    let _ = lock_contents;
+    let db = Embedded::open_with_config(config).expect("open current state");
+    assert!(db.get("symlink", "key").expect("get").is_some());
+}
+
+#[cfg(all(windows, feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_windows_name_rejected_by_all_entry_points_before_io() {
+    const CHILD: &str = "FIND319_WINDOWS_NAME_TEST_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let working_dir = tempdir().expect("isolated working directory");
+        let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+            .current_dir(working_dir.path())
+            .env(CHILD, "1")
+            .args([
+                "--exact",
+                "test_snapshot_windows_name_rejected_by_all_entry_points_before_io",
+                "--nocapture",
+            ])
+            .output()
+            .expect("run isolated test");
+        assert!(
+            output.status.success(),
+            "isolated test failed:\n{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+    let before = snapshot_file_set(dir.path());
+    let working_dir = std::env::current_dir().expect("working directory");
+    let drive_relative = match working_dir.components().next() {
+        Some(std::path::Component::Prefix(prefix)) => {
+            format!("{}example", prefix.as_os_str().to_string_lossy())
+        }
+        _ => panic!("Windows working directory must have a prefix"),
+    };
+    for name in [drive_relative.as_str(), "file:stream", "alias.", "alias "] {
+        let result = db.create_snapshot(name);
+        assert!(
+            matches!(result, Err(vantadb::error::Error::InvalidInput(_))),
+            "{name:?}"
+        );
+        let result = StorageEngine::snapshot_restore(dir.path(), name);
+        assert!(
+            matches!(result, Err(vantadb::error::Error::InvalidInput(_))),
+            "{name:?}"
+        );
+        let result = StorageEngine::schedule_snapshot_restore(dir.path(), name);
+        assert!(
+            matches!(result, Err(vantadb::error::Error::InvalidInput(_))),
+            "{name:?}"
+        );
+    }
+    assert_eq!(snapshot_file_set(dir.path()), before);
+}
+
+#[cfg(feature = "fjall")]
+fn snapshot_restore_backend_state(encrypted: bool) {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), encrypted);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        assert_snapshot_tables_exist(dir.path());
+        db.create_snapshot("state").expect("snapshot");
+        assert!(db.delete("snapshot-test", "a0").expect("delete"));
+        db.put(record("snapshot-test", "a1", "changed payload", "snapshot"))
+            .expect("update");
+        db.put(record(
+            "snapshot-test",
+            "b0",
+            "bravo later payload",
+            "snapshot",
+        ))
+        .expect("put B");
+        db.flush().expect("flush later state");
+    }
+    let db = Embedded::restore_from(config, "state").expect("restore");
+    for key in ["a0", "a1", "a2"] {
+        assert_eq!(
+            db.get("snapshot-test", key)
+                .expect("get")
+                .expect("A exists")
+                .payload,
+            "alpha snapshot original"
+        );
+    }
+    assert!(db.get("snapshot-test", "b0").expect("get B").is_none());
+    assert_eq!(db.count("snapshot-test", None).expect("count"), 3);
+    let text = |term: &str| {
+        db.search(MemorySearchRequest {
+            namespace: "snapshot-test".into(),
+            text_query: Some(term.into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("text search")
+    };
+    assert_eq!(text("alpha").len(), 3);
+    assert!(text("bravo").is_empty());
+    let vectors = db
+        .search(MemorySearchRequest {
+            namespace: "snapshot-test".into(),
+            query_vector: vec![1.0, 0.0, 0.0],
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("vector search");
+    let keys: std::collections::BTreeSet<_> =
+        vectors.iter().map(|hit| hit.record.key.as_str()).collect();
+    assert_eq!(keys, ["a0", "a1", "a2"].into_iter().collect());
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_snapshot_restore_restores_backend_state() {
+    snapshot_restore_backend_state(false);
+}
+
+#[cfg(all(feature = "fjall", feature = "encryption"))]
+#[test]
+fn test_snapshot_restore_restores_backend_state_encrypted() {
+    snapshot_restore_backend_state(true);
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_snapshot_isolated_from_post_snapshot_delete() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+    db.put(record("snapshot-test", "a0", "alpha", "snapshot"))
+        .expect("put");
+    let snapshot = db.create_snapshot("delete-isolation").expect("snapshot");
+    let segment = snapshot.path.join("data/vstore_L0.vanta");
+    let before = fs::read(&segment).expect("read segment");
+    db.delete("snapshot-test", "a0").expect("delete");
+    let after = fs::read(&segment).expect("read segment after delete");
+    assert_eq!(
+        before, after,
+        "post-snapshot tombstone changed snapshot segment"
+    );
+}
+
+#[cfg(all(feature = "fjall", feature = "failpoints"))]
+#[test]
+fn test_snapshot_restore_backend_failure_rolls_back_both_trees() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.create_snapshot("rollback").expect("snapshot");
+        db.delete("snapshot-test", "a0").expect("delete");
+        db.put(record("snapshot-test", "b0", "later", "snapshot"))
+            .expect("put B");
+        db.flush().expect("flush");
+    }
+    fail::cfg("snapshot_restore_backend_fail", "return").expect("arm");
+    let result = StorageEngine::snapshot_restore(dir.path(), "rollback");
+    fail::remove("snapshot_restore_backend_fail");
+    assert!(result.is_err());
+    for entry in fs::read_dir(dir.path()).expect("root") {
+        let name = entry
+            .expect("entry")
+            .file_name()
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            !name.starts_with("data.pre_restore_") && !name.starts_with("backend.pre_restore_"),
+            "{name}"
+        );
+    }
+    assert!(dir
+        .path()
+        .join("data/snapshots/rollback/backend.manifest")
+        .is_file());
+    let db = Embedded::open_with_config(config).expect("reopen");
+    assert!(db.get("snapshot-test", "a0").expect("get A").is_none());
+    assert!(db.get("snapshot-test", "b0").expect("get B").is_some());
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_snapshot_restore_legacy_without_manifest_restores_data_only() {
+    use sha2::{Digest, Sha256};
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), false);
+    let snapshot_segment_hash = {
+        let db = Embedded::open_with_config(config).expect("open");
+        let snapshot = db.create_snapshot("legacy").expect("snapshot");
+        let hash = Sha256::digest(
+            fs::read(snapshot.path.join("data/vstore_L0.vanta")).expect("snapshot segment"),
+        )
+        .to_vec();
+        fs::remove_file(snapshot.path.join("backend.manifest")).expect("remove manifest");
+        fs::remove_file(snapshot.path.join("snapshot.format")).expect("remove format marker");
+        db.put(record("snapshot-test", "b0", "later", "snapshot"))
+            .expect("put B");
+        db.flush().expect("flush");
+        hash
+    };
+    let backend_hashes = || {
+        let mut hashes = std::collections::BTreeMap::new();
+        for relative in snapshot_file_set(dir.path()) {
+            let first = relative.components().next().expect("component").as_os_str();
+            if first == "data" || first == ".vanta.lock" {
+                continue;
+            }
+            hashes.insert(
+                relative.clone(),
+                Sha256::digest(fs::read(dir.path().join(relative)).expect("file")).to_vec(),
+            );
+        }
+        hashes
+    };
+    let before = backend_hashes();
+    assert_ne!(
+        snapshot_segment_hash,
+        Sha256::digest(fs::read(dir.path().join("data/vstore_L0.vanta")).expect("live segment"))
+            .to_vec()
+    );
+    StorageEngine::snapshot_restore(dir.path(), "legacy").expect("legacy restore");
+    assert_eq!(before, backend_hashes());
+    assert_eq!(
+        snapshot_segment_hash,
+        Sha256::digest(
+            fs::read(dir.path().join("data/vstore_L0.vanta")).expect("restored segment")
+        )
+        .to_vec()
+    );
+}
+
+#[cfg(all(feature = "fjall", feature = "fs2"))]
+#[test]
+fn test_snapshot_restore_rejects_open_database() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+    db.create_snapshot("busy").expect("snapshot");
+    let err = StorageEngine::snapshot_restore(dir.path(), "busy")
+        .expect_err("open database must be rejected");
+    assert!(
+        matches!(err, vantadb::error::Error::DatabaseBusy(_)),
+        "{err:?}"
+    );
+}
+
+#[cfg(all(feature = "fjall", feature = "failpoints"))]
+#[test]
+fn test_snapshot_backend_mirror_retries_when_unstable() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), false);
+    let db = Embedded::open_with_config(config).expect("open");
+    fail::cfg("snapshot_backend_unstable", "1*return").expect("arm");
+    let snapshot = db.create_snapshot("retry");
+    let consumed = fail::eval("snapshot_backend_unstable", |_| true).is_none();
+    fail::remove("snapshot_backend_unstable");
+    let snapshot = snapshot.expect("retry must succeed");
+    assert!(consumed, "snapshot must exercise the instability failpoint");
+    assert!(snapshot.path.join("backend.manifest").is_file());
+    assert_eq!(
+        snapshot_file_set(&dir.path().join("keyspaces")),
+        snapshot_file_set(&snapshot.path.join("backend/keyspaces"))
+    );
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_snapshot_skips_tmp_files() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+    fs::write(dir.path().join("data/leftover.tmp"), b"leftover").expect("plant tmp");
+    let snapshot = db.create_snapshot("tmp").expect("snapshot");
+    assert!(dir.path().join("data/leftover.tmp").exists());
+    assert!(!snapshot.path.join("data/leftover.tmp").exists());
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_scheduled_restore_applies_on_next_open() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.create_snapshot("scheduled").expect("snapshot");
+        db.delete("snapshot-test", "a0").expect("delete");
+        db.put(record("snapshot-test", "b0", "later", "snapshot"))
+            .expect("put");
+        let marker =
+            StorageEngine::schedule_snapshot_restore(dir.path(), "scheduled").expect("schedule");
+        assert!(marker.is_file());
+        assert!(db.get("snapshot-test", "a0").expect("get A").is_none());
+        assert!(db.get("snapshot-test", "b0").expect("get B").is_some());
+    }
+    let db = Embedded::open_with_config(config).expect("reopen");
+    assert!(!dir.path().join(".restore_pending").exists());
+    assert!(db.get("snapshot-test", "a0").expect("get A").is_some());
+    assert!(db.get("snapshot-test", "b0").expect("get B").is_none());
+    assert_eq!(db.count("snapshot-test", None).expect("count"), 3);
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_scheduled_restore_missing_snapshot_errors_without_marker() {
+    let dir = tempdir().expect("tempdir");
+    let _db = Embedded::open(dir.path()).expect("open");
+    let err = StorageEngine::schedule_snapshot_restore(dir.path(), "missing").expect_err("missing");
+    assert!(
+        matches!(err, vantadb::error::Error::NotFound { .. }),
+        "{err}"
+    );
+    assert!(!dir.path().join(".restore_pending").exists());
+}
+
+#[cfg(all(feature = "fjall", feature = "failpoints"))]
+#[test]
+fn test_scheduled_restore_failure_keeps_live_state_and_marker() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.create_snapshot("scheduled-fail").expect("snapshot");
+        db.delete("snapshot-test", "a0").expect("delete");
+        db.put(record("snapshot-test", "b0", "later", "snapshot"))
+            .expect("put");
+        db.flush().expect("flush");
+        StorageEngine::schedule_snapshot_restore(dir.path(), "scheduled-fail").expect("schedule");
+    }
+    fail::cfg("snapshot_restore_backend_fail", "return").expect("arm");
+    let err = Embedded::open_with_config(config.clone()).expect_err("restore must fail");
+    fail::remove("snapshot_restore_backend_fail");
+    assert!(
+        err.to_string().contains("pending snapshot restore failed"),
+        "{err}"
+    );
+    let marker = dir.path().join(".restore_pending");
+    assert!(marker.is_file());
+    fs::remove_file(marker).expect("cancel pending restore");
+    let db = Embedded::open_with_config(config).expect("open current state");
+    assert!(db.get("snapshot-test", "a0").expect("get A").is_none());
+    assert!(db.get("snapshot-test", "b0").expect("get B").is_some());
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_scheduled_restore_ignored_by_read_only_open() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), false);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open");
+        db.create_snapshot("read-only-pending").expect("snapshot");
+        db.put(record("snapshot-test", "b0", "later", "snapshot"))
+            .expect("put");
+        db.flush().expect("flush");
+        StorageEngine::schedule_snapshot_restore(dir.path(), "read-only-pending")
+            .expect("schedule");
+    }
+    let marker = dir.path().join(".restore_pending");
+    let pending_lock = dir.path().join(".restore_pending.lock");
+    fs::remove_file(&pending_lock).expect("simulate a database without the pending lock file");
+    let stale_tmp = dir.path().join(".restore_pending.1.2.3.tmp");
+    let unrelated = dir.path().join("unrelated.tmp");
+    fs::write(&stale_tmp, b"incomplete").expect("plant stale temp");
+    fs::write(&unrelated, b"keep").expect("plant unrelated temp");
+    let before = fs::read(&marker).expect("marker");
+    let read_only = vantadb::config::Config {
+        read_only: true,
+        ..config.clone()
+    };
+    let db = Embedded::open_with_config(read_only).expect("read-only open");
+    assert!(db.get("snapshot-test", "b0").expect("get B").is_some());
+    assert_eq!(before, fs::read(&marker).expect("marker still exists"));
+    assert!(
+        stale_tmp.is_file(),
+        "read-only open must not clean temporary files"
+    );
+    assert!(
+        !pending_lock.exists(),
+        "read-only open must not create the pending lock"
+    );
+    assert!(unrelated.exists());
+    drop(db);
+    let db = Embedded::open_with_config(config).expect("writable open");
+    assert!(!stale_tmp.exists());
+    assert!(
+        pending_lock.is_file(),
+        "writable open creates the pending lock"
+    );
+    assert_eq!(fs::read(unrelated).expect("unrelated file"), b"keep");
+    assert!(!marker.exists());
+    assert!(db.get("snapshot-test", "b0").expect("get B").is_none());
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_scheduled_restore_tmp_cleanup_without_pending_marker() {
+    let dir = tempdir().expect("tempdir");
+    {
+        let _db = Embedded::open(dir.path()).expect("create database");
+    }
+    let stale_tmp = dir.path().join(".restore_pending.1.2.3.tmp");
+    let unrelated = dir.path().join("unrelated.tmp");
+    fs::write(&stale_tmp, b"incomplete").expect("plant stale temp");
+    fs::write(&unrelated, b"keep").expect("plant unrelated temp");
+    let _db = Embedded::open(dir.path()).expect("open without pending restore");
+    assert!(!stale_tmp.exists());
+    assert_eq!(fs::read(unrelated).expect("unrelated remains"), b"keep");
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_schedule_restore_concurrent_writers_leave_valid_marker() {
+    use std::collections::HashSet;
+    use std::sync::{Arc, Barrier};
+
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_config(dir.path(), false);
+    let db = Embedded::open_with_config(config.clone()).expect("open");
+    for index in 0..8 {
+        db.put(record(
+            "schedule-race",
+            &format!("key-{index}"),
+            "snapshot",
+            "race",
+        ))
+        .expect("put");
+        db.create_snapshot(&format!("race-{index}"))
+            .expect("snapshot");
+    }
+    db.put(record("schedule-race", "after", "later", "race"))
+        .expect("put after snapshots");
+    let marker = dir.path().join(".restore_pending");
+    let mut winner = String::new();
+    for _ in 0..50 {
+        let barrier = Arc::new(Barrier::new(8));
+        let successful = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..8)
+                .map(|index| {
+                    let barrier = barrier.clone();
+                    let root = dir.path();
+                    scope.spawn(move || {
+                        let name = format!("race-{index}");
+                        barrier.wait();
+                        let success = StorageEngine::schedule_snapshot_restore(root, &name).is_ok();
+                        (name, success)
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .filter_map(|handle| {
+                    let (name, success) = handle.join().expect("scheduler thread");
+                    success.then_some(name)
+                })
+                .collect::<HashSet<_>>()
+        });
+        assert!(
+            !successful.is_empty(),
+            "at least one scheduler must succeed"
+        );
+        let contents = fs::read_to_string(&marker).expect("marker");
+        let lines: Vec<_> = contents.lines().collect();
+        assert_eq!(lines.len(), 2, "malformed marker: {contents:?}");
+        assert_eq!(lines[0], "vantadb-restore-pending v1");
+        assert!(
+            successful.contains(lines[1]),
+            "marker names an unsuccessful call: {contents:?}"
+        );
+        winner = lines[1].to_string();
+        for entry in fs::read_dir(dir.path()).expect("root") {
+            let name = entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned();
+            assert!(
+                !(name.starts_with(".restore_pending.") && name.ends_with(".tmp")),
+                "leftover {name}"
+            );
+        }
+    }
+    let winner_index: usize = winner
+        .strip_prefix("race-")
+        .expect("prefix")
+        .parse()
+        .expect("index");
+    drop(db);
+    let db = Embedded::open_with_config(config).expect("apply winning restore");
+    for index in 0..8 {
+        let present = db
+            .get("schedule-race", &format!("key-{index}"))
+            .expect("get")
+            .is_some();
+        assert_eq!(
+            present,
+            index <= winner_index,
+            "key-{index}, winner {winner}"
+        );
+    }
+    assert!(db.get("schedule-race", "after").expect("get").is_none());
+    assert!(!marker.exists());
+}
+
+#[cfg(all(feature = "fjall", feature = "encryption"))]
+#[test]
+fn test_scheduled_restore_recovers_encrypted_db() {
+    let dir = tempdir().expect("tempdir");
+    let config = snapshot_seed(dir.path(), true);
+    {
+        let db = Embedded::open_with_config(config.clone()).expect("open encrypted");
+        db.create_snapshot("encrypted-pending").expect("snapshot");
+        db.delete("snapshot-test", "a0").expect("delete");
+        db.put(record("snapshot-test", "b0", "later", "snapshot"))
+            .expect("put");
+        db.flush().expect("flush");
+        StorageEngine::schedule_snapshot_restore(dir.path(), "encrypted-pending")
+            .expect("schedule");
+    }
+    fs::remove_file(dir.path().join("data/encryption.registry")).expect("remove live registry");
+    let db = Embedded::open_with_config(config).expect("restore before resolving encryption");
+    for key in ["a0", "a1", "a2"] {
+        assert_eq!(
+            db.get("snapshot-test", key)
+                .expect("get")
+                .expect("A")
+                .payload,
+            "alpha snapshot original"
+        );
+    }
+    assert!(db.get("snapshot-test", "b0").expect("get B").is_none());
+    assert!(!dir.path().join(".restore_pending").exists());
+}
+
+#[cfg(all(feature = "fjall", feature = "encryption", feature = "fs2"))]
+#[test]
+fn test_open_locked_encrypted_database_reports_busy_before_missing_key() {
+    let dir = tempdir().expect("tempdir");
+    let keyed = snapshot_config(dir.path(), true);
+    let _db = Embedded::open_with_config(keyed).expect("open encrypted");
+    let unkeyed = vantadb::config::Config {
+        file_lock_timeout_ms: 5,
+        ..snapshot_config(dir.path(), false)
+    };
+    let err = Embedded::open_with_config(unkeyed).expect_err("locked database");
+    assert!(
+        matches!(err, vantadb::error::Error::DatabaseBusy(_)),
+        "{err}"
+    );
+}
+
+#[cfg(feature = "fjall")]
+#[test]
+fn test_scheduled_restore_malformed_marker_fails_closed() {
+    let dir = tempdir().expect("tempdir");
+    {
+        let db = Embedded::open(dir.path()).expect("open");
+        db.put(record("snapshot-test", "a0", "original", "snapshot"))
+            .expect("put");
+        db.flush().expect("flush");
+    }
+    let marker = dir.path().join(".restore_pending");
+    fs::write(&marker, "vantadb-restore-pending v1\n../escape\n").expect("write malformed marker");
+    let err = Embedded::open(dir.path()).expect_err("malformed marker");
+    assert!(
+        err.to_string().contains("pending snapshot restore failed"),
+        "{err}"
+    );
+    assert!(marker.exists());
+    fs::remove_file(marker).expect("cancel");
+    let db = Embedded::open(dir.path()).expect("open current state");
+    assert!(db.get("snapshot-test", "a0").expect("get").is_some());
 }

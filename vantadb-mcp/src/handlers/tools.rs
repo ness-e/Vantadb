@@ -957,7 +957,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "snapshot_create",
-            "description": "MCP-34a: creates a physical filesystem snapshot under <data_dir>/snapshots/<name> (instant O(1) hard-link image on Unix, copy fallback on Windows). Returns {path, created_at}. Pair with 'snapshot_restore' to roll back.",
+            "description": "Creates a physical filesystem snapshot under <data_dir>/snapshots/<name>. Quiesce writers first: concurrent writes are not guaranteed coherent across data and backend (FIND-651). Returns {path, created_at}.",
             "annotations": {
                 "title": "Snapshot Create",
                 "readOnlyHint": false,
@@ -975,7 +975,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "snapshot_restore",
-            "description": "MCP-34b: DESTRUCTIVE — replaces the live database directory (<storage_root>/data) with the contents of snapshot <name>. The current data is staged aside with rollback-on-failure; all snapshots survive the swap. Requires \"confirm\": true. After a successful restore the running engine must be restarted/reopened to serve restored state.",
+            "description": "DESTRUCTIVE: schedules snapshot <name> to restore on the next writable open. Requires \"confirm\": true. Restart the server; writes made before restart are discarded. Delete .restore_pending to cancel.",
             "annotations": {
                 "title": "Snapshot Restore",
                 "readOnlyHint": false,
@@ -3170,10 +3170,8 @@ pub fn handle_tools_call(
         // MCP-34b: DESTRUCTIVE restore from a physical snapshot. Same
         // identifier guard as snapshot_create (trust boundary), plus a literal
         // `confirm: true` requirement (RES-02 S5) — anything else is rejected
-        // with guidance instead of touching the disk. The swap itself runs via
-        // StorageEngine::snapshot_restore on the storage root; the server's
-        // own engine stays bound to the pre-restore directory until restart,
-        // which the success payload states explicitly.
+        // with guidance instead of touching the disk. Schedule the swap for
+        // the next open, after the server releases its engine and lock.
         "snapshot_restore" => {
             let name = args["name"]
                 .as_str()
@@ -3196,17 +3194,15 @@ pub fn handle_tools_call(
                     "Snapshot Restore Error: in-memory databases have no filesystem to restore",
                 )));
             };
-            match vantadb::storage::StorageEngine::snapshot_restore(root, name) {
+            match vantadb::storage::StorageEngine::schedule_snapshot_restore(root, name) {
                 Ok(path) => Ok(text_content(serialize_content(&json!({
-                    "restored": true,
-                    "path": path.to_string_lossy(),
-                    "note": "Database directory replaced by snapshot contents. Restart the server (or reopen the embedded handle) to serve restored state.",
+                    "restored": false,
+                    "scheduled": true,
+                    "snapshot": name,
+                    "marker": path.to_string_lossy(),
+                    "note": "Restore is applied on the next writable open (restart the server). Writes made before restart are discarded. Delete the marker file to cancel. An interrupted restore may leave staging directories; reopening then fails and requires manual recovery.",
                 })))),
-                Err(e) => {
-                    let mut m = McpError::from(e);
-                    m.message.push_str(" (if an engine holds this database open, close it first - the directory swap requires exclusive access)");
-                    Ok(error_content_mcp(m))
-                }
+                Err(e) => Ok(error_content_mcp(McpError::from(e))),
             }
         }
 

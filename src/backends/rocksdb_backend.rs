@@ -134,6 +134,9 @@ impl RocksDbBackend {
         let mut text_index_opts = default_opts.clone();
         text_index_opts.set_block_based_table_factory(&bopts);
 
+        let mut sparse_index_opts = default_opts.clone();
+        sparse_index_opts.set_block_based_table_factory(&bopts);
+
         let mut internal_metadata_opts = default_opts.clone();
         internal_metadata_opts.set_block_based_table_factory(&cold_bopts);
 
@@ -150,6 +153,7 @@ impl RocksDbBackend {
             rocksdb::ColumnFamilyDescriptor::new("namespace_index", namespace_index_opts),
             rocksdb::ColumnFamilyDescriptor::new("payload_index", payload_index_opts),
             rocksdb::ColumnFamilyDescriptor::new("text_index", text_index_opts),
+            rocksdb::ColumnFamilyDescriptor::new("sparse_index", sparse_index_opts),
             rocksdb::ColumnFamilyDescriptor::new("internal_metadata", internal_metadata_opts),
             rocksdb::ColumnFamilyDescriptor::new("versions", versions_opts),
         ];

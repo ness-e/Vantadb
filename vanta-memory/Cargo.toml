@@ -44,6 +44,10 @@ tiktoken-rs = { version = "0.12", optional = true }
 # default build (pre-mortem ADR-0054 T2).
 tokio = { workspace = true, features = ["rt", "time", "sync", "macros"], optional = true }
 
+# Native snapshot restore requires exclusive filesystem locking; wasm does not inherit fs2.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+vantadb = { workspace = true, features = ["fs2"] }
+
 [dev-dependencies]
 tempfile = { workspace = true }
 # MEMG-17: los tests de recibos recomputan el hash canónico (paridad con el

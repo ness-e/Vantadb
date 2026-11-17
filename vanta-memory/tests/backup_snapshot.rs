@@ -108,11 +108,11 @@ fn snapshot_round_trips_l1_records() {
     );
 }
 
-/// FIND-287 canary: `snapshot_restore` swaps `data/` only — the live backend
+/// FIND-287 legacy canary: `snapshot_restore` swaps `data/` only — the live backend
 /// KV (Fjall LSM) is intentionally left in place (FIND-33 decision, archived
 /// plan 2026-08-29 §1308), so post-snapshot DELETE and supersession metadata
-/// keep their backend state and are NOT rolled back. If the core ever
-/// restores the backend too, this test fails and FIND-287 gets re-evaluated.
+/// keep their backend state and are NOT rolled back. Deleting both format
+/// markers exercises the legacy contract even though new snapshots restore backend.
 #[test]
 fn restore_does_not_roll_back_post_snapshot_deletes() {
     let dir = tempfile::tempdir().expect("tempdir");
@@ -123,7 +123,11 @@ fn restore_does_not_roll_back_post_snapshot_deletes() {
         let db = Embedded::open_with_config(config.clone()).expect("open fjall");
         put_l1(&db, &record("m1", "alpha"));
         put_l1(&db, &record("m2", "beta"));
-        create_snapshot(&db, "snap-del").expect("create snapshot");
+        let snapshot = create_snapshot(&db, "snap-del").expect("create snapshot");
+        std::fs::remove_file(snapshot.path.join("backend.manifest"))
+            .expect("remove manifest for legacy snapshot");
+        std::fs::remove_file(snapshot.path.join("snapshot.format"))
+            .expect("remove format marker for legacy snapshot");
 
         // Post-snapshot mutations: an addition, a delete, a supersession.
         put_l1(&db, &record("m3", "gamma"));

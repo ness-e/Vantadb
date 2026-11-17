@@ -21,7 +21,7 @@ pub mod lifecycle;
 pub mod l1_reader;
 
 /// MEMG-17 (pieza a): semantic rollback to a retained version — append-only
-/// lineage over `versions` (snapshot restore stays data-only, FIND-287).
+/// lineage over `versions` (legacy snapshot restore stays data-only, FIND-287).
 pub mod rollback;
 
 /// MEMG-21: composite L1 scoring — recency + relevance + importance.

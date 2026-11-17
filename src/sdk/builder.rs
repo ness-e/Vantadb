@@ -403,10 +403,13 @@ impl Embedded {
 
     // ── Filesystem Snapshots ──
 
-    /// Create an instant filesystem snapshot via hard links (Unix) or copy (Windows).
+    /// Create a filesystem snapshot via hard links for immutable files and copies
+    /// for mutable files (Unix), or copies on Windows.
     ///
-    /// All data files in the storage directory are hard-linked into
-    /// `<data_dir>/snapshots/<name>`, giving an O(1) point-in-time image.
+    /// Data and backend files are captured under `<data_dir>/snapshots/<name>`.
+    /// RocksDB uses a native checkpoint before its files are copied.
+    /// A snapshot taken while other writers are active is not guaranteed to be
+    /// coherent across data and backend; quiesce writers first (FIND-651).
     pub fn create_snapshot(&self, name: &str) -> Result<crate::storage::FsSnapshot> {
         let engine = self.engine_handle()?;
         engine.create_snapshot(name)
@@ -433,11 +436,26 @@ impl Embedded {
     /// with `NotFound` if the snapshot does not exist, stages the live data
     /// directory aside with rollback-on-failure, copies the snapshot contents
     /// back, and reopens a fresh engine over the restored directory (indexes
-    /// rebuild from storage on open). See
+    /// rebuild from storage on open). Complete snapshots must match
+    /// `config.backend_kind`; restore does not migrate backends. See
     /// [`StorageEngine::snapshot_restore`] for the full safety contract.
     pub fn restore_from(config: Config, name: &str) -> Result<Self> {
-        StorageEngine::snapshot_restore(Path::new(&config.storage_path), name)?;
+        StorageEngine::snapshot_restore_for_backend(
+            Path::new(&config.storage_path),
+            name,
+            config.backend_kind,
+        )?;
         Self::open_with_config(config)
+    }
+
+    /// Restore and reopen, reporting whether the snapshot included backend state.
+    pub fn restore_from_with_backend(config: Config, name: &str) -> Result<(Self, bool)> {
+        let (_, backend_restored) = StorageEngine::snapshot_restore_for_backend(
+            Path::new(&config.storage_path),
+            name,
+            config.backend_kind,
+        )?;
+        Ok((Self::open_with_config(config)?, backend_restored))
     }
 }
 

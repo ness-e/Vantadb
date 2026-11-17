@@ -37,15 +37,48 @@ impl StorageEngine {
         // resident structure declares its cap.
         crate::storage::vfile::set_decrypt_cache_memory_limit(effective_memory);
 
+        let base_path = Self::storage_root(path)?;
+        let lock_file = if matches!(config.backend_kind, BackendKind::InMemory) {
+            None
+        } else {
+            let file = Self::acquire_db_lock(&base_path, &config)?;
+            Self::check_restore_staging(&base_path)?;
+            if !config.read_only && !cfg!(feature = "fs2") {
+                match std::fs::symlink_metadata(base_path.join(".restore_pending")) {
+                    Ok(_) => return Err(crate::storage::engine::restore_requires_fs2()),
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(err) => return Err(Error::Io(err)),
+                }
+            }
+            if !config.read_only {
+                let _ = crate::storage::lock::write_lock_metadata(
+                    &file,
+                    &crate::storage::lock::LockMetadata::current(),
+                );
+                #[cfg(feature = "fs2")]
+                {
+                    let _pending_lock = Self::acquire_pending_restore_lock(&base_path)?;
+                    Self::cleanup_pending_restore_temps(&base_path);
+                    Self::apply_pending_restore(&base_path, false, config.backend_kind)?;
+                }
+            } else {
+                Self::apply_pending_restore(&base_path, true, config.backend_kind)?;
+            }
+            Some(file)
+        };
+
         // ADR-0057 W6: resolve **one** encryption context for this process,
         // from the `Config`, and decide the database's mode from the
         // artefacts themselves. The context is handed down to the four
         // artefacts (WAL, VantaFile, backend KV, HNSW image): the DEK and the
         // nonce space belong to the **database**, not to the artefact's file.
+        // The lock and pending restore precede this disk inspection. A busy
+        // database therefore reports DatabaseBusy before a missing key.
         #[cfg(feature = "encryption")]
         let mut encryption = DbEncryption::resolve(path, &config)?;
 
-        let (lock_file, backend, data_dir) = Self::init_storage(path, &config)?;
+        let (lock_file, backend, data_dir) =
+            Self::init_storage(path, &base_path, &config, lock_file)?;
 
         // The backend may have created the registry (a brand-new database
         // with a key is encrypted from its first byte), so the mode is
@@ -239,125 +272,123 @@ impl StorageEngine {
         Ok(engine)
     }
 
-    fn init_storage(
-        path: &str,
-        config: &Config,
-    ) -> Result<(Option<StdFile>, Arc<dyn StorageBackend>, PathBuf)> {
+    fn storage_root(path: &str) -> Result<PathBuf> {
         ops::prevent_path_traversal(path)?;
-        let base_path = PathBuf::from(path);
+        Ok(PathBuf::from(path))
+    }
 
-        if matches!(config.backend_kind, BackendKind::InMemory) {
-            let backend: Arc<dyn StorageBackend> =
-                Arc::new(crate::backends::in_memory::InMemoryBackend::new());
-            return Ok((None, backend, PathBuf::new()));
-        }
-
+    pub(super) fn acquire_db_lock(base_path: &Path, config: &Config) -> Result<StdFile> {
         if config.read_only && !base_path.exists() {
             return Err(Error::NotFound {
                 kind: "database_path".into(),
                 id: base_path.display().to_string(),
             });
         }
-        let lock_file = {
-            let lock_path = base_path.join(".vanta.lock");
-            if !config.read_only {
-                std::fs::create_dir_all(&base_path).map_err(Error::Io)?;
+        let lock_path = base_path.join(".vanta.lock");
+        if !config.read_only {
+            std::fs::create_dir_all(base_path).map_err(Error::Io)?;
+        }
+
+        let file_result = OpenOptions::new()
+            .read(true)
+            .write(!config.read_only)
+            .create(!config.read_only)
+            .open(&lock_path);
+
+        let file = match file_result {
+            Ok(f) => f,
+            Err(e) => {
+                if config.read_only {
+                    return Err(Error::NotFound {
+                        kind: "lock_file".into(),
+                        id: base_path.join(".vanta.lock").display().to_string(),
+                    });
+                } else {
+                    return Err(Error::Io(e));
+                }
             }
+        };
 
-            let file_result = OpenOptions::new()
-                .read(true)
-                .write(!config.read_only)
-                .create(!config.read_only)
-                .open(&lock_path);
+        let mut delay = std::time::Duration::from_millis(5);
+        let total_limit = std::time::Duration::from_millis(config.file_lock_timeout_ms);
+        let start_time = Instant::now();
+        let mut acquired = false;
 
-            let file = match file_result {
-                Ok(f) => f,
-                Err(e) => {
-                    if config.read_only {
-                        return Err(Error::NotFound {
-                            kind: "lock_file".into(),
-                            id: base_path.join(".vanta.lock").display().to_string(),
-                        });
-                    } else {
-                        return Err(Error::Io(e));
-                    }
+        while start_time.elapsed() < total_limit {
+            let lock_res: std::io::Result<()> = if config.read_only {
+                #[cfg(feature = "fs2")]
+                {
+                    fs2::FileExt::try_lock_shared(&file)
+                }
+                #[cfg(not(feature = "fs2"))]
+                {
+                    Ok(())
+                }
+            } else {
+                #[cfg(feature = "fs2")]
+                {
+                    fs2::FileExt::try_lock_exclusive(&file)
+                }
+                #[cfg(not(feature = "fs2"))]
+                {
+                    Ok(())
                 }
             };
 
-            let mut delay = std::time::Duration::from_millis(5);
-            let total_limit = std::time::Duration::from_millis(config.file_lock_timeout_ms);
-            let start_time = Instant::now();
-            let mut acquired = false;
-
-            while start_time.elapsed() < total_limit {
-                let lock_res: std::io::Result<()> = if config.read_only {
-                    #[cfg(feature = "fs2")]
-                    {
-                        fs2::FileExt::try_lock_shared(&file)
-                    }
-                    #[cfg(not(feature = "fs2"))]
-                    {
-                        Ok(())
-                    }
-                } else {
-                    #[cfg(feature = "fs2")]
-                    {
-                        fs2::FileExt::try_lock_exclusive(&file)
-                    }
-                    #[cfg(not(feature = "fs2"))]
-                    {
-                        Ok(())
-                    }
-                };
-
-                if lock_res.is_ok() {
-                    acquired = true;
-                    if !config.read_only {
-                        let _ = crate::storage::lock::write_lock_metadata(
-                            &file,
-                            &crate::storage::lock::LockMetadata::current(),
-                        );
-                    }
-                    break;
-                }
-
-                // wasm32: single-threaded, no other process can release the
-                // lock between retries and std::thread::sleep panics there
-                // (condvar::no_threads) — one pass suffices; a miss surfaces
-                // as DatabaseBusy after the loop, no hot spin.
-                #[cfg(not(target_arch = "wasm32"))]
-                std::thread::sleep(delay);
-                delay = std::cmp::min(delay * 2, std::time::Duration::from_millis(100));
+            if lock_res.is_ok() {
+                acquired = true;
+                break;
             }
 
-            if !acquired {
-                let holder_detail = crate::storage::lock::read_lock_metadata(&lock_path)
-                    .map(|meta| {
-                        format!(
-                            " (held by '{}', PID {} on host '{}')",
-                            meta.process_name, meta.pid, meta.hostname
-                        )
-                    })
-                    .unwrap_or_default();
+            // wasm32: single-threaded, no other process can release the
+            // lock between retries and std::thread::sleep panics there
+            // (condvar::no_threads) — one pass suffices; a miss surfaces
+            // as DatabaseBusy after the loop, no hot spin.
+            #[cfg(not(target_arch = "wasm32"))]
+            std::thread::sleep(delay);
+            delay = std::cmp::min(delay * 2, std::time::Duration::from_millis(100));
+        }
 
-                let msg = if config.read_only {
+        if !acquired {
+            let holder_detail = crate::storage::lock::read_lock_metadata(&lock_path)
+                .map(|meta| {
                     format!(
+                        " (held by '{}', PID {} on host '{}')",
+                        meta.process_name, meta.pid, meta.hostname
+                    )
+                })
+                .unwrap_or_default();
+
+            let msg = if config.read_only {
+                format!(
                         "Database at '{}' is locked exclusively by another process (writer){holder_detail}. \
                          Cannot acquire shared read-only lock within timeout.",
                         base_path.display()
                     )
-                } else {
-                    format!(
-                        "Database at '{}' is locked by another process{holder_detail}. \
+            } else {
+                format!(
+                    "Database at '{}' is locked by another process{holder_detail}. \
                          Cannot acquire exclusive writer lock within timeout.",
-                        base_path.display()
-                    )
-                };
-                return Err(Error::DatabaseBusy(msg));
-            }
+                    base_path.display()
+                )
+            };
+            return Err(Error::DatabaseBusy(msg));
+        }
 
-            Some(file)
-        };
+        Ok(file)
+    }
+
+    fn init_storage(
+        path: &str,
+        base_path: &Path,
+        config: &Config,
+        lock_file: Option<StdFile>,
+    ) -> Result<(Option<StdFile>, Arc<dyn StorageBackend>, PathBuf)> {
+        if matches!(config.backend_kind, BackendKind::InMemory) {
+            let backend: Arc<dyn StorageBackend> =
+                Arc::new(crate::backends::in_memory::InMemoryBackend::new());
+            return Ok((None, backend, PathBuf::new()));
+        }
 
         #[cfg(unix)]
         {
@@ -367,14 +398,14 @@ impl StorageEngine {
         }
 
         if !config.read_only {
-            crate::schema::load_or_create_schema(&base_path)?;
+            crate::schema::load_or_create_schema(base_path)?;
             info!(
                 "Storage schema: version={} flags={}",
                 crate::schema::CURRENT_SCHEMA_VERSION,
                 0
             );
         } else {
-            crate::schema::check_schema_compatibility(&base_path)?;
+            crate::schema::check_schema_compatibility(base_path)?;
         }
 
         // C2S2 (OCP): construction goes through `BackendRegistry` — a new
@@ -1361,13 +1392,19 @@ fn is_new_database(root: &Path, data_dir: &Path) -> bool {
     if data_dir.join("vector_index.bin").exists() {
         return false;
     }
-    // The storage root: any file besides the process-local lock means the
-    // database has been opened before (the schema, the backend files).
+    // Engine lock and pending-restore bookkeeping are not database artefacts.
+    // Any other root file means the database has been opened before (the
+    // schema, the backend files).
     if let Ok(entries) = std::fs::read_dir(root) {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if name == ".vanta.lock" || entry.path().is_dir() {
+            if name == ".vanta.lock"
+                || name == ".restore_pending.lock"
+                || name == ".restore_pending"
+                || super::is_pending_restore_tmp(&name)
+                || entry.path().is_dir()
+            {
                 continue;
             }
             return false;

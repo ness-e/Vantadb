@@ -4362,6 +4362,46 @@ fn test_snapshot_restore_requires_confirmation_and_identifier() {
     );
 }
 
+#[test]
+fn test_snapshot_restore_schedules_and_applies_on_reopen() {
+    let (dir, storage) = setup_storage();
+    {
+        let db = vantadb::Embedded::from_engine(storage.clone());
+        db.put(vantadb::MemoryInput::new("pending", "a", "before"))
+            .expect("put");
+        db.create_snapshot("scheduled").expect("snapshot");
+        db.put(vantadb::MemoryInput::new("pending", "b", "after"))
+            .expect("put");
+        let executor = Executor::new(&storage);
+        let response = recovery_call(
+            &executor,
+            &storage,
+            "snapshot_restore",
+            json!({
+                "name": "scheduled",
+                "confirm": true
+            }),
+        )
+        .expect("schedule call");
+        assert!(response["isError"].is_null(), "{response}");
+        let body: Value =
+            serde_json::from_str(response["content"][0]["text"].as_str().expect("text"))
+                .expect("json");
+        assert_eq!(body["scheduled"], true);
+        assert_eq!(body["restored"], false);
+        assert_eq!(body["snapshot"], "scheduled");
+        let note = body["note"].as_str().expect("note");
+        assert!(!note.contains("atomically"));
+        assert!(note.contains("manual recovery"));
+        assert!(db.get("pending", "b").expect("get").is_some());
+    }
+    drop(storage);
+    let db = vantadb::Embedded::open(dir.path()).expect("reopen");
+    assert!(db.get("pending", "a").expect("get").is_some());
+    assert!(db.get("pending", "b").expect("get").is_none());
+    assert!(!dir.path().join(".restore_pending").exists());
+}
+
 // ── MOD-10: versions / supersede / vacuum / remove_edge via MCP ────────────
 
 #[test]

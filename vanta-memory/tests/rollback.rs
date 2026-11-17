@@ -148,7 +148,7 @@ fn rollback_deleted_record_is_not_found() {
     put_l1(&db, &record("m1", "content A", 1));
     put_l1(&db, &record("m1", "content B", 2));
     // Delete purges the retained version history: the record is not
-    // resurrectable from versions (snapshot restore is the data-only path).
+    // resurrectable from versions (legacy snapshot restore is data-only).
     db.delete(&l1_namespace("sess-1"), "m1").expect("delete");
 
     match rollback_record(&db, "sess-1", "m1", 1, NOW_MS) {
@@ -200,8 +200,7 @@ fn fjall_config(storage_path: &str) -> Config {
     }
 }
 
-#[test]
-fn snapshot_rollback_declares_data_only_scope() {
+fn snapshot_rollback_scope(legacy: bool) {
     let dir = tempfile::tempdir().expect("tempdir");
     let db_path = dir.path().join("db").to_string_lossy().to_string();
     let config = fjall_config(&db_path);
@@ -210,7 +209,13 @@ fn snapshot_rollback_declares_data_only_scope() {
         let db = Embedded::open_with_config(config.clone()).expect("open fjall");
         put_l1(&db, &record("m1", "alpha", 1));
         put_l1(&db, &record("m2", "beta", 1));
-        create_snapshot(&db, "snap-rb").expect("create snapshot");
+        let snapshot = create_snapshot(&db, "snap-rb").expect("create snapshot");
+        if legacy {
+            std::fs::remove_file(snapshot.path.join("backend.manifest"))
+                .expect("remove manifest for legacy snapshot");
+            std::fs::remove_file(snapshot.path.join("snapshot.format"))
+                .expect("remove format marker for legacy snapshot");
+        }
 
         // Post-snapshot mutations: an addition and a delete (both directions
         // of the FIND-287 gap are pinned below through the new surface).
@@ -227,19 +232,19 @@ fn snapshot_rollback_declares_data_only_scope() {
         "reverted declares the data-dir swap: {:?}",
         report.reverted
     );
-    assert!(
-        report.not_reverted.iter().any(|s| s.contains("FIND-287")),
-        "not_reverted declares the backend-KV limit (FIND-287): {:?}",
-        report.not_reverted
-    );
+    if legacy {
+        assert!(report.not_reverted.iter().any(|s| s.contains("FIND-287")));
+    } else {
+        assert!(report.reverted.iter().any(|s| s.contains("backend")));
+        assert!(!report.not_reverted.iter().any(|s| s.contains("FIND-287")));
+    }
     assert!(
         !report.caveats.is_empty(),
         "flow caveats declared, never silent"
     );
 
-    // Pinned FIND-287 behavior through the new surface: post-snapshot addition
-    // disappears with `data/`, and the post-snapshot delete is NOT rolled back
-    // (live backend tombstone survives). Same contract as the MEMG-13 canary.
+    // Legacy FIND-287 behavior retains the delete; the full format restores
+    // the backend and therefore the deleted record as well.
     let mut contents: Vec<String> = vanta_memory::core::record::read_session_records(&db, "sess-1")
         .expect("read session")
         .into_iter()
@@ -248,10 +253,24 @@ fn snapshot_rollback_declares_data_only_scope() {
     contents.sort();
     assert_eq!(
         contents,
-        vec!["beta".to_string()],
-        "m1 stays deleted, m3 gone, m2 back (data-only restore, FIND-287)"
+        if legacy {
+            vec!["beta".to_string()]
+        } else {
+            vec!["alpha".to_string(), "beta".to_string()]
+        },
+        "rollback must match the scope declared in its report"
     );
     db.close().expect("close after rollback");
+}
+
+#[test]
+fn snapshot_rollback_declares_full_scope() {
+    snapshot_rollback_scope(false);
+}
+
+#[test]
+fn snapshot_rollback_declares_data_only_scope() {
+    snapshot_rollback_scope(true);
 }
 
 #[test]

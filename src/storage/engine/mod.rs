@@ -162,7 +162,8 @@ pub struct Snapshot {
     pub txn_id: u64,
 }
 
-/// A filesystem-level snapshot created via POSIX hard links (or copy on Windows).
+/// A filesystem-level snapshot that copies mutable files and may link immutable
+/// files on Unix (or copies everything on Windows).
 ///
 /// Unlike the MVCC `Snapshot`, this is a point-in-time copy of all data files
 /// in the storage directory — hard links (O(1)) for the immutable bulk on
@@ -548,17 +549,19 @@ fn mirror_file(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<
 /// the shared inode: the sharded WAL grows with post-snapshot records, so
 /// reopening the snapshot replays them (`test_hardlink_snapshot_independence`
 /// reopened with the *modified* payload — real isolation bug exposed by the
-/// ASan job). These files are small, so [`mirror_data_dir`] copies them
-/// instead. Only the bulk files that are not rewritten in place — the
-/// pre-allocated `vstore_L*.vanta` segments and the rotated WAL archives
-/// (`vanta.shard<N>.wal.<timestamp>`, renamed away by rotation and never
-/// appended afterwards) — stay hard-linked (the O(1) promise).
+/// ASan job). Vstore segments are also rewritten in place by `set_tombstone`
+/// (and re-sealed when encrypted), so a hard link leaks later deletes into
+/// the snapshot. These files are copied instead. Rotated WAL archives
+/// (`vanta.shard<N>.wal.<timestamp>` and `vanta.wal.<timestamp>`) are
+/// replaced rather than rewritten in place and may be hard-linked.
 fn is_mutable_after_snapshot(name: &std::ffi::OsStr) -> bool {
     let name = name.to_string_lossy();
     name == "vanta.wal" // single-shard WAL (wal_shards = 1)
         || name == "vanta.wal.shards" // shard-layout sidecar
         || name == ".wal_ship_marker" // wal-shipping progress marker (rewritten)
         || name == "vector_index.bin" // HNSW image (rewritten by every flush)
+        || name == "vector_store.vanta"
+        || (name.starts_with("vstore_L") && name.ends_with(".vanta"))
         // ADR-0057 W6: the encryption registry is rewritten on every writable
         // open (a new nonce epoch). A hard link would let that write mutate
         // the snapshot through the shared inode — the snapshot's copy of the
@@ -577,7 +580,8 @@ fn is_mutable_after_snapshot(name: &std::ffi::OsStr) -> bool {
 /// Files the live engine keeps writing to after the snapshot
 /// ([`is_mutable_after_snapshot`]) are ALWAYS copied — a hard link would let
 /// post-snapshot appends mutate the snapshot through the shared inode. Only
-/// the immutable bulk (segments, WAL archives) is hard-linked on Unix.
+/// immutable rotated WAL archives are hard-linked on Unix. All other files
+/// are copied, including files not yet classified by the engine.
 ///
 /// Skips the `snapshots` subdirectory: it lives INSIDE `data_dir` (created by
 /// [`StorageEngine::create_snapshot`] itself), so recursing into it would nest
@@ -587,22 +591,87 @@ fn mirror_data_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Res
         let entry = entry?;
         let path = entry.path();
         let name = entry.file_name();
-        if path.is_dir() {
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
             if name == "snapshots" {
                 continue;
             }
             let sub = dst.join(&name);
             std::fs::create_dir_all(&sub)?;
             mirror_data_dir(&path, &sub)?;
-        } else if path.is_file() {
+        } else if kind.is_file() && !name.to_string_lossy().ends_with(".tmp") {
             let dst_path = dst.join(&name);
-            if is_mutable_after_snapshot(&name) {
-                std::fs::copy(&path, &dst_path).map(|_| ())?;
-            } else {
+            let name_str = name.to_string_lossy();
+            let rotated_wal = (name_str.starts_with("vanta.shard") && name_str.contains(".wal."))
+                || name_str.starts_with("vanta.wal.");
+            let rotated_wal = rotated_wal
+                && name_str.rsplit_once(".wal.").is_some_and(|(_, suffix)| {
+                    !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit())
+                });
+            if rotated_wal && !is_mutable_after_snapshot(&name) {
                 mirror_file(&path, &dst_path)?;
+            } else {
+                std::fs::copy(&path, &dst_path).map(|_| ())?;
             }
+        } else if !kind.is_file() {
+            return Err(std::io::Error::other(format!(
+                "unsupported snapshot entry: {}",
+                path.display()
+            )));
         }
     }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum SnapshotBackendKind {
+    Fjall,
+    RocksDb,
+}
+
+impl SnapshotBackendKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Fjall => "fjall",
+            Self::RocksDb => "rocksdb",
+        }
+    }
+}
+
+fn snapshot_backend_kind(kind: BackendKind) -> Result<SnapshotBackendKind> {
+    match kind {
+        BackendKind::Fjall => Ok(SnapshotBackendKind::Fjall),
+        BackendKind::RocksDb => Ok(SnapshotBackendKind::RocksDb),
+        BackendKind::InMemory => Err(crate::error::Error::InvalidInput(
+            "filesystem snapshots require a persistent backend".into(),
+        )),
+    }
+}
+
+fn mirror_rocksdb_checkpoint(
+    checkpoint: &dyn crate::backend::Snapshotable,
+    storage_root: &std::path::Path,
+    snap_root: &std::path::Path,
+) -> Result<()> {
+    let checkpoint_dir = snap_root.join(".backend_checkpoint");
+    checkpoint.checkpoint(&checkpoint_dir)?;
+    let schema = storage_root.join(".vanta.schema");
+    match std::fs::symlink_metadata(&schema) {
+        Ok(metadata) if metadata.file_type().is_file() => {
+            std::fs::copy(&schema, checkpoint_dir.join(".vanta.schema"))?;
+        }
+        Ok(_) => {
+            return Err(crate::error::Error::Io(std::io::Error::other(format!(
+                "unsupported backend entry: {}",
+                schema.display()
+            ))));
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    mirror_backend_to(&checkpoint_dir, snap_root, SnapshotBackendKind::RocksDb)?;
+    std::fs::remove_dir_all(checkpoint_dir)?;
     Ok(())
 }
 
@@ -610,46 +679,228 @@ fn mirror_data_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Res
 ///
 /// The backend opens under the storage root (`<storage_path>/`, sibling of
 /// `data_dir` — see `init_storage`), so on a fresh layout the backend LSM
-/// files live directly under `storage_root`. We copy each top-level regular
-/// file into `<snap_root>/backend/`, preserving the sibling layout. The
+/// files live directly under `storage_root`. We recursively mirror them into
+/// `<snap_root>/backend/`, preserving relative paths. The
 /// `.vanta.lock` file is intentionally NOT mirrored — the lock is process-
-/// local and must be acquired afresh by the next opener. Returns Ok(()) if the
-/// storage root is missing or has no backend files (InMemory engines store
-/// nothing on disk — see `init_storage`'s early return for `BackendKind::InMemory`).
+/// local and must be acquired afresh by the next opener.
 ///
 /// fjall's ACTIVE journal (`<id>.jnl`, pre-allocated and opened in append
 /// mode) is copied, never hard-linked: post-snapshot backend writes append to
 /// the same inode, which would mutate the captured backend (same shared-inode
 /// class as the `data/` WAL in [`mirror_data_dir`]). Sealed journals (lower
 /// ids) are immutable until fjall deletes them — the hard link keeps their
-/// bytes alive across the unlink, so they stay hard-linked.
+/// bytes alive across the unlink, so they stay hard-linked. Fjall tables and
+/// blobs are also immutable and linked; version metadata is copied.
+/// Copy versions before their tables and retry if compaction removes a file
+/// or changes a keyspace's `current` during the mirror.
 fn mirror_backend_to(
     storage_root: &std::path::Path,
     snap_root: &std::path::Path,
+    backend_kind: SnapshotBackendKind,
 ) -> std::io::Result<()> {
     if !storage_root.exists() {
         return Ok(());
     }
-    let active_journal = active_journal_id(storage_root);
     let dst = snap_root.join("backend");
-    std::fs::create_dir_all(&dst)?;
-    for entry in std::fs::read_dir(storage_root)? {
-        let entry = entry?;
-        let path = entry.path();
+    for _ in 0..3 {
+        if dst.exists() {
+            std::fs::remove_dir_all(&dst)?;
+        }
+        std::fs::create_dir_all(&dst)?;
+        let attempt = (|| {
+            let active_journal = if backend_kind == SnapshotBackendKind::Fjall {
+                active_journal_id(storage_root)
+            } else {
+                None
+            };
+            mirror_backend_dir(
+                storage_root,
+                storage_root,
+                &dst,
+                backend_kind,
+                active_journal,
+            )?;
+            if backend_unstable()
+                || (backend_kind == SnapshotBackendKind::Fjall
+                    && !backend_currents_match(storage_root, &dst)?)
+            {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "backend changed",
+                ));
+            }
+            Ok(())
+        })();
+        match attempt {
+            Ok(()) => return Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => return Err(e),
+        }
+    }
+    if dst.exists() {
+        std::fs::remove_dir_all(&dst)?;
+    }
+    Err(std::io::Error::other(
+        "backend kept changing during snapshot",
+    ))
+}
+
+fn is_backend_entry(name: &std::ffi::OsStr, backend_kind: SnapshotBackendKind) -> bool {
+    backend_entry_is_dir(name, backend_kind).is_some()
+}
+
+fn backend_entry_is_dir(name: &std::ffi::OsStr, backend_kind: SnapshotBackendKind) -> Option<bool> {
+    let name = name.to_str()?;
+    if name == ".vanta.schema" {
+        return Some(false);
+    }
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    match backend_kind {
+        SnapshotBackendKind::Fjall => {
+            if name == "keyspaces" {
+                Some(true)
+            } else if matches!(name, "version" | "lock")
+                || name.strip_suffix(".jnl").is_some_and(digits)
+            {
+                Some(false)
+            } else {
+                None
+            }
+        }
+        SnapshotBackendKind::RocksDb => {
+            if name == "archive" {
+                Some(true)
+            } else if matches!(name, "CURRENT" | "LOCK" | "IDENTITY" | "LOG")
+                || ["LOG.old.", "MANIFEST-", "OPTIONS-"].iter().any(|prefix| {
+                    name.strip_prefix(prefix).is_some_and(|s| {
+                        digits(s)
+                            || (*prefix == "OPTIONS-"
+                                && s.strip_suffix(".dbtmp").is_some_and(digits))
+                    })
+                })
+                || [".log", ".sst", ".ldb", ".blob", ".dbtmp"]
+                    .iter()
+                    .any(|suffix| name.strip_suffix(suffix).is_some_and(digits))
+            {
+                Some(false)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn validate_backend_entry(
+    name: &std::ffi::OsStr,
+    file_kind: std::fs::FileType,
+    backend_kind: SnapshotBackendKind,
+) -> std::io::Result<()> {
+    let valid = match backend_entry_is_dir(name, backend_kind) {
+        Some(true) => file_kind.is_dir(),
+        Some(false) => file_kind.is_file(),
+        None => false,
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
+            "unsupported backend entry: {}",
+            name.to_string_lossy()
+        )))
+    }
+}
+
+#[cfg(any(feature = "fs2", feature = "encryption"))]
+fn is_pending_restore_tmp(name: &str) -> bool {
+    name.starts_with(".restore_pending.") && name.ends_with(".tmp")
+}
+
+fn is_restore_staging(name: &std::ffi::OsStr) -> bool {
+    name.to_str().is_some_and(|name| {
+        ["data.pre_restore_", "backend.pre_restore_"]
+            .iter()
+            .any(|prefix| {
+                name.strip_prefix(prefix).is_some_and(|suffix| {
+                    !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit())
+                })
+            })
+    })
+}
+
+fn restore_requires_fs2() -> crate::error::Error {
+    crate::error::Error::Validation {
+        field: "snapshot_restore".into(),
+        reason: "snapshot restore requires the fs2 feature for exclusive locking".into(),
+    }
+}
+
+fn mirror_backend_dir(
+    root: &std::path::Path,
+    src: &std::path::Path,
+    dst: &std::path::Path,
+    backend_kind: SnapshotBackendKind,
+    active_journal: Option<u64>,
+) -> std::io::Result<()> {
+    let mut entries = std::fs::read_dir(src)?.collect::<std::io::Result<Vec<_>>>()?;
+    entries.sort_by_key(|entry| {
         let name = entry.file_name();
-        // Skip `data/` (mirrored separately via mirror_data_dir) and the
-        // process-local lock file (must be acquired by the next opener).
-        if name == "data" || name == ".vanta.lock" {
+        let name = name.to_string_lossy();
+        let order = if name == "current" || name.starts_with('v') {
+            0
+        } else if name == "tables" || name == "blobs" {
+            2
+        } else {
+            1
+        };
+        (order, name.into_owned())
+    });
+    for entry in entries {
+        let name = entry.file_name();
+        let kind = entry.file_type()?;
+        if src == root && !is_backend_entry(&name, backend_kind) {
+            if !kind.is_file() && !kind.is_dir() {
+                return Err(std::io::Error::other(format!(
+                    "unsupported root entry: {}",
+                    entry.path().display()
+                )));
+            }
             continue;
         }
-        if path.is_file() {
-            let is_active_journal =
-                active_journal.is_some_and(|id| name.to_string_lossy() == format!("{id}.jnl"));
-            if is_active_journal {
-                std::fs::copy(&path, dst.join(&name)).map(|_| ())?;
+        let path = entry.path();
+        let target = dst.join(&name);
+        if src == root {
+            validate_backend_entry(&name, kind, backend_kind)?;
+        }
+        if kind.is_dir() {
+            std::fs::create_dir_all(&target)?;
+            mirror_backend_dir(root, &path, &target, backend_kind, active_journal)?;
+        } else if kind.is_file() {
+            let relative = path.strip_prefix(root).map_err(std::io::Error::other)?;
+            let under_keyspaces = relative
+                .components()
+                .next()
+                .is_some_and(|c| c.as_os_str() == "keyspaces");
+            let immutable = under_keyspaces
+                && path
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .is_some_and(|n| n == "tables" || n == "blobs");
+            let sealed_journal = src == root
+                && name
+                    .to_string_lossy()
+                    .strip_suffix(".jnl")
+                    .and_then(|id| id.parse::<u64>().ok())
+                    .is_some_and(|id| active_journal.is_some_and(|active| id < active));
+            if immutable || sealed_journal {
+                mirror_file(&path, &target)?;
             } else {
-                mirror_file(&path, &dst.join(&name))?;
+                std::fs::copy(&path, &target)?;
             }
+        } else {
+            return Err(std::io::Error::other(format!(
+                "unsupported backend entry: {}",
+                path.display()
+            )));
         }
     }
     Ok(())
@@ -669,6 +920,349 @@ fn active_journal_id(storage_root: &std::path::Path) -> Option<u64> {
         }
     }
     max_id
+}
+
+fn backend_currents_match(
+    root: &std::path::Path,
+    snapshot: &std::path::Path,
+) -> std::io::Result<bool> {
+    let keyspaces = snapshot.join("keyspaces");
+    if !keyspaces.exists() {
+        return Ok(true);
+    }
+    for entry in std::fs::read_dir(keyspaces)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let current = entry.path().join("current");
+        let live = root
+            .join("keyspaces")
+            .join(entry.file_name())
+            .join("current");
+        let captured = std::fs::read(&current)?;
+        if captured != std::fs::read(live)? || captured.len() < 8 {
+            return Ok(false);
+        }
+        let version = u64::from_le_bytes(captured[..8].try_into().map_err(std::io::Error::other)?);
+        let version_file = entry.path().join(format!("v{version}"));
+        if !version_file.is_file() {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn backend_unstable() -> bool {
+    #[cfg(feature = "failpoints")]
+    fail::fail_point!("snapshot_backend_unstable", |_| true);
+    false
+}
+
+const SNAPSHOT_FORMAT: &[u8] = b"vantadb-snapshot v1\n";
+const BACKEND_MANIFEST_HEADER: &[u8] = b"vantadb-snapshot-backend v1\n";
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct SnapshotInventory {
+    backend_kind: SnapshotBackendKind,
+    files: Vec<SnapshotInventoryFile>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct SnapshotInventoryFile {
+    path: String,
+    len: u64,
+}
+
+fn validate_regular_tree(dir: &std::path::Path) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            validate_regular_tree(&entry.path())?;
+        } else if !kind.is_file() {
+            return Err(std::io::Error::other(format!(
+                "unsupported snapshot entry: {}",
+                entry.path().display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_live_backend(
+    storage_root: &std::path::Path,
+    snapshot_backend: &std::path::Path,
+    backend_kind: SnapshotBackendKind,
+) -> std::io::Result<()> {
+    let mut root_names = std::collections::HashSet::new();
+    for entry in std::fs::read_dir(storage_root)? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        let name = entry.file_name();
+        if !kind.is_file() && !kind.is_dir() {
+            return Err(std::io::Error::other(format!(
+                "unsupported root entry: {}",
+                entry.path().display()
+            )));
+        }
+        if is_backend_entry(&name, backend_kind) {
+            validate_backend_entry(&name, kind, backend_kind)?;
+            if kind.is_dir() {
+                validate_regular_tree(&entry.path())?;
+            }
+        }
+        root_names.insert(name);
+    }
+    for entry in std::fs::read_dir(snapshot_backend)? {
+        let name = entry?.file_name();
+        if !root_names.contains(&name) {
+            let target = storage_root.join(&name);
+            match std::fs::symlink_metadata(&target) {
+                Ok(_) => {
+                    return Err(std::io::Error::other(format!(
+                        "snapshot backend target aliases another root entry: {}",
+                        target.display()
+                    )));
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+                Err(err) => return Err(err),
+            }
+        }
+    }
+    Ok(())
+}
+
+fn inventory_snapshot_dir(
+    root: &std::path::Path,
+    dir: &std::path::Path,
+    backend_kind: SnapshotBackendKind,
+    files: &mut Vec<SnapshotInventoryFile>,
+) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        let path = entry.path();
+        if dir == root.join("backend") {
+            validate_backend_entry(&entry.file_name(), kind, backend_kind)?;
+        }
+        if kind.is_dir() {
+            inventory_snapshot_dir(root, &path, backend_kind, files)?;
+        } else if kind.is_file() {
+            let relative = path.strip_prefix(root).map_err(std::io::Error::other)?;
+            let mut parts = Vec::new();
+            for component in relative.components() {
+                let std::path::Component::Normal(name) = component else {
+                    return Err(std::io::Error::other("invalid snapshot file path"));
+                };
+                let name = name
+                    .to_str()
+                    .ok_or_else(|| std::io::Error::other("non-UTF-8 snapshot file path"))?;
+                if name.contains('\\')
+                    || (cfg!(windows) && (name.contains(':') || name.ends_with(['.', ' '])))
+                {
+                    return Err(std::io::Error::other("invalid snapshot file path"));
+                }
+                parts.push(name);
+            }
+            files.push(SnapshotInventoryFile {
+                path: parts.join("/"),
+                len: entry.metadata()?.len(),
+            });
+        } else {
+            return Err(std::io::Error::other(format!(
+                "unsupported snapshot entry: {}",
+                path.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn snapshot_inventory(
+    snap_root: &std::path::Path,
+    backend_kind: SnapshotBackendKind,
+) -> std::io::Result<SnapshotInventory> {
+    let mut files = Vec::new();
+    for name in ["data", "backend"] {
+        let path = snap_root.join(name);
+        let kind = std::fs::symlink_metadata(&path)?.file_type();
+        if !kind.is_dir() {
+            return Err(std::io::Error::other(format!(
+                "snapshot {name} is not a directory"
+            )));
+        }
+        inventory_snapshot_dir(snap_root, &path, backend_kind, &mut files)?;
+    }
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(SnapshotInventory {
+        backend_kind,
+        files,
+    })
+}
+
+fn write_snapshot_format(snap_root: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Write;
+    let path = snap_root.join("snapshot.format");
+    let mut marker = StdFile::create(&path)?;
+    marker.write_all(SNAPSHOT_FORMAT)?;
+    marker.sync_all()?;
+    crate::utils::fs::sync_parent_dir(&path)
+}
+
+fn write_backend_manifest(
+    snap_root: &std::path::Path,
+    backend_kind: SnapshotBackendKind,
+) -> std::io::Result<()> {
+    use std::io::Write;
+    let inventory = snapshot_inventory(snap_root, backend_kind)?;
+    let path = snap_root.join("backend.manifest");
+    let result = (|| {
+        let mut marker = StdFile::create(&path)?;
+        marker.write_all(BACKEND_MANIFEST_HEADER)?;
+        serde_json::to_writer(&mut marker, &inventory).map_err(std::io::Error::other)?;
+        marker.write_all(b"\n")?;
+        marker.sync_all()?;
+        crate::utils::fs::sync_parent_dir(&path)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(path);
+    }
+    result
+}
+
+fn validate_snapshot(snap_root: &std::path::Path) -> Result<Option<SnapshotBackendKind>> {
+    let fail = |reason: String| crate::error::Error::Validation {
+        field: "snapshot".into(),
+        reason: format!("{}: {reason}", snap_root.display()),
+    };
+    let format_path = snap_root.join("snapshot.format");
+    let manifest_path = snap_root.join("backend.manifest");
+    for path in [&format_path, &manifest_path] {
+        match std::fs::symlink_metadata(path) {
+            Ok(metadata) if !metadata.file_type().is_file() => {
+                return Err(fail(format!(
+                    "snapshot marker is not a regular file: {}",
+                    path.display()
+                )));
+            }
+            Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+                return Err(fail(err.to_string()));
+            }
+            _ => {}
+        }
+    }
+    let format = std::fs::read(&format_path);
+    let manifest = std::fs::read(&manifest_path);
+    match (format, manifest) {
+        (Err(a), Err(b))
+            if a.kind() == std::io::ErrorKind::NotFound
+                && b.kind() == std::io::ErrorKind::NotFound =>
+        {
+            let kind = std::fs::symlink_metadata(snap_root.join("data"))
+                .map_err(|e| fail(e.to_string()))?
+                .file_type();
+            if !kind.is_dir() {
+                return Err(fail("legacy snapshot data is not a directory".into()));
+            }
+            validate_regular_tree(&snap_root.join("data")).map_err(|e| fail(e.to_string()))?;
+            tracing::warn!(path = %snap_root.display(), "legacy snapshot has no backend capture; restoring data only");
+            Ok(None)
+        }
+        (Ok(format), Ok(manifest)) => {
+            if format != SNAPSHOT_FORMAT {
+                return Err(fail("unknown snapshot format".into()));
+            }
+            let payload = manifest
+                .strip_prefix(BACKEND_MANIFEST_HEADER)
+                .ok_or_else(|| fail("unknown backend manifest format".into()))?;
+            let expected: SnapshotInventory = serde_json::from_slice(payload)
+                .map_err(|e| fail(format!("invalid backend inventory: {e}")))?;
+            for file in &expected.files {
+                let path = &file.path;
+                if path.contains('\\')
+                    || !(path.starts_with("data/") || path.starts_with("backend/"))
+                {
+                    return Err(fail(format!("invalid inventory path: {path:?}")));
+                }
+                let mut normalized = Vec::new();
+                for component in std::path::Path::new(path).components() {
+                    let std::path::Component::Normal(name) = component else {
+                        return Err(fail(format!("invalid inventory path: {path:?}")));
+                    };
+                    let name = name
+                        .to_str()
+                        .ok_or_else(|| fail("invalid inventory path".into()))?;
+                    if cfg!(windows) && (name.contains(':') || name.ends_with(['.', ' '])) {
+                        return Err(fail(format!("invalid inventory path: {path:?}")));
+                    }
+                    normalized.push(name);
+                }
+                if normalized.join("/") != *path {
+                    return Err(fail(format!("invalid inventory path: {path:?}")));
+                }
+            }
+            let actual = snapshot_inventory(snap_root, expected.backend_kind)
+                .map_err(|e| fail(e.to_string()))?;
+            if actual != expected {
+                return Err(fail(
+                    "snapshot inventory differs from captured files".into(),
+                ));
+            }
+            Ok(Some(expected.backend_kind))
+        }
+        _ => Err(fail(
+            "snapshot format or backend manifest missing or unreadable".into(),
+        )),
+    }
+}
+
+fn copy_backend_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        let target = dst.join(entry.file_name());
+        if kind.is_dir() {
+            copy_backend_dir(&entry.path(), &target)?;
+        } else if kind.is_file() {
+            std::fs::copy(entry.path(), target)?;
+        } else {
+            return Err(std::io::Error::other(format!(
+                "unsupported backend entry: {}",
+                entry.path().display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn sync_restored_tree(path: &std::path::Path, skip_snapshots: bool) -> std::io::Result<()> {
+    let kind = std::fs::symlink_metadata(path)?.file_type();
+    if kind.is_file() {
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)?;
+        file.sync_all()?;
+    } else if kind.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            if skip_snapshots && entry.file_name() == "snapshots" {
+                continue;
+            }
+            sync_restored_tree(&entry.path(), false)?;
+        }
+        crate::utils::fs::sync_parent_dir(&path.join(".sync"))?;
+    } else {
+        return Err(std::io::Error::other(format!(
+            "unsupported restored entry: {}",
+            path.display()
+        )));
+    }
+    Ok(())
 }
 
 impl StorageEngine {
@@ -710,14 +1304,16 @@ impl StorageEngine {
         self.txn.has_active()
     }
 
-    /// Create an instant filesystem snapshot of the live data directory.
+    /// Create a filesystem snapshot of the live data directory and backend.
     ///
     /// # Consistency (FIND-25)
     ///
-    /// Before imaging, the engine is quiesced via [`Self::flush`]
+    /// Before imaging, the engine is flushed via [`Self::flush`]
     /// (insert_lock, HNSW drain, backend flush, vector-index save, ERR-010
-    /// pattern), so the imaged file set is mutually consistent at a single
-    /// point in time.
+    /// pattern). The `insert_lock` covers the data and backend mirrors, but
+    /// not every writer. A snapshot taken while other writers are active is
+    /// not guaranteed to be coherent across data and backend; quiesce writers
+    /// first (FIND-651).
     /// Without this, a snapshot taken during active writes could capture a
     /// torn set — each individual file operation is atomic, but the *set* of
     /// files is not (e.g. a newer `vector_index.bin` referencing offsets past
@@ -730,10 +1326,11 @@ impl StorageEngine {
     /// worse than a slower one. Callers needing high-frequency snapshots
     /// should rate-limit instead of bypassing the flush.
     ///
-    /// On Unix, immutable bulk files (the pre-allocated vstore segments and
-    /// the rotated WAL archives) are hard-linked (O(1) per file — kernel
+    /// On Unix, immutable files (rotated WAL archives, sealed Fjall journals,
+    /// and Fjall tables/blobs)
+    /// are hard-linked (O(1) per file — kernel
     /// directory entries pointing at the same inode); files the engine keeps
-    /// writing to after the snapshot (active WAL shards, HNSW image —
+    /// writing to after the snapshot (vstore segments, active WAL shards, HNSW image —
     /// [`is_mutable_after_snapshot`]) are copied instead, so no post-snapshot
     /// write can reach the snapshot through a shared inode. On Windows/WASM,
     /// everything falls back to [`std::fs::copy`] (O(n) per file).
@@ -746,105 +1343,98 @@ impl StorageEngine {
     /// snapshot taken after `compact_wal()` (which archives WAL segments) lost
     /// any state that lived only in the backend KV (namespace_index,
     /// internal_metadata, checkpoint_seq). The snapshot now also mirrors
-    /// the backend files into `<snap_dir>/backend/` (FIND-33) so the
-    /// captured set is mutually consistent: `data/` + `backend/` siblings
-    /// mirror the live layout under `storage_path/`. The `.vanta.lock` file
+    /// the backend files into `<snap_dir>/backend/` (FIND-33). RocksDB is
+    /// captured through its native checkpoint, then copied into the snapshot.
+    /// A completed capture has a `snapshot.format` and an inventoried
+    /// `backend.manifest`.
+    /// Existing snapshot names are rejected. The `.vanta.lock` file
     /// is intentionally excluded — the lock is process-local and must be
     /// acquired by the next opener.
     ///
-    /// The snapshot mirrors the live layout (`<snap_dir>/data/...` and
-    /// `<snap_dir>/backend/...`) so it can be reopened directly as a database
-    /// via `Embedded::open`.
+    /// Opening the snapshot path directly gives a data-only view and writes
+    /// Fjall files into the snapshot root. Use [`Self::snapshot_restore`] to
+    /// restore the captured backend before reopening the database.
     #[cfg(unix)]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
-        // WIRE-09: the name becomes a path segment under `snapshots/` —
-        // validate BEFORE any filesystem touch (paridad `snapshot_restore`).
-        Self::validate_snapshot_name(name)?;
-        // Read-only engines have nothing in flight to quiesce, and flush()
-        // would fail its ensure_writable() guard.
-        if !self.read_only {
-            self.flush()?;
-        }
-
-        let snap_dir = self.data_dir.join("snapshots").join(name);
-        let snap_data = snap_dir.join("data");
-        std::fs::create_dir_all(&snap_data)?;
-
-        #[cfg(feature = "failpoints")]
-        {
-            fail::fail_point!("snapshot_create_fail", |_| {
-                Err(crate::error::Error::Io(std::io::Error::other(
-                    "Simulated snapshot create I/O failure",
-                )))
-            });
-        }
-
-        // FIND-33: mirror data_dir first (preserves the existing FIND-25
-        // contract — recursive, skips the engine-owned `snapshots/` subtree),
-        // then mirror the backend KV files (siblings of data_dir under the
-        // storage root) into `<snap_dir>/backend/`. flush() above guarantees
-        // the backend has been persisted via `db.persist(SyncAll)` before we
-        // touch any file, so no writes are in-flight during the mirror and
-        // the captured set is mutually consistent.
-        let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
-        {
-            // Quiesce writers across the data/ mirror: every mutating path
-            // appends its WAL record under `insert_lock` (ERR-010), so holding
-            // it here captures a coherent round-robin shard set (reopen runs
-            // `verify_shard_counts`) and freezes the hard-linked segments at
-            // the same point in time as the copied WAL/index files.
-            let _guard = self
-                .acquire_insert_lock("acquire insert_lock in create_snapshot (coherent mirror)")?;
-            mirror_data_dir(&self.data_dir, &snap_data)?;
-        }
-        mirror_backend_to(storage_root, &snap_dir)?;
-        Ok(FsSnapshot {
-            path: snap_dir,
-            created_at: Instant::now(),
-        })
+        self.create_snapshot_inner(name)
     }
 
     /// Create a filesystem snapshot (Windows/WASM fallback using copy).
     ///
-    /// Same quiesce-then-image semantics as the Unix variant — see its
+    /// Same flush-then-image semantics as the Unix variant — see its
     /// documentation for the consistency and performance trade-offs. In
     /// particular (FIND-33), the snapshot also captures the backend KV files
     /// under `<snap_dir>/backend/` so it survives a subsequent `compact_wal()`.
+    /// RocksDB is captured through its native checkpoint before those files
+    /// are copied.
     ///
-    /// The snapshot mirrors the live layout (`<snap_dir>/data/...` and
-    /// `<snap_dir>/backend/...`) so it can be reopened directly as a database
-    /// via `Embedded::open`.
+    /// Opening the snapshot path directly gives a data-only view and writes
+    /// Fjall files into the snapshot root. Restore through
+    /// [`Self::snapshot_restore`] for the captured backend. Snapshots taken
+    /// with active writers are not guaranteed coherent across data and backend;
+    /// quiesce writers first (FIND-651).
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
-        // WIRE-09: same sandbox as the Unix variant (paridad `snapshot_restore`).
+        self.create_snapshot_inner(name)
+    }
+
+    fn capture_rocksdb_backend(
+        &self,
+        storage_root: &std::path::Path,
+        snap_root: &std::path::Path,
+    ) -> Result<()> {
+        let checkpoint = self.backend.as_snapshotable().ok_or_else(|| {
+            crate::error::Error::backend_error(
+                "RocksDB snapshot requires native checkpoint support",
+            )
+        })?;
+        mirror_rocksdb_checkpoint(checkpoint, storage_root, snap_root)
+    }
+
+    fn create_snapshot_inner(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         Self::validate_snapshot_name(name)?;
+        let backend_kind = snapshot_backend_kind(self.config.backend_kind)?;
         if !self.read_only {
             self.flush()?;
         }
 
-        let snap_dir = self.data_dir.join("snapshots").join(name);
+        let snapshots = self.data_dir.join("snapshots");
+        std::fs::create_dir_all(&snapshots)?;
+        let snap_dir = snapshots.join(name);
+        std::fs::create_dir(&snap_dir)?;
         let snap_data = snap_dir.join("data");
-        std::fs::create_dir_all(&snap_data)?;
-
-        #[cfg(feature = "failpoints")]
-        {
+        let capture = (|| -> Result<()> {
+            write_snapshot_format(&snap_dir)?;
+            std::fs::create_dir(&snap_data)?;
+            #[cfg(feature = "failpoints")]
             fail::fail_point!("snapshot_create_fail", |_| {
                 Err(crate::error::Error::Io(std::io::Error::other(
                     "Simulated snapshot create I/O failure",
                 )))
             });
-        }
-
-        let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
-        {
-            // Same coherent-mirror quiesce as the Unix variant: WAL appends
-            // run under `insert_lock` (ERR-010), so the copied shard set is a
-            // quiescent round-robin prefix (`verify_shard_counts` on reopen).
+            // WAL appends use `insert_lock`; callers must also quiesce
+            // writers outside that lock (FIND-651).
             let _guard = self
                 .acquire_insert_lock("acquire insert_lock in create_snapshot (coherent mirror)")?;
             mirror_data_dir(&self.data_dir, &snap_data)?;
+            let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
+            match backend_kind {
+                SnapshotBackendKind::Fjall => {
+                    mirror_backend_to(storage_root, &snap_dir, backend_kind)?;
+                }
+                SnapshotBackendKind::RocksDb => {
+                    self.capture_rocksdb_backend(storage_root, &snap_dir)?;
+                }
+            }
+            write_backend_manifest(&snap_dir, backend_kind)?;
+            Ok(())
+        })();
+        if let Err(error) = capture {
+            if let Err(cleanup) = std::fs::remove_dir_all(&snap_dir) {
+                tracing::warn!(path = %snap_dir.display(), error = %cleanup, "could not remove incomplete snapshot");
+            }
+            return Err(error);
         }
-        mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
             created_at: Instant::now(),
@@ -876,12 +1466,18 @@ impl StorageEngine {
     /// Mirrors the MCP-34a guard in `vantadb-mcp` (defense in depth — the MCP
     /// layer also validates before dispatching).
     fn validate_snapshot_name(name: &str) -> crate::error::Result<()> {
+        use std::path::Component;
+        let mut components = std::path::Path::new(name).components();
+        let single_normal =
+            matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none();
         if name.is_empty()
             || name == "."
             || name == ".."
             || name.contains('/')
             || name.contains('\\')
             || name.chars().any(char::is_control)
+            || !single_normal
+            || (cfg!(windows) && (name.contains(':') || name.ends_with(['.', ' '])))
         {
             return Err(crate::error::Error::InvalidInput(format!(
                 "snapshot name must be a plain identifier (no path separators, '.', '..', or control characters): {name:?}"
@@ -896,9 +1492,10 @@ impl StorageEngine {
     ///
     /// This is a static associated function taking the storage *root* path —
     /// deliberately NOT `&self`. The directory swap requires that no engine
-    /// holds the database open: on Windows the fs2 lock makes the swap fail
-    /// loudly; on Unix an open handle would keep writing into the renamed-aside
-    /// directory, silently forking state. Callers must close/drop every handle
+    /// holds the database open: on Windows open handles prevent a swap; on
+    /// Unix an open handle could keep writing into the renamed-aside directory,
+    /// silently forking state. The fs2 lock rejects open handles on both.
+    /// Callers must close/drop every handle
     /// first (see [`crate::sdk::Embedded::restore_from`] for the full
     /// close → restore → reopen flow).
     ///
@@ -909,8 +1506,12 @@ impl StorageEngine {
     /// of deleted. All snapshots are moved back into the fresh `data_dir`
     /// before the copy-back so they survive the restore. If any step fails
     /// after the rename, the partial data_dir is removed and the staged
-    /// original is renamed back (best-effort rollback); the staging copy is
-    /// only deleted after a fully successful copy-back.
+    /// original is renamed back; rollback failures retain staging and report
+    /// recovery paths. Restored files and directories are synced before
+    /// staging is removed. A process interruption can leave staging behind:
+    /// subsequent opens fail closed until it is recovered manually. For
+    /// snapshots with both format and manifest markers, backend entries are
+    /// staged and restored as well; legacy snapshots restore only `data/`.
     ///
     /// Note: unlike RES-02 §2a step 3 (`<snap>/pre_restore_<ts>`), the staging
     /// sibling lives beside `data_dir` — `snapshots/` is INSIDE `data_dir`, so
@@ -920,18 +1521,287 @@ impl StorageEngine {
     /// Returns the restored `<root>/data` path; reopen with
     /// [`crate::sdk::Embedded::open_with_config`] — HNSW/text indexes are
     /// rebuilt from storage on open (proven by tests/index_reconstruction.rs).
+    /// This static API has no backend configuration: reopen using the same
+    /// backend as the snapshot. Complete restores log the captured kind as a
+    /// warning. This API does not migrate between backends.
     pub fn snapshot_restore(
         storage_root: &std::path::Path,
         name: &str,
     ) -> crate::error::Result<std::path::PathBuf> {
+        Self::snapshot_restore_with_backend(storage_root, name).map(|(path, _)| path)
+    }
+
+    /// Restore a snapshot and report whether it included backend state.
+    ///
+    /// Reopen using the snapshot's backend; this API does not migrate backends.
+    pub fn snapshot_restore_with_backend(
+        storage_root: &std::path::Path,
+        name: &str,
+    ) -> crate::error::Result<(std::path::PathBuf, bool)> {
+        Self::snapshot_restore_inner(storage_root, name, None)
+    }
+
+    pub(crate) fn snapshot_restore_for_backend(
+        storage_root: &std::path::Path,
+        name: &str,
+        expected_backend: BackendKind,
+    ) -> crate::error::Result<(std::path::PathBuf, bool)> {
+        Self::snapshot_restore_inner(storage_root, name, Some(expected_backend))
+    }
+
+    fn snapshot_restore_inner(
+        storage_root: &std::path::Path,
+        name: &str,
+        expected_backend: Option<BackendKind>,
+    ) -> crate::error::Result<(std::path::PathBuf, bool)> {
         Self::validate_snapshot_name(name)?;
+        if !cfg!(feature = "fs2") {
+            return Err(restore_requires_fs2());
+        }
+        let _ = Self::check_snapshot_exists(storage_root, name)?;
+        let config = Config {
+            file_lock_timeout_ms: 5,
+            ..Config::default()
+        };
+        let _lock = Self::acquire_db_lock(storage_root, &config)?;
+        Self::check_restore_staging(storage_root)?;
+        Self::restore_locked(storage_root, name, expected_backend)
+    }
+
+    fn check_snapshot_exists(
+        storage_root: &std::path::Path,
+        name: &str,
+    ) -> Result<Option<SnapshotBackendKind>> {
+        let snap = storage_root.join("data/snapshots").join(name);
+        match std::fs::symlink_metadata(&snap) {
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                Err(crate::error::Error::NotFound {
+                    kind: "snapshot".to_string(),
+                    id: name.to_string(),
+                })
+            }
+            Err(err) => Err(err.into()),
+            Ok(metadata) if !metadata.file_type().is_dir() => {
+                Err(crate::error::Error::Validation {
+                    field: "snapshot".into(),
+                    reason: format!("snapshot is not a directory: {}", snap.display()),
+                })
+            }
+            Ok(_) => validate_snapshot(&snap),
+        }
+    }
+
+    /// Schedule a snapshot restore for the next writable database open.
+    ///
+    /// The marker is durable and a later schedule replaces the previous one.
+    /// Writes made before the next open are discarded by the restore.
+    pub fn schedule_snapshot_restore(
+        storage_root: &std::path::Path,
+        name: &str,
+    ) -> Result<PathBuf> {
+        Self::validate_snapshot_name(name)?;
+        let _lock = Self::acquire_pending_restore_lock(storage_root)?;
+        let _ = Self::check_snapshot_exists(storage_root, name)?;
+        let marker = storage_root.join(".restore_pending");
+        match std::fs::symlink_metadata(&marker) {
+            Ok(metadata) if !metadata.file_type().is_file() => {
+                return Err(crate::error::Error::Validation {
+                    field: "pending_snapshot_restore".into(),
+                    reason: format!(
+                        "pending restore marker is not a regular file: {}",
+                        marker.display()
+                    ),
+                });
+            }
+            Ok(_) => {
+                if let Ok(previous) = std::fs::read_to_string(&marker) {
+                    let replaced = previous.lines().nth(1).unwrap_or("<malformed>");
+                    tracing::warn!(snapshot = replaced, "replacing pending snapshot restore");
+                }
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err.into()),
+        }
+        let contents = format!("vantadb-restore-pending v1\n{name}\n");
+        crate::utils::fs::write_atomic_unique(&marker, contents.as_bytes())?;
+        Ok(marker)
+    }
+
+    fn check_restore_staging(storage_root: &std::path::Path) -> Result<()> {
+        let mut staging = Vec::new();
+        for entry in std::fs::read_dir(storage_root)? {
+            let entry = entry?;
+            if is_restore_staging(&entry.file_name()) {
+                staging.push(entry.path());
+            }
+        }
+        if staging.is_empty() {
+            return Ok(());
+        }
+        staging.sort();
+        let paths = staging
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        Err(crate::error::Error::Validation {
+            field: "snapshot_restore".into(),
+            reason: format!("unfinished snapshot restore; manual recovery required for: {paths}"),
+        })
+    }
+
+    fn acquire_pending_restore_lock(storage_root: &std::path::Path) -> Result<StdFile> {
+        #[cfg(not(feature = "fs2"))]
+        {
+            let _ = storage_root;
+            Err(restore_requires_fs2())
+        }
+        #[cfg(feature = "fs2")]
+        {
+            let path = storage_root.join(".restore_pending.lock");
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(path)?;
+            let start = Instant::now();
+            let timeout = std::time::Duration::from_secs(5);
+            let mut delay = std::time::Duration::from_millis(5);
+            loop {
+                if fs2::FileExt::try_lock_exclusive(&file).is_ok() {
+                    return Ok(file);
+                }
+                #[cfg(feature = "failpoints")]
+                fail::fail_point!("snapshot_pending_lock_contended");
+                if start.elapsed() >= timeout {
+                    return Err(crate::error::Error::DatabaseBusy(format!(
+                        "pending snapshot restore lock is busy: {}",
+                        storage_root.display()
+                    )));
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                std::thread::sleep(delay.min(timeout.saturating_sub(start.elapsed())));
+                delay = (delay * 2).min(std::time::Duration::from_millis(100));
+            }
+        }
+    }
+
+    #[cfg(feature = "fs2")]
+    fn cleanup_pending_restore_temps(storage_root: &std::path::Path) {
+        let entries = match std::fs::read_dir(storage_root) {
+            Ok(entries) => entries,
+            Err(err) => {
+                tracing::warn!(path = %storage_root.display(), error = %err, "could not inspect pending restore temporary files");
+                return;
+            }
+        };
+        for entry in entries {
+            match entry {
+                Ok(entry) if is_pending_restore_tmp(&entry.file_name().to_string_lossy()) => {
+                    if let Err(err) = std::fs::remove_file(entry.path()) {
+                        if err.kind() != std::io::ErrorKind::NotFound {
+                            tracing::warn!(path = %entry.path().display(), error = %err, "could not remove pending restore temporary file");
+                        }
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(error = %err, "could not inspect pending restore temporary file")
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn apply_pending_restore(
+        storage_root: &std::path::Path,
+        read_only: bool,
+        expected_backend: BackendKind,
+    ) -> Result<()> {
+        let marker = storage_root.join(".restore_pending");
+        let failure = |reason: String| crate::error::Error::Validation {
+            field: "pending_snapshot_restore".into(),
+            reason: format!(
+                "pending snapshot restore failed: {reason}; remove {} to open the current state",
+                marker.display()
+            ),
+        };
+        let metadata = match std::fs::symlink_metadata(&marker) {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(err) if read_only => {
+                tracing::warn!(path = %marker.display(), error = %err, "could not inspect pending restore on read-only open");
+                return Ok(());
+            }
+            Err(err) => return Err(failure(err.to_string())),
+        };
+        if read_only {
+            tracing::warn!(path = %marker.display(), "ignoring pending restore on read-only open");
+            return Ok(());
+        }
+        if !metadata.file_type().is_file() {
+            return Err(failure("marker is not a regular file".into()));
+        }
+        let contents = std::fs::read_to_string(&marker).map_err(|e| failure(e.to_string()))?;
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("snapshot_pending_after_read");
+        let name = contents
+            .strip_prefix("vantadb-restore-pending v1\n")
+            .and_then(|s| s.strip_suffix('\n'))
+            .filter(|s| !s.contains('\n'))
+            .ok_or_else(|| failure("malformed marker".into()))?;
+        Self::validate_snapshot_name(name).map_err(|e| failure(e.to_string()))?;
+        let _ =
+            Self::check_snapshot_exists(storage_root, name).map_err(|e| failure(e.to_string()))?;
+        if let Err(error) = Self::restore_locked(storage_root, name, Some(expected_backend)) {
+            return match Self::check_restore_staging(storage_root) {
+                Ok(()) => Err(failure(error.to_string())),
+                Err(staging_error) => Err(crate::error::Error::Validation {
+                    field: "pending_snapshot_restore".into(),
+                    reason: format!(
+                        "pending snapshot restore failed: {error}; {staging_error}; manual recovery may be required; marker retained at {}",
+                        marker.display()
+                    ),
+                }),
+            };
+        }
+        std::fs::remove_file(&marker).map_err(|e| failure(e.to_string()))?;
+        crate::utils::fs::sync_parent_dir(&marker).map_err(|e| failure(e.to_string()))?;
+        Ok(())
+    }
+
+    fn restore_locked(
+        storage_root: &std::path::Path,
+        name: &str,
+        expected_backend: Option<BackendKind>,
+    ) -> crate::error::Result<(std::path::PathBuf, bool)> {
         let data_dir = storage_root.join("data");
-        let snap_data = data_dir.join("snapshots").join(name).join("data");
-        if !snap_data.is_dir() {
-            return Err(crate::error::Error::NotFound {
-                kind: "snapshot".to_string(),
-                id: name.to_string(),
-            });
+        let snap_dir = data_dir.join("snapshots").join(name);
+        let snap_data = snap_dir.join("data");
+        let backend_kind = Self::check_snapshot_exists(storage_root, name)?;
+        if let Some(expected_backend) = expected_backend {
+            let expected = snapshot_backend_kind(expected_backend)?;
+            if let Some(actual) = backend_kind {
+                if actual != expected {
+                    return Err(crate::error::Error::Validation {
+                        field: "backend_kind".into(),
+                        reason: format!(
+                            "snapshot backend '{}' does not match requested backend '{}'",
+                            actual.as_str(),
+                            expected.as_str()
+                        ),
+                    });
+                }
+            }
+        } else if let Some(actual) = backend_kind {
+            tracing::warn!(
+                snapshot_backend = actual.as_str(),
+                "static snapshot restore has no backend configuration; reopen with the same backend"
+            );
+        }
+        let backend_restored = backend_kind.is_some();
+        if let Some(backend_kind) = backend_kind {
+            validate_live_backend(storage_root, &snap_dir.join("backend"), backend_kind)?;
         }
 
         #[cfg(feature = "failpoints")]
@@ -943,13 +1813,6 @@ impl StorageEngine {
             });
         }
 
-        // No live data to displace: plain fresh copy-back.
-        if !data_dir.exists() {
-            std::fs::create_dir_all(&data_dir)?;
-            mirror_data_dir(&snap_data, &data_dir)?;
-            return Ok(data_dir);
-        }
-
         // Stage the live directory aside (atomic same-volume rename). A
         // nanosecond stamp avoids collisions between consecutive restores.
         let nanos = SystemTime::now()
@@ -957,9 +1820,29 @@ impl StorageEngine {
             .map_err(|e| crate::error::Error::Io(std::io::Error::other(e)))?
             .as_nanos();
         let staging = storage_root.join(format!("data.pre_restore_{nanos}"));
+        let backend_staging = storage_root.join(format!("backend.pre_restore_{nanos}"));
         std::fs::rename(&data_dir, &staging)?;
 
+        let mut staged_backend = Vec::new();
+        let mut restored_backend = Vec::new();
+        let mut snapshots_moved = false;
         let swapped = (|| -> std::io::Result<()> {
+            crate::utils::fs::sync_parent_dir(&staging)?;
+            if let Some(backend_kind) = backend_kind {
+                std::fs::create_dir(&backend_staging)?;
+                crate::utils::fs::sync_parent_dir(&backend_staging)?;
+                for entry in std::fs::read_dir(storage_root)? {
+                    let entry = entry?;
+                    let name = entry.file_name();
+                    if is_backend_entry(&name, backend_kind) {
+                        validate_backend_entry(&name, entry.file_type()?, backend_kind)?;
+                        std::fs::rename(entry.path(), backend_staging.join(&name))?;
+                        staged_backend.push(name);
+                    }
+                }
+                crate::utils::fs::sync_parent_dir(&backend_staging.join(".sync"))?;
+                crate::utils::fs::sync_parent_dir(&backend_staging)?;
+            }
             std::fs::create_dir_all(&data_dir)?;
             // Keep every snapshot alive across the swap: move them from the
             // staged tree back into the fresh data_dir before copying the
@@ -967,20 +1850,165 @@ impl StorageEngine {
             let staged_snaps = staging.join("snapshots");
             if staged_snaps.exists() {
                 std::fs::rename(staged_snaps, data_dir.join("snapshots"))?;
+                snapshots_moved = true;
             }
-            mirror_data_dir(&snap_data, &data_dir)
+            mirror_data_dir(&snap_data, &data_dir)?;
+            if let Some(backend_kind) = backend_kind {
+                for entry in std::fs::read_dir(snap_dir.join("backend"))? {
+                    let entry = entry?;
+                    let name = entry.file_name();
+                    if !is_backend_entry(&name, backend_kind) {
+                        return Err(std::io::Error::other(
+                            "snapshot contains a reserved backend entry",
+                        ));
+                    }
+                    let kind = entry.file_type()?;
+                    validate_backend_entry(&name, kind, backend_kind)?;
+                    let target = storage_root.join(&name);
+                    restored_backend.push(name);
+                    if kind.is_dir() {
+                        copy_backend_dir(&entry.path(), &target)?;
+                    } else {
+                        std::fs::copy(entry.path(), target)?;
+                    }
+                    #[cfg(feature = "failpoints")]
+                    fail::fail_point!("snapshot_restore_backend_fail", |_| {
+                        Err(std::io::Error::other("Simulated backend restore failure"))
+                    });
+                }
+            }
+            #[cfg(feature = "failpoints")]
+            fail::fail_point!("snapshot_restore_sync_fail", |_| {
+                Err(std::io::Error::other("simulated restore sync failure"))
+            });
+            sync_restored_tree(&data_dir, true)?;
+            for name in &restored_backend {
+                sync_restored_tree(&storage_root.join(name), false)?;
+            }
+            crate::utils::fs::sync_parent_dir(&staging.join(".sync"))?;
+            if backend_restored {
+                crate::utils::fs::sync_parent_dir(&backend_staging.join(".sync"))?;
+            }
+            crate::utils::fs::sync_parent_dir(&data_dir)?;
+            Ok(())
         })();
 
         match swapped {
             Ok(()) => {
-                let _ = std::fs::remove_dir_all(&staging);
-                Ok(data_dir)
+                std::fs::remove_dir_all(&staging).map_err(|e| {
+                    crate::error::Error::Io(std::io::Error::other(format!(
+                        "restore applied but staging cleanup failed at {}; manual recovery required: {e}",
+                        staging.display()
+                    )))
+                })?;
+                if backend_restored {
+                    std::fs::remove_dir_all(&backend_staging).map_err(|e| {
+                        crate::error::Error::Io(std::io::Error::other(format!(
+                            "restore applied but staging cleanup failed at {}; manual recovery required: {e}",
+                            backend_staging.display()
+                        )))
+                    })?;
+                }
+                crate::utils::fs::sync_parent_dir(&data_dir).map_err(|e| {
+                    crate::error::Error::Io(std::io::Error::other(format!(
+                        "restore applied but staging cleanup sync failed at {}; manual review required: {e}",
+                        storage_root.display()
+                    )))
+                })?;
+                Ok((data_dir, backend_restored))
             }
             Err(e) => {
-                // Best-effort rollback: never leave the DB empty while the
-                // staged original is still available.
-                let _ = std::fs::remove_dir_all(&data_dir);
-                let _ = std::fs::rename(&staging, &data_dir);
+                let mut rollback_errors = Vec::new();
+                for name in restored_backend {
+                    let path = storage_root.join(name);
+                    let removal = match std::fs::symlink_metadata(&path) {
+                        Ok(metadata) if metadata.file_type().is_dir() => {
+                            std::fs::remove_dir_all(&path)
+                        }
+                        Ok(_) => std::fs::remove_file(&path),
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                        Err(err) => Err(err),
+                    };
+                    if let Err(err) = removal {
+                        tracing::error!(path = %path.display(), error = %err, "restore rollback failed");
+                        rollback_errors.push(format!("{}: {err}", path.display()));
+                    }
+                }
+                for name in staged_backend {
+                    let source = backend_staging.join(&name);
+                    let target = storage_root.join(&name);
+                    #[cfg(feature = "failpoints")]
+                    let restored = (|| {
+                        fail::fail_point!("snapshot_restore_rollback_fail", |_| {
+                            Err(std::io::Error::other("simulated rollback failure"))
+                        });
+                        std::fs::rename(&source, &target)
+                    })();
+                    #[cfg(not(feature = "failpoints"))]
+                    let restored = std::fs::rename(&source, &target);
+                    if let Err(err) = restored {
+                        tracing::error!(path = %source.display(), error = %err, "restore rollback failed");
+                        rollback_errors.push(format!(
+                            "{} -> {}: {err}",
+                            source.display(),
+                            target.display()
+                        ));
+                    }
+                }
+                let snapshots = data_dir.join("snapshots");
+                let snapshots_preserved = if snapshots_moved {
+                    match std::fs::rename(&snapshots, staging.join("snapshots")) {
+                        Ok(()) => true,
+                        Err(err) => {
+                            tracing::error!(path = %snapshots.display(), error = %err, "restore rollback failed");
+                            rollback_errors.push(format!(
+                                "{} -> {}: {err}",
+                                snapshots.display(),
+                                staging.join("snapshots").display()
+                            ));
+                            false
+                        }
+                    }
+                } else {
+                    true
+                };
+                if snapshots_preserved {
+                    let removal = match std::fs::remove_dir_all(&data_dir) {
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                        result => result,
+                    };
+                    match removal.and_then(|()| std::fs::rename(&staging, &data_dir)) {
+                        Ok(()) => {}
+                        Err(err) => {
+                            tracing::error!(path = %staging.display(), error = %err, "restore rollback failed");
+                            rollback_errors.push(format!(
+                                "{} -> {}: {err}",
+                                staging.display(),
+                                data_dir.display()
+                            ));
+                        }
+                    }
+                }
+                if backend_restored && rollback_errors.is_empty() {
+                    if let Err(err) = std::fs::remove_dir(&backend_staging) {
+                        if err.kind() != std::io::ErrorKind::NotFound {
+                            tracing::error!(path = %backend_staging.display(), error = %err, "restore rollback cleanup failed");
+                            rollback_errors.push(format!("{}: {err}", backend_staging.display()));
+                        }
+                    }
+                }
+                if rollback_errors.is_empty() {
+                    if let Err(err) = crate::utils::fs::sync_parent_dir(&data_dir) {
+                        tracing::error!(path = %storage_root.display(), error = %err, "restore rollback sync failed");
+                        rollback_errors.push(format!("{}: {err}", storage_root.display()));
+                    }
+                }
+                if !rollback_errors.is_empty() {
+                    return Err(crate::error::Error::Io(std::io::Error::other(format!(
+                        "{e}; rollback incomplete; manual recovery required; staging: {}, {}; errors: {}",
+                        staging.display(), backend_staging.display(), rollback_errors.join("; ")
+                    ))));
+                }
                 Err(crate::error::Error::Io(e))
             }
         }

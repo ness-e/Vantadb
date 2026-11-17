@@ -391,12 +391,21 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 | `rebuild_index` | Rebuilds the HNSW vector index, derived indexes, and text index from scratch (recovery primitive). |
 | `audit_text_index` | Read-only integrity audit of the derived persistent text index vs canonical records; `deep=true` verifies postings/tf/stats. |
 | `repair_text_index` | Repairs the text index by rebuilding it from canonical storage (use when `audit_text_index` reports drift). |
-| `snapshot_create` | Creates a filesystem snapshot of the storage directory under `<data_dir>/snapshots/<name>`; returns the snapshot path. |
-| `snapshot_restore` | DESTRUCTIVE: replaces the live database directory with the contents of snapshot `<name>` (requires `confirm: true`; `name` must be a plain identifier). Current data is staged aside with rollback-on-failure; snapshots survive the swap. The running engine must be restarted to serve restored state. |
+| `snapshot_create` | Creates a filesystem snapshot under `<data_dir>/snapshots/<name>`; returns the path. Quiesce writers first: concurrent writes are not guaranteed coherent across data and backend (FIND-651). |
+| `snapshot_restore` | DESTRUCTIVE: schedules snapshot `<name>` for the next writable open (requires `confirm: true`; `name` must be a plain identifier). Restart the server to apply; writes made before restart are discarded. Delete `<storage_root>/.restore_pending` to cancel. The response reports `scheduled: true` and `restored: false`. Data and backend are staged with rollback on I/O errors; this is not a crash-atomic two-tree transaction. If an interruption leaves staging directories, reopening fails and requires manual recovery. Legacy snapshots without either format marker restore data only. |
 | `list_snapshots` | Lists physical snapshot names under `<data_dir>/snapshots`. |
 | `purge_expired` | Scans all records and physically deletes those whose TTL expiry has passed. |
 | `rehydrate` | Recovers shadow-archived nodes that belonged to a summary node from TombstoneStorage. |
 | `vacuum` | Purges tombstoned nodes from the HNSW index; returns a report with scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, and success. |
+
+RocksDB snapshots copy a native checkpoint rather than the live backend root.
+The inventory records the backend kind; at the next writable open, a mismatch
+with the configured backend fails before staging and keeps the pending marker.
+Restore does not migrate backends. Legacy snapshots have no backend kind.
+
+Scheduling and consuming pending restores are serialized by a bookkeeping
+lock. Contention beyond five seconds returns retriable `DatabaseBusy`; retry
+after the in-flight restore or scheduling operation completes.
 
 ### Introspection & Utility (6)
 

@@ -516,13 +516,29 @@ Conversation threads with append-only messages and optional TTL expiry.
 
 ## Snapshots API
 
-Instant filesystem snapshots via hard links (Unix) or copy (Windows).
+Filesystem snapshots copy mutable files; Unix hard-links immutable WAL archives,
+sealed Fjall journals and Fjall tables/blobs. Windows copies all files. Snapshotting while other
+writers are active is not guaranteed coherent across data and backend; quiesce
+writers first (FIND-651).
+Opening a snapshot path directly creates a data-only view and writes Fjall
+files in that snapshot directory. Use `restore_from` for a full restore.
+
+RocksDB snapshots copy files from a native checkpoint, not the live backend
+root. The inventory records the backend kind: SDK and scheduled restores reject
+a configured mismatch before staging. Static `StorageEngine::snapshot_restore`
+APIs have no config and warn instead; reopen with the snapshot's backend.
+Restore does not migrate between backends. Legacy snapshots have no kind.
+
+Scheduling and consuming pending restores are serialized by a bookkeeping
+lock. Contention beyond five seconds returns retriable `DatabaseBusy`; retry
+after the in-flight restore or scheduling operation completes.
 
 | Method | Description |
 |--------|-------------|
-| `create_snapshot(name)` | Create an instant point-in-time snapshot. All data files in the storage directory are hard-linked into `<data_dir>/snapshots/<name>` (O(1)) |
+| `create_snapshot(name)` | Capture data and backend files under `<data_dir>/snapshots/<name>`; a format marker and synced inventory manifest distinguish completed captures from incomplete ones. Existing names are rejected |
 | `list_snapshots()` | List all existing snapshot names. Returns `Vec<String>` |
-| `restore_from(config, name)` | DESTRUCTIVE static associated function: replace the live database directory with the contents of snapshot `<name>`, then reopen. Close every open handle first (`db.close()?; let db = Embedded::restore_from(config.clone(), "name")?;`). The current data is staged aside (atomic rename, sibling of `data_dir`) with best-effort rollback on failure; all snapshots survive the swap. `name` must be a plain identifier (path traversal rejected). Indexes rebuild from storage on reopen |
+| `restore_from(config, name)` | DESTRUCTIVE static associated function: restore snapshot `<name>` and reopen. Close every open handle first (`db.close()?; let db = Embedded::restore_from(config.clone(), "name")?;`). Data and backend are staged with rollback on I/O errors; legacy snapshots without either format marker restore data only. All snapshots survive the swap. `name` must be a plain identifier (path traversal rejected) |
+| `restore_from_with_backend(config, name)` | DESTRUCTIVE static associated function: same restore, backend compatibility checks and reopen behavior as `restore_from`. Returns `Result<(Embedded, bool)>`; the boolean reports whether backend state was restored. Legacy data-only snapshots return `false`. Close every open handle first; requires `fs2` |
 
 ### Restore flow
 
@@ -531,9 +547,17 @@ db.close()?;                                       // release the fs2 lock + han
 let db = Embedded::restore_from(config.clone(), "snap-1")?; // swap + reopen
 ```
 
-Restore requires exclusive access to the database directory: on Windows an open
-engine makes the swap fail loudly; on Unix an open handle would silently fork
-state, so always close/drop handles first (the SDK wrapper reopens for you).
+Restore requires exclusive access to the database directory: with `fs2`, an open
+engine causes the swap to fail on both Windows and Unix. Without the lock, an
+open handle could silently fork state on Unix. Always close/drop handles first
+(the SDK wrapper reopens for you).
+
+Restore is not a crash-atomic two-tree transaction. If an interruption or
+incomplete rollback leaves `data.pre_restore_*` or `backend.pre_restore_*`,
+subsequent opens fail closed and require manual recovery of those directories.
+Offline and scheduled restore require the `fs2` feature; builds without it
+reject restore requests rather than proceeding without a lock.
+The snapshot inventory validates file paths and lengths, not content hashes.
 
 ## Skills API — Separate Module
 

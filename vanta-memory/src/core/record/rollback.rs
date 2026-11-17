@@ -16,7 +16,7 @@
 //!   cross-record state is not re-evaluated (another record's supersession of
 //!   this one lives in *that* record's payload — restored verbatim here);
 //!   deletes are not resurrected (`delete` purges the retained history — the
-//!   snapshot restore is the data-only path, FIND-287).
+//!   legacy snapshot restore is the data-only path, FIND-287).
 //!
 //! **Audit surface:** like [`crate::core::record::l1_reader::read_record_versions`]
 //! this is an explicit admin/audit operation — it does not apply the recall
@@ -145,7 +145,7 @@ fn declared_scope() -> Vec<String> {
         "append-only lineage: the rollback writes a NEW version; newer versions are retained (audit)".into(),
         "bookkeeping advances to the rollback write: `version` and `updated_at` are not restored to the target values — see `changes` for the exact store delta".into(),
         "no cross-record cascade: supersession/contradiction state of other records is not re-evaluated; the target's `superseded_by` field is restored verbatim".into(),
-        "deleted records are not resurrected: `delete` purges the retained version history (snapshot restore is the data-only path — FIND-287)".into(),
+        "deleted records are not resurrected by record rollback: `delete` purges the retained version history (legacy snapshot restore is data-only — FIND-287)".into(),
         "audit surfaces (generation log, audit JSONL, WAL frames) are append-only and not rewritten".into(),
     ]
 }

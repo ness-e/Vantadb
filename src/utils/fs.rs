@@ -1,8 +1,9 @@
 //! Filesystem durability helpers.
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Append `.tmp` to the complete file name.
 pub(crate) fn tmp_path_for(path: &Path) -> PathBuf {
@@ -23,7 +24,40 @@ pub(crate) fn write_atomic(
     write: impl FnOnce(&mut BufWriter<File>) -> std::io::Result<()>,
 ) -> std::io::Result<()> {
     let tmp = tmp_path_for(path);
-    let file = File::create(&tmp)?;
+    write_atomic_with_tmp(path, &tmp, false, write)
+}
+
+/// Atomically replace `path` using a temporary file unique to this writer.
+pub(crate) fn write_atomic_unique(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
+        .map_err(std::io::Error::other)?
+        .as_nanos();
+    let mut name = path
+        .file_name()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "missing file name"))?
+        .to_os_string();
+    name.push(format!(
+        ".{}.{nanos}.{}.tmp",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
+    let tmp = path.with_file_name(name);
+    write_atomic_with_tmp(path, &tmp, true, |writer| writer.write_all(bytes))
+}
+
+fn write_atomic_with_tmp(
+    path: &Path,
+    tmp: &Path,
+    exclusive: bool,
+    write: impl FnOnce(&mut BufWriter<File>) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let file = if exclusive {
+        OpenOptions::new().write(true).create_new(true).open(tmp)?
+    } else {
+        File::create(tmp)?
+    };
     let result = (|| {
         let mut writer = BufWriter::new(file);
         write(&mut writer)?;
@@ -37,11 +71,11 @@ pub(crate) fn write_atomic(
                 "Injected failure before atomic rename",
             ))
         });
-        std::fs::rename(&tmp, path)?;
+        std::fs::rename(tmp, path)?;
         sync_parent_dir(path)
     })();
     if result.is_err() {
-        let _ = std::fs::remove_file(&tmp);
+        let _ = std::fs::remove_file(tmp);
     }
     result
 }
@@ -106,6 +140,30 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(std::fs::read(&path).unwrap(), b"old");
         assert!(!tmp_path_for(&path).exists());
+    }
+
+    #[test]
+    fn test_write_atomic_unique_replaces_file_and_removes_tmp() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".restore_pending");
+        std::fs::write(&path, b"old").unwrap();
+        write_atomic_unique(&path, b"new").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"new");
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(feature = "failpoints")]
+    #[test]
+    fn test_write_atomic_unique_failure_preserves_file_and_removes_tmp() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".restore_pending");
+        std::fs::write(&path, b"old").unwrap();
+        fail::cfg("atomic_write_before_rename", "return").unwrap();
+        let result = write_atomic_unique(&path, b"new");
+        fail::remove("atomic_write_before_rename");
+        assert!(result.is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"old");
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
     }
 
     #[cfg(feature = "failpoints")]
