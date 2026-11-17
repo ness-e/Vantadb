@@ -13,7 +13,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **18 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
+VantaDB has **19 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -343,6 +343,28 @@ scale capabilities without bottlenecking daily development.
 runners and requires significant system resources (AVX2 plus heavy swap). It runs in its own
 scheduled/manual job with a 150 minute step timeout so it can complete without blocking the other
 certification checks. Running this on every PR would paralyze development velocity.
+
+### 2a. Linux Snapshot Certification (`snapshot-certification.yml`)
+
+The [isolated snapshot lane](../../../.github/workflows/snapshot-certification.yml)
+explicitly runs the snapshot binary excluded by the fast nextest filter. It
+triggers on snapshot-related push and pull-request changes to `main` and
+`develop`; `workflow_dispatch` is available once registered on the default
+branch. It does not dispatch the general heavy benchmark/fuzz workflow.
+
+One native Linux job runs seven phases in series: core snapshot/pending-restore
+units without and with encryption, complete selected snapshot certification
+without and with encryption, the real RocksDB checkpoint round trip,
+`vanta-memory` snapshot/rollback consumers, and MCP snapshot tools. The build
+profile is Cargo `ci`, the runner is nextest `audit`, with two build jobs and
+one test thread. The existing 180-second per-test limit, datasets and assertions
+are unchanged. The 90-minute job budget also includes the cold native C++ build.
+
+The artifact contains execution context, per-phase TXT logs, exit codes and
+JUnit XML. An empty test selection fails; a failure stops subsequent phases.
+An old nextest report is moved aside before each phase so cached XML cannot
+stand in for an unexecuted run. Artifacts upload even on failure. Snapshot
+coherence still requires quiesced writers; FIND-651 remains separate.
 
 ### 2b. Nightly Certification Subset (`nightly.yml`, HARD-02)
 

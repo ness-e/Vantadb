@@ -1,0 +1,172 @@
+name: "CERT: Linux Snapshot & Restore"
+
+# This isolated lane covers the binary excluded from nextest's fast filter.
+# A push trigger also certifies develop before this file reaches the default
+# branch, where GitHub requires workflow_dispatch workflows to be registered.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - ".github/workflows/snapshot-certification.yml"
+      - ".github/actions/rust-setup/**"
+      - ".cargo/**"
+      - ".config/nextest.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "src/backend.rs"
+      - "src/backends/**"
+      - "src/storage/**"
+      - "src/sdk/builder.rs"
+      - "src/utils/fs.rs"
+      - "tests/core/snapshot_certification.rs"
+      - "vanta-memory/Cargo.toml"
+      - "vanta-memory/src/core/record/**"
+      - "vanta-memory/src/utils/backup.rs"
+      - "vanta-memory/tests/backup_snapshot.rs"
+      - "vanta-memory/tests/rollback.rs"
+      - "vantadb-mcp/Cargo.toml"
+      - "vantadb-mcp/src/handlers/tools.rs"
+      - "vantadb-mcp/src/validation.rs"
+      - "vantadb-mcp/tests/mcp_tests.rs"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - ".github/workflows/snapshot-certification.yml"
+      - ".github/actions/rust-setup/**"
+      - ".cargo/**"
+      - ".config/nextest.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "src/backend.rs"
+      - "src/backends/**"
+      - "src/storage/**"
+      - "src/sdk/builder.rs"
+      - "src/utils/fs.rs"
+      - "tests/core/snapshot_certification.rs"
+      - "vanta-memory/Cargo.toml"
+      - "vanta-memory/src/core/record/**"
+      - "vanta-memory/src/utils/backup.rs"
+      - "vanta-memory/tests/backup_snapshot.rs"
+      - "vanta-memory/tests/rollback.rs"
+      - "vantadb-mcp/Cargo.toml"
+      - "vantadb-mcp/src/handlers/tools.rs"
+      - "vantadb-mcp/src/validation.rs"
+      - "vantadb-mcp/tests/mcp_tests.rs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: snapshot-certification-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_BUILD_JOBS: 2
+
+jobs:
+  snapshot-linux:
+    name: Linux Snapshot Certification
+    runs-on: ubuntu-latest
+    # Includes a cold native C++ build; nextest's per-test limit stays 180 s.
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-nextest: "true"
+          install-system-deps: "true"
+          shared-key: linux-snapshot-ci
+          free-disk: "false"
+          swap-mb: "0"
+
+      - name: Record native Linux execution context
+        run: |
+          mkdir -p artifacts/snapshot-certification
+          {
+            git rev-parse HEAD
+            uname -a
+            id
+            rustc --version --verbose
+            cargo nextest --version
+            df -h .
+            free -h
+          } | tee artifacts/snapshot-certification/context.txt
+          test "$(uname -s)" = Linux
+          test "$(id -u)" -ne 0
+
+      - name: Certify core snapshots, native RocksDB and their callers
+        run: |
+          out=artifacts/snapshot-certification
+          report=target/nextest/audit/junit.xml
+
+          run_phase() {
+            local phase="$1"
+            shift
+            local status
+            local -a pipeline_status
+            touch "$out/$phase.started"
+            if [[ -f "$report" ]]; then
+              mv "$report" "$out/$phase.prior-report.txt"
+            fi
+
+            set +e
+            cargo nextest run \
+              --profile audit --cargo-profile ci \
+              --locked --build-jobs 2 --test-threads 1 \
+              --ignore-default-filter --no-tests fail \
+              "$@" 2>&1 | tee "$out/$phase.txt"
+            pipeline_status=("${PIPESTATUS[@]}")
+            set -e
+            status="${pipeline_status[0]}"
+            if [[ "${pipeline_status[1]}" -ne 0 && "$status" -eq 0 ]]; then
+              status=1
+            fi
+
+            # Never publish a report restored from the previous phase/cache.
+            if [[ -f "$report" ]]; then
+              cp "$report" "$out/$phase.junit.xml"
+            elif [[ "$status" -eq 0 ]]; then
+              echo "Successful phase did not produce a fresh JUnit report." >&2
+              status=1
+            fi
+            printf '%s\n' "$status" > "$out/$phase.exit-code.txt"
+            return "$status"
+          }
+
+          run_phase 01-unit-plain \
+            -p vantadb --lib --features failpoints \
+            -E 'test(snapshot) or test(pending_restore)'
+          run_phase 02-unit-encrypted \
+            -p vantadb --lib --features failpoints,encryption \
+            -E 'test(snapshot) or test(pending_restore)'
+          run_phase 03-certification-plain \
+            -p vantadb --test snapshot_certification --features failpoints \
+            -E 'test(snapshot) or test(pending_restore) or test(schedule)'
+          run_phase 04-certification-encrypted \
+            -p vantadb --test snapshot_certification --features failpoints,encryption \
+            -E 'test(snapshot) or test(pending_restore) or test(schedule)'
+          run_phase 05-rocksdb-native \
+            -p vantadb --test snapshot_certification --features failpoints,encryption,rocksdb \
+            -E 'test(test_snapshot_rocksdb_native_checkpoint_roundtrip)'
+          run_phase 06-memory-snapshots \
+            -p vanta-memory --test backup_snapshot --test rollback -E 'test(snapshot)'
+          run_phase 07-mcp-snapshots \
+            -p vantadb-mcp --test mcp_tests -E 'test(snapshot)'
+
+      - name: Upload execution logs, exit codes and JUnit reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-certification-linux-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/snapshot-certification/
+          if-no-files-found: warn
+          retention-days: 14
