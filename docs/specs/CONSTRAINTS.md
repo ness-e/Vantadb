@@ -93,8 +93,14 @@ Every row names the command that produces the verdict. A dimension with a number
 |----|------|------|--------|-------|---------|
 | W1 | `clippy::too_many_arguments` | `src/engine.rs:search*` | Search API has 7 params, refactor tracked in DRV-XXX | @ness-e | 2026-12-01 |
 | W2 | `unsafe` without Miri | `vantadb-wasm/src/opfs.rs` | OPFS shim, Miri not applicable to WASM | @ness-e | 2027-03-01 |
+| W3 | `RUSTSEC-2026-0543` maintenance advisory only | `deny.toml` | Owner approved 2026-11-17: no patched chrono version; assess API and transitive compatibility in FIND-652. Push/CI only, not a remediation or release approval. | @ness-e (vanta-lead) | 2026-11-24 |
 
 > Exceptions require owner + expiry. Review on each `Last reviewed` date. Expiry >1y not permitted.
+
+W3 requires owner review by 2026-11-24 **and before any public release**.
+`cargo-deny` does not automatically expire this entry: remove it or obtain a
+new explicit owner decision at that review. Other advisories, the
+`unmaintained = "all"` policy and all other floors remain enforced.
 
 ---
 

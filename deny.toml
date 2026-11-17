@@ -6,6 +6,15 @@
 version = 2
 unmaintained = "all"
 ignore = [
+    # RUSTSEC-2026-0543: chrono is unmaintained (informational; no patched version).
+    # Explicit owner approval: 2026-11-17, limited to continuing push/CI.
+    # Owner: @ness-e (vanta-lead)
+    # Expires / mandatory review: 2026-11-24 and before any public release.
+    # Tracked: FIND-652; docs/specs/CONSTRAINTS.md exception W3.
+    # Preserve existing APIs while a compatible migration is assessed.
+    # This is risk acceptance, not a remediation or release authorization.
+    "RUSTSEC-2026-0543",
+
     # RUSTSEC-2023-0089: atomic-polyfill is unmaintained.
     # Transitive via postcard -> heapless (0.7.x) -> atomic-polyfill.
     # Owner: vanta-lead
