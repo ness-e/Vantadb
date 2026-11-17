@@ -73,6 +73,7 @@ fn write_persona(db: &Embedded, session: &str, body: &str) {
         mode: PersonaMode::First,
         generated_at_ms: 1_000,
         generated_at: "2026-08-20T10:00:00Z".into(),
+        scene_versions: None,
         source_episode_ids: vec![],
         source_scene_names: vec![],
     };

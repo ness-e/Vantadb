@@ -9,8 +9,12 @@
 //! Flow (`generate_persona`, generic over `R: LlmRunner` because the trait
 //! is not dyn-compatible):
 //! 1. Read the existing persona (navigation stripped).
-//! 2. Detect scenes changed since the last generation (`updated` >
-//!    `generated_at`, RFC3339 fixed-width lexicographic compare).
+//! 2. Detect scenes changed since the last generation against the version
+//!    baseline stored in the record (`scene_versions`: filename → `updated`
+//!    stamp) — a scene counts as changed iff its current pair differs, so a
+//!    write landing in the same millisecond as the generation is still
+//!    detected. Legacy records without a baseline fall back to the
+//!    `updated` > `generated_at` RFC3339 compare.
 //! 3. No changes + existing persona → skip without an LLM call.
 //! 4. Mode: [`PersonaMode::First`] when no persona exists,
 //!    [`PersonaMode::Incremental`] otherwise.
@@ -27,6 +31,7 @@
 //! `persona-generator.ts` + `utils/sanitize.ts:288-294`.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 use crate::core::abstractions::{LlmRunParams, LlmRunner, PersonaMode, SceneIndexEntry};
@@ -123,6 +128,13 @@ pub struct PersonaRecord {
     pub generated_at_ms: u64,
     /// Generation time (RFC3339, fixed-width — lexicographic == chrono).
     pub generated_at: String,
+    /// Scene version baseline consumed by this generation (filename →
+    /// `updated` stamp). A scene counts as changed iff its current pair is
+    /// absent or differs — deterministic, no wall-clock ordering. `None`
+    /// on legacy records: falls back to the timestamp compare, which can
+    /// miss a same-millisecond update.
+    #[serde(default)]
+    pub scene_versions: Option<BTreeMap<String, String>>,
     /// Deterministic provenance: L1 source episode IDs (TEC-15).
     #[serde(default)]
     pub source_episode_ids: Vec<String>,
@@ -236,6 +248,32 @@ pub fn generate_persona<R: LlmRunner>(
     result
 }
 
+/// Changed scenes since the last generation: every index entry whose
+/// (filename, `updated`) pair is absent from the stored baseline (or all
+/// live scenes on first run). The version baseline is deterministic — a
+/// scene written in the same millisecond as the previous generation is
+/// still detected. Records without a baseline (pre-versioning) fall back
+/// to the fixed-width RFC3339 timestamp compare (`updated` >
+/// `generated_at`), which can miss a same-millisecond update.
+fn changed_entries<'a>(
+    entries: &'a [SceneIndexEntry],
+    existing: Option<&PersonaRecord>,
+) -> Vec<&'a SceneIndexEntry> {
+    match existing {
+        Some(record) => match &record.scene_versions {
+            Some(baseline) => entries
+                .iter()
+                .filter(|e| baseline.get(&e.filename) != Some(&e.updated))
+                .collect(),
+            None => entries
+                .iter()
+                .filter(|e| e.updated.as_str() > record.generated_at.as_str())
+                .collect(),
+        },
+        None => entries.iter().collect(),
+    }
+}
+
 fn generate_persona_inner<R: LlmRunner>(
     db: &vantadb::sdk::Embedded,
     runner: &R,
@@ -258,16 +296,7 @@ fn generate_persona_inner<R: LlmRunner>(
         Err(err) => return fail(format!("failed to list scenes: {err}")),
     };
 
-    // Changed scenes: everything newer than the last generation (or all live
-    // scenes on first run). Unparseable timestamps cannot occur (fixed-width
-    // RFC3339), so plain string compare is exact.
-    let changed: Vec<&SceneIndexEntry> = match &existing {
-        Some(record) => entries
-            .iter()
-            .filter(|e| e.updated.as_str() > record.generated_at.as_str())
-            .collect(),
-        None => entries.iter().collect(),
-    };
+    let changed = changed_entries(&entries, existing.as_ref());
 
     // Mode is derived from the store: existing persona → incremental.
     let mode = if existing.is_some() {
@@ -376,6 +405,12 @@ fn generate_persona_inner<R: LlmRunner>(
         mode,
         generated_at_ms: now,
         generated_at: epoch_ms_to_rfc3339(now),
+        scene_versions: Some(
+            entries
+                .iter()
+                .map(|e| (e.filename.clone(), e.updated.clone()))
+                .collect(),
+        ),
         source_episode_ids,
         source_scene_names,
     };
@@ -585,6 +620,64 @@ mod tests {
         assert!(result.updated);
         assert_eq!(result.mode, Some(PersonaMode::Incremental));
         assert_eq!(result.changed_scenes, 1);
+    }
+
+    #[test]
+    fn changed_entries_detects_same_millisecond_update() {
+        // Regression (coverage lane, 2026-11-17): a scene written in the same
+        // millisecond as the generation must still count as changed. The
+        // legacy `updated > generated_at` compare misses it; the version
+        // baseline does not.
+        let ts = "2026-11-17T00:00:01.000Z";
+        let entries = vec![
+            SceneIndexEntry {
+                filename: "s1.md".into(),
+                summary: String::new(),
+                heat: 1,
+                created: ts.into(),
+                updated: ts.into(),
+            },
+            SceneIndexEntry {
+                filename: "s2.md".into(),
+                summary: String::new(),
+                heat: 1,
+                created: ts.into(),
+                updated: ts.into(), // == generated_at: same millisecond
+            },
+        ];
+        let record = PersonaRecord {
+            content: "persona".into(),
+            mode: PersonaMode::Incremental,
+            generated_at_ms: 1_000,
+            generated_at: ts.into(),
+            scene_versions: Some(std::collections::BTreeMap::from([(
+                "s1.md".to_string(),
+                ts.to_string(),
+            )])),
+            source_episode_ids: vec![],
+            source_scene_names: vec![],
+        };
+        let changed = changed_entries(&entries, Some(&record));
+        assert_eq!(changed.len(), 1);
+        assert_eq!(changed[0].filename, "s2.md");
+
+        // Same stamps as the baseline → nothing changed (skip path stays).
+        let record = PersonaRecord {
+            scene_versions: Some(std::collections::BTreeMap::from([
+                ("s1.md".to_string(), ts.to_string()),
+                ("s2.md".to_string(), ts.to_string()),
+            ])),
+            ..record
+        };
+        assert!(changed_entries(&entries, Some(&record)).is_empty());
+
+        // Legacy record without baseline: `updated` == `generated_at` misses
+        // the same-millisecond update (documented fallback behaviour).
+        let record = PersonaRecord {
+            scene_versions: None,
+            ..record
+        };
+        assert!(changed_entries(&entries, Some(&record)).is_empty());
     }
 
     #[test]

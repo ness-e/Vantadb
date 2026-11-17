@@ -150,6 +150,7 @@ fn test_tec_15_gdpr_cascade_forget_l1_to_l2_and_l3() {
         mode: vanta_memory::core::abstractions::PersonaMode::First,
         generated_at_ms: 1000,
         generated_at: chrono::Utc::now().to_rfc3339(),
+        scene_versions: None,
         source_episode_ids: vec![ep_pii.id.clone()],
         source_scene_names: vec!["medical_assessment".to_string()],
     })
