@@ -19,6 +19,17 @@ id = "RUSTSEC-2024-0436"
 ignoreUntil = "2027-01-01T00:00:00Z"
 reason = "Mirror of audit.toml triage: build-time only, no runtime impact. Tracked: tikv/jemalloc-ctl#60. Owner: vanta-lead."
 
+# RUSTSEC-2026-0543: chrono unmaintained (informational; no patched version,
+# recommended migration to Jiff is a public-API-impacting change still being
+# assessed). Mirror of the owner-approved deny.toml waiver (2026-11-17):
+# risk acceptance, not a remediation or release authorization.
+# Owner: @ness-e (vanta-lead) | Mandatory review: 2026-11-24 and before any
+# public release | Tracked: FIND-652; docs/specs/CONSTRAINTS.md exception W3.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+ignoreUntil = "2026-11-24T00:00:00Z"
+reason = "Mirror of deny.toml waiver W3: chrono unmaintained, no patched version; migration tracked under FIND-652 with manual review on 2026-11-24 and before release. Owner: @ness-e (vanta-lead). Risk acceptance, not remediation."
+
 # RUSTSEC-2026-0253: lru (transitive via tantivy; direct dep is already 0.18.5
 # >= patched 0.18.2). REMOVED 2026-10-30: tantivy is now 0.27 and the lock only
 # carries lru 0.18.5, so the advisory no longer matches anything.
