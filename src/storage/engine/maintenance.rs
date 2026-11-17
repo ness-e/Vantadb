@@ -490,16 +490,26 @@ impl StorageEngine {
             )?
         };
 
-        if rebuilt.is_mmap() {
-            rebuilt.sync_to_mmap().map_err(Error::Io)?;
-        } else {
-            rebuilt
-                .persist_to_file(
-                    rebuilt
-                        .mmap_path()
-                        .unwrap_or(&self.data_dir.join("vector_index.bin")),
-                )
-                .map_err(Error::Io)?;
+        // Ephemeral in-memory mode: data_dir is empty (init.rs returns
+        // `PathBuf::new()` — "nothing at rest"), so persisting would write
+        // `vector_index.bin` into the process CWD — a path shared with every
+        // other in-memory engine. Two parallel writers then race on the same
+        // `vector_index.bin.tmp` rename (NotFound). The rebuilt index still
+        // goes live below; nothing at rest means nothing to persist. A disk
+        // engine with `wal_shards = 0` still persists here — empty data_dir,
+        // not the WAL, is the ephemerality signal.
+        if !self.data_dir.as_os_str().is_empty() {
+            if rebuilt.is_mmap() {
+                rebuilt.sync_to_mmap().map_err(Error::Io)?;
+            } else {
+                rebuilt
+                    .persist_to_file(
+                        rebuilt
+                            .mmap_path()
+                            .unwrap_or(&self.data_dir.join("vector_index.bin")),
+                    )
+                    .map_err(Error::Io)?;
+            }
         }
 
         self.hnsw.store(Arc::new(rebuilt));
