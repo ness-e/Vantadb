@@ -850,6 +850,14 @@ console = "0.16"
 debug = 1
 opt-level = 0
 
+# FIND-319 (2026-11-17): four HNSW-heavy unit tests exceeded the 180 s Nextest
+# timeout when the root crate ran unoptimized (gate run: 2,855/2,859, rest
+# green). Scoped to `vantadb` only — dependencies and other workspace members
+# keep default test codegen; debug-assertions and overflow-checks stay
+# enabled (inherited from dev; Cargo only overrides declared keys here).
+[profile.test.package.vantadb]
+opt-level = 2
+
 # ponytail: removed invalid [target.wasm32-unknown-unknown.profile.release]
 # Cargo.toml does not support per-target profile overrides — Cargo silently
 # ignored opt-level, strip, and codegen-units here. WASM builds use default
