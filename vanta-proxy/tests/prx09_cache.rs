@@ -105,6 +105,7 @@ fn seed_memory(db: &Embedded, session_key: &str) {
         mode: PersonaMode::First,
         generated_at_ms: 0,
         generated_at: "2026-09-09T00:00:00+00:00".into(),
+        scene_versions: None,
         source_episode_ids: Vec::new(),
         source_scene_names: Vec::new(),
     };
