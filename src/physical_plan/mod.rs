@@ -41,6 +41,71 @@ pub(crate) use vector::QueryEmbedder;
 #[cfg(test)]
 pub(crate) use filter::evaluate_condition;
 
+// ─── Shared field-reference / numeric helpers (FIND-556, FIND-157) ──────
+
+/// Strip the alias qualifier from a field reference (`"p.name"` → `"name"`).
+///
+/// The lexer admits `.` in idents, so parser-produced field references may
+/// carry the table alias while stored relational keys never do. Callers
+/// must try the **exact** key first — a real dotted key (`meta.env`) can
+/// legitimately exist and must win — and only then fall back to the
+/// stripped form (FIND-556 risk register).
+pub(crate) fn strip_alias(field_ref: &str) -> &str {
+    field_ref.rsplit('.').next().unwrap_or(field_ref)
+}
+
+/// Exact `i64` vs `f64` ordering without precision loss (FIND-157 DoD).
+///
+/// `i64 as f64` rounds above 2^53, which would silently declare
+/// `Int(2^53 + 1)` equal to `Float(2^53)` — the silent-wrong-result class
+/// this helper exists to remove. Returns `None` for non-finite `f` (NaN
+/// has no total order); callers map `None` to `false` for every operator,
+/// including `Neq`.
+pub(crate) fn cmp_int_float(i: i64, f: f64) -> Option<std::cmp::Ordering> {
+    if !f.is_finite() {
+        return None;
+    }
+    // First `f64` above `i64::MAX` (2^63); `-I64_RANGE` == `i64::MIN` exactly.
+    const I64_RANGE: f64 = 9_223_372_036_854_775_808.0;
+    if f >= I64_RANGE {
+        return Some(std::cmp::Ordering::Less); // every i64 < f
+    }
+    if f < -I64_RANGE {
+        return Some(std::cmp::Ordering::Greater); // every i64 > f
+    }
+    // f ∈ [-2^63, 2^63): `f.trunc()` fits i64 and `as i64` is exact in range
+    // (|trunc| < 2^63 is always representable; no rounding can occur).
+    let f_trunc = f.trunc() as i64;
+    match i.cmp(&f_trunc) {
+        std::cmp::Ordering::Equal => {
+            // Same integer part — the fraction decides (f = trunc + fract).
+            if f > f_trunc as f64 {
+                Some(std::cmp::Ordering::Less) // i = trunc < f
+            } else if f < f_trunc as f64 {
+                Some(std::cmp::Ordering::Greater) // i = trunc > f
+            } else {
+                Some(std::cmp::Ordering::Equal)
+            }
+        }
+        ord => Some(ord),
+    }
+}
+
+/// Apply a [`crate::query::RelOp`] to an [`Ordering`] (FIND-157): shared by
+/// `filter` and `join` so `Gte`/`Lte` semantics can't drift between the two
+/// comparison paths.
+pub(crate) fn rel_op_matches(ord: std::cmp::Ordering, op: &crate::query::RelOp) -> bool {
+    use std::cmp::Ordering::*;
+    match op {
+        crate::query::RelOp::Eq => ord == Equal,
+        crate::query::RelOp::Neq => ord != Equal,
+        crate::query::RelOp::Gt => ord == Greater,
+        crate::query::RelOp::Gte => ord != Less,
+        crate::query::RelOp::Lt => ord == Less,
+        crate::query::RelOp::Lte => ord != Greater,
+    }
+}
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
@@ -866,6 +931,235 @@ mod tests {
         refine.open().unwrap();
         assert!(refine.next().unwrap().is_some());
         refine.close().unwrap();
+    }
+
+    // ── FIND-556: alias-qualified field references ──────────────────────
+
+    /// `p.name` is a valid ident (the lexer admits `.`), the parser keeps
+    /// the qualifier, and stored relational keys are never qualified — the
+    /// lookup must strip the alias like the JOIN/subquery paths already do.
+    #[test]
+    fn test_evaluate_condition_alias_qualified_field() {
+        let node = node_with_field("name", FieldValue::String("alice".into()));
+        assert!(evaluate_condition(
+            &node,
+            "p.name",
+            &RelOp::Eq,
+            &FieldValue::String("alice".into())
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "p.name",
+            &RelOp::Eq,
+            &FieldValue::String("bob".into())
+        ));
+    }
+
+    #[test]
+    fn test_physical_filter_alias_qualified_field() {
+        let child = MockScan::new(vec![string_node(1, "alice"), string_node(2, "bob")]);
+        let mut filter = PhysicalFilter::new(
+            Box::new(child),
+            "p.name".into(),
+            RelOp::Eq,
+            FieldValue::String("alice".into()),
+        );
+        filter.open().unwrap();
+        assert_eq!(filter.next().unwrap().unwrap().id, 1, "alice matches");
+        assert!(filter.next().unwrap().is_none(), "bob does not");
+        filter.close().unwrap();
+    }
+
+    /// FIND-556 collateral: `SELECT p.name`/`FETCH p.name` reached the
+    /// projection qualified — `remove("p.name")` found nothing and the row
+    /// went out with zero fields.
+    #[test]
+    fn test_physical_project_alias_qualified_field() {
+        let mut node = UnifiedNode::new(1);
+        node.relational
+            .insert("name".into(), FieldValue::String("n".into()));
+        node.relational.insert("price".into(), FieldValue::Int(5));
+
+        let child = MockScan::new(vec![node]);
+        let mut project =
+            PhysicalProject::new(Box::new(child), vec!["p.name".into(), "sq.price".into()]);
+        project.open().unwrap();
+        let result = project.next().unwrap().expect("got projected node");
+        assert_eq!(
+            result.relational.get("name"),
+            Some(&FieldValue::String("n".into())),
+            "qualified projection resolves the stored unqualified key"
+        );
+        assert_eq!(result.relational.get("price"), Some(&FieldValue::Int(5)));
+        project.close().unwrap();
+    }
+
+    // ── FIND-157: mixed Int/Float comparison ────────────────────────────
+
+    /// Stored `Float` vs literal `Int` (and vice versa): both variants are
+    /// numeric, so they compare in the real-number domain — the literal
+    /// `28` parses as `Int` while the SDK stores `Float`, and both must
+    /// match instead of hitting the "different variant ⇒ false" catch-all.
+    #[test]
+    fn test_evaluate_condition_float_field_int_literal() {
+        let node = node_with_field("price", FieldValue::Float(28.0));
+        assert!(evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Eq,
+            &FieldValue::Int(28)
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Neq,
+            &FieldValue::Int(28)
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Eq,
+            &FieldValue::Int(29)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_int_field_float_literal() {
+        let node = node_with_field("price", FieldValue::Int(28));
+        assert!(evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Eq,
+            &FieldValue::Float(28.0)
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Eq,
+            &FieldValue::Float(28.5)
+        ));
+        assert!(evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Neq,
+            &FieldValue::Float(28.5)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_cross_type_ordering() {
+        let int_node = node_with_field("v", FieldValue::Int(10));
+        assert!(evaluate_condition(
+            &int_node,
+            "v",
+            &RelOp::Gt,
+            &FieldValue::Float(9.5)
+        ));
+        assert!(evaluate_condition(
+            &int_node,
+            "v",
+            &RelOp::Lt,
+            &FieldValue::Float(10.5)
+        ));
+
+        let float_node = node_with_field("v", FieldValue::Float(10.5));
+        assert!(evaluate_condition(
+            &float_node,
+            "v",
+            &RelOp::Gte,
+            &FieldValue::Int(10)
+        ));
+        assert!(evaluate_condition(
+            &float_node,
+            "v",
+            &RelOp::Gt,
+            &FieldValue::Int(10)
+        ));
+        assert!(!evaluate_condition(
+            &float_node,
+            "v",
+            &RelOp::Lte,
+            &FieldValue::Int(10)
+        ));
+    }
+
+    /// `i64 as f64` rounds above 2^53: an exact comparison must NOT declare
+    /// `Int(2^53+1)` equal to `Float(2^53)` — that would reintroduce the
+    /// silent-wrong-result class this fix removes.
+    #[test]
+    fn test_evaluate_condition_cross_type_i64_precision() {
+        let node = node_with_field("v", FieldValue::Int(9_007_199_254_740_993)); // 2^53 + 1
+        assert!(!evaluate_condition(
+            &node,
+            "v",
+            &RelOp::Eq,
+            &FieldValue::Float(9_007_199_254_740_992.0) // 2^53
+        ));
+        assert!(evaluate_condition(
+            &node,
+            "v",
+            &RelOp::Gt,
+            &FieldValue::Float(9_007_199_254_740_992.0)
+        ));
+        assert!(evaluate_condition(
+            &node,
+            "v",
+            &RelOp::Neq,
+            &FieldValue::Float(9_007_199_254_740_992.0)
+        ));
+    }
+
+    // ── FIND-557: empty scalar subquery yields zero rows ────────────────
+
+    /// `x = (SELECT ...)` over an empty subquery is a comparison against
+    /// NULL: false for every row, for every operator — the predicate must
+    /// not silently disappear (0 rows, not "all rows pass through").
+    #[test]
+    fn test_subquery_filter_empty_subquery_yields_no_rows() {
+        let child = MockScan::new(vec![int_node(1, 5), int_node(2, 10)]);
+        let subq = MockScan::new(vec![]);
+        let mut filter =
+            PhysicalSubqueryFilter::new(Box::new(child), Box::new(subq), "val".into(), RelOp::Eq);
+        filter.open().unwrap();
+        assert!(
+            filter.next().unwrap().is_none(),
+            "empty scalar subquery ⇒ no row matches (FIND-557)"
+        );
+        filter.close().unwrap();
+    }
+
+    #[test]
+    fn test_subquery_filter_empty_subquery_neq_yields_no_rows() {
+        let child = MockScan::new(vec![int_node(1, 5), int_node(2, 10)]);
+        let subq = MockScan::new(vec![]);
+        let mut filter =
+            PhysicalSubqueryFilter::new(Box::new(child), Box::new(subq), "val".into(), RelOp::Neq);
+        filter.open().unwrap();
+        assert!(
+            filter.next().unwrap().is_none(),
+            "`!= NULL` is still not-true ⇒ 0 rows (SQL NULL semantics)"
+        );
+        filter.close().unwrap();
+    }
+
+    /// Cross-type scalar: a `Float` subquery scalar compared against an
+    /// `Int` field (FIND-157 reaching `compare_field_values` via the
+    /// subquery path).
+    #[test]
+    fn test_subquery_filter_float_scalar_vs_int_field() {
+        let mut subq_node = UnifiedNode::new(100);
+        subq_node
+            .relational
+            .insert("score".into(), FieldValue::Float(10.0));
+        let subq = MockScan::new(vec![subq_node]);
+        let child = MockScan::new(vec![int_node(1, 5), int_node(2, 10), int_node(3, 20)]);
+        let mut filter =
+            PhysicalSubqueryFilter::new(Box::new(child), Box::new(subq), "val".into(), RelOp::Gte);
+        filter.open().unwrap();
+        assert_eq!(filter.next().unwrap().unwrap().id, 2);
+        assert_eq!(filter.next().unwrap().unwrap().id, 3);
+        assert!(filter.next().unwrap().is_none());
+        filter.close().unwrap();
     }
 
     // ── Open/Close lifecycle on every operator ──────────────────────────

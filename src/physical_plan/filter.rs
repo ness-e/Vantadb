@@ -62,7 +62,16 @@ pub(crate) fn evaluate_condition(
     op: &crate::query::RelOp,
     expected: &crate::node::FieldValue,
 ) -> bool {
-    if let Some(actual) = node.relational.get(field) {
+    // FIND-556: parser-produced field refs may carry the table alias
+    // (`p.name`) while stored keys never do — exact key first (a real
+    // dotted key like `meta.env` wins), then the stripped form. The JOIN
+    // and subquery paths already stripped unconditionally.
+    let actual = node
+        .relational
+        .get(field)
+        .or_else(|| node.relational.get(super::strip_alias(field)));
+
+    if let Some(actual) = actual {
         match (actual, expected) {
             (crate::node::FieldValue::String(a), crate::node::FieldValue::String(e)) => match op {
                 crate::query::RelOp::Eq => a == e,
@@ -98,6 +107,20 @@ pub(crate) fn evaluate_condition(
                 crate::query::RelOp::Neq => false,
                 _ => false,
             },
+            // FIND-157: both variants are numeric — compare in the real
+            // domain via the exact `i64`↔`f64` ordering (no `as f64`
+            // precision loss above 2^53). `None` (non-finite float) ⇒
+            // false for every operator, including `Neq`.
+            (crate::node::FieldValue::Int(a), crate::node::FieldValue::Float(e)) => {
+                super::cmp_int_float(*a, *e)
+                    .map(|ord| super::rel_op_matches(ord, op))
+                    .unwrap_or(false)
+            }
+            (crate::node::FieldValue::Float(a), crate::node::FieldValue::Int(e)) => {
+                super::cmp_int_float(*e, *a)
+                    .map(|ord| super::rel_op_matches(ord.reverse(), op))
+                    .unwrap_or(false)
+            }
             _ => false,
         }
     } else {

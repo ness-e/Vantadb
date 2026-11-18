@@ -58,6 +58,16 @@ fn insert_product(storage: &StorageEngine, id: u128, name: &str, price: i64) {
     storage.insert(&node).unwrap();
 }
 
+fn insert_item(storage: &StorageEngine, id: u128, fields: &[(&str, FieldValue)]) {
+    let mut node = UnifiedNode::new(id);
+    node.relational
+        .insert("type".into(), FieldValue::String("Item".into()));
+    for (key, value) in fields {
+        node.relational.insert((*key).to_string(), value.clone());
+    }
+    storage.insert(&node).unwrap();
+}
+
 // ─── JOIN between two entity types via Statement::Select ─────────
 
 #[test]
@@ -620,6 +630,329 @@ fn test_select_basic_no_join() {
     match result {
         vantadb::executor::ExecutionResult::Read(nodes) => {
             assert_eq!(nodes.len(), 1, "Basic SELECT should return 1 row");
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+// ─── FIND-556: alias-qualified WHERE field through the IQL parser ──────
+
+/// Regression (FIND-556 / QP-05): `WHERE p.name = "Alice"` produced **0
+/// rows**. The lexer admits `.` in idents, the parser keeps the `p.`
+/// qualifier, and `PhysicalFilter` looked up the literal key `"p.name"`
+/// without stripping the alias — unlike the JOIN and subquery paths,
+/// which already did. The pre-existing test for this scenario built the
+/// AST by hand with an unqualified field and never exercised the bug.
+#[test]
+fn test_join_where_alias_qualified_field_via_iql() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_person(&storage, 1, "Alice", 10);
+    insert_person(&storage, 2, "Bob", 20);
+    insert_address(&storage, 10, "New York");
+    insert_address(&storage, 20, "London");
+
+    let result = ex
+        .execute_hybrid(
+            "SELECT * FROM Person p JOIN Address a ON p.addr_id = a.id WHERE p.name = \"Alice\"",
+        )
+        .unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(
+                nodes.len(),
+                1,
+                "qualified WHERE must keep exactly Alice's joined row"
+            );
+            assert_eq!(
+                nodes[0].relational.get("city"),
+                Some(&FieldValue::String("New York".into())),
+                "Alice joins to New York"
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+/// The qualified-field collateral on the projection side: `SELECT p.name`
+/// used to emit rows with **zero fields** (`remove("p.name")` found no
+/// stored key).
+#[test]
+fn test_select_alias_qualified_projection_via_iql() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_person(&storage, 1, "Alice", 0);
+
+    let result = ex.execute_hybrid("SELECT p.name FROM Person p").unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(nodes.len(), 1);
+            assert_eq!(
+                nodes[0].relational.get("name"),
+                Some(&FieldValue::String("Alice".into())),
+                "qualified projection must resolve the stored `name` key"
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+// ─── FIND-557: empty scalar subquery yields zero rows ──────────────────
+
+/// Regression (FIND-557 / QP-06): when the subquery returned no rows the
+/// operator did `return self.child.next()` — the predicate silently
+/// disappeared and **all** rows passed. In SQL `x = (empty)` is a
+/// comparison against NULL: false for every row.
+#[test]
+fn test_subquery_empty_result_yields_zero_rows() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_product(&storage, 1, "Hat", 15);
+    insert_product(&storage, 2, "Scarf", 25);
+
+    let result = ex
+        .execute_hybrid(
+            "SELECT * FROM Product p WHERE price = (SELECT price FROM Product sq WHERE name = \"Nobody\")",
+        )
+        .unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(
+                nodes.len(),
+                0,
+                "comparison against an empty scalar subquery matches nothing"
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+/// `!=` against an empty scalar subquery is still a NULL comparison —
+/// not true — so it must also return 0 rows, not "everything".
+#[test]
+fn test_subquery_empty_result_neq_yields_zero_rows() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_product(&storage, 1, "Hat", 15);
+    insert_product(&storage, 2, "Scarf", 25);
+
+    let result = ex
+        .execute_hybrid(
+            "SELECT * FROM Product p WHERE price != (SELECT price FROM Product sq WHERE name = \"Nobody\")",
+        )
+        .unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(nodes.len(), 0, "`!= NULL` is not true for any row");
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+// ─── FIND-558: the scalar comes from the projected field ───────────────
+
+/// Regression (FIND-558 / QP-07): the scalar used to be the first field
+/// of the first row in **BTreeMap (alphabetical) order** — `name`
+/// (String) instead of `price` (Int) — so the comparison hit the
+/// different-variant catch-all and returned 0 rows. The scalar must be
+/// the field the subplan projects.
+#[test]
+fn test_subquery_scalar_comes_from_projected_field() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_item(
+        &storage,
+        1,
+        &[
+            ("name", FieldValue::String("Hat".into())),
+            ("price", FieldValue::Int(15)),
+        ],
+    );
+    insert_item(
+        &storage,
+        2,
+        &[
+            ("name", FieldValue::String("Scarf".into())),
+            ("price", FieldValue::Int(25)),
+        ],
+    );
+    insert_item(
+        &storage,
+        3,
+        &[
+            ("name", FieldValue::String("Coat".into())),
+            ("price", FieldValue::Int(50)),
+        ],
+    );
+
+    // `SELECT price, name` projects two fields: the scalar must be
+    // `price` (the first projected field), not `name` (alphabetically
+    // first in the stored row).
+    let result = ex
+        .execute_hybrid(
+            "SELECT * FROM Item p WHERE price = (SELECT price, name FROM Item sq WHERE name = \"Scarf\")",
+        )
+        .unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(nodes.len(), 1, "scalar = price 25 ⇒ only Scarf matches");
+            assert_eq!(
+                nodes[0].relational.get("name"),
+                Some(&FieldValue::String("Scarf".into()))
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+// ─── FIND-157: mixed Int/Float comparison ──────────────────────────────
+
+/// Regression (FIND-157): a stored `Float(28.0)` never matched the
+/// literal `WHERE price = 28` — the RHS parses as `Int` and the
+/// `(Float, Int)` pair hit the different-variant `=> false` catch-all.
+#[test]
+fn test_where_int_literal_matches_stored_float() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_item(
+        &storage,
+        1,
+        &[
+            ("name", FieldValue::String("A".into())),
+            ("price", FieldValue::Float(28.0)),
+        ],
+    );
+    insert_item(
+        &storage,
+        2,
+        &[
+            ("name", FieldValue::String("B".into())),
+            ("price", FieldValue::Float(31.5)),
+        ],
+    );
+
+    let result = ex.execute_hybrid("FROM Item WHERE price = 28").unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(
+                nodes.len(),
+                1,
+                "Int literal 28 must match stored Float 28.0"
+            );
+            assert_eq!(
+                nodes[0].relational.get("name"),
+                Some(&FieldValue::String("A".into()))
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+/// The symmetric direction: a stored `Int` compared against a `Float`
+/// literal, for equality and ordering.
+#[test]
+fn test_where_float_literal_matches_stored_int() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_item(
+        &storage,
+        1,
+        &[
+            ("name", FieldValue::String("A".into())),
+            ("price", FieldValue::Int(10)),
+        ],
+    );
+    insert_item(
+        &storage,
+        2,
+        &[
+            ("name", FieldValue::String("B".into())),
+            ("price", FieldValue::Int(5)),
+        ],
+    );
+
+    let result = ex.execute_hybrid("FROM Item WHERE price > 9.5").unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(nodes.len(), 1, "only price=10 is > 9.5");
+            assert_eq!(
+                nodes[0].relational.get("name"),
+                Some(&FieldValue::String("A".into()))
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+
+    let result = ex.execute_hybrid("FROM Item WHERE price = 10.0").unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(
+                nodes.len(),
+                1,
+                "Float literal 10.0 must match stored Int 10"
+            );
+            assert_eq!(
+                nodes[0].relational.get("name"),
+                Some(&FieldValue::String("A".into()))
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+/// FIND-157 through the subquery path (`compare_field_values` in
+/// `join.rs`): a `Float` scalar against an `Int` field.
+#[test]
+fn test_subquery_float_scalar_compares_against_int_field() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_item(
+        &storage,
+        1,
+        &[
+            ("name", FieldValue::String("Hat".into())),
+            ("price", FieldValue::Int(15)),
+        ],
+    );
+    insert_item(
+        &storage,
+        2,
+        &[
+            ("name", FieldValue::String("Scarf".into())),
+            ("price", FieldValue::Int(25)),
+            ("score", FieldValue::Float(25.0)),
+        ],
+    );
+    insert_item(
+        &storage,
+        3,
+        &[
+            ("name", FieldValue::String("Coat".into())),
+            ("price", FieldValue::Int(50)),
+        ],
+    );
+
+    // The scalar is `score` = Float(25.0); the outer field `price` is Int.
+    let result = ex
+        .execute_hybrid(
+            "SELECT * FROM Item p WHERE price = (SELECT score FROM Item sq WHERE name = \"Scarf\")",
+        )
+        .unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(nodes.len(), 1, "Float scalar 25.0 must match Int price 25");
+            assert_eq!(
+                nodes[0].relational.get("name"),
+                Some(&FieldValue::String("Scarf".into()))
+            );
         }
         _ => panic!("Expected Read result"),
     }

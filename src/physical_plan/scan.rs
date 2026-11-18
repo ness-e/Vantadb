@@ -2,7 +2,7 @@
 //!
 //! Split out of the monolithic `physical_plan` module (REVIEW-05).
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::node::UnifiedNode;
 use crate::query::PhysicalOperator;
 use crate::storage::StorageEngine;
@@ -38,11 +38,28 @@ impl PhysicalOperator for PhysicalScan<'_> {
         self.prefetched.clear();
         self.cursor = 0;
 
-        let parts: Vec<&str> = self.entity.split('#').collect();
-        if parts.len() == 2 {
-            if let Ok(id) = parts[1].parse::<u128>() {
-                self.prefetched = self.storage.get_many(&[id])?;
-                return Ok(());
+        // FIND-524: the `X#<id>` entity form requires a numeric id.
+        // `FROM NODE#abc` used to fall through to the full scan below and —
+        // because the entity contains `#` — `next()` returned the first live
+        // node of the whole base with no error. An agent writing
+        // `FROM NODE#agent42` (a symbolic id) got back an arbitrary node with
+        // misplaced confidence. Validate the id instead of degrading.
+        if let Some(hash_at) = self.entity.find('#') {
+            let id_part = &self.entity[hash_at + 1..];
+            match id_part.parse::<u128>() {
+                Ok(id) => {
+                    self.prefetched = self.storage.get_many(&[id])?;
+                    return Ok(());
+                }
+                Err(_) => {
+                    return Err(Error::Validation {
+                        field: "entity".to_string(),
+                        reason: format!(
+                            "invalid node reference `{}`: `X#<id>` requires an unsigned integer id",
+                            self.entity
+                        ),
+                    });
+                }
             }
         }
 
@@ -206,5 +223,37 @@ mod tests {
             .insert(&memory_shaped_node(4005, "RealNs", "k4"))
             .expect("insert");
         assert!(select_ids(&storage, "SELECT * FROM MissingNs").is_empty());
+    }
+
+    /// FIND-524: `FROM NODE#<no-numérico>` caía al escaneo completo y — como
+    /// la entidad contiene `#` — `next()` devolvía el primer nodo vivo de
+    /// toda la base, sin error. Un caller agent-facing recibía un nodo con
+    /// confianza incorrecta ("este es el nodo 42" sin serlo).
+    #[test]
+    fn from_node_non_numeric_id_is_a_validation_error_not_an_arbitrary_node() {
+        let storage = in_memory_engine();
+        storage
+            .insert(&memory_shaped_node(7001, "ProbeNs", "k"))
+            .expect("insert");
+        let executor = Executor::new(&storage);
+        for q in ["FROM NODE#abc", "FROM NODE#", "FROM NODE#1#2", "FROM a#b"] {
+            let err = executor
+                .execute_hybrid(q)
+                .expect_err("non-numeric node ref must fail");
+            assert!(
+                matches!(err, crate::error::Error::Validation { .. }),
+                "{q} → {err:?}"
+            );
+        }
+    }
+
+    /// Control FIND-524: `FROM NODE#<numérico>` sigue trayendo el nodo.
+    #[test]
+    fn from_node_numeric_id_still_fetches_the_node() {
+        let storage = in_memory_engine();
+        storage
+            .insert(&memory_shaped_node(7002, "ProbeNs", "k"))
+            .expect("insert");
+        assert_eq!(select_ids(&storage, "FROM NODE#7002"), vec![7002]);
     }
 }

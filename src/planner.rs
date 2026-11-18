@@ -431,13 +431,19 @@ fn optimize_and_compile_with<'a>(
 
     // Apply SubqueryFilter operators on top of the chain
     for (field, op, subq_plan) in subquery_filters {
+        // FIND-558: the scalar is the first field the subplan projects
+        // (`SELECT price, name` ⇒ `price`), not the alphabetically-first
+        // stored key. No `Project` op (e.g. `SELECT *`) ⇒ the operator
+        // keeps its legacy fallback.
+        let scalar_field = subq_plan.operators.iter().find_map(|lop| match lop {
+            crate::query::LogicalOperator::Project { fields } => fields.first().cloned(),
+            _ => None,
+        });
         let subq_op = optimize_and_compile_with(&subq_plan, storage, embedder.clone())?;
-        current_operator = Box::new(crate::physical_plan::PhysicalSubqueryFilter::new(
-            current_operator,
-            subq_op,
-            field,
-            op,
-        ));
+        current_operator = Box::new(
+            crate::physical_plan::PhysicalSubqueryFilter::new(current_operator, subq_op, field, op)
+                .with_scalar_field(scalar_field),
+        );
     }
 
     // Apply lexical text filters (phrase-aware) on top of the chain. With RRF

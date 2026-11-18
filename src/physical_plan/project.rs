@@ -61,6 +61,19 @@ impl PhysicalOperator for PhysicalProject<'_> {
             for field in &self.fields {
                 if let Some(val) = node.relational.remove(field) {
                     projected.insert(field.clone(), val);
+                } else {
+                    // FIND-556: `SELECT p.name` arrives alias-qualified while
+                    // stored keys never are — fall back to the stripped name
+                    // and emit the row under the key it actually stores.
+                    // ponytail: `SELECT p.name, a.name` collapses to one
+                    // `name` column — last projection wins is N/A since the
+                    // second remove finds nothing (first took the key).
+                    let stripped = super::strip_alias(field);
+                    if stripped != field.as_str() {
+                        if let Some(val) = node.relational.remove(stripped) {
+                            projected.insert(stripped.to_string(), val);
+                        }
+                    }
                 }
             }
             // FIND-552: the post-plan filters run *after* this operator, so

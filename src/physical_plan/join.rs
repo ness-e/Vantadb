@@ -9,16 +9,13 @@ use crate::error::Result;
 use crate::node::UnifiedNode;
 use crate::query::PhysicalOperator;
 
+use super::strip_alias;
+
 // ─── Physical Nested Loop Join Operator ────────────────────────
 
 // ponytail: NestedLoopJoin — simplest correct. Add HashJoin when perf warrants it.
 // ponytail: Merges all relational fields (left precedence on name collision).
 // ponytail: No predicate pushdown yet — all WHERE filters apply post-join.
-
-/// Strip alias prefix from a qualified field reference (e.g. `"p.name"` → `"name"`).
-fn strip_alias(field_ref: &str) -> &str {
-    field_ref.split('.').next_back().unwrap_or(field_ref)
-}
 
 /// Physical nested-loop join operator that iterates left entities and,
 /// for each left entity, scans all right entities applying the ON condition.
@@ -156,6 +153,10 @@ pub struct PhysicalSubqueryFilter<'a> {
     op: crate::query::RelOp,
     /// Scalar value obtained by executing the subquery.
     scalar_value: Option<crate::node::FieldValue>,
+    /// FIND-558: field the subplan projects whose value is the scalar.
+    /// `None` = legacy fallback (first stored field) for subplans with no
+    /// projection, e.g. `SELECT *`.
+    scalar_field: Option<String>,
 }
 
 impl<'a> PhysicalSubqueryFilter<'a> {
@@ -172,7 +173,17 @@ impl<'a> PhysicalSubqueryFilter<'a> {
             field,
             op,
             scalar_value: None,
+            scalar_field: None,
         }
+    }
+
+    /// FIND-558: declare which projected field of the subplan supplies the
+    /// scalar (`SELECT price, name` ⇒ `price`). The planner derives it from
+    /// the subplan's `Project` operator; the qualifier is stripped here so
+    /// `sq.price` resolves against the stored key `price`.
+    pub fn with_scalar_field(mut self, scalar_field: Option<String>) -> Self {
+        self.scalar_field = scalar_field.map(|f| strip_alias(&f).to_string());
+        self
     }
 }
 
@@ -186,10 +197,15 @@ impl PhysicalOperator for PhysicalSubqueryFilter<'_> {
         }
         self.subquery_plan.close()?;
 
-        // Take the first field value from the first result node as the scalar
-        self.scalar_value = subq_nodes
-            .first()
-            .and_then(|n| n.relational.values().next().cloned());
+        // FIND-558: the scalar is the field the subplan *projects*, not the
+        // alphabetically-first key of the `BTreeMap` (`SELECT price, name`
+        // used to pick `name`). Fallback (`None`): first stored field —
+        // ponytail: `SELECT *` scalar subqueries keep the legacy behaviour;
+        // a scalar subquery should project exactly one column anyway.
+        self.scalar_value = subq_nodes.first().and_then(|n| match &self.scalar_field {
+            Some(f) => n.relational.get(f).cloned(),
+            None => n.relational.values().next().cloned(),
+        });
 
         // Open child for iteration
         self.child.open()?;
@@ -200,16 +216,23 @@ impl PhysicalOperator for PhysicalSubqueryFilter<'_> {
         let sv = match &self.scalar_value {
             Some(v) => v,
             None => {
-                // Subquery returned no rows — compare against Null
-                // For Eq, no rows = no match. For Neq, all rows match.
-                // Simplest: treat empty as Null.
-                return self.child.next(); // pass through, no scalar to compare
+                // FIND-557: `field op (empty subquery)` is a comparison
+                // against NULL — not-true for every row and every operator
+                // (`!=` included). The predicate must not silently
+                // disappear by passing child rows through.
+                return Ok(None);
             }
         };
 
+        // Exact key first (a real dotted key wins), then the stripped
+        // alias — same lookup contract as `evaluate_condition`.
         let field_name = strip_alias(&self.field);
         while let Some(node) = self.child.next()? {
-            if let Some(actual) = node.relational.get(field_name) {
+            let actual = node
+                .relational
+                .get(&self.field)
+                .or_else(|| node.relational.get(field_name));
+            if let Some(actual) = actual {
                 if compare_field_values(actual, sv, &self.op) {
                     return Ok(Some(node));
                 }
@@ -265,6 +288,18 @@ fn compare_field_values(
             crate::query::RelOp::Neq => false,
             _ => false,
         },
+        // FIND-157: same mixed Int/Float coercion as `evaluate_condition` —
+        // exact `i64`↔`f64` ordering, non-finite ⇒ false for every op.
+        (crate::node::FieldValue::Int(a), crate::node::FieldValue::Float(e)) => {
+            super::cmp_int_float(*a, *e)
+                .map(|ord| super::rel_op_matches(ord, op))
+                .unwrap_or(false)
+        }
+        (crate::node::FieldValue::Float(a), crate::node::FieldValue::Int(e)) => {
+            super::cmp_int_float(*e, *a)
+                .map(|ord| super::rel_op_matches(ord.reverse(), op))
+                .unwrap_or(false)
+        }
         _ => false,
     }
 }
