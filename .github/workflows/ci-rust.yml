@@ -223,7 +223,7 @@ jobs:
           swap-mb: 4096
 
       - name: Public API snapshot matches committed golden file
-        run: cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
+        run: cargo nextest run -p vantadb --test public_api --run-ignored ignored-only --locked
 
   adr-gate:
     # REGLA-5: public API changes require an ADR. Without this job the rule
@@ -462,7 +462,7 @@ jobs:
       - name: Run lib tests (${{ matrix.features }})
         run:
           cargo nextest run -p vantadb --lib --profile audit --features
-          "cli,arrow,tls,opentelemetry,${{ matrix.features }}"
+          "cli,arrow,tls,opentelemetry,${{ matrix.features }}" --locked
 
   msrv:
     name: MSRV Check (1.94.1)
@@ -479,7 +479,7 @@ jobs:
           install-llvm-cov: false
 
       - name: cargo check (MSRV, core)
-        run: cargo check
+        run: cargo check --locked
 
   minimal-versions:
     name: Minimal Versions Check (-Zminimal-versions)
@@ -619,15 +619,15 @@ jobs:
           swap-mb: 4096
 
       - name: Check experimental server + MCP + WASM crates
-        run: cargo check -p vantadb-server -p vantadb-mcp -p vantadb-wasm
+        run: cargo check -p vantadb-server -p vantadb-mcp -p vantadb-wasm --locked
 
       - name: Check experimental adapter crates
         # providers/* are intentionally NOT workspace members (MSVC linker
         # crash on Windows) — check them individually via --manifest-path.
         run: |
-          cargo check --manifest-path providers/openai/Cargo.toml
-          cargo check --manifest-path providers/ollama/Cargo.toml
-          cargo check --manifest-path providers/litellm/Cargo.toml
+          cargo check --manifest-path providers/openai/Cargo.toml --locked
+          cargo check --manifest-path providers/ollama/Cargo.toml --locked
+          cargo check --manifest-path providers/litellm/Cargo.toml --locked
 
   release-combo:
     # FIND-231: no job compiled the release profile of the published binaries
@@ -658,10 +658,10 @@ jobs:
           swap-mb: 4096
 
       - name: Check release combo — vanta-cli (server + jemalloc)
-        run: cargo check --release --features "server,jemalloc" --package vantadb --bin vanta-cli
+        run: cargo check --release --features "server,jemalloc" --package vantadb --bin vanta-cli --locked
 
       - name: Check release combo — vantadb-server (jemalloc)
-        run: cargo check --release --features "jemalloc" --package vantadb-server
+        run: cargo check --release --features "jemalloc" --package vantadb-server --locked
 
   audit:
     name: Security Audit
