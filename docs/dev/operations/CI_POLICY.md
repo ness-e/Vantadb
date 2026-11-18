@@ -13,7 +13,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **19 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
+VantaDB has **20 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -566,6 +566,10 @@ publication and signing remain deferred.
 ### 12. Weekly Adoption Metrics Collector (`metrics-collector.yml`)
 
 Runs on a weekly schedule (`0 6 * * 1`) and via `workflow_dispatch` to collect ecosystem adoption telemetry (stars, forks, PyPI/npm download stats) via `scripts/collect_adoption_metrics.py` and commit the snapshot to `docs/dev/metrics/adoption.json` with `[skip ci]`.
+
+### 13. Main Ancestry Gate (`main-ancestry.yml`)
+
+Dedicated unfiltered workflow (`on.pull_request.branches: [main]`, no `paths:`/`paths-ignore:`) that checks out `github.event.pull_request.head.sha` with `fetch-depth: 0` and verifies `git merge-base --is-ancestor origin/main HEAD` on every PR targeting `main` (exempting `release-plz-*` branches), preventing `develop → main` merges from reverting hotfixes that only exist on `main` (FIND-455, FIND-633).
 
 ### 9. Release Workflows
 
