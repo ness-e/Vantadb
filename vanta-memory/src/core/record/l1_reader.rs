@@ -392,10 +392,11 @@ pub fn recall_candidates(
     embed: Option<&crate::core::record::l1_writer::EmbedFn>,
 ) -> Vec<MemoryRecord> {
     let query_vector = embed.and_then(|hook| hook(content));
-    let non_superseded: Vec<&MemoryRecord> = records
-        .iter()
-        .filter(|r| r.superseded_by.is_none())
-        .collect();
+    // FIND-277: same "active" semantics as the recall readers — a blank
+    // `superseded_by` pointer is corrupt data, not a supersession, so dedup
+    // and recall share one definition of current.
+    let non_superseded: Vec<&MemoryRecord> =
+        records.iter().filter(|r| is_active_record(r)).collect();
 
     // Pool 1 — legacy keyword overlap (doubles as the no-vector fallback).
     let mut keyword_pool: Vec<(usize, &MemoryRecord)> = non_superseded

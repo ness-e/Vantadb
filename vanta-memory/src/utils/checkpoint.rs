@@ -131,7 +131,12 @@ impl<'a> CheckpointManager<'a> {
     }
 
     /// Persist a full checkpoint.
-    pub fn write(&self, checkpoint: &Checkpoint) -> Result<(), CheckpointError> {
+    ///
+    /// Crate-internal on purpose (MEMG-28): every read-modify-write must go
+    /// through [`Self::mutate`] so the whole read → write serializes under
+    /// [`CHECKPOINT_RMW_LOCK`]. A public bare `read` → `write` reintroduces
+    /// the lost-update race the lock closed.
+    pub(crate) fn write(&self, checkpoint: &Checkpoint) -> Result<(), CheckpointError> {
         use vantadb::sdk::{MemoryInput, MemoryMetadata};
         self.db.put(MemoryInput {
             namespace: self.namespace.clone(),

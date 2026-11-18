@@ -34,8 +34,7 @@ use crate::core::persona::{
 use crate::core::prompts::l1_extraction::{epoch_ms_to_rfc3339, PromptMode};
 use crate::core::record::{
     apply_dedup_batch, extract_dedup_batch, extract_l1_segments, read_active_session_records,
-    read_session_records,
-    run_l1_dedup, L1DedupConfig, L1ExtractorConfig,
+    read_session_records, run_l1_dedup, L1DedupConfig, L1ExtractorConfig,
 };
 use crate::core::scene::{extract_scenes_with_llm, list_scenes, SceneMemoryInput};
 use crate::core::state::{TaskKind, TaskPayload};

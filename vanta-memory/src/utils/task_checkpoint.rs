@@ -191,6 +191,11 @@ impl<'a> TaskCheckpointManager<'a> {
     }
 
     /// Read-modify-write on an in-progress checkpoint.
+    ///
+    /// Per-task records — safe while the task claim is exclusive; if the
+    /// pipeline ever allows retry-while-alive of the same `task_id`, this
+    /// RMW needs the same lock as
+    /// [`CheckpointManager`](super::checkpoint::CheckpointManager).
     fn mutate(
         &self,
         task_id: &str,

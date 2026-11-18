@@ -905,3 +905,109 @@ fn raw_readers_still_return_superseded_for_writer_and_audit() {
     assert_eq!(all.len(), 2);
     assert!(all.iter().any(|r| r.id == "m2"));
 }
+
+/// Seed a governance doc (ADR/convention) in a dedicated namespace — the
+/// PI-2 / MGR-23 route lists `adr`/`conventions`/`architecture` via
+/// `db.list` and maps records through `sdk_to_memory_record`, so these are
+/// raw payloads, not L1 JSON.
+fn put_governance_doc(
+    db: &Embedded,
+    namespace: &str,
+    key: &str,
+    content: &str,
+    metadata: &[(&str, vantadb::sdk::Value)],
+) {
+    use vantadb::sdk::{MemoryInput, MemoryMetadata};
+    let mut meta = MemoryMetadata::new();
+    for (k, v) in metadata {
+        meta.insert((*k).to_string(), v.clone());
+    }
+    db.put(MemoryInput {
+        namespace: namespace.into(),
+        key: key.into(),
+        payload: content.into(),
+        metadata: meta,
+        vector: None,
+        sparse_vector: None,
+        ttl_ms: None,
+        ..Default::default()
+    })
+    .expect("put governance doc");
+}
+
+#[test]
+fn superseded_governance_docs_are_never_recalled() {
+    let db = db();
+
+    // Active sibling — the only doc that may reach the prompt.
+    put_governance_doc(
+        &db,
+        "adr",
+        "adr-001",
+        "[ADR: storage] use fjall as the storage backend",
+        &[("category", vantadb::sdk::Value::String("adr".into()))],
+    );
+    // Engine-level supersession: node `superseded_by` → the ADR route's
+    // `db.list(..., exclude_superseded: true)` drops it before it ever
+    // enters the candidate pool.
+    put_governance_doc(
+        &db,
+        "adr",
+        "adr-000",
+        "[ADR: storage] use sled as the storage backend",
+        &[("category", vantadb::sdk::Value::String("adr".into()))],
+    );
+    db.supersede("adr", "adr-000", "adr-001")
+        .expect("supersede adr-000");
+
+    // Metadata-level supersession survives `exclude_superseded` (the node
+    // itself is not flagged); `sdk_to_memory_record` lifts it into
+    // `MemoryRecord.superseded_by` and the `is_active_record` guard inside
+    // `search_records` must drop it.
+    put_governance_doc(
+        &db,
+        "conventions",
+        "conv-1",
+        "[ADR: storage] use rocksdb as the storage backend",
+        &[
+            ("category", vantadb::sdk::Value::String("convention".into())),
+            (
+                "superseded_by",
+                vantadb::sdk::Value::String("adr-001".into()),
+            ),
+        ],
+    );
+
+    let out = perform_auto_recall(
+        &db,
+        AutoRecallParams {
+            user_text: "which storage backend should the engine use?",
+            session_key: "sess-1",
+            isolation: Some(ProfileIsolation::default()),
+            config: RecallConfig::default(),
+        },
+        None,
+    )
+    .expect("recall")
+    .expect("the active ADR must still be recalled");
+
+    let injected = out.prepend_context.as_deref().unwrap_or_default();
+    assert!(
+        injected.contains("fjall"),
+        "active ADR must be recalled: {injected}"
+    );
+    assert!(
+        !injected.contains("sled"),
+        "engine-superseded ADR reached the prompt: {injected}"
+    );
+    assert!(
+        !injected.contains("rocksdb"),
+        "metadata-superseded convention reached the prompt: {injected}"
+    );
+    assert!(
+        out.recalled_memories
+            .iter()
+            .all(|m| m.source_key == "adr-001"),
+        "superseded governance doc must not appear in recalled_memories"
+    );
+}
