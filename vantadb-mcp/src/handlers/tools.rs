@@ -89,7 +89,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
     let mut base_tools = json!([
         {
                 "name": "memory_put",
-                "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL. Records without 'vector' are auto-embedded via the active provider (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning' (never a hard error).",
+                "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, optional TTL, and optional provenance fields (confidence, confidence_class, derived_from — FIND-278). Records without 'vector' are auto-embedded via the active provider (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning' (never a hard error).",
             "annotations": {
                 "title": "Memory Put",
                 "readOnlyHint": false,
@@ -107,7 +107,10 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"}, "description": "Optional sparse term-weight vector, e.g. {\"0\": 0.5, \"7\": 1.25} (dimension id -> weight)" },
                     "metadata": { "type": "object", "description": "Optional metadata key-value pairs" },
                     "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" },
-                    "quarantine": { "type": "boolean", "description": "Mark the record as quarantined (untrusted content; excluded from default search/list/recall until explicitly promoted). Default false (SCH-05)." }
+                    "quarantine": { "type": "boolean", "description": "Mark the record as quarantined (untrusted content; excluded from default search/list/recall until explicitly promoted). Default false (SCH-05)." },
+                    "confidence": { "type": "number", "description": "Optional declared confidence score in [0, 1] for asserted records (default 1.0). Forbidden when confidence_class is 'derived' — a derived score is computed from parents (FIND-278)." },
+                    "confidence_class": { "type": "string", "enum": ["asserted", "derived"], "description": "Optional provenance class: 'asserted' (default, direct claim from a writer) or 'derived' (computed from 'derived_from' parents). Case-insensitive (FIND-278)." },
+                    "derived_from": { "type": "array", "items": {"type": "string"}, "description": "Optional same-namespace parent keys. Required non-empty when confidence_class is 'derived'; forbidden when asserted (FIND-278)." }
                 },
                 "required": ["namespace", "key", "payload"]
             },
@@ -118,7 +121,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
                 "name": "memory_put_batch",
-                "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms. VALIDATION is all-or-nothing: an invalid input (shape, namespace/key, metadata, or a vector dimension that does not match the live index) fails the whole call before any write. The COMMIT is not: records are committed in chunks of 1000, so a failure in a later chunk leaves the earlier chunks committed (there is no rollback). Duplicate keys are UPSERTs (version bumps). Inputs without 'vector' are auto-embedded in one batch call (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning'.",
+                "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms plus optional per-record provenance fields (confidence, confidence_class, derived_from — FIND-278). VALIDATION is all-or-nothing: an invalid input (shape, namespace/key, metadata, or a vector dimension that does not match the live index) fails the whole call before any write. The COMMIT is not: records are committed in chunks of 1000, so a failure in a later chunk leaves the earlier chunks committed (there is no rollback). Duplicate keys are UPSERTs (version bumps). Inputs without 'vector' are auto-embedded in one batch call (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning'.",
             "annotations": {
                 "title": "Memory Put Batch",
                 "readOnlyHint": false,
@@ -141,7 +144,10 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                                 "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"} },
                                 "metadata": { "type": "object" },
                                 "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms TTL timestamp" },
-                                "quarantine": { "type": "boolean", "description": "Mark this record as quarantined (SCH-05). Default false." }
+                                "quarantine": { "type": "boolean", "description": "Mark this record as quarantined (SCH-05). Default false." },
+                                "confidence": { "type": "number", "description": "Optional declared confidence in [0, 1] for asserted records (default 1.0). Forbidden when confidence_class is 'derived' (FIND-278)." },
+                                "confidence_class": { "type": "string", "enum": ["asserted", "derived"], "description": "Optional provenance class: 'asserted' (default) or 'derived' — requires 'derived_from' (FIND-278)." },
+                                "derived_from": { "type": "array", "items": {"type": "string"}, "description": "Optional same-namespace parent keys; required when 'derived', forbidden when asserted (FIND-278)." }
                             },
                             "required": ["namespace", "key", "payload"],
                             "additionalProperties": false
@@ -1832,6 +1838,10 @@ pub fn handle_tools_call(
                 None
             };
 
+            // FIND-278 (SCH-02/04): optional provenance fields — shape/range
+            // validated at the boundary; cross-field rules stay in the core.
+            let provenance = parse_provenance_fields(args)?;
+
             let input = vantadb::sdk::MemoryInput {
                 key: key.to_string(),
                 namespace: namespace.to_string(),
@@ -1842,6 +1852,9 @@ pub fn handle_tools_call(
                 ttl_ms,
                 // SCH-05 (MGR-13 §4.4): write-time quarantine flag (T1).
                 quarantine: parse_optional_bool(args, "quarantine", false)?,
+                confidence: provenance.confidence,
+                confidence_class: provenance.confidence_class,
+                derived_from: provenance.derived_from,
                 dedup_policy,
                 ..Default::default()
             };
@@ -4047,6 +4060,10 @@ fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::M
         vantadb::sdk::MemoryMetadata::new()
     };
 
+    // FIND-278 (SCH-02/04): per-record provenance fields — same boundary
+    // semantics as `memory_put` (malformed → -32602, all-or-nothing batch).
+    let provenance = parse_provenance_fields(obj)?;
+
     Ok(vantadb::sdk::MemoryInput {
         key: key.to_string(),
         namespace: namespace.to_string(),
@@ -4057,7 +4074,105 @@ fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::M
         ttl_ms,
         // SCH-05 (MGR-13 §4.4): write-time quarantine flag (T1).
         quarantine: parse_optional_bool(obj, "quarantine", false)?,
+        confidence: provenance.confidence,
+        confidence_class: provenance.confidence_class,
+        derived_from: provenance.derived_from,
         ..Default::default()
+    })
+}
+
+/// FIND-278 (SCH-02/04): provenance fields parsed once and shared by
+/// `memory_put` and `memory_put_batch` (via `parse_memory_input`).
+struct ProvenanceFields {
+    confidence: Option<f32>,
+    confidence_class: Option<vantadb::sdk::ConfidenceClass>,
+    derived_from: Option<Vec<String>>,
+}
+
+/// FIND-278: trust-boundary parse of the optional provenance fields
+/// (`confidence`, `confidence_class`, `derived_from`). Only shape/range is
+/// checked here — malformed values are rejected as invalid params (-32602),
+/// never silently coerced. The cross-field invariants (derived requires
+/// parents, derived forbids a declared score, asserted forbids parents) stay
+/// in the core (V1/D4b, ADR-046) and surface as typed domain errors.
+///
+/// `confidence_class` is case-insensitive on the wire (`"asserted"` and
+/// `"Derived"` both accepted); `derived_from: []` normalizes to `None` so the
+/// core sees the same "no parents" state as an absent field.
+fn parse_provenance_fields(obj: &Value) -> Result<ProvenanceFields, Value> {
+    let confidence = match obj.get("confidence") {
+        None | Some(Value::Null) => None,
+        Some(v) => {
+            let score = v.as_f64().ok_or_else(|| {
+                McpError::invalid_params(format!(
+                    "'confidence' must be a number in [0, 1], got {}",
+                    json_value_type_name(v)
+                ))
+                .to_json()
+            })?;
+            if !score.is_finite() || !(0.0..=1.0).contains(&score) {
+                return Err(McpError::invalid_params(format!(
+                    "'confidence' must be a finite number in [0, 1], got {score}"
+                ))
+                .to_json());
+            }
+            Some(score as f32)
+        }
+    };
+
+    let confidence_class = match obj.get("confidence_class") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => match s.to_ascii_lowercase().as_str() {
+            "asserted" => Some(vantadb::sdk::ConfidenceClass::Asserted),
+            "derived" => Some(vantadb::sdk::ConfidenceClass::Derived),
+            _ => {
+                return Err(McpError::invalid_params(format!(
+                    "'confidence_class' must be \"asserted\" or \"derived\", got \"{s}\""
+                ))
+                .to_json())
+            }
+        },
+        Some(v) => {
+            return Err(McpError::invalid_params(format!(
+                "'confidence_class' must be a string, got {}",
+                json_value_type_name(v)
+            ))
+            .to_json())
+        }
+    };
+
+    let derived_from = match obj.get("derived_from") {
+        None | Some(Value::Null) => None,
+        Some(Value::Array(arr)) => {
+            let mut parents = Vec::with_capacity(arr.len());
+            for item in arr {
+                let parent = item.as_str().ok_or_else(|| {
+                    McpError::invalid_params(
+                        "'derived_from' must be an array of parent key strings",
+                    )
+                    .to_json()
+                })?;
+                parents.push(parent.to_string());
+            }
+            if parents.is_empty() {
+                None
+            } else {
+                Some(parents)
+            }
+        }
+        Some(v) => {
+            return Err(McpError::invalid_params(format!(
+                "'derived_from' must be an array of strings, got {}",
+                json_value_type_name(v)
+            ))
+            .to_json())
+        }
+    };
+
+    Ok(ProvenanceFields {
+        confidence,
+        confidence_class,
+        derived_from,
     })
 }
 

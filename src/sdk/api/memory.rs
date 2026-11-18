@@ -337,9 +337,15 @@ impl Embedded {
     /// - D4b: `derived` + declared score ⇒ rejection;
     /// - V3: bounded derivation depth / acyclicity;
     /// - score: `clamp(min(parents) × DERIVATION_DISCOUNT, 0, 1)`.
+    /// `batch_seen` (batch path only): records already processed earlier in
+    /// the same `put_batch`, keyed by `memory_node_id`. A `derived_from`
+    /// parent may resolve against either the store or an earlier batch
+    /// input — ordering semantics (`seen` only holds earlier entries) make
+    /// intra-batch derivation cycles unrepresentable for free.
     fn materialize_confidence(
         &self,
         input: &MemoryInput,
+        batch_seen: Option<&HashMap<u128, (u64, QuarantineState, MemoryRecord)>>,
     ) -> Result<(ConfidenceClass, f32, Vec<String>)> {
         if let Some(value) = input.confidence {
             if !value.is_finite() || !(0.0..=1.0).contains(&value) {
@@ -384,11 +390,18 @@ impl Embedded {
 
                 let mut min_parent = f32::INFINITY;
                 for parent_key in &parents {
-                    let parent = self.get(&input.namespace, parent_key)?.ok_or_else(|| {
+                    let parent = match batch_seen
+                        .and_then(|seen| {
+                            seen.get(&memory_node_id(&input.namespace, parent_key))
+                        }) {
+                        Some((_, _, record)) => Some(record.clone()),
+                        None => self.get(&input.namespace, parent_key)?,
+                    }
+                    .ok_or_else(|| {
                         Error::Validation {
                             field: "derived_from".into(),
                             reason: format!(
-                                "parent '{parent_key}' not found in namespace '{}'",
+                                "parent '{parent_key}' not found in namespace '{}'                                  (or earlier in this batch)",
                                 input.namespace
                             ),
                         }
@@ -1065,7 +1078,7 @@ impl Embedded {
             .effective_ttl_ms(&input.namespace, input.ttl_ms)
             .map(|ttl| timestamp.saturating_add(ttl));
 
-        let (confidence_class, confidence, derived_from) = self.materialize_confidence(&input)?;
+        let (confidence_class, confidence, derived_from) = self.materialize_confidence(&input, None)?;
         let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
         let mut quarantine = existing
             .as_ref()
@@ -1426,7 +1439,7 @@ impl Embedded {
                 }
 
                 let (confidence_class, confidence, derived_from) =
-                    self.materialize_confidence(input)?;
+                    self.materialize_confidence(input, Some(&seen))?;
                 let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
                 let quarantine_snapshot = quarantine.clone();
 

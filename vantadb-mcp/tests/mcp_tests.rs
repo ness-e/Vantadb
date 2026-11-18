@@ -3753,6 +3753,312 @@ fn test_memory_put_batch_vector_and_empty_validation() {
     assert!(handle_tools_call(&none, &executor, &storage, &cfg).is_err());
 }
 
+// ── FIND-278 (SCH-02/04): provenance fields on memory_put / memory_put_batch ──
+
+/// Helper: `memory_get` structuredContent for assertions.
+fn mcp_get_record(
+    storage: &Arc<StorageEngine>,
+    executor: &Executor<'_>,
+    ns: &str,
+    key: &str,
+) -> Value {
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": ns, "key": key}
+    }));
+    let res = handle_tools_call(&get, executor, storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "memory_get {ns}/{key} failed: {res}"
+    );
+    res["structuredContent"].clone()
+}
+
+/// FIND-278: `memory_put` accepts `confidence`, `confidence_class` and
+/// `derived_from` and persists them — a declared asserted score round-trips
+/// verbatim, and a derived record gets its score computed from parents
+/// (min(parents) × DERIVATION_DISCOUNT = 0.5 × 0.9 = 0.45).
+#[test]
+fn test_memory_put_provenance_fields() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Asserted record with a declared score below D_a (1.0).
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "prov", "key": "parent", "payload": "parent fact",
+            "confidence": 0.5,
+            "confidence_class": "asserted"
+        }
+    }));
+    let res = handle_tools_call(&put, &executor, &storage, &cfg).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "memory_put with provenance fields should succeed: {res}"
+    );
+
+    let rec = mcp_get_record(&storage, &executor, "prov", "parent");
+    assert!(
+        (rec["confidence"].as_f64().unwrap() - 0.5).abs() < 1e-6,
+        "declared confidence must round-trip, got: {rec}"
+    );
+    assert_eq!(rec["confidence_class"], "Asserted");
+    assert_eq!(rec["derived_from"], json!([]));
+
+    // Derived record: score computed from parents (declared score forbidden),
+    // parents persisted on the record.
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "prov", "key": "child", "payload": "derived fact",
+            "confidence_class": "derived",
+            "derived_from": ["parent"]
+        }
+    }));
+    let res = handle_tools_call(&put, &executor, &storage, &cfg).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "derived memory_put should succeed: {res}"
+    );
+
+    let rec = mcp_get_record(&storage, &executor, "prov", "child");
+    assert_eq!(rec["confidence_class"], "Derived");
+    assert_eq!(rec["derived_from"], json!(["parent"]));
+    assert!(
+        (rec["confidence"].as_f64().unwrap() - 0.45).abs() < 1e-6,
+        "derived score must be min(parents) × 0.9, got: {rec}"
+    );
+}
+
+/// FIND-278: `memory_put` without the provenance fields preserves the v1
+/// defaults — asserted class, D_a confidence (1.0), empty lineage.
+#[test]
+fn test_memory_put_provenance_defaults() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "prov_default", "key": "plain", "payload": "no provenance args"
+        }
+    }));
+    let res = handle_tools_call(&put, &executor, &storage, &cfg).unwrap();
+    assert!(res["isError"].is_null(), "plain put failed: {res}");
+
+    let rec = mcp_get_record(&storage, &executor, "prov_default", "plain");
+    assert_eq!(rec["confidence_class"], "Asserted");
+    assert!(
+        (rec["confidence"].as_f64().unwrap() - 1.0).abs() < 1e-6,
+        "absent confidence must default to D_a (1.0), got: {rec}"
+    );
+    assert_eq!(rec["derived_from"], json!([]));
+}
+
+/// FIND-278: trust-boundary validation of the provenance fields —
+/// out-of-range/non-finite `confidence`, unknown `confidence_class`, and a
+/// malformed `derived_from` are rejected as JSON-RPC invalid params (-32602),
+/// never silently coerced. Cross-field rules (derived+declared score,
+/// asserted+parents) stay domain errors via the core boundary.
+#[test]
+fn test_memory_put_provenance_boundary_validation() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    for (label, args) in [
+        ("out-of-range confidence", json!({"confidence": 1.5})),
+        ("negative confidence", json!({"confidence": -0.1})),
+        ("non-numeric confidence", json!({"confidence": "high"})),
+        (
+            "unknown confidence_class",
+            json!({"confidence_class": "observed"}),
+        ),
+        (
+            "non-string confidence_class",
+            json!({"confidence_class": 3}),
+        ),
+        ("non-array derived_from", json!({"derived_from": "parent"})),
+        ("non-string parent", json!({"derived_from": [42]})),
+        // NOTE: a non-finite confidence is not a reachable wire case —
+        // `serde_json` itself rejects `1e999`/`NaN`/`Infinity` at parse
+        // ("number out of range"), and `json!(f64::INFINITY)` degrades to
+        // `null` (covered by the non-numeric case). The transport is the
+        // guard; core-side `is_finite` validation exists regardless.
+    ] {
+        let mut arguments = json!({
+            "namespace": "prov_bad", "key": "k", "payload": "x"
+        });
+        arguments
+            .as_object_mut()
+            .unwrap()
+            .extend(args.as_object().unwrap().clone());
+        let call = Some(json!({"name": "memory_put", "arguments": arguments}));
+        let err = handle_tools_call(&call, &executor, &storage, &cfg)
+            .expect_err(&format!("{label} must be rejected as invalid params"));
+        assert_eq!(err["code"], -32602, "{label}: got {err}");
+    }
+
+    // Seed a parent, then check core cross-field rules surface as typed
+    // domain errors (isError content, VANTADB_VALIDATION_ERROR) — not -32602:
+    // the core is the single source of truth for derived/asserted invariants.
+    let parent = Some(json!({
+        "name": "memory_put",
+        "arguments": {"namespace": "prov_bad", "key": "p", "payload": "p"}
+    }));
+    handle_tools_call(&parent, &executor, &storage, &cfg).unwrap();
+
+    // derived + declared confidence → D4b rejection.
+    let call = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "prov_bad", "key": "d1", "payload": "x",
+            "confidence_class": "derived", "derived_from": ["p"],
+            "confidence": 0.9
+        }
+    }));
+    let res = handle_tools_call(&call, &executor, &storage, &cfg).unwrap();
+    assert_eq!(res["isError"], true, "derived+confidence must fail: {res}");
+
+    // derived without parents → V1 rejection.
+    let call = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "prov_bad", "key": "d2", "payload": "x",
+            "confidence_class": "derived"
+        }
+    }));
+    let res = handle_tools_call(&call, &executor, &storage, &cfg).unwrap();
+    assert_eq!(
+        res["isError"], true,
+        "derived without parents must fail: {res}"
+    );
+
+    // asserted + derived_from → V1 rejection.
+    let call = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "prov_bad", "key": "d3", "payload": "x",
+            "derived_from": ["p"]
+        }
+    }));
+    let res = handle_tools_call(&call, &executor, &storage, &cfg).unwrap();
+    assert_eq!(res["isError"], true, "asserted+parents must fail: {res}");
+}
+
+/// FIND-278: `memory_put_batch` accepts the provenance fields per record —
+/// a mixed batch (plain default, declared asserted score, derived child)
+/// persists each record's own values, not a global default.
+#[test]
+fn test_memory_put_batch_provenance_fields() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let batch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "prov_batch", "key": "plain",
+                 "payload": "defaults"},
+                {"namespace": "prov_batch", "key": "weak",
+                 "payload": "low confidence",
+                 "confidence": 0.2, "confidence_class": "asserted"},
+                {"namespace": "prov_batch", "key": "child",
+                 "payload": "derived from weak",
+                 "confidence_class": "Derived", "derived_from": ["weak"]}
+            ]
+        }
+    }));
+    let res = handle_tools_call(&batch, &executor, &storage, &cfg).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "mixed provenance batch should succeed: {}",
+        res["content"][0]["text"]
+    );
+
+    let plain = mcp_get_record(&storage, &executor, "prov_batch", "plain");
+    assert_eq!(plain["confidence_class"], "Asserted");
+    assert!((plain["confidence"].as_f64().unwrap() - 1.0).abs() < 1e-6);
+
+    let weak = mcp_get_record(&storage, &executor, "prov_batch", "weak");
+    assert_eq!(weak["confidence_class"], "Asserted");
+    assert!((weak["confidence"].as_f64().unwrap() - 0.2).abs() < 1e-6);
+
+    let child = mcp_get_record(&storage, &executor, "prov_batch", "child");
+    assert_eq!(child["confidence_class"], "Derived");
+    assert_eq!(child["derived_from"], json!(["weak"]));
+    assert!(
+        (child["confidence"].as_f64().unwrap() - 0.18).abs() < 1e-6,
+        "derived batch score must be 0.2 × 0.9, got: {child}"
+    );
+
+    // A malformed provenance field inside ANY item fails the whole call
+    // (all-or-nothing boundary validation), same as any other field.
+    let bad = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "prov_batch", "key": "ok2", "payload": "fine"},
+                {"namespace": "prov_batch", "key": "bad",
+                 "payload": "x", "confidence": 2.0}
+            ]
+        }
+    }));
+    let err = handle_tools_call(&bad, &executor, &storage, &cfg)
+        .expect_err("out-of-range confidence in a batch item must be invalid params");
+    assert_eq!(err["code"], -32602, "got: {err}");
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": "prov_batch", "key": "ok2"}
+    }));
+    let res = handle_tools_call(&get, &executor, &storage, &cfg).unwrap();
+    assert_eq!(
+        res["isError"], true,
+        "all-or-nothing: ok2 from the failed batch must NOT exist"
+    );
+}
+
+/// FIND-278 (pre-mortem guard): the JSON Schema advertised by `tools/list`
+/// documents the three optional provenance parameters on BOTH `memory_put`
+/// and the `memory_put_batch` items — the schema and `parse_memory_input` /
+/// the put handler must not drift apart.
+#[test]
+fn test_memory_put_provenance_schema() {
+    let res = handle_tools_list(&default_config()).unwrap();
+    let tools = res["tools"].as_array().unwrap();
+
+    let put = tools
+        .iter()
+        .find(|t| t["name"] == "memory_put")
+        .expect("memory_put listed");
+    let props = &put["inputSchema"]["properties"];
+    for field in ["confidence", "confidence_class", "derived_from"] {
+        assert!(
+            props.get(field).is_some(),
+            "memory_put schema must advertise '{field}'"
+        );
+    }
+    assert_eq!(props["confidence"]["type"], "number");
+    assert_eq!(props["confidence_class"]["type"], "string");
+    assert_eq!(props["derived_from"]["type"], "array");
+
+    let batch = tools
+        .iter()
+        .find(|t| t["name"] == "memory_put_batch")
+        .expect("memory_put_batch listed");
+    let item_props = &batch["inputSchema"]["properties"]["inputs"]["items"]["properties"];
+    for field in ["confidence", "confidence_class", "derived_from"] {
+        assert!(
+            item_props.get(field).is_some(),
+            "memory_put_batch item schema must advertise '{field}'"
+        );
+    }
+}
+
 // ── MCP-21: GDS via MCP (graph_page_rank + graph_degree_centrality) ──────
 
 /// Builds a directed chain A(1) -> B(2) -> C(3) through the agent channel
