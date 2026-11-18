@@ -38,9 +38,17 @@ pub(crate) fn ident(i: &str) -> IResult<&str, String> {
 /// Keywords reservadas del lenguaje. No pueden usarse como alias en `parse_query`,
 /// porque un `opt(ident)` sin guarda consumiría la cláusula siguiente como alias
 /// (ej. `FROM Person WHERE ...` se comía `WHERE` y descartaba el filtro).
+///
+/// Incluye las palabras significativas de cláusula que no son keywords de
+/// statement (`MIN` de `min = <score>`, `RRF_K`/`CANDIDATE_K` de `PROFILE`,
+/// `BY` de `RANK BY`/`GROUP BY`, `ASSISTANT` de `INSERT MESSAGE`): aceptarlas
+/// como alias descartaba la cláusula entera (FIND-526).
 pub(crate) const RESERVED_KEYWORDS: &[&str] = &[
     "AND",
     "AS",
+    "ASSISTANT",
+    "BY",
+    "CANDIDATE_K",
     "DELETE",
     "DESC",
     "FETCH",
@@ -51,6 +59,7 @@ pub(crate) const RESERVED_KEYWORDS: &[&str] = &[
     "LIMIT",
     "MATCH",
     "MESSAGE",
+    "MIN",
     "OF",
     "OFFSET",
     "ON",
@@ -58,6 +67,7 @@ pub(crate) const RESERVED_KEYWORDS: &[&str] = &[
     "RANK",
     "RELATE",
     "ROLE",
+    "RRF_K",
     "SELECT",
     "SET",
     "SIGUE",
@@ -77,8 +87,18 @@ pub(crate) const RESERVED_KEYWORDS: &[&str] = &[
 
 /// `ident` que falla si el token es una keyword reservada. Se usa para aliases
 /// opcionales: deja el keyword sin consumir para que lo tome la cláusula real.
+///
+/// La comparación es case-insensitive (FIND-526): una keyword en minúscula se
+/// aceptaba como alias y la cláusula siguiente se perdía en silencio
+/// (`FROM Doc where x = 1` → alias `where`, filtro descartado). El fallo sigue
+/// siendo `Err::Error` — el `opt(...)` del alias lo convierte en "sin alias" y
+/// el keyword lo consume su cláusula (o lo rechaza el trailing-input estricto).
 pub(crate) fn non_keyword_ident(i: &str) -> IResult<&str, String> {
-    verify(ident, |s: &str| !RESERVED_KEYWORDS.contains(&s))(i)
+    verify(ident, |s: &str| {
+        !RESERVED_KEYWORDS
+            .iter()
+            .any(|kw| kw.eq_ignore_ascii_case(s))
+    })(i)
 }
 
 pub(crate) fn parse_number(i: &str) -> IResult<&str, u32> {
@@ -155,6 +175,39 @@ pub(crate) fn parse_i64(i: &str) -> IResult<&str, i64> {
     )(i)
 }
 
+/// `f64` literal that rejects `NaN`/`±Inf`/`infinity` with a committed
+/// `Failure` (FIND-522).
+///
+/// nom's `double`/`float` accept those spellings (case-insensitive) and
+/// overflowing literals like `1e400` parse to `inf`. A non-finite value
+/// degrades silently downstream (`score >= NaN` is always false → zero rows
+/// without error; a NaN stored in a vector poisons the index). The failure
+/// uses `ErrorKind::Float` so the executor maps it to a stable message.
+pub(crate) fn parse_finite_f64(i: &str) -> IResult<&str, f64> {
+    let (rest, value) = double(i)?;
+    if value.is_finite() {
+        Ok((rest, value))
+    } else {
+        Err(nom::Err::Failure(nom::error::Error::new(
+            i,
+            nom::error::ErrorKind::Float,
+        )))
+    }
+}
+
+/// `f32` counterpart of [`parse_finite_f64`] — same rejection contract.
+pub(crate) fn parse_finite_f32(i: &str) -> IResult<&str, f32> {
+    let (rest, value) = float(i)?;
+    if value.is_finite() {
+        Ok((rest, value))
+    } else {
+        Err(nom::Err::Failure(nom::error::Error::new(
+            i,
+            nom::error::ErrorKind::Float,
+        )))
+    }
+}
+
 pub(crate) fn parse_literal_field_value(i: &str) -> IResult<&str, FieldValue> {
     alt((
         map(string_literal, FieldValue::String),
@@ -167,14 +220,17 @@ pub(crate) fn parse_literal_field_value(i: &str) -> IResult<&str, FieldValue> {
         // through to double → Float. Integers beyond i64 also fall through to
         // double (documented fallback).
         map(ws(parse_i64), FieldValue::Int),
-        map(ws(double), FieldValue::Float),
+        // FIND-522: `nan`/`inf`/`infinity` and overflow literals (`1e400`)
+        // are a committed Failure, never a stored NaN.
+        map(ws(parse_finite_f64), FieldValue::Float),
     ))(i)
 }
 
 pub(crate) fn parse_vector_lit(i: &str) -> IResult<&str, Vec<f32>> {
     delimited(
         ws(char('[')),
-        separated_list1(ws(char(',')), ws(float)),
+        // FIND-522: a NaN element would be written into the index silently.
+        separated_list1(ws(char(',')), ws(parse_finite_f32)),
         ws(char(']')),
     )(i)
 }

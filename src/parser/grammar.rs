@@ -10,14 +10,13 @@ use nom::{
     character::complete::char,
     combinator::{map, not, opt, peek},
     multi::{many0, separated_list1},
-    number::complete::float,
     sequence::{delimited, tuple},
     IResult,
 };
 
 use super::lexer::{
-    ident, non_keyword_ident, parse_literal_field_value, parse_number, parse_u128_id, parse_u64_id,
-    parse_vector_lit, string_literal, ws, RESERVED_KEYWORDS,
+    ident, non_keyword_ident, parse_finite_f32, parse_literal_field_value, parse_number,
+    parse_u128_id, parse_u64_id, parse_vector_lit, string_literal, ws, RESERVED_KEYWORDS,
 };
 use super::{
     iql_supports, IQL_VERSION_MIN_AGGREGATION, IQL_VERSION_MIN_AS_OF, IQL_VERSION_MIN_PAGINATION,
@@ -27,11 +26,32 @@ use crate::node::FieldValue;
 use crate::query::*;
 use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
 
+/// Maximum nesting depth for `(SELECT ...)` subqueries in WHERE conditions
+/// (FIND-523).
+///
+/// The grammar recurses `parse_select` → `parse_where_item` →
+/// `parse_subquery_condition_inner` → `parse_select`. Without a bound, a
+/// ~1 MiB input (the MCP `max_query_length` cap) drives ~30k nested frames
+/// and overflows the 2 MiB tokio/`spawn_blocking` stack — a single query
+/// took down the process and every in-flight request. The counter is passed
+/// **by value** (`depth + 1` on descent) so no return path can leave it
+/// unbalanced.
+pub const MAX_SUBQUERY_DEPTH: usize = 8;
+
 pub(crate) fn parse_traversal(i: &str) -> IResult<&str, Traversal> {
+    let clause_start = i.trim_start();
     let (i, _) = ws(tag("SIGUE"))(i)?;
     let (i, min_depth) = ws(parse_number)(i)?;
     let (i, _) = ws(tag(".."))(i)?;
     let (i, max_depth) = ws(parse_number)(i)?;
+    // FIND-525: `SIGUE <min>..<max>` with inverted bounds parsed fine and
+    // silently produced zero traversals.
+    if min_depth > max_depth {
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            clause_start,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
     let (i, edge_label) = ws(string_literal)(i)?;
     let (i, target_type) = opt(tuple((ws(tag("TYPE")), ws(ident))))(i)?;
     // `AS <alias>` uses the non-keyword ident so a following `AS OF <ts>`
@@ -64,21 +84,37 @@ pub(crate) fn parse_rel_op(i: &str) -> IResult<&str, RelOp> {
     ))(i)
 }
 
+/// Vector condition: `field ~ "query", min = <score>` (FIND-522).
+///
+/// `min_score` is a cosine-similarity threshold: it must be finite and in
+/// `[0, 1]`. nom's `float` accepted `nan`/`inf`/`infinity` and overflowing
+/// literals (`1e400` → `inf`); `score >= NaN` is always false downstream, so
+/// the query returned zero rows with no error — the same observable symptom
+/// as a dead embedding provider, via a path FIND-413 could not cover.
+/// The `Verify` failure is positioned at the `min` keyword so the executor
+/// maps it to a stable message.
+fn parse_vector_sim_condition(i: &str) -> IResult<&str, Condition> {
+    let (i, field) = ws(ident)(i)?;
+    let (i, _) = ws(tag("~"))(i)?;
+    let (i, query) = ws(string_literal)(i)?;
+    let (i, _) = ws(tag(","))(i)?;
+    let min_clause_at = i.trim_start();
+    let (i, _) = ws(tag("min"))(i)?;
+    let (i, _) = ws(tag("="))(i)?;
+    let (i, min_score) = ws(parse_finite_f32)(i)?;
+    if !(0.0..=1.0).contains(&min_score) {
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            min_clause_at,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+    Ok((i, Condition::VectorSim(field, query, min_score)))
+}
+
 pub(crate) fn parse_condition(i: &str) -> IResult<&str, Condition> {
     alt((
         // Vector Query: p.bio ~ "rust expert", min = 0.88
-        map(
-            tuple((
-                ws(ident),
-                ws(tag("~")),
-                ws(string_literal),
-                ws(tag(",")),
-                ws(tag("min")),
-                ws(tag("=")),
-                ws(float),
-            )),
-            |(field, _, query, _, _, _, min_score)| Condition::VectorSim(field, query, min_score),
-        ),
+        parse_vector_sim_condition,
         // Text Query (phrase): p.bio ~ "neural network" (no min suffix)
         map(
             tuple((ws(ident), ws(tag("~")), ws(string_literal))),
@@ -246,7 +282,35 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
     let (i, _) = ws(alt((tag("FROM"), tag("MATCH"))))(i)?;
     let (i, from_entity) = ws(ident)(i)?;
 
-    let (i, traversal) = opt(parse_traversal)(i)?;
+    // FIND-525: a present-but-malformed `SIGUE` clause is a loud parse
+    // error, never a silent "no traversal" downgrade. The old `opt(...)`
+    // restored the input on `Err::Error`, so `SIGUE 1..5000000000` (u32
+    // overflow) was swallowed and the query ran as a plain scan. Peek the
+    // keyword first (identifier boundary, so `SIGUEME` stays a valid alias);
+    // once committed, any failure is normalized to a `Verify` failure
+    // positioned at the clause for a stable executor message.
+    let sigue_at = i.trim_start();
+    let sigue_ahead = ws(tuple((
+        tag::<&str, &str, nom::error::Error<&str>>("SIGUE"),
+        not(peek(nom::character::complete::satisfy(|c: char| {
+            c.is_alphanumeric() || c == '_'
+        }))),
+    )))(i)
+    .is_ok();
+    let (i, traversal) = if sigue_ahead {
+        match parse_traversal(i) {
+            Ok((rest, t)) => (rest, Some(t)),
+            Err(nom::Err::Error(_)) | Err(nom::Err::Failure(_)) => {
+                return Err(nom::Err::Failure(nom::error::Error::new(
+                    sigue_at,
+                    nom::error::ErrorKind::Verify,
+                )));
+            }
+            Err(e) => return Err(e),
+        }
+    } else {
+        (i, None)
+    };
 
     let (i, target_alias) = opt(ws(non_keyword_ident))(i)?;
     let target_alias = target_alias.unwrap_or_else(|| "target".to_string());
@@ -262,7 +326,11 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
 
     let (i, rank_by) = opt(tuple((ws(tag("RANK BY")), ws(ident), opt(ws(tag("DESC"))))))(i)?;
 
-    let (i, temperature) = opt(tuple((ws(tag("WITH")), ws(tag("TEMPERATURE")), ws(float))))(i)?;
+    let (i, temperature) = opt(tuple((
+        ws(tag("WITH")),
+        ws(tag("TEMPERATURE")),
+        ws(parse_finite_f32),
+    )))(i)?;
 
     let (i, owner_role) = opt(tuple((ws(tag("ROLE")), ws(string_literal))))(i)?;
 
@@ -416,7 +484,8 @@ pub(crate) fn parse_relate(i: &str) -> IResult<&str, RelateStatement> {
     let (i, _) = ws(tag("NODE#"))(i)?;
     let (i, target_id) = ws(parse_u128_id)(i)?;
 
-    let (i, weight) = opt(tuple((ws(tag("WEIGHT")), ws(float))))(i)?;
+    // FIND-522: a NaN edge weight would be stored silently.
+    let (i, weight) = opt(tuple((ws(tag("WEIGHT")), ws(parse_finite_f32))))(i)?;
 
     Ok((
         i,
@@ -481,11 +550,14 @@ pub(crate) fn parse_join_clause(i: &str) -> IResult<&str, JoinClause> {
     ))
 }
 
-pub(crate) fn parse_subquery_condition_inner(i: &str) -> IResult<&str, SubqueryCondition> {
+/// Subquery comparison `field op (SELECT ...)`. `depth` counts enclosing
+/// subqueries; the descent into `parse_select_depth` carries `depth + 1`
+/// (FIND-523).
+fn parse_subquery_condition_inner(i: &str, depth: usize) -> IResult<&str, SubqueryCondition> {
     let (i, field) = ws(ident)(i)?;
     let (i, op) = ws(parse_rel_op)(i)?;
     let (i, _) = ws(tag("("))(i)?;
-    let (i, subquery) = parse_select(i)?;
+    let (i, subquery) = parse_select_depth(i, depth + 1)?;
     // `AS OF` inside a subquery would be silently dropped (sub-plans carry no
     // valid-time filter) — fail fast instead (SCH-03).
     if subquery.as_of_ms.is_some() {
@@ -506,13 +578,13 @@ pub(crate) fn parse_subquery_condition_inner(i: &str) -> IResult<&str, SubqueryC
 }
 
 /// Parse a single WHERE item — either a regular condition or a subquery condition.
-pub(crate) fn parse_where_item(i: &str) -> IResult<&str, WhereItem> {
+fn parse_where_item_at_depth(i: &str, depth: usize) -> IResult<&str, WhereItem> {
     // Peek ahead: if after field + op we see '(', it's a subquery.
     // We try subquery first; if it fails with a recoverable error, fall back to
     // a regular condition. A `Failure` (e.g. `AS OF` inside the subquery,
     // SCH-03) propagates so the malformed query never silently drops its
     // WHERE clause.
-    match parse_subquery_condition_inner(i) {
+    match parse_subquery_condition_inner(i, depth) {
         Ok((rest, subq)) => return Ok((rest, WhereItem::Subquery(subq))),
         Err(err @ nom::Err::Failure(_)) => return Err(err),
         Err(_) => {}
@@ -601,6 +673,19 @@ fn parse_select_list(i: &str) -> IResult<&str, (Vec<String>, Vec<AggregateFunc>)
 
 /// Parse a `SELECT` query with optional JOINs and subqueries.
 pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
+    parse_select_depth(i, 0)
+}
+
+fn parse_select_depth(i: &str, depth: usize) -> IResult<&str, SelectStatement> {
+    // FIND-523: bound the recursive descent before doing any work — the
+    // `TooLarge` failure propagates (nothing retries on `Failure`) and the
+    // executor maps it to a stable depth message.
+    if depth > MAX_SUBQUERY_DEPTH {
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            i,
+            nom::error::ErrorKind::TooLarge,
+        )));
+    }
     let stmt_start = i;
     let (i, _) = ws(tag("SELECT"))(i)?;
 
@@ -657,8 +742,10 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
         current
     };
 
-    // WHERE clause with mixed regular and subquery conditions
-    let (i, where_items) = parse_where_clause(i, parse_where_item)?;
+    // WHERE clause with mixed regular and subquery conditions — the depth
+    // counter is threaded by value into the subquery arm (FIND-523).
+    let (i, where_items) =
+        parse_where_clause(i, |i| parse_where_item_at_depth(i, depth))?;
 
     // `GROUP BY <field>` (WIRE-13): single group key, SQL position (after
     // WHERE, before the tail clauses). Multi-field (`GROUP BY a, b`) is
@@ -678,7 +765,11 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
         )));
     }
 
-    let (i, temperature) = opt(tuple((ws(tag("WITH")), ws(tag("TEMPERATURE")), ws(float))))(i)?;
+    let (i, temperature) = opt(tuple((
+        ws(tag("WITH")),
+        ws(tag("TEMPERATURE")),
+        ws(parse_finite_f32),
+    )))(i)?;
 
     let as_of_late_start = i;
     let (i, as_of_late) = parse_as_of_clause(i)?;

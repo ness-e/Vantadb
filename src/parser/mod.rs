@@ -2032,4 +2032,151 @@ mod tests {
         assert_eq!(v["Select"]["aggregates"], serde_json::json!([]));
         assert_eq!(v["Select"]["group_by"], serde_json::Value::Null);
     }
+
+    // ─── FIND-522/523/525/526: IQL grammar hardening ────────────
+    //
+    // (FIND-524 y FIND-528 viven fuera del parser — sus tests adversariales
+    // están en `physical_plan/scan.rs` y `executor.rs`.)
+
+    /// `SELECT * FROM t WHERE x > (SELECT ...)` anidado `depth` veces.
+    fn nested_subquery(depth: usize) -> String {
+        let mut q = String::new();
+        for _ in 0..depth {
+            q.push_str("SELECT * FROM t WHERE x > (");
+        }
+        q.push_str("SELECT * FROM t");
+        for _ in 0..depth {
+            q.push(')');
+        }
+        q
+    }
+
+    /// FIND-522: `min = <non-finite>` se aceptaba y degradaba a "0 hits sin
+    /// error" — el mismo síntoma observable que un provider caído (F-06 del
+    /// audit de gramática IQL, 2026-10-21).
+    #[test]
+    fn test_min_score_rejects_non_finite_literals() {
+        for q in [
+            r#"FROM Doc WHERE bio ~ "x", min = nan"#,
+            r#"FROM Doc WHERE bio ~ "x", min = NaN"#,
+            r#"FROM Doc WHERE bio ~ "x", min = inf"#,
+            r#"FROM Doc WHERE bio ~ "x", min = -inf"#,
+            r#"FROM Doc WHERE bio ~ "x", min = infinity"#,
+            r#"FROM Doc WHERE bio ~ "x", min = 1e400"#, // overflow literal → inf
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+    }
+
+    /// FIND-522: `min_score` es un umbral de similitud coseno — fuera de
+    /// `[0, 1]` nunca matchea (o siempre lo hace) y nadie avisa.
+    #[test]
+    fn test_min_score_rejects_out_of_range_values() {
+        for q in [
+            r#"FROM Doc WHERE bio ~ "x", min = 1.0001"#,
+            r#"FROM Doc WHERE bio ~ "x", min = 2"#,
+            r#"FROM Doc WHERE bio ~ "x", min = -0.5"#,
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+        for q in [
+            r#"FROM Doc WHERE bio ~ "x", min = 0"#,
+            r#"FROM Doc WHERE bio ~ "x", min = 1"#,
+            r#"FROM Doc WHERE bio ~ "x", min = 0.5"#,
+        ] {
+            assert!(parse_statement(q).is_ok(), "must parse: {q}");
+        }
+    }
+
+    /// FIND-522: el rechazo de literales no finitos aplica a TODA posición
+    /// que acepta floats — no solo a `min`.
+    #[test]
+    fn test_non_finite_floats_rejected_in_all_float_positions() {
+        for q in [
+            "FROM Doc WHERE x = nan",
+            "FROM Doc WHERE x = inf",
+            r#"INSERT NODE#1 TYPE N { a: nan }"#,
+            "INSERT NODE#1 TYPE N { a: 1 } VECTOR [0.1, nan]",
+            "UPDATE NODE#1 SET VECTOR [inf, 0.0]",
+            "FROM Doc WITH TEMPERATURE nan",
+            "SELECT * FROM Doc WITH TEMPERATURE inf",
+            r#"RELATE NODE#1 --"e"--> NODE#2 WEIGHT nan"#,
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+    }
+
+    /// FIND-523: la recursión `parse_select` ↔ `parse_subquery_condition_inner`
+    /// no tenía tope — ~30k niveles cabían en el cap de 1 MiB y desbordaban el
+    /// stack (DoS de una sola query). Dentro del tope sigue parseando.
+    #[test]
+    fn test_subquery_depth_within_bound_parses() {
+        assert!(parse_statement(&nested_subquery(1)).is_ok());
+        assert!(parse_statement(&nested_subquery(MAX_SUBQUERY_DEPTH)).is_ok());
+    }
+
+    /// FIND-523: superado `MAX_SUBQUERY_DEPTH` la query es un parse error
+    /// limpio, nunca un stack overflow.
+    #[test]
+    fn test_subquery_depth_beyond_bound_is_a_parse_error() {
+        assert!(parse_statement(&nested_subquery(MAX_SUBQUERY_DEPTH + 1)).is_err());
+        assert!(parse_statement(&nested_subquery(20)).is_err());
+    }
+
+    /// FIND-523 (adversarial): ~10k niveles dentro del cap de input, sobre un
+    /// stack diminuto — el parser devuelve `Err`, el hilo no crashea.
+    #[test]
+    fn test_deeply_nested_subqueries_error_without_stack_overflow() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let q = nested_subquery(10_000);
+                assert!(
+                    parse_statement(&q).is_err(),
+                    "deep nesting must be a parse error"
+                );
+            })
+            .expect("spawn parser thread")
+            .join()
+            .expect("parser thread must finish, not crash");
+    }
+
+    /// FIND-525: un `SIGUE` presente pero mal formado (overflow de u32,
+    /// bounds invertidos, partes faltantes) se descartaba en silencio vía
+    /// `opt(...)` y la query corría como escaneo sin traversía.
+    #[test]
+    fn test_sigue_clause_fails_loud_when_malformed_or_out_of_range() {
+        for q in [
+            r#"FROM Usuario SIGUE 1..5000000000 "e""#, // max overflows u32
+            r#"FROM Usuario SIGUE 5000000000..2 "e""#, // min overflows u32
+            r#"FROM Usuario SIGUE 5..2 "e""#,          // inverted bounds
+            r#"FROM Usuario SIGUE 1.. "e""#,           // missing max
+            r#"FROM Usuario SIGUE 1..2"#,              // missing edge label
+            "FROM Usuario SIGUE",                      // keyword alone
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+        // Un SIGUE válido sigue parseando.
+        let (_, stmt) = parse_statement(r#"FROM Usuario SIGUE 1..3 "amigo""#).unwrap();
+        match stmt {
+            Statement::Query(q) => assert!(q.traversal.is_some()),
+            other => panic!("expected Query, got {other:?}"),
+        }
+    }
+
+    /// FIND-526: una keyword en minúscula se consumía como alias y la cláusula
+    /// siguiente se perdía — `FROM Doc where x = 1` devolvía TODOS los Doc.
+    /// La comparación reservada es case-insensitive desde FIND-526; estos
+    /// casos pinchan la regresión end-to-end (a nivel statement).
+    #[test]
+    fn test_lowercase_keyword_is_not_consumed_as_alias() {
+        for q in [
+            "FROM Doc where x = 1",
+            "FROM Doc limit 5",
+            "FROM Doc rank by score",
+            "SELECT * FROM Doc where x = 1",
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+    }
 }

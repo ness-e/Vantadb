@@ -119,6 +119,26 @@ fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
             if head.starts_with("WHERE") {
                 return "malformed WHERE clause: expected at least one condition (`WHERE <cond> [AND <cond>...]`)".to_string();
             }
+            // FIND-525: a present `SIGUE` keyword commits — an out-of-range
+            // or malformed traversal is reported, never silently dropped.
+            if head.starts_with("SIGUE") {
+                return "malformed SIGUE traversal clause: expected `SIGUE <min>..<max> \"<label>\"` with min <= max and both depths in range".to_string();
+            }
+            // FIND-522: `min` is a cosine-similarity threshold — outside
+            // [0, 1] it can never (or always) match, silently.
+            if head.starts_with("min") {
+                return "invalid min score: expected `min = <score>` with score in [0.0, 1.0]"
+                    .to_string();
+            }
+        }
+        // FIND-522: a non-finite float literal (`nan`/`inf`/`infinity` or an
+        // overflowing literal like `1e400`) is a committed Failure.
+        if inner.code == nom::error::ErrorKind::Float {
+            return "invalid numeric literal: NaN and infinity are not allowed".to_string();
+        }
+        // FIND-523: `(SELECT ...)` nesting exceeded MAX_SUBQUERY_DEPTH.
+        if inner.code == nom::error::ErrorKind::TooLarge {
+            return "query exceeds the maximum subquery nesting depth".to_string();
         }
         if inner.code == nom::error::ErrorKind::Fail {
             let head = inner.input.trim_start();
@@ -144,7 +164,22 @@ fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
             return "invalid aggregation syntax".to_string();
         }
     }
-    err.to_string()
+    // FIND-528: never embed the raw remaining input — the nom `Display`
+    // rendered the whole rest of the query, so a 1 MiB query produced a
+    // ~1 MiB error payload to the HTTP/MCP client. Report the kind plus a
+    // bounded snippet; the truncation walks `chars`, never byte offsets, so
+    // multi-byte UTF-8 can't panic (pre-mortem of the FIND-522 task plan).
+    match err {
+        nom::Err::Incomplete(_) => "incomplete input".to_string(),
+        nom::Err::Error(inner) | nom::Err::Failure(inner) => {
+            let snippet: String = inner.input.trim_start().chars().take(120).collect();
+            if snippet.is_empty() {
+                format!("parse error ({:?})", inner.code)
+            } else {
+                format!("parse error ({:?}) near `{snippet}`", inner.code)
+            }
+        }
+    }
 }
 
 /// RAII guard that returns the governor's admission reservation on **every**
@@ -874,6 +909,43 @@ mod tests {
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("NOT_VALID_IQL").unwrap_err();
         assert!(matches!(err, Error::IqlParse { .. }));
+    }
+
+    /// FIND-528: el fallback del mensaje de parseo embebía el input crudo —
+    /// una query de 1 MiB devolvía un error de ~1 MiB (amplificación de
+    /// payload en la ruta de error). El mensaje queda acotado.
+    #[test]
+    fn test_parse_error_message_is_bounded_for_huge_input() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        let huge = "x".repeat(1 << 20);
+        let err = ex.execute_hybrid(&huge).unwrap_err();
+        match err {
+            Error::IqlParse { msg, .. } => assert!(
+                msg.len() <= 256,
+                "error message must be bounded, got {} bytes",
+                msg.len()
+            ),
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+    }
+
+    /// FIND-528 (pre-mortem del plan): el truncado es char-boundary safe —
+    /// input multi-byte (tildes/emoji) cerca del punto de error no panics.
+    #[test]
+    fn test_parse_error_message_truncation_is_utf8_safe() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        let unicode = format!("SELECT * FROM {}", "é🚀".repeat(500));
+        let err = ex.execute_hybrid(&unicode).unwrap_err();
+        match err {
+            Error::IqlParse { msg, .. } => assert!(
+                msg.len() <= 1024,
+                "error message must be bounded, got {} bytes",
+                msg.len()
+            ),
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
     }
 
     // ── execute_hybrid: AS OF / valid-time (SCH-03) ──
