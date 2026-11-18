@@ -102,7 +102,7 @@ memmap2 = { version = "0.9", optional = true }
 fs2 = { workspace = true, optional = true }
 
 # ── HTTP Server (optional, behind feature = "server") ──
-tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "sync", "signal", "macros"], optional = true }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "sync", "signal", "macros", "time"], optional = true }
 axum = { workspace = true, optional = true }
 tower = { workspace = true, optional = true }
 tower_governor = { version = "0.8", optional = true }

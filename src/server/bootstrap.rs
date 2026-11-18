@@ -166,7 +166,11 @@ fn warn_if_encryption_key_ignored(config: &Config) {
 }
 
 /// Flush storage and log the result using spawn_blocking to avoid blocking Tokio.
-async fn flush_on_shutdown_async(storage: Arc<StorageEngine>) {
+///
+/// FIND-291: called from every exit path inside `serve_http_or_tls` AND once
+/// more after the background-service drain — `StorageEngine::flush` is
+/// idempotent, so the repeated calls are safe.
+async fn flush_storage_blocking(storage: Arc<StorageEngine>) {
     crate::console::warn("Flushing storage before exit...", None);
     let flush_res = tokio::task::spawn_blocking(move || storage.flush()).await;
 
@@ -177,6 +181,14 @@ async fn flush_on_shutdown_async(storage: Arc<StorageEngine>) {
             crate::console::error("Flush task panicked during shutdown", Some(&e.to_string()))
         }
     }
+}
+
+/// Final teardown flush: storage first, then the telemetry provider.
+///
+/// Telemetry shutdown lives ONLY here (not in `flush_storage_blocking`) so it
+/// runs exactly once per process, on the single tail path of `run_with_hooks`.
+async fn flush_on_shutdown_async(storage: Arc<StorageEngine>) {
+    flush_storage_blocking(storage).await;
     #[cfg(feature = "opentelemetry")]
     crate::server::telemetry::shutdown_telemetry();
 }
@@ -195,7 +207,7 @@ async fn serve_http_or_tls(
             Ok(c) => axum_server::tls_rustls::RustlsConfig::from_config(Arc::new(c)),
             Err(e) => {
                 crate::console::error("Failed to load TLS certificate/key", Some(&e.to_string()));
-                flush_on_shutdown_async(storage.clone()).await;
+                flush_storage_blocking(storage.clone()).await;
                 return false;
             }
         };
@@ -204,7 +216,7 @@ async fn serve_http_or_tls(
             Ok(a) => a,
             Err(e) => {
                 crate::console::error("Invalid bind address", Some(&e.to_string()));
-                flush_on_shutdown_async(storage.clone()).await;
+                flush_storage_blocking(storage.clone()).await;
                 return false;
             }
         };
@@ -217,7 +229,7 @@ async fn serve_http_or_tls(
         tokio::spawn(async move {
             wait_for_shutdown_signal().await;
             crate::console::warn("Shutting down TLS server gracefully...", None);
-            flush_on_shutdown_async(storage_clone).await;
+            flush_storage_blocking(storage_clone).await;
             handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
 
@@ -227,11 +239,11 @@ async fn serve_http_or_tls(
             .await
         {
             crate::console::error("TLS server terminated unexpectedly", Some(&e.to_string()));
-            flush_on_shutdown_async(storage.clone()).await;
+            flush_storage_blocking(storage.clone()).await;
             return false;
         }
 
-        flush_on_shutdown_async(storage.clone()).await;
+        flush_storage_blocking(storage.clone()).await;
         return true;
     }
 
@@ -242,7 +254,7 @@ async fn serve_http_or_tls(
         }
         Err(e) => {
             crate::console::error("Failed to bind port", Some(&e.to_string()));
-            flush_on_shutdown_async(storage.clone()).await;
+            flush_storage_blocking(storage.clone()).await;
             return false;
         }
     };
@@ -268,7 +280,7 @@ async fn serve_http_or_tls(
         crate::console::error("Server terminated unexpectedly", Some(&e.to_string()));
     }
 
-    flush_on_shutdown_async(storage.clone()).await;
+    flush_storage_blocking(storage.clone()).await;
     true
 }
 
@@ -474,22 +486,76 @@ pub async fn run_with_hooks(config: Config, mut hooks: ServerHooks) -> Result<()
     let router = mount_dashboard(router, config.dashboard_dir.as_deref());
     let addr = format!("{}:{}", config.host, config.port);
 
-    if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
+    let clean_shutdown = serve_http_or_tls(router, addr, &config, storage.clone()).await;
+
+    // FIND-291: drain workers BEFORE the final flush — see
+    // `drain_services_then_flush`. Runs on the error path too: host services
+    // still get a graceful stop and their final writes still reach the flush.
+    drain_services_then_flush(background_services, storage).await;
+
+    if !clean_shutdown {
         return Err(Error::Cli(ChainedError::msg("Server exited with errors")));
     }
-
-    // WIRE-14: graceful stop of every owned background service — host services
-    // first (registration order), then the built-in TTL sweeper. Mirrors the
-    // pre-WIRE-14 join: no service races the shutdown flush.
-    shutdown_background_services(background_services).await;
 
     Ok(())
 }
 
+/// Graceful teardown in the only correct order (FIND-291): drain every
+/// background service FIRST so a worker's final writes (L1 consolidation /
+/// decay last pass, TTL purge, host services) land in storage while the
+/// engine is still alive — the services hold `Embedded` clones sharing this
+/// `Arc<StorageEngine>` — THEN flush. Kept as one function so the two steps
+/// cannot drift apart; `shutdown_background_services` never propagates
+/// (timeouts and panics are logged and skipped), so the flush always runs.
+async fn drain_services_then_flush(
+    services: Vec<Box<dyn BackgroundService>>,
+    storage: Arc<StorageEngine>,
+) {
+    shutdown_background_services(services).await;
+    flush_on_shutdown_async(storage).await;
+}
+
+/// Per-service stop budget during graceful shutdown (FIND-291).
+///
+/// Generous on purpose — the drain is where workers emit their final writes —
+/// but bounded so a hung worker can never stall the shutdown forever.
+const SERVICE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Stop and join every background service, in registration order.
+///
+/// FIND-291: each service's shutdown future runs in its own task under
+/// [`SERVICE_SHUTDOWN_TIMEOUT`]. A panic or a timeout is logged and skipped —
+/// never propagated — so one bad service cannot abort the rest of the drain
+/// or the final storage flush that follows. On timeout the shutdown task is
+/// left running detached: the signal-first convention means the worker still
+/// stops on its own; we just stop waiting for it.
 async fn shutdown_background_services(services: Vec<Box<dyn BackgroundService>>) {
-    for service in services {
-        service.shutdown().await;
+    shutdown_background_services_bounded(services, SERVICE_SHUTDOWN_TIMEOUT).await;
+}
+
+/// [`shutdown_background_services`] with an explicit per-service timeout —
+/// the test seam that keeps the bound deterministic in unit tests.
+async fn shutdown_background_services_bounded(
+    services: Vec<Box<dyn BackgroundService>>,
+    per_service: Duration,
+) {
+    for (index, service) in services.into_iter().enumerate() {
+        // Spawn so a panicking shutdown future surfaces as a JoinError we can
+        // log, instead of a panic that would skip the rest of the drain.
+        let join = tokio::spawn(service.shutdown());
+        match tokio::time::timeout(per_service, join).await {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => crate::console::error(
+                "Background service shutdown task failed",
+                Some(&format!("service #{index}: {e}")),
+            ),
+            Err(_) => crate::console::warn(
+                "Background service did not stop in time — continuing shutdown",
+                Some(&format!(
+                    "service #{index} still stopping after {per_service:?} — its stop continues detached"
+                )),
+            ),
+        }
     }
 }
 
@@ -813,6 +879,206 @@ mod tests {
         let _legacy_run = crate::server::routing::run_with_hooks;
         fn assert_trait<T: crate::cli_server::BackgroundService>() {}
         assert_trait::<crate::gc::MemoryTtlSweeper>();
+    }
+
+    // ── FIND-291: bounded, fault-tolerant drain before the final flush ──────
+
+    /// Service whose shutdown never completes — models a hung worker. The
+    /// drain must bound the wait and still reach the services behind it.
+    struct HungService;
+
+    impl BackgroundService for HungService {
+        fn shutdown(
+            self: Box<Self>,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+            Box::pin(std::future::pending::<()>())
+        }
+    }
+
+    /// Service whose shutdown panics — models a buggy worker. The panic must
+    /// be contained so the rest of the drain still runs.
+    struct PanicService;
+
+    impl BackgroundService for PanicService {
+        fn shutdown(
+            self: Box<Self>,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+            Box::pin(async {
+                tokio::task::yield_now().await;
+                panic!("FIND-291 test panic")
+            })
+        }
+    }
+
+    /// Records its index when drained — verifies registration-order drain.
+    struct OrderProbe(usize, Arc<std::sync::Mutex<Vec<usize>>>);
+
+    impl BackgroundService for OrderProbe {
+        fn shutdown(
+            self: Box<Self>,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+            Box::pin(async move {
+                self.1.lock().expect("order log").push(self.0);
+            })
+        }
+    }
+
+    /// Emits a tracing marker when drained — paired with the
+    /// `#[tracing::instrument]` span on `StorageEngine::flush`, the captured
+    /// log order proves the drain precedes the final flush.
+    struct TracingMarkerService;
+
+    impl BackgroundService for TracingMarkerService {
+        fn shutdown(
+            self: Box<Self>,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+            Box::pin(async {
+                tracing::info!("find291_service_drained");
+            })
+        }
+    }
+
+    /// FIND-291 (pre-mortem b): a hung service cannot stall the drain — the
+    /// bound fires and the NEXT service is still stopped and joined.
+    #[tokio::test]
+    async fn drain_bounds_a_hung_service_and_continues() {
+        use std::sync::atomic::Ordering;
+        let (service, started) = FakeService::spawn();
+        let stopped = service.stopped.clone();
+        assert!(started.await.is_ok(), "fake service loop must start");
+
+        let begin = std::time::Instant::now();
+        shutdown_background_services_bounded(
+            vec![Box::new(HungService), Box::new(service)],
+            Duration::from_millis(100),
+        )
+        .await;
+
+        assert!(
+            begin.elapsed() < Duration::from_secs(5),
+            "drain must not wait on the hung service"
+        );
+        assert!(
+            stopped.load(Ordering::SeqCst),
+            "the service behind the hung one must still be stopped and joined"
+        );
+    }
+
+    /// FIND-291: a panicking shutdown future is contained — the remaining
+    /// services are still drained and the drain itself returns.
+    #[tokio::test]
+    async fn drain_continues_after_a_service_panics() {
+        use std::sync::atomic::Ordering;
+        let (service, started) = FakeService::spawn();
+        let stopped = service.stopped.clone();
+        assert!(started.await.is_ok(), "fake service loop must start");
+
+        shutdown_background_services_bounded(
+            vec![Box::new(PanicService), Box::new(service)],
+            Duration::from_secs(30),
+        )
+        .await;
+
+        assert!(
+            stopped.load(Ordering::SeqCst),
+            "the service behind the panicking one must still be stopped and joined"
+        );
+    }
+
+    /// FIND-291: services are still drained in registration order.
+    #[tokio::test]
+    async fn drain_joins_services_in_registration_order() {
+        let order = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let services: Vec<Box<dyn BackgroundService>> = (0..3)
+            .map(|i| Box::new(OrderProbe(i, order.clone())) as Box<dyn BackgroundService>)
+            .collect();
+
+        shutdown_background_services(services).await;
+
+        assert_eq!(*order.lock().expect("order log"), vec![0, 1, 2]);
+    }
+
+    /// FIND-291 regression proof — the drain MUST complete before the final
+    /// storage flush: a worker's shutdown-time writes have to land inside the
+    /// flushed window. `StorageEngine::flush` is `#[tracing::instrument]`ed,
+    /// so its span-open line is the observable "flush ran" marker; the fake
+    /// service emits its own marker event when drained. Captured log order is
+    /// the proof. Needs the global dispatcher, so the assertion runs under
+    /// nextest (process-per-test) and skips if one is already installed.
+    #[tokio::test]
+    async fn drain_completes_before_final_flush() {
+        use std::io::Write;
+        use std::sync::Mutex;
+
+        #[derive(Clone, Default)]
+        struct CaptureWriter(Arc<Mutex<Vec<u8>>>);
+
+        impl Write for CaptureWriter {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0
+                    .lock()
+                    .expect("capture buffer")
+                    .extend_from_slice(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CaptureWriter {
+            type Writer = CaptureWriter;
+            fn make_writer(&'a self) -> Self::Writer {
+                self.clone()
+            }
+        }
+
+        let sink = CaptureWriter::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(sink.clone())
+            .with_max_level(tracing::Level::INFO)
+            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::NEW)
+            .with_ansi(false)
+            .finish();
+        if tracing::subscriber::set_global_default(subscriber).is_err() {
+            eprintln!("skip: a global tracing dispatcher is already installed");
+            return;
+        }
+
+        // Arrange: a real engine — flush is a cheap no-op on InMemory, but
+        // its `#[tracing::instrument]` span still fires.
+        let dir = match tempfile::tempdir() {
+            Ok(d) => d,
+            Err(e) => panic!("tempdir: {e}"),
+        };
+        let config = Config {
+            backend_kind: crate::storage::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let path = match dir.path().to_str() {
+            Some(p) => p,
+            None => panic!("non-utf8 tempdir path"),
+        };
+        let storage = match StorageEngine::open_with_config(path, Some(config)) {
+            Ok(s) => Arc::new(s),
+            Err(e) => panic!("open storage: {e}"),
+        };
+
+        // Act: the production teardown order.
+        drain_services_then_flush(vec![Box::new(TracingMarkerService)], storage).await;
+
+        // Assert: at least one `flush` span opened AFTER the drain marker —
+        // i.e. the final flush really runs after the last service is drained.
+        let bytes = sink.0.lock().expect("capture buffer").clone();
+        let log = String::from_utf8_lossy(&bytes);
+        let marker = match log.find("find291_service_drained") {
+            Some(pos) => pos,
+            None => panic!("drain marker missing from log: {log}"),
+        };
+        assert!(
+            log[marker..].contains("flush"),
+            "no `flush` span after the drain marker — the final flush did not run after the drain: {log}"
+        );
     }
 
     // ── SRV-10: key-without-feature honesty (FIND-249 frontier) ─────────────
