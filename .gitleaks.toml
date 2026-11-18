@@ -19,14 +19,47 @@ paths = [
     '''(^|/)\.git/''',
     '''(^|/)\.gitleaks\.toml$''',
     '''(^|/)\.secretlintrc\.json$''',
-    '''(^|/)\.secretlintignore$'''
+    '''(^|/)\.secretlintignore$''',
+
+    # --- Triage de hallazgos históricos (workflow_dispatch 2026-11-17, 194 findings) ---
+    # `.opencode/` ya está en .gitignore y vive como repo separado (configOpencode);
+    # no puede volver a entrar al historial de este repo. Los hallazgos eran URLs
+    # prefirmadas de AWS EXPIRADAS (AWSAccessKeyId=ASIA... = credenciales temporales
+    # STS + firma con caducidad <= 7 días) pegadas en un doc de investigación de
+    # 2026-07 — datos muertos, no secretos utilizables.
+    '''(^|/)\.opencode/''',
+    # `todo.md` raíz está en .gitignore (dump local de exportaciones de chat).
+    # Hallazgos: mismas URLs prefirmadas expiradas (ASIA2F3EMEYEQEPEB6MI).
+    # Anclado a raíz para no silenciar otros `todo.md` futuros en subdirectorios.
+    '''^todo\.md$'''
+]
+
+# regexTarget="line" aplica las regexes siguientes a la LÍNEA completa del hallazgo,
+# no al secreto extraído. Ambas regexes describen líneas benignas concretas
+# (comentarios doc y claves i18n), no patrones de secreto.
+regexTarget = "line"
+regexes = [
+    # Falso positivo de `generic-api-key` sobre el keyword `auth` en un comentario
+    # doc presente en `src/server/routing.rs:5` y embebido en `scripts/build_routing.ps1:73`
+    # ("//! auth middleware, OTEL/tracing setup, TLS handshake, the bootstrap loop...").
+    '''auth middleware, OTEL/tracing''',
+    # Falso positivo de `generic-api-key` sobre claves i18n del 404 de la web
+    # (`labelKey:`/`descriptionKey: "notFound.suggested.N.label|description"`) en
+    # `web/src/app/not-found.tsx` y `web/src/app/[...slug]/page.tsx`. `web/` fue
+    # extraído al repo ness-e/Vantadb-web; son identificadores de traducción.
+    '''Key: "notFound\.suggested\.'''
 ]
 
 # 1. crates.io API token (scope publish / token cio...)
+# `\b` requerido: sin frontera de token, la regex matchea `cio` DENTRO de blobs
+# base64 (ej. screenshots embebidos en reportes lighthouse `web/audit-baseline/`),
+# generando falsos positivos (triage 2026-11-17: 18 findings, todos `XcioYYYY`
+# mid-token). Los tokens reales `cio...` siempre aparecen delimitados
+# (`TOKEN=cio...`, `"cio..."`, tras espacio) => `\b` no pierde detección real.
 [[rules]]
 id = "crates-io-token"
 description = "crates.io API token"
-regex = '''cio[a-zA-Z0-9]{32,}'''
+regex = '''\bcio[a-zA-Z0-9]{32,}'''
 secretGroup = 0
 keywords = ["cio"]
 
