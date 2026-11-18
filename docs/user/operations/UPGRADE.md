@@ -57,9 +57,28 @@ Each section lists what changed for consumers and any required migration steps.
   Writes made before the next open are discarded by the restore; delete the
   marker to cancel. See
   [`MCP.md` § Maintenance, Indexes & Snapshots](../../api/MCP.md#maintenance-indexes--snapshots-12).
+- **`chrono` → `jiff` in the Rust API (FIND-652).** `Value::DateTime`,
+  `Value::ListDateTime`, `FieldValue::DateTime` and
+  `FieldValue::ListDateTime` now carry `jiff::Timestamp` instead of
+  `chrono::DateTime<Utc>` — Rust consumers must switch types (other
+  bindings are unaffected: they already exchange RFC 3339 strings).
+  **Persisted data is untouched**: timestamps still serialize
+  byte-identically to chrono 0.4.x (`AutoSi` fractions) via an internal
+  formatter, so stores, snapshots, index keys and postcard payloads from
+  0.9.x read and write exactly as before. Three parsing behaviors differ
+  on *non-canonical* input:
+  - Date detection during imports is now strict `YYYY-MM-DD` — inputs
+    like `2024-1-5` (unpadded) that chrono accepted now fall back to the
+    record's `created_at`.
+  - `jiff::Timestamp` accepts years ±9999 (chrono accepted ~±262k);
+    RFC 3339 strings with 5-digit years no longer parse.
+  - `Timestamp` parsing is laxer than chrono's (space separator,
+    lowercase `t`/`z`), so a few extra string shapes are now detected as
+    datetimes on import.
 
 **Migration steps:** none beyond upgrading the package; update any client
-logic that reads the `snapshot_restore` response.
+logic that reads the `snapshot_restore` response, and recompile Rust
+consumers against `jiff::Timestamp`.
 
 ### Upgrading to 0.8.0 (from 0.7.x)
 
