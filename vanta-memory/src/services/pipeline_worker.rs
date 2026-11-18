@@ -533,11 +533,12 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             .add_memories_extracted(stored_count as u64)
             .map_err(|e| e.to_string())?;
         if let Some(scene) = last_scene_name.as_deref() {
-            update_runner_state(&checkpoints, session_id, |state| {
-                state.last_scene_name = scene.to_string();
-                state.last_l1_cursor = messages.last().map(|m| m.timestamp_ms).unwrap_or(0);
-            })
-            .map_err(|e| e.to_string())?;
+            checkpoints
+                .update_runner_state(session_id, |state| {
+                    state.last_scene_name = scene.to_string();
+                    state.last_l1_cursor = messages.last().map(|m| m.timestamp_ms).unwrap_or(0);
+                })
+                .map_err(|e| e.to_string())?;
         }
 
         // TEC-18: Auto-cascade L1 -> L2 when memories extracted reach threshold
@@ -951,18 +952,7 @@ pub fn load_assembled_context(
     }
 }
 
-/// Patch one session's runner state inside the checkpoint.
-fn update_runner_state(
-    checkpoints: &CheckpointManager<'_>,
-    session_id: &str,
-    f: impl FnOnce(&mut crate::utils::checkpoint::RunnerSessionState),
-) -> Result<(), crate::utils::checkpoint::CheckpointError> {
-    let checkpoint = checkpoints.read()?;
-    let mut state = checkpoints.get_runner_state(&checkpoint, session_id);
-    f(&mut state);
-    let mut checkpoint = checkpoint;
-    checkpoint
-        .runner_states
-        .insert(session_id.to_string(), state);
-    checkpoints.write(&checkpoint)
-}
+// `update_runner_state` moved to [`CheckpointManager::update_runner_state`]
+// (MEMG-28): as a free function it ran its own bare read→write outside the
+// serialized `mutate`, so two concurrent patches to `runner_states` could
+// still lose each other.

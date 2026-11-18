@@ -267,3 +267,65 @@ fn fail_preserves_partial_for_inspection() {
     let err = manager.fail("nope").expect_err("fail missing must fail");
     assert!(matches!(err, TaskCheckpointError::NotFound(_)));
 }
+
+/// MEMG-28: the pipeline checkpoint is a single global record, but
+/// [`CheckpointManager`] is built per call site (one per worker task), so two
+/// concurrent read-modify-writes used to lose updates — the last stale write
+/// erased the other mutation. The fix serializes every RMW process-wide.
+///
+/// Thread A stalls *inside* its mutation closure — i.e. between the internal
+/// read and the write — while thread B lands a full merge. Without
+/// serialization A's stale write erases B's entry (lost update). A blocking
+/// `recv()` rendezvous would deadlock the fixed implementation (B cannot run
+/// while A holds the lock), so A waits on a bounded channel timeout instead
+/// of a sleep.
+#[test]
+fn concurrent_pipeline_state_merges_do_not_lose_updates() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let db = open_db();
+    let (a_read_tx, a_read_rx) = mpsc::channel::<()>();
+    let (a_stall_tx, a_stall_rx) = mpsc::channel::<()>();
+    let _hold_sender = a_stall_tx; // never signaled — the stall always times out
+
+    let db_a = db.clone();
+    let worker = std::thread::spawn(move || {
+        let manager = CheckpointManager::new(&db_a);
+        manager
+            .merge_pipeline_states_owned("session-a", |state| {
+                state.last_active_time_ms = 1;
+                a_read_tx.send(()).expect("signal A read");
+                // Stall inside the mutation closure (between the internal
+                // read and write): pre-fix, B's full RMW lands meanwhile and
+                // A's stale write erases it; post-fix, B blocks on the
+                // serialized section until we return. Bounded channel wait —
+                // not a sleep — so a wedged B can't hang the test.
+                let _ = a_stall_rx.recv_timeout(Duration::from_secs(2));
+            })
+            .expect("merge session-a");
+    });
+
+    a_read_rx.recv().expect("A read signal");
+    // B's RMW interleaves with A's (pre-fix) or waits it out (post-fix).
+    let db_b = db.clone();
+    let b = std::thread::spawn(move || {
+        CheckpointManager::new(&db_b)
+            .merge_pipeline_states_owned("session-b", |state| {
+                state.last_active_time_ms = 2;
+            })
+            .expect("merge session-b");
+    });
+    b.join().expect("B join");
+    worker.join().expect("worker join");
+
+    let checkpoint = CheckpointManager::new(&db).read().expect("final read");
+    assert!(
+        checkpoint.pipeline_states.contains_key("session-a"),
+        "session-a update lost"
+    );
+    assert!(
+        checkpoint.pipeline_states.contains_key("session-b"),
+        "session-b update lost (read-modify-write race)"
+    );
+}

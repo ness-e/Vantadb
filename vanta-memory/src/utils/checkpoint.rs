@@ -4,7 +4,8 @@
 //! Vanta memory engine persists a JSON file with per-file promise locks and optional
 //! distributed locks. Here persistence is the VantaDB store itself
 //! (Principio 2): one JSON record under namespace `pipeline_checkpoint`.
-//! Single-record read-modify-write keeps mutations atomic in-process.
+//! Single-record read-modify-write keeps mutations atomic in-process —
+//! serialized through [`CHECKPOINT_RMW_LOCK`] (MEMG-28).
 //!
 //! This module pays the MEM-15 debt: [`Checkpoint`] exposes the counters that
 //! [`crate::core::persona::evaluate_persona_trigger`] consumes as pure input
@@ -12,9 +13,46 @@
 //! `memories_since_last_persona`, `last_persona_at`).
 
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
 
 use crate::core::conversation::{sanitize_component, sanitize_key};
 use crate::core::state::PipelineSessionState;
+
+/// Serializes every pipeline-checkpoint read-modify-write (MEMG-28).
+///
+/// `CheckpointManager` is built per call site (the worker constructs one per
+/// task), so an instance field could not serialize anything — and the
+/// checkpoint record is a single global key while the worker only locks per
+/// session, so concurrent tasks on different sessions could race read →
+/// mutate → write and lose each other's updates. A static mutex covers every
+/// manager instance and every `Embedded` handle in the process.
+///
+/// Contract:
+/// - Held across brief synchronous store I/O (one small JSON record). The
+///   critical section never `.await`s — `mutate` is synchronous even when
+///   called from the `http-server` Tokio driver.
+/// - Non-reentrant: `f` must not call back into checkpoint APIs (deadlock).
+///   All current closures are plain field mutations.
+/// - Leaf in the lock ordering: while held only the store's internal locks
+///   are taken (`Embedded::get`/`put`). Callers may already hold the
+///   per-session backend lock — order stays
+///   `session lock → CHECKPOINT_RMW → store-internal`, never the reverse.
+/// - Multi-process writers are out of scope: the backend's exclusive writer
+///   lock already prevents a second read-write open of the same directory.
+///
+/// ponytail: one lock for every database in the process - independent
+/// `Embedded` instances over-serialize; stripe per handle only if contention
+/// ever matters (mirrors the `supersede_lock`/`merge_lock` ponytail notes in
+/// `vantadb::sdk::Embedded`).
+static CHECKPOINT_RMW_LOCK: Mutex<()> = Mutex::new(());
+
+/// Take the RMW guard, recovering from poisoning: the payload is `()` so a
+/// panic mid-RMW leaves nothing corrupt — at worst the write never landed.
+fn checkpoint_rmw_lock() -> std::sync::MutexGuard<'static, ()> {
+    CHECKPOINT_RMW_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 /// Per-session runner state (Vanta memory engine `RunnerSessionState`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,8 +146,12 @@ impl<'a> CheckpointManager<'a> {
         Ok(())
     }
 
-    /// Read-modify-write helper.
+    /// Read-modify-write helper. The whole read → mutate → write runs under
+    /// [`CHECKPOINT_RMW_LOCK`], so concurrent callers serialize instead of
+    /// losing each other's updates (MEMG-28). `f` must be a pure in-place
+    /// mutation — calling back into checkpoint APIs deadlocks.
     fn mutate(&self, f: impl FnOnce(&mut Checkpoint)) -> Result<Checkpoint, CheckpointError> {
+        let _guard = checkpoint_rmw_lock();
         let mut checkpoint = self.read()?;
         f(&mut checkpoint);
         self.write(&checkpoint)?;
@@ -190,6 +232,20 @@ impl<'a> CheckpointManager<'a> {
             for (session, state) in states {
                 cp.pipeline_states.insert(session.clone(), state.clone());
             }
+        })
+        .map(|_| ())
+    }
+
+    /// Patch one session's runner state (L0/L1 cursors) through the
+    /// serialized RMW — the missing-session case starts from
+    /// [`RunnerSessionState::default`].
+    pub fn update_runner_state(
+        &self,
+        session_id: &str,
+        f: impl FnOnce(&mut RunnerSessionState),
+    ) -> Result<(), CheckpointError> {
+        self.mutate(|cp| {
+            f(cp.runner_states.entry(session_id.to_string()).or_default());
         })
         .map(|_| ())
     }
