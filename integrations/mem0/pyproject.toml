@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vantadb-mem0"
-version = "0.9.0"
+version = "0.9.1"
 description = "Mem0 adapter for VantaDB — embedded vector memory for AI agents"
 readme = "README.md"
 license = {text = "Apache-2.0"}
