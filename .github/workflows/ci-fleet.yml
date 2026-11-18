@@ -299,58 +299,105 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # langchain-core versions
+          # FIND-649 (2026-11-16): `package` is the REAL PyPI distribution
+          # declared in integrations/<adapter>/pyproject.toml — never derived
+          # from the directory name (llamaindex→llama-index-core, mem0→mem0ai,
+          # letta→letta-client, haystack→haystack-ai).
+          # `framework_version` = the declared floor in that pyproject (every
+          # floor below verified to exist on PyPI) or "latest" = newest
+          # release inside `spec`. `spec` is the declared compat range,
+          # re-checked post-install so a green row always means the pinned
+          # version was what actually ran.
+
+          # langchain-core: floor raised to 0.3.81 with evidence —
+          # langgraph-checkpoint>=4.1 (inside our declared >=2,<5) does
+          # `Reviver(allowed_objects="core")` at import
+          # (langgraph/checkpoint/serde/jsonplus.py:47, since 4.1.0) and the
+          # `allowed_objects` kwarg only exists in langchain-core>=0.3.81
+          # (verified against published wheels; upstream declares only
+          # `langchain-core>=0.2.38`). 0.3.0–0.3.80 crash at collection:
+          # TypeError: Reviver.__init__() got an unexpected keyword argument
+          # 'allowed_objects'. Floor mirrored in
+          # integrations/langchain/pyproject.toml.
           - adapter: langchain
-            framework_version: "0.3"
+            package: langchain-core
+            spec: ">=0.3.81,<1"
+            framework_version: "0.3.81"
           - adapter: langchain
+            package: langchain-core
+            spec: ">=0.3.81,<1"
             framework_version: "latest"
 
-          # llama-index versions
           - adapter: llamaindex
+            package: llama-index-core
+            spec: ">=0.12,<1"
             framework_version: "0.12"
           - adapter: llamaindex
+            package: llama-index-core
+            spec: ">=0.12,<1"
             framework_version: "latest"
 
-          # mem0 versions
           - adapter: mem0
-            framework_version: "0.1"
+            package: mem0ai
+            spec: ">=0.1.0,<1"
+            framework_version: "0.1.0"
           - adapter: mem0
+            package: mem0ai
+            spec: ">=0.1.0,<1"
             framework_version: "latest"
 
-          # crewai versions
           - adapter: crewai
-            framework_version: "0.100"
+            package: crewai
+            spec: ">=1.14,<2"
+            framework_version: "1.14"
           - adapter: crewai
+            package: crewai
+            spec: ">=1.14,<2"
             framework_version: "latest"
 
-          # dspy versions
           - adapter: dspy
+            package: dspy
+            spec: ">=2.6,<3"
             framework_version: "2.6"
           - adapter: dspy
+            package: dspy
+            spec: ">=2.6,<3"
             framework_version: "latest"
 
-          # haystack versions
           - adapter: haystack
-            framework_version: "2.10"
+            package: haystack-ai
+            spec: ">=2.0,<3"
+            framework_version: "2.0"
           - adapter: haystack
+            package: haystack-ai
+            spec: ">=2.0,<3"
             framework_version: "latest"
 
-          # letta versions
           - adapter: letta
-            framework_version: "0.2"
+            package: letta-client
+            spec: ">=1.0.0,<2"
+            framework_version: "1.0.0"
           - adapter: letta
+            package: letta-client
+            spec: ">=1.0.0,<2"
             framework_version: "latest"
 
-          # openai versions
           - adapter: openai
-            framework_version: "1.40"
+            package: openai
+            spec: ">=1.0,<2"
+            framework_version: "1.0"
           - adapter: openai
+            package: openai
+            spec: ">=1.0,<2"
             framework_version: "latest"
 
-          # ollama versions
           - adapter: ollama
-            framework_version: "0.3"
+            package: ollama
+            spec: ">=0.4,<1"
+            framework_version: "0.4"
           - adapter: ollama
+            package: ollama
+            spec: ">=0.4,<1"
             framework_version: "latest"
 
     steps:
@@ -371,22 +418,51 @@ jobs:
             . -> target
             vantadb-python -> target
 
+      # FIND-649: fail-closed — no `2>/dev/null`, no `||` fallbacks. If the
+      # framework pin cannot be installed the row must go red, not install a
+      # random package and report green.
       - name: Install adapter + test deps
         run: |
-          python -m pip install --upgrade pip hatchling
+          python -m pip install --upgrade pip hatchling packaging
           pip install -e vantadb-python
-          cd integrations/${{ matrix.adapter }}
+          cd "integrations/${{ matrix.adapter }}"
           pip install -e .
+          # Floor rows: force the declared minimum AFTER the editable install
+          # so the pin — not the resolver's latest — is what the tests see.
           if [ "${{ matrix.framework_version }}" != "latest" ]; then
-            pip install "${{ matrix.adapter }}-core==${{ matrix.framework_version }}" 2>/dev/null || \
-            pip install "${{ matrix.adapter }}==${{ matrix.framework_version }}" 2>/dev/null || \
-            pip install "${{ matrix.framework_version }}" 2>/dev/null
+            pip install "${{ matrix.package }}==${{ matrix.framework_version }}"
           fi
           pip install pytest pytest-asyncio
 
+      # FIND-649: a "green" row only counts if the pinned version is what got
+      # installed. Checks the real dist via importlib.metadata: present at
+      # all, equal to the pin on floor rows, and inside the declared `spec`
+      # on every row.
+      - name: Verify installed framework version
+        run: |
+          python - "${{ matrix.package }}" "${{ matrix.framework_version }}" "${{ matrix.spec }}" <<'PYEOF'
+          import sys
+          from importlib.metadata import PackageNotFoundError, version
+          from packaging.specifiers import SpecifierSet
+          from packaging.version import Version
+
+          package, pinned = sys.argv[1], sys.argv[2]
+          spec = SpecifierSet(sys.argv[3])
+          try:
+              installed = Version(version(package))
+          except PackageNotFoundError:
+              sys.exit(f"FAIL: {package} is not installed")
+          print(f"{package} installed: {installed} (declared spec {spec}, pin {pinned})")
+          if pinned != "latest" and installed != Version(pinned):
+              sys.exit(f"FAIL: pinned {package}=={pinned} but installed {installed}")
+          if not spec.contains(installed, prereleases=True):
+              sys.exit(f"FAIL: {package} {installed} outside declared spec {spec}")
+          print(f"OK: {package} {installed} within {spec}")
+          PYEOF
+
       - name: Run adapter tests
         run: |
-          cd integrations/${{ matrix.adapter }}
+          cd "integrations/${{ matrix.adapter }}"
           python -m pytest tests/ -v --tb=short
   check:
     if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')

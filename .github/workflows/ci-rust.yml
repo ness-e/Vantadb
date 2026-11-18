@@ -975,14 +975,26 @@ jobs:
           LSAN_OPTIONS: "suppressions=.lsan_suppressions"
 
   sanitizer-tsan:
-    name: TSan (ThreadSanitizer)
+    name: TSan (ThreadSanitizer) — partition ${{ matrix.partition }}/4
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # 4 nextest partitions in parallel. Serial wall time exceeded the old 85m
+    # step budget; with a shared sccache/rust-cache target each leg is
+    # build + ~1/4 of the suite — 60m is kill-switch margin, not expectation.
+    timeout-minutes: 60
     needs: [fmt, clippy]
-    # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
-    # Failures are reviewed manually. Does not gate releases.
-    continue-on-error: true # CATEGORY: NON-CRITICAL - TSan no bloquea el PR: es conocido por timeouts en el repo y el trabajo concurrente lo cubre la matriz de tests
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3, 4]
+    # FIND-650 (2026-11-16): the lane used to run the whole `-p vantadb` suite
+    # serially under `cargo test`, always died on the 85m step timeout, and
+    # swallowed it via step-level `continue-on-error` + `exitcode=0` — green
+    # without ever producing a verdict. Now: partitioned nextest, no
+    # step-level continue-on-error and no `exitcode=0`, so a race report or a
+    # timeout leaves the job visibly ❌ (job-level continue-on-error only
+    # keeps it out of required checks — see below).
+    continue-on-error: true # CATEGORY: NON-CRITICAL - FIND-227 documento ruido upstream (fences rayon, teardown flume/crossbeam/fjall) que TSan no puede modelar sin sobre-supresion; un gate duro estaria rojo de forma cronica. El job reporta rojo visible por cada hallazgo real
     # FIND-227 (2026-10-03): chronic red is documented noise, not a VantaDB
     # race. Evidence (runs 37090029650/565 reports, 37082038794/583): all
     # from the `-p vantadb --lib` binary; families = std/libtest (mpmc
@@ -991,12 +1003,12 @@ jobs:
     # (free/__tsan_memcpy). Root-cause class: std not instrumented (no
     # `-Zbuild-std`) + TSan cannot see fences — rust-lang/rust#39608/#65097,
     # rayon-rs/rayon#812/#1211; Rust Unstable Book §ThreadSanitizer.
-    # No tsan.supp on purpose (`race:` matches any frame — LLVM docs
-    # §Suppressions): targeted std/libtest suppressions remove only
-    # 17/565 reports (job stays red); converging would need blanket
-    # free/memcpy + fjall/flume/rayon suppressions (over-suppression).
-    # Decision: status quo (best-effort) — full analysis in
-    # docs/dev/tasks/FIND-227.md.
+    # FIND-650 mitigation: nextest runs each test in its own process, which
+    # removes the dominant libtest-harness class (mpmc Channel between test
+    # threads, test::run_test, compiler_copy/move) without a suppression
+    # file — FIND-227 rejected tsan.supp because `race:` matches any frame
+    # and only 17/565 reports were targetable. Residual noise (rayon fences,
+    # dep teardown) is why the job stays non-blocking.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -1004,21 +1016,49 @@ jobs:
         uses: ./.github/actions/rust-setup
         with:
           toolchain: nightly
+          install-nextest: true
           install-system-deps: true
           shared-key: tsan-nightly
 
-      # CATEGORY: BEST-EFFORT — job-level continue-on-error covers this
-      - name: Test with ThreadSanitizer
-        timeout-minutes: 85
-        continue-on-error: true
+      - name: Install system deps (llvm-symbolizer)
         run: |
-          cargo +nightly test \
+          sudo apt-get update
+          sudo apt-get install -y llvm
+
+      # Mirrors the ASan lane (FIND-226): without llvm-symbolizer a TSan
+      # report prints raw addresses — untriagable signal. The symbolizer path
+      # is passed via TSAN_OPTIONS.external_symbolizer_path (TSan honors the
+      # common sanitizer flag; TSAN_OPTIONS is assembled here so the resolved
+      # path is interpolated). Fail loud if absent.
+      - name: Resolve llvm-symbolizer (TSan)
+        run: |
+          SYMBOLIZER="$(command -v llvm-symbolizer || true)"
+          if [ -z "$SYMBOLIZER" ]; then
+            SYMBOLIZER="$(find /usr/lib/llvm-* -name llvm-symbolizer -type f 2>/dev/null | sort -V | tail -1)"
+          fi
+          if [ -z "$SYMBOLIZER" ]; then
+            echo "::error::llvm-symbolizer not found after installing llvm"
+            exit 1
+          fi
+          echo "Using symbolizer: $SYMBOLIZER"
+          echo "TSAN_OPTIONS=halt_on_error=0 history_size=2 external_symbolizer_path=$SYMBOLIZER" >> "$GITHUB_ENV"
+
+      # `.config/nextest.toml` [profile.default] default-filter now excludes
+      # the Heavy-tier binaries (certification/chaos/stress/bench) at binary
+      # level — under `cargo test` they ran with a 10-20x TSan slowdown and
+      # ate the whole budget. The --skip list below keeps the remaining
+      # timing-bound/CLI/network cases out; `exitcode=0` is gone on purpose:
+      # a TSan report must fail the step for the lane to mean anything.
+      - name: Test with ThreadSanitizer (partition ${{ matrix.partition }}/4)
+        timeout-minutes: 50
+        run: |
+          cargo +nightly nextest run \
             --lib --tests --bins \
             --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
-            -- \
+            --partition "hash:${{ matrix.partition }}/4" \
             --skip test_benchmark_ \
             --skip benchmark_internal \
             --skip test_benchmark_internal_10k \
@@ -1043,5 +1083,3 @@ jobs:
             --skip ttl_http_ \
             --skip embedded_readonly \
             --skip cli_tests
-        env:
-          TSAN_OPTIONS: "halt_on_error=0 exitcode=0 history_size=2"

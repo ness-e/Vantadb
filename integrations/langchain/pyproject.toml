@@ -24,7 +24,16 @@ classifiers = [
 ]
 dependencies = [
     "vantadb-py>=0.6.1,<0.10.0",
-    "langchain-core>=0.3,<1",
+    # FIND-649: floor 0.3.81, not 0.3 — langgraph-checkpoint>=4.1 (inside the
+    # >=2,<5 range below) calls Reviver(allowed_objects="core") at import
+    # (langgraph/checkpoint/serde/jsonplus.py:47, since checkpoint 4.1.0) and
+    # the `allowed_objects` kwarg only exists in langchain-core>=0.3.81
+    # (verified against published wheels; upstream's declared dep stays
+    # `langchain-core>=0.2.38`, so the resolver doesn't protect us).
+    # 0.3.0–0.3.80 crash at pytest collection with
+    # `TypeError: Reviver.__init__() got an unexpected keyword argument
+    # 'allowed_objects'` — CI evidence: compat-matrix langchain/0.3 row.
+    "langchain-core>=0.3.81,<1",
     # INTG-01: LangGraph adapters (checkpointer + BaseStore).
     # API inestable upstream → major pineado; spec en docs/dev/tasks/INTG-01.md.
     "langgraph-checkpoint>=2,<5",
