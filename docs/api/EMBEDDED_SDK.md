@@ -680,12 +680,12 @@ pub enum Value {
     Int(i64),
     Float(f64),
     Bool(bool),
-    DateTime(chrono::DateTime<chrono::Utc>),
+    DateTime(jiff::Timestamp),
     ListString(Vec<String>),
     ListInt(Vec<i64>),
     ListFloat(Vec<f64>),
     ListBool(Vec<bool>),
-    ListDateTime(Vec<chrono::DateTime<chrono::Utc>>),
+    ListDateTime(Vec<jiff::Timestamp>),
     Null,
 }
 ```

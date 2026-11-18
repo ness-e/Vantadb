@@ -30,9 +30,10 @@ fn str_value(s: &str) -> Value {
 }
 
 fn ms(rfc3339: &str) -> u64 {
-    chrono::DateTime::parse_from_rfc3339(rfc3339)
+    rfc3339
+        .parse::<jiff::Timestamp>()
         .expect("rfc3339 fixture timestamp")
-        .timestamp_millis() as u64
+        .as_millisecond() as u64
 }
 
 fn line_for<'a>(lines: &'a [MemoryExportLine], key: &str) -> &'a MemoryExportLine {

@@ -77,14 +77,16 @@ pub fn field_value_to_json(value: &crate::node::FieldValue) -> serde_json::Value
         FieldValue::Int(i) => J::from(*i),
         FieldValue::Float(f) => J::from(*f),
         FieldValue::Bool(b) => J::from(*b),
-        FieldValue::DateTime(dt) => J::String(dt.to_rfc3339()),
+        FieldValue::DateTime(dt) => J::String(crate::sdk::serialization::tsfmt::to_rfc3339(*dt)),
         FieldValue::ListString(v) => J::Array(v.iter().map(|s| J::String(s.clone())).collect()),
         FieldValue::ListInt(v) => J::Array(v.iter().map(|i| J::from(*i)).collect()),
         FieldValue::ListFloat(v) => J::Array(v.iter().map(|f| J::from(*f)).collect()),
         FieldValue::ListBool(v) => J::Array(v.iter().map(|b| J::from(*b)).collect()),
-        FieldValue::ListDateTime(v) => {
-            J::Array(v.iter().map(|dt| J::String(dt.to_rfc3339())).collect())
-        }
+        FieldValue::ListDateTime(v) => J::Array(
+            v.iter()
+                .map(|dt| J::String(crate::sdk::serialization::tsfmt::to_rfc3339(*dt)))
+                .collect(),
+        ),
         FieldValue::Null => J::Null,
     }
 }

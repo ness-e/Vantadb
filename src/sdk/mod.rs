@@ -24,6 +24,11 @@ pub use connect::connect;
 pub use merge::{MergeOutcome, MergePolicy, MergeResult};
 #[allow(deprecated)]
 pub use serialization::memory_record_from_node;
+/// chrono-compatible RFC 3339 rendering of `jiff::Timestamp` (FIND-652).
+/// Doc-hidden: internal wire-format detail surfaced for sibling crates
+/// (vanta-memory) that must emit byte-identical timestamp strings.
+#[doc(hidden)]
+pub use serialization::tsfmt;
 pub use serialization::{
     export_line_from_record, memory_node_id, memory_record_to_node_owned, record_from_export_line,
     record_from_node, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE,

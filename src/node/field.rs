@@ -13,8 +13,9 @@ pub enum FieldValue {
     Float(f64),
     /// A boolean value.
     Bool(bool),
-    /// A UTC date-time value.
-    DateTime(chrono::DateTime<chrono::Utc>),
+    /// A UTC date-time value (RFC 3339 instant). FIND-652: `jiff::Timestamp`
+    /// replaces `chrono::DateTime<Utc>`; serde bytes unchanged (`tsfmt`).
+    DateTime(#[serde(serialize_with = "crate::sdk::serialization::tsfmt::ser_ts")] jiff::Timestamp),
     /// A list of UTF-8 string values.
     ListString(Vec<String>),
     /// A list of 64-bit signed integer values.
@@ -23,8 +24,11 @@ pub enum FieldValue {
     ListFloat(Vec<f64>),
     /// A list of boolean values.
     ListBool(Vec<bool>),
-    /// A list of UTC date-time values.
-    ListDateTime(Vec<chrono::DateTime<chrono::Utc>>),
+    /// A list of UTC date-time values (RFC 3339 instants).
+    ListDateTime(
+        #[serde(serialize_with = "crate::sdk::serialization::tsfmt::ser_ts_vec")]
+        Vec<jiff::Timestamp>,
+    ),
     /// Absent / null value.
     Null,
 }
@@ -52,7 +56,7 @@ impl Hash for FieldValue {
             }
             FieldValue::DateTime(dt) => {
                 4u8.hash(state);
-                dt.timestamp_nanos_opt().unwrap_or(0).hash(state);
+                dt.as_nanosecond().hash(state);
             }
             FieldValue::ListString(v) => {
                 5u8.hash(state);
@@ -75,7 +79,7 @@ impl Hash for FieldValue {
             FieldValue::ListDateTime(v) => {
                 9u8.hash(state);
                 for dt in v {
-                    dt.timestamp_nanos_opt().unwrap_or(0).hash(state);
+                    dt.as_nanosecond().hash(state);
                 }
             }
             FieldValue::Null => {
@@ -116,12 +120,15 @@ impl FieldValue {
             FieldValue::Int(i) => vec![i.to_string()],
             FieldValue::Float(f) => vec![f.to_string()],
             FieldValue::Bool(b) => vec![b.to_string()],
-            FieldValue::DateTime(dt) => vec![dt.to_rfc3339()],
+            FieldValue::DateTime(dt) => vec![crate::sdk::serialization::tsfmt::to_rfc3339(*dt)],
             FieldValue::ListString(vec) => vec.clone(),
             FieldValue::ListInt(vec) => vec.iter().map(|i| i.to_string()).collect(),
             FieldValue::ListFloat(vec) => vec.iter().map(|f| f.to_string()).collect(),
             FieldValue::ListBool(vec) => vec.iter().map(|b| b.to_string()).collect(),
-            FieldValue::ListDateTime(vec) => vec.iter().map(|dt| dt.to_rfc3339()).collect(),
+            FieldValue::ListDateTime(vec) => vec
+                .iter()
+                .map(|dt| crate::sdk::serialization::tsfmt::to_rfc3339(*dt))
+                .collect(),
             FieldValue::Null => vec!["null".to_string()],
         }
     }
@@ -164,9 +171,7 @@ mod tests {
         assert_eq!(FieldValue::Float(42.5).to_cardinality_keys(), vec!["42.5"]);
         assert_eq!(FieldValue::Bool(true).to_cardinality_keys(), vec!["true"]);
         assert_eq!(FieldValue::Null.to_cardinality_keys(), vec!["null"]);
-        let dt = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
-            .unwrap()
-            .with_timezone(&chrono::Utc);
+        let dt: jiff::Timestamp = "2024-01-01T00:00:00Z".parse().unwrap();
         assert!(FieldValue::DateTime(dt).to_cardinality_keys()[0].contains("2024"));
         assert_eq!(
             FieldValue::ListString(vec!["a".into()]).to_cardinality_keys(),

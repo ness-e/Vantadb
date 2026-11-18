@@ -152,13 +152,13 @@ fn vanta_values_to_pydict(py: Python<'_>, meta: &BTreeMap<String, Value>) -> PyR
             Value::Int(i) => d.set_item(mk, i)?,
             Value::Float(f) => d.set_item(mk, f)?,
             Value::Bool(b) => d.set_item(mk, b)?,
-            Value::DateTime(dt) => d.set_item(mk, dt.to_rfc3339())?,
+            Value::DateTime(dt) => d.set_item(mk, crate::sdk::serialization::tsfmt::to_rfc3339(*dt))?,
             Value::ListString(v) => d.set_item(mk, v)?,
             Value::ListInt(v) => d.set_item(mk, v)?,
             Value::ListFloat(v) => d.set_item(mk, v)?,
             Value::ListBool(v) => d.set_item(mk, v)?,
             Value::ListDateTime(v) => {
-                d.set_item(mk, v.iter().map(|dt| dt.to_rfc3339()).collect::<Vec<_>>())?
+                d.set_item(mk, v.iter().map(|dt| crate::sdk::serialization::tsfmt::to_rfc3339(*dt)).collect::<Vec<_>>())?
             }
             Value::Null => d.set_item(mk, py.None())?,
         };

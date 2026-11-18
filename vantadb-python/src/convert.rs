@@ -65,11 +65,11 @@ pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(boolean) = value.extract::<bool>() {
         return Ok(Value::Bool(boolean));
     }
-    if let Ok(dt) = value.extract::<chrono::DateTime<chrono::Utc>>() {
+    // jiff `Timestamp` extraction accepts any tz-aware datetime (fixed offset
+    // or named zone) and normalizes it to the UTC instant — covers both of the
+    // old chrono `Utc`/`FixedOffset` arms.
+    if let Ok(dt) = value.extract::<jiff::Timestamp>() {
         return Ok(Value::DateTime(dt));
-    }
-    if let Ok(dt) = value.extract::<chrono::DateTime<chrono::FixedOffset>>() {
-        return Ok(Value::DateTime(dt.with_timezone(&chrono::Utc)));
     }
     if let Ok(py_list) = value.cast::<pyo3::types::PyList>() {
         if py_list.is_empty() {
@@ -95,17 +95,11 @@ pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<Value> {
             }
             return Ok(Value::ListBool(vec));
         }
-        if first.extract::<chrono::DateTime<chrono::Utc>>().is_ok()
-            || first
-                .extract::<chrono::DateTime<chrono::FixedOffset>>()
-                .is_ok()
-        {
+        if first.extract::<jiff::Timestamp>().is_ok() {
             let mut vec = Vec::with_capacity(py_list.len());
             for item in py_list.iter() {
-                if let Ok(dt) = item.extract::<chrono::DateTime<chrono::Utc>>() {
+                if let Ok(dt) = item.extract::<jiff::Timestamp>() {
                     vec.push(dt);
-                } else if let Ok(dt) = item.extract::<chrono::DateTime<chrono::FixedOffset>>() {
-                    vec.push(dt.with_timezone(&chrono::Utc));
                 } else {
                     return Err(PyTypeError::new_err(
                         "List elements must be consistent datetime objects.",

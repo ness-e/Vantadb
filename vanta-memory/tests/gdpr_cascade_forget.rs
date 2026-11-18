@@ -41,7 +41,7 @@ fn create_l1_episode(
     content: &str,
     scene_name: &str,
 ) -> MemoryRecord {
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = vantadb::sdk::tsfmt::to_rfc3339(jiff::Timestamp::now());
     let record = MemoryRecord {
         id: id.to_string(),
         content: content.to_string(),
@@ -149,7 +149,7 @@ fn test_tec_15_gdpr_cascade_forget_l1_to_l2_and_l3() {
         content: persona_content.to_string(),
         mode: vanta_memory::core::abstractions::PersonaMode::First,
         generated_at_ms: 1000,
-        generated_at: chrono::Utc::now().to_rfc3339(),
+        generated_at: vantadb::sdk::tsfmt::to_rfc3339(jiff::Timestamp::now()),
         scene_versions: None,
         source_episode_ids: vec![ep_pii.id.clone()],
         source_scene_names: vec!["medical_assessment".to_string()],

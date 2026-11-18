@@ -228,14 +228,18 @@ fn metadata_value_to_json(v: &crate::sdk::Value) -> serde_json::Value {
             .map(serde_json::Value::Number)
             .unwrap_or(serde_json::Value::Null),
         Value::String(s) => serde_json::Value::String(s.clone()),
-        Value::DateTime(dt) => serde_json::Value::String(dt.to_rfc3339()),
+        Value::DateTime(dt) => {
+            serde_json::Value::String(crate::sdk::serialization::tsfmt::to_rfc3339(*dt))
+        }
         Value::ListString(xs) => serde_json::Value::from(xs.clone()),
         Value::ListInt(xs) => serde_json::Value::from(xs.clone()),
         Value::ListFloat(xs) => serde_json::Value::from(xs.clone()),
         Value::ListBool(xs) => serde_json::Value::from(xs.clone()),
-        Value::ListDateTime(xs) => {
-            serde_json::Value::from(xs.iter().map(|dt| dt.to_rfc3339()).collect::<Vec<_>>())
-        }
+        Value::ListDateTime(xs) => serde_json::Value::from(
+            xs.iter()
+                .map(|dt| crate::sdk::serialization::tsfmt::to_rfc3339(*dt))
+                .collect::<Vec<_>>(),
+        ),
     }
 }
 

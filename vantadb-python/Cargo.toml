@@ -12,9 +12,9 @@ name = "vantadb_native"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { workspace = true, features = ["extension-module", "abi3-py311", "chrono"] }
+pyo3 = { workspace = true, features = ["extension-module", "abi3-py311", "jiff-02"] }
 rayon = { workspace = true }
-chrono = { workspace = true, features = ["serde"] }
+jiff = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 # O(1) LRU cache (AUD-039): same version the core crate resolves (0.18.x in lockfile).

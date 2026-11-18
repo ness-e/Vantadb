@@ -170,12 +170,14 @@ pub(crate) fn timestamp_ms(value: &JsonValue) -> Option<u64> {
     match value {
         JsonValue::Number(n) => n.as_f64().and_then(numeric_to_ms),
         JsonValue::String(s) => {
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
-                return Some(dt.timestamp_millis().max(0) as u64);
+            // RFC 3339 instants (`jiff::Timestamp` parses `Z` and `±hh:mm`).
+            if let Ok(dt) = s.parse::<jiff::Timestamp>() {
+                return Some(dt.as_millisecond().max(0) as u64);
             }
-            if let Ok(date) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-                let dt = date.and_hms_opt(0, 0, 0)?;
-                return Some(dt.and_utc().timestamp_millis().max(0) as u64);
+            // Date-only `YYYY-MM-DD` → UTC midnight.
+            if let Ok(date) = s.parse::<jiff::civil::Date>() {
+                let dt = date.at(0, 0, 0, 0).to_zoned(jiff::tz::TimeZone::UTC).ok()?;
+                return Some(dt.timestamp().as_millisecond().max(0) as u64);
             }
             s.parse::<f64>().ok().and_then(numeric_to_ms)
         }

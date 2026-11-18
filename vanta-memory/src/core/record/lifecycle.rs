@@ -340,9 +340,9 @@ fn millis_to_iso8601(ms: u64) -> String {
 /// Parse an RFC3339 timestamp (`2026-08-20T10:00:00.000Z`) to epoch ms.
 /// `None` when unparseable — callers fall back (never forget unparseable).
 fn timestamp_ms(iso: &str) -> Option<u64> {
-    chrono::DateTime::parse_from_rfc3339(iso)
+    iso.parse::<jiff::Timestamp>()
         .ok()
-        .and_then(|dt| u64::try_from(dt.timestamp_millis()).ok())
+        .and_then(|ts| u64::try_from(ts.as_millisecond()).ok())
 }
 
 /// Namespace derivation: prefer the record's `session_key` (L1 wire carries

@@ -68,7 +68,7 @@ workspace = true
 [dependencies]
 # ── Core ──
 serde = { workspace = true }
-chrono = { workspace = true, features = ["serde"] }
+jiff = { workspace = true }
 postcard = { version = "1.1", features = ["alloc", "use-std"] }
 thiserror = { workspace = true }
 parking_lot = "0.12"
@@ -95,7 +95,7 @@ ort = { version = "=2.0.0-rc.15", default-features = false, optional = true, fea
 tokenizers = { version = "0.23", optional = true }
 serde_json = { workspace = true }
 prometheus = { version = "0.14", optional = true }
-pyo3 = { workspace = true, features = ["extension-module", "chrono"], optional = true }
+pyo3 = { workspace = true, features = ["extension-module"], optional = true }
 wide = ">=1.2, <2"
 sysinfo = { workspace = true, optional = true }
 memmap2 = { version = "0.9", optional = true }
@@ -830,7 +830,10 @@ reqwest = { version = "0.12", default-features = false }
 thiserror = "2"
 anyhow = "1"
 tracing = "0.1"
-chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+# FIND-652: jiff replaces chrono workspace-wide (0.2.x pinned by pyo3 `jiff-02`).
+# `serde` gives Timestamp the RFC3339 serde impl the read path relies on;
+# `tz-system` is the `Zoned::now()` backend used by the shared test harness.
+jiff = { version = "0.2", default-features = false, features = ["std", "serde", "tz-system"] }
 sha2 = "0.10"
 toml = "1.1"
 tempfile = "3"

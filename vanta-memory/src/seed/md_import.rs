@@ -270,8 +270,8 @@ fn json_to_vanta(v: &serde_json::Value) -> Value {
         }
         serde_json::Value::String(s) => {
             // Try RFC3339 round-trip; if it parses, keep as DateTime, else String.
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
-                Value::DateTime(dt.with_timezone(&chrono::Utc))
+            if let Ok(ts) = s.parse::<jiff::Timestamp>() {
+                Value::DateTime(ts)
             } else {
                 Value::String(s.clone())
             }

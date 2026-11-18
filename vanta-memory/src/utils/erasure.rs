@@ -496,7 +496,7 @@ fn validate_schema(receipt: &ErasureReceipt) -> Result<(), ErasureError> {
 
 /// ISO 8601 UTC timestamp with millisecond precision.
 fn now_iso() -> String {
-    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+    vantadb::sdk::tsfmt::rfc3339_millis_z(jiff::Timestamp::now())
 }
 
 fn hex_lower(bytes: &[u8]) -> String {

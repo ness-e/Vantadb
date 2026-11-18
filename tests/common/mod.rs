@@ -296,7 +296,9 @@ impl VantaHarness {
                 "unavailable (sysinfo feature disabled)".to_string()
             },
             memory_confidence: "process_only".to_string(),
-            timestamp: chrono::Local::now().to_rfc3339(),
+            timestamp: jiff::Zoned::now()
+                .strftime("%Y-%m-%dT%H:%M:%S%.f%:z")
+                .to_string(),
         };
 
         self.log_metric(metric);
@@ -348,7 +350,9 @@ impl VantaHarness {
                 "unavailable (sysinfo feature disabled)".to_string()
             },
             memory_confidence: "process_only".to_string(),
-            timestamp: chrono::Local::now().to_rfc3339(),
+            timestamp: jiff::Zoned::now()
+                .strftime("%Y-%m-%dT%H:%M:%S%.f%:z")
+                .to_string(),
         };
 
         self.log_metric(metric);
@@ -397,12 +401,12 @@ impl VantaHarness {
                                 .unwrap_or(&last_report.timestamp);
 
                             match (
-                                chrono::DateTime::parse_from_rfc3339(last_time_str),
-                                chrono::DateTime::parse_from_rfc3339(&metric.timestamp),
+                                last_time_str.parse::<jiff::Timestamp>(),
+                                metric.timestamp.parse::<jiff::Timestamp>(),
                             ) {
                                 (Ok(t1), Ok(t2)) => {
-                                    let diff = t2.signed_duration_since(t1);
-                                    diff.num_seconds().abs() >= 300
+                                    let diff = t2.duration_since(t1);
+                                    diff.as_secs().abs() >= 300
                                 }
                                 _ => true,
                             }
@@ -543,12 +547,12 @@ fn group_metrics_into_reports(mut metrics: Vec<TestMetric>) -> Vec<TestRunReport
                     .unwrap_or(&last_report.timestamp);
 
                 match (
-                    chrono::DateTime::parse_from_rfc3339(last_time_str),
-                    chrono::DateTime::parse_from_rfc3339(&metric.timestamp),
+                    last_time_str.parse::<jiff::Timestamp>(),
+                    metric.timestamp.parse::<jiff::Timestamp>(),
                 ) {
                     (Ok(t1), Ok(t2)) => {
-                        let diff = t2.signed_duration_since(t1);
-                        diff.num_seconds().abs() >= 300
+                        let diff = t2.duration_since(t1);
+                        diff.as_secs().abs() >= 300
                     }
                     _ => true,
                 }

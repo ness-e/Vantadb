@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_vanta_value_to_field_value_datetime() {
-        let dt = chrono::Utc::now();
+        let dt = jiff::Timestamp::now();
         let vv = Value::DateTime(dt);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::DateTime(dt));
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_vanta_value_to_field_value_list_datetime() {
-        let dt = chrono::Utc::now();
+        let dt = jiff::Timestamp::now();
         let vv = Value::ListDateTime(vec![dt]);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::ListDateTime(vec![dt]));
@@ -390,7 +390,7 @@ mod tests {
 
     #[test]
     fn test_field_value_to_vanta_value_datetime() {
-        let dt = chrono::Utc::now();
+        let dt = jiff::Timestamp::now();
         let fv = FieldValue::DateTime(dt);
         let vv: Value = fv.into();
         assert_eq!(vv, Value::DateTime(dt));
@@ -426,7 +426,7 @@ mod tests {
 
     #[test]
     fn test_field_value_to_vanta_value_list_datetime() {
-        let dt = chrono::Utc::now();
+        let dt = jiff::Timestamp::now();
         let fv = FieldValue::ListDateTime(vec![dt]);
         let vv: Value = fv.into();
         assert_eq!(vv, Value::ListDateTime(vec![dt]));

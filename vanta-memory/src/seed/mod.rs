@@ -121,14 +121,18 @@ pub fn test_render_md(record: &vantadb::sdk::MemoryRecord) -> String {
                 .map(serde_json::Value::Number)
                 .unwrap_or(serde_json::Value::Null),
             vantadb::sdk::Value::String(s) => serde_json::Value::String(s.clone()),
-            vantadb::sdk::Value::DateTime(dt) => serde_json::Value::String(dt.to_rfc3339()),
+            vantadb::sdk::Value::DateTime(dt) => {
+                serde_json::Value::String(vantadb::sdk::tsfmt::to_rfc3339(*dt))
+            }
             vantadb::sdk::Value::ListString(xs) => serde_json::Value::from(xs.clone()),
             vantadb::sdk::Value::ListInt(xs) => serde_json::Value::from(xs.clone()),
             vantadb::sdk::Value::ListFloat(xs) => serde_json::Value::from(xs.clone()),
             vantadb::sdk::Value::ListBool(xs) => serde_json::Value::from(xs.clone()),
-            vantadb::sdk::Value::ListDateTime(xs) => {
-                serde_json::Value::from(xs.iter().map(|dt| dt.to_rfc3339()).collect::<Vec<_>>())
-            }
+            vantadb::sdk::Value::ListDateTime(xs) => serde_json::Value::from(
+                xs.iter()
+                    .map(|dt| vantadb::sdk::tsfmt::to_rfc3339(*dt))
+                    .collect::<Vec<_>>(),
+            ),
         };
         meta_obj.insert(k.clone(), jv);
     }

@@ -130,8 +130,10 @@ pub enum Value {
     Float(f64),
     /// Boolean value.
     Bool(bool),
-    /// RFC 3339 datetime with timezone.
-    DateTime(chrono::DateTime<chrono::Utc>),
+    /// RFC 3339 datetime (UTC instant). FIND-652: `jiff::Timestamp` replaces
+    /// `chrono::DateTime<Utc>`; the serde bytes are unchanged via
+    /// `tsfmt::ser_ts` (chrono AutoSi format).
+    DateTime(#[serde(serialize_with = "crate::sdk::serialization::tsfmt::ser_ts")] jiff::Timestamp),
     /// List of UTF-8 strings.
     ListString(Vec<String>),
     /// List of signed 64-bit integers.
@@ -140,8 +142,12 @@ pub enum Value {
     ListFloat(Vec<f64>),
     /// List of booleans.
     ListBool(Vec<bool>),
-    /// List of RFC 3339 datetimes with timezone.
-    ListDateTime(Vec<chrono::DateTime<chrono::Utc>>),
+    /// List of RFC 3339 datetimes (UTC instants). Same serde contract as
+    /// [`Value::DateTime`].
+    ListDateTime(
+        #[serde(serialize_with = "crate::sdk::serialization::tsfmt::ser_ts_vec")]
+        Vec<jiff::Timestamp>,
+    ),
     /// Explicit null value.
     Null,
 }
@@ -776,9 +782,7 @@ mod tests {
     /// change stay mutually readable.
     #[test]
     fn test_value_postcard_roundtrips_all_variants() {
-        let dt = chrono::DateTime::parse_from_rfc3339("2024-05-01T12:00:00Z")
-            .expect("fixture datetime")
-            .with_timezone(&chrono::Utc);
+        let dt: jiff::Timestamp = "2024-05-01T12:00:00Z".parse().expect("fixture datetime");
         let variants = vec![
             Value::String("test".into()),
             Value::Int(-42),
@@ -859,7 +863,7 @@ mod tests {
 
     #[test]
     fn test_vanta_value_datetime() {
-        let dt: chrono::DateTime<chrono::Utc> = "2025-01-01T00:00:00Z".parse().unwrap();
+        let dt: jiff::Timestamp = "2025-01-01T00:00:00Z".parse().unwrap();
         let v = Value::DateTime(dt);
         let values = v.to_index_values();
         assert_eq!(values.len(), 1);
@@ -899,7 +903,7 @@ mod tests {
 
     #[test]
     fn test_vanta_value_to_index_list_datetime() {
-        let dt: chrono::DateTime<chrono::Utc> = "2025-06-15T12:00:00Z".parse().unwrap();
+        let dt: jiff::Timestamp = "2025-06-15T12:00:00Z".parse().unwrap();
         let v = Value::ListDateTime(vec![dt]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 1);

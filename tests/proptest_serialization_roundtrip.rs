@@ -39,10 +39,9 @@ fn assert_json<T: Serialize + DeserializeOwned + std::fmt::Debug + PartialEq>(va
 
 // ── Strategy helpers ─────────────────────────────────────────────────────
 
-fn arb_datetime() -> impl Strategy<Value = chrono::DateTime<chrono::Utc>> {
-    (0i64..2_000_000_000i64).prop_map(|secs| {
-        chrono::DateTime::<chrono::Utc>::from_timestamp(secs, 0).unwrap_or_default()
-    })
+fn arb_datetime() -> impl Strategy<Value = jiff::Timestamp> {
+    (0i64..2_000_000_000i64)
+        .prop_map(|secs| jiff::Timestamp::new(secs, 0).unwrap_or(jiff::Timestamp::UNIX_EPOCH))
 }
 
 /// Float-free Value for JSON round-trip tests (avoid f64 precision loss).

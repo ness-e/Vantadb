@@ -19,9 +19,10 @@ id = "RUSTSEC-2024-0436"
 ignoreUntil = "2027-01-01T00:00:00Z"
 reason = "Mirror of audit.toml triage: build-time only, no runtime impact. Tracked: tikv/jemalloc-ctl#60. Owner: vanta-lead."
 
-# RUSTSEC-2026-0543: chrono unmaintained (informational; no patched version,
-# recommended migration to Jiff is a public-API-impacting change still being
-# assessed). Mirror of the owner-approved deny.toml waiver (2026-11-17):
+# RUSTSEC-2026-0543: chrono unmaintained (informational; no patched version).
+# FIND-652 landed: all direct deps migrated to jiff 0.2; chrono survives only
+# transitively via the optional `arrow` feature (arrow-* 59.x), unreachable in
+# the default build. Mirror of the owner-approved deny.toml waiver (2026-11-17):
 # risk acceptance, not a remediation or release authorization.
 # Owner: @ness-e (vanta-lead) | Mandatory review: 2026-11-24 and before any
 # public release | Tracked: FIND-652; docs/specs/CONSTRAINTS.md exception W3.

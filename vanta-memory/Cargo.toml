@@ -23,9 +23,9 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
-# chrono is re-exported via vantadb::sdk::VantaValue::DateTime; used in seed
-# round-trip parsing (MD import → DateTime detection via RFC3339).
-chrono = { workspace = true, features = ["std", "clock"] }
+# jiff (FIND-652) backs vantadb::sdk::Value::DateTime (jiff::Timestamp); used
+# in seed round-trip parsing (MD import → DateTime detection via RFC3339).
+jiff = { workspace = true }
 # MEMG-17 (piezas b+c): DEK CSPRNG + sha256 de los recibos de erasure. Ambas
 # ya viven en el lockfile (mismas versiones que el core); optional bajo el
 # feature `erasure` — el build default queda intacto.

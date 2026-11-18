@@ -45,9 +45,9 @@ tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "sync
 [dev-dependencies]
 axum = { workspace = true }
 tower = { workspace = true, features = ["util"] }
-# Machete-justified (NOT unused): serde/fs2/chrono/console/indicatif are used
+# Machete-justified (NOT unused): serde/fs2/jiff/console/indicatif are used
 # by the shared harness pulled via `#[path = "../../tests/common/mod.rs"]`
-# (tests/common/mod.rs:6-10: console, fs2, serde, indicatif, chrono) — a
+# (tests/common/mod.rs:6-10: console, fs2, serde, indicatif, jiff) — a
 # cross-dir include cargo-machete's per-dir heuristic cannot see. `clap` was
 # removed (only mentioned in a src/main.rs comment; zero code usage).
 serde = { workspace = true }
@@ -55,7 +55,7 @@ serde_json = { workspace = true }
 fs2 = { workspace = true }
 futures = { workspace = true }
 tempfile = { workspace = true }
-chrono = { workspace = true }
+jiff = { workspace = true }
 console = { workspace = true }
 indicatif = { workspace = true }
 rcgen = "0.14"
@@ -77,13 +77,13 @@ tls = ["vantadb/tls"]
 opentelemetry = ["vantadb/opentelemetry"]
 prometheus = ["vantadb/prometheus"]
 
-# FIND-150: serde/fs2/chrono/console/indicatif are used by the shared test
+# FIND-150: serde/fs2/jiff/console/indicatif are used by the shared test
 # harness pulled via `#[path = "../../tests/common/mod.rs"]`
 # (root tests/common/mod.rs:6-10) — a cross-dir include cargo-machete's
 # per-dir heuristic cannot see. Justified, not removed (`clap` dev-dep was
 # genuinely unused and got deleted instead).
 [package.metadata.cargo-machete]
-ignored = ["serde", "fs2", "chrono", "console", "indicatif"]
+ignored = ["serde", "fs2", "jiff", "console", "indicatif"]
 
 
 [dependencies.mimalloc]

@@ -1,6 +1,8 @@
 //! Wire-format helpers for reading and writing VantaDB memory records
 //! to/from internal node representations and JSONL export lines.
 
+pub mod tsfmt;
+
 #[cfg(test)]
 use super::builder::Embedded;
 use super::types::*;
@@ -131,10 +133,7 @@ pub fn value_canonical_repr(v: &Value) -> String {
             }
         }
         Value::DateTime(dt) => {
-            format!(
-                "d:{}",
-                dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
-            )
+            format!("d:{}", tsfmt::rfc3339_micros_z(*dt))
         }
         Value::ListString(list) => format!("ls:{list:?}"),
         Value::ListInt(list) => format!("li:{list:?}"),
@@ -153,10 +152,7 @@ pub fn value_canonical_repr(v: &Value) -> String {
         }
         Value::ListBool(list) => format!("lb:{list:?}"),
         Value::ListDateTime(list) => {
-            let dts: Vec<String> = list
-                .iter()
-                .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true))
-                .collect();
+            let dts: Vec<String> = list.iter().map(|dt| tsfmt::rfc3339_micros_z(*dt)).collect();
             format!("ld:{dts:?}")
         }
         Value::Null => "n:".to_string(),
@@ -316,10 +312,7 @@ pub(crate) fn encoded_scalar_value(value: &Value) -> Result<Vec<u8>> {
         }
         Value::DateTime(dt) => {
             let mut encoded = b"d:".to_vec();
-            encoded.extend_from_slice(
-                dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
-                    .as_bytes(),
-            );
+            encoded.extend_from_slice(tsfmt::rfc3339_micros_z(*dt).as_bytes());
             Ok(encoded)
         }
         Value::ListString(_)
@@ -1156,9 +1149,7 @@ mod tests {
 
     #[test]
     fn test_encoded_scalar_value_datetime() {
-        let dt = chrono::DateTime::parse_from_rfc3339("2025-01-15T10:30:00Z")
-            .unwrap()
-            .with_timezone(&chrono::Utc);
+        let dt: jiff::Timestamp = "2025-01-15T10:30:00Z".parse().unwrap();
         let encoded = encoded_scalar_value(&Value::DateTime(dt)).unwrap();
         assert!(encoded.starts_with(b"d:"));
         assert!(String::from_utf8_lossy(&encoded).contains("2025-01-15"));
@@ -2134,11 +2125,12 @@ mod tests {
     /// chronologically (same-variant ordering, see `FilterOp` docs).
     #[test]
     fn test_advanced_filter_datetime_range() {
-        use chrono::{TimeZone, Utc};
-        let at = |y: i32, m: u32, d: u32| {
-            Utc.with_ymd_and_hms(y, m, d, 0, 0, 0)
-                .single()
+        let at = |y: i16, m: i8, d: i8| {
+            jiff::civil::date(y, m, d)
+                .at(0, 0, 0, 0)
+                .to_zoned(jiff::tz::TimeZone::UTC)
                 .expect("valid date")
+                .timestamp()
         };
         let r = make_record_with_meta(&[("when", Value::DateTime(at(2026, 6, 1)))]);
         let in_range = vec![

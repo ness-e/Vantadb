@@ -11,7 +11,9 @@ ignore = [
     # Owner: @ness-e (vanta-lead)
     # Expires / mandatory review: 2026-11-24 and before any public release.
     # Tracked: FIND-652; docs/specs/CONSTRAINTS.md exception W3.
-    # Preserve existing APIs while a compatible migration is assessed.
+    # Update 2026 (FIND-652 done): all DIRECT chrono deps migrated to jiff 0.2;
+    # chrono remains only as a transitive dep of the optional `arrow` feature
+    # (arrow-* 59.x), unreachable in the default build.
     # This is risk acceptance, not a remediation or release authorization.
     "RUSTSEC-2026-0543",
 

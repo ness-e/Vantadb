@@ -460,9 +460,9 @@ pub fn now_iso() -> String {
         .duration_since(web_time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
-    chrono::DateTime::from_timestamp(secs, 0)
-        .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
-        .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
+    jiff::Timestamp::new(secs, 0)
+        .map(crate::sdk::serialization::tsfmt::rfc3339_secs_z)
+        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
 }
 
 #[cfg(test)]

@@ -133,7 +133,7 @@ pub fn put_l3_axiom(
     content: &str,
     source_episode_ids: Vec<String>,
 ) -> Result<MemoryRecord, L1Error> {
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = vantadb::sdk::tsfmt::to_rfc3339(jiff::Timestamp::now());
     let record = MemoryRecord {
         id: axiom_id.to_string(),
         content: content.to_string(),
@@ -558,7 +558,7 @@ pub fn forget(
         mode,
         session_id: session_id.to_string(),
         target: target_repr,
-        timestamp: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+        timestamp: vantadb::sdk::tsfmt::rfc3339_millis_z(jiff::Timestamp::now()),
         primary_keys: primary_records,
         cascaded_ids,
         details,

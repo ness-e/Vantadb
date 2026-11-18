@@ -698,9 +698,9 @@ fn put_record_with_confidence(
 /// parse or predates the epoch — the core then defaults to `created_at_ms` at
 /// write time.
 fn rfc3339_to_epoch_ms(iso: &str) -> Option<u64> {
-    chrono::DateTime::parse_from_rfc3339(iso)
+    iso.parse::<jiff::Timestamp>()
         .ok()
-        .and_then(|dt| u64::try_from(dt.timestamp_millis()).ok())
+        .and_then(|ts| u64::try_from(ts.as_millisecond()).ok())
 }
 
 /// Serde snake_case name of a memory type (matches the wire contract).
