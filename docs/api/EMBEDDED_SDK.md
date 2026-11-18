@@ -559,6 +559,12 @@ Offline and scheduled restore require the `fs2` feature; builds without it
 reject restore requests rather than proceeding without a lock.
 The snapshot inventory validates file paths and lengths, not content hashes.
 
+The storage root is a managed directory —
+[STORAGE_FORMATS.md §6](STORAGE_FORMATS.md#6-reserved-names-at-the-storage-root)
+lists the names reserved for the backend and the restore machinery; a user
+file placed at the root under a backend-reserved name is staged aside and
+discarded by a complete restore.
+
 ## Skills API — Separate Module
 
 > **Source:** `vantadb-skills` crate (`skill_store`/`skill_versioning` modules) — this is a **separate module** from `Embedded`.

@@ -402,6 +402,9 @@ RocksDB snapshots copy a native checkpoint rather than the live backend root.
 The inventory records the backend kind; at the next writable open, a mismatch
 with the configured backend fails before staging and keeps the pending marker.
 Restore does not migrate backends. Legacy snapshots have no backend kind.
+Since v0.10.0 the `snapshot_restore` response reports `restored: false` +
+`scheduled: true` (the swap is deferred to the next writable open); earlier
+versions performed the swap inline and reported `restored: true`.
 
 Scheduling and consuming pending restores are serialized by a bookkeeping
 lock. Contention beyond five seconds returns retriable `DatabaseBusy`; retry

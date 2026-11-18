@@ -112,3 +112,38 @@ sentinel.
 | An encrypted database + the wrong key | `Error::EncryptionKeyRejected` ("wrong key or tampered") |
 | An encrypted artefact in a build without the feature | Explicit refusal with the version in the message |
 | A rotated master key | The DEKs are re-wrapped, not re-derived: **no ciphertext is invalidated** |
+
+## 6. Reserved names at the storage root
+
+The **storage root** (the `storage_path` passed at open) is a managed
+directory: it holds `data/` — the `data_dir` containing every artefact of §1 —
+**and** the backend LSM files, locks and restore bookkeeping listed below. The
+allowlist lives in `src/storage/engine/mod.rs` (`backend_entry_is_dir`,
+`is_restore_staging`, `is_pending_restore_tmp`); `N` means **ASCII digits
+only** (`9.jnl` matches, `x.jnl` and `data.pre_restore_backup` do not).
+
+| Name / pattern | Kind | Owner |
+|---|---|---|
+| `data/` | directory | the `data_dir`: WAL, VantaFiles, HNSW image, encryption registry, `data/snapshots/` |
+| `.vanta.schema` | file | schema-version marker (both backends) |
+| `.vanta.lock` | file | process-local engine lock — never mirrored into snapshots |
+| `keyspaces/` | directory | Fjall keyspaces (each with `current`, `v<N>`, `tables/`, `blobs/`) |
+| `version`, `lock` | files | Fjall version metadata and journal lock |
+| `<N>.jnl` | files | Fjall journals |
+| `archive/` | directory | RocksDB archive |
+| `CURRENT`, `LOCK`, `IDENTITY`, `LOG` | files | RocksDB |
+| `LOG.old.<N>`, `MANIFEST-<N>`, `OPTIONS-<N>`, `OPTIONS-<N>.dbtmp` | files | RocksDB |
+| `<N>.log`, `<N>.sst`, `<N>.ldb`, `<N>.blob`, `<N>.dbtmp` | files | RocksDB |
+| `.restore_pending` | file | scheduled-restore marker, consumed on the next writable open |
+| `.restore_pending.lock` | file | bookkeeping lock for pending restores |
+| `.restore_pending.<…>.tmp` | file | atomic-write temporaries of the marker, cleaned at open |
+| `data.pre_restore_<N>`, `backend.pre_restore_<N>` | directories | restore staging; leftovers make the next open fail closed (manual recovery) |
+
+> **Do not place user files in the storage root under any of these names.** A
+> *complete* snapshot restore (format + manifest markers) stages every root
+> entry that matches the backend allowlist into `backend.pre_restore_<N>` and
+> replaces it with the snapshot's backend contents; staging is deleted on
+> success, so a user file named e.g. `9.jnl` or `MANIFEST-000001` is
+> **discarded**. Entries the allowlist does not recognize are left alone, but
+> a root entry that is neither a regular file nor a directory (e.g. a symlink)
+> fails the restore outright — see `validate_live_backend`.

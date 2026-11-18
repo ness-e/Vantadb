@@ -41,6 +41,26 @@ details and backup verification: [BACKUP_RESTORE.md](BACKUP_RESTORE.md).
 
 Each section lists what changed for consumers and any required migration steps.
 
+### Upgrading to 0.10.0 (from 0.9.x)
+
+**Released:** pending — ships through the release-plz Release PR (tag `v0.10.0`).
+
+**Breaking changes:**
+
+- **MCP `snapshot_restore` response contract.** The tool no longer performs
+  the directory swap itself: it writes a durable
+  `<storage_root>/.restore_pending` marker and the restore is applied on the
+  **next writable open** (restart the server). A successful call now returns
+  `"restored": false, "scheduled": true` plus the `marker` path and a `note` —
+  previously it returned `"restored": true` after an immediate restore.
+  Clients asserting `restored: true` must key on `scheduled: true` instead.
+  Writes made before the next open are discarded by the restore; delete the
+  marker to cancel. See
+  [`MCP.md` § Maintenance, Indexes & Snapshots](../../api/MCP.md#maintenance-indexes--snapshots-12).
+
+**Migration steps:** none beyond upgrading the package; update any client
+logic that reads the `snapshot_restore` response.
+
 ### Upgrading to 0.8.0 (from 0.7.x)
 
 **Released:** pending — ships through the release-plz Release PR (tag `v0.8.0`).
