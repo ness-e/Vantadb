@@ -963,7 +963,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "snapshot_create",
-            "description": "Creates a physical filesystem snapshot under <data_dir>/snapshots/<name>. Quiesce writers first: concurrent writes are not guaranteed coherent across data and backend (FIND-651). Returns {path, created_at}.",
+            "description": "Creates a physical filesystem snapshot under <data_dir>/snapshots/<name>. Returns {path, created_at}.",
             "annotations": {
                 "title": "Snapshot Create",
                 "readOnlyHint": false,
