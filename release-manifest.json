@@ -1,7 +1,7 @@
 {
   "_comment": "Single source of truth for post-release verification (FIND-342). scripts/verify-release.ps1 renders its expected asset/registry list from this file — never hardcode those lists anywhere else. Bump version/tag with each core release. The adapters, providers and vantadb-node ride the core release too (commit 3234edb3: the fan-out publishes them with the core tag and sync-workspace-version.mjs keeps their version aligned with the workspace), so they are verified here as well. documented_only is for artifacts that are NOT published by the core release.",
-  "version": "0.9.0",
-  "tag": "v0.9.0",
+  "version": "0.9.1",
+  "tag": "v0.9.1",
   "github": {
     "repo": "ness-e/Vantadb",
     "binaries": [
