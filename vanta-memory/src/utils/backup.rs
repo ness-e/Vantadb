@@ -87,17 +87,26 @@ pub fn rollback_snapshot(config: Config, name: &str) -> Result<(Embedded, Snapsh
 
 /// The declared scope of a snapshot rollback.
 fn rollback_scope(name: &str, backend_restored: bool) -> SnapshotRollbackReport {
+    // The FIND-287 gaps are declared only for a data-only restore: a complete
+    // snapshot rolls backend KV and retained version history back too, so they
+    // are never listed — construction, not positional removal.
+    let mut not_reverted = Vec::new();
+    if !backend_restored {
+        not_reverted.extend([
+            "live backend KV (Fjall LSM at `<storage_root>/`) is left in place: deletes and supersessions recorded after the snapshot keep their tombstones/metadata — data-only restore (FIND-287; FIND-33 decision)".into(),
+            "retained version history (Versions partition, live backend) is not rolled back to the snapshot point (same data-only gap, FIND-287)".into(),
+        ]);
+    }
+    not_reverted
+        .push("other snapshots and resources outside the storage root are untouched".into());
+
     let mut report = SnapshotRollbackReport {
         snapshot: name.to_string(),
         reverted: vec![
             "the `data/` directory is swapped back to the snapshot point: post-snapshot additions disappear; the snapshot's files are back on disk (record visibility still subject to the live backend tombstones — see `not_reverted`)".into(),
             "in-memory indexes rebuild from the restored storage on reopen (fresh `Embedded`)".into(),
         ],
-        not_reverted: vec![
-            "live backend KV (Fjall LSM at `<storage_root>/`) is left in place: deletes and supersessions recorded after the snapshot keep their tombstones/metadata — data-only restore (FIND-287; FIND-33 decision)".into(),
-            "retained version history (Versions partition, live backend) is not rolled back to the snapshot point (same data-only gap, FIND-287)".into(),
-            "other snapshots and resources outside the storage root are untouched".into(),
-        ],
+        not_reverted,
         caveats: vec![
             "requires the engine closed first (fs2 lock) — flow: close -> restore -> reopened `Embedded`".into(),
             "fails with `NotFound` when the snapshot does not exist; live directories are staged aside with rollback on I/O errors, not crash-atomic; leftover staging requires manual recovery".into(),
@@ -108,7 +117,6 @@ fn rollback_scope(name: &str, backend_restored: bool) -> SnapshotRollbackReport 
         report.reverted.push(
             "backend KV and retained version history are restored to the snapshot point".into(),
         );
-        report.not_reverted.drain(..2);
     }
     report
 }
