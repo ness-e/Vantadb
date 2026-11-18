@@ -4022,6 +4022,79 @@ fn test_memory_put_batch_provenance_fields() {
     );
 }
 
+/// FIND-278 (P2-01): the batch derivation walk must see `seen` ∪ store —
+/// a batch can commit a 2-cycle (`B→A ∧ A→B` via upsert) or a chain
+/// deeper than MAX_DERIVATION_DEPTH only if ancestors resolve solely
+/// against committed store records.
+#[test]
+fn test_memory_put_batch_derivation_cycle_and_depth_via_seen() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Seed `a` as a plain asserted record in the store.
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": {"namespace": "cyc", "key": "a", "payload": "seed",
+                      "confidence": 0.5, "confidence_class": "asserted"}
+    }));
+    let res = handle_tools_call(&put, &executor, &storage, &cfg).unwrap();
+    assert!(res["isError"].is_null(), "seed put failed: {res}");
+
+    // Batch: b(new) derives from a(store); a(upsert) derives from b(seen).
+    // If the ancestor walk ignored `seen`, a's chain would see no parents
+    // for b and commit the cycle a→b ∧ b→a.
+    let batch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "cyc", "key": "b", "payload": "derives from a",
+                 "confidence_class": "derived", "derived_from": ["a"]},
+                {"namespace": "cyc", "key": "a", "payload": "upsert derives from b",
+                 "confidence_class": "derived", "derived_from": ["b"]}
+            ]
+        }
+    }));
+    let err = handle_tools_call(&batch, &executor, &storage, &cfg).unwrap();
+    assert_eq!(
+        err["isError"], true,
+        "batch committing a derivation cycle must fail: {err}"
+    );
+    let txt = err["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(txt.contains("cycle"), "expected cycle error, got: {txt}");
+
+    // Depth bypass: seed `base`, then a batch chain d1→base, d2→d1, …
+    // d17→d16 exceeds MAX_DERIVATION_DEPTH (16). Without `seen` the walk
+    // saw only committed ancestors and accepted arbitrary depth.
+    let base = Some(json!({
+        "name": "memory_put",
+        "arguments": {"namespace": "deep", "key": "base", "payload": "root",
+                      "confidence": 0.9, "confidence_class": "asserted"}
+    }));
+    let res = handle_tools_call(&base, &executor, &storage, &cfg).unwrap();
+    assert!(res["isError"].is_null(), "base put failed: {res}");
+
+    let mut inputs = vec![json!({"namespace": "deep", "key": "d1",
+        "payload": "chain", "confidence_class": "derived",
+        "derived_from": ["base"]})];
+    for i in 2..=17usize {
+        inputs.push(json!({"namespace": "deep", "key": format!("d{i}"),
+            "payload": "chain", "confidence_class": "derived",
+            "derived_from": [format!("d{}", i - 1)]}));
+    }
+    let batch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {"inputs": inputs}
+    }));
+    let err = handle_tools_call(&batch, &executor, &storage, &cfg).unwrap();
+    assert_eq!(
+        err["isError"], true,
+        "batch exceeding MAX_DERIVATION_DEPTH must fail: {err}"
+    );
+    let txt = err["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(txt.contains("MAX_DERIVATION_DEPTH"), "expected depth error, got: {txt}");
+}
+
 /// FIND-278 (pre-mortem guard): the JSON Schema advertised by `tools/list`
 /// documents the three optional provenance parameters on BOTH `memory_put`
 /// and the `memory_put_batch` items — the schema and `parse_memory_input` /

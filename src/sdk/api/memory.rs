@@ -386,7 +386,12 @@ impl Embedded {
                         reason: "derived score is computed from parents; declared scores are not allowed on derived records".into(),
                     });
                 }
-                self.validate_derivation_chain(&input.namespace, &input.key, &parents)?;
+                self.validate_derivation_chain(
+                    &input.namespace,
+                    &input.key,
+                    &parents,
+                    batch_seen,
+                )?;
 
                 let mut min_parent = f32::INFINITY;
                 for parent_key in &parents {
@@ -401,7 +406,7 @@ impl Embedded {
                         Error::Validation {
                             field: "derived_from".into(),
                             reason: format!(
-                                "parent '{parent_key}' not found in namespace '{}'                                  (or earlier in this batch)",
+                                "parent '{parent_key}' not found in namespace '{}' (or earlier in this batch)",
                                 input.namespace
                             ),
                         }
@@ -415,13 +420,16 @@ impl Embedded {
     }
 
     /// V3 (ADR-046 §D4): reject derivation cycles (including self-reference)
-    /// and chains deeper than [`MAX_DERIVATION_DEPTH`]. Walks existing
-    /// ancestors only — direct parent existence is enforced by the caller.
+    /// and chains deeper than [`MAX_DERIVATION_DEPTH`]. Ancestors resolve
+    /// against `batch_seen` ∪ store — without `batch_seen` the batch path
+    /// would walk committed records only, letting a single batch commit
+    /// cycles (`A→B ∧ B→A` via upsert) or chains deeper than the bound.
     fn validate_derivation_chain(
         &self,
         namespace: &str,
         key: &str,
         parents: &[String],
+        batch_seen: Option<&HashMap<u128, (u64, QuarantineState, MemoryRecord)>>,
     ) -> Result<()> {
         let mut visited: HashSet<String> = HashSet::new();
         let mut frontier: Vec<(String, usize)> =
@@ -444,7 +452,13 @@ impl Embedded {
             if !visited.insert(parent_key.clone()) {
                 continue;
             }
-            if let Some(parent) = self.get(namespace, &parent_key)? {
+            let parent = match batch_seen
+                .and_then(|seen| seen.get(&memory_node_id(namespace, &parent_key)))
+            {
+                Some((_, _, record)) => Some(record.clone()),
+                None => self.get(namespace, &parent_key)?,
+            };
+            if let Some(parent) = parent {
                 for grandparent in parent.derived_from {
                     frontier.push((grandparent, depth + 1));
                 }
