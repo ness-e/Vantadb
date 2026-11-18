@@ -33,7 +33,8 @@ use crate::core::persona::{
 };
 use crate::core::prompts::l1_extraction::{epoch_ms_to_rfc3339, PromptMode};
 use crate::core::record::{
-    apply_dedup_batch, extract_dedup_batch, extract_l1_segments, read_session_records,
+    apply_dedup_batch, extract_dedup_batch, extract_l1_segments, read_active_session_records,
+    read_session_records,
     run_l1_dedup, L1DedupConfig, L1ExtractorConfig,
 };
 use crate::core::scene::{extract_scenes_with_llm, list_scenes, SceneMemoryInput};
@@ -638,7 +639,9 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
     }
 
     fn run_l2_inner(&mut self, session_id: &str) -> Result<(), String> {
-        let records = read_session_records(&self.db, session_id)
+        // FIND-277: scene extraction feeds L2 scenes that surface in prompts —
+        // superseded facts are lineage, not summary material; read actives only.
+        let records = read_active_session_records(&self.db, session_id)
             .map_err(|e| format!("L1 record read failed: {e}"))?;
         if records.is_empty() {
             return Ok(());

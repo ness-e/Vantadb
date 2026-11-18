@@ -64,7 +64,8 @@ pub use l1_dedup::{
 };
 pub use l1_extractor::{extract_l1_memories, extract_l1_segments, L1ExtractorConfig};
 pub use l1_reader::{
-    diff_records, l1_namespace, read_record, read_record_version, read_record_versions,
+    diff_records, is_active_record, l1_namespace, read_active_namespace_records,
+    read_active_session_records, read_record, read_record_version, read_record_versions,
     read_session_records, recall_candidates, run_decay_pass, RecordFieldChange, RecordVersion,
 };
 pub use l1_writer::{apply_dedup_batch, generate_memory_id, write_memory, EmbedFn, L1Error};

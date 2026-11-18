@@ -36,9 +36,67 @@ pub fn read_session_records(
 /// Read all persisted L1 records from an explicit `l1/<session>` namespace
 /// (used by cross-session recall, MEM-40, where the namespace is already
 /// resolved — e.g. enumerated via `list_namespaces`).
+///
+/// **Raw reader:** returns every record, including superseded ones —
+/// write-side paths (dedup re-reads, consolidation, decay pass, GDPR
+/// cascade-forget) and audit surfaces need the full namespace content.
+/// Recall-facing callers must use [`read_active_namespace_records`] instead.
 pub fn read_namespace_records(
     db: &vantadb::sdk::Embedded,
     namespace: &str,
+) -> Result<Vec<MemoryRecord>, L1Error> {
+    read_namespace_records_impl(db, namespace, false)
+}
+
+/// Read all persisted L1 records of a session, **current records only**
+/// (FIND-277): the recall-facing variant of [`read_session_records`].
+/// Records carrying a non-blank `superseded_by` pointer (MEM-60/MEMG-01
+/// contradiction + dream consolidation lineage) or engine-invalidated
+/// (`superseded_by` on the node, `invalid_at_ms <= now`) are excluded — a
+/// superseded fact is audit history, not current memory, and must never
+/// reach model context. Same containment class as quarantine (SCH-05).
+pub fn read_active_session_records(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+) -> Result<Vec<MemoryRecord>, L1Error> {
+    read_active_namespace_records(db, &l1_namespace(session_key))
+}
+
+/// Active-records variant of [`read_namespace_records`] (FIND-277): the
+/// entry point every recall read path routes through
+/// (`perform_auto_recall`, cross-session `read_scoped_records`).
+///
+/// The filter runs at two levels because L1 supersession lives **inside the
+/// payload** (`mark_contradiction` re-persists the record, the engine never
+/// sees the pointer): `exclude_superseded` at the query level still drops
+/// engine-invalidated records (`invalid_at_ms <= now`, node-level
+/// `superseded_by`), and [`is_active_record`] then drops payload-level
+/// supersession after deserialization.
+pub fn read_active_namespace_records(
+    db: &vantadb::sdk::Embedded,
+    namespace: &str,
+) -> Result<Vec<MemoryRecord>, L1Error> {
+    read_namespace_records_impl(db, namespace, true)
+}
+
+/// Whether a decoded L1 record is still current (FIND-277): `superseded_by`
+/// unset or blank. A `Some("")`/whitespace-only pointer is corrupt data, not
+/// a supersession — the record stays active.
+pub fn is_active_record(record: &MemoryRecord) -> bool {
+    record
+        .superseded_by
+        .as_deref()
+        .is_none_or(|s| s.trim().is_empty())
+}
+
+/// Shared paged read behind [`read_namespace_records`] (raw) and
+/// [`read_active_namespace_records`] (current-only). `active_only` adds the
+/// engine-level `exclude_superseded` filter plus the post-deserialization
+/// [`is_active_record`] gate for payload-level supersession.
+fn read_namespace_records_impl(
+    db: &vantadb::sdk::Embedded,
+    namespace: &str,
+    active_only: bool,
 ) -> Result<Vec<MemoryRecord>, L1Error> {
     use vantadb::sdk::{MemoryListOptions, MemoryListPage};
 
@@ -54,6 +112,10 @@ pub fn read_namespace_records(
             // quarantined records. This is the single choke point for every
             // recall read path (`perform_auto_recall`, `context_assemble`).
             include_quarantined: false,
+            // FIND-277: active reads also drop engine-invalidated records
+            // (node `superseded_by` + `invalid_at_ms <= now`, ADR-046 §D3-6).
+            // Payload-level supersession is filtered below after decoding.
+            exclude_superseded: active_only,
             ..Default::default()
         };
         let page: MemoryListPage = db.list(namespace, options)?;
@@ -61,11 +123,16 @@ pub fn read_namespace_records(
             match serde_json::from_str::<MemoryRecord>(&record.payload) {
                 Ok(mut mem) => {
                     mem.vector = usable_vector_filter(record.vector.as_deref());
-                    records.push(mem);
+                    if !active_only || is_active_record(&mem) {
+                        records.push(mem);
+                    }
                 }
                 Err(_) => {
                     // Fallback: construct MemoryRecord from raw SDK record (e.g. ADRs or documents)
-                    records.push(sdk_to_memory_record(record));
+                    let mem = sdk_to_memory_record(record);
+                    if !active_only || is_active_record(&mem) {
+                        records.push(mem);
+                    }
                 }
             }
         }

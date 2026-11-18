@@ -729,3 +729,179 @@ fn quarantined_l1_records_are_never_recalled() {
         "quarantined record must not appear in recalled_memories"
     );
 }
+
+// ── FIND-277: supersession gate on every recall read path ───────────────
+//
+// A record carrying a non-blank `superseded_by` pointer was invalidated by a
+// newer fact (MEM-60 / MEMG-01 dream consolidation + contradiction marking):
+// it is audit lineage, not current memory, and must never reach model
+// context — same containment class as quarantine (SCH-05). Write-side and
+// audit paths keep reading it through the raw readers.
+
+/// Superseded variant of [`record`]: same session, invalidated by `new_key`.
+fn superseded_record(id: &str, content: &str, new_key: &str) -> MemoryRecord {
+    MemoryRecord {
+        superseded_by: Some(new_key.into()),
+        ..record(id, content)
+    }
+}
+
+#[test]
+fn superseded_l1_records_are_never_recalled() {
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+    // Higher keyword overlap than the active record — if the supersession
+    // gate were missing it would outrank m1 and reach the prompt.
+    put_l1(
+        &db,
+        &superseded_record("m2", "user prefers dark mode obsolete fact", "m3"),
+    );
+
+    let out = perform_auto_recall(
+        &db,
+        AutoRecallParams {
+            user_text: "what does the user prefer about dark mode?",
+            session_key: "sess-1",
+            isolation: Some(ProfileIsolation::default()),
+            config: RecallConfig::default(),
+        },
+        None,
+    )
+    .expect("recall")
+    .expect("the active record must still be recalled");
+
+    let injected = out.prepend_context.as_deref().unwrap_or_default();
+    assert!(
+        injected.contains("dark mode"),
+        "active record must be recalled: {injected}"
+    );
+    assert!(
+        !injected.contains("obsolete fact"),
+        "superseded record must never reach the prompt: {injected}"
+    );
+    assert!(
+        out.recalled_memories.iter().all(|m| m.source_key != "m2"),
+        "superseded record must not appear in recalled_memories"
+    );
+}
+
+#[test]
+fn superseded_records_are_hidden_cross_session_under_agent_scope() {
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+    // Same agent, other session — would be visible under Agent scope if it
+    // were not superseded (FIND-277 covers `read_scoped_records` too).
+    let stale = MemoryRecord {
+        superseded_by: Some("m3".into()),
+        ..scoped_record(
+            "m2",
+            "agent one stores superseded vim config",
+            "sess-2",
+            None,
+            Some("agent-1"),
+        )
+    };
+    put_l1(&db, &stale);
+
+    let out = recall_with_scope(
+        &db,
+        RecallScope::Agent,
+        ProfileIsolation {
+            team_id: "team-a".into(),
+            agent_id: "agent-1".into(),
+        },
+    )
+    .expect("own-session content");
+
+    let injected = out.prepend_context.as_deref().unwrap_or_default();
+    assert!(injected.contains("dark mode"));
+    assert!(
+        !injected.contains("vim config"),
+        "superseded cross-session record leaked: {injected}"
+    );
+}
+
+#[test]
+fn superseded_records_are_hidden_on_the_core_search_route() {
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+    put_l1(
+        &db,
+        &superseded_record("m2", "user prefers dark mode obsolete fact", "m3"),
+    );
+
+    let out = perform_auto_recall(
+        &db,
+        AutoRecallParams {
+            user_text: "what does the user prefer about dark mode?",
+            session_key: "sess-1",
+            isolation: Some(ProfileIsolation::default()),
+            // MEMG-11 opt-in core hybrid path (BM25 + vector + RRF).
+            config: RecallConfig {
+                core_search: true,
+                ..RecallConfig::default()
+            },
+        },
+        None,
+    )
+    .expect("recall")
+    .expect("the active record must still be recalled");
+
+    let injected = out.prepend_context.as_deref().unwrap_or_default();
+    assert!(injected.contains("dark mode"));
+    assert!(
+        !injected.contains("obsolete fact"),
+        "superseded record reached the prompt via core_search: {injected}"
+    );
+}
+
+#[test]
+fn blank_superseded_pointer_counts_as_active() {
+    let db = db();
+    // `Some("")` / whitespace-only is a corrupt pointer, not a supersession
+    // (FIND-277 risk register): the record stays recallable.
+    let mut blank = record("m1", "user prefers dark mode");
+    blank.superseded_by = Some("   ".into());
+    put_l1(&db, &blank);
+
+    let out = perform_auto_recall(
+        &db,
+        AutoRecallParams {
+            user_text: "what does the user prefer about dark mode?",
+            session_key: "sess-1",
+            isolation: Some(ProfileIsolation::default()),
+            config: RecallConfig::default(),
+        },
+        None,
+    )
+    .expect("recall")
+    .expect("record with blank superseded_by is still current");
+
+    assert!(out
+        .prepend_context
+        .as_deref()
+        .unwrap_or_default()
+        .contains("dark mode"));
+}
+
+#[test]
+fn raw_readers_still_return_superseded_for_writer_and_audit() {
+    use vanta_memory::core::record::l1_reader::{
+        read_active_session_records, read_session_records,
+    };
+
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+    put_l1(&db, &superseded_record("m2", "obsolete fact", "m3"));
+
+    // Recall-facing view: only the current record.
+    let active = read_active_session_records(&db, "sess-1").expect("active read");
+    assert_eq!(active.len(), 1);
+    assert_eq!(active[0].id, "m1");
+
+    // Raw view (dedup re-reads, decay pass, cascade-forget, audit): the
+    // superseded record is still there — never silently deleted.
+    let all = read_session_records(&db, "sess-1").expect("raw read");
+    assert_eq!(all.len(), 2);
+    assert!(all.iter().any(|r| r.id == "m2"));
+}

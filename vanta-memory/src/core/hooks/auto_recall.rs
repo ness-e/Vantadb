@@ -33,9 +33,9 @@ use crate::core::profile::profile_sync::{
     build_profile_isolation_scope, profile_namespace, read_scoped_persona, ProfileIsolation,
 };
 use crate::core::record::l1_reader::{
-    cosine_similarity, l1_namespace, overlap_score, read_namespace_records, read_session_records,
-    rrf_merge_scored, sdk_to_memory_record, significant_terms, usable_vector_filter,
-    MIN_COSINE_SIMILARITY,
+    cosine_similarity, is_active_record, l1_namespace, overlap_score,
+    read_active_namespace_records, read_active_session_records, rrf_merge_scored,
+    sdk_to_memory_record, significant_terms, usable_vector_filter, MIN_COSINE_SIMILARITY,
 };
 use crate::core::record::l1_writer::EmbedFn;
 use crate::core::record::scoring::{composite_rank, CompositeScoring};
@@ -472,7 +472,9 @@ fn perform_auto_recall_inner(
             let mut records = Vec::new();
             let current_ns = l1_namespace(params.session_key);
             if policy.allows(&current_ns) {
-                records = read_session_records(db, params.session_key)?;
+                // FIND-277: recall only reads current records — superseded
+                // facts are audit lineage, never prompt context.
+                records = read_active_session_records(db, params.session_key)?;
                 if !records.is_empty() {
                     governance.source(&current_ns);
                 }
@@ -492,7 +494,16 @@ fn perform_auto_recall_inner(
             // PI-2 / MGR-23: Also include ADRs and conventions from dedicated namespaces
             for adr_ns in ["adr", "conventions", "architecture"] {
                 if policy.allows(adr_ns) {
-                    if let Ok(page) = db.list(adr_ns, vantadb::sdk::MemoryListOptions::default()) {
+                    if let Ok(page) = db.list(
+                        adr_ns,
+                        // FIND-277: governance docs injected into context are
+                        // current-only too (`is_adr_superseded` still covers
+                        // metadata-level supersession signals downstream).
+                        vantadb::sdk::MemoryListOptions {
+                            exclude_superseded: true,
+                            ..Default::default()
+                        },
+                    ) {
                         for item in page.records {
                             let mem_rec = sdk_to_memory_record(item);
                             if !records.iter().any(|r| r.id == mem_rec.id) {
@@ -662,7 +673,8 @@ fn read_scoped_records(
             continue;
         }
         let mut contributed = false;
-        for record in read_namespace_records(db, &ns)? {
+        // FIND-277: cross-session recall also reads current records only.
+        for record in read_active_namespace_records(db, &ns)? {
             let visible = match scope {
                 RecallScope::Session => true,
                 RecallScope::Agent => {
@@ -745,6 +757,12 @@ fn search_records(
     let mut priority_adrs: Vec<&MemoryRecord> = Vec::new();
 
     for record in records {
+        // FIND-277: a superseded record never ranks — defense in depth that
+        // also covers pools fed outside the active readers (e.g. the ADR
+        // namespace `db.list` above or a caller-built record pool).
+        if !is_active_record(record) {
+            continue;
+        }
         // PI-2 / MGR-23: ADR and convention prioritization / superseded exclusion
         if is_adr_record(record) {
             if is_adr_superseded(record) {
@@ -1011,6 +1029,11 @@ fn search_records_core(
                 ..Default::default()
             }),
             include_quarantined: false,
+            // FIND-277: engine-invalidated records never rank (node
+            // `superseded_by` + `invalid_at_ms <= now`). Payload-level
+            // supersession — how L1 marks contradicted facts — is checked
+            // after deserialization below.
+            exclude_superseded: true,
             ..Default::default()
         };
         let hits = db.search(request)?;
@@ -1020,6 +1043,11 @@ fn search_records_core(
                 tracing::debug!(key = %hit.record.key, "l1 record failed to deserialize; skipped");
                 continue;
             };
+            // FIND-277: L1 supersession lives inside the payload — the engine
+            // never sees the pointer, so the decoded field gates here.
+            if !is_active_record(&record) {
+                continue;
+            }
             // Cross-session visibility (D22): own-session records are always
             // visible; other namespaces need the matching agent/team stamp.
             if ns != current_ns {
