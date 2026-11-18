@@ -6,6 +6,13 @@ use crate::storage::engine::StorageEngine;
 
 impl StorageEngine {
     /// Write a value to a specific backend partition.
+    ///
+    /// FIND-651: acquires `insert_lock` — this is the choke point for every
+    /// SDK-level backend write (label interner, text/sparse/derived indexes,
+    /// version history, skills, wiki, migrations), and none of them may mutate
+    /// the backend while `create_snapshot` holds the quiesce guard across its
+    /// mirror. MUST NOT be called while holding `insert_lock` (non-reentrant —
+    /// engine internals use `self.backend` directly inside their sections).
     pub fn put_to_partition(
         &self,
         partition: BackendPartition,
@@ -13,12 +20,18 @@ impl StorageEngine {
         value: &[u8],
     ) -> Result<()> {
         self.ensure_writable()?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in put_to_partition")?;
         self.backend.put(partition, key, value)
     }
 
     /// Execute a batch of write operations atomically against the backend.
+    ///
+    /// FIND-651: same `insert_lock` quiesce contract as
+    /// [`Self::put_to_partition`]. MUST NOT be called while holding
+    /// `insert_lock` (non-reentrant).
     pub(crate) fn write_backend_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
         self.ensure_writable()?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in write_backend_batch")?;
         self.backend.write_batch(ops)
     }
 

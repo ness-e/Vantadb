@@ -1162,11 +1162,14 @@ impl Embedded {
             && (!record.metadata.is_empty()
                 || existing.as_ref().is_some_and(|e| !e.metadata.is_empty()))
         {
-            let _ = crate::shred::ShreddedRowStore::put(
-                record.node_id,
-                &record.metadata,
-                &*engine.backend,
-            );
+            // FIND-651: route the write through `write_backend_batch`, which
+            // holds `insert_lock` — a direct `backend.put` could land in the
+            // LSM while `create_snapshot` mirrors it.
+            if let Some(op) =
+                crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
+            {
+                let _ = engine.write_backend_batch(vec![op]);
+            }
         }
 
         // Best-effort version-history snapshot (VS-CORE-07): 1 write extra,
@@ -1544,14 +1547,19 @@ impl Embedded {
             // ── Post-processing (shredding; derived/text/sparse indexes were
             // replaced per record right after the chunk insert) ──
             if engine.config.enable_json_shredding {
-                for record in &records {
-                    if !record.metadata.is_empty() {
-                        let _ = crate::shred::ShreddedRowStore::put(
-                            record.node_id,
-                            &record.metadata,
-                            &*engine.backend,
-                        );
-                    }
+                // FIND-651: batch the shred rows through `write_backend_batch`
+                // (single insert_lock acquisition + single atomic write)
+                // instead of per-record direct `backend.put`s that could land
+                // while `create_snapshot` mirrors the backend.
+                let shred_ops: Vec<crate::backend::BackendWriteOp> = records
+                    .iter()
+                    .filter(|record| !record.metadata.is_empty())
+                    .filter_map(|record| {
+                        crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
+                    })
+                    .collect();
+                if !shred_ops.is_empty() {
+                    let _ = engine.write_backend_batch(shred_ops);
                 }
             }
 

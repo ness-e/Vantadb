@@ -878,6 +878,10 @@ impl StorageEngine {
     ///   `rebuild_vector_index()` afterward. Good for large batches.
     /// - `InsertMode::Auto` (default) ΓÇö chooses between the two above
     ///   based on batch size vs `incremental_threshold` (default: 1000).
+    ///
+    /// MUST NOT be called while holding `insert_lock` (non-reentrant): the
+    /// rollback path acquires it with a blocking `lock()` and would deadlock
+    /// (or panic via `try_lock().expect` on wasm32).
     #[tracing::instrument(skip(self, nodes), level = "debug", err)]
     pub fn batch_insert_with_opts(
         &self,
@@ -911,9 +915,6 @@ impl StorageEngine {
             for chunk in nodes.chunks(BATCH_CHUNK_SIZE) {
                 let mut bufs = BatchStageBufs::with_capacity(chunk.len());
 
-                self.serialize_batch_nodes(chunk, now_ms, should_insert_hnsw, &mut bufs)?;
-                all_staged_offsets.extend_from_slice(&bufs.vstore_offsets);
-
                 let chunk_pre_existing: Vec<Option<Vec<u8>>> = if opts.skip_existing_check {
                     vec![None; chunk.len()]
                 } else {
@@ -931,6 +932,12 @@ impl StorageEngine {
                 {
                     let _guard =
                         self.acquire_insert_lock("acquire insert_lock in batch_insert chunk")?;
+                    // FIND-651: staging writes each node into the vstore mmap —
+                    // it must run inside the guard, not before it, so a
+                    // concurrent create_snapshot can't copy `vstore_L0.vanta`
+                    // mid-append while the batch's WAL/KV commit is pending.
+                    self.serialize_batch_nodes(chunk, now_ms, should_insert_hnsw, &mut bufs)?;
+                    all_staged_offsets.extend_from_slice(&bufs.vstore_offsets);
                     self.append_batch_wal(chunk, &opts)?;
                     let kv_ops = std::mem::take(&mut bufs.kv_ops);
                     self.write_batch_kv_or_tombstone(kv_ops, &bufs.vstore_offsets)?;
@@ -954,8 +961,18 @@ impl StorageEngine {
 
         if let Err(err) = execution_result {
             // ─── ROLLBACK COMPLETO ANTE FALLO ───
-            let _rollback_guard =
-                self.acquire_insert_lock("acquire insert_lock in batch_insert rollback");
+            // FIND-651: rollback writes vstore tombstones + backend entries, so
+            // it needs `insert_lock` like every other mutation. Block until it
+            // is free — the old code ignored the `Result` and raced on anyway
+            // after a timeout (the rollback must run regardless for in-memory
+            // consistency; waiting is strictly safer than proceeding unlocked).
+            #[cfg(not(target_arch = "wasm32"))]
+            let _rollback_guard = self.insert_lock.lock();
+            #[cfg(target_arch = "wasm32")]
+            let _rollback_guard = self
+                .insert_lock
+                .try_lock()
+                .expect("insert_lock held on single-threaded target");
             let hnsw = self.hnsw.load();
             let mut vstore_opt = self.vstore0().ok();
 

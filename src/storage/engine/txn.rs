@@ -280,13 +280,20 @@ impl StorageEngine {
     pub fn commit_transaction(&self, txn_id: u64) -> Result<()> {
         // 1. Verify and unregister, draining the buffer in one step.
         let Some(buffer) = self.txn.take(txn_id) else {
-            // Phase 1 fallback: if no buffering, just append Commit marker
+            // Phase 1 fallback: if no buffering, just append Commit marker.
+            // FIND-651: the append still mutates the WAL (and can auto-rotate a
+            // segment), so it must hold insert_lock like every other WAL write.
+            let _guard = self
+                .acquire_insert_lock("acquire insert_lock in commit_transaction (Commit marker)")?;
             self.wal_coordinator()
                 .append(&crate::wal::WalRecord::Commit(txn_id))?;
             return Ok(());
         };
 
         if buffer.is_empty() {
+            // FIND-651: same unlocked-append channel as the fallback above.
+            let _guard = self
+                .acquire_insert_lock("acquire insert_lock in commit_transaction (empty Commit)")?;
             self.wal_coordinator()
                 .append(&crate::wal::WalRecord::Commit(txn_id))?;
             return Ok(());
@@ -478,6 +485,11 @@ impl StorageEngine {
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn abort_transaction(&self, txn_id: u64) -> Result<()> {
         self.txn.discard(txn_id);
+        // FIND-651: the Abort marker mutates the WAL (and can auto-rotate a
+        // segment) — hold insert_lock so a concurrent `create_snapshot`
+        // mirrors a quiescent WAL.
+        let _guard =
+            self.acquire_insert_lock("acquire insert_lock in abort_transaction (Abort marker)")?;
         self.wal_coordinator()
             .append(&crate::wal::WalRecord::Abort(txn_id))?;
         Ok(())

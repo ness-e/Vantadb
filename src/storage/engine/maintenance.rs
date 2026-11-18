@@ -34,18 +34,26 @@ impl StorageEngine {
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn flush(&self) -> Result<()> {
         self.ensure_writable()?;
+        {
+            let _guard =
+                self.acquire_insert_lock("acquire insert_lock in flush (ERR-010 checkpoint)")?;
+            self.flush_locked()?;
+        }
+        // The checkpoint is durable before any new mutation can be counted —
+        // the epilogue runs lock-free so `run_quantization_maintenance` can
+        // acquire `insert_lock` itself (it is non-reentrant; holding the guard
+        // across it made every pending action stall `insert_lock_timeout_ms`
+        // and then no-op).
+        self.flush_epilogue();
+        Ok(())
+    }
 
-        // ERR-010: hold insert_lock across [drain → serialize → count → write].
-        // Every mutating path (insert/delete/batch) appends its WAL record and
-        // queues its HNSW mutation under the same guard, so while this critical
-        // section runs no record can be counted by total_record_count() whose
-        // mutation is not already drained into the index. The snapshot is the
-        // exact, quiescent set of WAL records <= checkpoint_seq: replay skips
-        // nothing it needs (no invisible records) and re-applies nothing it
-        // already has (no duplicates).
-        let _guard =
-            self.acquire_insert_lock("acquire insert_lock in flush (ERR-010 checkpoint)")?;
-
+    /// ERR-010 checkpoint critical section: drain → serialize → count → write.
+    ///
+    /// Caller MUST already hold `insert_lock` (`flush()`, `compact_wal()`, and
+    /// the `create_snapshot` quiesce acquire it first — the lock is
+    /// non-reentrant).
+    pub(crate) fn flush_locked(&self) -> Result<()> {
         // Drain pending HNSW mutations before checkpointing (lock already held).
         self.drain_hnsw_batch_locked()?;
         self.backend.flush()?;
@@ -88,9 +96,13 @@ impl StorageEngine {
             )?;
             self.backend.flush()?;
         }
-        // _guard drops here — the checkpoint is durable before any new
-        // mutation can be counted.
+        Ok(())
+    }
 
+    /// Lock-free flush epilogue: quantization auto-transition (PERF-09) and the
+    /// memory-breakdown metric. Runs AFTER the ERR-010 guard is released —
+    /// `run_quantization_maintenance` acquires `insert_lock` per action.
+    fn flush_epilogue(&self) {
         // PERF-09: Run quantization auto-transition during flush
         if let Ok(report) = self.run_quantization_maintenance() {
             if report.quantized > 0 || report.promoted > 0 {
@@ -120,7 +132,6 @@ impl StorageEngine {
             self.cache.volatile.read().len() as u64,
             0,
         );
-        Ok(())
     }
 
     /// Compact the WAL: flush all data, archive the current WAL file,
@@ -131,36 +142,63 @@ impl StorageEngine {
     /// fails, a warning is logged but `compact_wal` still returns `Ok(())`.
     /// This preserves the existing durability contract while adding the
     /// physical-erasure privacy guarantee on backends that support it (Fjall).
+    ///
+    /// # Availability (FIND-651)
+    ///
+    /// The whole pipeline — checkpoint, WAL rotation, and the backend
+    /// compaction — runs as ONE `insert_lock` critical section so
+    /// `create_snapshot` never mirrors a rotated/rewritten file set mid-step.
+    /// While it runs, concurrent writers that cannot enter the critical
+    /// section within `insert_lock_timeout_ms` fail with the typed,
+    /// retriable [`crate::error::Error::Timeout`]. On large datasets the
+    /// Fjall journal rewrite can hold writers off for longer than a plain
+    /// flush; callers should treat `compact_wal` as a maintenance window.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn compact_wal(&self) -> Result<()> {
-        self.flush()?;
+        self.ensure_writable()?;
+        {
+            // FIND-651: the whole [flush → rotate → backend compact → checkpoint
+            // reset] is ONE quiesce critical section. create_snapshot holds
+            // `insert_lock` across its data+backend mirror, so a compaction that
+            // ran after flush() released the guard could truncate the live WAL
+            // (`rotate_all`) or rewrite rotated archives (`redact_erased`)
+            // mid-copy — a torn segment in the snapshot. Holding the lock
+            // across the rotation closes that channel; lock order matches the
+            // append path (`insert_lock` → per-shard lock).
+            let _guard =
+                self.acquire_insert_lock("acquire insert_lock in compact_wal (FIND-651 quiesce)")?;
+            self.flush_locked()?;
 
-        if let Some(ref sharded) = self.wal {
-            sharded.rotate_all()?;
-        }
-
-        // FIND-343: Physical erasure — purge backend journal (best-effort).
-        // Fjall retains deleted KV bytes in its internal journal (`0.jnl`)
-        // until its own GC runs. We cannot force that GC, so we trigger an
-        // atomic keyspace rewrite via the `Compactable` role which produces a
-        // fresh journal containing only live data. A compaction failure does
-        // NOT abort compact_wal (privacy improvement, not a durability gate).
-        if let Some(compactable) = self.backend.as_compactable() {
-            match compactable.compact() {
-                Ok(true) => tracing::info!("compact_wal: backend compaction complete"),
-                Ok(false) => tracing::debug!("compact_wal: backend compaction skipped (no-op)"),
-                Err(e) => tracing::warn!(
-                    error = %e,
-                    "compact_wal: backend compaction failed (non-fatal)"
-                ),
+            if let Some(ref sharded) = self.wal {
+                sharded.rotate_all()?;
             }
+
+            // FIND-343: Physical erasure — purge backend journal (best-effort).
+            // Fjall retains deleted KV bytes in its internal journal (`0.jnl`)
+            // until its own GC runs. We cannot force that GC, so we trigger an
+            // atomic keyspace rewrite via the `Compactable` role which produces a
+            // fresh journal containing only live data. A compaction failure does
+            // NOT abort compact_wal (privacy improvement, not a durability gate).
+            if let Some(compactable) = self.backend.as_compactable() {
+                match compactable.compact() {
+                    Ok(true) => tracing::info!("compact_wal: backend compaction complete"),
+                    Ok(false) => tracing::debug!("compact_wal: backend compaction skipped (no-op)"),
+                    Err(e) => tracing::warn!(
+                        error = %e,
+                        "compact_wal: backend compaction failed (non-fatal)"
+                    ),
+                }
+            }
+
+            let zero: [u8; 8] = 0u64.to_le_bytes();
+            self.backend
+                .put(BackendPartition::InternalMetadata, b"checkpoint_seq", &zero)?;
+            self.backend.flush()?;
         }
 
-        let zero: [u8; 8] = 0u64.to_le_bytes();
-        self.backend
-            .put(BackendPartition::InternalMetadata, b"checkpoint_seq", &zero)?;
-        self.backend.flush()?;
-
+        // Preserve the previous `self.flush()` side effects (quantization
+        // maintenance + memory metric) — they run lock-free.
+        self.flush_epilogue();
         Ok(())
     }
 
@@ -198,7 +236,11 @@ impl StorageEngine {
     /// `MmapFull`→`Full` copy below is load-bearing: `consolidate_node_inner`
     /// releases the mmap pages right after this runs, so the entry must hold an
     /// owned vector before the release happens.
-    fn apply_index_entry_unlocked(&self, node: &UnifiedNode, storage_offset: u64) -> Result<()> {
+    pub(crate) fn apply_index_entry_unlocked(
+        &self,
+        node: &UnifiedNode,
+        storage_offset: u64,
+    ) -> Result<()> {
         if !storage_offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Ok(());
         }
@@ -995,8 +1037,18 @@ impl StorageEngine {
     ///
     /// Chain: L0(hot) -> L1(warm) -> L2(cold) -> L3(archive). L3 participates
     /// only when `LsmConfig::tier.archive` is enabled (see STORAGE-TIERS.md).
+    ///
+    /// FIND-651: the whole promotion pass (vstore writes → HNSW offset
+    /// updates → source truncate) runs under `insert_lock`. A concurrent
+    /// `create_snapshot` holds that lock across its mirror; an unlocked
+    /// promotion could move nodes between `vstore_L*.vanta` files (and
+    /// truncate the source) while the snapshot copied them — the captured
+    /// `vector_index.bin` offsets would then point into stale segments.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn compact_level(&self, level: u8) -> Result<LsmReport> {
+        self.ensure_writable()?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in compact_level")?;
+
         let started = Instant::now();
         let target_level = level + 1;
 

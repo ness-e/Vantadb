@@ -408,8 +408,11 @@ impl Embedded {
     ///
     /// Data and backend files are captured under `<data_dir>/snapshots/<name>`.
     /// RocksDB uses a native checkpoint before its files are copied.
-    /// A snapshot taken while other writers are active is not guaranteed to be
-    /// coherent across data and backend; quiesce writers first (FIND-651).
+    /// The capture holds the engine's write quiesce lock across the whole
+    /// mirror (FIND-651): concurrent writers block up to
+    /// `insert_lock_timeout_ms` and then fail with a retriable
+    /// [`crate::error::Error::Timeout`]; the snapshot always observes a file
+    /// set frozen at a commit boundary.
     pub fn create_snapshot(&self, name: &str) -> Result<crate::storage::FsSnapshot> {
         let engine = self.engine_handle()?;
         engine.create_snapshot(name)

@@ -126,6 +126,17 @@ impl StorageEngine {
     /// `insert_lock` (delete()'s or commit_transaction()'s ERR-010 critical
     /// section), so the HNSW removal must not re-acquire the non-reentrant lock.
     pub(crate) fn apply_delete_inner(&self, id: u128, policy: LockPolicy) -> Result<()> {
+        // FIND-651: the vstore tombstone below is a file mutation — when the
+        // caller does not already hold `insert_lock` (policy `Acquire`), take
+        // it BEFORE the tombstone so a concurrent `create_snapshot` never
+        // copies a segment while its headers are being flipped.
+        let _guard = match policy {
+            LockPolicy::Acquire => {
+                Some(self.acquire_insert_lock("acquire insert_lock in apply_delete")?)
+            }
+            LockPolicy::AssumeHeld => None,
+        };
+
         let packed = {
             let hnsw = self.hnsw.load();
             hnsw.storage_offset_of(id)
@@ -140,12 +151,7 @@ impl StorageEngine {
             }
         }
 
-        if matches!(policy, LockPolicy::Acquire) {
-            let _guard = self.acquire_insert_lock("acquire insert_lock in apply_delete")?;
-            self.remove_hnsw_entry(id);
-        } else {
-            self.remove_hnsw_entry(id);
-        }
+        self.remove_hnsw_entry(id);
 
         self.cache.volatile.write().remove(&id);
 
@@ -284,8 +290,12 @@ impl StorageEngine {
     }
 
     /// Permanently remove all traces of a node from all backend partitions.
+    ///
+    /// FIND-651: runs under `insert_lock` — the batch delete mutates the
+    /// backend LSM and must be excluded while `create_snapshot` mirrors it.
     pub fn purge_permanent(&self, id: u128) -> Result<()> {
         self.ensure_writable()?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in purge_permanent")?;
         let key = id.to_le_bytes();
         self.backend.write_batch(vec![
             BackendWriteOp::Delete {

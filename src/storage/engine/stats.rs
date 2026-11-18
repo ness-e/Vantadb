@@ -265,6 +265,17 @@ impl StorageEngine {
     /// behavior: only RocksDB compacts). A typed `Result<bool>` replaces
     /// the old silent no-op, and failures warn instead of vanishing.
     pub fn request_compaction(&self) {
+        // FIND-651: backend compaction rewrites LSM files — it must hold the
+        // quiesce guard so `create_snapshot` never mirrors a half-compacted
+        // backend. Best-effort contract preserved: contention skips the run
+        // with a warning instead of failing (this API returns `()`).
+        let _guard = match self.acquire_insert_lock("acquire insert_lock in request_compaction") {
+            Ok(guard) => guard,
+            Err(e) => {
+                tracing::warn!(error = %e, "Manual compaction skipped: engine busy");
+                return;
+            }
+        };
         let Some(compactable) = self.backend.as_compactable() else {
             tracing::info!(
                 "Maintenance requested manual disk compaction, but it was skipped. \

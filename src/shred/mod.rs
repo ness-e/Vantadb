@@ -159,21 +159,10 @@ impl ShreddedRowStore {
         format!("shred::{}", node_id).into_bytes()
     }
 
-    /// Serialise metadata fields to binary and store them in the backend.
-    ///
-    /// Fields whose type maps to `Null` are silently skipped.
-    /// If *all* fields are skipped the operation is a no-op.
-    ///
-    /// The binary format is:
-    /// ```text
-    /// [key_len:4 LE][key:key_len][type_tag:1][value_bytes]
-    /// ```
-    /// repeated for every field.
-    pub(crate) fn put(
-        node_id: u128,
-        fields: &BTreeMap<String, Value>,
-        backend: &dyn StorageBackend,
-    ) -> crate::error::Result<()> {
+    /// Serialise `fields` to the row-store binary format. `None` when every
+    /// field maps to `Null` (nothing to store — same no-op contract as
+    /// [`Self::put`]).
+    fn encode_fields(fields: &BTreeMap<String, Value>) -> Option<Vec<u8>> {
         let mut buf = Vec::new();
         for (key, value) in fields {
             let ty = infer_field_type(value);
@@ -197,13 +186,57 @@ impl ShreddedRowStore {
             buf.extend_from_slice(&value_bytes);
         }
         if buf.is_empty() {
-            return Ok(());
+            None
+        } else {
+            Some(buf)
         }
+    }
+
+    /// Serialise metadata fields to binary and store them in the backend.
+    ///
+    /// Fields whose type maps to `Null` are silently skipped.
+    /// If *all* fields are skipped the operation is a no-op.
+    ///
+    /// The binary format is:
+    /// ```text
+    /// [key_len:4 LE][key:key_len][type_tag:1][value_bytes]
+    /// ```
+    /// repeated for every field.
+    ///
+    /// NOTE (FIND-651): this writes `backend` directly, bypassing the engine's
+    /// `insert_lock` quiesce barrier — it is therefore **test-only**. Live
+    /// engine callers must route the write through [`Self::put_op`] +
+    /// `StorageEngine::write_backend_batch` (which holds the lock).
+    #[cfg(test)]
+    pub(crate) fn put(
+        node_id: u128,
+        fields: &BTreeMap<String, Value>,
+        backend: &dyn StorageBackend,
+    ) -> crate::error::Result<()> {
+        let Some(buf) = Self::encode_fields(fields) else {
+            return Ok(());
+        };
         backend.put(
             BackendPartition::InternalMetadata,
             &Self::store_key(node_id),
             &buf,
         )
+    }
+
+    /// Batch form of [`Self::put`]: the same backend put as a
+    /// `BackendWriteOp` so live-engine callers can route it through
+    /// `StorageEngine::write_backend_batch`, which acquires `insert_lock`
+    /// (FIND-651 — keeps the write out of a concurrent `create_snapshot`
+    /// mirror). `None` when there is nothing to store.
+    pub(crate) fn put_op(
+        node_id: u128,
+        fields: &BTreeMap<String, Value>,
+    ) -> Option<BackendWriteOp> {
+        Self::encode_fields(fields).map(|value| BackendWriteOp::Put {
+            partition: BackendPartition::InternalMetadata,
+            key: Self::store_key(node_id),
+            value,
+        })
     }
 
     /// Retrieve all shredded fields for the given node.

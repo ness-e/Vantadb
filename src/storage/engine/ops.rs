@@ -146,6 +146,10 @@ impl StorageEngine {
             return Ok(0);
         }
 
+        // FIND-651: physical deletes mutate the backend — run them under
+        // `insert_lock` so a concurrent `create_snapshot` cannot mirror the
+        // LSM mid-GC. The scan above stays lock-free (reads are safe to race).
+        let _guard = self.acquire_insert_lock("acquire insert_lock in gc_mvcc_versions")?;
         let len = keys.len() as u64;
         for key in &keys {
             backend.delete(BackendPartition::Default, key)?;
@@ -242,18 +246,26 @@ impl StorageEngine {
         Ok(())
     }
     /// Insert a node into a specific backend column family and update the HNSW index.
+    ///
+    /// FIND-651: the whole mutation (backend put → vstore append → index
+    /// entry) runs under `insert_lock` so a concurrent `create_snapshot`
+    /// cannot mirror a half-applied write. `apply_index_entry_unlocked`
+    /// replaces `refresh_index` here — the guard is already held and the
+    /// lock is non-reentrant.
     pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
         self.ensure_writable()?;
         let partition = crate::storage::ops::partition_from_cf_name(cf_name)?;
         let key = node.id.to_le_bytes();
         let val = postcard::to_allocvec(node).map_err(crate::error::Error::serialization)?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in insert_to_cf")?;
         self.backend.put(partition, &key, &val)?;
 
-        let mut vstore = self.vstore0()?;
-        let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
-        let storage_offset = crate::lsm::pack_offset(0, local_off);
-        drop(vstore); // release vstore guard before refresh_index (acquires insert_lock) — Regla 8 lock order
-        self.refresh_index(node, storage_offset)?;
+        let storage_offset = {
+            let mut vstore = self.vstore0()?;
+            let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
+            crate::lsm::pack_offset(0, local_off)
+        }; // vstore guard dropped before the index entry — Regla 8 lock order
+        self.apply_index_entry_unlocked(node, storage_offset)?;
         Ok(())
     }
 

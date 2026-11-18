@@ -15,6 +15,7 @@ mod init;
 mod maintenance;
 mod ops;
 mod scalar_index;
+mod snapshot_quiesce;
 mod stats;
 mod types;
 

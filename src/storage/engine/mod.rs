@@ -335,6 +335,18 @@ pub struct StorageEngine {
     pub hnsw: ArcSwap<Box<dyn IndexPort>>,
     /// Serializes insert/refresh operations to avoid bidirectional
     /// neighbor update races. Searches acquire hnsw.read() freely.
+    ///
+    /// FIND-651: this is also THE quiesce barrier — `create_snapshot` holds it
+    /// across its whole data+backend mirror, so every path that mutates a
+    /// mirrored file must run under it. Lock order (outermost → innermost):
+    /// `insert_lock` → {`pending_hnsw_batch`, `vector_store[i]` write,
+    /// WAL shard locks, backend-internal locks, `cache.volatile`,
+    /// scalar/edge index internals}. `label_intern` → `insert_lock`
+    /// (`intern_label` persists under `label_intern`; nothing acquires
+    /// `label_intern` while holding `insert_lock`). Leaf locks
+    /// (`cardinality_stats`, scalar/edge index, `volatile`) are sometimes
+    /// taken inside `insert_lock` sections but are never held while acquiring
+    /// `insert_lock` — that is the invariant that keeps the order acyclic.
     pub(crate) insert_lock: FairMutex<()>,
     /// Pending HNSW mutations awaiting batch flush under a single
     /// `insert_lock` acquisition (Rayon micro-batching, P1).
@@ -1292,6 +1304,48 @@ impl StorageEngine {
         })
     }
 
+    /// Acquire `insert_lock` for the `create_snapshot` mirror (FIND-651).
+    ///
+    /// Asymmetry vs [`Self::acquire_insert_lock`]: a WRITER that cannot get
+    /// the lock within `insert_lock_timeout_ms` fails with the typed,
+    /// retriable [`crate::error::Error::Timeout`]; the SNAPSHOT instead
+    /// out-waits transient contention — a writer must never be the reason a
+    /// backup fails. It retries through several timeout windows (bounded —
+    /// a genuinely stuck critical section still surfaces `Timeout` rather
+    /// than hanging the caller forever).
+    #[cfg(not(target_arch = "wasm32"))]
+    fn acquire_snapshot_quiesce(&self) -> Result<FairMutexGuard<'_, ()>> {
+        const ATTEMPTS: u32 = 5;
+        let mut last_err: Option<crate::error::Error> = None;
+        for attempt in 1..=ATTEMPTS {
+            match self
+                .acquire_insert_lock("acquire insert_lock in create_snapshot (FIND-651 quiesce)")
+            {
+                Ok(guard) => return Ok(guard),
+                Err(e) => {
+                    tracing::debug!(
+                        attempt,
+                        max_attempts = ATTEMPTS,
+                        error = %e,
+                        "snapshot quiesce: retrying after contention"
+                    );
+                    last_err = Some(e);
+                }
+            }
+        }
+        Err(last_err.unwrap_or_else(|| {
+            crate::error::Error::generic_error("snapshot quiesce: no attempt ran")
+        }))
+    }
+
+    /// wasm32: the engine is single-threaded, so `insert_lock` is either free
+    /// or held by this same thread — one `try_lock` decides both cases (the
+    /// retry loop above could never observe a release).
+    #[cfg(target_arch = "wasm32")]
+    fn acquire_snapshot_quiesce(&self) -> Result<FairMutexGuard<'_, ()>> {
+        self.acquire_insert_lock("acquire insert_lock in create_snapshot (FIND-651 quiesce)")
+    }
+
     /// Whether a transaction is currently active on this engine.
     ///
     /// WIRE-06: the group-commit ingestion path must fall back to the
@@ -1306,18 +1360,20 @@ impl StorageEngine {
 
     /// Create a filesystem snapshot of the live data directory and backend.
     ///
-    /// # Consistency (FIND-25)
+    /// # Consistency (FIND-25, FIND-651)
     ///
     /// Before imaging, the engine is flushed via [`Self::flush`]
     /// (insert_lock, HNSW drain, backend flush, vector-index save, ERR-010
-    /// pattern). The `insert_lock` covers the data and backend mirrors, but
-    /// not every writer. A snapshot taken while other writers are active is
-    /// not guaranteed to be coherent across data and backend; quiesce writers
-    /// first (FIND-651).
-    /// Without this, a snapshot taken during active writes could capture a
-    /// torn set — each individual file operation is atomic, but the *set* of
-    /// files is not (e.g. a newer `vector_index.bin` referencing offsets past
-    /// the end of an older-copied File segment).
+    /// pattern). The capture then holds `insert_lock` across the whole
+    /// data+backend mirror: every path that mutates a mirrored file (insert,
+    /// delete, batch staging, txn WAL markers, LSM promotion/compaction,
+    /// `compact_wal` rotation and privacy redaction, partition writes, MVCC
+    /// GC, manual backend compaction) runs under that same lock, so the
+    /// mirror observes a file set frozen at a commit boundary. A writer that
+    /// cannot enter the critical section within `insert_lock_timeout_ms`
+    /// fails with the typed, retriable [`crate::error::Error::Timeout`] —
+    /// the snapshot itself out-waits transient writer traffic and only fails
+    /// on I/O errors or a persistently stuck critical section.
     ///
     /// # Performance trade-off
     ///
@@ -1370,9 +1426,10 @@ impl StorageEngine {
     ///
     /// Opening the snapshot path directly gives a data-only view and writes
     /// Fjall files into the snapshot root. Restore through
-    /// [`Self::snapshot_restore`] for the captured backend. Snapshots taken
-    /// with active writers are not guaranteed coherent across data and backend;
-    /// quiesce writers first (FIND-651).
+    /// [`Self::snapshot_restore`] for the captured backend. The mirror runs
+    /// under the `insert_lock` quiesce barrier described on the Unix variant
+    /// (FIND-651) — concurrent writers block up to `insert_lock_timeout_ms`
+    /// and then fail with retriable [`crate::error::Error::Timeout`].
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         self.create_snapshot_inner(name)
@@ -1394,9 +1451,6 @@ impl StorageEngine {
     fn create_snapshot_inner(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         Self::validate_snapshot_name(name)?;
         let backend_kind = snapshot_backend_kind(self.config.backend_kind)?;
-        if !self.read_only {
-            self.flush()?;
-        }
 
         let snapshots = self.data_dir.join("snapshots");
         std::fs::create_dir_all(&snapshots)?;
@@ -1412,10 +1466,18 @@ impl StorageEngine {
                     "Simulated snapshot create I/O failure",
                 )))
             });
-            // WAL appends use `insert_lock`; callers must also quiesce
-            // writers outside that lock (FIND-651).
-            let _guard = self
-                .acquire_insert_lock("acquire insert_lock in create_snapshot (coherent mirror)")?;
+            // FIND-651: every mutation path that touches a mirrored file
+            // holds `insert_lock` (insert/delete/batch/txn WAL markers,
+            // batch staging, LSM compaction, WAL rotation/redaction,
+            // partition writes, MVCC GC, manual compaction). ONE quiesce
+            // guard covers the checkpoint flush AND the data+backend mirror:
+            // the file set is frozen at the drained commit boundary — no
+            // mid-write copy, no cross-file skew, no rotation mid-capture,
+            // and checkpoint_seq is simultaneous with the mirrored bytes.
+            let _guard = self.acquire_snapshot_quiesce()?;
+            if !self.read_only {
+                self.flush_locked()?;
+            }
             mirror_data_dir(&self.data_dir, &snap_data)?;
             let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
             match backend_kind {
