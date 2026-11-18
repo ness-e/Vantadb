@@ -4699,6 +4699,7 @@ impl core::marker::Unpin for vantadb::parser::WhereItem
 impl core::marker::UnsafeUnpin for vantadb::parser::WhereItem
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::parser::WhereItem
 impl core::panic::unwind_safe::UnwindSafe for vantadb::parser::WhereItem
+pub const vantadb::parser::grammar::MAX_SUBQUERY_DEPTH: usize
 pub fn vantadb::parser::grammar::autocomplete_prefix(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vantadb::parser::grammar::parse_query(&str) -> nom::internal::IResult<&str, vantadb::query::Query>
 pub fn vantadb::parser::grammar::parse_select(&str) -> nom::internal::IResult<&str, vantadb::query::SelectStatement>
@@ -4727,6 +4728,7 @@ pub const vantadb::parser::IQL_VERSION_MIN_AGGREGATION: u32
 pub const vantadb::parser::IQL_VERSION_MIN_AS_OF: u32
 pub const vantadb::parser::IQL_VERSION_MIN_PAGINATION: u32
 pub const vantadb::parser::IQL_VERSION_MIN_PROFILE: u32
+pub const vantadb::parser::MAX_SUBQUERY_DEPTH: usize
 pub fn vantadb::parser::autocomplete_prefix(&str) -> alloc::vec::Vec<alloc::string::String>
 pub const fn vantadb::parser::iql_supports(u32) -> bool
 pub fn vantadb::parser::parse_query(&str) -> nom::internal::IResult<&str, vantadb::query::Query>
@@ -4863,6 +4865,7 @@ impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::physical_plan::Physi
 pub struct vantadb::physical_plan::PhysicalSubqueryFilter<'a>
 impl<'a> vantadb::physical_plan::PhysicalSubqueryFilter<'a>
 pub fn vantadb::physical_plan::PhysicalSubqueryFilter<'a>::new(alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>, alloc::string::String, vantadb::query::RelOp) -> Self
+pub fn vantadb::physical_plan::PhysicalSubqueryFilter<'a>::with_scalar_field(self, core::option::Option<alloc::string::String>) -> Self
 impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalSubqueryFilter<'_>
 pub fn vantadb::physical_plan::PhysicalSubqueryFilter<'_>::close(&mut self) -> vantadb::error::Result<()>
 pub fn vantadb::physical_plan::PhysicalSubqueryFilter<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
@@ -7928,12 +7931,10 @@ impl core::panic::unwind_safe::UnwindSafe for vantadb::storage::FsSnapshot
 pub struct vantadb::storage::IndexReader
 impl vantadb::storage::IndexReader
 pub fn vantadb::storage::IndexReader::all_node_ids(&self) -> alloc::vec::Vec<u128>
-pub fn vantadb::storage::IndexReader::bulk_levels_seeded(&self, u64, usize) -> alloc::vec::Vec<usize>
 pub fn vantadb::storage::IndexReader::contains_node(&self, u128) -> bool
 pub fn vantadb::storage::IndexReader::distance_metric(&self) -> vantadb::DistanceMetric
 pub fn vantadb::storage::IndexReader::entry_point(&self) -> core::option::Option<u128>
 pub fn vantadb::storage::IndexReader::estimate_memory_bytes(&self) -> usize
-pub fn vantadb::storage::IndexReader::find_new_entry_point(&self) -> core::option::Option<u128>
 pub fn vantadb::storage::IndexReader::flat_threshold(&self) -> core::option::Option<usize>
 pub fn vantadb::storage::IndexReader::index_kind(&self) -> vantadb::index_port::IndexType
 pub fn vantadb::storage::IndexReader::inline_neighbors(&self, u128, usize) -> alloc::vec::Vec<u128>
@@ -7947,7 +7948,6 @@ pub fn vantadb::storage::IndexReader::mmap_resident_bytes(&self) -> core::option
 pub fn vantadb::storage::IndexReader::node_count(&self) -> usize
 pub fn vantadb::storage::IndexReader::node_layers(&self, u128) -> usize
 pub fn vantadb::storage::IndexReader::node_view(&self, u128) -> core::option::Option<(u64, vantadb::VectorRepresentations)>
-pub fn vantadb::storage::IndexReader::random_level(&self) -> usize
 pub fn vantadb::storage::IndexReader::scan_entries(&self) -> alloc::vec::Vec<(u128, u64, u32)>
 pub fn vantadb::storage::IndexReader::search(&self, &[f32], &vantadb::index::FilterBitset, usize, core::option::Option<&dyn vantadb::index_port::VectorStoreRef>, vantadb::DistanceMetric) -> alloc::vec::Vec<(u128, f32)>
 pub fn vantadb::storage::IndexReader::search_nearest(&self, &[f32], core::option::Option<&[u64]>, core::option::Option<(&[u8], f32)>, &vantadb::index::FilterBitset, usize, core::option::Option<&dyn vantadb::index_port::VectorStoreRef>) -> alloc::vec::Vec<(u128, f32)>

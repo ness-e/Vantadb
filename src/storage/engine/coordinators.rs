@@ -151,12 +151,6 @@ impl IndexReader {
         self.guard.entry_point()
     }
 
-    /// Mirrors [`IndexPort::find_new_entry_point`].
-    #[inline]
-    pub fn find_new_entry_point(&self) -> Option<u128> {
-        self.guard.find_new_entry_point()
-    }
-
     /// Mirrors [`IndexPort::max_layer`].
     #[inline]
     pub fn max_layer(&self) -> usize {
@@ -203,18 +197,6 @@ impl IndexReader {
     #[inline]
     pub fn estimate_memory_bytes(&self) -> usize {
         self.guard.estimate_memory_bytes()
-    }
-
-    /// Mirrors [`IndexPort::random_level`].
-    #[inline]
-    pub fn random_level(&self) -> usize {
-        self.guard.random_level()
-    }
-
-    /// Mirrors [`IndexPort::bulk_levels_seeded`].
-    #[inline]
-    pub fn bulk_levels_seeded(&self, seed: u64, n: usize) -> Vec<usize> {
-        self.guard.bulk_levels_seeded(seed, n)
     }
 
     /// Mirrors [`IndexPort::flat_threshold`].
@@ -264,7 +246,7 @@ impl IndexReader {
 /// the engine's lock-holding sections (FIND-651/FIND-655); exposing them
 /// would reopen the quiesce-barrier bypass.
 #[derive(Clone, Copy)]
-pub struct IndexCoordinator<'a> {
+pub(crate) struct IndexCoordinator<'a> {
     hnsw: &'a ArcSwap<Box<dyn IndexPort>>,
     pending_hnsw_batch: &'a Mutex<Vec<PendingHnswOp>>,
 }
@@ -377,7 +359,7 @@ impl<'a> IndexCoordinator<'a> {
 
 /// Service coordinator for multi-level vector store (`vstore_L*.vanta`) files and segment registry.
 #[derive(Clone, Copy)]
-pub struct VectorStoreService<'a> {
+pub(crate) struct VectorStoreService<'a> {
     vector_store: &'a [RwLock<File>],
     segment_registry: &'a SegmentRegistry,
 }
@@ -397,7 +379,7 @@ impl<'a> VectorStoreService<'a> {
 
     /// Number of active vector store segments.
     #[inline]
-    pub fn segment_count(&self) -> usize {
+    pub(crate) fn segment_count(&self) -> usize {
         self.vector_store.len()
     }
 
@@ -409,7 +391,7 @@ impl<'a> VectorStoreService<'a> {
 
     /// Acquire write guard on segment 0 (L0 hot tier).
     #[inline]
-    pub fn vstore0(&self) -> Result<RwLockWriteGuard<'_, File>> {
+    pub(crate) fn vstore0(&self) -> Result<RwLockWriteGuard<'_, File>> {
         self.vector_store.first().map(|v| v.write()).ok_or_else(|| {
             crate::error::Error::generic_error(
                 "corrupt storage: vector_store has no segment 0".to_string(),
@@ -418,12 +400,12 @@ impl<'a> VectorStoreService<'a> {
     }
 
     /// Write a node to L0 segment and return `(local_offset, packed_offset)`.
-    pub fn write_node_l0(&self, node: &UnifiedNode) -> Result<(u64, u64)> {
+    pub(crate) fn write_node_l0(&self, node: &UnifiedNode) -> Result<(u64, u64)> {
         Self::write_node_l0_slice(self.vector_store, node)
     }
 
     /// Static helper to write a node to L0 segment directly from a slice of files.
-    pub fn write_node_l0_slice(
+    pub(crate) fn write_node_l0_slice(
         vector_store: &[RwLock<File>],
         node: &UnifiedNode,
     ) -> Result<(u64, u64)> {
@@ -438,7 +420,7 @@ impl<'a> VectorStoreService<'a> {
     }
 
     /// Set or clear tombstone flag at the given packed offset.
-    pub fn set_tombstone_at_packed_offset(
+    pub(crate) fn set_tombstone_at_packed_offset(
         &self,
         packed_offset: u64,
         tombstoned: bool,
@@ -453,7 +435,7 @@ impl<'a> VectorStoreService<'a> {
     }
 
     /// Flush all vector store segments to disk.
-    pub fn flush_all_segments(&self) -> Result<()> {
+    pub(crate) fn flush_all_segments(&self) -> Result<()> {
         for vs in self.vector_store {
             vs.read().flush()?;
         }
@@ -463,7 +445,7 @@ impl<'a> VectorStoreService<'a> {
 
 /// Coordinator facade for the Sharded Write-Ahead Log.
 #[derive(Clone, Copy)]
-pub struct WalCoordinator<'a> {
+pub(crate) struct WalCoordinator<'a> {
     wal: Option<&'a Arc<ShardedWal>>,
 }
 
@@ -476,13 +458,13 @@ impl<'a> WalCoordinator<'a> {
 
     /// Whether WAL durability is enabled on this engine.
     #[inline]
-    pub fn is_enabled(&self) -> bool {
+    pub(crate) fn is_enabled(&self) -> bool {
         self.wal.is_some()
     }
 
     /// Append a single record to the WAL. No-op if WAL is disabled.
     #[inline]
-    pub fn append(&self, record: &WalRecord) -> Result<()> {
+    pub(crate) fn append(&self, record: &WalRecord) -> Result<()> {
         if let Some(wal) = self.wal {
             wal.append(record)?;
         }
@@ -491,7 +473,7 @@ impl<'a> WalCoordinator<'a> {
 
     /// Append a batch of records to the WAL. No-op if WAL is disabled.
     #[inline]
-    pub fn batch_append(&self, records: Vec<WalRecord>) -> Result<()> {
+    pub(crate) fn batch_append(&self, records: Vec<WalRecord>) -> Result<()> {
         if let Some(wal) = self.wal {
             wal.batch_append(records)?;
         }
@@ -500,13 +482,13 @@ impl<'a> WalCoordinator<'a> {
 
     /// Return total records written across all WAL shards.
     #[inline]
-    pub fn total_records_written(&self) -> u64 {
+    pub(crate) fn total_records_written(&self) -> u64 {
         self.wal.map(|w| w.total_record_count()).unwrap_or(0)
     }
 
     /// Flush (fsync) all WAL shards.
     #[inline]
-    pub fn flush_all(&self) -> Result<()> {
+    pub(crate) fn flush_all(&self) -> Result<()> {
         if let Some(wal) = self.wal {
             wal.flush_all()?;
         }
@@ -515,7 +497,7 @@ impl<'a> WalCoordinator<'a> {
 
     /// Rotate all WAL shards (archive current and reopen fresh).
     #[inline]
-    pub fn rotate_all(&self) -> Result<()> {
+    pub(crate) fn rotate_all(&self) -> Result<()> {
         if let Some(wal) = self.wal {
             wal.rotate_all()?;
         }

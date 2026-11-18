@@ -519,6 +519,8 @@ async fn drain_services_then_flush(
 ///
 /// Generous on purpose — the drain is where workers emit their final writes —
 /// but bounded so a hung worker can never stall the shutdown forever.
+/// The bound covers async hangs: a worker doing blocking CPU/IO inside `poll`
+/// without `spawn_blocking` can still pin a runtime thread past it.
 const SERVICE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Stop and join every background service, in registration order.
@@ -529,6 +531,8 @@ const SERVICE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(30);
 /// or the final storage flush that follows. On timeout the shutdown task is
 /// left running detached: the signal-first convention means the worker still
 /// stops on its own; we just stop waiting for it.
+/// The drain is serial — worst case is N × [`SERVICE_SHUTDOWN_TIMEOUT`] when
+/// every service hangs; revisit if the service fan-out grows.
 async fn shutdown_background_services(services: Vec<Box<dyn BackgroundService>>) {
     shutdown_background_services_bounded(services, SERVICE_SHUTDOWN_TIMEOUT).await;
 }

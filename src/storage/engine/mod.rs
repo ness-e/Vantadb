@@ -5,7 +5,7 @@
 //! drives node archival / recovery.
 
 mod cache;
-pub mod coordinators;
+pub(crate) mod coordinators;
 mod delete;
 // FIND-591: `pub(crate)` so `storage::archive` reaches the shared,
 // alignment-agnostic vector decoders (`decode_vector_by_kind` et al.).
@@ -18,10 +18,10 @@ mod partition;
 mod stats;
 mod txn;
 
-pub use self::coordinators::{IndexReader, VectorStoreService, WalCoordinator};
-// FIND-655: crate-internal facade (mutating methods bypass `insert_lock` by
+pub use self::coordinators::IndexReader;
+// FIND-655: crate-internal facades (mutating methods bypass `insert_lock` by
 // design) — not re-exported at the crate-public boundary.
-pub(crate) use self::coordinators::IndexCoordinator;
+pub(crate) use self::coordinators::{IndexCoordinator, VectorStoreService, WalCoordinator};
 
 #[cfg(test)]
 mod tests;
@@ -432,10 +432,7 @@ impl StorageEngine {
     /// (diagnostics, tests, benches). FIND-655: exposes only `read()` —
     /// `mmap_bytes_mut`/`write_header`/`grow_to` are unreachable outside
     /// the crate, closing the snapshot-mirror mutation bypass.
-    pub fn vector_store_read(
-        &self,
-        level: usize,
-    ) -> parking_lot::RwLockReadGuard<'_, File> {
+    pub fn vector_store_read(&self, level: usize) -> parking_lot::RwLockReadGuard<'_, File> {
         self.vector_store[level].read()
     }
 
