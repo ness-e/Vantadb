@@ -1046,7 +1046,7 @@ jobs:
       # `.config/nextest.toml` [profile.default] default-filter now excludes
       # the Heavy-tier binaries (certification/chaos/stress/bench) at binary
       # level — under `cargo test` they ran with a 10-20x TSan slowdown and
-      # ate the whole budget. The --skip list below keeps the remaining
+      # ate the whole budget. The -E filterset below keeps the remaining
       # timing-bound/CLI/network cases out; `exitcode=0` is gone on purpose:
       # a TSan report must fail the step for the lane to mean anything.
       - name: Test with ThreadSanitizer (partition ${{ matrix.partition }}/4)
@@ -1059,27 +1059,4 @@ jobs:
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
             --partition "hash:${{ matrix.partition }}/4" \
-            --skip test_benchmark_ \
-            --skip benchmark_internal \
-            --skip test_benchmark_internal_10k \
-            --skip sift1m_competitive_benchmark \
-            --skip hardware_certification_full \
-            --skip hnsw_hard_validation_certification \
-            --skip hnsw_core_logic_certification \
-            --skip recall_certification_runner \
-            --skip stress_protocol_certification \
-            --skip glove_dimension_scale \
-            --skip validate_sift_dataset_integrity \
-            --skip test_glove100_hnsw_basic \
-            --skip hnsw_recall_snapshot_baseline \
-            --skip hnsw_recall_snapshot_deterministic_across_scales \
-            --skip test_hybrid_ranking_metrics \
-            --skip deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths \
-            --skip extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace \
-            --skip concurrent_multi_namespace_stress \
-            --skip memory_volume_kpi_10k \
-            --skip test_triple_backend_parity_validation \
-            --skip zero_dim_vector_search_empty \
-            --skip ttl_http_ \
-            --skip embedded_readonly \
-            --skip cli_tests
+            -E 'not (test(test_benchmark_) or test(benchmark_internal) or test(test_benchmark_internal_10k) or test(sift1m_competitive_benchmark) or test(hardware_certification_full) or test(hnsw_hard_validation_certification) or test(hnsw_core_logic_certification) or test(recall_certification_runner) or test(stress_protocol_certification) or test(glove_dimension_scale) or test(validate_sift_dataset_integrity) or test(test_glove100_hnsw_basic) or test(hnsw_recall_snapshot_baseline) or test(hnsw_recall_snapshot_deterministic_across_scales) or test(test_hybrid_ranking_metrics) or test(deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths) or test(extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace) or test(concurrent_multi_namespace_stress) or test(memory_volume_kpi_10k) or test(test_triple_backend_parity_validation) or test(zero_dim_vector_search_empty) or test(ttl_http_) or test(embedded_readonly) or test(cli_tests))'
