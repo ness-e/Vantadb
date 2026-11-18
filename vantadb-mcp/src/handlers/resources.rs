@@ -79,7 +79,7 @@ VantaDB organizes agent cognition into four hierarchical layers with determinist
   3. Promote validated insights into permanent axioms via `vanta_dream(action: "promote")`.
 
 ### Tool Access and Surface Profiles
-- **Brain Profile (`VANTADB_MCP_PROFILE=brain`)**: Advertises exactly 15 compact cognitive tools (`memory_recall`, `memory_search`, `memory_put`, `memory_get`, `memory_forget`, `memory_supersede`, `memory_dream`, `context_assemble`, `thread_send`, `vanta_scene`, `vanta_dream`, `vanta_graph`, `vanta_dispatch`, `bugfix_record`, `bugfix_query`) in `tools/list` while allowing execution of any known tool directly or via `vanta_dispatch` (query `tools/list` for the active profile surface).
+- **Brain Profile (`VANTADB_MCP_PROFILE=brain`)**: Advertises exactly 16 compact cognitive tools (`memory_recall`, `memory_search`, `memory_put`, `memory_get`, `memory_forget`, `memory_supersede`, `memory_dream`, `query_iql`, `context_assemble`, `thread_send`, `vanta_scene`, `vanta_dream`, `vanta_graph`, `vanta_dispatch`, `bugfix_record`, `bugfix_query`) in `tools/list` while allowing execution of any known tool directly or via `vanta_dispatch` (query `tools/list` for the active profile surface).
 - **Universal Dispatch**: Any specialized tool (e.g. `code_explore`, `wiki_read`, `snapshot_create`) can be executed via `vanta_dispatch(tool: "<name>", arguments: {...})`.
 "#;
 

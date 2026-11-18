@@ -7,8 +7,8 @@ use vantadb::storage::StorageEngine;
 /// which names `tools/call` may dispatch (WIRE-02 enforces both symmetrically).
 ///
 /// Profiles are selected via the `VANTADB_MCP_PROFILE` environment variable:
-/// - `brain` (15 tools): Compact cognitive lifecycle surface (L0-L3) + meta-tools + bugfix; dispatches all 90 tools.
-/// - `agent` (39 tools, default): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
+/// - `brain` (16 tools, default): Compact cognitive lifecycle surface (L0-L3) + `query_iql` + meta-tools + bugfix; dispatches all 90 tools.
+/// - `agent` (39 tools): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
 /// - `full` (84 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
 /// - `dev` (38 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
 /// - `memory` (22 tools): Core memory CRUD + search + list only. For memory-only agents.
@@ -21,11 +21,11 @@ use vantadb::storage::StorageEngine;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum McpProfile {
     /// Agent profile (39 tools) — memory + threads + scenes + context + wiki-read.
-    /// Default since WIRE-02 (previously `full`); opt back into the whole
+    /// Previous default since WIRE-02 (replaced by `brain`); opt back into the whole
     /// surface with `VANTADB_MCP_PROFILE=full`.
     Agent,
-    /// Brain profile (15 listed tools) — compact cognitive surface (L0-L3 + meta-tools + bugfix).
-    /// Lists 15 tools while allowing execution of all 90 tools.
+    /// Brain profile (16 listed tools) — compact cognitive surface (L0-L3 + `query_iql` + meta-tools + bugfix).
+    /// Lists 16 tools while allowing execution of all 90 tools.
     #[default]
     Brain,
     /// Full profile (84 listed tools) — all listed base + extended families.
@@ -101,7 +101,7 @@ pub struct McpConfig {
     pub max_skill_resource_bytes: usize,
     /// Max total bytes for a skill — content plus all resource files (default: 50 MB).
     pub max_skill_total_bytes: usize,
-    /// Tool surface profile (default: Agent, WIRE-02). Set via VANTADB_MCP_PROFILE env var.
+    /// Tool surface profile (default: Brain). Set via VANTADB_MCP_PROFILE env var.
     pub profile: McpProfile,
     /// Max tokens per embed_texts call (heuristic len/4, default 25k). Tunable to force truncation in tests.
     pub max_embed_tokens: usize,

@@ -215,8 +215,12 @@ fn test_mcp_resources_read_operating_manual() {
     assert_eq!(val["contents"][0]["mimeType"], "text/markdown");
     let text = val["contents"][0]["text"].as_str().unwrap();
     assert!(
-        text.contains("15 compact cognitive tools"),
-        "manual must reference 15 compact cognitive tools"
+        text.contains("16 compact cognitive tools"),
+        "manual must reference 16 compact cognitive tools"
+    );
+    assert!(
+        text.contains("query_iql"),
+        "manual must reference query_iql"
     );
     assert!(
         text.contains("bugfix_record"),
@@ -5424,7 +5428,7 @@ fn test_mcp_tool_profiles() {
         full_tools.len()
     );
 
-    // Brain profile — 15 tools (compact cognitive surface: L0-L3 + meta-tools + bugfix).
+    // Brain profile — 16 tools (compact cognitive surface: L0-L3 + query_iql + meta-tools + bugfix).
     let brain_config = McpConfig {
         profile: McpProfile::Brain,
         ..McpConfig::default()
@@ -5433,9 +5437,13 @@ fn test_mcp_tool_profiles() {
     let brain_tools = brain_res["tools"].as_array().unwrap();
     assert_eq!(
         brain_tools.len(),
-        15,
-        "Brain profile should list 15 tools, got {}",
+        16,
+        "Brain profile should list 16 tools, got {}",
         brain_tools.len()
+    );
+    assert!(
+        brain_tools.iter().any(|t| t["name"] == "query_iql"),
+        "Brain profile must include query_iql"
     );
 
     // WIRE-02: `agent` is the default profile — 39 tools (22 memory + 6

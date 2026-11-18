@@ -1258,7 +1258,7 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
     use McpProfile::*;
     let mut set = std::collections::HashSet::new();
 
-    // Brain profile (15 listed tools): Compact cognitive surface L0-L3 + meta-tools + bugfix
+    // Brain profile (16 listed tools): Compact cognitive surface L0-L3 + query_iql + meta-tools + bugfix
     if profile == Brain {
         let brain_tools = [
             "memory_recall",
@@ -1268,6 +1268,7 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
             "memory_forget",
             "memory_supersede",
             "memory_dream",
+            "query_iql",
             "context_assemble",
             "thread_send",
             "vanta_scene",
@@ -1525,7 +1526,7 @@ fn absorbed_canonical(name: &str) -> Option<&'static str> {
 
 /// WIRE-02: `tools/call` gate — a listed tool passes; an absorbed name passes
 /// when its canonical tool is listed in the profile.
-/// When profile is `Brain`, allows calling any known tool directly (only lists 15 in tools/list).
+/// When profile is `Brain`, allows calling any known tool directly (only lists 16 in tools/list).
 fn profile_allows_call(profile: McpProfile, name: &str) -> bool {
     if profile == McpProfile::Brain {
         return tool_is_known(name);
@@ -5230,8 +5231,8 @@ mod tests {
         let brain_set = profile_allowed_tools(McpProfile::Brain);
         assert_eq!(
             brain_set.len(),
-            15,
-            "Brain profile must have exactly 15 tools"
+            16,
+            "Brain profile must have exactly 16 tools"
         );
         for expected in [
             "memory_recall",
@@ -5241,6 +5242,7 @@ mod tests {
             "memory_forget",
             "memory_supersede",
             "memory_dream",
+            "query_iql",
             "context_assemble",
             "thread_send",
             "vanta_scene",

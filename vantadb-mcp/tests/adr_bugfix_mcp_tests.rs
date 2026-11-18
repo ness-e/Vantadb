@@ -184,8 +184,8 @@ fn test_bugfix_mcp_tools_list_exposure() {
     let brain_tools = brain_res["tools"].as_array().unwrap();
     assert_eq!(
         brain_tools.len(),
-        15,
-        "Brain profile must list exactly 15 tools"
+        16,
+        "Brain profile must list exactly 16 tools"
     );
 
     let record_tool = brain_tools
