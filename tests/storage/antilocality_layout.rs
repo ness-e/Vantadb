@@ -68,7 +68,7 @@ fn antilocality_layout_certification() {
         assert_eq!(compacted_count, 200, "Should compact exactly 200 nodes");
 
         TerminalReporter::sub_step("Validating index structural consistency...");
-        let hnsw = engine.hnsw.load();
+        let hnsw = engine.vec_index();
         assert!(
             hnsw.validate_index().is_ok(),
             "HNSW graph validation failed post-compaction"
@@ -145,7 +145,7 @@ fn antilocality_layout_certification() {
 
         let mut pre_results = Vec::new();
         {
-            let hnsw = engine.hnsw.load();
+            let hnsw = engine.vec_index();
             let vs = engine.vector_store[0].read();
             for query in &queries {
                 let hits = hnsw.search_nearest(
@@ -166,7 +166,7 @@ fn antilocality_layout_certification() {
 
         let mut post_results = Vec::new();
         {
-            let hnsw = engine.hnsw.load();
+            let hnsw = engine.vec_index();
             let vs = engine.vector_store[0].read();
             for query in &queries {
                 let hits = hnsw.search_nearest(
@@ -217,7 +217,7 @@ fn antilocality_layout_certification() {
             "Empty database compaction should do nothing and return 0"
         );
 
-        let hnsw = engine.hnsw.load();
+        let hnsw = engine.vec_index();
         assert!(
             hnsw.validate_index().is_ok(),
             "Empty index structure should be valid"

@@ -44,7 +44,7 @@
 //!
 //! 1. `insert` — `n` nodes with a 100d GloVe vector into a real engine
 //!    (Fjall backend + WAL + vstore, on a tempdir).
-//! 2. `search` — 1000 queries through `engine.hnsw` **plus the vstore** (the
+//! 2. `search` — 1000 queries through `engine.vec_index()` **plus the vstore** (the
 //!    engine reads the candidate vectors from the store: a zero-copy mmap
 //!    read in plaintext mode, a GCM decrypt per node in encrypted mode).
 //! 3. `flush` — `engine.flush()`: the **whole** HNSW image is rewritten (one
@@ -252,7 +252,7 @@ fn measure_search(
     engine: &StorageEngine,
     queries: &[Vec<f32>],
 ) -> (Duration, Duration, Duration, usize) {
-    let hnsw = engine.hnsw.load();
+    let hnsw = engine.vec_index();
     let vs = engine.vector_store[0].read();
     let mut latencies: Vec<Duration> = Vec::with_capacity(queries.len());
     let mut hits = 0usize;
@@ -494,7 +494,7 @@ fn bench_encrypted_p99(c: &mut Criterion) {
     group.sample_size(10);
     group.bench_function("search_1000_queries_glove100d", |b| {
         b.iter(|| {
-            let hnsw = engine.hnsw.load();
+            let hnsw = engine.vec_index();
             let vs = engine.vector_store[0].read();
             for query in &queries {
                 std::hint::black_box(hnsw.search_nearest(

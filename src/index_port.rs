@@ -4,8 +4,13 @@
 //! + `crate::error` only — same profile as `search_profile.rs`). The leaf names NO
 //!   concrete `storage`/`index` type, so `storage → index_port ← index` edges cannot cycle.
 //!
-//! `pub` (not `pub(crate)`) is load-bearing: benchmarks call `dyn IndexPort` methods
-//! through `storage.hnsw`, and external targets cannot name `pub(crate)` traits.
+//! `pub` (not `pub(crate)`) is load-bearing: `dyn IndexPort` still appears in
+//! `pub` signatures (`storage::archive::{traverse_graph, reindex_nodes, …}`)
+//! and external targets cannot name `pub(crate)` traits. Note (FIND-655) that
+//! `pub` visibility of the trait does NOT hand out the live index anymore:
+//! `StorageEngine::hnsw` is `pub(crate)` and `vec_index()` returns the
+//! read-only `IndexReader` facade, so external code cannot obtain a `dyn
+//! IndexPort` that points at the engine's index.
 //! New surface is additive; breaking `pub` signature changes are covered by ADR-042.
 //! Plain-data index types (`IndexType`, `FreshHnswReport`) live here so both sides
 //! name the leaf instead of each other (re-exported at their old paths for compat).

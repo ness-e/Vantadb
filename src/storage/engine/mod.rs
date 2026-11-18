@@ -18,7 +18,10 @@ mod partition;
 mod stats;
 mod txn;
 
-pub use self::coordinators::{IndexCoordinator, VectorStoreService, WalCoordinator};
+pub use self::coordinators::{IndexReader, VectorStoreService, WalCoordinator};
+// FIND-655: crate-internal facade (mutating methods bypass `insert_lock` by
+// design) — not re-exported at the crate-public boundary.
+pub(crate) use self::coordinators::IndexCoordinator;
 
 #[cfg(test)]
 mod tests;
@@ -332,7 +335,17 @@ pub struct StorageEngine {
     pub read_only: bool,
     /// Thread-safe HNSW index behind the cycle-breaking handle (F3X: ADR-042).
     /// Boxed because `Arc` requires `Sized` for arc-swap's `RefCnt`.
-    pub hnsw: ArcSwap<Box<dyn IndexPort>>,
+    ///
+    /// FIND-655: `pub(crate)`, not `pub` — a public field let any downstream
+    /// crate `load()` the live `dyn IndexPort` and call graph mutators
+    /// (`add_node`/`remove_node`/`set_entry_point`/`repair_orphan_links`)
+    /// without `insert_lock`, mutating the index while `create_snapshot`
+    /// mirrors `vector_index.bin` (the FIND-651 quiesce barrier). External
+    /// readers go through [`Self::vec_index`], which returns the read-only
+    /// [`IndexReader`] facade; every mutating path stays behind engine
+    /// wrappers (`insert`/`delete`/`vacuum`/`fresh_hnsw`) that hold
+    /// `insert_lock`.
+    pub(crate) hnsw: ArcSwap<Box<dyn IndexPort>>,
     /// Serializes insert/refresh operations to avoid bidirectional
     /// neighbor update races. Searches acquire hnsw.read() freely.
     ///
@@ -402,7 +415,11 @@ pub struct StorageEngine {
 
 impl StorageEngine {
     /// Return the IndexCoordinator facade for HNSW index and pending batch operations.
-    pub fn index_coordinator(&self) -> IndexCoordinator<'_> {
+    ///
+    /// FIND-655: `pub(crate)` — the coordinator exposes mutating methods
+    /// (`add_node`/`remove_node`/`set_entry_point`/`load_index`) that bypass
+    /// `insert_lock` by design; callers run inside engine lock sections.
+    pub(crate) fn index_coordinator(&self) -> IndexCoordinator<'_> {
         IndexCoordinator::new(&self.hnsw, &self.pending_hnsw_batch)
     }
 
@@ -485,13 +502,17 @@ impl StorageEngine {
 // ─── VecIndex accessor ─────────────────────────────────────
 
 impl StorageEngine {
-    /// Return a handle to the vector index behind the cycle-breaking port.
+    /// Return a read-only view of the live vector index (FIND-655).
     ///
-    /// The returned [`arc_swap::Guard`] auto-derefs to `dyn IndexPort`, which
-    /// exposes the search/maintenance surface. Callers invoke trait methods
-    /// without binding to the concrete index type (F3X: ADR-042).
-    pub fn vec_index(&self) -> arc_swap::Guard<Arc<Box<dyn IndexPort>>> {
-        self.hnsw.load()
+    /// The returned [`IndexReader`] pins the current index snapshot (same
+    /// lease semantics as an `arc_swap::Guard`) and exposes only the read
+    /// surface of [`IndexPort`], so callers invoke trait methods without
+    /// binding to the concrete index type (F3X: ADR-042) and can never
+    /// bypass the `insert_lock` quiesce barrier (FIND-651) with a mutating
+    /// call. Crate-internal mutation paths use `self.hnsw` directly under
+    /// the lock.
+    pub fn vec_index(&self) -> IndexReader {
+        IndexReader::new(self.hnsw.load())
     }
 }
 

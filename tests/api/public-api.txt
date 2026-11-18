@@ -7925,6 +7925,45 @@ impl core::marker::Unpin for vantadb::storage::FsSnapshot
 impl core::marker::UnsafeUnpin for vantadb::storage::FsSnapshot
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::storage::FsSnapshot
 impl core::panic::unwind_safe::UnwindSafe for vantadb::storage::FsSnapshot
+pub struct vantadb::storage::IndexReader
+impl vantadb::storage::IndexReader
+pub fn vantadb::storage::IndexReader::all_node_ids(&self) -> alloc::vec::Vec<u128>
+pub fn vantadb::storage::IndexReader::bulk_levels_seeded(&self, u64, usize) -> alloc::vec::Vec<usize>
+pub fn vantadb::storage::IndexReader::contains_node(&self, u128) -> bool
+pub fn vantadb::storage::IndexReader::distance_metric(&self) -> vantadb::DistanceMetric
+pub fn vantadb::storage::IndexReader::entry_point(&self) -> core::option::Option<u128>
+pub fn vantadb::storage::IndexReader::estimate_memory_bytes(&self) -> usize
+pub fn vantadb::storage::IndexReader::find_new_entry_point(&self) -> core::option::Option<u128>
+pub fn vantadb::storage::IndexReader::flat_threshold(&self) -> core::option::Option<usize>
+pub fn vantadb::storage::IndexReader::index_kind(&self) -> vantadb::index_port::IndexType
+pub fn vantadb::storage::IndexReader::inline_neighbors(&self, u128, usize) -> alloc::vec::Vec<u128>
+pub fn vantadb::storage::IndexReader::is_empty(&self) -> bool
+pub fn vantadb::storage::IndexReader::is_mmap(&self) -> bool
+pub fn vantadb::storage::IndexReader::is_sq8_vector(&self, u128) -> core::option::Option<bool>
+pub fn vantadb::storage::IndexReader::layer_neighbors(&self, u128, usize) -> alloc::vec::Vec<u128>
+pub fn vantadb::storage::IndexReader::max_layer(&self) -> usize
+pub fn vantadb::storage::IndexReader::mmap_path(&self) -> core::option::Option<&std::path::Path>
+pub fn vantadb::storage::IndexReader::mmap_resident_bytes(&self) -> core::option::Option<u64>
+pub fn vantadb::storage::IndexReader::node_count(&self) -> usize
+pub fn vantadb::storage::IndexReader::node_layers(&self, u128) -> usize
+pub fn vantadb::storage::IndexReader::node_view(&self, u128) -> core::option::Option<(u64, vantadb::VectorRepresentations)>
+pub fn vantadb::storage::IndexReader::random_level(&self) -> usize
+pub fn vantadb::storage::IndexReader::scan_entries(&self) -> alloc::vec::Vec<(u128, u64, u32)>
+pub fn vantadb::storage::IndexReader::search(&self, &[f32], &vantadb::index::FilterBitset, usize, core::option::Option<&dyn vantadb::index_port::VectorStoreRef>, vantadb::DistanceMetric) -> alloc::vec::Vec<(u128, f32)>
+pub fn vantadb::storage::IndexReader::search_nearest(&self, &[f32], core::option::Option<&[u64]>, core::option::Option<(&[u8], f32)>, &vantadb::index::FilterBitset, usize, core::option::Option<&dyn vantadb::index_port::VectorStoreRef>) -> alloc::vec::Vec<(u128, f32)>
+pub fn vantadb::storage::IndexReader::search_with_method(&self, vantadb::index_port::IndexType, &[f32], &vantadb::index::FilterBitset, usize, vantadb::DistanceMetric) -> vantadb::error::Result<alloc::vec::Vec<(u128, f32)>>
+pub fn vantadb::storage::IndexReader::storage_offset_of(&self, u128) -> core::option::Option<u64>
+pub fn vantadb::storage::IndexReader::stored_vector(&self, u128) -> core::option::Option<vantadb::VectorRepresentations>
+pub fn vantadb::storage::IndexReader::total_nodes(&self) -> u64
+pub fn vantadb::storage::IndexReader::validate_index(&self) -> core::result::Result<(), alloc::vec::Vec<alloc::string::String>>
+pub fn vantadb::storage::IndexReader::vector_dimension(&self) -> core::option::Option<usize>
+impl core::marker::Freeze for vantadb::storage::IndexReader
+impl core::marker::Send for vantadb::storage::IndexReader
+impl core::marker::Sync for vantadb::storage::IndexReader
+impl core::marker::Unpin for vantadb::storage::IndexReader
+impl core::marker::UnsafeUnpin for vantadb::storage::IndexReader
+impl !core::panic::unwind_safe::RefUnwindSafe for vantadb::storage::IndexReader
+impl !core::panic::unwind_safe::UnwindSafe for vantadb::storage::IndexReader
 pub struct vantadb::storage::IndexRebuildReport
 pub vantadb::storage::IndexRebuildReport::duration_ms: u64
 pub vantadb::storage::IndexRebuildReport::index_path: std::path::PathBuf
@@ -8018,7 +8057,6 @@ pub struct vantadb::storage::StorageEngine
 pub vantadb::storage::StorageEngine::config: vantadb::config::Config
 pub vantadb::storage::StorageEngine::data_dir: std::path::PathBuf
 pub vantadb::storage::StorageEngine::emergency_maintenance_trigger: core::sync::atomic::AtomicBool
-pub vantadb::storage::StorageEngine::hnsw: arc_swap::ArcSwap<alloc::boxed::Box<dyn vantadb::index_port::IndexPort>>
 pub vantadb::storage::StorageEngine::last_query_timestamp: core::sync::atomic::AtomicU64
 pub vantadb::storage::StorageEngine::read_only: bool
 pub vantadb::storage::StorageEngine::vector_store: alloc::vec::Vec<parking_lot::rwlock::RwLock<vantadb::storage::vfile::File>>
@@ -8089,10 +8127,6 @@ impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::get(&self, u128) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
 pub fn vantadb::storage::StorageEngine::get_many(&self, &[u128]) -> vantadb::error::Result<alloc::vec::Vec<vantadb::UnifiedNode>>
 impl vantadb::storage::StorageEngine
-pub fn vantadb::storage::StorageEngine::index_coordinator(&self) -> vantadb::storage::engine::coordinators::IndexCoordinator<'_>
-pub fn vantadb::storage::StorageEngine::vector_store_service(&self) -> vantadb::storage::engine::coordinators::VectorStoreService<'_>
-pub fn vantadb::storage::StorageEngine::wal_coordinator(&self) -> vantadb::storage::engine::coordinators::WalCoordinator<'_>
-impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::intern_label(&self, &str) -> u32
 pub fn vantadb::storage::StorageEngine::node_to_record(&self, vantadb::UnifiedNode) -> vantadb::NodeRecord
 pub fn vantadb::storage::StorageEngine::resolve_label(&self, u32) -> core::option::Option<alloc::string::String>
@@ -8102,7 +8136,10 @@ pub fn vantadb::storage::StorageEngine::open_with_config(&str, core::option::Opt
 impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::put_to_partition(&self, vantadb::storage::BackendPartition, &[u8], &[u8]) -> vantadb::error::Result<()>
 impl vantadb::storage::StorageEngine
-pub fn vantadb::storage::StorageEngine::vec_index(&self) -> arc_swap::Guard<alloc::rcs::arc::Arc<alloc::boxed::Box<dyn vantadb::index_port::IndexPort>>>
+pub fn vantadb::storage::StorageEngine::vec_index(&self) -> vantadb::storage::IndexReader
+impl vantadb::storage::StorageEngine
+pub fn vantadb::storage::StorageEngine::vector_store_service(&self) -> vantadb::storage::engine::coordinators::VectorStoreService<'_>
+pub fn vantadb::storage::StorageEngine::wal_coordinator(&self) -> vantadb::storage::engine::coordinators::WalCoordinator<'_>
 impl core::ops::drop::Drop for vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::drop(&mut self)
 impl !core::marker::Freeze for vantadb::storage::StorageEngine

@@ -144,7 +144,7 @@ fn test_vector_index_cold_recovery() {
         // Al abrir, el HNSW leerá el archivo con los offsets correctos
         let engine = open_fjall(db_path);
 
-        let hnsw = engine.hnsw.load();
+        let hnsw = engine.vec_index();
         let vs = engine.vector_store[0].read();
 
         // Hacemos una búsqueda directamente contra el índice y File
@@ -326,7 +326,7 @@ fn test_checkpoint_snapshot_interleave_not_lost_or_duplicated() {
 
     session.step("Phase 2: Reopen and assert exact index recovery");
     let engine = open_fjall(db_path);
-    let hnsw = engine.hnsw.load();
+    let hnsw = engine.vec_index();
     let vs = engine.vector_store[0].read();
 
     let indexed_len = hnsw.node_count() as u64;
@@ -423,7 +423,7 @@ fn test_checkpoint_not_advanced_on_snapshot_failure() {
     session.step("Phase 2: Reopen — every node must be recoverable via WAL replay");
     {
         let engine = open_fjall(db_path);
-        let hnsw = engine.hnsw.load();
+        let hnsw = engine.vec_index();
         for i in 0..NODES {
             assert!(
                 engine.get(i as u128).unwrap().is_some(),
@@ -461,7 +461,7 @@ fn assert_index_persist_failure_keeps_previous_image(use_mmap: bool, encrypted: 
     let image_path = dir.path().join("data").join("vector_index.bin");
     let tmp_path = dir.path().join("data").join("vector_index.bin.tmp");
     let engine = StorageEngine::open_with_config(path, Some(config.clone())).unwrap();
-    assert_eq!(engine.hnsw.load().is_mmap(), use_mmap);
+    assert_eq!(engine.vec_index().is_mmap(), use_mmap);
 
     for id in 0..8 {
         let mut node = UnifiedNode::new(id);
@@ -496,7 +496,7 @@ fn assert_index_persist_failure_keeps_previous_image(use_mmap: bool, encrypted: 
     for id in 0..13 {
         assert!(reopened.get(id).unwrap().is_some(), "node {id} was lost");
         assert!(
-            reopened.hnsw.load().contains_node(id),
+            reopened.vec_index().contains_node(id),
             "node {id} is invisible in the vector index"
         );
     }

@@ -236,7 +236,7 @@ fn test_concurrency_rebuild_rcu() {
         let mut query_success = 0;
         let query_vector = vec![0.5; 128];
         for _ in 0..100 {
-            let hnsw = engine_read.hnsw.load();
+            let hnsw = engine_read.vec_index();
             let vs = engine_read.vector_store[0].read();
             let results = hnsw.search_nearest(
                 &query_vector,
@@ -276,7 +276,7 @@ fn test_concurrency_rebuild_rcu() {
     ));
 
     // Validar que el nodo insertado post-rebuild es alcanzable y no se perdió
-    let hnsw = engine.hnsw.load();
+    let hnsw = engine.vec_index();
     assert!(
         hnsw.contains_node(999),
         "Mitigación A-01: El nodo 999 se perdió tras el rebuild!"

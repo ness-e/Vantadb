@@ -14,15 +14,255 @@ use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 
 use crate::backend::{BackendPartition, StorageBackend};
 use crate::error::Result;
-use crate::index_port::IndexPort;
+use crate::index_port::{IndexPort, IndexType, VectorStoreRef};
 use crate::lsm::{pack_offset, unpack_offset, SegmentRegistry};
-use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
+use crate::node::{DistanceMetric, FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::PendingHnswOp;
 use crate::storage::vfile::File;
 use crate::wal::WalRecord;
 use crate::wal_sharded::ShardedWal;
 
+/// Read-only view of the live vector index (FIND-655).
+///
+/// [`StorageEngine::vec_index`](crate::storage::StorageEngine::vec_index)
+/// hands out this facade instead of the raw `dyn IndexPort` handle so that
+/// no external caller can reach the graph mutators (`add_node`,
+/// `remove_node`, `set_entry_point`, `repair_orphan_links`, …). Every
+/// mutation of the index must go through an engine wrapper that holds
+/// `insert_lock` — the FIND-651 quiesce barrier that `create_snapshot`
+/// relies on while mirroring `vector_index.bin`.
+///
+/// The wrapped `arc_swap` guard pins the current `Arc` snapshot of the
+/// index for the lifetime of this value (same lease semantics as
+/// [`arc_swap::Guard`]); dropping it releases the snapshot.
+pub struct IndexReader {
+    guard: arc_swap::Guard<Arc<Box<dyn IndexPort>>>,
+}
+
+impl IndexReader {
+    /// Wrap a loaded index guard. Crate-internal: only
+    /// [`StorageEngine::vec_index`](crate::storage::StorageEngine::vec_index)
+    /// constructs this facade.
+    #[inline]
+    pub(crate) fn new(guard: arc_swap::Guard<Arc<Box<dyn IndexPort>>>) -> Self {
+        Self { guard }
+    }
+
+    /// Mirrors [`IndexPort::search_nearest`].
+    #[inline]
+    pub fn search_nearest(
+        &self,
+        query_vec: &[f32],
+        q_1bit: Option<&[u64]>,
+        q_3bit: Option<(&[u8], f32)>,
+        query_mask: &FilterBitset,
+        top_k: usize,
+        vector_store: Option<&dyn VectorStoreRef>,
+    ) -> Vec<(u128, f32)> {
+        self.guard
+            .search_nearest(query_vec, q_1bit, q_3bit, query_mask, top_k, vector_store)
+    }
+
+    /// Mirrors [`IndexPort::search_with_method`].
+    #[inline]
+    pub fn search_with_method(
+        &self,
+        method: IndexType,
+        query_vec: &[f32],
+        query_mask: &FilterBitset,
+        top_k: usize,
+        metric: DistanceMetric,
+    ) -> Result<Vec<(u128, f32)>> {
+        self.guard
+            .search_with_method(method, query_vec, query_mask, top_k, metric)
+    }
+
+    /// Mirrors [`IndexPort::search`].
+    #[inline]
+    pub fn search(
+        &self,
+        query_vec: &[f32],
+        query_mask: &FilterBitset,
+        top_k: usize,
+        vector_store: Option<&dyn VectorStoreRef>,
+        distance_metric: DistanceMetric,
+    ) -> Vec<(u128, f32)> {
+        self.guard
+            .search(query_vec, query_mask, top_k, vector_store, distance_metric)
+    }
+
+    /// Mirrors [`IndexPort::storage_offset_of`].
+    #[inline]
+    pub fn storage_offset_of(&self, id: u128) -> Option<u64> {
+        self.guard.storage_offset_of(id)
+    }
+
+    /// Mirrors [`IndexPort::stored_vector`].
+    #[inline]
+    pub fn stored_vector(&self, id: u128) -> Option<VectorRepresentations> {
+        self.guard.stored_vector(id)
+    }
+
+    /// Mirrors [`IndexPort::node_view`].
+    #[inline]
+    pub fn node_view(&self, id: u128) -> Option<(u64, VectorRepresentations)> {
+        self.guard.node_view(id)
+    }
+
+    /// Mirrors [`IndexPort::is_sq8_vector`].
+    #[inline]
+    pub fn is_sq8_vector(&self, id: u128) -> Option<bool> {
+        self.guard.is_sq8_vector(id)
+    }
+
+    /// Mirrors [`IndexPort::contains_node`].
+    #[inline]
+    pub fn contains_node(&self, id: u128) -> bool {
+        self.guard.contains_node(id)
+    }
+
+    /// Mirrors [`IndexPort::vector_dimension`].
+    #[inline]
+    pub fn vector_dimension(&self) -> Option<usize> {
+        self.guard.vector_dimension()
+    }
+
+    /// Mirrors [`IndexPort::node_count`].
+    #[inline]
+    pub fn node_count(&self) -> usize {
+        self.guard.node_count()
+    }
+
+    /// Mirrors [`IndexPort::is_empty`].
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.guard.is_empty()
+    }
+
+    /// Mirrors [`IndexPort::total_nodes`].
+    #[inline]
+    pub fn total_nodes(&self) -> u64 {
+        self.guard.total_nodes()
+    }
+
+    /// Mirrors [`IndexPort::entry_point`].
+    #[inline]
+    pub fn entry_point(&self) -> Option<u128> {
+        self.guard.entry_point()
+    }
+
+    /// Mirrors [`IndexPort::find_new_entry_point`].
+    #[inline]
+    pub fn find_new_entry_point(&self) -> Option<u128> {
+        self.guard.find_new_entry_point()
+    }
+
+    /// Mirrors [`IndexPort::max_layer`].
+    #[inline]
+    pub fn max_layer(&self) -> usize {
+        self.guard.max_layer()
+    }
+
+    /// Mirrors [`IndexPort::all_node_ids`].
+    #[inline]
+    pub fn all_node_ids(&self) -> Vec<u128> {
+        self.guard.all_node_ids()
+    }
+
+    /// Mirrors [`IndexPort::layer_neighbors`].
+    #[inline]
+    pub fn layer_neighbors(&self, id: u128, layer: usize) -> Vec<u128> {
+        self.guard.layer_neighbors(id, layer)
+    }
+
+    /// Mirrors [`IndexPort::inline_neighbors`].
+    #[inline]
+    pub fn inline_neighbors(&self, id: u128, layer: usize) -> Vec<u128> {
+        self.guard.inline_neighbors(id, layer)
+    }
+
+    /// Mirrors [`IndexPort::scan_entries`].
+    #[inline]
+    pub fn scan_entries(&self) -> Vec<(u128, u64, u32)> {
+        self.guard.scan_entries()
+    }
+
+    /// Mirrors [`IndexPort::validate_index`].
+    #[inline]
+    pub fn validate_index(&self) -> std::result::Result<(), Vec<String>> {
+        self.guard.validate_index()
+    }
+
+    /// Mirrors [`IndexPort::node_layers`].
+    #[inline]
+    pub fn node_layers(&self, id: u128) -> usize {
+        self.guard.node_layers(id)
+    }
+
+    /// Mirrors [`IndexPort::estimate_memory_bytes`].
+    #[inline]
+    pub fn estimate_memory_bytes(&self) -> usize {
+        self.guard.estimate_memory_bytes()
+    }
+
+    /// Mirrors [`IndexPort::random_level`].
+    #[inline]
+    pub fn random_level(&self) -> usize {
+        self.guard.random_level()
+    }
+
+    /// Mirrors [`IndexPort::bulk_levels_seeded`].
+    #[inline]
+    pub fn bulk_levels_seeded(&self, seed: u64, n: usize) -> Vec<usize> {
+        self.guard.bulk_levels_seeded(seed, n)
+    }
+
+    /// Mirrors [`IndexPort::flat_threshold`].
+    #[inline]
+    pub fn flat_threshold(&self) -> Option<usize> {
+        self.guard.flat_threshold()
+    }
+
+    /// Mirrors [`IndexPort::distance_metric`].
+    #[inline]
+    pub fn distance_metric(&self) -> DistanceMetric {
+        self.guard.distance_metric()
+    }
+
+    /// Mirrors [`IndexPort::index_kind`].
+    #[inline]
+    pub fn index_kind(&self) -> IndexType {
+        self.guard.index_kind()
+    }
+
+    /// Mirrors [`MmapBackend::is_mmap`](crate::index_port::MmapBackend::is_mmap).
+    #[inline]
+    pub fn is_mmap(&self) -> bool {
+        self.guard.is_mmap()
+    }
+
+    /// Mirrors
+    /// [`MmapBackend::mmap_path`](crate::index_port::MmapBackend::mmap_path).
+    #[inline]
+    pub fn mmap_path(&self) -> Option<&std::path::Path> {
+        self.guard.mmap_path()
+    }
+
+    /// Mirrors
+    /// [`MmapBackend::mmap_resident_bytes`](crate::index_port::MmapBackend::mmap_resident_bytes).
+    #[inline]
+    pub fn mmap_resident_bytes(&self) -> Option<u64> {
+        self.guard.mmap_resident_bytes()
+    }
+}
+
 /// Coordinator facade for the HNSW index and pending mutation batch.
+///
+/// Crate-internal: obtained via `StorageEngine::index_coordinator()`,
+/// which is `pub(crate)`. Its mutating methods (`add_node`, `remove_node`,
+/// `set_entry_point`) bypass `insert_lock` on purpose — callers run inside
+/// the engine's lock-holding sections (FIND-651/FIND-655); exposing them
+/// would reopen the quiesce-barrier bypass.
 #[derive(Clone, Copy)]
 pub struct IndexCoordinator<'a> {
     hnsw: &'a ArcSwap<Box<dyn IndexPort>>,
@@ -44,55 +284,55 @@ impl<'a> IndexCoordinator<'a> {
 
     /// Load the current HNSW index handle.
     #[inline]
-    pub fn load_index(&self) -> arc_swap::Guard<Arc<Box<dyn IndexPort>>> {
+    pub(crate) fn load_index(&self) -> arc_swap::Guard<Arc<Box<dyn IndexPort>>> {
         self.hnsw.load()
     }
 
     /// Return the storage offset of a node if indexed.
     #[inline]
-    pub fn storage_offset_of(&self, id: u128) -> Option<u64> {
+    pub(crate) fn storage_offset_of(&self, id: u128) -> Option<u64> {
         self.hnsw.load().storage_offset_of(id)
     }
 
     /// Remove a node from the index. Returns `true` if it was present.
     #[inline]
-    pub fn remove_node(&self, id: u128) -> bool {
+    pub(crate) fn remove_node(&self, id: u128) -> bool {
         self.hnsw.load().remove_node(id)
     }
 
     /// Return the number of indexed nodes.
     #[inline]
-    pub fn node_count(&self) -> usize {
+    pub(crate) fn node_count(&self) -> usize {
         self.hnsw.load().node_count()
     }
 
     /// Check if a node is present in the index.
     #[inline]
-    pub fn contains_node(&self, id: u128) -> bool {
+    pub(crate) fn contains_node(&self, id: u128) -> bool {
         self.hnsw.load().contains_node(id)
     }
 
     /// Return the current entry point node ID, if any.
     #[inline]
-    pub fn entry_point(&self) -> Option<u128> {
+    pub(crate) fn entry_point(&self) -> Option<u128> {
         self.hnsw.load().entry_point()
     }
 
     /// Update the index entry point.
     #[inline]
-    pub fn set_entry_point(&self, id: u128) {
+    pub(crate) fn set_entry_point(&self, id: u128) {
         self.hnsw.load().set_entry_point(id);
     }
 
     /// Find a replacement entry point if available.
     #[inline]
-    pub fn find_new_entry_point(&self) -> Option<u128> {
+    pub(crate) fn find_new_entry_point(&self) -> Option<u128> {
         self.hnsw.load().find_new_entry_point()
     }
 
     /// Add a node to the HNSW index.
     #[inline]
-    pub fn add_node(
+    pub(crate) fn add_node(
         &self,
         id: u128,
         bitset: FilterBitset,
@@ -114,7 +354,7 @@ impl<'a> IndexCoordinator<'a> {
     /// Drain all queued HNSW mutation operations and apply them to the index.
     ///
     /// Precondition: Caller MUST already hold `insert_lock` to prevent races.
-    pub fn drain_batch_locked(&self) -> Result<bool> {
+    pub(crate) fn drain_batch_locked(&self) -> Result<bool> {
         let ops = {
             let mut pending = self.pending_hnsw_batch.lock();
             if pending.is_empty() {

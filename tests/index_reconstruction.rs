@@ -59,7 +59,7 @@ fn test_index_persistence_roundtrip() {
         let mut query = vec![0.0; 32];
         query[0] = 50.0;
         query[1] = 50.0;
-        let results = engine.hnsw.load().search_nearest(
+        let results = engine.vec_index().search_nearest(
             &query,
             None,
             None,
@@ -129,7 +129,7 @@ fn test_index_reconstruction_from_storage() {
         let mut query = vec![0.0; 32];
         query[0] = 50.0;
         query[1] = 50.0;
-        let results = engine.hnsw.load().search_nearest(
+        let results = engine.vec_index().search_nearest(
             &query,
             None,
             None,

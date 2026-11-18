@@ -132,7 +132,7 @@ fn test_crash_injection_and_cold_recovery_loop() {
         }
 
         // Además, verifiquemos que la estructura HNSW interna sea estructuralmente válida
-        let hnsw = engine.hnsw.load();
+        let hnsw = engine.vec_index();
         assert!(
             hnsw.validate_index().is_ok(),
             "Iteration {}: HNSW structural index validation failed post-crash",
@@ -255,7 +255,7 @@ fn test_crash_during_active_writes_with_tight_loop() {
         }
 
         // HNSW index must be structurally valid despite ungraceful shutdown
-        let hnsw = engine.hnsw.load();
+        let hnsw = engine.vec_index();
         assert!(
             hnsw.validate_index().is_ok(),
             "Iteration {}: HNSW structural validation failed post-crash during active writes",

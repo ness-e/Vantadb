@@ -65,7 +65,7 @@ fn recall_at_10(engine: &StorageEngine, n: usize, dim: usize) -> f64 {
     let mask = FilterBitset::new(); // empty mask = match everything
     for i in 0..n {
         let vec = generate_vectors(n, dim)[i].clone();
-        let idx = engine.hnsw.load();
+        let idx = engine.vec_index();
         let results = idx.search_nearest(
             black_box(&vec),
             None,

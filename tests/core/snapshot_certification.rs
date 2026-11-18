@@ -641,7 +641,7 @@ fn wal_replay_recovers_from_known_wal() {
                     Some(config.clone()),
                 )
                 .expect("open engine again");
-                let hnsw = storage.hnsw.load();
+                let hnsw = storage.vec_index();
                 assert!(hnsw.contains_node(101), "WAL replay must recover node 101");
                 assert!(hnsw.contains_node(102), "WAL replay must recover node 102");
                 assert!(hnsw.contains_node(103), "WAL replay must recover node 103");

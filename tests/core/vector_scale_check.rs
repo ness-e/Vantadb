@@ -41,7 +41,7 @@ async fn vector_scale_performance_certification() {
                 "Executing greedy beam search over 128-dimensional space...",
             );
             let results = {
-                let index = storage.hnsw.load();
+                let index = storage.vec_index();
                 index.search_nearest(&query_vec, None, None, &vantadb::node::ALL_BITSET, 5, None)
             };
 

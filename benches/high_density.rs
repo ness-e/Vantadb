@@ -81,7 +81,7 @@ fn high_density_benchmark(c: &mut Criterion) {
             || generate_random_vector(dim),
             |query_vec| {
                 rt.block_on(async {
-                    let results = storage.hnsw.load().search_nearest(
+                    let results = storage.vec_index().search_nearest(
                         &query_vec,
                         None,
                         None,

@@ -811,9 +811,19 @@ impl StorageEngine {
             // an mmap-backed index before we acquired the lock.
             let _guard =
                 self.acquire_insert_lock("acquire insert_lock in vacuum (orphan repair)")?;
-            let _ = self.hnsw.load().repair_orphan_links();
+            // FIND-655 (NIT): log the repair pass like `fresh_hnsw` does —
+            // the report was previously discarded, hiding how much orphan
+            // cleanup the early-return path actually performed.
+            let report = self.hnsw.load().repair_orphan_links();
             let elapsed_ms = started.elapsed().as_millis() as u64;
-            tracing::info!(scanned, "vacuum: no tombstones found");
+            tracing::info!(
+                scanned,
+                repair_scanned = report.scanned_nodes,
+                repair_layers = report.total_layers,
+                repaired = report.repaired_links,
+                elapsed_ms,
+                "vacuum: no tombstones found"
+            );
             return Ok(VacuumReport {
                 scanned_nodes: scanned,
                 removed_nodes: 0,
