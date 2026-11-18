@@ -8059,7 +8059,6 @@ pub vantadb::storage::StorageEngine::data_dir: std::path::PathBuf
 pub vantadb::storage::StorageEngine::emergency_maintenance_trigger: core::sync::atomic::AtomicBool
 pub vantadb::storage::StorageEngine::last_query_timestamp: core::sync::atomic::AtomicU64
 pub vantadb::storage::StorageEngine::read_only: bool
-pub vantadb::storage::StorageEngine::vector_store: alloc::vec::Vec<parking_lot::rwlock::RwLock<vantadb::storage::vfile::File>>
 impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::abort_transaction(&self, u64) -> vantadb::error::Result<()>
 pub fn vantadb::storage::StorageEngine::begin_snapshot(&self) -> vantadb::storage::engine::Snapshot
@@ -8138,8 +8137,7 @@ pub fn vantadb::storage::StorageEngine::put_to_partition(&self, vantadb::storage
 impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::vec_index(&self) -> vantadb::storage::IndexReader
 impl vantadb::storage::StorageEngine
-pub fn vantadb::storage::StorageEngine::vector_store_service(&self) -> vantadb::storage::engine::coordinators::VectorStoreService<'_>
-pub fn vantadb::storage::StorageEngine::wal_coordinator(&self) -> vantadb::storage::engine::coordinators::WalCoordinator<'_>
+pub fn vantadb::storage::StorageEngine::vector_store_read(&self, usize) -> parking_lot::rwlock::RwLockReadGuard<'_, vantadb::storage::vfile::File>
 impl core::ops::drop::Drop for vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::drop(&mut self)
 impl !core::marker::Freeze for vantadb::storage::StorageEngine

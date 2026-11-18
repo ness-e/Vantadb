@@ -145,7 +145,7 @@ fn test_vector_index_cold_recovery() {
         let engine = open_fjall(db_path);
 
         let hnsw = engine.vec_index();
-        let vs = engine.vector_store[0].read();
+        let vs = engine.vector_store_read(0);
 
         // Hacemos una búsqueda directamente contra el índice y File
         let results = hnsw.search_nearest(
@@ -327,7 +327,7 @@ fn test_checkpoint_snapshot_interleave_not_lost_or_duplicated() {
     session.step("Phase 2: Reopen and assert exact index recovery");
     let engine = open_fjall(db_path);
     let hnsw = engine.vec_index();
-    let vs = engine.vector_store[0].read();
+    let vs = engine.vector_store_read(0);
 
     let indexed_len = hnsw.node_count() as u64;
     assert!(

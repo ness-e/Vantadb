@@ -146,7 +146,7 @@ fn antilocality_layout_certification() {
         let mut pre_results = Vec::new();
         {
             let hnsw = engine.vec_index();
-            let vs = engine.vector_store[0].read();
+            let vs = engine.vector_store_read(0);
             for query in &queries {
                 let hits = hnsw.search_nearest(
                     query,
@@ -167,7 +167,7 @@ fn antilocality_layout_certification() {
         let mut post_results = Vec::new();
         {
             let hnsw = engine.vec_index();
-            let vs = engine.vector_store[0].read();
+            let vs = engine.vector_store_read(0);
             for query in &queries {
                 let hits = hnsw.search_nearest(
                     query,

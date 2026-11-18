@@ -253,7 +253,7 @@ fn measure_search(
     queries: &[Vec<f32>],
 ) -> (Duration, Duration, Duration, usize) {
     let hnsw = engine.vec_index();
-    let vs = engine.vector_store[0].read();
+    let vs = engine.vector_store_read(0);
     let mut latencies: Vec<Duration> = Vec::with_capacity(queries.len());
     let mut hits = 0usize;
     for (i, query) in queries.iter().enumerate() {
@@ -495,7 +495,7 @@ fn bench_encrypted_p99(c: &mut Criterion) {
     group.bench_function("search_1000_queries_glove100d", |b| {
         b.iter(|| {
             let hnsw = engine.vec_index();
-            let vs = engine.vector_store[0].read();
+            let vs = engine.vector_store_read(0);
             for query in &queries {
                 std::hint::black_box(hnsw.search_nearest(
                     query,

@@ -382,7 +382,12 @@ pub struct StorageEngine {
     /// Vector store files for persistent node vector data — one per LSM level.
     /// Index 0 = L0 (hot), 1 = L1 (warm), 2 = L2 (cold).
     /// All new writes go to index 0. Reads use unpack_offset() to select the correct file.
-    pub vector_store: Vec<RwLock<File>>,
+    ///
+    /// FIND-655: `pub(crate)` — a `write()` guard on these files bypasses
+    /// `insert_lock` while `create_snapshot` mirrors `data_dir`. External
+    /// readers use [`vector_store_read`](Self::vector_store_read); mutation
+    /// only from engine code inside the write barrier.
+    pub(crate) vector_store: Vec<RwLock<File>>,
     /// Multi-level LSM segment registry tracking level metadata.
     // Reason: accessed by compaction and LSM tiering routines; kept on engine struct for lifecycle ownership.
     #[allow(dead_code)]
@@ -423,13 +428,31 @@ impl StorageEngine {
         IndexCoordinator::new(&self.hnsw, &self.pending_hnsw_batch)
     }
 
+    /// Read-only access to a vector store file for external consumers
+    /// (diagnostics, tests, benches). FIND-655: exposes only `read()` —
+    /// `mmap_bytes_mut`/`write_header`/`grow_to` are unreachable outside
+    /// the crate, closing the snapshot-mirror mutation bypass.
+    pub fn vector_store_read(
+        &self,
+        level: usize,
+    ) -> parking_lot::RwLockReadGuard<'_, File> {
+        self.vector_store[level].read()
+    }
+
     /// Return the VectorStoreService facade for multi-level vector store and segment registry.
-    pub fn vector_store_service(&self) -> VectorStoreService<'_> {
+    ///
+    /// FIND-655: `pub(crate)` — the service exposes `vstore0()` write guards
+    /// plus `write_node_l0`/`set_tombstone_at_packed_offset`, all of which
+    /// bypass `insert_lock` during snapshot mirroring.
+    pub(crate) fn vector_store_service(&self) -> VectorStoreService<'_> {
         VectorStoreService::new(&self.vector_store, &self.segment_registry)
     }
 
     /// Return the WalCoordinator facade for write-ahead log operations.
-    pub fn wal_coordinator(&self) -> WalCoordinator<'_> {
+    ///
+    /// FIND-655: `pub(crate)` — `append`/`batch_append`/`rotate_all` mutate
+    /// the WAL mirrored under `insert_lock`, desyncing `checkpoint_seq`.
+    pub(crate) fn wal_coordinator(&self) -> WalCoordinator<'_> {
         WalCoordinator::new(self.wal.as_ref())
     }
 
