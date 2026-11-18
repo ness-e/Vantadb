@@ -113,6 +113,13 @@ impl PhysicalOperator for PhysicalNestedLoopJoin<'_> {
 
                 if matches {
                     // Merge fields: left fields first, then right fields (left priority on conflict)
+                    // FIND-556: the merged row keeps only unqualified keys.
+                    // A qualified reference to the losing side under a name
+                    // collision (`a.name` where `a` is the right alias and
+                    // both sides have `name`) resolves via the stripped key
+                    // to the LEFT value — the qualifier is not honored
+                    // post-merge. Honoring it requires qualified keys in
+                    // the merged row (FIND-657).
                     let mut merged = UnifiedNode::new(left.id);
                     merged.relational = left.relational.clone();
                     for (k, v) in &right.relational {
@@ -179,10 +186,12 @@ impl<'a> PhysicalSubqueryFilter<'a> {
 
     /// FIND-558: declare which projected field of the subplan supplies the
     /// scalar (`SELECT price, name` ⇒ `price`). The planner derives it from
-    /// the subplan's `Project` operator; the qualifier is stripped here so
-    /// `sq.price` resolves against the stored key `price`.
+    /// the subplan's `Project` operator. The field is stored raw — lookup is
+    /// exact-key-first, then the stripped alias (same contract as
+    /// `evaluate_condition`), so a genuinely dotted stored key such as
+    /// `meta.env` still wins over the stripped form.
     pub fn with_scalar_field(mut self, scalar_field: Option<String>) -> Self {
-        self.scalar_field = scalar_field.map(|f| strip_alias(&f).to_string());
+        self.scalar_field = scalar_field;
         self
     }
 }
@@ -203,7 +212,11 @@ impl PhysicalOperator for PhysicalSubqueryFilter<'_> {
         // ponytail: `SELECT *` scalar subqueries keep the legacy behaviour;
         // a scalar subquery should project exactly one column anyway.
         self.scalar_value = subq_nodes.first().and_then(|n| match &self.scalar_field {
-            Some(f) => n.relational.get(f).cloned(),
+            Some(f) => n
+                .relational
+                .get(f)
+                .or_else(|| n.relational.get(strip_alias(f)))
+                .cloned(),
             None => n.relational.values().next().cloned(),
         });
 

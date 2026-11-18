@@ -321,6 +321,90 @@ fn test_subquery_where_scalar() {
     }
 }
 
+/// FIND-556 r2: a genuinely dotted stored key (`meta.env`) projected by
+/// the subplan must win over the stripped form — stripping `meta.env` to
+/// `env` and missing every lookup used to turn the scalar into `None`,
+/// silently returning 0 rows for every operator.
+#[test]
+fn test_subquery_scalar_dotted_projected_key() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_item(
+        &storage,
+        1,
+        &[
+            ("name", FieldValue::String("X".into())),
+            ("meta.env", FieldValue::String("prod".into())),
+            ("tier", FieldValue::String("prod".into())),
+        ],
+    );
+    insert_item(
+        &storage,
+        2,
+        &[
+            ("name", FieldValue::String("Y".into())),
+            ("tier", FieldValue::String("dev".into())),
+        ],
+    );
+
+    // Subquery: SELECT meta.env FROM Item WHERE name = 'X' → "prod".
+    let subq = SelectStatement {
+        projections: vec!["meta.env".into()],
+        from: FromClause::Single {
+            entity: "*".into(),
+            alias: "sq".into(),
+        },
+        where_clause: Some(vec![Condition::Relational(
+            "name".into(),
+            RelOp::Eq,
+            FieldValue::String("X".into()),
+        )]),
+        subquery_conditions: vec![],
+        temperature: None,
+        as_of_ms: None,
+        limit: None,
+        offset: None,
+        aggregates: vec![],
+        group_by: None,
+    };
+
+    let stmt = Statement::Select(SelectStatement {
+        projections: vec![],
+        from: FromClause::Single {
+            entity: "*".into(),
+            alias: "i".into(),
+        },
+        where_clause: None,
+        subquery_conditions: vec![SubqueryCondition {
+            field: "tier".into(),
+            op: RelOp::Eq,
+            subquery: Box::new(subq),
+        }],
+        temperature: None,
+        as_of_ms: None,
+        limit: None,
+        offset: None,
+        aggregates: vec![],
+        group_by: None,
+    });
+
+    match ex.execute_statement(stmt).unwrap() {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(
+                nodes.len(),
+                1,
+                "dotted projected key must resolve the scalar to 'prod'"
+            );
+            assert_eq!(
+                nodes[0].relational.get("name"),
+                Some(&FieldValue::String("X".into()))
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
 #[test]
 fn test_subquery_where_with_exact_match() {
     let (storage, _dir) = setup();
