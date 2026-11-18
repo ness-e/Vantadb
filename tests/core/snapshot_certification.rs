@@ -1201,6 +1201,30 @@ fn snapshot_wal_files(snap_root: &std::path::Path) -> Vec<(String, Vec<u8>)> {
     out
 }
 
+/// Helper: read every VantaFile segment (`vstore_L*.vanta`, plus the legacy
+/// `vector_store.vanta`) under `<snapshot>/data`, name-sorted, as
+/// (name, bytes). The live engine rewrites these in place (tombstone
+/// bit-flip on delete, node appends, `compact_level` truncation) — the
+/// snapshot image must stay frozen.
+fn snapshot_vstore_files(snap_root: &std::path::Path) -> Vec<(String, Vec<u8>)> {
+    let data = snap_root.join("data");
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(&data).expect("read snapshot data dir") {
+        let entry = entry.expect("snapshot dir entry");
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if (name.starts_with("vstore_L") && name.ends_with(".vanta"))
+            || name == "vector_store.vanta"
+        {
+            out.push((
+                name,
+                fs::read(entry.path()).expect("read snapshot vstore file"),
+            ));
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
 #[test]
 fn test_hardlink_snapshot_instant() {
     TerminalReporter::suite_banner("HARD-LINK SNAPSHOT INSTANT", 1);
@@ -1335,6 +1359,102 @@ fn test_hardlink_snapshot_independence() {
             );
 
             TerminalReporter::success("Snapshot independence confirmed: original data preserved.");
+        },
+    );
+}
+
+/// FIND-318: `vstore_L*.vanta` segments are rewritten **in place** by the
+/// live engine after a snapshot (tombstone bit-flip on `delete`, node
+/// appends at the write cursor, `compact_level` truncation). A hard link
+/// would let those writes mutate the snapshot through the shared inode —
+/// the segment family is copied, not linked.
+#[test]
+fn test_hardlink_snapshot_vstore_independence() {
+    TerminalReporter::suite_banner("HARD-LINK SNAPSHOT VSTORE INDEPENDENCE", 1);
+    let mut harness = VantaHarness::new("HARD-LINK SNAPSHOT VSTORE INDEPENDENCE");
+
+    harness.execute(
+        "In-place vstore mutations after a snapshot leave the snapshot segment unchanged",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db = Embedded::open(dir.path()).expect("open db");
+
+            // Seed a node so its record lands in vstore_L0.vanta.
+            let mut input = MemoryInput::new("ns/vstore", "key-a", "original payload");
+            input.vector = Some(vec![1.0, 0.0, 0.0]);
+            db.put(input).expect("put original");
+            db.flush().expect("flush original");
+
+            let snap = db.create_snapshot("vstore-snap").expect("create snapshot");
+
+            // Deterministic isolation probe (no timing dependence): capture
+            // the snapshot's own vstore segments as of snapshot time.
+            let snap_vstore_before = snapshot_vstore_files(&snap.path);
+            assert!(
+                !snap_vstore_before.is_empty(),
+                "snapshot must capture the vstore segments"
+            );
+
+            // In-place mutation channel 1: tombstone bit-flip rewrites the
+            // live segment header at the node's existing offset.
+            db.delete("ns/vstore", "key-a").expect("delete");
+            // In-place mutation channel 2: a put appends at the write cursor.
+            let mut input2 = MemoryInput::new("ns/vstore", "key-b", "post-snapshot payload");
+            input2.vector = Some(vec![0.0, 1.0, 0.0]);
+            db.put(input2).expect("put post-snapshot");
+            db.flush().expect("flush post-snapshot");
+
+            let snap_vstore_after = snapshot_vstore_files(&snap.path);
+            assert_eq!(
+                snap_vstore_before, snap_vstore_after,
+                "post-snapshot in-place vstore writes must not reach the snapshot \
+                 (vstore_L*.vanta must be copied, not hard-linked)"
+            );
+
+            // Unix: direct inode-level proof — the snapshot's segments must
+            // not be hard links of the live ones.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                let live_data = dir.path().join("data");
+                let snap_data = snap.path.join("data");
+                for (name, _) in &snap_vstore_before {
+                    let live_file = live_data.join(name);
+                    if !live_file.exists() {
+                        continue;
+                    }
+                    let snap_meta =
+                        fs::metadata(snap_data.join(name)).expect("snap vstore metadata");
+                    assert_eq!(
+                        snap_meta.nlink(),
+                        1,
+                        "snapshot segment {name} is hard-linked (nlink={}) — \
+                         post-snapshot in-place writes would mutate the snapshot",
+                        snap_meta.nlink()
+                    );
+                    let live_meta = fs::metadata(&live_file).expect("live vstore metadata");
+                    assert_ne!(
+                        snap_meta.ino(),
+                        live_meta.ino(),
+                        "snapshot segment {name} shares the live inode — not independent"
+                    );
+                }
+            }
+
+            // The snapshot still resolves the deleted node: the in-place
+            // tombstone flip must not have leaked through a shared inode.
+            let snap_db = Embedded::open(&snap.path).expect("open snapshot as db");
+            let got = snap_db
+                .get("ns/vstore", "key-a")
+                .expect("get from snapshot");
+            assert!(
+                got.is_some(),
+                "snapshot must still resolve the node deleted after the snapshot"
+            );
+
+            TerminalReporter::success(
+                "Vstore independence confirmed: segment bytes frozen across delete + put.",
+            );
         },
     );
 }

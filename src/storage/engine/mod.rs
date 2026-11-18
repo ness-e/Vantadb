@@ -581,6 +581,12 @@ fn is_mutable_after_snapshot(name: &std::ffi::OsStr) -> bool {
         // The name is the literal of `crypto::registry::REGISTRY_FILE_NAME`
         // (the crypto module is feature-gated; this function is not).
         || name == "encryption.registry"
+        // FIND-318: the rollback copy is rewritten IN PLACE by
+        // `fs::copy` (O_TRUNC) on every master-key rotation — same
+        // shared-inode hazard as the registry itself. (The mirror gate only
+        // hard-links rotated WAL archives, so this entry is defensive
+        // documentation of the mutable family.)
+        || name == "encryption.registry.bak"
         // Active WAL shards `vanta.shard<N>.wal`. Rotated archives carry a
         // `.wal.<timestamp>` suffix instead, so they do NOT match here.
         || (name.starts_with("vanta.shard") && name.ends_with(".wal"))

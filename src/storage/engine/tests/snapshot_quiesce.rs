@@ -273,3 +273,58 @@ fn test_snapshot_quiesce_restores_coherent_image() {
     assert!(snap_marker.is_file(), "snapshot format marker must exist");
     eprintln!("coherent image: {SEEDS} seeds + {visible} racing nodes restored");
 }
+
+/// FIND-653: the orphan-link repair paths — `vacuum`'s no-tombstone early
+/// return and `fresh_hnsw` — mutate the HNSW neighbor index, so they run
+/// under `insert_lock` like every other graph mutation. While the quiesce
+/// guard is held (the same section the snapshot mirror holds) they fail with
+/// the typed, retriable `Timeout`, and they succeed after release.
+#[cfg(feature = "fjall")]
+#[test]
+fn test_snapshot_quiesce_orphan_repair_times_out_then_succeeds() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let engine = std::sync::Arc::new(disk_engine(dir.path(), 200));
+
+    for id in 1..=3 {
+        engine.insert(&sample_node(id)).expect("insert seed");
+    }
+
+    // Hold the quiesce lock on this thread, as the snapshot mirror does.
+    let quiesce = engine
+        .insert_lock
+        .try_lock()
+        .expect("lock must be free at test start");
+
+    let (done_tx, done_rx) = mpsc::channel();
+    let repair = std::thread::spawn({
+        let engine = engine.clone();
+        move || {
+            let vacuum_res = engine.vacuum();
+            let fresh_res = engine.fresh_hnsw();
+            done_tx.send((vacuum_res, fresh_res)).expect("send results");
+        }
+    });
+
+    let (vacuum_res, fresh_res) = done_rx.recv().expect("repair thread must terminate");
+    let err = vacuum_res.expect_err("vacuum must fail while the quiesce guard is held");
+    assert!(
+        matches!(err, crate::error::Error::Timeout { .. }),
+        "expected typed Timeout from vacuum, got {err:?}"
+    );
+    assert!(err.is_retriable(), "vacuum Timeout must be retriable");
+    let err = fresh_res.expect_err("fresh_hnsw must fail while the quiesce guard is held");
+    assert!(
+        matches!(err, crate::error::Error::Timeout { .. }),
+        "expected typed Timeout from fresh_hnsw, got {err:?}"
+    );
+    assert!(err.is_retriable(), "fresh_hnsw Timeout must be retriable");
+    repair.join().expect("join repair thread");
+
+    drop(quiesce);
+    engine
+        .vacuum()
+        .expect("vacuum must succeed after the guard is released");
+    engine
+        .fresh_hnsw()
+        .expect("fresh_hnsw must succeed after the guard is released");
+}

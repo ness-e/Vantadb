@@ -803,8 +803,15 @@ impl StorageEngine {
         let removed_count = tombstone_ids.len() as u64;
 
         if removed_count == 0 {
-            // Repair any orphan neighbor links left behind by concurrent deletes
-            let _ = hnsw.repair_orphan_links();
+            // FIND-653: repair_orphan_links mutates the HNSW neighbor index,
+            // so it runs under `insert_lock` like every other graph mutation —
+            // a create_snapshot quiesce section must never serialize or mirror
+            // the graph mid-repair (torn vector_index.bin). The handle is
+            // reloaded inside the guard: save_vector_index may have swapped in
+            // an mmap-backed index before we acquired the lock.
+            let _guard =
+                self.acquire_insert_lock("acquire insert_lock in vacuum (orphan repair)")?;
+            let _ = self.hnsw.load().repair_orphan_links();
             let elapsed_ms = started.elapsed().as_millis() as u64;
             tracing::info!(scanned, "vacuum: no tombstones found");
             return Ok(VacuumReport {
@@ -818,6 +825,10 @@ impl StorageEngine {
 
         {
             let _guard = self.acquire_insert_lock("acquire insert_lock in vacuum")?;
+            // FIND-653 (P2-01): reload inside the guard — the `hnsw` handle
+            // captured before the lock may be a stale Arc if save_vector_index
+            // swapped in an mmap-backed index between load and acquisition.
+            let hnsw = self.hnsw.load();
             for id in &tombstone_ids {
                 hnsw.remove_node(*id);
                 hnsw.decrement_total_nodes(1);
@@ -963,10 +974,25 @@ impl StorageEngine {
     /// This repairs the graph after delete operations, which remove a node
     /// from `self.nodes` but leave references in the neighbor lists of
     /// surviving nodes. Over time, orphan links degrade search quality.
+    ///
+    /// # Availability (FIND-653)
+    ///
+    /// `repair_orphan_links` mutates the HNSW neighbor index, so it runs
+    /// under `insert_lock` like every other graph mutation — a
+    /// `create_snapshot` quiesce section must never serialize or mirror the
+    /// graph mid-repair (torn `vector_index.bin`). A caller that cannot
+    /// enter the critical section within `insert_lock_timeout_ms` fails
+    /// with the typed, retriable [`crate::error::Error::Timeout`]. The lock
+    /// is non-reentrant; all callers (pipeline step, SDK, bindings) are
+    /// top-level entry points that never hold it.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn fresh_hnsw(&self) -> Result<FreshHnswReport> {
         self.ensure_writable()?;
 
+        // The handle is loaded inside the guard so the repair lands on the
+        // live index even if a concurrent flush swapped in an mmap-backed
+        // index before we acquired the lock.
+        let _guard = self.acquire_insert_lock("acquire insert_lock in fresh_hnsw")?;
         let hnsw = self.hnsw.load();
         let report = hnsw.repair_orphan_links();
 
