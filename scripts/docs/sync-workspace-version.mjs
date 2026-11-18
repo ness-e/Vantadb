@@ -31,16 +31,16 @@
 //     1 = drift detected (lists out-of-sync files)
 //   node scripts/docs/sync-workspace-version.mjs --write
 //     updates all drifted manifests on disk
-//     0 = every drifted manifest was rewritten and re-verified
-//     1 = at least one transform missed (file left drifted) or write failed —
-//         fail-closed so a silent regex miss cannot ship a half-synced release
+//     0 = every drifted manifest was rewritten, re-verified, and doc surfaces regenerated
+//     1 = at least one transform missed (file left drifted), write failed, or
+//         gen-surface/gen-index regeneration failed (FIND-468, FIND-639) —
+//         fail-closed so a silent regex miss or broken surface cannot ship
 //   node scripts/docs/sync-workspace-version.mjs --self-test
 //     in-memory assertions on version extraction & transformation logic; exits 0
 //   2 = unrecoverable error (e.g. root Cargo.toml unreadable)
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
 import { ROOT, abs } from "./lib.mjs";
 
 export const INTEGRATION_PACKAGES = [
@@ -57,46 +57,73 @@ export const INTEGRATION_PACKAGES = [
 
 // ------------------------------------------------------------------ parsers
 
-export function parseWorkspaceVersion(cargoToml) {
-  const lines = String(cargoToml).split(/\r?\n/);
-  const start = lines.findIndex((l) => l.trim() === "[workspace.package]");
-  if (start === -1) return null;
-  for (let i = start + 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line.startsWith("[")) break;
-    const m = line.match(/^version\s*=\s*"([^"]+)"/);
-    if (m) return m[1];
+export function matchAllOccurrences(text, globalRegex) {
+  const matches = [...String(text).matchAll(globalRegex)].map((m) => m[1]);
+  if (matches.length === 0) return null;
+  return matches.every((v) => v === matches[0]) ? matches[0] : matches.join(", ");
+}
+
+export function parseTomlSectionVersions(text, sectionHeader) {
+  const lines = String(text).split(/\r?\n/);
+  const found = [];
+  let inSection = false;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line.startsWith("[")) {
+      inSection = line === sectionHeader;
+      continue;
+    }
+    if (inSection) {
+      const m = line.match(/^version\s*=\s*"([^"]+)"/);
+      if (m) found.push(m[1]);
+    }
   }
-  return null;
+  if (found.length === 0) return null;
+  return found.every((v) => v === found[0]) ? found[0] : found.join(", ");
+}
+
+export function transformTomlSectionVersion(text, sectionHeader, newVersion) {
+  const escaped = sectionHeader.replace(/[[\].]/g, "\\$&");
+  const sectionRe = new RegExp(
+    `(^\\s*${escaped}\\s*\\r?\\n(?:(?!\\s*\\[)[^\\r\\n]*(?:\\r?\\n|$))*)`,
+    "gm",
+  );
+  return String(text).replace(sectionRe, (block) =>
+    block.replace(/^(\s*version\s*=\s*)"[^"]+"/gm, `$1"${newVersion}"`),
+  );
+}
+
+export function parseWorkspaceVersion(cargoToml) {
+  return parseTomlSectionVersions(cargoToml, "[workspace.package]");
 }
 
 export function parsePackageVersion(text) {
   try {
     const v = JSON.parse(text)?.version;
-    return typeof v === "string" && v.length > 0 ? v : null;
+    if (typeof v !== "string" || v.length === 0) return null;
+    return matchAllOccurrences(text, /^\s*"version":\s*"([^"]+)"/gm) ?? v;
   } catch {
     return null;
   }
 }
 
 export function parseOpenApiVersion(text) {
-  const m = String(text).match(/^  version:\s*"([^"]+)"/m);
-  return m ? m[1] : null;
+  return matchAllOccurrences(text, /^  version:\s*"([^"]+)"/gm);
 }
 
 export function parseMcpVersion(text) {
-  const m = String(text).match(/Current MCP implementation version:\s*`?v?([^\s`\r\n]+)`?/);
-  return m ? m[1] : null;
+  return matchAllOccurrences(
+    text,
+    /Current MCP implementation version:\s*`?v?([^\s`\r\n]+)`?/g,
+  );
 }
 
 export function parsePyprojectUpperBound(text) {
-  const m = String(text).match(/['"]vantadb-py>=[^,'"]+,(<0\.\d+\.0)['"]/);
-  return m ? m[1] : null;
+  return matchAllOccurrences(text, /['"]vantadb-py>=[^,'"]+,(<0\.\d+\.0)['"]/g);
 }
 
 export function parseSurfaceManifestVersion(text) {
-  const m = String(text).match(/workspace version:\s*([^\s*)]+)/);
-  return m ? m[1] : null;
+  return matchAllOccurrences(text, /workspace version:\s*([^\s*)]+)/g);
 }
 
 export function getPyprojectExpectedBound(newVersion) {
@@ -110,7 +137,7 @@ export function getPyprojectExpectedBound(newVersion) {
 // -------------------------------------------------------------- transformers
 
 export function transformPackageJson(text, newVersion) {
-  return text.replace(/^(\s*"version":\s*)"[^"]+"/m, `$1"${newVersion}"`);
+  return text.replace(/^(\s*"version":\s*)"[^"]+"/gm, `$1"${newVersion}"`);
 }
 
 export function transformServerJson(text, newVersion) {
@@ -119,17 +146,17 @@ export function transformServerJson(text, newVersion) {
     parsed.version = newVersion;
     return JSON.stringify(parsed, null, 2) + "\n";
   } catch {
-    return text.replace(/^(\s*"version":\s*)"[^"]+"/m, `$1"${newVersion}"`);
+    return text.replace(/^(\s*"version":\s*)"[^"]+"/gm, `$1"${newVersion}"`);
   }
 }
 
 export function transformOpenApiYaml(text, newVersion) {
-  return text.replace(/^(\s*version:\s*)"[^"]*"/m, `$1"${newVersion}"`);
+  return text.replace(/^(  version:\s*)"[^"]*"/gm, `$1"${newVersion}"`);
 }
 
 export function transformMcpMd(text, newVersion) {
   return text.replace(
-    /(Current MCP implementation version:\s*)(`?v?)([\d.]+)(`?)/,
+    /(Current MCP implementation version:\s*)(`?v?)([\d.]+)(`?)/g,
     (match, prefix, vPrefix, oldVer, backtick) => `${prefix}${vPrefix}${newVersion}${backtick}`,
   );
 }
@@ -137,26 +164,26 @@ export function transformMcpMd(text, newVersion) {
 export const PROVIDER_PACKAGES = ["openai", "ollama", "litellm"];
 
 export function parsePyprojectVersionAndBound(text) {
-  const mVer = String(text).match(/^\[project\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
-  const mBound = String(text).match(/['"]vantadb-py>=[^,'"]+,(<0\.\d+\.0)['"]/);
-  if (!mVer || !mBound) return null;
-  return `${mVer[1]} (${mBound[1]})`;
+  const ver = parseTomlSectionVersions(text, "[project]");
+  const bound = parsePyprojectUpperBound(text);
+  if (!ver || !bound) return null;
+  return `${ver} (${bound})`;
 }
 
 export function transformPyprojectToml(text, newVersion) {
   const newBound = getPyprojectExpectedBound(newVersion);
-  return String(text)
-    .replace(/^(\[project\][\s\S]*?^version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`)
-    .replace(/(['"]vantadb-py>=[^,'"]+,)<0\.\d+\.0(['"])/g, `$1${newBound}$2`);
+  return transformTomlSectionVersion(text, "[project]", newVersion).replace(
+    /(['"]vantadb-py>=[^,'"]+,)<0\.\d+\.0(['"])/g,
+    `$1${newBound}$2`,
+  );
 }
 
 export function parseCargoPkgVersion(text) {
-  const mPkg = String(text).match(/^\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
-  return mPkg ? mPkg[1] : null;
+  return parseTomlSectionVersions(text, "[package]");
 }
 
 export function transformCargoPkgToml(text, newVersion) {
-  return String(text).replace(/^(\[package\][\s\S]*?^version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`);
+  return transformTomlSectionVersion(text, "[package]", newVersion);
 }
 
 export function transformSurfaceManifest(text, newVersion) {
@@ -168,16 +195,16 @@ export function transformSurfaceManifest(text, newVersion) {
 // release". Sin esto, el tag v0.9.0 llevaba un manifiesto describiendo la
 // v0.8.0.
 export function parseReleaseManifestVersionAndTag(text) {
-  const mVer = String(text).match(/^\s*"version":\s*"([^"]+)"/m);
-  const mTag = String(text).match(/^\s*"tag":\s*"([^"]+)"/m);
-  if (!mVer || !mTag) return null;
-  return `${mVer[1]} (${mTag[1]})`;
+  const ver = matchAllOccurrences(text, /^\s*"version":\s*"([^"]+)"/gm);
+  const tag = matchAllOccurrences(text, /^\s*"tag":\s*"([^"]+)"/gm);
+  if (!ver || !tag) return null;
+  return `${ver} (${tag})`;
 }
 
 export function transformReleaseManifest(text, newVersion) {
   return String(text)
-    .replace(/^(\s*"version":\s*)"[^"]+"/m, `$1"${newVersion}"`)
-    .replace(/^(\s*"tag":\s*)"v[^"]+"/m, `$1"v${newVersion}"`);
+    .replace(/^(\s*"version":\s*)"[^"]+"/gm, `$1"${newVersion}"`)
+    .replace(/^(\s*"tag":\s*)"v[^"]+"/gm, `$1"v${newVersion}"`);
 }
 
 // El lockfile de npm viaja dentro del tarball publicado: su "version" raiz
@@ -185,8 +212,12 @@ export function transformReleaseManifest(text, newVersion) {
 // tolera el desajuste y ningun gate lo comprueba, pero publicar un
 // lockfile que dice 0.8.0 en un release 0.9.0 es drift.
 export function parseNodeLockVersion(text) {
-  const m = String(text).match(/^\s*"version":\s*"([^"]+)"/m);
-  return m ? m[1] : null;
+  const allMatches = [...String(text).matchAll(/^\s*"version":\s*"([^"]+)"/gm)].map((m) => m[1]);
+  const hasPackages = /"packages"\s*:\s*\{/.test(String(text));
+  const ownCount = hasPackages ? 2 : 1;
+  if (allMatches.length < ownCount) return null;
+  const ownMatches = allMatches.slice(0, ownCount);
+  return ownMatches.every((v) => v === ownMatches[0]) ? ownMatches[0] : ownMatches.join(", ");
 }
 
 export function transformNodeLockJson(text, newVersion) {
@@ -200,16 +231,22 @@ export function transformNodeLockJson(text, newVersion) {
 }
 
 export function parseNodeCargoVersion(text) {
-  const mPkg = String(text).match(/^\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
-  const mDep = String(text).match(/^vanta-memory\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"/m);
-  if (!mPkg || !mDep) return null;
-  return mPkg[1] === mDep[1] ? mPkg[1] : `${mPkg[1]} (vanta-memory=${mDep[1]})`;
+  const pkgVer = parseCargoPkgVersion(text);
+  const depVer = matchAllOccurrences(
+    text,
+    /^vanta-memory\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"/gm,
+  );
+  if (!pkgVer || !depVer) return null;
+  return pkgVer === depVer && !pkgVer.includes(", ")
+    ? pkgVer
+    : `${pkgVer} (vanta-memory=${depVer})`;
 }
 
 export function transformNodeCargoToml(text, newVersion) {
-  return String(text)
-    .replace(/^(\[package\][\s\S]*?^version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`)
-    .replace(/^(vanta-memory\s*=\s*\{[^}]*version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`);
+  return transformCargoPkgToml(text, newVersion).replace(
+    /^(vanta-memory\s*=\s*\{[^}]*version\s*=\s*)"[^"]+"/gm,
+    `$1"${newVersion}"`,
+  );
 }
 
 // FIND-468: los path-deps internos publicables (`vantadb`, `vanta-memory`)
@@ -226,12 +263,12 @@ export const WORKSPACE_DEP_TARGETS = ["vantadb", "vanta-memory"];
 export function parseWorkspaceInternalDeps(text, names = WORKSPACE_DEP_TARGETS) {
   const found = [];
   for (const name of names) {
-    const re = new RegExp(`^${name}\\s*=\\s*\\{[^}]*version\\s*=\\s*"([^"]+)"`, "m");
-    const m = String(text).match(re);
-    if (!m) return null;
-    found.push(m[1]);
+    const re = new RegExp(`^${name}\\s*=\\s*\\{[^}]*version\\s*=\\s*"([^"]+)"`, "gm");
+    const ver = matchAllOccurrences(text, re);
+    if (!ver) return null;
+    found.push(ver);
   }
-  return found.every((v) => v === found[0])
+  return found.every((v) => v === found[0] && !v.includes(", "))
     ? found[0]
     : names.map((n, i) => `${n}=${found[i]}`).join(" ");
 }
@@ -239,10 +276,50 @@ export function parseWorkspaceInternalDeps(text, names = WORKSPACE_DEP_TARGETS) 
 export function transformWorkspaceInternalDeps(text, newVersion, names = WORKSPACE_DEP_TARGETS) {
   let out = String(text);
   for (const name of names) {
-    const re = new RegExp(`^(${name}\\s*=\\s*\\{[^}]*version\\s*=\\s*)"[^"]+"`, "m");
+    const re = new RegExp(`^(${name}\\s*=\\s*\\{[^}]*version\\s*=\\s*)"[^"]+"`, "gm");
     out = out.replace(re, `$1"${newVersion}"`);
   }
   return out;
+}
+
+export const REGEN_SCRIPTS = [
+  {
+    label: "gen-surface-manifest.mjs",
+    relPath: "scripts/docs/gen-surface-manifest.mjs",
+    successMsg: "Regenerated docs/api/SURFACE_MANIFEST.md via gen-surface-manifest.mjs --write",
+  },
+  {
+    label: "gen-index.mjs",
+    relPath: "scripts/docs/gen-index.mjs",
+    successMsg: "Regenerated docs/index.md and llms.txt via gen-index.mjs --write",
+  },
+];
+
+export function runRegenerationSteps({
+  execFn = (scriptPath) =>
+    execFileSync(process.execPath, [scriptPath, "--write"], { stdio: "inherit" }),
+  existsFn = existsSync,
+  resolveFn = abs,
+  log = console.log,
+  errorLog = console.error,
+} = {}) {
+  let regenFailures = 0;
+  for (const step of REGEN_SCRIPTS) {
+    const scriptPath = resolveFn(step.relPath);
+    if (!existsFn(scriptPath)) {
+      regenFailures++;
+      errorLog(`ERROR: ${step.label} not found at ${scriptPath}`);
+      continue;
+    }
+    try {
+      execFn(scriptPath, step);
+      log(step.successMsg);
+    } catch (e) {
+      regenFailures++;
+      errorLog(`ERROR: ${step.label} --write invocation failed: ${e.message}`);
+    }
+  }
+  return regenFailures;
 }
 
 // --------------------------------------------------------------- evaluation
@@ -482,6 +559,148 @@ export function selfTest() {
     assert(got === "vantadb=0.9.0 vanta-memory=0.8.0", `got ${got}`);
   });
 
+  // 11. FIND-639: validate every own-package/workspace version occurrence (never third-party deps)
+  check("second occurrence: detects drift when a second own-package version occurrence disagrees", () => {
+    const lockDriftedSecond =
+      '{\n  "name": "vantadb",\n  "version": "0.9.0",\n  "packages": {\n    "": {\n      "name": "vantadb",\n      "version": "0.8.0"\n    },\n    "node_modules/dep": {\n      "version": "0.7.0"\n    }\n  }\n}\n';
+    assert(
+      parseNodeLockVersion(lockDriftedSecond) !== "0.9.0",
+      `package-lock.json second occurrence drift missed: got ${parseNodeLockVersion(lockDriftedSecond)}`,
+    );
+    const lockSynced = transformNodeLockJson(lockDriftedSecond, "0.9.0");
+    assert(
+      parseNodeLockVersion(lockSynced) === "0.9.0",
+      `package-lock.json after transform should be 0.9.0, got ${parseNodeLockVersion(lockSynced)}`,
+    );
+
+    const pyprojectDriftedSecondBound =
+      '[project]\nname = "vantadb-crewai"\nversion = "0.9.0"\ndependencies = [\n  "vantadb-py>=0.6.1,<0.10.0",\n]\n[project.optional-dependencies]\ndev = [\n  "vantadb-py>=0.6.1,<0.9.0",\n]\n';
+    assert(
+      parsePyprojectVersionAndBound(pyprojectDriftedSecondBound) !== "0.9.0 (<0.10.0)",
+      `pyproject.toml second occurrence drift missed: got ${parsePyprojectVersionAndBound(pyprojectDriftedSecondBound)}`,
+    );
+    const pyprojectSynced = transformPyprojectToml(pyprojectDriftedSecondBound, "0.9.0");
+    assert(
+      parsePyprojectVersionAndBound(pyprojectSynced) === "0.9.0 (<0.10.0)",
+      `pyproject.toml after transform should match, got ${parsePyprojectVersionAndBound(pyprojectSynced)}`,
+    );
+
+    const mcpDriftedSecond =
+      "# Header\nCurrent MCP implementation version: 0.9.0\nFooter: Current MCP implementation version: 0.8.0\n";
+    assert(
+      parseMcpVersion(mcpDriftedSecond) !== "0.9.0",
+      `MCP.md second occurrence drift missed: got ${parseMcpVersion(mcpDriftedSecond)}`,
+    );
+    assert(
+      parseMcpVersion(transformMcpMd(mcpDriftedSecond, "0.9.0")) === "0.9.0",
+      "MCP.md transform should synchronize all occurrences",
+    );
+
+    const openApiDriftedSecond =
+      'openapi: "3.1.0"\ninfo:\n  title: VantaDB\n  version: "0.9.0"\n  version: "0.8.0"\n';
+    assert(
+      parseOpenApiVersion(openApiDriftedSecond) !== "0.9.0",
+      `openapi.yaml second occurrence drift missed: got ${parseOpenApiVersion(openApiDriftedSecond)}`,
+    );
+    assert(
+      parseOpenApiVersion(transformOpenApiYaml(openApiDriftedSecond, "0.9.0")) === "0.9.0",
+      "openapi.yaml transform should synchronize all occurrences",
+    );
+
+    const surfaceDriftedSecond =
+      "> **workspace version: 0.9.0**\n> **workspace version: 0.8.0**\n";
+    assert(
+      parseSurfaceManifestVersion(surfaceDriftedSecond) !== "0.9.0",
+      `SURFACE_MANIFEST.md second occurrence drift missed: got ${parseSurfaceManifestVersion(surfaceDriftedSecond)}`,
+    );
+
+    const releaseDriftedSecond =
+      '{\n  "version": "0.9.0",\n  "tag": "v0.9.0",\n  "tag": "v0.8.0"\n}\n';
+    assert(
+      parseReleaseManifestVersionAndTag(releaseDriftedSecond) !== "0.9.0 (v0.9.0)",
+      `release-manifest.json second occurrence drift missed: got ${parseReleaseManifestVersionAndTag(releaseDriftedSecond)}`,
+    );
+
+    const nodeCargoDriftedSecond =
+      '[package]\nname = "vantadb-node"\nversion = "0.9.0"\n[dependencies]\nvanta-memory = { path = "../vanta-memory", version = "0.9.0" }\n[dev-dependencies]\nvanta-memory = { path = "../vanta-memory", version = "0.8.0" }\n';
+    assert(
+      parseNodeCargoVersion(nodeCargoDriftedSecond) !== "0.9.0",
+      `vantadb-node/Cargo.toml second occurrence drift missed: got ${parseNodeCargoVersion(nodeCargoDriftedSecond)}`,
+    );
+    assert(
+      parseNodeCargoVersion(transformNodeCargoToml(nodeCargoDriftedSecond, "0.9.0")) === "0.9.0",
+      "vantadb-node/Cargo.toml transform should synchronize all occurrences",
+    );
+
+    const wsDepsDriftedSecond =
+      '[workspace.dependencies]\nvantadb = { path = ".", version = "0.9.0" }\nvanta-memory = { path = "vanta-memory", version = "0.9.0" }\nvantadb = { path = ".", version = "0.8.0" }\n';
+    assert(
+      parseWorkspaceInternalDeps(wsDepsDriftedSecond) !== "0.9.0",
+      `Cargo.toml [workspace.dependencies] second occurrence drift missed: got ${parseWorkspaceInternalDeps(wsDepsDriftedSecond)}`,
+    );
+    assert(
+      parseWorkspaceInternalDeps(transformWorkspaceInternalDeps(wsDepsDriftedSecond, "0.9.0")) ===
+        "0.9.0",
+      "Cargo.toml [workspace.dependencies] transform should synchronize all occurrences",
+    );
+
+    const cargoWithThirdPartyTable =
+      '[package]\nname = "vantadb-openai"\nversion = "0.9.0"\n\n[dependencies.pyo3]\nversion = "0.30"\n';
+    assert(
+      parseCargoPkgVersion(cargoWithThirdPartyTable) === "0.9.0",
+      `third-party dependency table caused false positive: got ${parseCargoPkgVersion(cargoWithThirdPartyTable)}`,
+    );
+  });
+
+  // 12. FIND-639: fail closed on regeneration errors (gen-surface / gen-index)
+  check("gen-surface failure: fails closed when gen-surface-manifest.mjs or gen-index.mjs fails", () => {
+    const errors = [];
+    const surfaceFailCount = runRegenerationSteps({
+      existsFn: () => true,
+      resolveFn: (rel) => rel,
+      log: () => {},
+      errorLog: (msg) => errors.push(msg),
+      execFn: (scriptPath) => {
+        if (scriptPath.includes("gen-surface-manifest.mjs")) {
+          throw new Error("simulated gen-surface crash");
+        }
+      },
+    });
+    assert(surfaceFailCount === 1, `expected 1 failure on gen-surface crash, got ${surfaceFailCount}`);
+    assert(
+      errors.some((e) => e.includes("gen-surface-manifest.mjs") && e.includes("simulated gen-surface crash")),
+      `expected error log for gen-surface-manifest.mjs, got ${JSON.stringify(errors)}`,
+    );
+
+    const indexErrors = [];
+    const indexFailCount = runRegenerationSteps({
+      existsFn: () => true,
+      resolveFn: (rel) => rel,
+      log: () => {},
+      errorLog: (msg) => indexErrors.push(msg),
+      execFn: (scriptPath) => {
+        if (scriptPath.includes("gen-index.mjs")) {
+          throw new Error("simulated gen-index crash");
+        }
+      },
+    });
+    assert(indexFailCount === 1, `expected 1 failure on gen-index crash, got ${indexFailCount}`);
+    assert(
+      indexErrors.some((e) => e.includes("gen-index.mjs") && e.includes("simulated gen-index crash")),
+      `expected error log for gen-index.mjs, got ${JSON.stringify(indexErrors)}`,
+    );
+
+    const missingErrors = [];
+    const missingFailCount = runRegenerationSteps({
+      existsFn: () => false,
+      resolveFn: (rel) => rel,
+      log: () => {},
+      errorLog: (msg) => missingErrors.push(msg),
+      execFn: () => {},
+    });
+    assert(missingFailCount === 2, `expected 2 failures when scripts missing, got ${missingFailCount}`);
+  });
+
   const failed = results.filter((r) => !r.ok);
   for (const r of results) {
     console.log(`${r.ok ? "ok  " : "FAIL"}  ${r.name}${r.ok ? "" : ` -- ${r.error}`}`);
@@ -593,27 +812,8 @@ for (const spec of specs) {
 }
 
 if (writeMode) {
-  // Regenerate SURFACE_MANIFEST.md via gen-surface-manifest.mjs --write to ensure full table sync
-  const genSurfaceScript = abs("scripts/docs/gen-surface-manifest.mjs");
-  if (existsSync(genSurfaceScript)) {
-    try {
-      execFileSync(process.execPath, [genSurfaceScript, "--write"], { stdio: "inherit" });
-      console.log("Regenerated docs/api/SURFACE_MANIFEST.md via gen-surface-manifest.mjs --write");
-    } catch (e) {
-      console.warn(`Warning: gen-surface-manifest.mjs --write invocation failed: ${e.message}`);
-    }
-  }
-
-  // Regenerate canonical documentation indexes and llms.txt via gen-index.mjs --write
-  const genIndexScript = abs("scripts/docs/gen-index.mjs");
-  if (existsSync(genIndexScript)) {
-    try {
-      execFileSync(process.execPath, [genIndexScript, "--write"], { stdio: "inherit" });
-      console.log("Regenerated docs/index.md and llms.txt via gen-index.mjs --write");
-    } catch (e) {
-      console.warn(`Warning: gen-index.mjs --write invocation failed: ${e.message}`);
-    }
-  }
+  // Regenerate SURFACE_MANIFEST.md, docs/index.md and llms.txt; fail closed on any error (FIND-639)
+  failedCount += runRegenerationSteps();
 
   console.log(`\nSync complete: ${updatedCount} file(s) updated.`);
   if (failedCount > 0) {
