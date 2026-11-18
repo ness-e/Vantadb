@@ -211,6 +211,10 @@ impl Embedded {
     ) -> Result<(Vec<MemorySearchHit>, EntityBoostReport)> {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
+        crate::sdk::api::memory::validate_dense_vector_finiteness(&request.query_vector, "search")?;
+        if let Some(ref sparse) = request.query_sparse {
+            crate::sdk::api::memory::validate_sparse_vector_finiteness(sparse, "search")?;
+        }
 
         let started = web_time::Instant::now();
         let (rrf_k, candidate_k) = fusion::resolve_search_profile(&request);

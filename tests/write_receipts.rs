@@ -316,10 +316,11 @@ fn verify_fails_safe_when_live_record_has_non_finite_floats() {
     // it to `null`, making the content comparison ambiguous — verification
     // must fail safe instead of comparing ambiguous hashes.
     let mut altered = write_input("write", "theta");
-    // 3 dims, like the index: the dimension check (FIND-411) rejects a 2-dim
-    // vector before the non-finite one, so the test would fail for the wrong reason.
-    altered.vector = Some(vec![0.5, f32::INFINITY, 0.25]);
-    db.put(altered).expect("re-put with non-finite float");
+    altered
+        .metadata
+        .insert("score".to_string(), Value::Float(f64::INFINITY));
+    db.put(altered)
+        .expect("re-put with non-finite metadata float");
 
     let err = db
         .verify_write_receipt(&json)

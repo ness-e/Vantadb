@@ -98,6 +98,43 @@ impl QuarantineState {
     }
 }
 
+/// Reject non-finite (`NaN`, `+Inf`, `-Inf`) components in a dense vector (FIND-535).
+pub(crate) fn validate_dense_vector_finiteness(vector: &[f32], context: &str) -> Result<()> {
+    if let Some((idx, val)) = vector.iter().enumerate().find(|(_, x)| !x.is_finite()) {
+        return Err(Error::InvalidInput(format!(
+            "{context}: dense vector contains non-finite component at index {idx} ({val})"
+        )));
+    }
+    Ok(())
+}
+
+/// Reject non-finite (`NaN`, `+Inf`, `-Inf`) weights in a sparse vector (FIND-535).
+pub(crate) fn validate_sparse_vector_finiteness(
+    sparse: &crate::node::SparseVector,
+    context: &str,
+) -> Result<()> {
+    if let Some((dim, val)) = sparse.0.iter().find(|(_, x)| !x.is_finite()) {
+        return Err(Error::InvalidInput(format!(
+            "{context}: sparse_vector contains non-finite weight at dim {dim} ({val})"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_input_vectors_finiteness(
+    vector: Option<&[f32]>,
+    sparse_vector: Option<&crate::node::SparseVector>,
+    context: &str,
+) -> Result<()> {
+    if let Some(v) = vector {
+        validate_dense_vector_finiteness(v, context)?;
+    }
+    if let Some(sv) = sparse_vector {
+        validate_sparse_vector_finiteness(sv, context)?;
+    }
+    Ok(())
+}
+
 /// Validate a quarantine reason code (ADR-046 §D2): non-empty lowercase
 /// snake_case. The stable set is `explicit_write` | `unreviewed_import` |
 /// `derived_promotion` | `policy_match` (reserved); the format check stays
@@ -889,6 +926,11 @@ impl Embedded {
         if dedup_policy == DedupPolicy::Off {
             return self.insert_one_internal(input);
         }
+        validate_input_vectors_finiteness(
+            input.vector.as_deref(),
+            input.sparse_vector.as_ref(),
+            "put",
+        )?;
 
         let exact_start = std::time::Instant::now();
         let norm_text = normalize_content(&input.payload);
@@ -1038,6 +1080,11 @@ impl Embedded {
         validate_namespace(&input.namespace)?;
         validate_key(&input.key)?;
         validate_metadata(&input.metadata)?;
+        validate_input_vectors_finiteness(
+            input.vector.as_deref(),
+            input.sparse_vector.as_ref(),
+            "put",
+        )?;
 
         let engine = self.engine_handle()?;
         let node_id = memory_node_id(&input.namespace, &input.key);
@@ -1356,6 +1403,11 @@ impl Embedded {
             validate_namespace(&input.namespace)?;
             validate_key(&input.key)?;
             validate_metadata(&input.metadata)?;
+            validate_input_vectors_finiteness(
+                input.vector.as_deref(),
+                input.sparse_vector.as_ref(),
+                "put_batch",
+            )?;
         }
 
         let engine = self.engine_handle()?;
@@ -1975,6 +2027,11 @@ impl Embedded {
         validate_namespace(&record.namespace)?;
         validate_key(&record.key)?;
         validate_metadata(&record.metadata)?;
+        validate_input_vectors_finiteness(
+            record.vector.as_deref(),
+            record.sparse_vector.as_ref(),
+            "put_record_exact",
+        )?;
         validate_confidence_fields(
             record.confidence_class,
             &record.derived_from,
@@ -2156,6 +2213,11 @@ impl Embedded {
         validate_namespace(&record.namespace)?;
         validate_key(&record.key)?;
         validate_metadata(&record.metadata)?;
+        validate_input_vectors_finiteness(
+            record.vector.as_deref(),
+            record.sparse_vector.as_ref(),
+            "merge_record",
+        )?;
         // Review P2-01 R6: validate the record's invariants BEFORE deciding,
         // so an invalid incoming record errors regardless of whether it would
         // win or lose (the store path re-validates anyway; this keeps the
@@ -2962,6 +3024,11 @@ impl Embedded {
         // must not leave chunks 1..N-1 written.
         let mut expected_dimension = self.index_vector_dimension(&engine);
         for input in &records {
+            validate_input_vectors_finiteness(
+                input.vector.as_deref(),
+                input.sparse_vector.as_ref(),
+                "bulk_import",
+            )?;
             if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
                 validate_vector_dimension(expected_dimension, vector.len())?;
                 expected_dimension.get_or_insert(vector.len());
@@ -3227,5 +3294,211 @@ mod tests {
             .put_batch(valid_batch)
             .expect("batch within quota succeeds");
         assert_eq!(res.len(), 2);
+    }
+
+    #[test]
+    fn put_rejects_non_finite_dense_vectors_nan_and_inf() {
+        for policy in [DedupPolicy::Off, DedupPolicy::Semantic] {
+            let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+            // Seed an existing record so Semantic FastGate has a target to hit if not pre-validated.
+            let mut seed = MemoryInput::new("vec", "seed", "existing record");
+            seed.vector = Some(vec![1.0, 0.0, 0.0]);
+            seed.dedup_policy = Some(policy);
+            db.put(seed).expect("seed put");
+
+            for (label, bad_val) in [
+                ("nan", f32::NAN),
+                ("pos_inf", f32::INFINITY),
+                ("neg_inf", f32::NEG_INFINITY),
+            ] {
+                let mut input = MemoryInput::new("vec", label, "existing record");
+                input.vector = Some(vec![0.5, bad_val, 0.25]);
+                input.dedup_policy = Some(policy);
+                let err = db
+                    .put(input)
+                    .expect_err("non-finite dense vector must be rejected");
+                assert!(
+                    matches!(err, Error::InvalidInput(_)),
+                    "expected Error::InvalidInput for {label} ({policy:?}), got {err:?}"
+                );
+                assert!(
+                    err.to_string().contains("non-finite"),
+                    "error message must mention non-finite: {err}"
+                );
+                assert!(
+                    db.get("vec", label).expect("get").is_none(),
+                    "rejected write must not persist {label}"
+                );
+            }
+
+            // Finite zero-norm vector remains accepted as a vectorless record (Risk Register).
+            let mut zero_input = MemoryInput::new("vec", "zero_ok", "zero vector record");
+            zero_input.vector = Some(vec![0.0, 0.0, 0.0]);
+            zero_input.dedup_policy = Some(policy);
+            let zero_rec = db.put(zero_input).expect("finite zero vector accepted");
+            assert_eq!(zero_rec.vector, None);
+        }
+    }
+
+    #[test]
+    fn put_rejects_non_finite_sparse_vectors_nan_and_inf() {
+        use crate::node::SparseVector;
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        for (label, bad_val) in [
+            ("sparse_nan", f32::NAN),
+            ("sparse_pos_inf", f32::INFINITY),
+            ("sparse_neg_inf", f32::NEG_INFINITY),
+        ] {
+            let mut input = MemoryInput::new("vec", label, "payload");
+            input.sparse_vector = Some(SparseVector(BTreeMap::from([(1, 0.5), (7, bad_val)])));
+            let err = db
+                .put(input)
+                .expect_err("non-finite sparse vector must be rejected");
+            assert!(
+                matches!(err, Error::InvalidInput(_)),
+                "expected Error::InvalidInput for {label}, got {err:?}"
+            );
+            assert!(db.get("vec", label).expect("get").is_none());
+        }
+    }
+
+    #[test]
+    fn put_batch_rejects_non_finite_dense_and_sparse_vectors_all_or_nothing() {
+        use crate::node::SparseVector;
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        for (idx, (bad_dense, bad_sparse)) in [
+            (Some(vec![1.0, f32::NAN, 0.0]), None),
+            (Some(vec![1.0, f32::INFINITY, 0.0]), None),
+            (Some(vec![1.0, f32::NEG_INFINITY, 0.0]), None),
+            (None, Some(SparseVector(BTreeMap::from([(3, f32::NAN)])))),
+            (
+                None,
+                Some(SparseVector(BTreeMap::from([(3, f32::INFINITY)]))),
+            ),
+            (
+                None,
+                Some(SparseVector(BTreeMap::from([(3, f32::NEG_INFINITY)]))),
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let valid_key = format!("valid_{idx}");
+            let bad_key = format!("bad_{idx}");
+            let mut valid = MemoryInput::new("batch_nf", &valid_key, "valid payload");
+            valid.vector = Some(vec![1.0, 0.0, 0.0]);
+            let mut bad = MemoryInput::new("batch_nf", &bad_key, "bad payload");
+            bad.vector = bad_dense;
+            bad.sparse_vector = bad_sparse;
+
+            let err = db
+                .put_batch(vec![valid, bad])
+                .expect_err("batch with non-finite vector must fail");
+            assert!(
+                matches!(err, Error::InvalidInput(_)),
+                "expected Error::InvalidInput, got {err:?}"
+            );
+            assert!(
+                db.get("batch_nf", &valid_key).expect("get").is_none(),
+                "upfront validation must prevent partial commit of {valid_key}"
+            );
+            assert!(db.get("batch_nf", &bad_key).expect("get").is_none());
+        }
+    }
+
+    #[test]
+    fn search_rejects_non_finite_dense_and_sparse_queries() {
+        use crate::node::{DistanceMetric, SparseVector};
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        let mut seed = MemoryInput::new("srch", "k1", "alpha beta");
+        seed.vector = Some(vec![1.0, 0.0, 0.0]);
+        seed.sparse_vector = Some(SparseVector(BTreeMap::from([(1, 1.0)])));
+        db.put(seed).expect("seed");
+
+        for bad_val in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            for metric in [DistanceMetric::Cosine, DistanceMetric::Euclidean] {
+                let req = MemorySearchRequest {
+                    namespace: "srch".into(),
+                    query_vector: vec![bad_val, 1.0, 0.0],
+                    top_k: 5,
+                    distance_metric: metric,
+                    ..Default::default()
+                };
+                let err = db
+                    .search(req.clone())
+                    .expect_err("non-finite query_vector must fail search");
+                assert!(
+                    matches!(err, Error::InvalidInput(_)),
+                    "search({metric:?}, {bad_val}): expected InvalidInput, got {err:?}"
+                );
+                let err_page = db
+                    .search_page(req.clone())
+                    .expect_err("non-finite query_vector must fail search_page");
+                assert!(matches!(err_page, Error::InvalidInput(_)));
+                let err_method = db
+                    .search_with_method(req, Some(crate::index::IndexType::Flat))
+                    .expect_err("non-finite query_vector must fail search_with_method");
+                assert!(matches!(err_method, Error::InvalidInput(_)));
+            }
+
+            let err_sv = db
+                .search_vector(&[bad_val, 1.0, 0.0], 5)
+                .expect_err("non-finite vector must fail search_vector");
+            assert!(
+                matches!(err_sv, Error::InvalidInput(_)),
+                "search_vector({bad_val}): expected InvalidInput, got {err_sv:?}"
+            );
+
+            let req_sparse = MemorySearchRequest {
+                namespace: "srch".into(),
+                query_sparse: Some(SparseVector(BTreeMap::from([(1, bad_val)]))),
+                top_k: 5,
+                ..Default::default()
+            };
+            let err_sp = db
+                .search(req_sparse)
+                .expect_err("non-finite query_sparse must fail search");
+            assert!(
+                matches!(err_sp, Error::InvalidInput(_)),
+                "search sparse({bad_val}): expected InvalidInput, got {err_sp:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn merge_record_and_put_record_exact_reject_non_finite_vectors() {
+        use crate::node::SparseVector;
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        let rec_dense = MemoryRecord {
+            namespace: "merge_nf".into(),
+            key: "k1".into(),
+            payload: "p".into(),
+            updated_at_ms: 100,
+            version: 1,
+            vector: Some(vec![0.1, f32::NAN, 0.2]),
+            ..Default::default()
+        };
+        let err = db
+            .merge_record(rec_dense)
+            .expect_err("merge_record must reject non-finite dense vector");
+        assert!(matches!(err, Error::InvalidInput(_)));
+
+        let rec_sparse = MemoryRecord {
+            namespace: "merge_nf".into(),
+            key: "k2".into(),
+            payload: "p".into(),
+            updated_at_ms: 100,
+            version: 1,
+            sparse_vector: Some(SparseVector(BTreeMap::from([(2, f32::NEG_INFINITY)]))),
+            ..Default::default()
+        };
+        let err_sp = db
+            .merge_record(rec_sparse)
+            .expect_err("merge_record must reject non-finite sparse vector");
+        assert!(matches!(err_sp, Error::InvalidInput(_)));
     }
 }

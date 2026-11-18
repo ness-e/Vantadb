@@ -17,6 +17,7 @@ impl Embedded {
     /// K-NN vector search across all nodes via HNSW index.
     #[tracing::instrument(skip(self, vector), err)]
     pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<SearchHit>> {
+        super::memory::validate_dense_vector_finiteness(vector, "search_vector")?;
         if vector.is_empty() || top_k == 0 {
             return Ok(Vec::new());
         }
