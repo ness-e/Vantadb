@@ -744,8 +744,7 @@ fn parse_select_depth(i: &str, depth: usize) -> IResult<&str, SelectStatement> {
 
     // WHERE clause with mixed regular and subquery conditions — the depth
     // counter is threaded by value into the subquery arm (FIND-523).
-    let (i, where_items) =
-        parse_where_clause(i, |i| parse_where_item_at_depth(i, depth))?;
+    let (i, where_items) = parse_where_clause(i, |i| parse_where_item_at_depth(i, depth))?;
 
     // `GROUP BY <field>` (WIRE-13): single group key, SQL position (after
     // WHERE, before the tail clauses). Multi-field (`GROUP BY a, b`) is

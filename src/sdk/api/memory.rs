@@ -337,6 +337,7 @@ impl Embedded {
     /// - D4b: `derived` + declared score ⇒ rejection;
     /// - V3: bounded derivation depth / acyclicity;
     /// - score: `clamp(min(parents) × DERIVATION_DISCOUNT, 0, 1)`.
+    ///
     /// `batch_seen` (batch path only): records already processed earlier in
     /// the same `put_batch`, keyed by `memory_node_id`. A `derived_from`
     /// parent may resolve against either the store or an earlier batch
@@ -386,12 +387,7 @@ impl Embedded {
                         reason: "derived score is computed from parents; declared scores are not allowed on derived records".into(),
                     });
                 }
-                self.validate_derivation_chain(
-                    &input.namespace,
-                    &input.key,
-                    &parents,
-                    batch_seen,
-                )?;
+                self.validate_derivation_chain(&input.namespace, &input.key, &parents, batch_seen)?;
 
                 let mut min_parent = f32::INFINITY;
                 for parent_key in &parents {
@@ -1092,7 +1088,8 @@ impl Embedded {
             .effective_ttl_ms(&input.namespace, input.ttl_ms)
             .map(|ttl| timestamp.saturating_add(ttl));
 
-        let (confidence_class, confidence, derived_from) = self.materialize_confidence(&input, None)?;
+        let (confidence_class, confidence, derived_from) =
+            self.materialize_confidence(&input, None)?;
         let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
         let mut quarantine = existing
             .as_ref()

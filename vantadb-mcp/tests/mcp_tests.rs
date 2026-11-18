@@ -4092,7 +4092,10 @@ fn test_memory_put_batch_derivation_cycle_and_depth_via_seen() {
         "batch exceeding MAX_DERIVATION_DEPTH must fail: {err}"
     );
     let txt = err["content"][0]["text"].as_str().unwrap_or_default();
-    assert!(txt.contains("MAX_DERIVATION_DEPTH"), "expected depth error, got: {txt}");
+    assert!(
+        txt.contains("MAX_DERIVATION_DEPTH"),
+        "expected depth error, got: {txt}"
+    );
 }
 
 /// FIND-278 (pre-mortem guard): the JSON Schema advertised by `tools/list`
