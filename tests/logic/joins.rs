@@ -1041,3 +1041,111 @@ fn test_subquery_float_scalar_compares_against_int_field() {
         _ => panic!("Expected Read result"),
     }
 }
+
+// ─── FIND-657: qualified reference to the losing side of a collision ────
+
+/// Regression (FIND-657): when both join sides carry `name`, the merged
+/// row kept only the unqualified key with left precedence, so `a.name`
+/// (right alias) resolved via the stripped key to the LEFT value — the
+/// qualifier was silently ignored (same silent-wrong-result class as
+/// FIND-157/556). The merged row now also carries the losing side's
+/// colliding fields under `alias.field`, so the exact-match-first lookup
+/// in `evaluate_condition`/`strip_alias` honors the qualifier.
+#[test]
+fn test_join_qualified_where_uses_right_value_on_collision() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_person(&storage, 1, "Alice", 10);
+    // The Address side also stores `name` — a genuine collision with
+    // Person.name. Left precedence keeps `name` = "Alice" unqualified.
+    let mut addr = UnifiedNode::new(10);
+    addr.relational
+        .insert("type".into(), FieldValue::String("Address".into()));
+    addr.relational
+        .insert("name".into(), FieldValue::String("Headquarters".into()));
+    addr.relational
+        .insert("city".into(), FieldValue::String("New York".into()));
+    addr.relational.insert("id".into(), FieldValue::Int(10));
+    storage.insert(&addr).unwrap();
+
+    // `a.name` must compare against the ADDRESS name, not Alice's.
+    let result = ex
+        .execute_hybrid(
+            "SELECT * FROM Person p JOIN Address a ON p.addr_id = a.id WHERE a.name = \"Headquarters\"",
+        )
+        .unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(
+                nodes.len(),
+                1,
+                "a.name must resolve to the right-side value"
+            );
+            assert_eq!(
+                nodes[0].relational.get("a.name"),
+                Some(&FieldValue::String("Headquarters".into())),
+                "the losing side stays reachable under its qualified key"
+            );
+            // Left precedence on the unqualified key is unchanged.
+            assert_eq!(
+                nodes[0].relational.get("name"),
+                Some(&FieldValue::String("Alice".into()))
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+
+    // The qualifier must NOT silently fall back to the left value:
+    // comparing `a.name` against Alice's name matches nothing.
+    let result = ex
+        .execute_hybrid(
+            "SELECT * FROM Person p JOIN Address a ON p.addr_id = a.id WHERE a.name = \"Alice\"",
+        )
+        .unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(
+                nodes.len(),
+                0,
+                "a.name = <left value> must not match the right side"
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}
+
+/// The left side under collision keeps working through the same contract:
+/// `p.name` resolves to the left value (unqualified `name` winner).
+#[test]
+fn test_join_qualified_where_left_side_collision_still_resolves_left() {
+    let (storage, _dir) = setup();
+    let ex = Executor::new(&storage);
+
+    insert_person(&storage, 1, "Alice", 10);
+    let mut addr = UnifiedNode::new(10);
+    addr.relational
+        .insert("type".into(), FieldValue::String("Address".into()));
+    addr.relational
+        .insert("name".into(), FieldValue::String("Headquarters".into()));
+    addr.relational
+        .insert("city".into(), FieldValue::String("New York".into()));
+    addr.relational.insert("id".into(), FieldValue::Int(10));
+    storage.insert(&addr).unwrap();
+
+    let result = ex
+        .execute_hybrid(
+            "SELECT * FROM Person p JOIN Address a ON p.addr_id = a.id WHERE p.name = \"Alice\"",
+        )
+        .unwrap();
+    match result {
+        vantadb::executor::ExecutionResult::Read(nodes) => {
+            assert_eq!(nodes.len(), 1, "p.name resolves to the left value");
+            assert_eq!(
+                nodes[0].relational.get("city"),
+                Some(&FieldValue::String("New York".into()))
+            );
+        }
+        _ => panic!("Expected Read result"),
+    }
+}

@@ -14,7 +14,8 @@ use super::strip_alias;
 // ─── Physical Nested Loop Join Operator ────────────────────────
 
 // ponytail: NestedLoopJoin — simplest correct. Add HashJoin when perf warrants it.
-// ponytail: Merges all relational fields (left precedence on name collision).
+// ponytail: Merges all relational fields (left precedence on name collision);
+// FIND-657: collision losers stay reachable under `<qualifier>.<field>`.
 // ponytail: No predicate pushdown yet — all WHERE filters apply post-join.
 
 /// Physical nested-loop join operator that iterates left entities and,
@@ -113,19 +114,36 @@ impl PhysicalOperator for PhysicalNestedLoopJoin<'_> {
 
                 if matches {
                     // Merge fields: left fields first, then right fields (left priority on conflict)
-                    // FIND-556: the merged row keeps only unqualified keys.
-                    // A qualified reference to the losing side under a name
-                    // collision (`a.name` where `a` is the right alias and
-                    // both sides have `name`) resolves via the stripped key
-                    // to the LEFT value — the qualifier is not honored
-                    // post-merge. Honoring it requires qualified keys in
-                    // the merged row (FIND-657).
                     let mut merged = UnifiedNode::new(left.id);
                     merged.relational = left.relational.clone();
                     for (k, v) in &right.relational {
                         // Use BTreeMap entry API to avoid overwriting left fields
                         if !merged.relational.contains_key(k) {
                             merged.relational.insert(k.clone(), v.clone());
+                        }
+                    }
+                    // FIND-657: a right-side field that lost to a left field
+                    // of the same name stays reachable under its qualified
+                    // key `<qualifier>.<field>` (the qualifier is the prefix
+                    // of the ON right field — `a.id` → `a`; an unqualified
+                    // right field carries no qualifier to emit under). The
+                    // exact-match-first lookup in `evaluate_condition` /
+                    // `PhysicalProject` then resolves `a.name` to the right
+                    // value instead of silently stripping to the left one.
+                    // `entry().or_insert` never overwrites a genuine stored
+                    // key (a real `a.name` on either side wins over the
+                    // synthesized alias — same contract as FIND-556) and the
+                    // two passes keep BTreeMap order from deciding whether
+                    // a right-side genuine `a.name` shadows the synthesized
+                    // one.
+                    if let Some((qualifier, _)) = self.right_field.rsplit_once('.') {
+                        for (k, v) in &right.relational {
+                            if left.relational.contains_key(k) {
+                                merged
+                                    .relational
+                                    .entry(format!("{qualifier}.{k}"))
+                                    .or_insert_with(|| v.clone());
+                            }
                         }
                     }
                     return Ok(Some(merged));
