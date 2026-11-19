@@ -517,9 +517,14 @@ Conversation threads with append-only messages and optional TTL expiry.
 ## Snapshots API
 
 Filesystem snapshots copy mutable files; Unix hard-links immutable WAL archives,
-sealed Fjall journals and Fjall tables/blobs. Windows copies all files. Snapshotting while other
-writers are active is not guaranteed coherent across data and backend; quiesce
-writers first (FIND-651).
+sealed Fjall journals and Fjall tables/blobs. Windows copies all files. The
+capture holds the engine's `insert_lock` quiesce barrier across the whole mirror
+(FIND-651): in-process writers block up to `insert_lock_timeout_ms` and then fail
+with a retriable `Timeout`, so a snapshot taken while SDK writers are active is
+coherent — it observes a file set frozen at a commit boundary. The quiesce
+caveat now applies only to out-of-process writers: another process mutating the
+data files directly (raw copies/edits outside the engine) can still race the
+mirror; keep external writers quiesced or use the engine handle that owns them.
 Opening a snapshot path directly creates a data-only view and writes Fjall
 files in that snapshot directory. Use `restore_from` for a full restore.
 

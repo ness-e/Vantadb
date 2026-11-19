@@ -40,7 +40,10 @@ pub struct Embedded {
     /// writers can apply the same generation's text-index decrement twice
     /// (a second decrement would drive the term df negative).
     /// `resolve_existing_for_write` keeps a read guard for decision-only
-    /// callers (`merge_record_inner`). Shared across clones via `Arc`.
+    /// callers (`merge_record_inner`). Shared across clones via `Arc` — and,
+    /// since FIND-651 (breach 2), across `Embedded` wrappers over the same
+    /// engine: the `Arc` is the engine-owned `sdk_purge_lock`, so a second
+    /// `from_engine` handle cannot run a concurrent purge on the same data.
     /// ponytail: global write serialization per handle - correctness first
     /// (DUR-03 r3); per-key striped locks only if write throughput demands it.
     pub(crate) purge_lock: Arc<RwLock<()>>,
@@ -82,13 +85,18 @@ impl Embedded {
     #[tracing::instrument(skip(engine))]
     pub fn from_engine(engine: Arc<StorageEngine>) -> Self {
         let config = engine.config.clone();
+        // FIND-651 (breach 2): share the engine-owned purge lock so every
+        // `Embedded` wrapper over this engine serializes its write/purge
+        // read-modify-writes against the others (DUR-03 r3) — a fresh lock
+        // per wrapper let two handles purge the same data concurrently.
+        let purge_lock = engine.sdk_purge_lock.clone();
         Self {
             engine: Arc::new(RwLock::new(Some(engine))),
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
             merge_lock: Arc::new(Mutex::new(())),
-            purge_lock: Arc::new(RwLock::new(())),
+            purge_lock,
             thread_message_lock: Arc::new(Mutex::new(())),
             thread_index_lock: Arc::new(Mutex::new(())),
             skill_write_lock: Arc::new(Mutex::new(())),
@@ -193,13 +201,17 @@ impl Embedded {
             &final_config.storage_path,
             Some(final_config.clone()),
         )?;
+        // FIND-651 (breach 2): same engine-owned purge lock as `from_engine` —
+        // any later `Embedded::from_engine(db.engine_handle()?)` wrapper then
+        // shares this exact `Arc` instead of getting an independent one.
+        let purge_lock = engine.sdk_purge_lock.clone();
         let embedded = Self {
             engine: Arc::new(RwLock::new(Some(Arc::new(engine)))),
             audit: init_audit(&final_config),
             config: final_config,
             supersede_lock: Arc::new(Mutex::new(())),
             merge_lock: Arc::new(Mutex::new(())),
-            purge_lock: Arc::new(RwLock::new(())),
+            purge_lock,
             thread_message_lock: Arc::new(Mutex::new(())),
             thread_index_lock: Arc::new(Mutex::new(())),
             skill_write_lock: Arc::new(Mutex::new(())),
@@ -246,6 +258,8 @@ impl Embedded {
             config,
             supersede_lock: Arc::new(Mutex::new(())),
             merge_lock: Arc::new(Mutex::new(())),
+            // No engine → no shared data to serialize; a fresh lock is correct
+            // (engine-dependent ops fail `NotInitialized` before reaching it).
             purge_lock: Arc::new(RwLock::new(())),
             thread_message_lock: Arc::new(Mutex::new(())),
             thread_index_lock: Arc::new(Mutex::new(())),

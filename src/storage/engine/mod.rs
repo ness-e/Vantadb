@@ -361,6 +361,19 @@ pub struct StorageEngine {
     /// taken inside `insert_lock` sections but are never held while acquiring
     /// `insert_lock` — that is the invariant that keeps the order acyclic.
     pub(crate) insert_lock: FairMutex<()>,
+    /// SDK-layer write/purge serialization lock (DUR-03 r3), owned by the
+    /// engine so every `Embedded` wrapper over this handle shares it.
+    ///
+    /// FIND-651 (breach 2): `Embedded::from_engine` previously built a fresh
+    /// `purge_lock` per wrapper, so two `Embedded` handles over the same
+    /// engine — e.g. the server's `state.db` plus any second wrapper — ran
+    /// concurrent `purge_expired` / purge-on-write read-modify-writes on the
+    /// same underlying data (double text-index df decrement). Sharing this
+    /// `Arc` makes the lock per-engine, not per-handle.
+    ///
+    /// Leaf lock: taken only by SDK code (`sdk::api::memory`); engine paths
+    /// never acquire it, so it cannot enter the `insert_lock` order cycle.
+    pub(crate) sdk_purge_lock: Arc<RwLock<()>>,
     /// Pending HNSW mutations awaiting batch flush under a single
     /// `insert_lock` acquisition (Rayon micro-batching, P1).
     pub(crate) pending_hnsw_batch: parking_lot::Mutex<Vec<PendingHnswOp>>,

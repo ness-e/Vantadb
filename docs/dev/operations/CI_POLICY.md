@@ -363,8 +363,9 @@ are unchanged. The 90-minute job budget also includes the cold native C++ build.
 The artifact contains execution context, per-phase TXT logs, exit codes and
 JUnit XML. An empty test selection fails; a failure stops subsequent phases.
 An old nextest report is moved aside before each phase so cached XML cannot
-stand in for an unexecuted run. Artifacts upload even on failure. Snapshot
-coherence still requires quiesced writers; FIND-651 remains separate.
+stand in for an unexecuted run. Artifacts upload even on failure. In-process
+snapshot coherence is enforced by the FIND-651 `insert_lock` barrier; quiesced
+writers are required only for out-of-process / raw file mutation.
 
 ### 2b. Nightly Certification Subset (`nightly.yml`, HARD-02)
 

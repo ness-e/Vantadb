@@ -373,9 +373,12 @@ let db = restore_snapshot(config, "mem-2026-10-05")?;  // reopened over restored
 Thin delegation to the core (`Embedded::create_snapshot`/`list_snapshots`/`restore_from`);
 the core owns flush/mirror/rollback and validates the snapshot name (anti
 path-traversal — the wrapper never relaxes it). Requires an on-disk store
-(Fjall or RocksDB with its core feature); `InMemory` keeps no files. Quiesce writers first: snapshots taken
-while writers are active are not guaranteed coherent across data and backend
-(FIND-651). Complete snapshots with a format marker and backend inventory
+(Fjall or RocksDB with its core feature); `InMemory` keeps no files. In-process writers need not be quiesced:
+the capture holds the engine's `insert_lock` barrier across the mirror, so
+concurrent SDK writes are serialized to a commit boundary (writers block up to
+`insert_lock_timeout_ms`, then fail retriable `Timeout`) — snapshots taken while
+this engine's writers are active are coherent (FIND-651). Only out-of-process
+writers / raw file mutation must stay quiesced. Complete snapshots with a format marker and backend inventory
 restore both data and backend; legacy snapshots without either marker restore
 only data, retaining live backend tombstones and supersessions (FIND-287).
 RocksDB captures a native checkpoint. The inventory records its backend kind;

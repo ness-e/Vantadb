@@ -219,6 +219,7 @@ impl StorageEngine {
             read_only: config.read_only,
             hnsw: arc_swap::ArcSwap::new(Arc::new(hnsw)),
             insert_lock: parking_lot::FairMutex::new(()),
+            sdk_purge_lock: std::sync::Arc::new(parking_lot::RwLock::new(())),
             pending_hnsw_batch: parking_lot::Mutex::new(Vec::new()),
             cache: super::cache::CacheLayer::new(cardinality_stats),
             last_query_timestamp: std::sync::atomic::AtomicU64::new(0),

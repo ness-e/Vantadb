@@ -370,6 +370,12 @@ impl StorageEngine {
 
     /// FND-02: eviction after the cache guard drops (locked variant, since
     /// insert_lock is held on the batch path).
+    ///
+    /// Precondition: the caller MUST hold `insert_lock` — the `_locked`
+    /// eviction path it drives (`consolidate_node_locked`) assumes the FIND-651
+    /// quiesce barrier is already held and never re-acquires the non-reentrant
+    /// lock. `commit_batch_locked` holds it; `batch_insert_with_opts` re-acquires
+    /// it around this call after the per-chunk guards drop.
     pub(crate) fn run_batch_eviction_if_needed(&self, needs_eviction: bool) {
         if !needs_eviction {
             return;
@@ -1010,7 +1016,26 @@ impl StorageEngine {
         self.apply_batch_stats_serial(nodes, &opts);
 
         let needs_eviction = self.cache_batch_hot_nodes(nodes);
-        self.run_batch_eviction_if_needed(needs_eviction);
+        // FIND-651: `run_batch_eviction_if_needed` drives the `_locked`
+        // eviction variant, which requires `insert_lock` to be held — but the
+        // per-chunk guards above are already dropped, so it must be
+        // re-acquired here (non-reentrant; callers never hold it, per this
+        // method's doc contract). A lock timeout skips this best-effort
+        // eviction instead of failing an already-committed batch — the same
+        // skip-when-contended policy `maybe_auto_flush` uses; the trigger is
+        // still set so a later maintenance pass retries the eviction.
+        if needs_eviction {
+            match self.acquire_insert_lock(
+                "acquire insert_lock in batch_insert_with_opts eviction",
+            ) {
+                Ok(_guard) => self.run_batch_eviction_if_needed(needs_eviction),
+                Err(e) => {
+                    self.emergency_maintenance_trigger
+                        .store(true, Ordering::Release);
+                    tracing::warn!("batch post-commit eviction skipped: {e}");
+                }
+            }
+        }
         self.maybe_auto_flush();
         Ok(())
     }

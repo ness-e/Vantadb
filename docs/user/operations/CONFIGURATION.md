@@ -478,7 +478,9 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 > | Import records from a JSONL file (`--input` alias) | | `namespace list` | List all namespaces |
 > | `namespace info <ns>` | Show record count and details for a namespace | |
 > `snapshot create --name <name>` | Create a filesystem snapshot, copying mutable files and linking
-> immutable files on Unix (copy on Windows); quiesce writers first (FIND-651) | | `snapshot list` | List all existing snapshots | | `wal compact` |
+> immutable files on Unix (copy on Windows); coherent while in-process writers are active — the capture
+> holds the `insert_lock` barrier (FIND-651); only out-of-process writers / raw file mutation must be
+> quiesced | | `snapshot list` | List all existing snapshots | | `wal compact` |
 > Compact the WAL: flush all data, archive the current WAL file, and start a fresh one | |
 > `wal vacuum` | Remove tombstoned nodes from HNSW and reclaim space | | `wal salvage [--dry-run]` |
 > Salvage a truncated sharded WAL (explicit opt-in): replay the coherent prefix and report explicit
