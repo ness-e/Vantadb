@@ -298,6 +298,45 @@ impl Embedded {
                 None => self.records_for_namespace(namespace, filters)?,
             };
             hits = self.exact_scan(records, query_vector, top_k, distance_metric)?;
+        // FIND-596: the index window can also come back *partial* — the
+        // PostFilter (or InFilter bitset) discards most of the `budget`
+        // candidates and `hits` lands short of `top_k` while more matching
+        // records exist in the store. The old `is_empty()` trigger let that
+        // short page through silently, dropping the rest of the recall.
+        // Bound: the same cardinality/budget guard as the `is_empty()` path —
+        // the scan runs over the filtered candidate space only
+        // (`matching_records` when the selectivity probe already materialized
+        // it, otherwise `records_for_namespace`) and `exact_scan` truncates
+        // to `top_k`.
+        } else if hits.len() < top_k
+            && strategy != FilterStrategy::PreFilter
+            && !query_vector.is_empty()
+        {
+            let records = match matching_records {
+                Some(r) => r,
+                None => self.records_for_namespace(namespace, filters)?,
+            };
+            // Cardinality guard: every ANN hit already belongs to the
+            // filtered candidate space (same namespace + filter predicates),
+            // so the exact scan is a deterministic superset of `hits`. When
+            // `records.len() <= hits.len()` the candidate space cannot top
+            // the window up — skip the scan and the fallback telemetry: the
+            // short page is exhausted, not approximate.
+            if records.len() > hits.len() {
+                BRUTE_FALLBACK_SEARCHES.fetch_add(1, Ordering::Relaxed);
+                if !filters.is_empty() {
+                    crate::metrics::record_brute_fallback_query();
+                }
+                crate::index::auto_tune::AutoTune::report_brute_fallback();
+                check_fallback_warning();
+                // Replace — do not merge: the exact top-k over the full
+                // candidate space subsumes the partial ANN result, which
+                // also deduplicates node IDs for free.
+                hits = self.exact_scan(records, query_vector, top_k, distance_metric)?;
+            } else {
+                check_fallback_warning();
+                crate::index::auto_tune::AutoTune::report_success();
+            }
         } else if !hits.is_empty() {
             check_fallback_warning();
             crate::index::auto_tune::AutoTune::report_success();
@@ -410,6 +449,153 @@ mod tests {
         assert_eq!(hits[0].record.key, "target_1");
         assert_eq!(hits[1].record.key, "target_2");
         assert!(hits[0].score > hits[1].score);
+    }
+
+    /// FIND-596: a PostFilter query whose ANN window comes back *partial*
+    /// (non-empty but < top_k) must fall back to the exact scan over the
+    /// filtered candidate space, not return the short page silently.
+    ///
+    /// Setup is tuned to make the window truncation deterministic:
+    /// - 40 records match `tag = "rare"` in the namespace: 5 carry vectors,
+    ///   35 are text-only. The 40-strong candidate set defeats the early
+    ///   `exact_scan` gate (`records.len() <= top_k.max(32)`), and the
+    ///   selectivity 40/140 = 0.29 (>= 0.10) picks PostFilter.
+    /// - Of the 5 vector targets only `target_1` sits near the query; the
+    ///   other 4 are orthogonal/opposite, so the budget-50 window fills with
+    ///   `target_1` + 49 of 100 closer `tag = "other"` distractors.
+    /// - With 105 indexed nodes (< flat_threshold 10k) the default route is
+    ///   the Flat backend — an exact top-50 window — so the ANN stage yields
+    ///   exactly 1 post-filtered hit on every run.
+    #[test]
+    fn test_post_filter_partial_ann_window_triggers_exact_fallback() {
+        reset_vector_search_fallback_stats();
+
+        let db = connect(":memory:").expect("in-memory db open");
+        let namespace = "test_postfilter_partial";
+        let query_vec = vec![1.0, 0.0, 0.0, 0.0];
+
+        let rare_meta = || {
+            let mut meta = MemoryMetadata::new();
+            meta.insert("tag".into(), Value::String("rare".into()));
+            meta
+        };
+
+        // target_1: identical to the query — always the best ANN candidate.
+        db.put(MemoryInput {
+            namespace: namespace.into(),
+            key: "target_1".into(),
+            payload: "near target".into(),
+            metadata: rare_meta(),
+            vector: Some(vec![1.0, 0.0, 0.0, 0.0]),
+            ..Default::default()
+        })
+        .expect("put target_1");
+
+        // targets 2..5: orthogonal/opposite to the query (cosine <= 0), so
+        // every distractor outranks them inside the budget-50 window.
+        let far_vectors = [
+            vec![0.0, 1.0, 0.0, 0.0],
+            vec![0.0, 0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 0.0, 1.0],
+            vec![-1.0, 0.0, 0.0, 0.0],
+        ];
+        for (i, vector) in far_vectors.iter().enumerate() {
+            db.put(MemoryInput {
+                namespace: namespace.into(),
+                key: format!("target_{}", i + 2),
+                payload: format!("far target {}", i + 2),
+                metadata: rare_meta(),
+                vector: Some(vector.clone()),
+                ..Default::default()
+            })
+            .expect("put far target");
+        }
+
+        // 35 text-only records also matching the filter: they inflate the
+        // filtered candidate space past the early exact-scan gate but can
+        // never be vector hits.
+        for i in 0..35 {
+            db.put(MemoryInput {
+                namespace: namespace.into(),
+                key: format!("rare_text_{i}"),
+                payload: format!("rare text-only {i}"),
+                metadata: rare_meta(),
+                vector: None,
+                ..Default::default()
+            })
+            .expect("put text-only rare");
+        }
+
+        // 100 distractors that fail the filter but sit inside the ANN window
+        // (cosine ~0.998 — below target_1, above every far target).
+        for i in 0..100 {
+            let mut other_meta = MemoryMetadata::new();
+            other_meta.insert("tag".into(), Value::String("other".into()));
+            let skew = 0.05 + (i as f32) * 0.001;
+            let norm = (1.0f32 + skew * skew).sqrt();
+            db.put(MemoryInput {
+                namespace: namespace.into(),
+                key: format!("distractor_{i}"),
+                payload: format!("distractor {i}"),
+                metadata: other_meta,
+                vector: Some(vec![1.0 / norm, skew / norm, 0.0, 0.0]),
+                ..Default::default()
+            })
+            .expect("put distractor");
+        }
+
+        let mut filters = MemoryMetadata::new();
+        filters.insert("tag".into(), Value::String("rare".into()));
+
+        // Sanity: the query must actually take the PostFilter route — the
+        // fallback under test only exists off that path.
+        let engine = db.engine_handle().expect("engine handle");
+        let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
+        assert_eq!(
+            strategy,
+            FilterStrategy::PostFilter,
+            "test setup must select PostFilter (selectivity 40/140 ~ 0.29)"
+        );
+
+        let hits = db
+            .vector_memory_search(
+                namespace,
+                &query_vec,
+                &filters,
+                5,
+                DistanceMetric::Cosine,
+                None,
+            )
+            .expect("vector search should succeed");
+
+        // Without the fallback the ANN window surfaces only target_1.
+        assert_eq!(
+            hits.len(),
+            5,
+            "exact fallback must recover all 5 vector targets, not the partial window"
+        );
+        let found_keys: std::collections::HashSet<String> =
+            hits.iter().map(|h| h.record.key.clone()).collect();
+        for i in 1..=5 {
+            assert!(
+                found_keys.contains(&format!("target_{i}")),
+                "missing target_{i} in {found_keys:?}"
+            );
+        }
+        assert_eq!(hits[0].record.key, "target_1");
+        for hit in &hits {
+            assert_eq!(
+                hit.record.metadata.get("tag"),
+                Some(&Value::String("rare".into()))
+            );
+        }
+
+        // TEC-04: the fallback must be counted.
+        let (_, fallbacks, _) = vector_search_fallback_stats();
+        assert_eq!(
+            fallbacks, 1,
+            "partial-window fallback must be telemetry-visible"
+        );
     }
 
     #[test]
