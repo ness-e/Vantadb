@@ -20,7 +20,7 @@
 //! 1. **Never mutates `l1/<session>`** — reads via
 //!    `read_active_session_records` (FIND-659: current records only — a
 //!    superseded episode is audit lineage, not lesson material; same leak
-//!    class as the FIND-277 L2 fix), writes only to
+//!    class as the FIND-277 L2 fix), writes only to (fix(memory): exclude superseded episodes from reflection via read_active_session_records (FIND-659))
 //!    `reflection/<session>/<run_id>`.
 //! 2. **LLM-free by default** — deterministic lessons; a host may inject a
 //!    [`Reflector`] for true synthesis.
@@ -39,7 +39,7 @@ use crate::core::abstractions::{MemoryRecord, MemoryType};
 use crate::core::conversation::sanitize_component;
 use crate::core::dream::generate_run_id;
 use crate::core::prompts::l1_extraction::epoch_ms_to_rfc3339;
-use crate::core::record::l1_reader::read_active_session_records;
+use crate::core::record::l1_reader::{is_active_record, read_active_session_records};
 use crate::core::record::L1Error;
 
 /// Top-`DIGEST_TOP` episodes (priority desc, then `updated_at` desc) cited in
@@ -212,7 +212,7 @@ pub fn reflect_episodic(
     let mut by_scene: BTreeMap<&str, Vec<&MemoryRecord>> = BTreeMap::new();
     for record in records
         .iter()
-        .filter(|r| r.memory_type == MemoryType::Episodic)
+        .filter(|r| r.memory_type == MemoryType::Episodic && is_active_record(r))
     {
         by_scene
             .entry(record.scene_name.as_str())
@@ -360,7 +360,7 @@ pub fn reflect_session(
         ));
     }
     // FIND-659: read_active_session_records, not the raw reader — superseded
-    // episodes would otherwise feed lessons (and count toward min_episodic).
+    // episodes would otherwise feed lessons (and count toward min_episodic). (fix(memory): exclude superseded episodes from reflection via read_active_session_records (FIND-659))
     let records = read_active_session_records(db, session_id)?;
     let episodes: Vec<MemoryRecord> = records
         .into_iter()
