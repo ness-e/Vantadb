@@ -537,6 +537,17 @@ impl StorageEngine {
     /// the crate, and `vfile::File::file` (the raw `StdFile` handle, which
     /// `Write for &StdFile`/`set_len` could mutate without `insert_lock`)
     /// is `pub(crate)`, closing the snapshot-mirror mutation bypass.
+    ///
+    /// ```compile_fail
+    /// use std::io::Write;
+    /// use vantadb::storage::StorageEngine;
+    ///
+    /// let engine = StorageEngine::open_with_config(":memory:", None).unwrap();
+    /// let guard = engine.vector_store_read(0);
+    /// if let Some(mut f) = guard.file.as_ref() {
+    ///     let _ = f.write_all(b"bypass");
+    /// }
+    /// ```
     pub fn vector_store_read(&self, level: usize) -> parking_lot::RwLockReadGuard<'_, File> {
         self.vector_store[level].read()
     }

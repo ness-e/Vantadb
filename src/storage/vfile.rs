@@ -515,7 +515,7 @@ impl FileMap {
 pub struct File {
     /// Optional backing file handle (None for in-memory mode).
     ///
-    /// FIND-655 residual: `pub(crate)`, not `pub` — `vector_store_read`
+    /// FIND-655 residual/r3: `pub(crate)`, not `pub` — `vector_store_read`
     /// hands out a shared `&File`, and `impl Write for &StdFile` /
     /// `File::set_len(&self)` would let an external reader mutate the
     /// mirrored segment file without `insert_lock` while
@@ -1175,11 +1175,11 @@ impl File {
     /// decrypt-on-read operations on the underlying file handle, for example
     /// with WAL or checkpoint files that use stream-based I/O.
     ///
-    /// FIND-655 residual: `pub(crate)` — the returned stream wraps
+    /// FIND-655 residual/r3: `pub(crate)` — the returned stream wraps
     /// `&StdFile`, and `EncryptionStream<&StdFile>` implements `Write`, so
     /// a public accessor would hand `vector_store_read` callers a
     /// write channel that bypasses `insert_lock` (same class as the
-    /// `pub file` field).
+    /// `pub file` field). Gated to tests — no non-test callers exist.
     #[cfg(all(test, feature = "encryption"))]
     pub(crate) fn encryption_stream(&self) -> Option<EncryptionStream<&StdFile>> {
         let file = self.file.as_ref()?;
