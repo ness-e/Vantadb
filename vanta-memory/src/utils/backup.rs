@@ -29,9 +29,9 @@ use vantadb::sdk::Embedded;
 use vantadb::storage::FsSnapshot;
 
 /// Create a point-in-time snapshot of the memory store (core
-/// `Embedded::create_snapshot`: flush + mirror, FIND-25/FIND-33).
-/// Quiesce writers first: concurrent writes are not guaranteed coherent
-/// across data and backend (FIND-651).
+/// `Embedded::create_snapshot`: flush + mirror under the engine's
+/// `insert_lock` quiesce barrier across data and backend,
+/// FIND-25/FIND-33/FIND-651).
 ///
 /// `name` must be a plain identifier — the core validates it (no path
 /// separators, `.`/`..`, or control characters) before touching the

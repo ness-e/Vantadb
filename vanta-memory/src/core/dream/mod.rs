@@ -46,9 +46,10 @@ use thiserror::Error;
 
 use crate::core::abstractions::{MemoryRecord, MemoryType};
 use crate::core::conversation::{sanitize_component, sanitize_key};
-use crate::core::record::l1_writer::{put_record_with_confidence, PreservedState};
+use crate::core::record::l1_writer::{preserved_confidence, put_record_with_options};
 use crate::core::record::lifecycle::mark_contradiction;
 use crate::core::record::{l1_namespace, read_session_records, L1Error};
+use vantadb::sdk::DedupPolicy;
 
 // Re-export the canonical contradiction provenance type so dream consumers
 // don't have to reach into MEM-60's lifecycle module.
@@ -918,13 +919,7 @@ fn classify_update(
 /// applies it op by op: `ADD`/`UPDATE` are upserts by key (the record is
 /// written verbatim — `run.json` is the target state; an `UPDATE` keeps the
 /// node's current vector when the run copy carries none), `DELETE` removes
-/// the key, `NOOP` skips. Every write is **write-first** (FIND-658, mirroring
-/// MEMG-27's `persist_planned`): the new record is upserted before any old
-/// key is pruned, so a failed `put` never loses the pre-promotion record;
-/// an `UPDATE` also re-declares the target's stored
-/// `confidence`/`confidence_class`/`derived_from` (FIND-281 class — the L1
-/// payload does not carry them). The apply is a **batch of idempotent
-/// upserts**, not
+/// the key, `NOOP` skips. The apply is a **batch of idempotent upserts**, not
 /// a global transaction: a crash mid-apply leaves a partially promoted L1 and
 /// re-running converges (each re-run applies only the remaining diffs).
 /// Re-promoting an already-applied run returns an all-`NOOP` plan and writes
@@ -944,6 +939,7 @@ pub fn promote_dream_run(
     let current: HashMap<&str, &MemoryRecord> = l1.iter().map(|r| (r.id.as_str(), r)).collect();
 
     let mut written = 0usize;
+    let mut written_keys: HashSet<String> = HashSet::new();
     for op in &plan.ops {
         match op.action {
             PromotionAction::Add | PromotionAction::Update => {
@@ -955,70 +951,62 @@ pub fn promote_dream_run(
                 })?;
                 let mut stripped = (*record).clone();
                 let mut vector = stripped.vector.take();
-                // For UPDATEs also capture the engine-side record state BEFORE
-                // the rewrite (FIND-658, sibling of FIND-281): `confidence`/
-                // `confidence_class`/`derived_from` live on the stored record —
-                // the L1 payload does not carry them. A bare re-put would reset
-                // a feedback-decayed confidence to `default_confidence()` and
-                // strip a derived record's provenance (or fail V1 outright).
-                let mut preserved = None;
-                if op.action == PromotionAction::Update {
-                    if vector.is_none() {
-                        // The dream copy carries no vector (e.g. the node gained
-                        // one after the run): keep the node's current vector
-                        // instead of dropping it with the rewrite. Payload
-                        // equality ignores vectors, so this is the only place
-                        // one could be silently lost during promotion.
-                        vector = current.get(op.key.as_str()).and_then(|r| r.vector.clone());
-                    }
-                    preserved = match db.get(&namespace, &sanitize_key(&op.key)) {
-                        Ok(Some(stored)) => Some(PreservedState {
-                            confidence_class: stored.confidence_class,
-                            confidence: stored.confidence,
-                            derived_from: stored.derived_from,
-                        }),
-                        Ok(None) => {
-                            // Target vanished mid-apply — defaults apply.
-                            None
-                        }
+                if op.action == PromotionAction::Update && vector.is_none() {
+                    // The dream copy carries no vector (e.g. the node gained one
+                    // after the run): keep the node's current vector instead of
+                    // dropping it during promotion. Payload equality ignores
+                    // vectors, so this is the only place one could be silently
+                    // lost during promotion.
+                    vector = current.get(op.key.as_str()).and_then(|r| r.vector.clone());
+                }
+                let storage_key = sanitize_key(&op.key);
+                // FIND-658 (sibling of FIND-281): on `Update`, read the engine
+                // record first so we preserve its stored `confidence`,
+                // `confidence_class`, and `derived_from` lineage instead of
+                // resetting to `Asserted` / `default_confidence()`.
+                let confidence_override = if op.action == PromotionAction::Update {
+                    match db.get(&namespace, &storage_key) {
+                        Ok(Some(stored)) => Some(preserved_confidence(db, &namespace, &stored)),
+                        Ok(None) => None,
                         Err(e) => {
                             tracing::debug!(
-                                key = %op.key,
+                                record_id = %op.key,
                                 error = %e,
-                                "promotion: stored confidence unreadable; using defaults"
+                                "dream promotion target confidence unreadable; using default"
                             );
                             None
                         }
-                    };
-                }
-                // Write-first protocol (FIND-658, mirrors MEMG-27
-                // `persist_planned`): upsert the consolidated record FIRST and
-                // only on `Ok` prune the superseded key — a failed `put`
-                // (up-front validation: shape, vector dimension FIND-411,
-                // quota) leaves zero deletes run, so the pre-promotion record
-                // survives. A bare upsert already invalidates a prefetched
-                // Cold cache entry (FIND-190), so the old delete-first-for-
-                // cache-eviction rationale is gone. The delete below only
-                // covers a target key that differs from the new record's own
-                // storage key — a coincident key was atomically overwritten by
-                // the `put` and deleting it would destroy the record just
-                // written (the MEMG-27 `deletes \ {new_key}` guard).
-                put_record_with_confidence(db, &namespace, &stripped, vector, preserved)
-                    .map_err(|e| ConsolidationError::Store(format!("promote upsert: {e}")))?;
-                if op.action == PromotionAction::Update {
-                    let old_key = sanitize_key(&op.key);
-                    if old_key != sanitize_key(&stripped.id) {
-                        db.delete(&namespace, &old_key).map_err(|e| {
-                            ConsolidationError::Store(format!("promote delete: {e}"))
-                        })?;
                     }
-                }
+                } else {
+                    None
+                };
+                // FIND-658 (sibling of MEMG-27): write-first UPSERT with
+                // `DedupPolicy::Off` — never `db.delete` before `put_record`.
+                // `FIND-190` (`src/storage/engine/insert.rs`) already invalidates
+                // cached `Cold` nodes on overwrite, so an in-place upsert preserves
+                // the pre-existing record on write failure and keeps version
+                // lineage intact. `DedupPolicy::Off` prevents FastGate
+                // `NoopReinforce` from silently swallowing promoted records
+                // whose embeddings are >= 0.92 cosine to live targets.
+                put_record_with_options(
+                    db,
+                    &namespace,
+                    &stripped,
+                    vector,
+                    confidence_override,
+                    Some(DedupPolicy::Off),
+                )
+                .map_err(|e| ConsolidationError::Store(format!("promote upsert: {e}")))?;
+                written_keys.insert(storage_key);
                 written += 1;
             }
             PromotionAction::Delete => {
-                db.delete(&namespace, &sanitize_key(&op.key))
-                    .map_err(|e| ConsolidationError::Store(format!("promote delete: {e}")))?;
-                written += 1;
+                let storage_key = sanitize_key(&op.key);
+                if !written_keys.contains(&storage_key) {
+                    db.delete(&namespace, &storage_key)
+                        .map_err(|e| ConsolidationError::Store(format!("promote delete: {e}")))?;
+                    written += 1;
+                }
             }
             PromotionAction::Noop => {}
         }

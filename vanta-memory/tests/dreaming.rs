@@ -674,6 +674,261 @@ fn dream_pure_functions_match_documented_contract() {
     assert!(n.absolute.len() == 24);
 }
 
+/// FIND-658 (a) RED: write-first on `PromotionAction::Update` — if the upsert
+/// fails (here: wrong vector dimension against an established 3-d index), the
+/// pre-existing L1 record must survive untouched. The old `db.delete` →
+/// `put_record` order permanently deleted `m1` before the put errored.
+#[test]
+fn dream_promote_update_write_first_preserves_record_on_put_failure() {
+    let db = open_db();
+    let session_id = "sess-wf";
+    let now_ms = 1_700_000_000_000;
+
+    let original = fixture("m1", "ui", "original memory", 80);
+    db.put(MemoryInput {
+        namespace: format!("l1/{session_id}"),
+        key: "m1".into(),
+        payload: serde_json::to_string(&original).unwrap(),
+        metadata: MemoryMetadata::new(),
+        vector: Some(vec![0.1, 0.2, 0.3]),
+        sparse_vector: None,
+        ttl_ms: None,
+        ..Default::default()
+    })
+    .expect("seed m1 fixing index dim = 3");
+
+    let mut bad_update = original.clone();
+    bad_update.content = "updated content".into();
+    bad_update.vector = Some(vec![0.1, 0.2, 0.3, 0.4]); // wrong dim → put error
+
+    let run = DreamRun {
+        run_id: "wf-fail-run".into(),
+        session_id: session_id.into(),
+        started_at_ms: now_ms,
+        ended_at_ms: now_ms,
+        inputs_scanned: 1,
+        input_ids: vec!["m1".into()],
+        merged_ids: vec![],
+        contradicted_ids: vec![],
+        normalized_count: 0,
+        runner_label: "none".into(),
+        consolidated: vec![bad_update],
+    };
+    write_dream_run(&db, &run).unwrap();
+
+    let err = promote_dream_run(&db, session_id, &run.run_id);
+    assert!(err.is_err(), "wrong-dim vector must fail promotion");
+
+    let after = read_l1(&db, session_id);
+    let surviving = after
+        .iter()
+        .find(|r| r.id == "m1")
+        .expect("FIND-658: write-first must preserve pre-existing m1 when upsert fails");
+    assert_eq!(surviving.content, "original memory");
+    assert_eq!(surviving.vector, Some(vec![0.1, 0.2, 0.3]));
+}
+
+/// FIND-658 (b) RED: dream promotion (`Add` + `Delete` merge and `Update`
+/// supersede) with real high-cosine embeddings (>= 0.92 FastGate threshold)
+/// must force `DedupPolicy::Off` so FastGate `NoopReinforce` neither drops
+/// the new merged record before old targets are deleted nor skips persisting
+/// `superseded_by` on a contradicted record.
+#[test]
+fn dream_promote_with_high_cosine_embeddings_does_not_lose_or_skip_records() {
+    let db = open_db();
+    let session_id = "sess-cos-dream";
+    let now_ms = 1_700_000_000_000;
+    let ns = format!("l1/{session_id}");
+
+    let v_merge_a = vec![0.99_f32, 0.10, 0.05, 0.02];
+    let v_merge_b = vec![0.99_f32, 0.11, 0.04, 0.02];
+    let v_merged = vec![0.99_f32, 0.105, 0.045, 0.02]; // cos > 0.999 with a & b
+
+    let v_win = vec![0.05_f32, 0.99, 0.10, 0.02];
+    let v_lose = vec![0.04_f32, 0.99, 0.11, 0.02]; // cos > 0.999 with v_win
+
+    let m1 = fixture("m1", "ui", "user likes dark mode", 80);
+    let m2 = fixture("m2", "ui", "user prefers dark theme", 80);
+    let winner = fixture("m_win", "prefs", "user hates coffee now", 90);
+    let loser = fixture("m_lose", "prefs", "user loves coffee", 50);
+
+    for (rec, vec) in [
+        (&m1, v_merge_a),
+        (&m2, v_merge_b),
+        (&winner, v_win.clone()),
+        (&loser, v_lose.clone()),
+    ] {
+        db.put(MemoryInput {
+            namespace: ns.clone(),
+            key: rec.id.clone(),
+            payload: serde_json::to_string(rec).unwrap(),
+            metadata: MemoryMetadata::new(),
+            vector: Some(vec),
+            ..Default::default()
+        })
+        .expect("seed record with vector");
+    }
+
+    let mut merged = fixture("m_merged", "ui", "user prefers dark mode theme", 85);
+    merged.vector = Some(v_merged.clone());
+
+    let mut loser_sup = loser.clone();
+    loser_sup.superseded_by = Some("m_win".into());
+    loser_sup.vector = Some(v_lose.clone());
+
+    let mut winner_keep = winner.clone();
+    winner_keep.vector = Some(v_win);
+
+    let run = DreamRun {
+        run_id: "cos-run".into(),
+        session_id: session_id.into(),
+        started_at_ms: now_ms,
+        ended_at_ms: now_ms,
+        inputs_scanned: 4,
+        input_ids: vec!["m1".into(), "m2".into(), "m_win".into(), "m_lose".into()],
+        merged_ids: vec!["m_merged".into()],
+        contradicted_ids: vec![],
+        normalized_count: 0,
+        runner_label: "none".into(),
+        consolidated: vec![merged, winner_keep, loser_sup],
+    };
+    write_dream_run(&db, &run).unwrap();
+
+    promote_dream_run(&db, session_id, &run.run_id).expect("promote");
+
+    let after = read_l1(&db, session_id);
+    let merged_rec = after
+        .iter()
+        .find(|r| r.id == "m_merged")
+        .expect("FIND-658: m_merged must survive (must not be dropped by NoopReinforce)");
+    assert_eq!(merged_rec.vector, Some(v_merged));
+    assert!(!after.iter().any(|r| r.id == "m1" || r.id == "m2"));
+
+    let loser_after = after
+        .iter()
+        .find(|r| r.id == "m_lose")
+        .expect("m_lose preserved");
+    assert_eq!(
+        loser_after.superseded_by.as_deref(),
+        Some("m_win"),
+        "FIND-658: m_lose superseded_by must be persisted despite cos >= 0.92 with m_win"
+    );
+}
+
+/// FIND-658 (c) RED: `PromotionAction::Update` must preserve the target's
+/// engine-level `confidence`, `confidence_class`, and `derived_from` across a
+/// real Fjall close/reopen instead of resetting them to `Asserted` / `1.0`.
+#[test]
+fn dream_promote_update_preserves_confidence_asserted_and_derived() {
+    use vantadb::sdk::{ConfidenceClass, DERIVATION_DISCOUNT};
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path = dir.path().to_string_lossy().to_string();
+    let session_id = "sess-conf-dream";
+    let ns = format!("l1/{session_id}");
+    let now_ms = 1_700_000_000_000;
+    let expected_derived = (0.6_f32 * DERIVATION_DISCOUNT).clamp(0.0, 1.0);
+
+    {
+        let db = Embedded::open_with_config(Config {
+            storage_path: db_path.clone(),
+            backend_kind: BackendKind::Fjall,
+            ..Config::default()
+        })
+        .expect("open fjall");
+
+        let m_asserted = fixture("m_asserted", "ui", "decayed preference", 80);
+        let m_parent = fixture("m_parent", "ui", "parent fact", 80);
+        let m_derived = fixture("m_derived", "ui", "derived preference", 80);
+
+        db.put(MemoryInput {
+            namespace: ns.clone(),
+            key: "m_asserted".into(),
+            payload: serde_json::to_string(&m_asserted).unwrap(),
+            metadata: MemoryMetadata::new(),
+            confidence_class: Some(ConfidenceClass::Asserted),
+            confidence: Some(0.25),
+            ..Default::default()
+        })
+        .expect("seed m_asserted at 0.25");
+
+        db.put(MemoryInput {
+            namespace: ns.clone(),
+            key: "m_parent".into(),
+            payload: serde_json::to_string(&m_parent).unwrap(),
+            metadata: MemoryMetadata::new(),
+            confidence_class: Some(ConfidenceClass::Asserted),
+            confidence: Some(0.6),
+            ..Default::default()
+        })
+        .expect("seed m_parent at 0.6");
+
+        db.put(MemoryInput {
+            namespace: ns.clone(),
+            key: "m_derived".into(),
+            payload: serde_json::to_string(&m_derived).unwrap(),
+            metadata: MemoryMetadata::new(),
+            confidence_class: Some(ConfidenceClass::Derived),
+            confidence: None,
+            derived_from: Some(vec!["m_parent".into()]),
+            ..Default::default()
+        })
+        .expect("seed m_derived");
+
+        let mut asserted_upd = m_asserted.clone();
+        asserted_upd.metadata = json!({ "activity_start_time": "2023-11-14T22:13:20.000Z" });
+        let mut derived_upd = m_derived.clone();
+        derived_upd.metadata = json!({ "activity_start_time": "2023-11-14T22:13:20.000Z" });
+
+        let run = DreamRun {
+            run_id: "conf-run".into(),
+            session_id: session_id.into(),
+            started_at_ms: now_ms,
+            ended_at_ms: now_ms,
+            inputs_scanned: 3,
+            input_ids: vec!["m_asserted".into(), "m_parent".into(), "m_derived".into()],
+            merged_ids: vec![],
+            contradicted_ids: vec![],
+            normalized_count: 2,
+            runner_label: "none".into(),
+            consolidated: vec![asserted_upd, m_parent, derived_upd],
+        };
+        write_dream_run(&db, &run).unwrap();
+
+        let applied = promote_dream_run(&db, session_id, &run.run_id).expect("promote");
+        assert_eq!(applied.counts().update, 2);
+    }
+
+    let db = Embedded::open_with_config(Config {
+        storage_path: db_path,
+        backend_kind: BackendKind::Fjall,
+        ..Config::default()
+    })
+    .expect("reopen fjall");
+
+    let stored_asserted = db
+        .get(&ns, "m_asserted")
+        .expect("get")
+        .expect("m_asserted exists");
+    assert_eq!(stored_asserted.confidence_class, ConfidenceClass::Asserted);
+    assert_eq!(
+        stored_asserted.confidence, 0.25,
+        "FIND-658: PromotionAction::Update must preserve decayed Asserted confidence"
+    );
+
+    let stored_derived = db
+        .get(&ns, "m_derived")
+        .expect("get")
+        .expect("m_derived exists");
+    assert_eq!(stored_derived.confidence_class, ConfidenceClass::Derived);
+    assert_eq!(stored_derived.derived_from, vec!["m_parent".to_string()]);
+    assert!(
+        (stored_derived.confidence - expected_derived).abs() < 1e-6,
+        "FIND-658: PromotionAction::Update must preserve Derived confidence {expected_derived}, got {}",
+        stored_derived.confidence
+    );
+}
+
 // ── FIND-658: promotion UPDATE is write-first and preserves the engine-side
 // confidence state ─────────────────────────────────────────────────────
 //
