@@ -159,9 +159,10 @@ pub fn write_memory(
 }
 
 /// One planned L1 write: the record + its node vector, the update/merge
-/// targets to delete before persisting, and the MEMG-01 contradiction ids to
-/// flag after persisting. Planning is persistence-free so the batch path can
-/// group-commit every record of a flush in one `put_batch` (MEMG-11).
+/// targets to prune after persisting, the MEMG-01 contradiction ids to flag
+/// after persisting, and the FastGate dedup policy for the write. Planning is
+/// persistence-free so the batch path can group-commit every record of a flush
+/// in one `put_batch` (MEMG-11).
 struct PlannedWrite {
     record: MemoryRecord,
     vector: Option<Vec<f32>>,
@@ -172,6 +173,11 @@ struct PlannedWrite {
     deletes: Vec<String>,
     /// Explicit contradiction record ids (MEMG-01), flagged post-commit.
     contradicts: Vec<String>,
+    /// FastGate dedup policy for this write. Controlled mutations (`Update`,
+    /// `Merge`, or `Store` with explicit `contradicts`) force `DedupPolicy::Off`
+    /// so FastGate `NoopReinforce` can never silently drop a write before target
+    /// pruning or contradiction marking (MEMG-27 r2, FIND-281 r2).
+    dedup_policy: DedupPolicy,
 }
 
 /// Build the record a decision resolves to (store or merge), loading merge
@@ -221,11 +227,21 @@ fn plan_write(
                 superseded_by: None,
             };
             let vector = embed_vector(embed, &record.content);
+            // A store that explicitly contradicts existing records must not be
+            // swallowed by FastGate `NoopReinforce` (negation pairs commonly
+            // have cosine >= 0.92), otherwise `mark_contradicted_targets` would
+            // stamp `superseded_by` pointing to a nonexistent record (FIND-281 r2).
+            let dedup_policy = if decision.contradicts.is_empty() {
+                default_l1_dedup_policy()
+            } else {
+                DedupPolicy::Off
+            };
             Ok(Some(PlannedWrite {
                 record,
                 vector,
                 deletes: Vec::new(),
                 contradicts: decision.contradicts.clone(),
+                dedup_policy,
             }))
         }
         DedupAction::Update | DedupAction::Merge => {
@@ -276,13 +292,17 @@ fn plan_write(
                 superseded_by: None,
             };
             let vector = embed_vector(embed, &record.content);
-            // Delete replaced records first; then upsert the merged one.
+            // Prune replaced target records AFTER upserting the merged record
+            // (write-first, MEMG-27). Force `DedupPolicy::Off` so FastGate
+            // cannot fire `NoopReinforce` against a still-live target before
+            // the prune step deletes it (MEMG-27 r2).
             let deletes = targets.iter().map(|t| sanitize_key(&t.id)).collect();
             Ok(Some(PlannedWrite {
                 record,
                 vector,
                 deletes,
                 contradicts: decision.contradicts.clone(),
+                dedup_policy: DedupPolicy::Off,
             }))
         }
     }
@@ -297,11 +317,20 @@ fn plan_write(
 /// with the new record's key was atomically overwritten by the `put`;
 /// deleting it would destroy the record just written.
 fn persist_planned(db: &Embedded, ns: &str, planned: &PlannedWrite) -> Result<(), L1Error> {
-    put_record(db, ns, &planned.record, planned.vector.clone())?;
+    let stored = put_record_with_options(
+        db,
+        ns,
+        &planned.record,
+        planned.vector.clone(),
+        None,
+        Some(planned.dedup_policy),
+    )?;
     let new_key = sanitize_key(&planned.record.id);
-    for key in &planned.deletes {
-        if *key != new_key {
-            db.delete(ns, key)?;
+    if stored.key == new_key {
+        for key in &planned.deletes {
+            if *key != new_key {
+                db.delete(ns, key)?;
+            }
         }
     }
     Ok(())
@@ -391,17 +420,10 @@ fn mark_contradicted_targets(
         let vector = old.vector.take();
         // FIND-281: the L1 payload carries no confidence field — confidence
         // lives on the engine record. Read it back so the re-persist keeps
-        // the stored value (e.g. decayed by feedback) instead of resetting
-        // to `default_confidence()`. FIND-658 extends the same preservation
-        // to `derived_from`: a Derived record re-put without its parent list
-        // fails V1 outright (and re-declaring its score fails D4b). A
-        // miss/race keeps the old behavior.
+        // the stored value (e.g. decayed by feedback) and derived lineage
+        // instead of resetting to `default_confidence()` or failing V1/D4b.
         let confidence = match db.get(ns, &sanitize_key(target_id)) {
-            Ok(Some(stored)) => Some(PreservedState {
-                confidence_class: stored.confidence_class,
-                confidence: stored.confidence,
-                derived_from: stored.derived_from,
-            }),
+            Ok(Some(stored)) => Some(preserved_confidence(db, ns, &stored)),
             Ok(None) => {
                 tracing::debug!(
                     record_id = %target_id,
@@ -418,7 +440,11 @@ fn mark_contradicted_targets(
                 None
             }
         };
-        put_record_with_confidence(db, ns, &old, vector, confidence)?;
+        // Force `DedupPolicy::Off`: `new_key` is already live in `ns` and
+        // often has cosine >= 0.92 against `old` (negation pair), so Semantic
+        // FastGate would trigger `NoopReinforce` on `new_key` and silently
+        // drop `old.superseded_by` (FIND-281 r2).
+        put_record_with_options(db, ns, &old, vector, confidence, Some(DedupPolicy::Off))?;
     }
     Ok(())
 }
@@ -480,7 +506,15 @@ pub fn apply_dedup_batch(
     // loss of the previous state.
     let inputs = planned_writes
         .iter()
-        .map(|planned| record_input(&ns, &planned.record, planned.vector.clone(), None))
+        .map(|planned| {
+            record_input(
+                &ns,
+                &planned.record,
+                planned.vector.clone(),
+                None,
+                Some(planned.dedup_policy),
+            )
+        })
         .collect::<Result<Vec<MemoryInput>, L1Error>>()?;
     if !inputs.is_empty() {
         db.put_batch(inputs)?;
@@ -565,6 +599,71 @@ fn default_l1_dedup_policy() -> DedupPolicy {
     }
 }
 
+/// Engine-level confidence provenance snapshot preserved across controlled
+/// re-persists (contradiction marking in `l1_writer` and `PromotionAction::Update`
+/// in `core::dream`; FIND-281 r2, FIND-658).
+#[derive(Debug, Clone)]
+pub(crate) struct StoredConfidence {
+    pub class: ConfidenceClass,
+    /// `Some` for `Asserted`; MUST be `None` for `Derived` (ADR-046 §D4b).
+    pub score: Option<f32>,
+    /// `Some(non-empty)` for `Derived`; MUST be `None` for `Asserted` (ADR-046 §V1).
+    pub derived_from: Option<Vec<String>>,
+}
+
+/// Extract a valid [`StoredConfidence`] from an existing engine record so
+/// re-persisting through `db.put` satisfies `materialize_confidence` (V1 + D4b):
+/// - `Asserted`: preserves `stored.confidence` verbatim (`derived_from: None`).
+/// - `Derived`: preserves `Derived` + `stored.derived_from` with `score: None`
+///   whenever `derived_from` is non-empty and all parents still exist in `ns`.
+///   If `derived_from` is empty or any parent was previously deleted, downgrades
+///   defensively to `Asserted` with the preserved numeric score rather than
+///   failing with `Error::Validation` or resetting to `default_confidence()`.
+pub(crate) fn preserved_confidence(
+    db: &Embedded,
+    ns: &str,
+    stored: &vantadb::sdk::MemoryRecord,
+) -> StoredConfidence {
+    let safe_score = if stored.confidence.is_finite() {
+        Some(stored.confidence.clamp(0.0, 1.0))
+    } else {
+        None
+    };
+    match stored.confidence_class {
+        ConfidenceClass::Derived => {
+            let parents_intact = !stored.derived_from.is_empty()
+                && stored
+                    .derived_from
+                    .iter()
+                    .all(|parent| matches!(db.get(ns, parent), Ok(Some(_))));
+            if parents_intact {
+                StoredConfidence {
+                    class: ConfidenceClass::Derived,
+                    score: None,
+                    derived_from: Some(stored.derived_from.clone()),
+                }
+            } else {
+                tracing::warn!(
+                    namespace = %ns,
+                    key = %stored.key,
+                    "derived record has empty or missing derived_from parents on re-persist; \
+                     downgrading to Asserted with preserved confidence score"
+                );
+                StoredConfidence {
+                    class: ConfidenceClass::Asserted,
+                    score: safe_score,
+                    derived_from: None,
+                }
+            }
+        }
+        _ => StoredConfidence {
+            class: stored.confidence_class,
+            score: safe_score,
+            derived_from: None,
+        },
+    }
+}
+
 /// Single input builder for both write paths (MEMG-11): `put_record` (single
 /// put) and `apply_dedup_batch` (group-commit via `put_batch`). Carries the
 /// v2 write-side fields declared in `put_record`'s doc (valid_at + confidence
@@ -573,7 +672,8 @@ fn record_input(
     ns: &str,
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
-    preserved: Option<PreservedState>,
+    confidence_override: Option<&StoredConfidence>,
+    dedup_policy_override: Option<DedupPolicy>,
 ) -> Result<MemoryInput, L1Error> {
     let mut metadata = MemoryMetadata::new();
     metadata.insert(
@@ -616,25 +716,17 @@ fn record_input(
     // birth does not parse or is 0 — the core then defaults to write-time
     // `created_at_ms` (`materialize_valid_at`).
     let valid_at_ms = rfc3339_to_epoch_ms(&record.created_at).filter(|ms| *ms > 0);
-    // FIND-658: propagate the whole engine-side state, honoring the ADR-046
-    // write rules — a `Derived` record's score is recomputed from its
-    // parents, so the stored score must NOT be re-declared (D4b rejects
-    // declared confidence on derived writes), while its `derived_from`
-    // parent list MUST be carried or V1 rejects the write. Asserted records
-    // keep the stored score verbatim; `derived_from` stays unset (V1
-    // forbids parents on asserted writes).
-    let (confidence_class, confidence, derived_from) = match preserved {
-        Some(PreservedState {
-            confidence_class: ConfidenceClass::Derived,
-            derived_from,
-            ..
-        }) => (ConfidenceClass::Derived, None, Some(derived_from)),
-        Some(PreservedState {
-            confidence_class,
-            confidence,
-            ..
-        }) => (confidence_class, Some(confidence), None),
-        None => (ConfidenceClass::Asserted, Some(default_confidence()), None),
+    let (confidence_class, confidence, derived_from) = match confidence_override {
+        Some(preserved) => (
+            Some(preserved.class),
+            preserved.score,
+            preserved.derived_from.clone(),
+        ),
+        None => (
+            Some(ConfidenceClass::Asserted),
+            Some(default_confidence()),
+            None,
+        ),
     };
     Ok(MemoryInput {
         namespace: ns.to_string(),
@@ -645,10 +737,10 @@ fn record_input(
         sparse_vector: None,
         ttl_ms: None,
         valid_at_ms,
-        confidence_class: Some(confidence_class),
+        confidence_class,
         confidence,
         derived_from,
-        dedup_policy: Some(default_l1_dedup_policy()),
+        dedup_policy: Some(dedup_policy_override.unwrap_or_else(default_l1_dedup_policy)),
         ..Default::default()
     })
 }
@@ -659,39 +751,26 @@ pub fn put_record(
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
 ) -> Result<vantadb::sdk::MemoryRecord, L1Error> {
-    put_record_with_confidence(db, ns, record, vector, None)
+    put_record_with_options(db, ns, record, vector, None, None)
 }
 
-/// Engine-side v2 state of an already-stored record, re-declared verbatim
-/// on re-persist (FIND-281, extended to `derived_from` for FIND-658): the
-/// L1 payload carries none of these fields — they live on the engine
-/// record, so a bare re-put would silently reset a decayed confidence to
-/// `default_confidence()` and strip a derived record's provenance.
-#[derive(Debug, Clone)]
-pub(crate) struct PreservedState {
-    /// Stored provenance class (`Asserted` | `Derived`).
-    pub confidence_class: ConfidenceClass,
-    /// Stored confidence score. Ignored when `confidence_class` is
-    /// `Derived` — derived scores are recomputed from parents (D4b).
-    pub confidence: f32,
-    /// Stored parent keys. Only propagated when `confidence_class` is
-    /// `Derived` (V1 forbids parents on asserted writes).
-    pub derived_from: Vec<String>,
-}
-
-/// `put_record` with explicit engine-state preservation (FIND-281/658):
-/// the engine record's `confidence`/`confidence_class`/`derived_from`
-/// fields (which the L1 payload does not carry) are declared from
-/// `preserved` instead of the asserted defaults. `None` is identical to
-/// [`put_record`]. Only re-write paths pass `Some` — the contradiction
-/// re-persist (`mark_contradicted_targets`) and dream promotion `UPDATE`s;
-/// new/merged records keep the default.
-pub(crate) fn put_record_with_confidence(
+/// `put_record` with explicit confidence provenance and FastGate dedup policy
+/// overrides (FIND-281 r2, MEMG-27 r2, FIND-658).
+///
+/// - `confidence_override`: preserves engine-level `confidence`/`confidence_class`/
+///   `derived_from` across controlled re-persists (contradiction marking, dream
+///   promotion `Update`). `None` writes the asserted default (`default_confidence()`).
+/// - `dedup_policy_override`: forces `DedupPolicy::Off` for controlled updates,
+///   merges, contradiction stores/re-persists, and dream promotions so FastGate
+///   `NoopReinforce` never silently drops a write. `None` uses
+///   [`default_l1_dedup_policy`].
+pub(crate) fn put_record_with_options(
     db: &Embedded,
     ns: &str,
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
-    preserved: Option<PreservedState>,
+    confidence_override: Option<StoredConfidence>,
+    dedup_policy_override: Option<DedupPolicy>,
 ) -> Result<vantadb::sdk::MemoryRecord, L1Error> {
     debug_assert!(
         record.vector.is_none(),
@@ -699,7 +778,13 @@ pub(crate) fn put_record_with_confidence(
     );
     // Returns the stored record carrying the core-assigned storage version —
     // the rollback lineage (MEMG-17) reads `version` off it.
-    let stored = db.put(record_input(ns, record, vector, preserved)?)?;
+    let stored = db.put(record_input(
+        ns,
+        record,
+        vector,
+        confidence_override.as_ref(),
+        dedup_policy_override,
+    )?)?;
 
     // Graph edges for derived records/axioms (TEC-15)
     let session_key = ns.strip_prefix("l1/").unwrap_or(ns);
@@ -1087,6 +1172,129 @@ mod tests {
             .expect("record rewritten in place must survive the prune");
         assert_eq!(rec.content, "v2 content");
         assert_eq!(rec.version, 2, "merge bumps payload version");
+    }
+
+    /// MEMG-27 r2 RED: `write_memory` (`Update`) with a new key and real
+    /// embeddings whose cosine similarity against the live target exceeds
+    /// FastGate's `NoopReinforce` threshold (>= 0.92). Under `DedupPolicy::Semantic`,
+    /// FastGate reinforced `old1` instead of writing `m_new`, and `persist_planned`
+    /// then deleted `old1` — silently losing BOTH records.
+    #[test]
+    fn write_memory_update_with_high_cosine_embeddings_does_not_lose_data() {
+        let db = open_db();
+        let v_old = vec![0.99_f32, 0.10, 0.05, 0.02];
+        let v_new = vec![0.99_f32, 0.11, 0.04, 0.02]; // cosine > 0.999 (>= 0.92)
+
+        db.put(MemoryInput {
+            namespace: "l1/sess".into(),
+            key: "old1".into(),
+            payload: serde_json::to_string(&existing_record("old1", "user prefers dark theme"))
+                .expect("serialize"),
+            metadata: MemoryMetadata::new(),
+            vector: Some(v_old),
+            sparse_vector: None,
+            ttl_ms: None,
+            ..Default::default()
+        })
+        .expect("seed old1 with vector");
+
+        let mut update = decision("m_new", DedupAction::Update);
+        update.target_ids = vec!["old1".into()];
+        update.merged_content = Some("user prefers dark theme in all editors".into());
+
+        let v_new_for_hook = v_new.clone();
+        let embed: EmbedFn = Arc::new(move |_| Some(v_new_for_hook.clone()));
+
+        let written = write_memory(
+            &db,
+            "sess",
+            "sess",
+            &memory("user prefers dark theme in all editors"),
+            &update,
+            1_700_000_000_000,
+            0,
+            Some(&embed),
+        )
+        .expect("write_memory update")
+        .expect("update returns written record");
+        assert_eq!(written.id, "m_new");
+
+        let new_rec = read_record(&db, "sess", "m_new")
+            .expect("read m_new")
+            .expect(
+            "MEMG-27 r2: updated record must exist (must not be dropped by FastGate NoopReinforce)",
+        );
+        assert_eq!(new_rec.content, "user prefers dark theme in all editors");
+        assert_eq!(new_rec.version, 2);
+        assert_eq!(new_rec.vector, Some(v_new));
+        assert!(
+            read_record(&db, "sess", "old1")
+                .expect("read old1")
+                .is_none(),
+            "replaced target old1 must be pruned after m_new lands"
+        );
+    }
+
+    /// MEMG-27 r2 RED: `write_memory` (`Merge`) combining two targets into a new
+    /// key with high-cosine embeddings (>= 0.92) must persist the merged record
+    /// and prune both targets, never silently losing all three.
+    #[test]
+    fn write_memory_merge_with_high_cosine_embeddings_does_not_lose_data() {
+        let db = open_db();
+        let v_a = vec![0.80_f32, 0.59, 0.10, 0.02];
+        let v_b = vec![0.81_f32, 0.58, 0.09, 0.02];
+        let v_merged = vec![0.805_f32, 0.585, 0.095, 0.02]; // cosine > 0.999 with both
+
+        for (id, content, vec) in [
+            ("old_a", "team deploys on tuesday", v_a),
+            ("old_b", "team deploys via blue-green", v_b),
+        ] {
+            db.put(MemoryInput {
+                namespace: "l1/sess".into(),
+                key: id.into(),
+                payload: serde_json::to_string(&existing_record(id, content)).expect("serialize"),
+                metadata: MemoryMetadata::new(),
+                vector: Some(vec),
+                sparse_vector: None,
+                ttl_ms: None,
+                ..Default::default()
+            })
+            .expect("seed target");
+        }
+
+        let mut merge = decision("m_merged", DedupAction::Merge);
+        merge.target_ids = vec!["old_a".into(), "old_b".into()];
+        merge.merged_content = Some("team deploys on tuesday via blue-green".into());
+
+        let v_for_hook = v_merged.clone();
+        let embed: EmbedFn = Arc::new(move |_| Some(v_for_hook.clone()));
+
+        write_memory(
+            &db,
+            "sess",
+            "sess",
+            &memory("merge deploy facts"),
+            &merge,
+            1_700_000_000_000,
+            0,
+            Some(&embed),
+        )
+        .expect("write_memory merge")
+        .expect("merge returns written record");
+
+        let merged = read_record(&db, "sess", "m_merged")
+            .expect("read m_merged")
+            .expect("MEMG-27 r2: merged record must survive write-first + prune");
+        assert_eq!(merged.content, "team deploys on tuesday via blue-green");
+        assert_eq!(merged.vector, Some(v_merged));
+
+        let remaining = read_session_records(&db, "sess").expect("read session");
+        let ids: Vec<&str> = remaining.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["m_merged"],
+            "only the merged record should remain"
+        );
     }
 
     #[cfg(feature = "embed-local")]

@@ -508,3 +508,220 @@ fn new_record_still_gets_default_confidence() {
     );
     assert_eq!(stored.confidence_class, ConfidenceClass::Asserted);
 }
+
+/// FIND-281 r2 (a) RED: contradiction with high-cosine embeddings (cos >= 0.92,
+/// typical for negation pairs like "me gusta el cafe" vs "ya no me gusta el cafe").
+/// Under `DedupPolicy::Semantic`, FastGate fired `NoopReinforce`:
+///   1) `persist_planned` reinforced `m_old` and dropped `m_new`;
+///   2) `mark_contradicted_targets` reinforced `m_new` and silently skipped writing
+///      `m_old.superseded_by` while corrupting confidence.
+///
+/// Both the new record AND the `superseded_by` + decayed confidence on `m_old`
+/// must survive a real Fjall close/reopen.
+#[test]
+fn contradiction_with_high_cosine_embeddings_persists_new_and_marks_old_preserving_confidence() {
+    use std::sync::Arc;
+    use vanta_memory::core::record::EmbedFn;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path = dir.path().to_string_lossy().to_string();
+
+    let v_old = vec![0.98_f32, 0.18, 0.08, 0.02];
+    let v_new = vec![0.985_f32, 0.16, 0.06, 0.02]; // cosine > 0.999 (>= 0.92)
+
+    {
+        let db = Embedded::open_with_config(fjall_config(&db_path)).expect("open fjall");
+        db.put(MemoryInput {
+            namespace: l1_namespace("sess-cos"),
+            key: "m_old".into(),
+            payload: serde_json::to_string(&record("m_old", "me gusta el cafe"))
+                .expect("serialize"),
+            metadata: MemoryMetadata::new(),
+            vector: Some(v_old.clone()),
+            sparse_vector: None,
+            ttl_ms: None,
+            confidence_class: Some(ConfidenceClass::Asserted),
+            confidence: Some(0.3),
+            ..Default::default()
+        })
+        .expect("seed m_old at 0.3 with vector");
+
+        let d = decision("m_new", DedupAction::Store, &["m_old"]);
+        let v_new_hook = v_new.clone();
+        let embed: EmbedFn = Arc::new(move |_| Some(v_new_hook.clone()));
+
+        write_memory(
+            &db,
+            "sess-cos",
+            "si",
+            &memory("ya no me gusta el cafe"),
+            &d,
+            5,
+            0,
+            Some(&embed),
+        )
+        .expect("write")
+        .expect("stored");
+    }
+
+    let db = Embedded::open_with_config(fjall_config(&db_path)).expect("reopen fjall");
+    let new_rec = read_record(&db, "sess-cos", "m_new")
+        .expect("read m_new")
+        .expect("new contradicting record must be persisted despite cos >= 0.92");
+    assert_eq!(new_rec.content, "ya no me gusta el cafe");
+    assert_eq!(new_rec.vector, Some(v_new));
+
+    let old_engine = db
+        .get(&l1_namespace("sess-cos"), "m_old")
+        .expect("get m_old")
+        .expect("m_old must survive");
+    assert_eq!(
+        old_engine.confidence, 0.3,
+        "decayed confidence 0.3 must be preserved (not bumped by NoopReinforce or reset to 1.0)"
+    );
+    assert_eq!(old_engine.confidence_class, ConfidenceClass::Asserted);
+
+    let old = read_record(&db, "sess-cos", "m_old")
+        .expect("read m_old")
+        .expect("m_old payload");
+    assert_eq!(
+        old.superseded_by.as_deref(),
+        Some("m_new"),
+        "m_old must be marked superseded_by=m_new despite high cosine similarity"
+    );
+    assert_eq!(old.vector, Some(v_old), "m_old retains its original vector");
+}
+
+/// FIND-281 r2 (b) RED: re-persisting a contradicted `ConfidenceClass::Derived`
+/// record must preserve its `Derived` class + `derived_from` lineage (passing
+/// `confidence: None` so `materialize_confidence` satisfies V1 & D4b), and when
+/// a derived parent was deleted before re-persist it must degrade cleanly to
+/// `Asserted` with the preserved numeric score rather than failing with
+/// `Error::Validation`.
+#[test]
+fn contradiction_repersist_preserves_derived_record_and_handles_missing_parent() {
+    use std::sync::Arc;
+    use vanta_memory::core::record::EmbedFn;
+    use vantadb::sdk::DERIVATION_DISCOUNT;
+
+    let db = open_db();
+    let ns = l1_namespace("sess-der");
+    let v_old = vec![0.95_f32, 0.30, 0.08, 0.02];
+    let v_new = vec![0.955_f32, 0.29, 0.07, 0.02]; // cosine > 0.999
+
+    // Part A: valid Derived record with live parent.
+    db.put(MemoryInput {
+        namespace: ns.clone(),
+        key: "m_parent".into(),
+        payload: serde_json::to_string(&record("m_parent", "parent observation"))
+            .expect("serialize"),
+        metadata: MemoryMetadata::new(),
+        confidence_class: Some(ConfidenceClass::Asserted),
+        confidence: Some(0.5),
+        ..Default::default()
+    })
+    .expect("seed parent");
+
+    db.put(MemoryInput {
+        namespace: ns.clone(),
+        key: "m_derived".into(),
+        payload: serde_json::to_string(&record("m_derived", "derived preference"))
+            .expect("serialize"),
+        metadata: MemoryMetadata::new(),
+        vector: Some(v_old.clone()),
+        confidence_class: Some(ConfidenceClass::Derived),
+        confidence: None,
+        derived_from: Some(vec!["m_parent".into()]),
+        ..Default::default()
+    })
+    .expect("seed derived");
+
+    let expected_derived = (0.5_f32 * DERIVATION_DISCOUNT).clamp(0.0, 1.0);
+    let d1 = decision("m_new", DedupAction::Store, &["m_derived"]);
+    let v_hook = v_new.clone();
+    let embed: EmbedFn = Arc::new(move |_| Some(v_hook.clone()));
+
+    write_memory(
+        &db,
+        "sess-der",
+        "si",
+        &memory("opposite preference"),
+        &d1,
+        10,
+        0,
+        Some(&embed),
+    )
+    .expect("re-persisting Derived contradiction target must succeed")
+    .expect("new record written");
+
+    let stored_der = db
+        .get(&ns, "m_derived")
+        .expect("get derived")
+        .expect("m_derived survives");
+    assert_eq!(stored_der.confidence_class, ConfidenceClass::Derived);
+    assert_eq!(stored_der.derived_from, vec!["m_parent".to_string()]);
+    assert!(
+        (stored_der.confidence - expected_derived).abs() < 1e-6,
+        "expected {expected_derived}, got {}",
+        stored_der.confidence
+    );
+    let parsed_der = read_record(&db, "sess-der", "m_derived").unwrap().unwrap();
+    assert_eq!(parsed_der.superseded_by.as_deref(), Some("m_new"));
+
+    // Part B: Derived record whose parent was subsequently deleted (missing parent).
+    db.put(MemoryInput {
+        namespace: ns.clone(),
+        key: "m_parent_gone".into(),
+        payload: serde_json::to_string(&record("m_parent_gone", "ephemeral parent"))
+            .expect("serialize"),
+        metadata: MemoryMetadata::new(),
+        confidence_class: Some(ConfidenceClass::Asserted),
+        confidence: Some(0.5),
+        ..Default::default()
+    })
+    .expect("seed ephemeral parent");
+    db.put(MemoryInput {
+        namespace: ns.clone(),
+        key: "m_orphan_derived".into(),
+        payload: serde_json::to_string(&record("m_orphan_derived", "derived from ephemeral"))
+            .expect("serialize"),
+        metadata: MemoryMetadata::new(),
+        confidence_class: Some(ConfidenceClass::Derived),
+        confidence: None,
+        derived_from: Some(vec!["m_parent_gone".into()]),
+        ..Default::default()
+    })
+    .expect("seed orphan derived");
+    db.delete(&ns, "m_parent_gone")
+        .expect("delete parent to create missing-parent state");
+
+    let d2 = decision("m_new2", DedupAction::Store, &["m_orphan_derived"]);
+    write_memory(
+        &db,
+        "sess-der",
+        "si",
+        &memory("contradicts orphan derived"),
+        &d2,
+        20,
+        0,
+        None,
+    )
+    .expect("re-persisting Derived target with missing parent must not fail Validation")
+    .expect("m_new2 written");
+
+    let stored_orphan = db
+        .get(&ns, "m_orphan_derived")
+        .expect("get orphan")
+        .expect("m_orphan_derived survives");
+    assert_eq!(stored_orphan.confidence_class, ConfidenceClass::Asserted);
+    assert!(stored_orphan.derived_from.is_empty());
+    assert!(
+        (stored_orphan.confidence - expected_derived).abs() < 1e-6,
+        "numeric score {expected_derived} preserved on downgrade, got {}",
+        stored_orphan.confidence
+    );
+    let parsed_orphan = read_record(&db, "sess-der", "m_orphan_derived")
+        .unwrap()
+        .unwrap();
+    assert_eq!(parsed_orphan.superseded_by.as_deref(), Some("m_new2"));
+}
