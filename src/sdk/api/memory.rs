@@ -464,7 +464,11 @@ impl Embedded {
         parents: &[String],
         batch_seen: Option<&HashMap<u128, (u64, QuarantineState, MemoryRecord)>>,
     ) -> Result<()> {
-        let mut visited: HashSet<String> = HashSet::new();
+        // FIND-660: track the deepest depth at which each ancestor was expanded.
+        // A flat HashSet would skip a shared ancestor when re-reached via a longer
+        // branch of a diamond DAG, hiding chains that exceed MAX_DERIVATION_DEPTH.
+        let mut best_seen_depth: HashMap<String, usize> = HashMap::new();
+        let mut parents_cache: HashMap<String, Vec<String>> = HashMap::new();
         let mut frontier: Vec<(String, usize)> =
             parents.iter().map(|p| (p.clone(), 1usize)).collect();
         while let Some((parent_key, depth)) = frontier.pop() {
@@ -482,19 +486,30 @@ impl Embedded {
                     ),
                 });
             }
-            if !visited.insert(parent_key.clone()) {
+            if best_seen_depth
+                .get(&parent_key)
+                .is_some_and(|&prev_depth| depth <= prev_depth)
+            {
                 continue;
             }
-            let parent = match batch_seen
-                .and_then(|seen| seen.get(&memory_node_id(namespace, &parent_key)))
-            {
-                Some((_, _, record)) => Some(record.clone()),
-                None => self.get(namespace, &parent_key)?,
+            best_seen_depth.insert(parent_key.clone(), depth);
+            let grandparents = if let Some(cached) = parents_cache.get(&parent_key) {
+                cached.clone()
+            } else {
+                let fetched = match batch_seen
+                    .and_then(|seen| seen.get(&memory_node_id(namespace, &parent_key)))
+                {
+                    Some((_, _, record)) => record.derived_from.clone(),
+                    None => self
+                        .get(namespace, &parent_key)?
+                        .map(|r| r.derived_from)
+                        .unwrap_or_default(),
+                };
+                parents_cache.insert(parent_key, fetched.clone());
+                fetched
             };
-            if let Some(parent) = parent {
-                for grandparent in parent.derived_from {
-                    frontier.push((grandparent, depth + 1));
-                }
+            for grandparent in grandparents {
+                frontier.push((grandparent, depth + 1));
             }
         }
         Ok(())
@@ -3500,5 +3515,101 @@ mod tests {
             .merge_record(rec_sparse)
             .expect_err("merge_record must reject non-finite sparse vector");
         assert!(matches!(err_sp, Error::InvalidInput(_)));
+    }
+
+    #[test]
+    fn validate_derivation_chain_diamond_dag_long_branch_after_short_branch_rejected() {
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        let make_derived = |key: &str, parents: &[&str]| MemoryInput {
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(parents.iter().map(|s| (*s).to_string()).collect()),
+            ..MemoryInput::new("dag", key, key)
+        };
+
+        db.put(MemoryInput::new("dag", "d0", "base")).expect("d0");
+        let mut prev = "d0".to_string();
+        for depth in 1..=(MAX_DERIVATION_DEPTH - 2) {
+            let key = format!("d{depth}");
+            db.put(make_derived(&key, &[prev.as_str()]))
+                .expect("base chain within cap");
+            prev = key;
+        }
+        // `prev` is d14 (14 hops to d0).
+        // `short_branch -> d14`: 15 hops from short_branch to d0.
+        // `long_branch -> long_mid -> d14`: 16 hops from long_branch to d0 (still valid).
+        db.put(make_derived("short_branch", &[prev.as_str()]))
+            .expect("short_branch");
+        db.put(make_derived("long_mid", &[prev.as_str()]))
+            .expect("long_mid");
+        db.put(make_derived("long_branch", &["long_mid"]))
+            .expect("long_branch");
+
+        // A valid diamond DAG whose longest branch is exactly MAX_DERIVATION_DEPTH (16) must pass:
+        // d13 -> ... -> d0 is 13 hops; +3 hops (valid_diamond -> ok_long -> ok_mid -> d13) = 16.
+        let d13 = format!("d{}", MAX_DERIVATION_DEPTH - 3);
+        db.put(make_derived("ok_short", &[d13.as_str()]))
+            .expect("ok_short");
+        db.put(make_derived("ok_mid", &[d13.as_str()]))
+            .expect("ok_mid");
+        db.put(make_derived("ok_long", &["ok_mid"]))
+            .expect("ok_long");
+        db.put(make_derived("valid_diamond", &["ok_long", "ok_short"]))
+            .expect("diamond within MAX_DERIVATION_DEPTH must succeed");
+
+        // Diamond DAG exceeding MAX_DERIVATION_DEPTH via `long_branch` (17 hops to d0),
+        // regardless of parent order (short visited first vs long visited first):
+        for (idx, parents) in [
+            ["long_branch", "short_branch"],
+            ["short_branch", "long_branch"],
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let key = format!("diamond_too_deep_{idx}");
+            let err = db
+                .put(make_derived(&key, &parents))
+                .expect_err("diamond DAG whose long branch exceeds MAX_DERIVATION_DEPTH must fail");
+            assert!(
+                matches!(err, Error::Validation { ref reason, .. } if reason.contains("MAX_DERIVATION_DEPTH")),
+                "expected MAX_DERIVATION_DEPTH validation error for {key}, got {err:?}"
+            );
+        }
+
+        // Same diamond DAG inside a single `put_batch` (via batch_seen) must also reject.
+        let batch_err = db
+            .put_batch(vec![
+                MemoryInput::new("dag_b", "b0", "base"),
+                make_derived_in_ns("dag_b", "b1", &["b0"]),
+                make_derived_in_ns("dag_b", "b2", &["b1"]),
+                make_derived_in_ns("dag_b", "b3", &["b2"]),
+                make_derived_in_ns("dag_b", "b4", &["b3"]),
+                make_derived_in_ns("dag_b", "b5", &["b4"]),
+                make_derived_in_ns("dag_b", "b6", &["b5"]),
+                make_derived_in_ns("dag_b", "b7", &["b6"]),
+                make_derived_in_ns("dag_b", "b8", &["b7"]),
+                make_derived_in_ns("dag_b", "b9", &["b8"]),
+                make_derived_in_ns("dag_b", "b10", &["b9"]),
+                make_derived_in_ns("dag_b", "b11", &["b10"]),
+                make_derived_in_ns("dag_b", "b12", &["b11"]),
+                make_derived_in_ns("dag_b", "b13", &["b12"]),
+                make_derived_in_ns("dag_b", "b14", &["b13"]),
+                make_derived_in_ns("dag_b", "b_short", &["b14"]),
+                make_derived_in_ns("dag_b", "b_mid", &["b14"]),
+                make_derived_in_ns("dag_b", "b_long", &["b_mid"]),
+                make_derived_in_ns("dag_b", "b_deep", &["b_long", "b_short"]),
+            ])
+            .expect_err("in-batch diamond DAG exceeding MAX_DERIVATION_DEPTH must fail");
+        assert!(
+            matches!(batch_err, Error::Validation { ref reason, .. } if reason.contains("MAX_DERIVATION_DEPTH")),
+            "expected MAX_DERIVATION_DEPTH validation error in batch, got {batch_err:?}"
+        );
+    }
+
+    fn make_derived_in_ns(ns: &str, key: &str, parents: &[&str]) -> MemoryInput {
+        MemoryInput {
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(parents.iter().map(|s| (*s).to_string()).collect()),
+            ..MemoryInput::new(ns, key, key)
+        }
     }
 }
