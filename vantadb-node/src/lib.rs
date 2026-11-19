@@ -218,6 +218,10 @@ impl napi::bindgen_prelude::ObjectFinalize for VantaDB {
                 }
                 Err(_) => return,
             };
+            // FIND-534: inline drain is correct here — the GC finalizer
+            // runs outside any tokio runtime (`drain_gate`'s no-runtime
+            // branch), so blocking this thread cannot starve the futures
+            // holding `OpGuard`s (they execute on the tokio workers).
             gate.drain();
             let _ = engine.close();
             if let Some(key) = slot {
@@ -304,7 +308,9 @@ impl VantaDB {
                 inner.config.clone(),
             )
         };
-        gate.drain();
+        // FIND-534: runtime-aware drain — never blocks the only thread able
+        // to drive the guard-holding op futures (1-worker/current_thread).
+        drain_gate(gate).await;
         spawn_blocking(move || engine.close()).await?;
         if let Ok(mut inner) = self.inner.lock() {
             if let Some(key) = inner.slot.take() {
@@ -369,7 +375,9 @@ impl VantaDB {
     #[napi]
     pub async fn close(&self) -> napi::Result<()> {
         let (gate, engine) = self.snapshot();
-        gate.drain();
+        // FIND-534: runtime-aware drain — never blocks the only thread able
+        // to drive the guard-holding op futures (1-worker/current_thread).
+        drain_gate(gate).await;
         let out = spawn_blocking(move || engine.close()).await;
         // EGO-06: free the path reservation on a successful close. The slot
         // is taken (not copied) so a double-close can never release someone
@@ -1007,6 +1015,7 @@ impl VantaDB {
         namespace: String,
         query: Option<String>,
         query_vector: Option<Vec<f64>>,
+        abort: Option<&AbortHandle>,
     ) -> napi::Result<Value> {
         let (gate, engine) = self.snapshot();
         let _g = enter(&gate)?;
@@ -1029,10 +1038,88 @@ impl VantaDB {
             }
             None => None,
         };
-        let out = spawn_blocking(move || {
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send` (same as `search`).
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort, identical detach semantics to
+        // `search` — firing drops the `JoinHandle` (the blocking pipeline
+        // runs on, engine untouched) and releases the `OpGuard` so
+        // `close()` never blocks on a cancelled op.
+        let mut handle = tokio::task::spawn_blocking(move || {
             engine.graphrag_search(&namespace, query.as_deref(), query_vector.as_deref())
-        })
-        .await?;
+        });
+        let out = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "graphrag_search aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(map_err)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(map_err)?,
+        };
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Execute an IQL query string and return the structured result
+    /// (FIND-268).
+    ///
+    /// Same signature shape as `vantadb-wasm::Client::query` and
+    /// `vantadb-python::Client::query` for cross-binding parity. Returns the
+    /// core `QueryResult` enum, externally tagged (the exact wire shape the
+    /// `vantadb-ts` wrapper types): `{"Read": NodeRecord[]}` for SELECT-style
+    /// reads, `{"Write": {affected_nodes, message, node_id}}` for mutations,
+    /// `{"StaleContext": {node_id}}` when rehydration is required. All `u128`
+    /// node/edge ids serialize as **decimal strings** via `u128_serde`
+    /// (API-01 — a JS number can't hold a u128).
+    ///
+    /// `read_only` enforcement stays in the core engine (write queries on a
+    /// `read_only` handle are rejected there with the canonical
+    /// `VANTADB_*` error code, mapped by `map_err` like every other op).
+    /// `abort` (optional, last arg): `AbortHandle` — same cooperative
+    /// detach semantics as `search` (DIST-20 S4).
+    #[napi(ts_return_type = "Promise<QueryResult>")]
+    pub async fn query(&self, iql: String, abort: Option<&AbortHandle>) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send` (same as `search`).
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort — identical detach semantics to
+        // `search`: firing drops the `JoinHandle` (the query runs on,
+        // engine untouched) and releases the `OpGuard` so `close()` never
+        // blocks on a cancelled op.
+        let mut handle = tokio::task::spawn_blocking(move || engine.query(&iql));
+        let out = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "query aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(map_err)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(map_err)?,
+        };
         serde_json::to_value(&out).map_err(serde_map_err)
     }
 }
@@ -1112,8 +1199,14 @@ impl VantaDB {
     /// `{messages: ChatMessage[], token_budget, protected_prefix?,
     /// compaction_ratio?, min_keep?}`. Uses the lean chars/3 heuristic
     /// (`TokenEstimator::default`; `precise-tokens` stays opt-in).
+    /// `abort` (optional, last arg): `AbortHandle` — same cooperative
+    /// detach semantics as `search` (DIST-20 S4).
     #[napi]
-    pub async fn context_assemble(&self, options: Value) -> napi::Result<Value> {
+    pub async fn context_assemble(
+        &self,
+        options: Value,
+        abort: Option<&AbortHandle>,
+    ) -> napi::Result<Value> {
         let opts = options.as_object().cloned().unwrap_or_default();
         let messages: Vec<ChatMessage> = opts
             .get("messages")
@@ -1135,7 +1228,13 @@ impl VantaDB {
         if let Some(min_keep) = opt_u64(&opts, "min_keep") {
             cfg.min_keep = min_keep as usize;
         }
-        let out = tokio::task::spawn_blocking(move || {
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send` (same as `search`).
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort — same detach semantics as
+        // `search`: firing drops the `JoinHandle` (the pure-CPU compaction
+        // runs on, engine untouched; this op holds no `OpGuard`).
+        let mut handle = tokio::task::spawn_blocking(move || {
             assemble_context(
                 messages,
                 token_budget,
@@ -1145,10 +1244,27 @@ impl VantaDB {
                 None,
             )
             .map_err(|e| format!("context_assemble failed: {e:?}"))
-        })
-        .await
-        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
-        .map_err(Error::from_reason)?;
+        });
+        let out = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "context_assemble aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(Error::from_reason)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(Error::from_reason)?,
+        };
         // `AssembleOutput` has no `Serialize`; map the fields (`ChatMessage`
         // is `Serialize`, the report is scalars + a `Debug` mode name).
         Ok(json!({
@@ -1457,6 +1573,45 @@ fn enter(gate: &OpGate) -> napi::Result<OpGuard> {
             "[ERR_CODE:ERR_CLOSED] VANTADB_CLOSED: database is closing",
         )
     })
+}
+
+/// FIND-534: drain the durability gate without deadlocking small runtimes.
+///
+/// [`OpGate::drain`] parks the calling thread on a `Condvar` until every
+/// in-flight [`OpGuard`] drops. Called inline from an async `#[napi]`
+/// method it blocks a runtime worker — on a `current_thread` or 1-worker
+/// `multi_thread` runtime (CI containers, 1-vCPU VMs) that is the *only*
+/// thread able to poll the op futures holding those guards to completion:
+/// a total deadlock. The strategy depends on the ambient runtime:
+///
+/// - `MultiThread` flavor: `tokio::task::block_in_place` migrates this
+///   worker's other tasks to a fresh worker, so guard-holding futures keep
+///   making progress while the wait parks here.
+/// - Any other runtime flavor (`current_thread`; `block_in_place` would
+///   panic): the wait runs on the dedicated blocking pool via
+///   `spawn_blocking`, which exists on every flavor and frees the runtime
+///   thread entirely.
+/// - No ambient runtime (e.g. the GC finalizer thread): drain inline —
+///   blocking a non-runtime thread cannot starve the futures holding
+///   `OpGuard`s, which execute on the tokio workers.
+async fn drain_gate(gate: OpGate) {
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle)
+            if matches!(
+                handle.runtime_flavor(),
+                tokio::runtime::RuntimeFlavor::MultiThread
+            ) =>
+        {
+            tokio::task::block_in_place(|| gate.drain());
+        }
+        Ok(_) => {
+            // JoinError can only mean the drain closure panicked; `drain`
+            // recovers poison internally and sets `closing` before waiting,
+            // so the barrier stays enforced either way.
+            let _ = tokio::task::spawn_blocking(move || gate.drain()).await;
+        }
+        Err(_) => gate.drain(),
+    }
 }
 
 /// Run a blocking engine operation on the tokio blocking threadpool.
@@ -2317,8 +2472,9 @@ mod tests {
             VantaErrorCode::Serialization,
             "Serialization must NEVER map to Corrupt"
         );
-        let quota_err =
-            vantadb::error::Error::Generic("storage quota exceeded for namespace".into());
+        let quota_err = vantadb::error::Error::Generic(vantadb::error::ChainedError::msg(
+            "storage quota exceeded for namespace",
+        ));
         assert_eq!(from_engine_error(&quota_err), VantaErrorCode::QuotaExceeded);
     }
 }

@@ -361,6 +361,21 @@ export interface GraphRagResult {
   context_text: string;
   stats: GraphRagStats;
 }
+
+/**
+ * Result of `query()` — the core `QueryResult` enum, externally tagged
+ * (`src/sdk/types/graph.rs`): exactly one key is present per result.
+ * `u128` node/edge ids are decimal strings (API-01 — JS numbers can't
+ * hold u128). Same wire shape the `vantadb-ts` wrapper types.
+ */
+export interface QueryResult {
+  /** SELECT-style reads: full node records (ids as decimal strings). */
+  Read?: GraphNodeRecord[];
+  /** Mutations: affected count, message, and the written node id if any. */
+  Write?: { affected_nodes: number; message: string; node_id?: string | null };
+  /** Rehydration required for the named node id (decimal string). */
+  StaleContext?: { node_id: string };
+}
 /** One line of the per-surface inventory in a PurgeCertificate. */
 export interface SurfaceReport {
   surface: string;
@@ -693,7 +708,22 @@ export declare class VantaDb {
     namespace: string,
     query?: string | undefined | null,
     queryVector?: Array<number> | undefined | null,
+    abort?: AbortHandle | undefined | null,
   ): Promise<GraphRagResult>;
+  /**
+   * Execute an IQL query string and return the structured result (FIND-268).
+   *
+   * Same signature shape as the WASM (`Client.query`) and Python
+   * (`Client.query`) bindings. Returns the externally-tagged `QueryResult`
+   * enum: `{Read: GraphNodeRecord[]}` for reads, `{Write: {affected_nodes,
+   * message, node_id}}` for mutations, `{StaleContext: {node_id}}` when
+   * rehydration is required. All u128 ids are decimal strings (API-01).
+   *
+   * `abort` (optional, last arg): cooperative cancellation via `AbortHandle`
+   * — same detach semantics as `search` (abort = detach: the op runs on,
+   * the engine is never cancelled).
+   */
+  query(iql: string, abort?: AbortHandle | undefined | null): Promise<QueryResult>;
   /**
    * One auto-recall pass over L1/session/agent/team memory (MEMG-24).
    * `options`: `{user_text, session_key, scope?, max_results?, min_overlap?,
@@ -711,8 +741,10 @@ export declare class VantaDb {
    * `{messages: ChatMessage[], token_budget, protected_prefix?,
    * compaction_ratio?, min_keep?}`. Uses the lean chars/3 heuristic
    * (`TokenEstimator::default`; `precise-tokens` stays opt-in).
+   * `abort` (optional, last arg): `AbortHandle` — same cooperative detach
+   * semantics as `search` (DIST-20 S4).
    */
-  contextAssemble(options: any): Promise<any>;
+  contextAssemble(options: any, abort?: AbortHandle | undefined | null): Promise<any>;
   /**
    * LLM-free consolidation pass over one session (dream primitives:
    * dedup, contradiction provenance, date normalization). `options`:

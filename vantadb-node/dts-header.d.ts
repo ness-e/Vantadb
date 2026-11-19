@@ -362,6 +362,21 @@ export interface GraphRagResult {
   stats: GraphRagStats;
 }
 
+/**
+ * Result of `query()` — the core `QueryResult` enum, externally tagged
+ * (`src/sdk/types/graph.rs`): exactly one key is present per result.
+ * `u128` node/edge ids are decimal strings (API-01 — JS numbers can't
+ * hold u128). Same wire shape the `vantadb-ts` wrapper types.
+ */
+export interface QueryResult {
+  /** SELECT-style reads: full node records (ids as decimal strings). */
+  Read?: GraphNodeRecord[];
+  /** Mutations: affected count, message, and the written node id if any. */
+  Write?: { affected_nodes: number; message: string; node_id?: string | null };
+  /** Rehydration required for the named node id (decimal string). */
+  StaleContext?: { node_id: string };
+}
+
 /** One line of the per-surface inventory in a PurgeCertificate. */
 export interface SurfaceReport {
   surface: string;
