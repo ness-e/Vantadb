@@ -4,10 +4,125 @@
 //! Supported clients: `claude-code`, `cursor`, `windsurf`, `opencode`.
 
 use serde_json::{json, Map, Value};
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
-use crate::cli_handlers::fmt::{print_json, print_success};
+use crate::cli_handlers::fmt::{print_json, print_success, print_warning};
 use crate::error::{ChainedError, Error, Result};
+
+/// Minimum `vanta-cli` version that supports the `brain` MCP profile (FIND-626).
+const MIN_BRAIN_PROFILE_VERSION: (u64, u64, u64) = (0, 10, 0);
+
+/// Short timeout for probing the resolved `vanta-cli --version` binary.
+const VERSION_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Polling interval while waiting for the version probe subprocess to exit.
+const VERSION_PROBE_POLL_INTERVAL: Duration = Duration::from_millis(20);
+
+/// Result of probing a resolved CLI binary for its semantic version.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum BinaryVersionProbe {
+    Version((u64, u64, u64)),
+    TimedOut,
+    Unverifiable(String),
+}
+
+/// Extracts the first `major.minor.patch` semantic version triple from `--version` output.
+fn parse_semver_triple(output: &str) -> Option<(u64, u64, u64)> {
+    for token in output.split_whitespace() {
+        let trimmed = token.trim_start_matches(['v', 'V']);
+        let core = trimmed.split(['-', '+']).next()?;
+        let mut parts = core.split('.');
+        let major = parts.next()?.parse::<u64>().ok();
+        let minor = parts.next().and_then(|p| p.parse::<u64>().ok());
+        let patch = parts.next().and_then(|p| p.parse::<u64>().ok());
+        if let (Some(maj), Some(min), Some(pat), None) = (major, minor, patch, parts.next()) {
+            return Some((maj, min, pat));
+        }
+    }
+    None
+}
+
+/// Runs `<binary> --version` with a strict timeout so `mcp init` never hangs.
+fn probe_binary_version(binary: &Path, timeout: Duration) -> BinaryVersionProbe {
+    let mut child = match Command::new(binary)
+        .arg("--version")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(e) => return BinaryVersionProbe::Unverifiable(e.to_string()),
+    };
+
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return BinaryVersionProbe::TimedOut;
+                }
+                std::thread::sleep(VERSION_PROBE_POLL_INTERVAL);
+            }
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return BinaryVersionProbe::Unverifiable(e.to_string());
+            }
+        }
+    };
+
+    let mut stdout = String::new();
+    if let Some(mut out) = child.stdout.take() {
+        let _ = out.read_to_string(&mut stdout);
+    }
+    let mut stderr = String::new();
+    if let Some(mut err) = child.stderr.take() {
+        let _ = err.read_to_string(&mut stderr);
+    }
+
+    if !status.success() {
+        return BinaryVersionProbe::Unverifiable(format!("exited with status {status}"));
+    }
+
+    match parse_semver_triple(&stdout).or_else(|| parse_semver_triple(&stderr)) {
+        Some(version) => BinaryVersionProbe::Version(version),
+        None => BinaryVersionProbe::Unverifiable("unrecognized --version output".to_string()),
+    }
+}
+
+/// Evaluates whether the probed binary warrants a non-fatal warning for the requested profile.
+fn brain_profile_binary_warning(
+    profile: &str,
+    binary: &Path,
+    probe: &BinaryVersionProbe,
+) -> Option<String> {
+    if !profile.eq_ignore_ascii_case("brain") {
+        return None;
+    }
+
+    match probe {
+        BinaryVersionProbe::Version(ver) if *ver >= MIN_BRAIN_PROFILE_VERSION => None,
+        BinaryVersionProbe::Version((maj, min, pat)) => Some(format!(
+            "Resolved '{}' binary is v{maj}.{min}.{pat}, which predates the 'brain' MCP profile (requires vanta-cli >= 0.10.0). Older binaries ignore 'brain' or serve the legacy tool surface; upgrade vanta-cli to >= 0.10.0.",
+            binary.display()
+        )),
+        BinaryVersionProbe::TimedOut => Some(format!(
+            "Timed out probing '{} --version'; unable to verify support for the 'brain' MCP profile (requires vanta-cli >= 0.10.0).",
+            binary.display()
+        )),
+        BinaryVersionProbe::Unverifiable(reason) => Some(format!(
+            "Could not verify '{}' version ({reason}); the 'brain' MCP profile requires vanta-cli >= 0.10.0.",
+            binary.display()
+        )),
+    }
+}
 
 /// Supported client names
 pub const SUPPORTED_CLIENTS: &[&str] = &["claude-code", "cursor", "windsurf", "opencode"];
@@ -111,6 +226,27 @@ pub fn cmd_mcp_init(
     dry_run: bool,
     json_output: bool,
 ) -> Result<()> {
+    cmd_mcp_init_with_binary(
+        client,
+        profile,
+        config_path,
+        dry_run,
+        json_output,
+        Path::new("vanta-cli"),
+        VERSION_PROBE_TIMEOUT,
+    )
+    .map(|_| ())
+}
+
+fn cmd_mcp_init_with_binary(
+    client: &str,
+    profile: &str,
+    config_path: Option<&Path>,
+    dry_run: bool,
+    json_output: bool,
+    binary: &Path,
+    probe_timeout: Duration,
+) -> Result<Option<String>> {
     if !SUPPORTED_CLIENTS.contains(&client) {
         return Err(Error::InvalidInput(format!(
             "Unsupported client '{client}'. Supported clients: {}",
@@ -141,6 +277,16 @@ pub fn cmd_mcp_init(
         )))
     })?;
 
+    let warning = if profile.eq_ignore_ascii_case("brain") {
+        let probe = probe_binary_version(binary, probe_timeout);
+        brain_profile_binary_warning(profile, binary, &probe)
+    } else {
+        None
+    };
+    if let Some(ref msg) = warning {
+        print_warning(msg);
+    }
+
     if dry_run {
         if json_output {
             print_json(&json!({
@@ -153,7 +299,7 @@ pub fn cmd_mcp_init(
         } else {
             println!("{formatted}");
         }
-        return Ok(());
+        return Ok(warning);
     }
 
     if let Some(parent) = target_path.parent() {
@@ -190,7 +336,7 @@ pub fn cmd_mcp_init(
         ));
     }
 
-    Ok(())
+    Ok(warning)
 }
 
 #[cfg(test)]
@@ -340,5 +486,188 @@ mod tests {
         assert!(err.is_err());
         let msg = err.err().unwrap().to_string();
         assert!(msg.contains("Failed to parse existing JSON config"));
+    }
+
+    fn write_fake_version_binary(dir: &Path, name: &str, version_line: &str) -> PathBuf {
+        #[cfg(windows)]
+        {
+            let path = dir.join(format!("{name}.cmd"));
+            std::fs::write(&path, format!("@echo off\r\necho {version_line}\r\n")).unwrap();
+            path
+        }
+        #[cfg(not(windows))]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let path = dir.join(name);
+            std::fs::write(&path, format!("#!/bin/sh\necho \"{version_line}\"\n")).unwrap();
+            let mut perms = std::fs::metadata(&path).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&path, perms).unwrap();
+            path
+        }
+    }
+
+    fn write_slow_binary(dir: &Path, name: &str) -> PathBuf {
+        #[cfg(windows)]
+        {
+            // Pure in-process cmd loop (no grandchild process) so `child.kill()`
+            // releases every handle immediately without triggering nextest leak-fail.
+            let path = dir.join(format!("{name}.cmd"));
+            std::fs::write(&path, "@echo off\r\n:loop\r\ngoto loop\r\n").unwrap();
+            path
+        }
+        #[cfg(not(windows))]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let path = dir.join(name);
+            // `exec` replaces the shell process so `child.kill()` kills `sleep` directly.
+            std::fs::write(&path, "#!/bin/sh\nexec sleep 2\n").unwrap();
+            let mut perms = std::fs::metadata(&path).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&path, perms).unwrap();
+            path
+        }
+    }
+
+    #[test]
+    fn test_brain_profile_warns_when_binary_predates_0_10_0() {
+        let tmp = tempfile::tempdir().unwrap();
+        let old_bin = write_fake_version_binary(tmp.path(), "vanta_old", "vanta-cli 0.6.1");
+        let target = tmp.path().join("cursor_old.json");
+
+        let warning = cmd_mcp_init_with_binary(
+            "cursor",
+            "brain",
+            Some(&target),
+            false,
+            false,
+            &old_bin,
+            Duration::from_secs(2),
+        )
+        .expect("old binary must emit a warning without failing mcp init");
+
+        assert!(target.exists(), "config file must still be written");
+        let msg = warning.expect("expected warning when binary version < 0.10.0");
+        assert!(
+            msg.contains("0.6.1"),
+            "warning should cite detected version: {msg}"
+        );
+        assert!(
+            msg.contains("0.10.0"),
+            "warning should cite minimum version 0.10.0: {msg}"
+        );
+        assert!(
+            msg.contains("brain"),
+            "warning should reference the brain profile: {msg}"
+        );
+
+        // Boundary check: 0.9.0 also predates 0.10.0
+        let v090_bin = write_fake_version_binary(tmp.path(), "vanta_090", "vanta-cli 0.9.0");
+        let target_090 = tmp.path().join("cursor_090.json");
+        let warn_090 = cmd_mcp_init_with_binary(
+            "cursor",
+            "brain",
+            Some(&target_090),
+            true,
+            false,
+            &v090_bin,
+            Duration::from_secs(2),
+        )
+        .expect("0.9.0 binary must warn without failing");
+        assert!(
+            warn_090.as_deref().is_some_and(|w| w.contains("0.9.0")),
+            "expected warning for 0.9.0, got: {warn_090:?}"
+        );
+    }
+
+    #[test]
+    fn test_brain_profile_no_warning_when_binary_meets_minimum_version() {
+        let tmp = tempfile::tempdir().unwrap();
+        let exact_bin = write_fake_version_binary(tmp.path(), "vanta_0100", "vanta-cli 0.10.0");
+        let target = tmp.path().join("cursor_0100.json");
+
+        let warning = cmd_mcp_init_with_binary(
+            "cursor",
+            "brain",
+            Some(&target),
+            false,
+            false,
+            &exact_bin,
+            Duration::from_secs(2),
+        )
+        .expect("valid binary must succeed");
+        assert!(target.exists());
+        assert!(
+            warning.is_none(),
+            "0.10.0 binary must not emit a warning, got: {warning:?}"
+        );
+
+        let newer_bin = write_fake_version_binary(tmp.path(), "vanta_100", "vanta-cli 1.0.0");
+        let warn_newer = cmd_mcp_init_with_binary(
+            "claude-code",
+            "brain",
+            Some(&target),
+            true,
+            false,
+            &newer_bin,
+            Duration::from_secs(2),
+        )
+        .expect("newer binary must succeed");
+        assert!(
+            warn_newer.is_none(),
+            "1.0.0 binary must not emit a warning, got: {warn_newer:?}"
+        );
+    }
+
+    #[test]
+    fn test_non_brain_profile_skips_version_warning_on_older_binary() {
+        let tmp = tempfile::tempdir().unwrap();
+        let old_bin = write_fake_version_binary(tmp.path(), "vanta_old_full", "vanta-cli 0.6.1");
+        let target = tmp.path().join("cursor_full.json");
+
+        let warning = cmd_mcp_init_with_binary(
+            "cursor",
+            "full",
+            Some(&target),
+            true,
+            false,
+            &old_bin,
+            Duration::from_secs(2),
+        )
+        .expect("non-brain profile must succeed");
+        assert!(
+            warning.is_none(),
+            "non-brain profile should not emit brain version warning, got: {warning:?}"
+        );
+    }
+
+    #[test]
+    fn test_brain_profile_degraded_warning_on_probe_timeout() {
+        let tmp = tempfile::tempdir().unwrap();
+        let slow_bin = write_slow_binary(tmp.path(), "vanta_slow");
+        let target = tmp.path().join("cursor_slow.json");
+
+        let start = std::time::Instant::now();
+        let warning = cmd_mcp_init_with_binary(
+            "cursor",
+            "brain",
+            Some(&target),
+            true,
+            false,
+            &slow_bin,
+            Duration::from_millis(120),
+        )
+        .expect("timed-out probe must degrade to a warning without failing");
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "probe timeout must bound execution time, took {elapsed:?}"
+        );
+        let msg = warning.expect("expected degraded warning on timeout");
+        assert!(
+            msg.contains("Timed out") && msg.contains("0.10.0"),
+            "unexpected timeout warning: {msg}"
+        );
     }
 }

@@ -18,7 +18,7 @@ VantaDB runs as a **stdio JSON-RPC 2.0 server**: your MCP client spawns the proc
 
 ### Requirements
 
-- The VantaDB CLI (`vanta-cli` ≥ **0.9.0**) installed and on PATH — see [Embedded CLI](../../README.md#embedded-cli) for one-line installers.
+- The VantaDB CLI (`vanta-cli` ≥ **0.9.0**; **`vanta-cli` ≥ 0.10.0** required for the default `brain` MCP profile) installed and on PATH — see [Embedded CLI](../../README.md#embedded-cli) for one-line installers.
 - A writable directory for the database (e.g. `~/.vantadb`).
 - An MCP-capable client: Claude Desktop, Claude Code, Cursor, OpenCode, or any client speaking MCP over stdio.
 
@@ -238,7 +238,7 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
-| `brain` (**default**) | 15 | Compact cognitive surface (L0-L3 + meta-tools + bugfix): `memory_recall`, `memory_search`, `memory_put`, `memory_get`, `memory_forget`, `memory_supersede`, `memory_dream`, `context_assemble`, `thread_send`, `vanta_scene`, `vanta_dream`, `vanta_graph`, `vanta_dispatch`, `bugfix_record`, `bugfix_query` (meta-tool `vanta_dispatch` keeps all 90 tools callable on demand). | Autonomous agents, Cursor/Windsurf/Claude Code with strict context budgets (default since PRD-01) |
+| `brain` (**default**) | 16 | Compact cognitive surface (L0-L3 + `query_iql` + meta-tools + bugfix): `memory_recall`, `memory_search`, `memory_put`, `memory_get`, `memory_forget`, `memory_supersede`, `memory_dream`, `query_iql`, `context_assemble`, `thread_send`, `vanta_scene`, `vanta_dream`, `vanta_graph`, `vanta_dispatch`, `bugfix_record`, `bugfix_query` (meta-tool `vanta_dispatch` keeps all 90 tools callable on demand). Requires `vanta-cli >= 0.10.0`. | Autonomous agents, Cursor/Windsurf/Claude Code with strict context budgets (default since PRD-01) |
 | `agent` | 39 | Memory CRUD + search + recall + reinforce + IQL + collections + threads + scenes + context engine + wiki read. | Agent clients wanting full un-multiplexed memory/scenes surface (the pre-PRD-01 default) |
 | `full` | 84 | All listed tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence (3 listed: search/explore/index), wiki, skills & bugfix patterns, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients (pre-0.8 default; opt-in) |
 | `dev` | 38 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
@@ -247,7 +247,7 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 **Usage:**
 
 ```bash
-# Brain profile (default): compact cognitive surface (L0-L3 + meta-tools)
+# Brain profile (default): compact cognitive surface (L0-L3 + query_iql + meta-tools)
 vanta-cli server --mcp --db ~/.vantadb
 
 # Agent profile: memory + threads + scenes + context + wiki read
@@ -281,7 +281,8 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 - The profile is read once at server startup from `VANTADB_MCP_PROFILE` (unknown values fall back to the default).
 - `tools/list` returns only the tools allowed by the selected profile.
 - `tools/call` for a known tool outside the profile returns `method_not_found` (-32601) with the clear error: `Tool not found: <name> (not in profile <profile>)` (WIRE-02: enforced in code; unknown names keep the plain `Tool not found: <name>` fall-through). Absorbed dispatch-only names (§Legacy & absorbed) stay callable while their canonical tool is listed in the active profile.
-- **Migration (WIRE-02):** the default changed from `full` to `agent`. Set `VANTADB_MCP_PROFILE=full` to keep the full listed surface (the pre-0.8 default; 84 tools); the legacy `search_memory`/`collection_list` aliases keep working.
+- **Migration (WIRE-02):** the default changed from `full` to `agent`, and subsequently to `brain` (`vanta-cli >= 0.10.0`). Set `VANTADB_MCP_PROFILE=full` to keep the full listed surface (the pre-0.8 default; 84 tools); the legacy `search_memory`/`collection_list` aliases keep working.
+- **Minimum CLI version for `brain` (FIND-626):** the `brain` profile requires `vanta-cli >= 0.10.0`. Running `vanta-cli mcp init --profile brain` probes the resolved `vanta-cli` binary on `PATH` and emits a non-fatal warning on `stderr` when the binary predates `0.10.0` (or cannot be verified within its timeout).
 
 ## Core Tools (49)
 
