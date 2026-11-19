@@ -443,6 +443,63 @@ pub(crate) fn encrypted_detected_for(root: &std::path::Path) -> Option<bool> {
     detected_modes().lock().get(root).copied()
 }
 
+/// Active open engine handle counts per storage root (FIND-635).
+static ACTIVE_CRYPTO_HANDLES: std::sync::OnceLock<
+    parking_lot::Mutex<std::collections::HashMap<std::path::PathBuf, usize>>,
+> = std::sync::OnceLock::new();
+
+/// The table of active engine handles per storage root.
+fn active_crypto_handles(
+) -> &'static parking_lot::Mutex<std::collections::HashMap<std::path::PathBuf, usize>> {
+    ACTIVE_CRYPTO_HANDLES.get_or_init(|| parking_lot::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// RAII registration keeping `root`'s entries in [`PROCESS_KEYS`] and
+/// [`DETECTED_MODES`] alive while at least one engine handle for `root` is
+/// open (FIND-635).
+///
+/// Ref-counted per storage root so closing one `read_only` handle (or aborting
+/// a contending open) does not evict entries needed by another live handle for
+/// the same root. Dropping the last handle removes both entries and wipes the
+/// `Arc<Zeroizing<Vec<u8>>>` material.
+pub(crate) struct ProcessCryptoGuard {
+    root: std::path::PathBuf,
+}
+
+impl ProcessCryptoGuard {
+    /// Increment the active handle count for `root`.
+    pub(crate) fn acquire(root: &std::path::Path) -> Self {
+        let mut handles = active_crypto_handles().lock();
+        *handles.entry(root.to_path_buf()).or_insert(0) += 1;
+        Self {
+            root: root.to_path_buf(),
+        }
+    }
+}
+
+impl Drop for ProcessCryptoGuard {
+    fn drop(&mut self) {
+        let mut handles = active_crypto_handles().lock();
+        let should_purge = match handles.get_mut(&self.root) {
+            Some(count) if *count > 1 => {
+                *count -= 1;
+                false
+            }
+            Some(_) => {
+                handles.remove(&self.root);
+                true
+            }
+            None => false,
+        };
+        if should_purge {
+            // Fixed lock order: active_crypto_handles -> process_keys -> detected_modes.
+            // Neither inner table ever acquires active_crypto_handles.
+            process_keys().lock().remove(&self.root);
+            detected_modes().lock().remove(&self.root);
+        }
+    }
+}
+
 /// The decision of the process, when it is unambiguous.
 ///
 /// `None` — no decision, or more than one database in the process: the
@@ -1761,6 +1818,30 @@ mod tests {
             found,
             "without a key the payload must be stored in the clear (no envelope)"
         );
+    }
+
+    #[test]
+    fn process_crypto_guard_refcounts_concurrent_handles_per_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        let g1 = ProcessCryptoGuard::acquire(root);
+        let g2 = ProcessCryptoGuard::acquire(root);
+        register_process_key(
+            root,
+            Some(std::sync::Arc::new(Zeroizing::new(vec![0x11; 32]))),
+        );
+        register_detected_mode(root, true);
+
+        // Dropping the first handle keeps entries alive for the second handle.
+        drop(g1);
+        assert!(encryption_decision_for(root).is_some());
+        assert_eq!(encrypted_detected_for(root), Some(true));
+
+        // Dropping the last handle purges both tables.
+        drop(g2);
+        assert!(encryption_decision_for(root).is_none());
+        assert!(encrypted_detected_for(root).is_none());
     }
 
     /// Collect every file under `dir` (recursively).

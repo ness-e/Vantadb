@@ -500,6 +500,93 @@ fn read_only_open_encrypted_db_missing_registry_fails_closed() {
     );
 }
 
+/// FIND-634 / FIND-635: dropping or closing an engine purges its entries from
+/// `PROCESS_KEYS` and `DETECTED_MODES` once no live handle remains for that
+/// storage root — while a failed concurrent open must not evict an existing
+/// open handle.
+#[test]
+fn process_tables_purged_on_close() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let root = std::path::Path::new(path);
+    let key = key_hex(0x67);
+
+    // 1. StorageEngine open populates process tables; Drop purges them.
+    {
+        let engine = StorageEngine::open_with_config(path, Some(keyed_config(path, &key)))
+            .expect("open encrypted engine");
+        engine
+            .insert(&node(101, "vantadb-find635-drop"))
+            .expect("insert");
+        engine.flush().expect("flush");
+        assert!(
+            crate::crypto::encryption_decision_for(root).is_some(),
+            "PROCESS_KEYS must hold an entry while StorageEngine is open"
+        );
+        assert!(
+            crate::crypto::encrypted_detected_for(root).is_some(),
+            "DETECTED_MODES must hold an entry while StorageEngine is open"
+        );
+    }
+    assert!(
+        crate::crypto::encryption_decision_for(root).is_none(),
+        "PROCESS_KEYS must be purged when StorageEngine drops"
+    );
+    assert!(
+        crate::crypto::encrypted_detected_for(root).is_none(),
+        "DETECTED_MODES must be purged when StorageEngine drops"
+    );
+
+    // 2. Embedded::close() also purges both tables immediately.
+    let db = crate::sdk::Embedded::open_with_config(keyed_config(path, &key))
+        .expect("open Embedded encrypted");
+    assert!(crate::crypto::encryption_decision_for(root).is_some());
+    assert!(crate::crypto::encrypted_detected_for(root).is_some());
+    db.close().expect("close Embedded");
+    assert!(
+        crate::crypto::encryption_decision_for(root).is_none(),
+        "PROCESS_KEYS must be purged after Embedded::close()"
+    );
+    assert!(
+        crate::crypto::encrypted_detected_for(root).is_none(),
+        "DETECTED_MODES must be purged after Embedded::close()"
+    );
+
+    // 3. A failed concurrent open while an active RO handle is open must NOT
+    // purge the live handle's entries; closing the active handle purges them.
+    {
+        let mut ro_cfg = keyed_config(path, &key);
+        ro_cfg.read_only = true;
+        let active_ro =
+            StorageEngine::open_with_config(path, Some(ro_cfg.clone())).expect("open RO");
+        assert!(crate::crypto::encryption_decision_for(root).is_some());
+
+        // Contending open fails on `.vanta.lock` / Fjall `.lock`, leaving
+        // `active_ro`'s registration intact.
+        let _contend = StorageEngine::open_with_config(path, Some(ro_cfg));
+        assert!(
+            crate::crypto::encryption_decision_for(root).is_some(),
+            "contending failed open must not purge an active handle's registration"
+        );
+        drop(active_ro);
+    }
+    assert!(crate::crypto::encryption_decision_for(root).is_none());
+    assert!(crate::crypto::encrypted_detected_for(root).is_none());
+
+    // 4. A failed open (wrong key) on a closed encrypted DB must not leak
+    // entries into PROCESS_KEYS / DETECTED_MODES.
+    let wrong_key = key_hex(0x68);
+    assert!(StorageEngine::open_with_config(path, Some(keyed_config(path, &wrong_key))).is_err());
+    assert!(
+        crate::crypto::encryption_decision_for(root).is_none(),
+        "failed wrong-key open must not leave stale PROCESS_KEYS entry"
+    );
+    assert!(
+        crate::crypto::encrypted_detected_for(root).is_none(),
+        "failed wrong-key open must not leave stale DETECTED_MODES entry"
+    );
+}
+
 /// FIND-591: a FULL vector written into an **encrypted** segment reads
 /// back byte-exact through the decrypted-blob decode path — across a
 /// close/reopen so the cache cannot serve it and the AEAD envelope has to

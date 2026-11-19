@@ -430,11 +430,14 @@ impl Scannable for EncryptedBackend {
 ///
 /// `is_empty` is a **consistency guard** (FIND-585): the authoritative
 /// "brand new" predicate is `is_new_database` in `init.rs` (the artefact
-/// half) — its verdict arrives via `register_process_key`. When the engine
-/// decided "encrypted" but the backend holds data and the registry is
-/// missing, the state is contradictory: this function fails closed with
-/// [`Error::EncryptionCorrupt`] instead of degrading to plaintext
-/// (ADR-0057 D1 rule 3 — no mixed mode).
+/// half) — its verdict arrives via `register_process_key`. When encrypted
+/// artefacts were detected at `resolve` and the registry disappeared before the
+/// backend initialised (TOCTOU), this function fails closed with
+/// [`Error::EncryptionKeyRequired`] (ADR-0057 D2 / R-7). When the engine
+/// decided "encrypt" as a brand-new database (no encrypted artefacts on disk)
+/// yet the backend already holds data and the registry is missing, the state is
+/// contradictory and fails closed with [`Error::EncryptionCorrupt`] instead of
+/// degrading to plaintext (ADR-0057 D1 rule 3 — no mixed mode).
 pub(crate) fn backend_kv_crypto_from_config(
     data_dir: &Path,
     config: &Config,
@@ -469,23 +472,18 @@ pub(crate) fn backend_kv_crypto_from_config(
     }
 
     if !KeyRegistry::path_in(data_dir).exists() {
-        // FIND-585 (TOCTOU): the engine saw encrypted artefacts at `resolve`
-        // (`detected_encrypted`) but the registry is gone now — it was lost
-        // between `resolve` and this open. Minting a fresh registry here
-        // would orphan the ciphertext that `resolve` just saw, and
-        // `after_open` would then find a registry and not notice. Fail
-        // closed even on an empty backend.
+        // FIND-585 / FIND-634 (TOCTOU): the engine saw encrypted artefacts at
+        // `resolve` (`detected_encrypted`) but the registry is gone now — it
+        // was lost between `resolve` and this open. Minting a fresh registry
+        // here would orphan the ciphertext that `resolve` just saw, and
+        // `after_open` would then find a registry and not notice. Fail closed
+        // with `EncryptionKeyRequired` per ADR-0057:242,658 even on an empty
+        // backend.
         if matches!(&decision, Some(Some(_)))
             && crate::crypto::encrypted_detected_for(root) == Some(true)
         {
-            return Err(Error::EncryptionCorrupt {
+            return Err(Error::EncryptionKeyRequired {
                 artifact: ARTIFACT.to_string(),
-                detail: "encrypted artefacts were detected at open but \
-                         encryption.registry disappeared before the backend \
-                         initialised: refusing to mint a fresh registry over \
-                         existing ciphertext — restore it from a snapshot or \
-                         encryption.registry.bak"
-                    .to_string(),
             });
         }
         // No artefact of this database was ever encrypted.
@@ -1197,12 +1195,49 @@ mod tests {
         let result = backend_kv_crypto_from_config(&data_dir, &config, true);
         let err = result.expect_err("a registry lost mid-open must fail closed even when empty");
         assert!(
-            matches!(err, Error::EncryptionCorrupt { .. }),
-            "a lost registry is corruption: got {err}"
+            matches!(err, Error::EncryptionKeyRequired { .. }),
+            "a lost registry with encrypted artefacts is EncryptionKeyRequired (ADR-0057:242,658): got {err}"
         );
         assert!(
             !KeyRegistry::path_in(&data_dir).exists(),
             "no fresh registry may be minted over existing ciphertext"
+        );
+    }
+
+    /// FIND-634 / ADR-0057 D2 & R-7: when encrypted artefacts were detected at
+    /// `resolve` (`detected_encrypted == true`) and `encryption.registry` is
+    /// missing by the time the backend opens (TOCTOU registry loss), the error
+    /// must be [`Error::EncryptionKeyRequired`] (not `EncryptionCorrupt`).
+    #[test]
+    fn toctou_registry_loss_is_key_required() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("db");
+        std::fs::create_dir_all(&path).unwrap();
+        let data_dir = path.join("data");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let config = Config {
+            encryption_key: Some("19".repeat(32)),
+            ..Config::default()
+        };
+
+        let root = path.clone();
+        crate::crypto::register_process_key(
+            &root,
+            Some(Arc::new(crate::crypto::Zeroizing::new(
+                material(0x19).to_vec(),
+            ))),
+        );
+        crate::crypto::register_detected_mode(&root, true);
+
+        let err = backend_kv_crypto_from_config(&data_dir, &config, true)
+            .expect_err("TOCTOU registry loss must fail closed");
+        assert!(
+            matches!(err, Error::EncryptionKeyRequired { ref artifact } if artifact == ARTIFACT),
+            "TOCTOU registry loss with encrypted artefacts must return EncryptionKeyRequired per ADR-0057:242,658; got: {err}"
+        );
+        assert!(
+            !KeyRegistry::path_in(&data_dir).exists(),
+            "the failed open must not mint a fresh registry"
         );
     }
 

@@ -229,6 +229,8 @@ impl StorageEngine {
             segment_registry,
             wal: wal_writer.map(std::sync::Arc::new),
             _lock_file: lock_file,
+            #[cfg(feature = "encryption")]
+            _crypto_guard: encryption.take_guard(),
             backend: backend.clone(),
             memory_governor: Some(std::sync::Arc::new(
                 crate::memory_governor::MemoryGovernor::new(&config),
@@ -1074,6 +1076,9 @@ pub(crate) struct DbEncryption {
     /// Whether the backend is in-memory: there is nothing at rest, so the
     /// key is not used and nothing is said about it.
     in_memory: bool,
+    /// RAII guard keeping `PROCESS_KEYS` / `DETECTED_MODES` entries for
+    /// `root` alive until either open fails or `StorageEngine` drops.
+    _crypto_guard: Option<crate::crypto::ProcessCryptoGuard>,
 }
 
 #[cfg(feature = "encryption")]
@@ -1140,6 +1145,7 @@ impl DbEncryption {
             EncryptionMode::Encrypted => true,
             EncryptionMode::Plaintext => new_database && material.is_some() && !in_memory,
         };
+        let crypto_guard = crate::crypto::ProcessCryptoGuard::acquire(root);
         crate::crypto::register_process_key(root, if encrypt { material.clone() } else { None });
         // FIND-585: also record *why* — the backend needs to tell an
         // "encrypt" verdict backed by ciphertext on disk from a brand-new
@@ -1154,7 +1160,14 @@ impl DbEncryption {
             root: root.to_path_buf(),
             read_only: config.read_only,
             in_memory,
+            _crypto_guard: Some(crypto_guard),
         })
+    }
+
+    /// Transfer ownership of the process crypto registration guard to the
+    /// constructed [`StorageEngine`].
+    fn take_guard(&mut self) -> Option<crate::crypto::ProcessCryptoGuard> {
+        self._crypto_guard.take()
     }
 
     /// Re-decide the mode now that the backend is open (it may have created

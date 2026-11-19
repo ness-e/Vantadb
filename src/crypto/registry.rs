@@ -789,11 +789,16 @@ impl KeyRegistry {
             state.kek = new_kek;
             new_version
         };
-        if let Err(e) = self.persist() {
-            // The disk still holds the OLD registry: restore the in-memory
-            // state so a later `persist` cannot write a half-rotated one.
-            *self.shared.state.lock() = snapshot;
-            return Err(e);
+        if let Err(failure) = self.persist_with_commit_point() {
+            if !failure.after_rename {
+                // The disk still holds the OLD registry: restore the in-memory
+                // state so a later `persist` cannot write a half-rotated one.
+                *self.shared.state.lock() = snapshot;
+            }
+            // If `after_rename` is true, `std::fs::rename` already committed
+            // the new registry on disk: keep the new in-memory state coherent
+            // with disk (FIND-636).
+            return Err(failure.error);
         }
         Ok(new_version)
     }
@@ -823,15 +828,45 @@ impl KeyRegistry {
 
     /// Write the registry atomically: tmp file → fsync → rename → dir fsync.
     fn persist(&self) -> Result<(), CryptoError> {
+        self.persist_with_commit_point().map_err(|f| f.error)
+    }
+
+    /// Persist while distinguishing errors before vs after the atomic `rename`
+    /// commit point (FIND-636).
+    fn persist_with_commit_point(&self) -> Result<(), PersistFailure> {
         let bytes = Self::encode(&self.shared.state.lock());
+        let tmp_path = self.tmp_path();
+        if let Err(error) = self.write_tmp_and_rename(&tmp_path, &bytes) {
+            let _ = std::fs::remove_file(&tmp_path);
+            return Err(PersistFailure {
+                error,
+                after_rename: false,
+            });
+        }
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("registry_persist_after_rename", |_| {
+            Err(PersistFailure {
+                error: CryptoError::RegistryIo("injected failure after registry rename".into()),
+                after_rename: true,
+            })
+        });
+        // A rename is not durable until the parent directory is fsync'd.
+        sync_parent_dir(&self.path).map_err(|e| PersistFailure {
+            error: CryptoError::RegistryIo(format!("cannot sync the registry directory: {e}")),
+            after_rename: true,
+        })?;
+        Ok(())
+    }
+
+    /// Write `bytes` to `tmp_path`, sync it, and atomically rename over `self.path`.
+    fn write_tmp_and_rename(&self, tmp_path: &Path, bytes: &[u8]) -> Result<(), CryptoError> {
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
                 CryptoError::RegistryIo(format!("cannot create {}: {e}", parent.display()))
             })?;
         }
-        let tmp_path = self.tmp_path();
         {
-            let mut file = std::fs::File::create(&tmp_path).map_err(|e| {
+            let mut file = std::fs::File::create(tmp_path).map_err(|e| {
                 CryptoError::RegistryIo(format!("cannot create {}: {e}", tmp_path.display()))
             })?;
             // 0600: the registry is **partially secret** (the db_salt, the
@@ -851,23 +886,25 @@ impl KeyRegistry {
                     })?;
             }
             use std::io::Write;
-            file.write_all(&bytes).map_err(|e| {
+            file.write_all(bytes).map_err(|e| {
                 CryptoError::RegistryIo(format!("cannot write {}: {e}", tmp_path.display()))
             })?;
             file.sync_all().map_err(|e| {
                 CryptoError::RegistryIo(format!("cannot sync {}: {e}", tmp_path.display()))
             })?;
         }
-        std::fs::rename(&tmp_path, &self.path).map_err(|e| {
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("registry_persist_before_rename", |_| {
+            Err(CryptoError::RegistryIo(
+                "injected failure before registry rename".into(),
+            ))
+        });
+        std::fs::rename(tmp_path, &self.path).map_err(|e| {
             CryptoError::RegistryIo(format!(
                 "cannot rename {} to {}: {e}",
                 tmp_path.display(),
                 self.path.display()
             ))
-        })?;
-        // A rename is not durable until the parent directory is fsync'd.
-        sync_parent_dir(&self.path).map_err(|e| {
-            CryptoError::RegistryIo(format!("cannot sync the registry directory: {e}"))
         })?;
         Ok(())
     }
@@ -881,6 +918,13 @@ impl KeyRegistry {
             .unwrap_or_else(|| REGISTRY_FILE_NAME.to_string());
         self.path.with_file_name(format!("{name}.tmp"))
     }
+}
+
+/// Failure from [`KeyRegistry::persist_with_commit_point`], tagged with whether
+/// the atomic `rename` already committed the new state on disk.
+struct PersistFailure {
+    error: CryptoError,
+    after_rename: bool,
 }
 
 /// Wrap a DEK under `kek`: `nonce(12) ‖ ciphertext ‖ tag(16)`.
@@ -1457,5 +1501,103 @@ mod tests {
             bytes_before,
             "the registry must be byte-for-byte identical when the backup fails"
         );
+    }
+
+    /// FIND-634 / FIND-636: if `persist()` fails **after** `std::fs::rename`
+    /// already committed the new registry on disk (e.g. `sync_parent_dir`
+    /// fails), `rotate()` must keep the **new** in-memory state instead of
+    /// rolling back to the old snapshot — otherwise a subsequent `persist()`
+    /// overwrites the new on-disk registry with the stale old version.
+    #[cfg(feature = "failpoints")]
+    #[test]
+    fn rotate_persist_failure_after_rename_keeps_new_state() {
+        struct FailpointCleanup(&'static str);
+        impl Drop for FailpointCleanup {
+            fn drop(&mut self) {
+                fail::remove(self.0);
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let old_key = material(0xa1);
+        let new_key = material(0xa2);
+        let mut registry = KeyRegistry::open_or_create(dir.path(), &old_key).unwrap();
+        let dek_before = registry.ensure_dek(Artifact::Wal).unwrap();
+        let _epoch = registry.begin_epoch(Artifact::Wal).unwrap();
+        assert_eq!(registry.key_version(), 1);
+
+        fail::cfg("registry_persist_after_rename", "return").unwrap();
+        let _cleanup = FailpointCleanup("registry_persist_after_rename");
+        let err = registry.rotate(&new_key).unwrap_err();
+        drop(_cleanup);
+        assert!(
+            matches!(err, CryptoError::RegistryIo(_)),
+            "expected RegistryIo, got: {err}"
+        );
+
+        // In-memory state must stay at version 2 (coherent with disk).
+        assert_eq!(
+            registry.key_version(),
+            2,
+            "rotate failure after rename must keep the new key_version in memory"
+        );
+
+        // A subsequent persist (e.g. rolling an epoch) must NOT revert disk
+        // back to key_version 1 / old_key.
+        registry.begin_epoch(Artifact::Wal).unwrap();
+        drop(registry);
+
+        let reopened = KeyRegistry::open_existing(dir.path(), &new_key)
+            .expect("disk registry must open with the new key after post-rename failure");
+        assert_eq!(reopened.key_version(), 2);
+        assert_eq!(reopened.dek(Artifact::Wal).unwrap()[..], dek_before[..]);
+
+        let old_err = KeyRegistry::open_existing(dir.path(), &old_key).unwrap_err();
+        assert!(
+            matches!(old_err, CryptoError::DecryptionFailed),
+            "old key must be rejected after post-rename commit, got: {old_err}"
+        );
+    }
+
+    /// FIND-634 / FIND-636: if `persist()` fails **before** `std::fs::rename`,
+    /// disk still holds the old registry and `rotate()` rolls back the
+    /// in-memory state to the pre-rotation snapshot.
+    #[cfg(feature = "failpoints")]
+    #[test]
+    fn rotate_persist_failure_before_rename_rolls_back_state() {
+        struct FailpointCleanup(&'static str);
+        impl Drop for FailpointCleanup {
+            fn drop(&mut self) {
+                fail::remove(self.0);
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let old_key = material(0xa3);
+        let new_key = material(0xa4);
+        let mut registry = KeyRegistry::open_or_create(dir.path(), &old_key).unwrap();
+        registry.ensure_dek(Artifact::Wal).unwrap();
+        assert_eq!(registry.key_version(), 1);
+
+        fail::cfg("registry_persist_before_rename", "return").unwrap();
+        let _cleanup = FailpointCleanup("registry_persist_before_rename");
+        let err = registry.rotate(&new_key).unwrap_err();
+        drop(_cleanup);
+        assert!(
+            matches!(err, CryptoError::RegistryIo(_)),
+            "expected RegistryIo, got: {err}"
+        );
+
+        assert_eq!(
+            registry.key_version(),
+            1,
+            "pre-rename persist failure must roll back in-memory key_version"
+        );
+        registry.begin_epoch(Artifact::Wal).unwrap();
+        drop(registry);
+
+        let reopened = KeyRegistry::open_existing(dir.path(), &old_key)
+            .expect("disk registry must still open with old key after pre-rename failure");
+        assert_eq!(reopened.key_version(), 1);
     }
 }

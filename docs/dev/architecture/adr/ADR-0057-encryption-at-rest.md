@@ -218,10 +218,9 @@ documented):
 exactly the defect `FIND-194` records ("rotación de la master key invalida envelopes
 existentes + recovery solo programática"). With a registry of wrapped DEKs:
 
-- **Rotation never invalidates data.** `vanta-cli encryption rotate --new-key <src>` unwraps every
-  DEK with the current KEK, re-wraps it with the KEK derived from the new master under a new
-  `key_version`, and rewrites the registry atomically. The DEKs — and therefore every ciphertext
-  already on disk — are untouched. The operation is O(number of artefacts) = 4, not O(data).
+- **Rotation never invalidates data.** `vanta-cli encryption rotate --new-key-file <path>`
+  (or `--new-key-stdin`; see the 2026-11-18 amendment replacing `--new-key` so key material
+  never appears on the command line) unwraps every DEK with the current KEK, re-wraps it with the KEK derived from the new master under a new `key_version`, and rewrites the registry atomically. The DEKs — and therefore every ciphertext already on disk — are untouched. The operation is O(number of artefacts) = 4, not O(data).
 - **The pattern already exists in this repo.** `vanta-memory/src/utils/erasure.rs` implements
   exactly this shape: a random 32-byte DEK per scope, wrapped with the core `Cipher`
   (`create_scope` `:122`, `seal` `:145`, `open` `:162`, `erase` `:174`), stored under a reserved
@@ -720,3 +719,13 @@ measurement was not recorded at the time of the Paso 0 commit), not of **substan
 INV-012 was designed to prevent does not exist here).
 
 The fix for the formal gap: this entry. The measurement is now on record.
+
+## 11. Amendment 2026-11-18 — Removal of `--new-key` CLI flag (FIND-587 / FIND-637)
+
+The original §D2 example cited an inline `--new-key` value flag on `vanta-cli encryption rotate`. Passing key material as a command-line argument exposes the secret in `/proc/<pid>/cmdline`, `ps`, and shell history.
+
+Per FIND-587 (implemented in `src/cli.rs`) and FIND-637 (documentation alignment):
+
+* `--new-key` was removed and must not be reintroduced.
+* `vanta-cli encryption rotate` requires exactly one safe key source: `--new-key-file <path>` (regular file, `0600` mode on Unix, no symlinks) or `--new-key-stdin` (single hex line read into a `Zeroizing` buffer).
+* See [KEY_RUNBOOK.md](../../../user/operations/security/KEY_RUNBOOK.md) for current rotation and verification commands.

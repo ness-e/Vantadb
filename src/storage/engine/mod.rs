@@ -411,6 +411,11 @@ pub struct StorageEngine {
     pub(crate) scalar_index: Option<std::sync::Arc<crate::scalar_index::ScalarIndex>>,
     /// File handle for multi-process isolation lock
     pub(crate) _lock_file: Option<StdFile>,
+    /// Ref-counted process crypto registration guard (FIND-635): purges
+    /// `PROCESS_KEYS` and `DETECTED_MODES` when the last engine handle for
+    /// this storage root closes/drops.
+    #[cfg(feature = "encryption")]
+    pub(crate) _crypto_guard: Option<crate::crypto::ProcessCryptoGuard>,
     /// Bidirectional edge label interner: String ↔ u32.
     /// Reduces per-edge label overhead from ~24-32 bytes to 4 bytes.
     pub(crate) label_intern: parking_lot::Mutex<LabelIntern>,
@@ -2125,8 +2130,14 @@ impl StorageEngine {
 }
 
 impl Drop for StorageEngine {
-    /// Release the file lock when the engine is dropped.
+    /// Purge process crypto tables (when the last handle for this root drops)
+    /// before releasing the file lock so a waiting opener cannot observe stale
+    /// entries.
     fn drop(&mut self) {
+        #[cfg(feature = "encryption")]
+        {
+            drop(self._crypto_guard.take());
+        }
         #[cfg(feature = "fs2")]
         {
             if let Some(file) = &self._lock_file {
