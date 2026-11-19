@@ -146,7 +146,7 @@ jobs:
       - name: Clippy Lints (core)
         # AUD-018: gate extended to vantadb-wasm / vantadb-server / vantadb-mcp.
         # Verified 2026-08-12: clippy clean on all three (exit 0, no warnings).
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
   semver-checks:
     # RELEASE-01: gate so a breaking change in the public API can never publish.
@@ -361,7 +361,7 @@ jobs:
         # CATEGORY: EXPERIMENTAL — excludes experimental crates.
         run:
           cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude
-          vantadb-server --exclude vantadb-mcp -- -D warnings
+          vantadb-server --exclude vantadb-mcp --locked -- -D warnings
 
       - name: Run quick integrity tests (Windows)
         shell: pwsh
@@ -412,7 +412,7 @@ jobs:
         # CATEGORY: EXPERIMENTAL — excludes experimental crates.
         run:
           cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude
-          vantadb-server --exclude vantadb-mcp -- -D warnings
+          vantadb-server --exclude vantadb-mcp --locked -- -D warnings
 
       - name: Run tests (Audit profile, core)
         shell: bash
@@ -537,6 +537,7 @@ jobs:
           cargo llvm-cov nextest \
             --profile audit \
             --workspace \
+            --locked \
             --features "cli,arrow,tls,opentelemetry" \
             --exclude vantadb-wasm \
             --exclude vantadb-server \
@@ -545,14 +546,14 @@ jobs:
             --ignore-filename-regex '(tests/|benches/|crash_injection)' \
             2>&1
           echo "--- Coverage Summary ---"
-          cargo llvm-cov report \
+          cargo llvm-cov report --locked \
             --ignore-filename-regex '(tests/|benches/)'
 
       - name: Enforce coverage threshold (>=80%, ADR-015 coverage policy)
         shell: bash
         run: |
           # ADR-015-coverage-policy: root-gate 80% en CI (bindings/wasm/server/mcp miden en runners nativos)
-          cargo llvm-cov report --json \
+          cargo llvm-cov report --locked --json \
             --ignore-filename-regex '(tests/|benches/)' \
             | python3 -c "
           import sys, json
@@ -763,6 +764,10 @@ jobs:
           shared-key: miri-nightly
 
       - name: Miri Setup (core)
+        # No --locked: `miri setup` builds a sysroot from rust-src with its own
+        # lockfile via rustc-build-sysroot — extra cargo flags are not forwarded
+        # to it, so --locked would be a silent no-op here (it is applied to the
+        # workspace `cargo test` that `miri test` invokes below).
         run: cargo +nightly miri setup --manifest-path Cargo.toml -p vantadb
         env:
           MIRI_NO_HOST_FALLBACK: 1
@@ -778,7 +783,7 @@ jobs:
         # their software backend — no extra `--cfg` needed.
         run:
           cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features
-          --features "cli,fjall,memmap2,fs2,encryption" -- miri
+          --locked --features "cli,fjall,memmap2,fs2,encryption" -- miri
         env:
           MIRI_NO_HOST_FALLBACK: 1
           # Header::new reads SystemTime::now() when opening the engine;
@@ -795,7 +800,7 @@ jobs:
         # FIND-591: same `encryption` coverage as the step above.
         run:
           cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features
-          --features "cli,fjall,memmap2,fs2,encryption" -- miri
+          --locked --features "cli,fjall,memmap2,fs2,encryption" -- miri
         env:
           MIRI_NO_HOST_FALLBACK: 1
           MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-tree-borrows"
@@ -899,6 +904,7 @@ jobs:
             --lib --tests --bins \
             --target x86_64-unknown-linux-gnu \
             --package vantadb \
+            --locked \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
             -- \
@@ -998,6 +1004,12 @@ jobs:
       # ate the whole budget. The -E filterset below keeps the remaining
       # timing-bound/CLI/network cases out; `exitcode=0` is gone on purpose:
       # a TSan report must fail the step for the lane to mean anything.
+      # FIND-650 r2: exclusions that target whole test binaries use
+      # `package() and binary()` (BND-06 scope-safe form) — `test()` only
+      # matches test names, never binary names. `cli_tests` is already
+      # excluded by the profile default-filter (intersected with -E), so it
+      # has no entry here; `ttl_http_` is a lib test-name prefix (correct as
+      # `test()`), currently inert because `mod server` needs `--features server`.
       - name: Test with ThreadSanitizer (partition ${{ matrix.partition }}/4)
         timeout-minutes: 50
         run: |
@@ -1005,7 +1017,8 @@ jobs:
             --lib --tests --bins \
             --target x86_64-unknown-linux-gnu \
             --package vantadb \
+            --locked \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
             --partition "hash:${{ matrix.partition }}/4" \
-            -E 'not (test(test_benchmark_) or test(benchmark_internal) or test(test_benchmark_internal_10k) or test(sift1m_competitive_benchmark) or test(hardware_certification_full) or test(hnsw_hard_validation_certification) or test(hnsw_core_logic_certification) or test(recall_certification_runner) or test(stress_protocol_certification) or test(glove_dimension_scale) or test(validate_sift_dataset_integrity) or test(test_glove100_hnsw_basic) or test(hnsw_recall_snapshot_baseline) or test(hnsw_recall_snapshot_deterministic_across_scales) or test(test_hybrid_ranking_metrics) or test(deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths) or test(extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace) or test(concurrent_multi_namespace_stress) or test(memory_volume_kpi_10k) or test(test_triple_backend_parity_validation) or test(zero_dim_vector_search_empty) or test(ttl_http_) or test(embedded_readonly) or test(cli_tests))'
+            -E 'not (test(test_benchmark_) or test(benchmark_internal) or test(test_benchmark_internal_10k) or test(sift1m_competitive_benchmark) or test(hardware_certification_full) or test(hnsw_hard_validation_certification) or test(hnsw_core_logic_certification) or test(recall_certification_runner) or test(stress_protocol_certification) or test(glove_dimension_scale) or test(validate_sift_dataset_integrity) or test(test_glove100_hnsw_basic) or test(hnsw_recall_snapshot_baseline) or test(hnsw_recall_snapshot_deterministic_across_scales) or test(test_hybrid_ranking_metrics) or test(deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths) or test(extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace) or test(concurrent_multi_namespace_stress) or test(memory_volume_kpi_10k) or test(test_triple_backend_parity_validation) or test(zero_dim_vector_search_empty) or test(ttl_http_) or (package(vantadb) and binary(embedded_readonly)))'
