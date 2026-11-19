@@ -177,23 +177,26 @@ pub async fn spawn_writer_http(storage: Arc<StorageEngine>) -> std::io::Result<(
     // is the default value and does not reflect the `path` argument passed to
     // `StorageEngine::open(path)` when config is None (see init.rs). `data_dir`
     // is `base_path.join("data")`, so parent is the base.
-    let storage_path = if storage.data_dir.as_os_str().is_empty() {
-        storage.config.storage_path.clone()
+    let storage_path = if storage.data_dir().as_os_str().is_empty() {
+        storage.config().storage_path.clone()
     } else {
         storage
-            .data_dir
+            .data_dir()
             .parent()
             .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| storage.config.storage_path.clone())
+            .unwrap_or_else(|| storage.config().storage_path.clone())
     };
     // In-memory backend or read-only never needs a discovery file/HTTP.
-    if storage.config.read_only || storage_path.is_empty() {
+    if storage.config().read_only || storage_path.is_empty() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,
             "read-only or in-memory: no http needed",
         ));
     }
-    if matches!(storage.config.backend_kind, vantadb::BackendKind::InMemory) {
+    if matches!(
+        storage.config().backend_kind,
+        vantadb::BackendKind::InMemory
+    ) {
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,
             "in-memory backend: no http needed",
@@ -204,7 +207,7 @@ pub async fn spawn_writer_http(storage: Arc<StorageEngine>) -> std::io::Result<(
     let port = listener.local_addr()?.port();
     let guard = write_discovery_file(&storage_path, port)?;
     // Build full axum router for proxy parity (all /api/v2/*)
-    let config = storage.config.clone();
+    let config = storage.config().clone();
     let api_key: Option<std::sync::Arc<str>> = config.api_key.as_deref().map(std::sync::Arc::from);
     let alt_api_key: Option<std::sync::Arc<str>> =
         config.alt_api_key.as_deref().map(std::sync::Arc::from);
@@ -357,7 +360,7 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     // "text_index not found: bm25". Ensure index state at startup:
     // idempotent — no-op when counts match, rebuilds only when state is
     // missing/stale (existing DBs), writes fresh empty state for new DBs.
-    if !storage.config.read_only {
+    if !storage.config().read_only {
         let embedded = vantadb::Embedded::from_engine(storage.clone());
         if let Err(e) = embedded.ensure_indexes_current() {
             error!(
@@ -370,10 +373,12 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     // MCP-35 Step1: writer discovery file + ephemeral HTTP (127.0.0.1:0)
     // Order: fs2 lock already held via StorageEngine → TcpListener → file write
     // Guard lives for the whole server lifetime (Drop cleans pid==self).
-    let _writer_guard: Option<WriterGuard> = if !storage.config.read_only
-        && !storage.config.storage_path.is_empty()
-        && !matches!(storage.config.backend_kind, vantadb::BackendKind::InMemory)
-    {
+    let _writer_guard: Option<WriterGuard> = if !storage.config().read_only
+        && !storage.config().storage_path.is_empty()
+        && !matches!(
+            storage.config().backend_kind,
+            vantadb::BackendKind::InMemory
+        ) {
         match spawn_writer_http(storage.clone()).await {
             Ok((g, port)) => {
                 info!(

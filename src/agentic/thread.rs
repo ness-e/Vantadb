@@ -166,23 +166,30 @@ pub struct ThreadStore<'a> {
 impl<'a> ThreadStore<'a> {
     /// Wrap a storage engine reference (wall-time clock).
     ///
-    /// The store owns its locks, so a **single** store serializes its own
-    /// read-modify-writes. Stores that share a database must share the locks
-    /// too — the SDK does it with the crate-internal `with_shared_locks`.
+    /// FIND-661: the store shares the **engine-owned** locks
+    /// (`sdk_thread_message_lock`/`sdk_thread_index_lock`), so every store
+    /// and every `Embedded` wrapper over this engine serializes the
+    /// read-modify-writes against each other — a per-store lock let direct
+    /// `ThreadStore::new` callers race SDK callers on the same data.
     pub fn new(engine: &'a StorageEngine) -> Self {
-        Self::with_shared_locks(engine, Arc::new(Mutex::new(())), Arc::new(Mutex::new(())))
+        Self::with_shared_locks(
+            engine,
+            engine.sdk_thread_message_lock.clone(),
+            engine.sdk_thread_index_lock.clone(),
+        )
     }
 
     /// Wrap a storage engine reference with an explicit [`Clock`].
     ///
     /// Tests pass `Arc::new(ManualClock::new(..))` to expire TTLs by
-    /// advancing virtual time instead of sleeping.
+    /// advancing virtual time instead of sleeping. Shares the engine-owned
+    /// thread locks (FIND-661), same as [`Self::new`].
     pub fn with_clock(engine: &'a StorageEngine, clock: Arc<dyn Clock>) -> Self {
         Self {
             engine,
             clock,
-            message_lock: Arc::new(Mutex::new(())),
-            index_lock: Arc::new(Mutex::new(())),
+            message_lock: engine.sdk_thread_message_lock.clone(),
+            index_lock: engine.sdk_thread_index_lock.clone(),
         }
     }
 

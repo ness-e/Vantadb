@@ -73,11 +73,17 @@ pub struct SkillStore<'a> {
 
 impl<'a> SkillStore<'a> {
     /// Wrap a storage engine reference.
+    ///
+    /// FIND-661: the store shares the **engine-owned** `sdk_skill_write_lock`,
+    /// so every store and every `Embedded` wrapper over this engine
+    /// serializes the check_version + commit_new_head pair against each
+    /// other — a per-store lock let direct `SkillStore::new` callers (the
+    /// MCP server path) race SDK callers on the same `(owner, name)` head.
     pub fn new(engine: &'a StorageEngine) -> Self {
         Self {
             engine,
             entities: EntityStore::new(engine),
-            write_lock: Arc::new(Mutex::new(())),
+            write_lock: engine.sdk_skill_write_lock.clone(),
         }
     }
 

@@ -31,7 +31,9 @@
 //! byte order, not a semantic preference; local bookkeeping (`version`,
 //! first-seen `created_at_ms`) is store-local and not convergent; `put` racing
 //! `merge_record` on the same key is outside v1 coverage; the merge lock is
-//! per-handle (same scope as `supersede_lock`), so one route per handle.
+//! per-engine (FIND-661: the engine-owned `sdk_merge_lock`, shared by every
+//! `Embedded` wrapper — same scope as `supersede_lock`), so one route per
+//! engine.
 
 use crate::error::{Error, Result};
 use crate::sdk::types::MemoryRecord;

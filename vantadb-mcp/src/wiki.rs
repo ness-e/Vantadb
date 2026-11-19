@@ -391,7 +391,7 @@ fn ingest_toml_path(storage: &Arc<StorageEngine>) -> PathBuf {
             return PathBuf::from(p);
         }
     }
-    storage.data_dir.join("vanta-ingest.toml")
+    storage.data_dir().join("vanta-ingest.toml")
 }
 
 /// FIND-365: Maximum number of tracked runs before evicting the oldest.

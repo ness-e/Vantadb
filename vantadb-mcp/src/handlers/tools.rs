@@ -3203,7 +3203,7 @@ pub fn handle_tools_call(
                     "snapshot_restore is DESTRUCTIVE: it replaces the live database directory with the contents of the snapshot. Re-send the tool call with \"confirm\": true to proceed.",
                 )));
             }
-            let Some(root) = storage.data_dir.parent() else {
+            let Some(root) = storage.data_dir().parent() else {
                 return Ok(error_content_mcp(McpError::internal_error(
                     "Snapshot Restore Error: in-memory databases have no filesystem to restore",
                 )));

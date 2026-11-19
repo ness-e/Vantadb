@@ -19,7 +19,9 @@ pub struct Embedded {
     /// Serializes `supersede()`'s read-modify-write (REVIEW-13): the engine's
     /// `insert_lock` only covers the individual write, not the SDK-level
     /// read + idempotency check, so two concurrent supersedes could both pass
-    /// the guard and double-mark the record. Shared across clones via `Arc`.
+    /// the guard and double-mark the record. Shared across clones via `Arc` —
+    /// and, since FIND-661, across `Embedded` wrappers over the same engine:
+    /// the `Arc` is the engine-owned `sdk_supersede_lock`.
     /// ponytail: global supersede lock - rare admin op; per-namespace striping
     /// if contention ever matters.
     pub(crate) supersede_lock: Arc<Mutex<()>>,
@@ -28,7 +30,8 @@ pub struct Embedded {
     /// only covers the individual insert, not the SDK-level read + decision,
     /// so two concurrent merges could both decide against the same `existing`
     /// and persist the loser (arrival-order nondeterminism). Shared across
-    /// clones via `Arc`.
+    /// clones via `Arc` — and, since FIND-661, across `Embedded` wrappers
+    /// over the same engine (`sdk_merge_lock`).
     /// ponytail: global merge lock - merges are a sync/import path, not a hot
     /// path; per-key striped locks only if merge throughput ever matters.
     pub(crate) merge_lock: Arc<Mutex<()>>,
@@ -51,7 +54,9 @@ pub struct Embedded {
     /// engine's `insert_lock` only covers the individual write, not the read +
     /// append, so two concurrent `send_message` calls read the same message
     /// list and the second insert drops the first message. Shared across
-    /// clones via `Arc` (same rationale as `merge_lock`).
+    /// clones via `Arc` (same rationale as `merge_lock`) — and, since
+    /// FIND-661, across `Embedded` wrappers over the same engine
+    /// (`sdk_thread_message_lock`).
     /// ponytail: one lock per area (messages / thread index) - thread writes
     /// are not a hot path; striped locks only if contention ever matters.
     pub(crate) thread_message_lock: Arc<Mutex<()>>,
@@ -59,13 +64,22 @@ pub struct Embedded {
     /// a single JSON blob in `InternalMetadata`, so two concurrent
     /// `create_thread` calls read the same id list and the second save drops
     /// the first thread id (the thread then disappears from `list_threads`
-    /// and the purge never reaches it). Shared across clones via `Arc`.
+    /// and the purge never reaches it). Shared across clones via `Arc` — and,
+    /// since FIND-661, across `Embedded` wrappers over the same engine
+    /// (`sdk_thread_index_lock`).
     pub(crate) thread_index_lock: Arc<Mutex<()>>,
     /// Serializes skill optimistic lock check and commit (FIND-605): prevents
     /// TOCTOU races between concurrent `update`/`patch` calls with the same
-    /// `expected_version`. Shared across clones via `Arc`.
+    /// `expected_version`. Shared across clones via `Arc` — and, since
+    /// FIND-661, across `Embedded` wrappers over the same engine
+    /// (`sdk_skill_write_lock`).
     pub(crate) skill_write_lock: Arc<Mutex<()>>,
-    /// FastGate deduplication filter instance shared across clones.
+    /// FastGate deduplication filter instance shared across clones — and,
+    /// since FIND-661, across `Embedded` wrappers over the same engine: the
+    /// `Arc` is the engine-owned `sdk_dedup_filter` (dedup marks describe
+    /// the engine's data, so a per-wrapper filter let duplicates written
+    /// through a second handle evade detection).
+    /// `with_dedup_filter` still overrides per handle.
     pub(crate) dedup_filter: Arc<crate::utils::duplicate_prevention::DuplicatePreventionFilter>,
 }
 
@@ -85,24 +99,29 @@ impl Embedded {
     #[tracing::instrument(skip(engine))]
     pub fn from_engine(engine: Arc<StorageEngine>) -> Self {
         let config = engine.config.clone();
-        // FIND-651 (breach 2): share the engine-owned purge lock so every
-        // `Embedded` wrapper over this engine serializes its write/purge
-        // read-modify-writes against the others (DUR-03 r3) — a fresh lock
-        // per wrapper let two handles purge the same data concurrently.
+        // FIND-651 (breach 2) / FIND-661: share the engine-owned SDK locks
+        // so every `Embedded` wrapper over this engine serializes its
+        // read-modify-writes against the others — fresh locks per wrapper
+        // let two handles purge (DUR-03 r3), supersede, merge, thread-write
+        // and skill-write the same data concurrently.
         let purge_lock = engine.sdk_purge_lock.clone();
+        let supersede_lock = engine.sdk_supersede_lock.clone();
+        let merge_lock = engine.sdk_merge_lock.clone();
+        let thread_message_lock = engine.sdk_thread_message_lock.clone();
+        let thread_index_lock = engine.sdk_thread_index_lock.clone();
+        let skill_write_lock = engine.sdk_skill_write_lock.clone();
+        let dedup_filter = engine.sdk_dedup_filter.clone();
         Self {
             engine: Arc::new(RwLock::new(Some(engine))),
             audit: init_audit(&config),
             config,
-            supersede_lock: Arc::new(Mutex::new(())),
-            merge_lock: Arc::new(Mutex::new(())),
+            supersede_lock,
+            merge_lock,
             purge_lock,
-            thread_message_lock: Arc::new(Mutex::new(())),
-            thread_index_lock: Arc::new(Mutex::new(())),
-            skill_write_lock: Arc::new(Mutex::new(())),
-            dedup_filter: Arc::new(
-                crate::utils::duplicate_prevention::DuplicatePreventionFilter::default(),
-            ),
+            thread_message_lock,
+            thread_index_lock,
+            skill_write_lock,
+            dedup_filter,
         }
     }
 
@@ -201,23 +220,28 @@ impl Embedded {
             &final_config.storage_path,
             Some(final_config.clone()),
         )?;
-        // FIND-651 (breach 2): same engine-owned purge lock as `from_engine` —
-        // any later `Embedded::from_engine(db.engine_handle()?)` wrapper then
-        // shares this exact `Arc` instead of getting an independent one.
+        // FIND-651 (breach 2) / FIND-661: same engine-owned SDK locks as
+        // `from_engine` — any later `Embedded::from_engine(db.engine_handle()?)`
+        // wrapper then shares these exact `Arc`s instead of getting
+        // independent ones.
         let purge_lock = engine.sdk_purge_lock.clone();
+        let supersede_lock = engine.sdk_supersede_lock.clone();
+        let merge_lock = engine.sdk_merge_lock.clone();
+        let thread_message_lock = engine.sdk_thread_message_lock.clone();
+        let thread_index_lock = engine.sdk_thread_index_lock.clone();
+        let skill_write_lock = engine.sdk_skill_write_lock.clone();
+        let dedup_filter = engine.sdk_dedup_filter.clone();
         let embedded = Self {
             engine: Arc::new(RwLock::new(Some(Arc::new(engine)))),
             audit: init_audit(&final_config),
             config: final_config,
-            supersede_lock: Arc::new(Mutex::new(())),
-            merge_lock: Arc::new(Mutex::new(())),
+            supersede_lock,
+            merge_lock,
             purge_lock,
-            thread_message_lock: Arc::new(Mutex::new(())),
-            thread_index_lock: Arc::new(Mutex::new(())),
-            skill_write_lock: Arc::new(Mutex::new(())),
-            dedup_filter: Arc::new(
-                crate::utils::duplicate_prevention::DuplicatePreventionFilter::default(),
-            ),
+            thread_message_lock,
+            thread_index_lock,
+            skill_write_lock,
+            dedup_filter,
         };
         if !embedded.config.read_only {
             embedded.ensure_indexes_current()?;
@@ -256,10 +280,12 @@ impl Embedded {
             engine: Arc::new(RwLock::new(None)),
             audit: init_audit(&config),
             config,
+            // No engine → no shared data to serialize; fresh locks and a
+            // fresh dedup filter are correct and INTENTIONALLY per-handle
+            // (engine-dependent ops fail `NotInitialized` before reaching
+            // them — there is no `sdk_*` state to clone).
             supersede_lock: Arc::new(Mutex::new(())),
             merge_lock: Arc::new(Mutex::new(())),
-            // No engine → no shared data to serialize; a fresh lock is correct
-            // (engine-dependent ops fail `NotInitialized` before reaching it).
             purge_lock: Arc::new(RwLock::new(())),
             thread_message_lock: Arc::new(Mutex::new(())),
             thread_index_lock: Arc::new(Mutex::new(())),

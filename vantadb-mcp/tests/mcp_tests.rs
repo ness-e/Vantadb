@@ -1978,7 +1978,7 @@ fn test_collection_delete_abort_leaves_no_partial_deletes() {
     // flag now is enough to gate every delete.
     Arc::get_mut(&mut storage)
         .expect("no live clones")
-        .config
+        .config_mut()
         .read_only = true;
 
     let executor = Executor::new(&storage);
@@ -5759,10 +5759,7 @@ fn test_mcp_agent_default_surface() {
         assert!(names.contains(tool), "agent surface missing {tool}");
     }
     for tool in ["code_search", "skill_list", "dream_list", "wiki_ingest"] {
-        assert!(
-            !names.contains(tool),
-            "agent surface must not list {tool}"
-        );
+        assert!(!names.contains(tool), "agent surface must not list {tool}");
     }
 }
 

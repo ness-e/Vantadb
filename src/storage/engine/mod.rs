@@ -330,9 +330,15 @@ pub struct StorageEngine {
     /// Abstract KV backend. No RocksDB types leak through this field.
     pub(crate) backend: Arc<dyn StorageBackend>,
     /// Engine configuration including backend kind, memory limits, and sync mode.
-    pub config: Config,
+    ///
+    /// FIND-656: `pub(crate)` — was `pub`; external readers use
+    /// [`Self::config`]/[`Self::config_mut`].
+    pub(crate) config: Config,
     /// If true, all mutating operations must be rejected.
-    pub read_only: bool,
+    ///
+    /// FIND-656: `pub(crate)` — was `pub`; external readers use
+    /// [`Self::is_read_only`].
+    pub(crate) read_only: bool,
     /// Thread-safe HNSW index behind the cycle-breaking handle (F3X: ADR-042).
     /// Boxed because `Arc` requires `Sized` for arc-swap's `RefCnt`.
     ///
@@ -374,6 +380,49 @@ pub struct StorageEngine {
     /// Leaf lock: taken only by SDK code (`sdk::api::memory`); engine paths
     /// never acquire it, so it cannot enter the `insert_lock` order cycle.
     pub(crate) sdk_purge_lock: Arc<RwLock<()>>,
+    /// SDK-layer `supersede` read-modify-write serialization (REVIEW-13),
+    /// owned by the engine so every `Embedded` wrapper over this handle
+    /// shares it (FIND-661 — same cross-wrapper race class as FIND-651
+    /// breach 2): a per-wrapper lock let two handles supersede the same
+    /// record concurrently and double-mark it.
+    ///
+    /// Leaf lock: taken only by SDK code (`sdk::api::memory`); engine paths
+    /// never acquire it, so it cannot enter the `insert_lock` order cycle.
+    pub(crate) sdk_supersede_lock: Arc<parking_lot::Mutex<()>>,
+    /// SDK-layer `merge_record` read-decide-write serialization (MEMG-05),
+    /// engine-owned so every `Embedded` wrapper over this handle shares it
+    /// (FIND-661). Leaf lock: only SDK code acquires it — outside the
+    /// `insert_lock` order.
+    pub(crate) sdk_merge_lock: Arc<parking_lot::Mutex<()>>,
+    /// SDK-layer thread message read-modify-write serialization (FIND-599),
+    /// engine-owned so every `Embedded` wrapper AND every
+    /// [`crate::agentic::thread::ThreadStore`] over this handle shares it
+    /// (FIND-661). Leaf lock: only store/SDK code acquires it — outside the
+    /// `insert_lock` order.
+    pub(crate) sdk_thread_message_lock: Arc<parking_lot::Mutex<()>>,
+    /// SDK-layer thread-index read-modify-write serialization (FIND-600),
+    /// engine-owned so every `Embedded` wrapper AND every
+    /// [`crate::agentic::thread::ThreadStore`] over this handle shares it
+    /// (FIND-661). Leaf lock: only store/SDK code acquires it — outside the
+    /// `insert_lock` order.
+    pub(crate) sdk_thread_index_lock: Arc<parking_lot::Mutex<()>>,
+    /// SDK-layer skill optimistic-lock check+commit serialization
+    /// (FIND-605), engine-owned so every `Embedded` wrapper AND every
+    /// [`crate::skills::SkillStore`] over this handle shares it (FIND-661):
+    /// a per-store lock let `SkillStore::new(engine)` (the MCP path) race
+    /// an `Embedded`-built store on the same `(owner, name)` head.
+    /// Leaf lock: only store/SDK code acquires it — outside the
+    /// `insert_lock` order.
+    pub(crate) sdk_skill_write_lock: Arc<parking_lot::Mutex<()>>,
+    /// SDK-layer FastGate dedup state, engine-owned so every `Embedded`
+    /// wrapper over this handle shares it (FIND-661). The filter dedups
+    /// **data** (record ids / content hashes), not handles: two wrappers
+    /// with independent filters let a duplicate written through the second
+    /// handle evade detection. Sharing is semantically safe — marks are
+    /// monotone and the false-positive rate is bounded by distinct items,
+    /// which live in the engine either way. `Embedded::with_dedup_filter`
+    /// still overrides per handle.
+    pub(crate) sdk_dedup_filter: Arc<crate::utils::duplicate_prevention::DuplicatePreventionFilter>,
     /// Pending HNSW mutations awaiting batch flush under a single
     /// `insert_lock` acquisition (Rayon micro-batching, P1).
     pub(crate) pending_hnsw_batch: parking_lot::Mutex<Vec<PendingHnswOp>>,
@@ -391,7 +440,10 @@ pub struct StorageEngine {
     /// Flag signalling emergency maintenance (e.g. cache pressure).
     pub emergency_maintenance_trigger: AtomicBool,
     /// Path to the data directory.
-    pub data_dir: PathBuf,
+    ///
+    /// FIND-656: `pub(crate)` — was `pub`; external readers use
+    /// [`Self::data_dir`].
+    pub(crate) data_dir: PathBuf,
     /// Vector store files for persistent node vector data — one per LSM level.
     /// Index 0 = L0 (hot), 1 = L1 (warm), 2 = L2 (cold).
     /// All new writes go to index 0. Reads use unpack_offset() to select the correct file.
@@ -446,10 +498,45 @@ impl StorageEngine {
         IndexCoordinator::new(&self.hnsw, &self.pending_hnsw_batch)
     }
 
+    /// The engine's resolved configuration (read-only view).
+    ///
+    /// FIND-656: replaces the `pub config` field — the field is now
+    /// `pub(crate)` so the surface is a deliberate accessor.
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    /// Mutable access to the engine's configuration.
+    ///
+    /// FIND-656: preserves the mutation capability the `pub config` field
+    /// gave (tests/tools flip flags like `read_only` post-open — the SDK
+    /// re-reads `engine.config` when cloning `Embedded` handles, so the
+    /// flip gates subsequent operations).
+    pub fn config_mut(&mut self) -> &mut Config {
+        &mut self.config
+    }
+
+    /// Path to the data directory (`<storage_path>/data`; empty for pure
+    /// in-memory engines).
+    ///
+    /// FIND-656: replaces the `pub data_dir` field.
+    pub fn data_dir(&self) -> &std::path::Path {
+        &self.data_dir
+    }
+
+    /// Whether the engine was opened read-only (EGO-09).
+    ///
+    /// FIND-656: replaces the `pub read_only` field.
+    pub fn is_read_only(&self) -> bool {
+        self.read_only
+    }
+
     /// Read-only access to a vector store file for external consumers
     /// (diagnostics, tests, benches). FIND-655: exposes only `read()` —
     /// `mmap_bytes_mut`/`write_header`/`grow_to` are unreachable outside
-    /// the crate, closing the snapshot-mirror mutation bypass.
+    /// the crate, and `vfile::File::file` (the raw `StdFile` handle, which
+    /// `Write for &StdFile`/`set_len` could mutate without `insert_lock`)
+    /// is `pub(crate)`, closing the snapshot-mirror mutation bypass.
     pub fn vector_store_read(&self, level: usize) -> parking_lot::RwLockReadGuard<'_, File> {
         self.vector_store[level].read()
     }

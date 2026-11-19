@@ -220,6 +220,17 @@ impl StorageEngine {
             hnsw: arc_swap::ArcSwap::new(Arc::new(hnsw)),
             insert_lock: parking_lot::FairMutex::new(()),
             sdk_purge_lock: std::sync::Arc::new(parking_lot::RwLock::new(())),
+            // FIND-661: engine-owned SDK locks — every `Embedded` wrapper
+            // (and `ThreadStore`/`SkillStore`) over this engine shares them,
+            // closing the per-wrapper read-modify-write races.
+            sdk_supersede_lock: std::sync::Arc::new(parking_lot::Mutex::new(())),
+            sdk_merge_lock: std::sync::Arc::new(parking_lot::Mutex::new(())),
+            sdk_thread_message_lock: std::sync::Arc::new(parking_lot::Mutex::new(())),
+            sdk_thread_index_lock: std::sync::Arc::new(parking_lot::Mutex::new(())),
+            sdk_skill_write_lock: std::sync::Arc::new(parking_lot::Mutex::new(())),
+            sdk_dedup_filter: std::sync::Arc::new(
+                crate::utils::duplicate_prevention::DuplicatePreventionFilter::default(),
+            ),
             pending_hnsw_batch: parking_lot::Mutex::new(Vec::new()),
             cache: super::cache::CacheLayer::new(cardinality_stats),
             last_query_timestamp: std::sync::atomic::AtomicU64::new(0),

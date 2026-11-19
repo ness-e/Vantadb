@@ -180,7 +180,7 @@ impl McpConfig {
             .and_then(|v| v.parse().ok())
             .unwrap_or_default();
         let mut config = Self {
-            max_concurrency: storage.config.max_blocking_threads,
+            max_concurrency: storage.config().max_blocking_threads,
             profile,
             ..Default::default()
         };

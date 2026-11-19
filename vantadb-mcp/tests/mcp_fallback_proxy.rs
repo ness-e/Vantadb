@@ -121,7 +121,7 @@ async fn stale_cleanup_allows_retry() {
     // Now open should succeed as writer (no contention)
     let storage = StorageEngine::open(&path).expect("open after stale cleanup");
     // storage.data_dir should be <path>/data
-    assert!(storage.data_dir.ends_with("data"));
+    assert!(storage.data_dir().ends_with("data"));
     // New writer should write fresh file
     let storage = Arc::new(storage);
     let (guard, _port) = vantadb_mcp::spawn_writer_http(storage.clone())

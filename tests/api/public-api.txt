@@ -7608,12 +7608,12 @@ impl core::marker::Unpin for vantadb::shred::ShreddedField
 impl core::marker::UnsafeUnpin for vantadb::shred::ShreddedField
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::shred::ShreddedField
 impl core::panic::unwind_safe::UnwindSafe for vantadb::shred::ShreddedField
-pub enum vantadb::shred::ShreddedFieldType
-pub vantadb::shred::ShreddedFieldType::Bool
-pub vantadb::shred::ShreddedFieldType::F64
-pub vantadb::shred::ShreddedFieldType::I64
-pub vantadb::shred::ShreddedFieldType::Null
-pub vantadb::shred::ShreddedFieldType::String
+#[repr(u8)] pub enum vantadb::shred::ShreddedFieldType
+pub vantadb::shred::ShreddedFieldType::Bool = 2
+pub vantadb::shred::ShreddedFieldType::F64 = 1
+pub vantadb::shred::ShreddedFieldType::I64 = 0
+pub vantadb::shred::ShreddedFieldType::Null = 4
+pub vantadb::shred::ShreddedFieldType::String = 3
 impl core::clone::Clone for vantadb::shred::ShreddedFieldType
 pub fn vantadb::shred::ShreddedFieldType::clone(&self) -> Self
 impl core::cmp::Eq for vantadb::shred::ShreddedFieldType
@@ -7746,7 +7746,6 @@ pub fn vantadb::storage::lock::read_lock_metadata(&std::path::Path) -> core::opt
 pub fn vantadb::storage::lock::write_lock_metadata(&std::fs::File, &vantadb::storage::lock::LockMetadata) -> core::io::error::Result<()>
 pub mod vantadb::storage::vfile
 pub struct vantadb::storage::vfile::File
-pub vantadb::storage::vfile::File::file: core::option::Option<std::fs::File>
 pub vantadb::storage::vfile::File::path: std::path::PathBuf
 pub vantadb::storage::vfile::File::size: u64
 pub vantadb::storage::vfile::File::write_cursor: u64
@@ -8059,11 +8058,8 @@ impl core::marker::UnsafeUnpin for vantadb::PipelineReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::PipelineReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::PipelineReport
 pub struct vantadb::storage::StorageEngine
-pub vantadb::storage::StorageEngine::config: vantadb::config::Config
-pub vantadb::storage::StorageEngine::data_dir: std::path::PathBuf
 pub vantadb::storage::StorageEngine::emergency_maintenance_trigger: core::sync::atomic::AtomicBool
 pub vantadb::storage::StorageEngine::last_query_timestamp: core::sync::atomic::AtomicU64
-pub vantadb::storage::StorageEngine::read_only: bool
 impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::abort_transaction(&self, u64) -> vantadb::error::Result<()>
 pub fn vantadb::storage::StorageEngine::begin_snapshot(&self) -> vantadb::storage::engine::Snapshot
@@ -8111,6 +8107,12 @@ pub fn vantadb::storage::StorageEngine::run_quantization_maintenance(&self) -> v
 pub fn vantadb::storage::StorageEngine::trigger_compaction(&self) -> vantadb::error::Result<()>
 pub fn vantadb::storage::StorageEngine::vacuum(&self) -> vantadb::error::Result<vantadb::VacuumReport>
 impl vantadb::storage::StorageEngine
+pub fn vantadb::storage::StorageEngine::config(&self) -> &vantadb::config::Config
+pub fn vantadb::storage::StorageEngine::config_mut(&mut self) -> &mut vantadb::config::Config
+pub fn vantadb::storage::StorageEngine::data_dir(&self) -> &std::path::Path
+pub fn vantadb::storage::StorageEngine::is_read_only(&self) -> bool
+pub fn vantadb::storage::StorageEngine::vector_store_read(&self, usize) -> parking_lot::rwlock::RwLockReadGuard<'_, vantadb::storage::vfile::File>
+impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::create_snapshot(&self, &str) -> vantadb::error::Result<vantadb::storage::FsSnapshot>
 pub fn vantadb::storage::StorageEngine::list_snapshots(&self) -> vantadb::error::Result<alloc::vec::Vec<alloc::string::String>>
 pub fn vantadb::storage::StorageEngine::schedule_snapshot_restore(&std::path::Path, &str) -> vantadb::error::Result<std::path::PathBuf>
@@ -8141,8 +8143,6 @@ impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::put_to_partition(&self, vantadb::storage::BackendPartition, &[u8], &[u8]) -> vantadb::error::Result<()>
 impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::vec_index(&self) -> vantadb::storage::IndexReader
-impl vantadb::storage::StorageEngine
-pub fn vantadb::storage::StorageEngine::vector_store_read(&self, usize) -> parking_lot::rwlock::RwLockReadGuard<'_, vantadb::storage::vfile::File>
 impl core::ops::drop::Drop for vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::drop(&mut self)
 impl !core::marker::Freeze for vantadb::storage::StorageEngine
