@@ -52,6 +52,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'Delete a record by namespace and key')
             [CompletionResult]::new('delete-by-filter', 'delete-by-filter', [CompletionResultType]::ParameterValue, 'Delete all records in a namespace matching a JSON metadata filter')
             [CompletionResult]::new('certificate', 'certificate', [CompletionResultType]::ParameterValue, 'Verification of purge certificates (VER-02)')
+            [CompletionResult]::new('audit', 'audit', [CompletionResultType]::ParameterValue, 'Verification and inspection of audit logs (EU AI Act Art. 12 / TEC-13)')
             [CompletionResult]::new('count', 'count', [CompletionResultType]::ParameterValue, 'Count records in a namespace, optionally filtered by metadata')
             [CompletionResult]::new('similar-to-key', 'similar-to-key', [CompletionResultType]::ParameterValue, 'Find records similar to a given key using vector similarity search')
             [CompletionResult]::new('migrate', 'migrate', [CompletionResultType]::ParameterValue, 'Migrate a database to the latest storage schema version')
@@ -64,6 +65,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('server', 'server', [CompletionResultType]::ParameterValue, 'Start the HTTP or MCP server wrapper')
             [CompletionResult]::new('mcp-call', 'mcp-call', [CompletionResultType]::ParameterValue, 'Call one MCP tool through a one-shot stdio server (no pwsh needed)')
             [CompletionResult]::new('config', 'config', [CompletionResultType]::ParameterValue, 'Manage, view, and validate VantaDB configuration across all 5 cascade layers (FIND-385)')
+            [CompletionResult]::new('mcp', 'mcp', [CompletionResultType]::ParameterValue, 'Configure VantaDB MCP server for an IDE or AI coding client in <30s (GTM-03)')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -359,6 +361,41 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;certificate;help;help' {
             break
         }
+        'vanta-cli;audit' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('verify', 'verify', [CompletionResultType]::ParameterValue, 'Verify the Merkle trail hash chain of an audit.jsonl file')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;audit;verify' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;audit;help' {
+            [CompletionResult]::new('verify', 'verify', [CompletionResultType]::ParameterValue, 'Verify the Merkle trail hash chain of an audit.jsonl file')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;audit;help;verify' {
+            break
+        }
+        'vanta-cli;audit;help;help' {
+            break
+        }
         'vanta-cli;count' {
             [CompletionResult]::new('--namespace', '--namespace', [CompletionResultType]::ParameterName, 'Namespace to count records in')
             [CompletionResult]::new('--filter', '--filter', [CompletionResultType]::ParameterName, 'Optional JSON filter (same format as delete-by-filter)')
@@ -636,28 +673,46 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('rotate', 'rotate', [CompletionResultType]::ParameterValue, 'Rotate the master key: the DEKs are re-wrapped, never re-derived, so no ciphertext on disk is invalidated. The previous registry is kept as `encryption.registry.bak` for a manual rollback')
+            [CompletionResult]::new('verify-key', 'verify-key', [CompletionResultType]::ParameterValue, 'Verify a master key against an existing database''s `encryption.registry` without opening the database or taking `.vanta.lock` (FIND-646)')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
         'vanta-cli;encryption;rotate' {
-            [CompletionResult]::new('--new-key', '--new-key', [CompletionResultType]::ParameterName, 'The new master key, hex-encoded (32 bytes = 64 hex chars). Prefer `--new-key-file`: a key on the command line is visible in the process list and in the shell history')
-            [CompletionResult]::new('--new-key-file', '--new-key-file', [CompletionResultType]::ParameterName, 'A file holding the new hex master key (the recommended form)')
+            [CompletionResult]::new('--new-key-file', '--new-key-file', [CompletionResultType]::ParameterName, 'A file holding the new hex master key (32 bytes = 64 hex chars)')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('--new-key-stdin', '--new-key-stdin', [CompletionResultType]::ParameterName, 'Read the new hex master key from stdin: one line, the trailing newline is stripped')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            break
+        }
+        'vanta-cli;encryption;verify-key' {
+            [CompletionResult]::new('--key-file', '--key-file', [CompletionResultType]::ParameterName, 'File holding the hex master key to verify (32 bytes = 64 hex chars)')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('--key-stdin', '--key-stdin', [CompletionResultType]::ParameterName, 'Read the hex master key from stdin: one line, the trailing newline is stripped')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
             break
         }
         'vanta-cli;encryption;help' {
             [CompletionResult]::new('rotate', 'rotate', [CompletionResultType]::ParameterValue, 'Rotate the master key: the DEKs are re-wrapped, never re-derived, so no ciphertext on disk is invalidated. The previous registry is kept as `encryption.registry.bak` for a manual rollback')
+            [CompletionResult]::new('verify-key', 'verify-key', [CompletionResultType]::ParameterValue, 'Verify a master key against an existing database''s `encryption.registry` without opening the database or taking `.vanta.lock` (FIND-646)')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
         'vanta-cli;encryption;help;rotate' {
+            break
+        }
+        'vanta-cli;encryption;help;verify-key' {
             break
         }
         'vanta-cli;encryption;help;help' {
@@ -813,6 +868,45 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;config;help;help' {
             break
         }
+        'vanta-cli;mcp' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Inject VantaDB MCP configuration into an IDE client config file')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;mcp;init' {
+            [CompletionResult]::new('--client', '--client', [CompletionResultType]::ParameterName, 'Target client: claude-code, cursor, windsurf, or opencode')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'MCP tool profile to configure (default: brain)')
+            [CompletionResult]::new('--config-path', '--config-path', [CompletionResultType]::ParameterName, 'Custom config file path (overrides default OS path for the client)')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('--dry-run', '--dry-run', [CompletionResultType]::ParameterName, 'Print the resulting JSON configuration without writing to disk')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;mcp;help' {
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Inject VantaDB MCP configuration into an IDE client config file')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;mcp;help;init' {
+            break
+        }
+        'vanta-cli;mcp;help;help' {
+            break
+        }
         'vanta-cli;help' {
             [CompletionResult]::new('put', 'put', [CompletionResultType]::ParameterValue, 'Save a key-value pair to persistent memory')
             [CompletionResult]::new('get', 'get', [CompletionResultType]::ParameterValue, 'Retrieve a value from persistent memory')
@@ -835,6 +929,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'Delete a record by namespace and key')
             [CompletionResult]::new('delete-by-filter', 'delete-by-filter', [CompletionResultType]::ParameterValue, 'Delete all records in a namespace matching a JSON metadata filter')
             [CompletionResult]::new('certificate', 'certificate', [CompletionResultType]::ParameterValue, 'Verification of purge certificates (VER-02)')
+            [CompletionResult]::new('audit', 'audit', [CompletionResultType]::ParameterValue, 'Verification and inspection of audit logs (EU AI Act Art. 12 / TEC-13)')
             [CompletionResult]::new('count', 'count', [CompletionResultType]::ParameterValue, 'Count records in a namespace, optionally filtered by metadata')
             [CompletionResult]::new('similar-to-key', 'similar-to-key', [CompletionResultType]::ParameterValue, 'Find records similar to a given key using vector similarity search')
             [CompletionResult]::new('migrate', 'migrate', [CompletionResultType]::ParameterValue, 'Migrate a database to the latest storage schema version')
@@ -847,6 +942,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('server', 'server', [CompletionResultType]::ParameterValue, 'Start the HTTP or MCP server wrapper')
             [CompletionResult]::new('mcp-call', 'mcp-call', [CompletionResultType]::ParameterValue, 'Call one MCP tool through a one-shot stdio server (no pwsh needed)')
             [CompletionResult]::new('config', 'config', [CompletionResultType]::ParameterValue, 'Manage, view, and validate VantaDB configuration across all 5 cascade layers (FIND-385)')
+            [CompletionResult]::new('mcp', 'mcp', [CompletionResultType]::ParameterValue, 'Configure VantaDB MCP server for an IDE or AI coding client in <30s (GTM-03)')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -917,6 +1013,13 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;help;certificate;verify' {
             break
         }
+        'vanta-cli;help;audit' {
+            [CompletionResult]::new('verify', 'verify', [CompletionResultType]::ParameterValue, 'Verify the Merkle trail hash chain of an audit.jsonl file')
+            break
+        }
+        'vanta-cli;help;audit;verify' {
+            break
+        }
         'vanta-cli;help;count' {
             break
         }
@@ -977,9 +1080,13 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         }
         'vanta-cli;help;encryption' {
             [CompletionResult]::new('rotate', 'rotate', [CompletionResultType]::ParameterValue, 'Rotate the master key: the DEKs are re-wrapped, never re-derived, so no ciphertext on disk is invalidated. The previous registry is kept as `encryption.registry.bak` for a manual rollback')
+            [CompletionResult]::new('verify-key', 'verify-key', [CompletionResultType]::ParameterValue, 'Verify a master key against an existing database''s `encryption.registry` without opening the database or taking `.vanta.lock` (FIND-646)')
             break
         }
         'vanta-cli;help;encryption;rotate' {
+            break
+        }
+        'vanta-cli;help;encryption;verify-key' {
             break
         }
         'vanta-cli;help;search-multi' {
@@ -1011,6 +1118,13 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;help;config;doctor' {
+            break
+        }
+        'vanta-cli;help;mcp' {
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Inject VantaDB MCP configuration into an IDE client config file')
+            break
+        }
+        'vanta-cli;help;mcp;init' {
             break
         }
         'vanta-cli;help;help' {
