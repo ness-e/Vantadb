@@ -32,6 +32,21 @@ use crate::search_profile::SearchProfileMode;
 /// it prunes ~90 % of rows.
 pub const HIGH_SELECTIVITY_THRESHOLD: f32 = 0.1;
 
+/// ANN candidate window for the IQL vector arm (FIND-313).
+///
+/// `PhysicalVectorSearch` used to ask the index for a hardcoded 5
+/// candidates, so `LIMIT 10` on a vector-only query could never return more
+/// than 5 rows — and post-filters (the entity scope, tombstones, relational
+/// predicates, the later `~` conditions of FIND-563) starved it further.
+/// The window now oversamples the plan's `LIMIT` (×4, clamped to
+/// `[16, 4096]`) and defaults to 64 when the plan carries no `LIMIT`.
+///
+/// `pub(crate)`: the planner contract the tests pin — a pure derivation,
+/// not an operator, so it stays out of the public API surface.
+pub(crate) fn vector_candidate_window(limit: Option<usize>) -> usize {
+    limit.map_or(64, |k| k.saturating_mul(4).clamp(16, 4096))
+}
+
 // ── Route enum ────────────────────────────────────────────────────────────
 
 /// The retrieval strategy selected by the planner.
@@ -169,6 +184,59 @@ pub fn optimize_and_compile<'a>(
     optimize_and_compile_with(plan, storage, None)
 }
 
+/// Compile the `~` predicates of a plan into a vector operator chain
+/// (FIND-563).
+///
+/// The FIRST predicate drives the ANN search ([`PhysicalVectorSearch`],
+/// scoped by `entity` — FIND-553 — and widened by `candidate_k` — FIND-313);
+/// every later predicate wraps the chain in a
+/// [`PhysicalVectorRefine`](crate::physical_plan::PhysicalVectorRefine)
+/// (brute-force cosine over the stream). The row set is the INTERSECTION of
+/// the conditions — the AND semantics of `WHERE p ~ "x" AND q ~ "y"` — and
+/// each operator embeds its own query text via `embedder` (`None` → the
+/// env-selected provider).
+///
+/// Series composition was chosen over running N independent ANN searches
+/// and intersecting the hit lists: the refinement predicates are exact
+/// (brute-force cosine on every streamed node), so recall is bounded by ONE
+/// candidate window instead of the overlap of N windows.
+///
+/// [`PhysicalVectorSearch`]: crate::physical_plan::PhysicalVectorSearch
+fn compile_vector_chain<'a>(
+    vector_searches: &[(String, String, f32)],
+    storage: &'a crate::storage::StorageEngine,
+    entity: &str,
+    candidate_k: usize,
+    embedder: &Option<crate::physical_plan::QueryEmbedder>,
+) -> crate::error::Result<Box<dyn crate::query::PhysicalOperator + 'a>> {
+    let mut iter = vector_searches.iter();
+    let Some((_field, query_text, min_score)) = iter.next() else {
+        // INVARIANT (B2b pattern): callers only invoke this on a non-empty
+        // list (`else if !vector_searches.is_empty()`); `Err` keeps a
+        // hypothetical inconsistency loud instead of panicking.
+        return Err(crate::error::Error::Schema(
+            "vector operator chain requires at least one predicate".into(),
+        ));
+    };
+    let mut search =
+        crate::physical_plan::PhysicalVectorSearch::new(storage, query_text.clone(), *min_score)
+            .with_entity(Some(entity.to_string()))
+            .with_top_k(candidate_k);
+    if let Some(e) = embedder {
+        search = search.with_embedder(e.clone());
+    }
+    let mut chain: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(search);
+    for (_field, query_text, min_score) in iter {
+        let mut refine =
+            crate::physical_plan::PhysicalVectorRefine::new(chain, query_text.clone(), *min_score);
+        if let Some(e) = embedder {
+            refine = refine.with_embedder(e.clone());
+        }
+        chain = Box::new(refine);
+    }
+    Ok(chain)
+}
+
 /// Compile a plan with an explicit query embedder (FIND-413 test seam).
 ///
 /// `embedder = None` → every vector operator resolves the env-selected
@@ -184,7 +252,10 @@ fn optimize_and_compile_with<'a>(
     // ---- First pass: collect metadata and detect plan shape ----
     let mut entity = "*".to_string();
     let mut relational_filters = Vec::new();
-    let mut vector_search = None;
+    // FIND-563: collect EVERY `~` predicate — the `Option` slot used to
+    // overwrite on each `VectorSearch`, so only the LAST condition survived
+    // the plan and the earlier ones silently vanished from the `WHERE`.
+    let mut vector_searches: Vec<(String, String, f32)> = Vec::new();
     let mut limit = None;
     let mut project = None;
     let mut sort = None;
@@ -241,7 +312,7 @@ fn optimize_and_compile_with<'a>(
                 query_vec,
                 min_score,
             } => {
-                vector_search = Some((field.clone(), query_vec.clone(), *min_score));
+                vector_searches.push((field.clone(), query_vec.clone(), *min_score));
             }
             crate::query::LogicalOperator::TextFilter { field, query } => {
                 text_matches.push((field.clone(), query.clone()));
@@ -277,7 +348,7 @@ fn optimize_and_compile_with<'a>(
     // presupuestos de candidatos por brazo).
     if let Some(profile) = plan.search_profile {
         match profile.mode {
-            SearchProfileMode::Keyword => vector_search = None,
+            SearchProfileMode::Keyword => vector_searches.clear(),
             SearchProfileMode::Vector => text_matches.clear(),
             SearchProfileMode::Hybrid => {}
         }
@@ -346,22 +417,23 @@ fn optimize_and_compile_with<'a>(
             ));
         }
         join_op
-    } else if let Some((_field, query_text, min_score)) = vector_search {
+    } else if !vector_searches.is_empty() {
         // WIRE-08: RRF fusion operator — opt-in via `search_profile`. With a
         // profile, the vector arm and the lexical arm are fused (union
         // semantics, same shape as the SDK hybrid path); without one, the
         // proven vector-then-filter path below is byte-identical.
         let fuse_rrf = plan.search_profile.is_some() && !text_matches.is_empty();
+        // FIND-313: the ANN candidate window oversamples the plan's LIMIT so
+        // the entity scope, tombstones and downstream filters cannot starve
+        // the page (the window used to be a hardcoded 5).
+        let candidate_k = vector_candidate_window(limit);
         if fuse_rrf {
             // FIND-553: the vector arm is scoped by the queried entity too —
             // the fusion is a UNION, an out-of-scope node would leak into it.
-            let mut vector_arm_op =
-                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score)
-                    .with_entity(Some(entity.clone()));
-            if let Some(e) = &embedder {
-                vector_arm_op = vector_arm_op.with_embedder(e.clone());
-            }
-            let vector_arm: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(vector_arm_op);
+            // FIND-563: with several `~` predicates the arm is their
+            // intersection (see `compile_vector_chain`).
+            let vector_arm =
+                compile_vector_chain(&vector_searches, storage, &entity, candidate_k, &embedder)?;
             let mut lexical_arm: Box<dyn crate::query::PhysicalOperator + 'a> =
                 Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
             for (field, query) in &text_matches {
@@ -387,30 +459,35 @@ fn optimize_and_compile_with<'a>(
             fused
         } else if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD && !sorted_filters.is_empty() {
             // CBO: filter-before-vector vs vector-before-filter
-            let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
+            let mut chain: Box<dyn crate::query::PhysicalOperator + 'a> =
                 Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
             for (field, rel_op, value) in sorted_filters {
-                scan_op = Box::new(crate::physical_plan::PhysicalFilter::new(
-                    scan_op, field, rel_op, value,
+                chain = Box::new(crate::physical_plan::PhysicalFilter::new(
+                    chain, field, rel_op, value,
                 ));
             }
-            let mut refine_op =
-                crate::physical_plan::PhysicalVectorRefine::new(scan_op, query_text, min_score);
-            if let Some(e) = &embedder {
-                refine_op = refine_op.with_embedder(e.clone());
+            // FIND-563: EVERY `~` predicate refines the filtered stream —
+            // the AND must apply all of them, not just the last one.
+            for (_field, query_text, min_score) in &vector_searches {
+                let mut refine_op = crate::physical_plan::PhysicalVectorRefine::new(
+                    chain,
+                    query_text.clone(),
+                    *min_score,
+                );
+                if let Some(e) = &embedder {
+                    refine_op = refine_op.with_embedder(e.clone());
+                }
+                chain = Box::new(refine_op);
             }
-            Box::new(refine_op)
+            chain
         } else {
             // FIND-553: the vector arm is scoped by the queried entity — the
             // search runs over the whole index, so without the scope it
             // returned the neighbours of the ENTIRE store.
-            let mut vs_search =
-                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score)
-                    .with_entity(Some(entity.clone()));
-            if let Some(e) = &embedder {
-                vs_search = vs_search.with_embedder(e.clone());
-            }
-            let mut vs_op: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(vs_search);
+            // FIND-563: with several `~` predicates the chain is their
+            // intersection (see `compile_vector_chain`).
+            let mut vs_op =
+                compile_vector_chain(&vector_searches, storage, &entity, candidate_k, &embedder)?;
             for (field, rel_op, value) in sorted_filters {
                 vs_op = Box::new(crate::physical_plan::PhysicalFilter::new(
                     vs_op, field, rel_op, value,
@@ -1024,6 +1101,279 @@ mod tests {
             assert_eq!(
                 with_stats, without_stats,
                 "the row set must not depend on the cardinality stats"
+            );
+        }
+    }
+
+    /// FIND-563 / FIND-313 — multiple `~` predicates and the candidate window.
+    ///
+    /// The invariant under test: every vector predicate the user wrote is
+    /// part of the plan (the `WHERE` is an AND, so the row set is the
+    /// INTERSECTION of the conditions), and the ANN candidate window is
+    /// derived from the plan's `LIMIT`, not clamped to a hardcoded 5.
+    mod find563 {
+        use super::*;
+        use crate::config::Config;
+        use crate::node::{FieldValue, NodeFlags, UnifiedNode, VectorRepresentations};
+        use crate::query::{LogicalOperator, LogicalPlan, RelOp};
+        use crate::storage::{BackendKind, StorageEngine};
+        use std::sync::Arc;
+        use tempfile::tempdir;
+
+        fn in_memory_storage() -> (StorageEngine, tempfile::TempDir) {
+            let dir = tempdir().unwrap();
+            let config = Config {
+                backend_kind: BackendKind::InMemory,
+                ..Default::default()
+            };
+            let storage =
+                StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+                    .expect("Failed to open StorageEngine");
+            (storage, dir)
+        }
+
+        /// Embedder seam that maps each query text to a DIFFERENT vector, so
+        /// the two `~` predicates discriminate (a single fixed vector would
+        /// make them indistinguishable and the tests vacuous).
+        fn text_map_embedder() -> crate::physical_plan::QueryEmbedder {
+            Arc::new(|text: &str| -> crate::error::Result<Option<Vec<f32>>> {
+                Ok(Some(match text {
+                    "y" => vec![0.0, 1.0],
+                    _ => vec![1.0, 0.0], // "x" and anything else
+                }))
+            })
+        }
+
+        /// Fixed embedder: every query text embeds to the same unit vector.
+        fn fixed_embedder() -> crate::physical_plan::QueryEmbedder {
+            Arc::new(|_text: &str| -> crate::error::Result<Option<Vec<f32>>> {
+                Ok(Some(vec![1.0, 0.0]))
+            })
+        }
+
+        fn node_with_vec(id: u128, vec: Vec<f32>) -> UnifiedNode {
+            let mut node = UnifiedNode::new(id);
+            node.vector = VectorRepresentations::Full(vec);
+            node.flags.set(NodeFlags::HAS_VECTOR);
+            node
+        }
+
+        fn drain(op: &mut dyn crate::query::PhysicalOperator) -> Vec<u128> {
+            let mut ids = Vec::new();
+            while let Some(node) = op.next().unwrap() {
+                ids.push(node.id);
+            }
+            ids
+        }
+
+        fn run_with(
+            storage: &StorageEngine,
+            operators: Vec<LogicalOperator>,
+            embedder: crate::physical_plan::QueryEmbedder,
+        ) -> Vec<u128> {
+            let plan = LogicalPlan {
+                operators,
+                temperature: 0.0,
+                enforce_role: None,
+                search_profile: None,
+            };
+            let mut op =
+                optimize_and_compile_with(&plan, storage, Some(embedder)).expect("compile");
+            op.open().expect("open");
+            let ids = drain(op.as_mut());
+            op.close().expect("close");
+            ids
+        }
+
+        fn vector_sim(text: &str, min_score: f32) -> LogicalOperator {
+            LogicalOperator::VectorSearch {
+                field: "content".into(),
+                query_vec: text.into(),
+                min_score,
+            }
+        }
+
+        /// FIND-563: the `WHERE` is an AND — two `~` predicates must yield the
+        /// INTERSECTION of the conditions. Before the fix the planner kept
+        /// only the LAST `VectorSearch` in an `Option` slot, so the first
+        /// condition silently vanished (this test then returned `{2, 3}`).
+        #[test]
+        fn f563_two_vector_predicates_intersect() {
+            let (storage, _dir) = in_memory_storage();
+            // Near "x" only (cos 1.0 / 0.0).
+            storage.insert(&node_with_vec(1, vec![1.0, 0.0])).unwrap();
+            // Near "y" only (cos 0.0 / 1.0).
+            storage.insert(&node_with_vec(2, vec![0.0, 1.0])).unwrap();
+            // Near both (cos ≈ 0.707 to each).
+            storage.insert(&node_with_vec(3, vec![0.8, 0.8])).unwrap();
+
+            let ids = run_with(
+                &storage,
+                vec![
+                    LogicalOperator::Scan { entity: "*".into() },
+                    vector_sim("x", 0.6),
+                    vector_sim("y", 0.6),
+                    LogicalOperator::Limit { top_k: 10 },
+                ],
+                text_map_embedder(),
+            );
+
+            assert_eq!(
+                ids,
+                vec![3],
+                "WHERE ~x AND ~y must keep only the node satisfying BOTH predicates"
+            );
+        }
+
+        /// FIND-563: a disjoint intersection is empty — with the bug only the
+        /// last predicate survived and the query returned `{2}`.
+        #[test]
+        fn f563_disjoint_vector_predicates_yield_no_rows() {
+            let (storage, _dir) = in_memory_storage();
+            storage.insert(&node_with_vec(1, vec![1.0, 0.0])).unwrap();
+            storage.insert(&node_with_vec(2, vec![0.0, 1.0])).unwrap();
+
+            let ids = run_with(
+                &storage,
+                vec![
+                    LogicalOperator::Scan { entity: "*".into() },
+                    vector_sim("x", 0.9),
+                    vector_sim("y", 0.9),
+                    LogicalOperator::Limit { top_k: 10 },
+                ],
+                text_map_embedder(),
+            );
+
+            assert!(
+                ids.is_empty(),
+                "no node is within 0.9 of BOTH query vectors — the AND must be empty, got {ids:?}"
+            );
+        }
+
+        /// FIND-563: the intersection also holds on the CBO's
+        /// filter-before-vector path (high selectivity → scan → filter →
+        /// refines). A predicate that survives only the last arm must not
+        /// decide the row set.
+        #[test]
+        fn f563_intersection_holds_on_the_selective_path() {
+            let (storage, _dir) = in_memory_storage();
+            // Skew the `type` stats so `type = "doc"` estimates < 0.1.
+            for i in 0..30u128 {
+                let mut node = node_with_vec(100 + i, vec![0.0, 1.0]);
+                node.relational
+                    .insert("type".into(), FieldValue::String("note".into()));
+                storage.insert(&node).unwrap();
+            }
+            for (id, vec) in [
+                (1u128, vec![0.8, 0.8]), // doc near both
+                (2u128, vec![1.0, 0.0]), // doc near "x" only
+                (3u128, vec![0.0, 1.0]), // doc near "y" only
+            ] {
+                let mut node = node_with_vec(id, vec);
+                node.relational
+                    .insert("type".into(), FieldValue::String("doc".into()));
+                storage.insert(&node).unwrap();
+            }
+
+            let ids = run_with(
+                &storage,
+                vec![
+                    LogicalOperator::Scan { entity: "*".into() },
+                    LogicalOperator::FilterRelational {
+                        field: "type".into(),
+                        op: RelOp::Eq,
+                        value: FieldValue::String("doc".into()),
+                    },
+                    vector_sim("x", 0.6),
+                    vector_sim("y", 0.6),
+                    LogicalOperator::Limit { top_k: 10 },
+                ],
+                text_map_embedder(),
+            );
+
+            assert_eq!(
+                ids,
+                vec![1],
+                "the selective path must apply BOTH vector predicates, not just the last"
+            );
+        }
+
+        /// FIND-313: the ANN candidate window is derived from the plan's
+        /// `LIMIT` (×4, clamped to [16, 4096]; 64 without a LIMIT).
+        #[test]
+        fn f313_candidate_window_is_limit_derived() {
+            assert_eq!(crate::planner::vector_candidate_window(None), 64);
+            assert_eq!(crate::planner::vector_candidate_window(Some(0)), 16);
+            assert_eq!(crate::planner::vector_candidate_window(Some(3)), 16);
+            assert_eq!(crate::planner::vector_candidate_window(Some(16)), 64);
+            assert_eq!(crate::planner::vector_candidate_window(Some(100)), 400);
+            assert_eq!(
+                crate::planner::vector_candidate_window(Some(usize::MAX)),
+                4096
+            );
+        }
+
+        /// FIND-313: `LIMIT 10` on a vector-only query used to return at most
+        /// 5 rows — the candidate window was a hardcoded 5 applied BEFORE the
+        /// plan's `Limit`. The window now oversamples the limit.
+        #[test]
+        fn f313_limit_larger_than_five_is_honored() {
+            let (storage, _dir) = in_memory_storage();
+            for i in 1..=10u128 {
+                storage.insert(&node_with_vec(i, vec![1.0, 0.0])).unwrap();
+            }
+
+            let ids = run_with(
+                &storage,
+                vec![
+                    LogicalOperator::Scan { entity: "*".into() },
+                    vector_sim("x", -10.0),
+                    LogicalOperator::Limit { top_k: 10 },
+                ],
+                fixed_embedder(),
+            );
+
+            assert_eq!(
+                ids.len(),
+                10,
+                "the vector arm must feed the LIMIT, not starve it at 5 rows"
+            );
+        }
+
+        /// FIND-313: oversampling exists because post-filters remove hits —
+        /// a relational filter after the vector search must still see enough
+        /// candidates to fill the requested page.
+        #[test]
+        fn f313_oversampling_survives_post_filters() {
+            let (storage, _dir) = in_memory_storage();
+            // 10 candidates; only 8 carry `tier = hot`.
+            for i in 1..=10u128 {
+                let mut node = node_with_vec(i, vec![1.0, 0.0]);
+                let tier = if i <= 8 { "hot" } else { "cold" };
+                node.relational
+                    .insert("tier".into(), FieldValue::String(tier.into()));
+                storage.insert(&node).unwrap();
+            }
+
+            let ids = run_with(
+                &storage,
+                vec![
+                    LogicalOperator::Scan { entity: "*".into() },
+                    LogicalOperator::FilterRelational {
+                        field: "tier".into(),
+                        op: RelOp::Eq,
+                        value: FieldValue::String("hot".into()),
+                    },
+                    vector_sim("x", -10.0),
+                    LogicalOperator::Limit { top_k: 8 },
+                ],
+                fixed_embedder(),
+            );
+
+            assert_eq!(
+                ids.len(),
+                8,
+                "the window must oversample so post-filters do not starve the page"
             );
         }
     }

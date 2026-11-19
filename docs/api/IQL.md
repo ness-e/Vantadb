@@ -256,8 +256,11 @@ Semantics:
   (same rule as `AS OF`).
 - **Vector searches:** the cap applies to the stream produced by the search
   operators. The vector candidate window of the IQL execution path is
-  currently fixed at 5 (`PhysicalVectorSearch`), so a vector-only query yields
-  at most 5 rows regardless of a larger `LIMIT` (tracked as FIND-313).
+  derived from `LIMIT` — `4 × LIMIT` clamped to `[16, 4096]`, or 64 when
+  the plan carries no `LIMIT` (FIND-313). The oversampling keeps
+  post-filters (entity scope, tombstones, relational predicates, additional
+  `~` conditions) from starving the page; `LIMIT` still caps the final
+  stream.
 - **Interaction with `AS OF` and `ROLE`:** the valid-time filter and RBAC role
   pruning run after plan execution, so a `LIMIT` page can shrink below `n` when
   those filters drop rows — the short page is the end of the walk (same
@@ -292,7 +295,7 @@ Values are strings, integers, floats, `true`, `false`, or `null` (see
 <field> ~ "<text_query>", min = <score>
 ```
 
-Performs semantic vector search. The `~` operator triggers embedding-based similarity matching with a minimum score threshold.
+Performs semantic vector search. The `~` operator triggers embedding-based similarity matching with a minimum score threshold. Several `~` conditions may appear in the same `WHERE` — they compose with `AND` semantics (the result is the intersection of the conditions).
 
 ---
 

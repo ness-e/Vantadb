@@ -103,6 +103,14 @@ pub(crate) fn node_in_entity_scope(node: &UnifiedNode, entity: &str) -> bool {
     false
 }
 
+/// Historical candidate window of [`PhysicalVectorSearch`] (FIND-313).
+///
+/// The ANN search used to hardcode this value, so a vector-only query could
+/// never return more than 5 rows regardless of the plan's `LIMIT`. The
+/// constructor keeps it for backwards compatibility; the planner overrides
+/// it via [`PhysicalVectorSearch::with_top_k`] with a LIMIT-derived window.
+pub(crate) const DEFAULT_CANDIDATE_WINDOW: usize = 5;
+
 /// Physical vector search operator using HNSW index.
 pub struct PhysicalVectorSearch<'a> {
     /// Storage engine reference.
@@ -117,6 +125,14 @@ pub struct PhysicalVectorSearch<'a> {
     /// operator returned the neighbours of the entire store. `None` = no
     /// scope (every indexed row).
     entity: Option<String>,
+    /// Candidate window of the ANN search (FIND-313).
+    ///
+    /// This is the `k` the operator asks the index for — the candidate pool
+    /// the entity scope, tombstones and downstream filters draw from. It
+    /// must oversample the plan's `LIMIT` or post-filters starve the page;
+    /// the planner derives it (`planner::vector_candidate_window`). The
+    /// constructor default keeps the historical `5`.
+    top_k: usize,
     /// Result node IDs from HNSW search.
     results: Vec<u128>,
     /// Pre-fetched nodes.
@@ -135,6 +151,7 @@ impl<'a> PhysicalVectorSearch<'a> {
             query_vec_text: query_text,
             min_score,
             entity: None,
+            top_k: DEFAULT_CANDIDATE_WINDOW,
             results: Vec::new(),
             prefetched: Vec::new(),
             cursor: 0,
@@ -149,6 +166,17 @@ impl<'a> PhysicalVectorSearch<'a> {
     /// [`node_in_entity_scope`].
     pub fn with_entity(mut self, entity: Option<String>) -> Self {
         self.entity = entity;
+        self
+    }
+
+    /// Set the ANN candidate window (FIND-313).
+    ///
+    /// `top_k` is the `k` asked of the index — wider than the plan's `LIMIT`
+    /// on purpose, because the entity scope, tombstones and downstream
+    /// filters discard candidates. The planner derives the value; tests and
+    /// direct callers may set it explicitly.
+    pub(crate) fn with_top_k(mut self, top_k: usize) -> Self {
+        self.top_k = top_k;
         self
     }
 
@@ -177,10 +205,26 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
         };
 
         if let Some(vec) = vector {
+            // FIND-571 (QP-20): `vector_store[0]` was a latent panic — a
+            // store whose segment registry holds no L0 segment crashed the
+            // operator instead of erroring. `first()` + the same error the
+            // storage layer reports (`vstore0`) keeps the failure loud.
+            let Some(l0) = self.storage.vector_store.first() else {
+                return Err(crate::error::Error::generic_error(
+                    "corrupt storage: vector_store has no segment 0".to_string(),
+                ));
+            };
             let neighbors = {
                 let index = self.storage.hnsw.load();
-                let vs = self.storage.vector_store[0].read();
-                index.search_nearest(&vec, None, None, &crate::node::ALL_BITSET, 5, Some(&*vs))
+                let vs = l0.read();
+                index.search_nearest(
+                    &vec,
+                    None,
+                    None,
+                    &crate::node::ALL_BITSET,
+                    self.top_k,
+                    Some(&*vs),
+                )
             };
             for (id, score) in neighbors {
                 if score >= self.min_score {
@@ -440,5 +484,69 @@ mod tests {
             "the vector arm is empty: nothing to filter, no error"
         );
         op.close().expect("close");
+    }
+
+    // FIND-571 (QP-20): `self.storage.vector_store[0]` was a latent panic —
+    // a store without segment 0 must surface an error, never crash the
+    // operator. The error text matches the storage-layer contract
+    // (`vstore0` in `storage/engine/coordinators.rs`).
+    #[test]
+    fn f571_missing_segment_zero_is_an_error_not_a_panic() {
+        let (mut storage, _dir) = in_memory_storage();
+        // Simulate the edge case the audit could not reach: a store whose
+        // segment registry exists but holds no L0 segment.
+        storage.vector_store.clear();
+
+        let mut op = PhysicalVectorSearch::new(&storage, "q".to_string(), 0.5);
+        op.embedder = Some(healthy_embedder());
+
+        let err = op
+            .open()
+            .expect_err("a store without segment 0 must error, not panic");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("vector_store has no segment 0"),
+            "the error must name the missing segment: {msg}"
+        );
+    }
+
+    // FIND-313: the candidate window is configurable. The constructor keeps
+    // the historical default of 5; `with_top_k` widens it — the planner
+    // derives the value from the plan's LIMIT (see `vector_candidate_window`).
+    #[test]
+    fn f313_with_top_k_widens_the_candidate_window() {
+        let (storage, _dir) = in_memory_storage();
+        for i in 1..=8u128 {
+            let mut node = UnifiedNode::new(i);
+            node.vector = VectorRepresentations::Full(vec![1.0, 0.0]);
+            node.flags.set(NodeFlags::HAS_VECTOR);
+            storage.insert(&node).unwrap();
+        }
+
+        fn count_hits(op: &mut PhysicalVectorSearch) -> usize {
+            op.open().expect("open");
+            let mut n = 0;
+            while op.next().expect("next").is_some() {
+                n += 1;
+            }
+            op.close().expect("close");
+            n
+        }
+
+        let mut narrow = PhysicalVectorSearch::new(&storage, "q".to_string(), -10.0);
+        narrow.embedder = Some(healthy_embedder());
+        assert_eq!(
+            count_hits(&mut narrow),
+            5,
+            "the historical default window is 5 candidates"
+        );
+
+        let mut wide = PhysicalVectorSearch::new(&storage, "q".to_string(), -10.0).with_top_k(64);
+        wide.embedder = Some(healthy_embedder());
+        assert_eq!(
+            count_hits(&mut wide),
+            8,
+            "with_top_k must widen the window past the hardcoded 5"
+        );
     }
 }

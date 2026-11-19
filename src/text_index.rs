@@ -504,16 +504,16 @@ pub(crate) fn literal_query_plan(query: &str) -> TextQueryPlan {
 /// snippet phrase-highlighting. An empty `query` yields `true`.
 pub(crate) fn text_contains_query(text: &str, query: &str) -> bool {
     let plan = literal_query_plan(query);
-    if plan.phrases.is_empty() {
-        if plan.terms.is_empty() {
-            return true;
-        }
-        let tokens = literal_token_positions(text);
-        plan.terms.iter().all(|t| tokens.contains_key(t))
-    } else {
-        let tokens = literal_token_positions(text);
-        crate::sdk::search::phrase::text_positions_match_phrases(&tokens, &plan.phrases)
-    }
+    let tokens = literal_token_positions(text);
+    // FIND-564 (QP-13): the query is an AND of terms AND phrases. The
+    // phrase arm used to check ONLY `plan.phrases`, so `'"frase exacta"
+    // suelto'` matched the phrase and ignored "suelto". Phrase tokens are
+    // part of `terms` too (`literal_query_plan` extends both), so the term
+    // check also covers their presence while the phrase check adds the
+    // adjacency constraint. An empty `query` still yields `true` (both
+    // `all` calls are vacuous).
+    plan.terms.iter().all(|t| tokens.contains_key(t))
+        && crate::sdk::search::phrase::text_positions_match_phrases(&tokens, &plan.phrases)
 }
 
 /// Literal whitespace tokenization of `text` into token -> positions map.
@@ -896,6 +896,51 @@ mod tests {
             vec!["alpha", "beta", "delta", "gamma"]
         );
         assert_eq!(plan.phrases, vec![vec!["beta", "gamma"]]);
+    }
+
+    // FIND-564 (QP-13): a quoted phrase must NOT swallow the loose terms —
+    // `'"exact phrase" suelto'` requires BOTH the phrase and every term.
+    // Before the fix the `else` arm checked only `plan.phrases`, so the loose
+    // term was silently ignored.
+    #[test]
+    fn f564_text_contains_query_requires_terms_and_phrases() {
+        // Phrase present + loose term present → match.
+        assert!(text_contains_query(
+            "the quick brown fox jumps",
+            "\"quick brown\" fox"
+        ));
+        // Phrase present + loose term ABSENT → no match (the bug returned
+        // true here: only the phrase was checked).
+        assert!(!text_contains_query(
+            "the quick brown fox jumps",
+            "\"quick brown\" wolf"
+        ));
+        // Loose term present + phrase NOT adjacent → no match.
+        assert!(!text_contains_query(
+            "the brown quick fox jumps",
+            "\"quick brown\" fox"
+        ));
+    }
+
+    // FIND-564: the pure-phrase and pure-term arms keep their semantics —
+    // the AND composition must not tighten or loosen either alone.
+    #[test]
+    fn f564_text_contains_query_pure_arms_unchanged() {
+        // Phrase only: adjacency decides.
+        assert!(text_contains_query(
+            "the quick brown fox",
+            "\"quick brown\""
+        ));
+        assert!(!text_contains_query(
+            "the brown quick fox",
+            "\"quick brown\""
+        ));
+        // Terms only: presence decides (order-free).
+        assert!(text_contains_query("the brown quick fox", "quick fox"));
+        assert!(!text_contains_query("the quick brown fox", "quick wolf"));
+        // Empty query keeps the historical "match everything" contract.
+        assert!(text_contains_query("anything", ""));
+        assert!(text_contains_query("", ""));
     }
 
     #[cfg(feature = "advanced-tokenizer")]
