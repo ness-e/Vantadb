@@ -468,14 +468,44 @@ impl Embedded {
         // A flat HashSet would skip a shared ancestor when re-reached via a longer
         // branch of a diamond DAG, hiding chains that exceed MAX_DERIVATION_DEPTH.
         let mut best_seen_depth: HashMap<String, usize> = HashMap::new();
+        // FIND-660 (residual): `visiting` mirrors the recursion stack of a
+        // recursive DFS — exactly the ancestors of the node under expansion on
+        // the CURRENT branch. A node re-entered while still `visiting` closes
+        // a directed cycle that does not pass through `key` (e.g. A↔B under an
+        // otherwise valid chain); without it the walk would follow the loop
+        // until it tripped MAX_DERIVATION_DEPTH and misreport the failure.
+        // `Step::Exit` markers pop a node off the path once its subtree is
+        // done — the iterative form of returning from the recursive call.
+        let mut visiting: HashSet<String> = HashSet::new();
         let mut parents_cache: HashMap<String, Vec<String>> = HashMap::new();
-        let mut frontier: Vec<(String, usize)> =
-            parents.iter().map(|p| (p.clone(), 1usize)).collect();
-        while let Some((parent_key, depth)) = frontier.pop() {
+        enum Step {
+            Enter(String, usize),
+            Exit(String),
+        }
+        let mut frontier: Vec<Step> = parents
+            .iter()
+            .map(|p| Step::Enter(p.clone(), 1usize))
+            .collect();
+        while let Some(step) = frontier.pop() {
+            let (parent_key, depth) = match step {
+                Step::Exit(done) => {
+                    visiting.remove(&done);
+                    continue;
+                }
+                Step::Enter(parent_key, depth) => (parent_key, depth),
+            };
             if parent_key == key {
                 return Err(Error::Validation {
                     field: "derived_from".into(),
                     reason: format!("derivation cycle detected: '{key}' is its own ancestor"),
+                });
+            }
+            if visiting.contains(&parent_key) {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: format!(
+                        "derivation cycle detected: '{parent_key}' is its own ancestor"
+                    ),
                 });
             }
             if depth > MAX_DERIVATION_DEPTH {
@@ -493,6 +523,8 @@ impl Embedded {
                 continue;
             }
             best_seen_depth.insert(parent_key.clone(), depth);
+            visiting.insert(parent_key.clone());
+            frontier.push(Step::Exit(parent_key.clone()));
             let grandparents = if let Some(cached) = parents_cache.get(&parent_key) {
                 cached.clone()
             } else {
@@ -509,7 +541,7 @@ impl Embedded {
                 fetched
             };
             for grandparent in grandparents {
-                frontier.push((grandparent, depth + 1));
+                frontier.push(Step::Enter(grandparent, depth + 1));
             }
         }
         Ok(())
@@ -3602,6 +3634,65 @@ mod tests {
         assert!(
             matches!(batch_err, Error::Validation { ref reason, .. } if reason.contains("MAX_DERIVATION_DEPTH")),
             "expected MAX_DERIVATION_DEPTH validation error in batch, got {batch_err:?}"
+        );
+    }
+
+    /// FIND-660 residual: a derivation cycle that does NOT pass through the
+    /// written key must be reported as a cycle, not misreported as an
+    /// over-depth chain. The loop is committed through `put_record_exact`
+    /// (transport-level write: local field checks only, no chain walk — the
+    /// same path a JSONL import/merge payload could take).
+    #[test]
+    fn validate_derivation_chain_off_key_cycle_reports_cycle_not_max_depth() {
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+
+        let cyclic = |key: &str, parents: &[&str]| MemoryRecord {
+            namespace: "cyc".into(),
+            key: key.into(),
+            payload: key.into(),
+            node_id: memory_node_id("cyc", key),
+            confidence_class: ConfidenceClass::Derived,
+            derived_from: parents.iter().map(|s| (*s).to_string()).collect(),
+            ..Default::default()
+        };
+        db.put_record_exact(cyclic("cyc_a", &["cyc_b"]))
+            .expect("transport write of cyc_a");
+        db.put_record_exact(cyclic("cyc_b", &["cyc_a"]))
+            .expect("transport write of cyc_b");
+
+        // victim -> cyc_a -> cyc_b -> cyc_a: the loop is off `key`.
+        let err = db
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                derived_from: Some(vec!["cyc_a".to_string()]),
+                ..MemoryInput::new("cyc", "victim", "payload")
+            })
+            .expect_err("a parent chain ending in a cycle must be rejected");
+        match err {
+            Error::Validation { ref reason, .. } => {
+                assert!(
+                    reason.contains("derivation cycle detected"),
+                    "expected a cycle error, got: {reason}"
+                );
+                assert!(
+                    !reason.contains("MAX_DERIVATION_DEPTH"),
+                    "an off-key cycle must not be misreported as over-depth: {reason}"
+                );
+            }
+            other => panic!("expected Error::Validation, got {other:?}"),
+        }
+
+        // A cycle through the written key keeps the dedicated message.
+        let self_err = db
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                derived_from: Some(vec!["victim".to_string()]),
+                ..MemoryInput::new("cyc", "victim", "payload")
+            })
+            .expect_err("self-derivation must be rejected");
+        assert!(
+            matches!(self_err, Error::Validation { ref reason, .. } if reason.contains("'victim' is its own ancestor")),
+            "expected the through-key cycle message, got {self_err:?}"
         );
     }
 

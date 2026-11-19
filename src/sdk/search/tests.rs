@@ -103,6 +103,36 @@ fn test_search_top_k_zero() {
 }
 
 #[test]
+fn test_search_top_k_zero_still_rejects_non_finite_query() {
+    // FIND-535: the `top_k == 0` early return must not skip the finiteness
+    // gate — an invalid query errors regardless of the page size, on every
+    // search entry point that funnels through `run_search_page`.
+    let db = setup();
+    for bad_val in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        let req = MemorySearchRequest {
+            namespace: "test".into(),
+            query_vector: vec![bad_val, 0.2, 0.3],
+            top_k: 0,
+            ..Default::default()
+        };
+        let err = db
+            .search(req.clone())
+            .expect_err("non-finite query must fail search even at top_k=0");
+        assert!(
+            err.to_string().contains("non-finite"),
+            "search({bad_val}) at top_k=0: expected finiteness error, got {err}"
+        );
+        let err_page = db
+            .search_page(req)
+            .expect_err("non-finite query must fail search_page even at top_k=0");
+        assert!(
+            err_page.to_string().contains("non-finite"),
+            "search_page({bad_val}) at top_k=0: expected finiteness error, got {err_page}"
+        );
+    }
+}
+
+#[test]
 fn test_search_invalid_namespace() {
     let db = setup();
     let req = MemorySearchRequest {

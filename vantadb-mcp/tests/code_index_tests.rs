@@ -156,7 +156,7 @@ fn code_index_is_listed_in_full_profile_only() {
         .collect();
     assert!(
         !agent_names.contains(&"code_index"),
-        "code_index must NOT be listed in the agent profile (default surface stays ≤38)"
+        "code_index must NOT be listed in the agent profile (agent surface stays at 39 listed tools)"
     );
 
     // Writer tool: excluded from every non-`full` profile.

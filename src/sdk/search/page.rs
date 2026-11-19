@@ -87,6 +87,18 @@ pub(crate) fn validate_min_confidence(min_confidence: f32) -> Result<()> {
 /// Validate the WIRE-08 request options at the boundary (dim/NaN-style checks
 /// live here, never in the inner loop).
 pub(crate) fn validate_search_options(request: &MemorySearchRequest) -> Result<()> {
+    // FIND-535: query-vector finiteness is a boundary check too — the
+    // `top_k == 0` early return in `run_search_page` runs *after* this gate,
+    // so a NaN/Inf query must error here instead of reporting a silent empty
+    // page. `search_impl` keeps its own copy for callers that bypass this
+    // pipeline.
+    crate::sdk::api::memory::validate_dense_vector_finiteness(
+        &request.query_vector,
+        "search",
+    )?;
+    if let Some(ref sparse) = request.query_sparse {
+        crate::sdk::api::memory::validate_sparse_vector_finiteness(sparse, "search")?;
+    }
     if let Some(range) = &request.range {
         for (name, bound) in [
             ("min_score", range.min_score),

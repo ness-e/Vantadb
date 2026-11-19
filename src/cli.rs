@@ -304,7 +304,8 @@ pub enum Commands {
     #[command(subcommand)]
     Wal(WalCommand),
 
-    /// Manage the at-rest encryption of a database (rotate the master key)
+    /// Manage the at-rest encryption of a database (rotate the master key,
+    /// verify a candidate key against the registry)
     #[command(subcommand)]
     Encryption(EncryptionCommand),
 

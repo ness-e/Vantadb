@@ -18,7 +18,7 @@ use vantadb::storage::StorageEngine;
 use vantadb_mcp::*;
 
 /// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
-/// (the production default is now `agent`).
+/// (the production default is now `brain`).
 fn full_config() -> McpConfig {
     McpConfig {
         profile: McpProfile::Full,

@@ -15,8 +15,8 @@ const LEGACY_SEARCH_ALIAS: &str = "search_memory";
 const LEGACY_COLLECTION_ALIAS: &str = "collection_list";
 
 /// Most tests in this file exercise the whole surface; pin `full` explicitly
-/// (WIRE-02: the production default is now `agent` — the profile matrix and
-/// the default-surface smoke live in `test_mcp_tool_profiles` /
+/// (the production default is now `brain` — the profile matrix and the
+/// agent-surface smoke live in `test_mcp_tool_profiles` /
 /// `test_mcp_agent_default_surface`).
 fn default_config() -> vantadb_mcp::McpConfig {
     vantadb_mcp::McpConfig {
@@ -5446,8 +5446,8 @@ fn test_mcp_tool_profiles() {
         "Brain profile must include query_iql"
     );
 
-    // WIRE-02: `agent` is the default profile — 39 tools (22 memory + 6
-    // threads + 5 scenes + 1 context + 5 wiki-read) ≤ 45 budget.
+    // WIRE-02: `agent` (the WIRE-02-era default, now `brain`) — 39 tools
+    // (22 memory + 6 threads + 5 scenes + 1 context + 5 wiki-read) ≤ 45 budget.
     let agent_config = McpConfig {
         profile: McpProfile::Agent,
         ..McpConfig::default()
@@ -5723,9 +5723,10 @@ fn test_mcp_profile_enforcement_dispatch() {
     );
 }
 
-/// WIRE-02: out-of-the-box surface — the default profile is `agent` and
-/// `tools/list` fits the ≤45 budget the strategic report sets for the default
-/// (previously `full` ≈ 23K tokens of schema overhead per client session).
+/// WIRE-02: `agent` surface — the WIRE-02-era default (now `brain`) whose
+/// `tools/list` fits the ≤45 budget the strategic report set for the default
+/// surface (previously `full` ≈ 23K tokens of schema overhead per client
+/// session).
 #[test]
 fn test_mcp_agent_default_surface() {
     let config = McpConfig {
@@ -5755,12 +5756,12 @@ fn test_mcp_agent_default_surface() {
         "context_assemble",
         "wiki_read",
     ] {
-        assert!(names.contains(tool), "agent default surface missing {tool}");
+        assert!(names.contains(tool), "agent surface missing {tool}");
     }
     for tool in ["code_search", "skill_list", "dream_list", "wiki_ingest"] {
         assert!(
             !names.contains(tool),
-            "agent default surface must not list {tool}"
+            "agent surface must not list {tool}"
         );
     }
 }

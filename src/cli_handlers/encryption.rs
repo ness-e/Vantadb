@@ -217,7 +217,10 @@ pub fn cmd_encryption_rotate(
         }
     };
 
-    let mut registry = KeyRegistry::open_or_create(&data_dir, &current[..])
+    // FIND-634: `open_existing`, not `open_or_create` — the `exists()` check
+    // above races with a concurrent delete, and minting an empty registry
+    // here would "rotate" a registry the database never had.
+    let mut registry = KeyRegistry::open_existing(&data_dir, &current[..])
         .map_err(|e| Error::generic_error(format!("cannot open the encryption registry: {e}")))?;
     let artifacts = registry.artifacts();
     let previous_version = registry.key_version();
