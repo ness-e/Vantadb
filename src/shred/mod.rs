@@ -1,5 +1,4 @@
 // ponytail: typed columnar buffer access invariants; documented per-call.
-#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 //! Typed columnar storage for metadata fields (JSON Shredding).
 //!
@@ -28,6 +27,23 @@
 //! | `1`       | `f64`         | 8-byte little-endian           |
 //! | `2`       | `bool`        | 1 byte (`0` or `1`)            |
 //! | `3`       | `String`      | 4-byte LE length + UTF-8 bytes |
+//! | `4`       | omitted field | **zero bytes** — marker only   |
+//!
+//! # Omitted-field marker (FIND-604)
+//!
+//! The column store only represents scalars.  Fields whose value is
+//! `Null`, `DateTime`, or a list (`ListString`, `ListInt`, …) are written
+//! as a **tag-4 entry with no value bytes** instead of disappearing from
+//! the row: a decoded [`ShreddedField::Null`] therefore means *present in
+//! the document but not columnar*, which is observably different from
+//! *absent*.  A filter touching such a field cannot be decided by the
+//! column store — [`filter_verdict`] reports `DelegateToDocument` so the
+//! caller falls back to the full-document evaluator **only** in that
+//! case (filter parity between the fast path and the JSON evaluator).
+//!
+//! Scalar entries are always emitted **before** marker entries, so a
+//! pre-marker reader that truncates at the unknown tag still decodes
+//! every scalar column (graceful degradation, not corruption).
 //!
 //! # Limitations (Phase 1)
 //!
@@ -35,15 +51,18 @@
 //!   falls through to the existing PostFilter path — no data loss.
 //! - **Last-write-wins**: When a field type changes between insertions, the
 //!   most recent type is stored.  No type-conflict detection.
-//! - **Flat schema only**: Nested JSON is not supported.  List types are skipped.
+//! - **Flat schema only**: Nested JSON is not supported.  List values are
+//!   recorded as omitted markers, never as columns.
 //!
 //! # Integration
 //!
-//! - **Insert path**: `put_one` in `api.rs` calls `ShreddedRowStore::put` after
-//!   the node is stored.
-//! - **Filter path**: `bitset_from_filters` in `search/mod.rs` tries the
-//!   shredded store for single-field filter lookups before falling back to
-//!   the full record scan.
+//! - **Insert path**: `put_one`/`put_batch_inner` in `sdk/api/memory.rs`
+//!   route `ShreddedRowStore::put_op` through
+//!   `StorageEngine::write_backend_batch` (FIND-651).
+//! - **Filter path**: a fast-path consumer evaluates each filter field
+//!   with [`filter_verdict`] over [`ShreddedRowStore::get`] output and
+//!   must honour `DelegateToDocument` / `Absent` per the parity contract
+//!   documented there.
 //! - **Delete path** (VER-02, wired): `StorageEngine::delete` /
 //!   `delete_batch` purge the shredded row (best-effort single delete, batched
 //!   op for batches) and `purge_permanent` removes it in its backend batch.
@@ -71,18 +90,43 @@ pub enum ShreddedField {
 }
 
 /// Enum tag for the in-memory schema — which type a field name has.
+///
+/// `#[repr(u8)]` with explicit discriminants (SH-05 / FIND-608): the
+/// on-disk type tag **is** the discriminant, so the values are frozen —
+/// reordering or renumbering variants would silently corrupt every
+/// persisted shredded row. `Null` (`4`) doubles as the **omitted-field
+/// marker** (FIND-604): pre-marker encoders never wrote tag `4`, so no
+/// existing byte stream is reinterpreted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum ShreddedFieldType {
     /// Signed 64-bit integer.
-    I64,
+    I64 = 0,
     /// 64-bit floating point.
-    F64,
+    F64 = 1,
     /// Boolean.
-    Bool,
+    Bool = 2,
     /// UTF-8 string.
-    String,
-    /// Null / untyped.
-    Null,
+    String = 3,
+    /// Non-scalar / untyped — on disk, the omitted-field marker
+    /// (zero value bytes).
+    Null = 4,
+}
+
+impl ShreddedFieldType {
+    /// Decode an on-disk type tag. `None` for any tag outside `0..=4` —
+    /// the format is closed: an unknown tag is corruption (SH-02), never
+    /// a silent truncation point.
+    pub(crate) fn from_tag(tag: u8) -> Option<Self> {
+        Some(match tag {
+            0 => Self::I64,
+            1 => Self::F64,
+            2 => Self::Bool,
+            3 => Self::String,
+            4 => Self::Null,
+            _ => return None,
+        })
+    }
 }
 
 /// In-memory schema snapshot: field name → field type.
@@ -96,8 +140,9 @@ pub struct ShreddedSchema {
 
 /// Infer the shredded type from a `Value`.
 ///
-/// List values (ListString, ListInt, …) and `DateTime` fall back to `Null`
-/// because the shred store only supports scalar types in Phase 1.
+/// `Null`, list values (ListString, ListInt, …) and `DateTime` map to
+/// `Null` — the column store only supports scalar types; such fields are
+/// persisted as omitted-field markers (FIND-604), not dropped.
 pub fn infer_field_type(value: &Value) -> ShreddedFieldType {
     match value {
         Value::Int(_) => ShreddedFieldType::I64,
@@ -144,6 +189,69 @@ pub fn matches_shredded(field: &ShreddedField, op: &RelOp, expected: &Value) -> 
     }
 }
 
+/// Verdict of evaluating one filter field against a shredded row
+/// (FIND-604 parity contract).
+///
+/// `#[allow(dead_code)]`: consumed by the unit tests today; the live
+/// fast-path consumer lands with the read-side wiring of the store.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) enum ShreddedFilterVerdict {
+    /// The shredded scalar column decides — the payload is the verdict.
+    Decided(bool),
+    /// The field is present in the source document but holds a
+    /// non-scalar value (`Null`, `DateTime`, list) that the column store
+    /// omits — the caller MUST evaluate the filter against the full
+    /// document; answering here would silently diverge from the JSON
+    /// evaluator (e.g. a `ListString` equality filter would return zero
+    /// rows from the fast path while the document evaluator narrows
+    /// correctly).
+    DelegateToDocument,
+    /// The field does not appear in the shredded row at all.
+    ///
+    /// For rows written by this encoder that means the field is absent
+    /// from the document; parity with the document evaluators is then
+    /// the caller's policy (`matches_memory_filters` and
+    /// `matches_advanced_filters` treat an absent field as a non-match
+    /// for every op; `physical_plan::evaluate_condition` matches only
+    /// `RelOp::Neq`). Rows persisted **before** the omitted-field marker
+    /// existed cannot distinguish absent from omitted — a conservative
+    /// consumer of such legacy rows delegates `Absent` too.
+    Absent,
+}
+
+/// Evaluate a single metadata filter `(field, op, expected)` against the
+/// fields decoded from a shredded row.
+///
+/// Returns [`ShreddedFilterVerdict::DelegateToDocument`] **only** when the
+/// queried field was recorded as an omitted (non-scalar) marker — scalar
+/// fields keep the fast path, so a query over `Int`/`String` columns never
+/// pays the document-evaluator cost (pre-mortem risk 3 of the FIND-604
+/// task plan).
+#[allow(dead_code)] // see ShreddedFilterVerdict — consumer lands with the read wiring
+pub(crate) fn filter_verdict(
+    shredded: &HashMap<String, ShreddedField>,
+    field: &str,
+    op: &RelOp,
+    expected: &Value,
+) -> ShreddedFilterVerdict {
+    match shredded.get(field) {
+        Some(ShreddedField::Null) => ShreddedFilterVerdict::DelegateToDocument,
+        Some(actual) => ShreddedFilterVerdict::Decided(matches_shredded(actual, op, expected)),
+        None => ShreddedFilterVerdict::Absent,
+    }
+}
+
+/// Whether the decoded row carries at least one omitted (non-scalar)
+/// field — the row-level projection of the per-field marker, for
+/// consumers that gate the fast path on "this row is fully scalar".
+#[allow(dead_code)] // see ShreddedFilterVerdict — consumer lands with the read wiring
+pub(crate) fn has_omitted_fields(shredded: &HashMap<String, ShreddedField>) -> bool {
+    shredded
+        .values()
+        .any(|field| matches!(field, ShreddedField::Null))
+}
+
 // ─── Row Store ─────────────────────────────────────────────────
 
 /// On-disk typed column store for shredded metadata fields.
@@ -159,13 +267,31 @@ impl ShreddedRowStore {
         format!("shred::{}", node_id).into_bytes()
     }
 
-    /// Serialise `fields` to the row-store binary format. `None` when every
-    /// field maps to `Null` (nothing to store — same no-op contract as
-    /// [`Self::put`]).
+    /// Write the `[key_len:4 LE][key][type:1]` entry head shared by scalar
+    /// values and omitted-field markers.
+    fn write_entry_head(buf: &mut Vec<u8>, key: &str, ty: ShreddedFieldType) {
+        let key_bytes = key.as_bytes();
+        buf.extend_from_slice(&(key_bytes.len() as u32).to_le_bytes());
+        buf.extend_from_slice(key_bytes);
+        buf.push(ty as u8);
+    }
+
+    /// Serialise `fields` to the row-store binary format. `None` only when
+    /// `fields` is empty (same no-op contract as [`Self::put`]).
+    ///
+    /// FIND-604: non-scalar fields (`Null`, `DateTime`, lists) are written
+    /// as zero-length `Null`-tag marker entries — never silently dropped,
+    /// so a reader can distinguish *omitted* from *absent*. All scalar
+    /// entries are emitted first and all markers last: a pre-marker
+    /// decoder truncates at the first unknown tag yet still recovers
+    /// every scalar column.
     fn encode_fields(fields: &BTreeMap<String, Value>) -> Option<Vec<u8>> {
+        if fields.is_empty() {
+            return None;
+        }
         let mut buf = Vec::new();
+        // Pass 1: scalar columns.
         for (key, value) in fields {
-            let ty = infer_field_type(value);
             let value_bytes = match value {
                 Value::Int(v) => v.to_le_bytes().to_vec(),
                 Value::Float(v) => v.to_le_bytes().to_vec(),
@@ -176,26 +302,24 @@ impl ShreddedRowStore {
                     b.extend_from_slice(v.as_bytes());
                     b
                 }
-                _ => continue, // skip DateTime, lists, Null
+                _ => continue, // non-scalar — emitted as a marker in pass 2
             };
-            // Format: key_len(4) + key + type(1) + value_bytes
-            let key_bytes = key.as_bytes();
-            buf.extend_from_slice(&(key_bytes.len() as u32).to_le_bytes());
-            buf.extend_from_slice(key_bytes);
-            buf.push(ty as u8);
+            Self::write_entry_head(&mut buf, key, infer_field_type(value));
             buf.extend_from_slice(&value_bytes);
         }
-        if buf.is_empty() {
-            None
-        } else {
-            Some(buf)
+        // Pass 2: omitted-field markers (tag 4, zero value bytes).
+        for (key, value) in fields {
+            if infer_field_type(value) == ShreddedFieldType::Null {
+                Self::write_entry_head(&mut buf, key, ShreddedFieldType::Null);
+            }
         }
+        Some(buf)
     }
 
     /// Serialise metadata fields to binary and store them in the backend.
     ///
-    /// Fields whose type maps to `Null` are silently skipped.
-    /// If *all* fields are skipped the operation is a no-op.
+    /// Non-scalar fields are recorded as omitted-field markers (FIND-604);
+    /// a call with empty `fields` is a no-op.
     ///
     /// The binary format is:
     /// ```text
@@ -239,9 +363,48 @@ impl ShreddedRowStore {
         })
     }
 
+    /// Corruption of a stored shredded row: must surface, never degrade
+    /// into a silent partial map (SH-02 / FIND-607 — a partial decode used
+    /// to make records disappear from results with no error).
+    fn corrupt_row(reason: &str) -> crate::error::Error {
+        crate::error::Error::serialization(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("shredded row: {reason}"),
+        ))
+    }
+
+    /// Consume exactly `n` bytes at `*offset` — the arity guard for the
+    /// whole decoder (SH-02). Truncation and length overflow are errors,
+    /// not silent stops.
+    fn take<'a>(data: &'a [u8], offset: &mut usize, n: usize) -> crate::error::Result<&'a [u8]> {
+        let end = offset
+            .checked_add(n)
+            .ok_or_else(|| Self::corrupt_row("length overflow"))?;
+        let slice = data
+            .get(*offset..end)
+            .ok_or_else(|| Self::corrupt_row("truncated entry"))?;
+        *offset = end;
+        Ok(slice)
+    }
+
+    /// [`Self::take`] specialised to fixed-width values — no `try_into`,
+    /// no `unwrap`: the slice `take` returns is exactly `N` bytes.
+    fn take_array<const N: usize>(
+        data: &[u8],
+        offset: &mut usize,
+    ) -> crate::error::Result<[u8; N]> {
+        let slice = Self::take(data, offset, N)?;
+        let mut arr = [0u8; N];
+        arr.copy_from_slice(slice);
+        Ok(arr)
+    }
+
     /// Retrieve all shredded fields for the given node.
     ///
     /// Returns `None` when no shredded data exists for this node.
+    /// Omitted (non-scalar) fields decode as [`ShreddedField::Null`]
+    /// marker entries — see the module docs for the FIND-604 parity
+    /// contract. A malformed row is an `Err`, never a partial map (SH-02).
     pub(crate) fn get(
         node_id: u128,
         backend: &dyn StorageBackend,
@@ -254,68 +417,46 @@ impl ShreddedRowStore {
 
         let mut fields = HashMap::new();
         let mut offset = 0usize;
-        while offset + 4 <= data.len() {
-            // INVARIANT (B2b, cat. (b)): the slice is exactly 4 bytes (loop
-            // guard), so `try_into` to `[u8; 4]` is infallible — no `?` needed.
-            let key_len = u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
-            offset += 4;
-            if offset + key_len + 1 > data.len() {
-                break;
-            }
-            let key = std::str::from_utf8(&data[offset..offset + key_len])
-                .unwrap_or("")
+        while offset < data.len() {
+            let key_len = u32::from_le_bytes(Self::take_array::<4>(&data, &mut offset)?) as usize;
+            let key_bytes = Self::take(&data, &mut offset, key_len)?;
+            // SH-02: a non-UTF-8 field name is corruption — surface it.
+            // The old `unwrap_or("")` aliased every bad key to "" instead
+            // of failing.
+            let key = std::str::from_utf8(key_bytes)
+                .map_err(|_| Self::corrupt_row("field name is not valid UTF-8"))?
                 .to_string();
-            offset += key_len;
-            let ty = data[offset];
-            offset += 1;
-            match ty {
-                0 => {
-                    // I64
-                    if offset + 8 > data.len() {
-                        break;
-                    }
-                    // INVARIANT (B2b, cat. (b)): exactly 8 bytes (guard above).
-                    let v = i64::from_le_bytes(data[offset..offset + 8].try_into().unwrap());
-                    fields.insert(key, ShreddedField::I64(v));
-                    offset += 8;
+            let tag = *Self::take(&data, &mut offset, 1)?
+                .first()
+                .ok_or_else(|| Self::corrupt_row("missing type tag"))?;
+            let ty = ShreddedFieldType::from_tag(tag)
+                .ok_or_else(|| Self::corrupt_row("unknown type tag"))?;
+            let field = match ty {
+                ShreddedFieldType::I64 => ShreddedField::I64(i64::from_le_bytes(
+                    Self::take_array::<8>(&data, &mut offset)?,
+                )),
+                ShreddedFieldType::F64 => ShreddedField::F64(f64::from_le_bytes(
+                    Self::take_array::<8>(&data, &mut offset)?,
+                )),
+                ShreddedFieldType::Bool => {
+                    let byte = *Self::take(&data, &mut offset, 1)?
+                        .first()
+                        .ok_or_else(|| Self::corrupt_row("missing bool value"))?;
+                    ShreddedField::Bool(byte != 0)
                 }
-                1 => {
-                    // F64
-                    if offset + 8 > data.len() {
-                        break;
-                    }
-                    // INVARIANT (B2b, cat. (b)): exactly 8 bytes (guard above).
-                    let v = f64::from_le_bytes(data[offset..offset + 8].try_into().unwrap());
-                    fields.insert(key, ShreddedField::F64(v));
-                    offset += 8;
-                }
-                2 => {
-                    // Bool
-                    if offset + 1 > data.len() {
-                        break;
-                    }
-                    fields.insert(key, ShreddedField::Bool(data[offset] != 0));
-                    offset += 1;
-                }
-                3 => {
-                    // String
-                    if offset + 4 > data.len() {
-                        break;
-                    }
-                    // INVARIANT (B2b, cat. (b)): exactly 4 bytes (guard above).
+                ShreddedFieldType::String => {
                     let str_len =
-                        u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
-                    offset += 4;
-                    if offset + str_len > data.len() {
-                        break;
-                    }
-                    let s = std::string::String::from_utf8_lossy(&data[offset..offset + str_len])
-                        .to_string();
-                    fields.insert(key, ShreddedField::String(s));
-                    offset += str_len;
+                        u32::from_le_bytes(Self::take_array::<4>(&data, &mut offset)?) as usize;
+                    let bytes = Self::take(&data, &mut offset, str_len)?;
+                    // SH-02: strict UTF-8 — lossy decoding hid corruption.
+                    let s = String::from_utf8(bytes.to_vec())
+                        .map_err(|_| Self::corrupt_row("string value is not valid UTF-8"))?;
+                    ShreddedField::String(s)
                 }
-                _ => break, // unknown type tag – truncate
-            }
+                // FIND-604 omitted-field marker: tag present, zero value bytes.
+                ShreddedFieldType::Null => ShreddedField::Null,
+            };
+            fields.insert(key, field);
         }
         Ok(Some(fields))
     }
@@ -345,7 +486,7 @@ impl ShreddedRowStore {
 // ─── Tests ─────────────────────────────────────────────────────
 
 #[cfg(test)]
-#[allow(missing_docs)]
+#[allow(missing_docs, clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::backends::in_memory::InMemoryBackend;
@@ -774,5 +915,303 @@ mod tests {
             .collect();
 
         assert_eq!(expected_gte, vec![true, true, false]);
+    }
+
+    // ── SH-05: repr(u8) discriminants are the on-disk contract ────────
+
+    #[test]
+    fn test_shredded_field_type_discriminants_are_byte_stable() {
+        // The discriminant IS the persisted type tag. These values must
+        // never change — renumbering corrupts every stored shredded row.
+        assert_eq!(ShreddedFieldType::I64 as u8, 0);
+        assert_eq!(ShreddedFieldType::F64 as u8, 1);
+        assert_eq!(ShreddedFieldType::Bool as u8, 2);
+        assert_eq!(ShreddedFieldType::String as u8, 3);
+        assert_eq!(ShreddedFieldType::Null as u8, 4);
+    }
+
+    #[test]
+    fn test_shredded_field_type_from_tag_roundtrip() {
+        for ty in [
+            ShreddedFieldType::I64,
+            ShreddedFieldType::F64,
+            ShreddedFieldType::Bool,
+            ShreddedFieldType::String,
+            ShreddedFieldType::Null,
+        ] {
+            assert_eq!(ShreddedFieldType::from_tag(ty as u8), Some(ty));
+        }
+        // The format is closed: tags outside 0..=4 are corruption (SH-02).
+        assert_eq!(ShreddedFieldType::from_tag(5), None);
+        assert_eq!(ShreddedFieldType::from_tag(u8::MAX), None);
+    }
+
+    // ── FIND-604: omitted-field markers ─────────────────────────────
+
+    #[test]
+    fn test_shredded_omitted_fields_decode_as_null_markers() {
+        let backend = test_backend();
+        let mut fields = BTreeMap::new();
+        fields.insert("age".into(), Value::Int(30));
+        fields.insert(
+            "tags".into(),
+            Value::ListString(vec!["a".into(), "b".into()]),
+        );
+        fields.insert("maybe".into(), Value::Null);
+        fields.insert("rank".into(), Value::ListInt(vec![1, 2]));
+        fields.insert(
+            "at".into(),
+            Value::DateTime(jiff::Timestamp::from_second(1_700_000_000).unwrap()),
+        );
+        ShreddedRowStore::put(11, &fields, &backend).unwrap();
+
+        let row = ShreddedRowStore::get(11, &backend).unwrap().unwrap();
+        // Scalars stay scalar; every non-scalar field is present as a
+        // Null marker — observable as "omitted", not "absent".
+        assert_eq!(row.get("age"), Some(&ShreddedField::I64(30)));
+        assert_eq!(row.get("tags"), Some(&ShreddedField::Null));
+        assert_eq!(row.get("maybe"), Some(&ShreddedField::Null));
+        assert_eq!(row.get("rank"), Some(&ShreddedField::Null));
+        assert_eq!(row.get("at"), Some(&ShreddedField::Null));
+        assert_eq!(row.len(), 5);
+        assert!(has_omitted_fields(&row));
+    }
+
+    #[test]
+    fn test_shredded_markers_are_emitted_after_scalar_entries() {
+        // Ordering invariant: scalar entries first so a pre-marker decoder
+        // truncating at the unknown tag still recovers every scalar.
+        // "aaa" sorts BEFORE "zzz" in the BTreeMap, so marker-last is
+        // only observable because encode partitions the passes.
+        let mut fields = BTreeMap::new();
+        fields.insert("aaa".into(), Value::ListString(vec!["x".into()]));
+        fields.insert("zzz".into(), Value::Int(7));
+        let buf = ShreddedRowStore::encode_fields(&fields).unwrap();
+
+        // Expected layout: [zzz|I64|7][aaa|Null]
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&3u32.to_le_bytes());
+        expected.extend_from_slice(b"zzz");
+        expected.push(ShreddedFieldType::I64 as u8);
+        expected.extend_from_slice(&7i64.to_le_bytes());
+        expected.extend_from_slice(&3u32.to_le_bytes());
+        expected.extend_from_slice(b"aaa");
+        expected.push(ShreddedFieldType::Null as u8);
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn test_shredded_scalar_only_rows_keep_legacy_byte_layout() {
+        // Byte-compat: metadata with only scalars must encode to exactly
+        // the pre-marker format (FIND-604 persistence invariant).
+        let mut fields = BTreeMap::new();
+        fields.insert("n".into(), Value::Int(-5));
+        fields.insert("s".into(), Value::String("hi".into()));
+        let buf = ShreddedRowStore::encode_fields(&fields).unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&1u32.to_le_bytes());
+        expected.extend_from_slice(b"n");
+        expected.push(0); // legacy I64 tag
+        expected.extend_from_slice(&(-5i64).to_le_bytes());
+        expected.extend_from_slice(&1u32.to_le_bytes());
+        expected.extend_from_slice(b"s");
+        expected.push(3); // legacy String tag
+        expected.extend_from_slice(&2u32.to_le_bytes());
+        expected.extend_from_slice(b"hi");
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn test_shredded_decodes_legacy_row_without_markers() {
+        // A row written by the pre-marker encoder (scalars only, no tag 4)
+        // decodes identically under the strict decoder.
+        let backend = test_backend();
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&3u32.to_le_bytes());
+        raw.extend_from_slice(b"age");
+        raw.push(0u8);
+        raw.extend_from_slice(&42i64.to_le_bytes());
+        backend
+            .put(
+                BackendPartition::InternalMetadata,
+                &ShreddedRowStore::store_key(5),
+                &raw,
+            )
+            .unwrap();
+
+        let row = ShreddedRowStore::get(5, &backend).unwrap().unwrap();
+        assert_eq!(row.get("age"), Some(&ShreddedField::I64(42)));
+        assert!(!has_omitted_fields(&row));
+    }
+
+    #[test]
+    fn test_shredded_all_non_scalar_metadata_still_writes_markers() {
+        // Before FIND-604 a record whose metadata is entirely non-scalar
+        // produced no row at all; now the markers preserve field presence.
+        let backend = test_backend();
+        let mut fields = BTreeMap::new();
+        fields.insert("tags".into(), Value::ListString(vec!["x".into()]));
+        fields.insert("flag".into(), Value::Null);
+        ShreddedRowStore::put(21, &fields, &backend).unwrap();
+
+        let row = ShreddedRowStore::get(21, &backend).unwrap().unwrap();
+        assert_eq!(row.get("tags"), Some(&ShreddedField::Null));
+        assert_eq!(row.get("flag"), Some(&ShreddedField::Null));
+        assert!(has_omitted_fields(&row));
+    }
+
+    // ── FIND-604: filter parity (ListString / Null) ──────────────────
+
+    #[test]
+    fn test_filter_verdict_delegates_on_list_and_null_fields() {
+        let backend = test_backend();
+        let mut fields = BTreeMap::new();
+        fields.insert("price".into(), Value::Int(100));
+        fields.insert(
+            "tags".into(),
+            Value::ListString(vec!["a".into(), "b".into()]),
+        );
+        fields.insert("deleted".into(), Value::Null);
+        ShreddedRowStore::put(31, &fields, &backend).unwrap();
+        let row = ShreddedRowStore::get(31, &backend).unwrap().unwrap();
+
+        // Scalar filter → decided by the column (no document needed).
+        assert_eq!(
+            filter_verdict(&row, "price", &RelOp::Eq, &Value::Int(100)),
+            ShreddedFilterVerdict::Decided(true)
+        );
+        assert_eq!(
+            filter_verdict(&row, "price", &RelOp::Gt, &Value::Int(50)),
+            ShreddedFilterVerdict::Decided(true)
+        );
+        assert_eq!(
+            filter_verdict(&row, "price", &RelOp::Lt, &Value::Int(50)),
+            ShreddedFilterVerdict::Decided(false)
+        );
+
+        // Parity: a filter on a ListString field must NOT be decided by
+        // the column store — the old code answered `false` here, which is
+        // where the fast path diverged to zero results. Now it delegates.
+        assert_eq!(
+            filter_verdict(
+                &row,
+                "tags",
+                &RelOp::Eq,
+                &Value::ListString(vec!["a".into(), "b".into()])
+            ),
+            ShreddedFilterVerdict::DelegateToDocument
+        );
+        assert_eq!(
+            filter_verdict(&row, "deleted", &RelOp::Eq, &Value::Null),
+            ShreddedFilterVerdict::DelegateToDocument
+        );
+
+        // A field that is genuinely absent is reported distinctly.
+        assert_eq!(
+            filter_verdict(&row, "missing", &RelOp::Eq, &Value::Int(1)),
+            ShreddedFilterVerdict::Absent
+        );
+    }
+
+    #[test]
+    fn test_filter_verdict_scalar_only_row_never_delegates() {
+        // Regression guard for pre-mortem risk 3: a row whose fields are
+        // all scalar must keep the fast path for every filter field.
+        let backend = test_backend();
+        let mut fields = BTreeMap::new();
+        fields.insert("price".into(), Value::Int(100));
+        fields.insert("name".into(), Value::String("n".into()));
+        ShreddedRowStore::put(32, &fields, &backend).unwrap();
+        let row = ShreddedRowStore::get(32, &backend).unwrap().unwrap();
+
+        assert!(!has_omitted_fields(&row));
+        assert_eq!(
+            filter_verdict(&row, "name", &RelOp::Eq, &Value::String("n".into())),
+            ShreddedFilterVerdict::Decided(true)
+        );
+    }
+
+    // ── SH-02: strict decode — corruption is an error, not a partial map ─
+
+    fn seed_raw_row(backend: &InMemoryBackend, node_id: u128, bytes: &[u8]) {
+        backend
+            .put(
+                BackendPartition::InternalMetadata,
+                &ShreddedRowStore::store_key(node_id),
+                bytes,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn test_shredded_truncated_row_is_an_error_not_partial_map() {
+        let backend = test_backend();
+        // One complete entry followed by a truncated second entry: the
+        // decoder must fail instead of returning the partial map.
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&3u32.to_le_bytes());
+        raw.extend_from_slice(b"age");
+        raw.push(0u8);
+        raw.extend_from_slice(&42i64.to_le_bytes());
+        // Truncated second entry: key_len says 5 but only 2 bytes follow.
+        raw.extend_from_slice(&5u32.to_le_bytes());
+        raw.extend_from_slice(b"ab");
+        seed_raw_row(&backend, 41, &raw);
+
+        assert!(ShreddedRowStore::get(41, &backend).is_err());
+    }
+
+    #[test]
+    fn test_shredded_truncated_value_is_an_error() {
+        let backend = test_backend();
+        // I64 tag but only 3 value bytes follow.
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&1u32.to_le_bytes());
+        raw.extend_from_slice(b"x");
+        raw.push(0u8);
+        raw.extend_from_slice(&[1u8, 2, 3]);
+        seed_raw_row(&backend, 42, &raw);
+
+        assert!(ShreddedRowStore::get(42, &backend).is_err());
+    }
+
+    #[test]
+    fn test_shredded_unknown_tag_is_an_error() {
+        let backend = test_backend();
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&1u32.to_le_bytes());
+        raw.extend_from_slice(b"x");
+        raw.push(9u8); // unknown tag — not a truncation point
+        seed_raw_row(&backend, 43, &raw);
+
+        assert!(ShreddedRowStore::get(43, &backend).is_err());
+    }
+
+    #[test]
+    fn test_shredded_non_utf8_key_is_an_error() {
+        let backend = test_backend();
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&2u32.to_le_bytes());
+        raw.extend_from_slice(&[0xff, 0xfe]); // invalid UTF-8 field name
+        raw.push(0u8);
+        raw.extend_from_slice(&1i64.to_le_bytes());
+        seed_raw_row(&backend, 44, &raw);
+
+        assert!(ShreddedRowStore::get(44, &backend).is_err());
+    }
+
+    #[test]
+    fn test_shredded_non_utf8_string_value_is_an_error() {
+        let backend = test_backend();
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&1u32.to_le_bytes());
+        raw.extend_from_slice(b"s");
+        raw.push(3u8);
+        raw.extend_from_slice(&2u32.to_le_bytes());
+        raw.extend_from_slice(&[0xff, 0xfe]);
+        seed_raw_row(&backend, 45, &raw);
+
+        assert!(ShreddedRowStore::get(45, &backend).is_err());
     }
 }
