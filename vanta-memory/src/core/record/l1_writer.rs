@@ -392,9 +392,16 @@ fn mark_contradicted_targets(
         // FIND-281: the L1 payload carries no confidence field — confidence
         // lives on the engine record. Read it back so the re-persist keeps
         // the stored value (e.g. decayed by feedback) instead of resetting
-        // to `default_confidence()`. A miss/race keeps the old behavior.
+        // to `default_confidence()`. FIND-658 extends the same preservation
+        // to `derived_from`: a Derived record re-put without its parent list
+        // fails V1 outright (and re-declaring its score fails D4b). A
+        // miss/race keeps the old behavior.
         let confidence = match db.get(ns, &sanitize_key(target_id)) {
-            Ok(Some(stored)) => Some((stored.confidence_class, stored.confidence)),
+            Ok(Some(stored)) => Some(PreservedState {
+                confidence_class: stored.confidence_class,
+                confidence: stored.confidence,
+                derived_from: stored.derived_from,
+            }),
             Ok(None) => {
                 tracing::debug!(
                     record_id = %target_id,
@@ -566,7 +573,7 @@ fn record_input(
     ns: &str,
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
-    confidence_override: Option<(ConfidenceClass, f32)>,
+    preserved: Option<PreservedState>,
 ) -> Result<MemoryInput, L1Error> {
     let mut metadata = MemoryMetadata::new();
     metadata.insert(
@@ -609,6 +616,30 @@ fn record_input(
     // birth does not parse or is 0 — the core then defaults to write-time
     // `created_at_ms` (`materialize_valid_at`).
     let valid_at_ms = rfc3339_to_epoch_ms(&record.created_at).filter(|ms| *ms > 0);
+    // FIND-658: propagate the whole engine-side state, honoring the ADR-046
+    // write rules — a `Derived` record's score is recomputed from its
+    // parents, so the stored score must NOT be re-declared (D4b rejects
+    // declared confidence on derived writes), while its `derived_from`
+    // parent list MUST be carried or V1 rejects the write. Asserted records
+    // keep the stored score verbatim; `derived_from` stays unset (V1
+    // forbids parents on asserted writes).
+    let (confidence_class, confidence, derived_from) = match preserved {
+        Some(PreservedState {
+            confidence_class: ConfidenceClass::Derived,
+            derived_from,
+            ..
+        }) => (ConfidenceClass::Derived, None, Some(derived_from)),
+        Some(PreservedState {
+            confidence_class,
+            confidence,
+            ..
+        }) => (confidence_class, Some(confidence), None),
+        None => (
+            ConfidenceClass::Asserted,
+            Some(default_confidence()),
+            None,
+        ),
+    };
     Ok(MemoryInput {
         namespace: ns.to_string(),
         key: sanitize_key(&record.id),
@@ -618,16 +649,9 @@ fn record_input(
         sparse_vector: None,
         ttl_ms: None,
         valid_at_ms,
-        confidence_class: Some(
-            confidence_override
-                .map(|(class, _)| class)
-                .unwrap_or(ConfidenceClass::Asserted),
-        ),
-        confidence: Some(
-            confidence_override
-                .map(|(_, confidence)| confidence)
-                .unwrap_or_else(default_confidence),
-        ),
+        confidence_class: Some(confidence_class),
+        confidence,
+        derived_from,
         dedup_policy: Some(default_l1_dedup_policy()),
         ..Default::default()
     })
@@ -642,17 +666,36 @@ pub fn put_record(
     put_record_with_confidence(db, ns, record, vector, None)
 }
 
-/// `put_record` with an explicit confidence override (FIND-281): the engine
-/// record's `confidence`/`confidence_class` fields (which the L1 payload does
-/// not carry) are declared from `confidence_override` instead of the asserted
-/// default. `None` is identical to [`put_record`]. Only the contradiction
-/// re-persist path passes `Some` — new/merged records keep the default.
-fn put_record_with_confidence(
+/// Engine-side v2 state of an already-stored record, re-declared verbatim
+/// on re-persist (FIND-281, extended to `derived_from` for FIND-658): the
+/// L1 payload carries none of these fields — they live on the engine
+/// record, so a bare re-put would silently reset a decayed confidence to
+/// `default_confidence()` and strip a derived record's provenance.
+#[derive(Debug, Clone)]
+pub(crate) struct PreservedState {
+    /// Stored provenance class (`Asserted` | `Derived`).
+    pub confidence_class: ConfidenceClass,
+    /// Stored confidence score. Ignored when `confidence_class` is
+    /// `Derived` — derived scores are recomputed from parents (D4b).
+    pub confidence: f32,
+    /// Stored parent keys. Only propagated when `confidence_class` is
+    /// `Derived` (V1 forbids parents on asserted writes).
+    pub derived_from: Vec<String>,
+}
+
+/// `put_record` with explicit engine-state preservation (FIND-281/658):
+/// the engine record's `confidence`/`confidence_class`/`derived_from`
+/// fields (which the L1 payload does not carry) are declared from
+/// `preserved` instead of the asserted defaults. `None` is identical to
+/// [`put_record`]. Only re-write paths pass `Some` — the contradiction
+/// re-persist (`mark_contradicted_targets`) and dream promotion `UPDATE`s;
+/// new/merged records keep the default.
+pub(crate) fn put_record_with_confidence(
     db: &Embedded,
     ns: &str,
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
-    confidence_override: Option<(ConfidenceClass, f32)>,
+    preserved: Option<PreservedState>,
 ) -> Result<vantadb::sdk::MemoryRecord, L1Error> {
     debug_assert!(
         record.vector.is_none(),
@@ -660,7 +703,7 @@ fn put_record_with_confidence(
     );
     // Returns the stored record carrying the core-assigned storage version —
     // the rollback lineage (MEMG-17) reads `version` off it.
-    let stored = db.put(record_input(ns, record, vector, confidence_override)?)?;
+    let stored = db.put(record_input(ns, record, vector, preserved)?)?;
 
     // Graph edges for derived records/axioms (TEC-15)
     let session_key = ns.strip_prefix("l1/").unwrap_or(ns);

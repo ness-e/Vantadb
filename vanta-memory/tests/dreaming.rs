@@ -23,7 +23,7 @@
 
 use serde_json::json;
 use vantadb::config::Config;
-use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
+use vantadb::sdk::{ConfidenceClass, Embedded, MemoryInput, MemoryMetadata};
 use vantadb::storage::BackendKind;
 
 use vanta_memory::core::abstractions::{MemoryRecord, MemoryType};
@@ -672,4 +672,220 @@ fn dream_pure_functions_match_documented_contract() {
     r.metadata = json!({ "activity_start_time": "hace 2 días" });
     let n = normalize_relative_dates(&r, 1_700_000_000_000).unwrap();
     assert!(n.absolute.len() == 24);
+}
+
+// ── FIND-658: promotion UPDATE is write-first and preserves the engine-side
+// confidence state ─────────────────────────────────────────────────────
+//
+// Two sibling defects in `promote_dream_run`'s UPDATE arm:
+//   (a) `delete` ran BEFORE `put` — a crash/failure in the window lost the
+//       L1 record (same class as MEMG-27, whose `persist_planned` upserts
+//       first and prunes only surviving non-coincident keys after `Ok`).
+//   (b) the re-put declared `Asserted` + `default_confidence()` and no
+//       `derived_from` — a feedback-decayed confidence was resurrected at
+//       1.0 and a derived record lost its lineage (same class as FIND-281).
+
+/// (b-i) An UPDATE must keep the target's stored confidence/class — the L1
+/// payload does not carry them, so they must be read off the stored engine
+/// record before the rewrite.
+#[test]
+fn dream_promotion_update_preserves_engine_confidence_state() {
+    let db = open_db();
+    let session_id = "sess-preserve-conf";
+    let now_ms = 1_700_000_000_000;
+
+    // Seed at a decayed confidence via a direct SDK write — mirrors the
+    // FIND-281 fixture (e.g. after feedback decayed the record to 0.3).
+    let record = fixture("m1", "ui", "user prefers dark mode", 80);
+    db.put(MemoryInput {
+        namespace: format!("l1/{session_id}"),
+        key: "m1".into(),
+        payload: serde_json::to_string(&record).unwrap(),
+        metadata: MemoryMetadata::new(),
+        vector: None,
+        sparse_vector: None,
+        ttl_ms: None,
+        confidence_class: Some(ConfidenceClass::Asserted),
+        confidence: Some(0.3),
+        ..Default::default()
+    })
+    .expect("seed at 0.3");
+
+    // Consolidated copy differing in content → UPDATE(Content).
+    let mut consolidated = record.clone();
+    consolidated.content = "user prefers light mode".into();
+    let run = DreamRun {
+        run_id: "conf-run".into(),
+        session_id: session_id.into(),
+        started_at_ms: now_ms,
+        ended_at_ms: now_ms,
+        inputs_scanned: 1,
+        input_ids: vec!["m1".into()],
+        merged_ids: vec![],
+        contradicted_ids: vec![],
+        normalized_count: 0,
+        runner_label: "none".into(),
+        consolidated: vec![consolidated],
+    };
+    write_dream_run(&db, &run).unwrap();
+
+    let applied = promote_dream_run(&db, session_id, &run.run_id).unwrap();
+    assert!(applied
+        .ops
+        .iter()
+        .any(|o| o.key == "m1" && o.action == PromotionAction::Update));
+
+    let stored = db
+        .get(&format!("l1/{session_id}"), "m1")
+        .expect("get")
+        .expect("m1 present");
+    assert_eq!(
+        stored.confidence, 0.3,
+        "decayed confidence must be preserved, not resurrected at 1.0"
+    );
+    assert_eq!(stored.confidence_class, ConfidenceClass::Asserted);
+    let payload: MemoryRecord = serde_json::from_str(&stored.payload).expect("l1 payload");
+    assert_eq!(
+        payload.content, "user prefers light mode",
+        "the payload diff must still be applied"
+    );
+}
+
+/// (b-ii) An UPDATE on a Derived record must re-declare its parent list
+/// (V1 requires non-empty `derived_from`) and must NOT re-declare its
+/// stored score (D4b — the engine recomputes it from the parents). Pre-fix
+/// the rewrite flipped the class to `Asserted` at 1.0 and dropped the
+/// lineage.
+#[test]
+fn dream_promotion_update_preserves_derived_lineage() {
+    let db = open_db();
+    let session_id = "sess-preserve-derived";
+    let now_ms = 1_700_000_000_000;
+
+    let parent = fixture("p1", "ui", "parent fact", 80);
+    put_record(&db, session_id, &parent);
+
+    let child = fixture("m_der", "ui", "derived insight", 80);
+    db.put(MemoryInput {
+        namespace: format!("l1/{session_id}"),
+        key: "m_der".into(),
+        payload: serde_json::to_string(&child).unwrap(),
+        metadata: MemoryMetadata::new(),
+        vector: None,
+        sparse_vector: None,
+        ttl_ms: None,
+        confidence_class: Some(ConfidenceClass::Derived),
+        derived_from: Some(vec!["p1".into()]),
+        ..Default::default()
+    })
+    .expect("seed derived");
+    let seeded = db
+        .get(&format!("l1/{session_id}"), "m_der")
+        .expect("get")
+        .expect("seeded derived");
+    let seeded_score = seeded.confidence;
+    assert!(
+        seeded_score < 1.0,
+        "sanity: derived score is discounted from the parent, got {seeded_score}"
+    );
+
+    let mut consolidated = child.clone();
+    consolidated.content = "derived insight v2".into();
+    let run = DreamRun {
+        run_id: "derived-run".into(),
+        session_id: session_id.into(),
+        started_at_ms: now_ms,
+        ended_at_ms: now_ms,
+        inputs_scanned: 1,
+        input_ids: vec!["m_der".into()],
+        merged_ids: vec![],
+        contradicted_ids: vec![],
+        normalized_count: 0,
+        runner_label: "none".into(),
+        consolidated: vec![consolidated],
+    };
+    write_dream_run(&db, &run).unwrap();
+    promote_dream_run(&db, session_id, &run.run_id).expect("promote");
+
+    let stored = db
+        .get(&format!("l1/{session_id}"), "m_der")
+        .expect("get")
+        .expect("m_der present");
+    assert_eq!(
+        stored.confidence_class,
+        ConfidenceClass::Derived,
+        "provenance class must be preserved"
+    );
+    assert_eq!(
+        stored.derived_from,
+        vec!["p1".to_string()],
+        "parent lineage must be preserved"
+    );
+    assert_eq!(
+        stored.confidence, seeded_score,
+        "score is recomputed from the same parents — identical to stored"
+    );
+}
+
+/// (a) Write-first: an UPDATE whose `put` fails must leave the
+/// pre-promotion record intact. The L1 record carries a 3-dim vector; the
+/// consolidated rewrite carries a 4-dim one — FIND-411 dimension
+/// validation rejects the `put` up-front. Under the old delete-first order
+/// the record was already gone.
+#[test]
+fn dream_promotion_failed_update_put_leaves_old_record() {
+    let db = open_db();
+    let session_id = "sess-write-first";
+    let now_ms = 1_700_000_000_000;
+
+    // The L1 record itself establishes the index dimension (3).
+    let mut record = fixture("m1", "ui", "pre-promotion content", 80);
+    record.vector = Some(vec![0.1, 0.2, 0.3]);
+    db.put(MemoryInput {
+        namespace: format!("l1/{session_id}"),
+        key: "m1".into(),
+        payload: serde_json::to_string(&record).unwrap(),
+        metadata: MemoryMetadata::new(),
+        vector: record.vector.clone(),
+        sparse_vector: None,
+        ttl_ms: None,
+        ..Default::default()
+    })
+    .expect("seed m1");
+    let before = db
+        .get(&format!("l1/{session_id}"), "m1")
+        .expect("get")
+        .expect("m1")
+        .payload;
+
+    let mut consolidated = record.clone();
+    consolidated.content = "post-promotion content".into();
+    consolidated.vector = Some(vec![0.5; 4]); // dim mismatch → put fails
+    let run = DreamRun {
+        run_id: "wf-run".into(),
+        session_id: session_id.into(),
+        started_at_ms: now_ms,
+        ended_at_ms: now_ms,
+        inputs_scanned: 1,
+        input_ids: vec!["m1".into()],
+        merged_ids: vec![],
+        contradicted_ids: vec![],
+        normalized_count: 0,
+        runner_label: "none".into(),
+        consolidated: vec![consolidated],
+    };
+    write_dream_run(&db, &run).unwrap();
+
+    promote_dream_run(&db, session_id, &run.run_id)
+        .expect_err("dimension mismatch must fail the promote");
+
+    let after = db
+        .get(&format!("l1/{session_id}"), "m1")
+        .expect("get")
+        .map(|r| r.payload);
+    assert_eq!(
+        after.as_deref(),
+        Some(before.as_str()),
+        "write-first: a failed update put must leave the pre-promotion record intact"
+    );
 }

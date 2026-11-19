@@ -17,8 +17,11 @@
 //!
 //! ## Invariants
 //!
-//! 1. **Never mutates `l1/<session>`** — reads via `read_session_records`,
-//!    writes only to `reflection/<session>/<run_id>`.
+//! 1. **Never mutates `l1/<session>`** — reads via
+//!    `read_active_session_records` (FIND-659: current records only — a
+//!    superseded episode is audit lineage, not lesson material; same leak
+//!    class as the FIND-277 L2 fix), writes only to
+//!    `reflection/<session>/<run_id>`.
 //! 2. **LLM-free by default** — deterministic lessons; a host may inject a
 //!    [`Reflector`] for true synthesis.
 //! 3. **Explicit precondition** — fewer than [`ReflectionConfig::min_episodic`]
@@ -36,7 +39,7 @@ use crate::core::abstractions::{MemoryRecord, MemoryType};
 use crate::core::conversation::sanitize_component;
 use crate::core::dream::generate_run_id;
 use crate::core::prompts::l1_extraction::epoch_ms_to_rfc3339;
-use crate::core::record::l1_reader::read_session_records;
+use crate::core::record::l1_reader::read_active_session_records;
 use crate::core::record::L1Error;
 
 /// Top-`DIGEST_TOP` episodes (priority desc, then `updated_at` desc) cited in
@@ -337,7 +340,10 @@ pub fn load_reflection_run(
 
 /// Run one reflection pass over a session's episodic memory.
 ///
-/// Scans `l1/<session>` read-only, filters the episodic records, enforces the
+/// Scans `l1/<session>` read-only — **active records only** (FIND-659):
+/// superseded episodes are invalidated facts kept for audit lineage, and
+/// must never feed lesson synthesis (same gate as the recall-facing
+/// readers, FIND-277) — filters the episodic records, enforces the
 /// declared [`ReflectionConfig::min_episodic`] precondition, produces lessons
 /// (runner when configured, deterministic digest otherwise) and persists the
 /// [`ReflectionRun`] under `reflection/<session>/<run_id>`. Pull-based — the
@@ -353,7 +359,9 @@ pub fn reflect_session(
             "session_id must not be empty".into(),
         ));
     }
-    let records = read_session_records(db, session_id)?;
+    // FIND-659: read_active_session_records, not the raw reader — superseded
+    // episodes would otherwise feed lessons (and count toward min_episodic).
+    let records = read_active_session_records(db, session_id)?;
     let episodes: Vec<MemoryRecord> = records
         .into_iter()
         .filter(|r| r.memory_type == MemoryType::Episodic)

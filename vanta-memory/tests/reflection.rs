@@ -168,6 +168,65 @@ fn reflection_below_min_episodic_is_rejected() {
     ));
 }
 
+// ── FIND-659: superseded episodes never feed lesson synthesis ─────────
+//
+// A record carrying a non-blank `superseded_by` pointer was invalidated by
+// a newer fact (MEM-60 / MEMG-01 contradiction + dream consolidation): it
+// is audit lineage, not current memory, and must never feed lessons that
+// cite it as evidence — same leak class as the FIND-277 L2 fix
+// (`read_active_session_records`, which `run_l2_inner` already uses).
+
+#[test]
+fn reflection_excludes_superseded_episodes() {
+    let db = db();
+    // Exactly min_episodic ACTIVE episodes + one superseded episode carrying
+    // the highest priority — if it leaked it would outrank every active
+    // episode, pad episodes_scanned and get cited as a source.
+    put_l1(&db, &episode("e1", "ops", "deploy failed on friday", 40));
+    put_l1(&db, &episode("e2", "ops", "deploy retried with rollback", 50));
+    put_l1(&db, &episode("e3", "ops", "deploy pipeline needed approval", 60));
+    let mut stale = episode("e_stale", "ops", "obsolete deploy procedure", 99);
+    stale.superseded_by = Some("e2".into());
+    put_l1(&db, &stale);
+
+    let run = reflect_session(&db, "sess-1", NOW_MS, &config()).expect("reflect");
+
+    assert_eq!(
+        run.episodes_scanned, 3,
+        "superseded episode must not count toward the pass"
+    );
+    assert!(
+        !run.source_ids.iter().any(|id| id == "e_stale"),
+        "superseded episode must never be cited: {:?}",
+        run.source_ids
+    );
+
+    let ops = run
+        .lessons
+        .iter()
+        .find(|l| l.scene_name == "ops")
+        .expect("ops lesson");
+    assert_eq!(
+        ops.priority, 60,
+        "lesson priority is the max over ACTIVE episodes only"
+    );
+    let cited = ops.metadata["reflection"]["source_ids"]
+        .as_array()
+        .expect("source_ids array");
+    assert!(
+        !cited.iter().any(|v| v == "e_stale"),
+        "superseded episode must not be cited in the lesson: {cited:?}"
+    );
+
+    // The raw reader still returns it — supersession is a pointer, never a
+    // delete (audit lineage stays readable for write-side paths).
+    assert_eq!(
+        read_session_records(&db, "sess-1").unwrap().len(),
+        4,
+        "superseded record is preserved, only excluded from the active read"
+    );
+}
+
 // ── lessons: form + provenance ──
 
 #[test]
