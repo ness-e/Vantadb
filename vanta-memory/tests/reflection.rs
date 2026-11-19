@@ -183,8 +183,14 @@ fn reflection_excludes_superseded_episodes() {
     // the highest priority — if it leaked it would outrank every active
     // episode, pad episodes_scanned and get cited as a source.
     put_l1(&db, &episode("e1", "ops", "deploy failed on friday", 40));
-    put_l1(&db, &episode("e2", "ops", "deploy retried with rollback", 50));
-    put_l1(&db, &episode("e3", "ops", "deploy pipeline needed approval", 60));
+    put_l1(
+        &db,
+        &episode("e2", "ops", "deploy retried with rollback", 50),
+    );
+    put_l1(
+        &db,
+        &episode("e3", "ops", "deploy pipeline needed approval", 60),
+    );
     let mut stale = episode("e_stale", "ops", "obsolete deploy procedure", 99);
     stale.superseded_by = Some("e2".into());
     put_l1(&db, &stale);

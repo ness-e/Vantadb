@@ -634,11 +634,7 @@ fn record_input(
             confidence,
             ..
         }) => (confidence_class, Some(confidence), None),
-        None => (
-            ConfidenceClass::Asserted,
-            Some(default_confidence()),
-            None,
-        ),
+        None => (ConfidenceClass::Asserted, Some(default_confidence()), None),
     };
     Ok(MemoryInput {
         namespace: ns.to_string(),

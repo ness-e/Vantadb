@@ -46,8 +46,8 @@ use thiserror::Error;
 
 use crate::core::abstractions::{MemoryRecord, MemoryType};
 use crate::core::conversation::{sanitize_component, sanitize_key};
-use crate::core::record::lifecycle::mark_contradiction;
 use crate::core::record::l1_writer::{put_record_with_confidence, PreservedState};
+use crate::core::record::lifecycle::mark_contradiction;
 use crate::core::record::{l1_namespace, read_session_records, L1Error};
 
 // Re-export the canonical contradiction provenance type so dream consumers
