@@ -28,11 +28,11 @@
 //! must never be persisted or parsed by clients.
 
 use super::super::builder::Embedded;
-use super::super::serialization::now_ms;
 use super::super::serialization::vector_types::{
     AbstentionReason, GroupByConfig, MemorySearchHit, MemorySearchPage, MemorySearchRequest,
     RangeFilter,
 };
+use super::super::serialization::{now_ms, validate_metadata, validate_namespace};
 use super::fusion::{EntityBoost, EntityBoostReport};
 use super::mmr;
 use crate::error::{Error, Result};
@@ -87,15 +87,19 @@ pub(crate) fn validate_min_confidence(min_confidence: f32) -> Result<()> {
 /// Validate the WIRE-08 request options at the boundary (dim/NaN-style checks
 /// live here, never in the inner loop).
 pub(crate) fn validate_search_options(request: &MemorySearchRequest) -> Result<()> {
+    // FIND-535 (residual): metadata validation is a boundary check too —
+    // every `top_k == 0` early return in the search pipeline runs *after*
+    // this gate, so reserved/NUL filter keys must error here instead of
+    // reporting a silent empty page. Namespace validation intentionally
+    // lives in `run_search_page`: `search_multi` shares this helper but
+    // ignores `request.namespace` by design.
+    validate_metadata(&request.filters)?;
     // FIND-535: query-vector finiteness is a boundary check too — the
     // `top_k == 0` early return in `run_search_page` runs *after* this gate,
     // so a NaN/Inf query must error here instead of reporting a silent empty
     // page. `search_impl` keeps its own copy for callers that bypass this
     // pipeline.
-    crate::sdk::api::memory::validate_dense_vector_finiteness(
-        &request.query_vector,
-        "search",
-    )?;
+    crate::sdk::api::memory::validate_dense_vector_finiteness(&request.query_vector, "search")?;
     if let Some(ref sparse) = request.query_sparse {
         crate::sdk::api::memory::validate_sparse_vector_finiteness(sparse, "search")?;
     }
@@ -317,6 +321,11 @@ pub(crate) fn run_search_page(
     method: Option<crate::index::IndexType>,
     boost: Option<&EntityBoost>,
 ) -> Result<(MemorySearchPage, EntityBoostReport)> {
+    // FIND-535 (residual): namespace validation must run before the
+    // `top_k == 0` early return — an invalid namespace errors instead of
+    // reporting a silent empty page (it previously only ran inside
+    // `search_impl`, unreachable at top_k = 0).
+    validate_namespace(&request.namespace)?;
     validate_search_options(&request)?;
     let top_k = request.top_k;
     if top_k == 0 {

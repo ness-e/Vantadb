@@ -1025,9 +1025,8 @@ impl StorageEngine {
         // skip-when-contended policy `maybe_auto_flush` uses; the trigger is
         // still set so a later maintenance pass retries the eviction.
         if needs_eviction {
-            match self.acquire_insert_lock(
-                "acquire insert_lock in batch_insert_with_opts eviction",
-            ) {
+            match self.acquire_insert_lock("acquire insert_lock in batch_insert_with_opts eviction")
+            {
                 Ok(_guard) => self.run_batch_eviction_if_needed(needs_eviction),
                 Err(e) => {
                     self.emergency_maintenance_trigger

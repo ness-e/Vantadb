@@ -133,6 +133,88 @@ fn test_search_top_k_zero_still_rejects_non_finite_query() {
 }
 
 #[test]
+fn test_search_top_k_zero_still_rejects_invalid_namespace_and_filters() {
+    // FIND-535 (residual): the `top_k == 0` early return in `run_search_page`
+    // fired *before* `search_impl` ran `validate_namespace`/`validate_metadata`
+    // — an invalid namespace or reserved filter key produced a silent empty
+    // page instead of a validation error.
+    let db = setup();
+
+    // Invalid namespace (empty) + top_k = 0 must error on every entry point.
+    let req = MemorySearchRequest {
+        namespace: "".into(),
+        text_query: Some("hello".into()),
+        top_k: 0,
+        ..Default::default()
+    };
+    assert!(
+        db.search(req.clone()).is_err(),
+        "search: empty namespace must fail even at top_k=0"
+    );
+    assert!(
+        db.search_page(req.clone()).is_err(),
+        "search_page: empty namespace must fail even at top_k=0"
+    );
+    assert!(
+        db.search_with_method(req.clone(), Some(crate::index::IndexType::Flat))
+            .is_err(),
+        "search_with_method: empty namespace must fail even at top_k=0"
+    );
+
+    // Reserved metadata filter key + top_k = 0 must error (not a silent page).
+    let mut filters = MemoryMetadata::new();
+    filters.insert("__vanta_forbidden".into(), Value::Int(1));
+    let req = MemorySearchRequest {
+        namespace: "test".into(),
+        text_query: Some("hello".into()),
+        top_k: 0,
+        filters,
+        ..Default::default()
+    };
+    let err = db
+        .search(req.clone())
+        .expect_err("search: reserved filter key must fail even at top_k=0");
+    assert!(
+        err.to_string().contains("reserved"),
+        "expected reserved-key validation error, got: {err}"
+    );
+    assert!(
+        db.search_page(req).is_err(),
+        "search_page: reserved filter key must fail even at top_k=0"
+    );
+
+    // search_multi: invalid filters must error ahead of its own early
+    // returns (top_k == 0 AND empty namespace list alike). Per design the
+    // `request.namespace` field is ignored by search_multi, so it is left
+    // empty here to prove it is not validated on this path.
+    let mut filters = MemoryMetadata::new();
+    filters.insert("__vanta_forbidden".into(), Value::Int(1));
+    let req = MemorySearchRequest {
+        namespace: String::new(),
+        text_query: Some("hello".into()),
+        top_k: 0,
+        filters: filters.clone(),
+        ..Default::default()
+    };
+    assert!(
+        db.search_multi(&["test"], req.clone()).is_err(),
+        "search_multi: reserved filter key must fail even at top_k=0"
+    );
+    assert!(
+        db.search_multi(&[], req).is_err(),
+        "search_multi: reserved filter key must fail even with no namespaces"
+    );
+    // A valid request still honors the silent early returns.
+    let req = MemorySearchRequest {
+        namespace: String::new(),
+        text_query: Some("hello".into()),
+        top_k: 0,
+        ..Default::default()
+    };
+    assert!(db.search_multi(&["test"], req).unwrap().is_empty());
+}
+
+#[test]
 fn test_search_invalid_namespace() {
     let db = setup();
     let req = MemorySearchRequest {

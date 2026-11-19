@@ -62,6 +62,14 @@ impl Embedded {
         namespaces: &[&str],
         request: MemorySearchRequest,
     ) -> crate::Result<Vec<crate::sdk::types::MemorySearchHit>> {
+        // FIND-535 (residual): boundary validation ahead of the early
+        // return — a request with invalid filters or non-finite query
+        // vectors must error even when `top_k == 0` (or `namespaces` is
+        // empty), matching `run_search_page`. `request.namespace` is
+        // ignored here by design, so it is deliberately NOT validated;
+        // per-namespace entries keep their silent-skip contract.
+        super::page::validate_search_options(&request)?;
+
         if namespaces.is_empty() || request.top_k == 0 {
             return Ok(Vec::new());
         }

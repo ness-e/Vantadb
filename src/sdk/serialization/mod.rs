@@ -418,6 +418,47 @@ fn sparse_vector_from_field(flat: &[f64]) -> Option<SparseVector> {
     Some(SparseVector(map))
 }
 
+/// Decode the persisted [`SPARSE_VECTOR_EXT_KEY`] field value back into a
+/// `SparseVector` — the exact logic `memory_record_from_node_inner` uses.
+/// `ListFloat` pairs are the current encoding (ADR-019); the legacy
+/// `String`/JSON form remains readable. A present-but-corrupt payload logs
+/// once and reads as `None` (never fails the read). Extracted so paths that
+/// rebuild a record's sparse vector straight from stored relational fields
+/// (e.g. `purge_expired`, FIND-251) share the identical decode.
+pub(crate) fn sparse_vector_from_stored_field(
+    field: Option<&FieldValue>,
+    node_id: u128,
+) -> Option<SparseVector> {
+    match field {
+        Some(FieldValue::ListFloat(flat)) => match sparse_vector_from_field(flat) {
+            Some(parsed) => Some(parsed),
+            None => {
+                tracing::warn!(
+                    node_id = %node_id,
+                    "corrupt sparse vector payload (malformed ListFloat pairs) ignored during read"
+                );
+                None
+            }
+        },
+        Some(FieldValue::String(json)) => match serde_json::from_str(json) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                // PERF-07: a present-but-corrupt sparse payload was silently
+                // dropped by `.ok()`. Log it once so the corruption is
+                // visible, but keep returning None (old behavior) rather than
+                // failing the whole read.
+                tracing::warn!(
+                    node_id = %node_id,
+                    error = %err,
+                    "corrupt sparse vector payload ignored during read"
+                );
+                None
+            }
+        },
+        _ => None,
+    }
+}
+
 pub fn record_from_node(node: &UnifiedNode) -> Option<MemoryRecord> {
     memory_record_from_node_inner(node, true)
 }
@@ -542,34 +583,8 @@ fn memory_record_from_node_inner(node: &UnifiedNode, apply_lazy_ttl: bool) -> Op
     // without SPARSE_VECTOR_EXT_KEY skip serde_json entirely (PERF-07).
     // ADR-019: new writes are ListFloat pairs; legacy String/JSON remains
     // readable for backward compat.
-    let sparse_vector = match node.get_field(SPARSE_VECTOR_EXT_KEY) {
-        Some(crate::node::FieldValue::ListFloat(flat)) => match sparse_vector_from_field(flat) {
-            Some(parsed) => Some(parsed),
-            None => {
-                tracing::warn!(
-                    node_id = %node.id,
-                    "corrupt sparse vector payload (malformed ListFloat pairs) ignored during read"
-                );
-                None
-            }
-        },
-        Some(crate::node::FieldValue::String(json)) => match serde_json::from_str(json) {
-            Ok(parsed) => parsed,
-            Err(err) => {
-                // PERF-07: a present-but-corrupt sparse payload was silently
-                // dropped by `.ok()`. Log it once so the corruption is
-                // visible, but keep returning None (old behavior) rather than
-                // failing the whole read.
-                tracing::warn!(
-                    node_id = %node.id,
-                    error = %err,
-                    "corrupt sparse vector payload ignored during read"
-                );
-                None
-            }
-        },
-        _ => None,
-    };
+    let sparse_vector =
+        sparse_vector_from_stored_field(node.get_field(SPARSE_VECTOR_EXT_KEY), node.id);
 
     Some(MemoryRecord {
         namespace,

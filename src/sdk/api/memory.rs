@@ -17,6 +17,7 @@ use super::super::serialization::{
     FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE,
     FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS, FIELD_QUARANTINED_BY, FIELD_QUARANTINE_REASON,
     FIELD_QUARANTINE_REVIEW_DUE_MS, FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS, FIELD_VERSION,
+    SPARSE_INDEX_SCHEMA_VERSION, SPARSE_VECTOR_EXT_KEY,
 };
 use super::super::types::*;
 use super::graph::{LABEL_DERIVED_FROM, LABEL_SUPERSEDED_BY, LABEL_SUPERSEDES_EDGE};
@@ -569,9 +570,8 @@ impl Embedded {
     /// reports nothing, `list`/search exclude it — so a write must not
     /// collide with it. Purging first gives the same observable outcome as
     /// the documented `purge_expired()`-then-`put` workaround: fresh version 1
-    /// and `created_at_ms` reset (the single-record purge is a superset of the
-    /// sweeper's cleanup — it also removes sparse index entries, which
-    /// `purge_expired` does not).
+    /// and `created_at_ms` reset (both paths remove the sparse index entries
+    /// since FIND-251).
     ///
     /// Returns the existing live record (if any) **plus the read guard that
     /// stabilizes its generation**. Kept for callers that only need a
@@ -1400,26 +1400,52 @@ impl Embedded {
 
     /// Insert or update multiple namespace-scoped persistent memory records.
     ///
-    /// Uses `batch_insert_with_opts()` internally — a single WAL `batch_append`,
-    /// KV `write_batch`, and HNSW lock acquisition across all nodes in a chunk —
-    /// plus per-record derived/text/sparse index replacement (the same
-    /// `replace_derived_indexes` path `put()` uses; MEMG-11: O(batch), no
-    /// full-DB rebuild). UPSERTs bump versions like `put()` (in-batch
-    /// duplicates included).
+    /// Uses `batch_insert_with_opts()` internally — WAL `batch_append` + KV
+    /// `write_batch` per internal 1000-node engine chunk — followed by a
+    /// single netted derived/text/sparse index commit for the WHOLE batch
+    /// (`replace_derived_indexes_batch`; MEMG-11: O(batch), no full-DB
+    /// rebuild). UPSERTs bump versions like `put()` (in-batch duplicates
+    /// included).
     ///
-    /// # Atomicity (FIND-221 — current contract)
+    /// # Atomicity (FIND-640 — staged commit contract)
     ///
-    /// - **Upfront validation is all-or-nothing:** namespace/key/metadata
-    ///   shape validation plus the namespace quota pre-check run over the
-    ///   WHOLE batch before any chunk commits — a batch rejected here
-    ///   leaves zero records behind.
-    /// - **Past validation, commits are per-chunk, not all-or-nothing:**
-    ///   records commit in `batch_size` chunks (default 1000), each chunk
-    ///   one WAL `batch_append` + KV `write_batch`. If a later chunk fails
-    ///   (e.g. a confidence/derivation rule or an I/O error), earlier
-    ///   chunks stay committed. True batch-wide atomicity (2PC) needs
-    ///   engine-level support and is tracked under FIND-221 — do not
-    ///   assume rollback of committed chunks.
+    /// The batch commits in three ordered stages:
+    ///
+    /// - **Stage A (staging, all-or-nothing):** shape validation
+    ///   (namespace/key/metadata), the namespace quota pre-check, the
+    ///   per-record existing-record resolution, confidence/derivation
+    ///   materialization and node building all run over the WHOLE batch
+    ///   before any record commits — a failure here leaves zero records
+    ///   behind (previously, a mid-batch failure kept earlier 1000-entry
+    ///   chunks committed).
+    /// - **Stage B (node commit):** every staged node commits through a
+    ///   single `batch_insert_with_opts` call; the engine rolls back all of
+    ///   its internal write chunks on failure (KV restore, HNSW removal,
+    ///   vstore tombstones, cache invalidation), so the node store is
+    ///   atomic across the batch **in-process**: any `Err` return from this
+    ///   call left zero (or zero-net-change) records behind.
+    /// - **Stage C (derived indexes):** namespace/payload/text/sparse index
+    ///   entries are computed with netted stats and committed in ONE
+    ///   `write_backend_batch` — atomic for the index layer.
+    ///
+    /// # Residuals (explicit trade-offs of the staged design)
+    ///
+    /// - **Crash window in Stage B:** the engine chunks its WAL/KV commits
+    ///   internally (1000 nodes each). A *process crash* between chunks
+    ///   leaves the already-committed prefix durable — in-process rollback
+    ///   cannot run post-mortem. WAL replay on reopen applies each committed
+    ///   chunk as a self-consistent unit, so a crashed >1000-record batch can
+    ///   surface a record prefix. Closing this needs engine-level WAL
+    ///   transaction markers (begin/commit + recovery discard of
+    ///   unconfirmed batches) — deferred; reported as the FIND-640
+    ///   residual.
+    /// - **Post-commit failure in Stage C:** lineage-edge or index-state
+    ///   bookkeeping I/O can still return `Err` with the nodes already
+    ///   committed — the same exposure class as `put()`. Index entry/state
+    ///   divergence is detected and rebuilt by `ensure_indexes_current` on
+    ///   the next open (count-mismatch reconciliation). True 2PC across the
+    ///   node store and the derived partitions needs engine-level
+    ///   transactions.
     #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
         let (namespace, key) = inputs
@@ -1473,20 +1499,19 @@ impl Embedded {
         // MEMG-04: all-or-nothing quota pre-check — rejects before any chunk
         // is written, so an over-quota batch leaves no partial state.
         self.check_batch_namespace_quota(&engine, &inputs)?;
-        let batch_size = self.config.batch_size.unwrap_or(1000);
-        let mut all_results: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
-        let mut rebuild_needed = false;
+        let mut records: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
+        // `previous` side of `replace_derived_indexes_batch` per record
+        // (None = fresh insert), parallel to `records`.
+        let mut previous: Vec<Option<MemoryRecord>> = Vec::with_capacity(inputs.len());
         // Track versions + quarantine state + the last record written for keys
         // seen earlier in this batch (in-batch dedup, mirrors put_one's UPSERT
-        // semantics; the record is the `previous` side of the per-record
-        // derived/text/sparse index replacement below). Persisted before the
-        // chunk loop so duplicate keys split across chunks still bump
-        // correctly.
+        // semantics; the record is the `previous` side of the batch's
+        // derived/text/sparse index replacement below).
         let mut seen: HashMap<u128, (u64, QuarantineState, MemoryRecord)> =
             HashMap::with_capacity(inputs.len());
         // DUR-03 (review MEMG-11 r2): hold the purge **write**-lock ONCE for
-        // the whole batch critical section (resolve + insert + per-record
-        // index replacement). A concurrent `purge_expired` cannot interleave
+        // the whole batch critical section (resolve + insert + index
+        // replacement). A concurrent `purge_expired` cannot interleave
         // and double-decrement the text stats (the race `put_one` closes by
         // holding the same write guard). A single write guard also avoids the
         // deadlock the read-guard variant would create: expired keys are
@@ -1495,217 +1520,225 @@ impl Embedded {
         // which never re-enter the non-reentrant lock.
         let _batch_guard = self.purge_lock.write();
 
-        for chunk in inputs.chunks(batch_size) {
-            let timestamp = now_ms();
-            let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(chunk.len());
-            let mut records: Vec<MemoryRecord> = Vec::with_capacity(chunk.len());
-            // `previous` side of `replace_derived_indexes` per record (None =
-            // fresh insert), parallel to `records`.
-            let mut chunk_previous: Vec<Option<MemoryRecord>> = Vec::with_capacity(chunk.len());
-            // MEMG-03: stale lineage targets per record (counterpart-side
-            // cleanup after the batch insert), parallel to `records`.
-            let mut chunk_stale_lineage: Vec<Vec<(u128, &'static str)>> =
-                Vec::with_capacity(chunk.len());
-            // SCH-05 review F3: T1 entries of this chunk, audited post-commit.
-            let mut entered_quarantine: Vec<(String, String)> = Vec::new();
+        // ── Stage A: stage the whole batch before any commit (FIND-640) ──
+        // Every fallible read/shape step — existing-record resolution,
+        // confidence/derivation materialization, validity/TTL resolution,
+        // node building, lineage reconciliation — runs here, before Stage B
+        // writes anything. A failure in this loop leaves zero records
+        // behind (previously a mid-batch failure kept earlier 1000-entry
+        // chunks committed).
+        let timestamp = now_ms();
+        let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(inputs.len());
+        // MEMG-03: stale lineage targets per record (counterpart-side
+        // cleanup after the batch insert), parallel to `records`.
+        let mut stale_lineage: Vec<Vec<(u128, &'static str)>> = Vec::with_capacity(inputs.len());
+        // SCH-05 review F3: T1 entries of this batch, audited post-commit.
+        let mut entered_quarantine: Vec<(String, String)> = Vec::new();
 
-            for input in chunk {
-                let node_id = memory_node_id(&input.namespace, &input.key);
-                // Existing record: in-batch duplicate wins (already bumped), else
-                // consult the engine like put_one (pre-existing records from
-                // earlier batches should also increment, not reset to 1).
-                let (prev_version, prev_created_at_ms, mut quarantine, previous) =
-                    if let Some((v, q, prev)) = seen.get(&node_id) {
-                        (Some(*v), Some(timestamp), q.clone(), Some(prev.clone()))
-                    } else {
-                        // Under `_batch_guard`: no read guard is taken and
-                        // expired keys are purged inline (locked variant).
-                        match self.resolve_existing_for_write_locked(
-                            &engine,
-                            &input.namespace,
-                            &input.key,
-                        )? {
-                            Some(record) => (
-                                Some(record.version),
-                                Some(record.created_at_ms),
-                                QuarantineState::from_record(&record),
-                                Some(record),
-                            ),
-                            None => (None, None, QuarantineState::default(), None),
-                        }
-                    };
-                let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
-                let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
-
-                // T1 (ADR-046 §D5): same write-time flag semantics as put_one
-                // (sticky wins; entry only when not already quarantined).
-                let quarantine_entered = quarantine.at_ms.is_none() && input.quarantine;
-                if quarantine_entered {
-                    quarantine.at_ms = Some(timestamp);
-                    quarantine.reason = Some("explicit_write".into());
-                    quarantine.by = Some("system:put_batch".into());
-                    quarantine.review_due_ms = self.quarantine_review_due_ms(timestamp);
-                    entered_quarantine.push((input.namespace.clone(), input.key.clone()));
-                }
-
-                let (confidence_class, confidence, derived_from) =
-                    self.materialize_confidence(input, Some(&seen))?;
-                let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
-                let quarantine_snapshot = quarantine.clone();
-
-                let record = MemoryRecord {
-                    namespace: input.namespace.clone(),
-                    key: input.key.clone(),
-                    payload: input.payload.clone(),
-                    metadata: input.metadata.clone(),
-                    created_at_ms,
-                    updated_at_ms: timestamp,
-                    version,
-                    node_id,
-                    vector: input.vector.clone().filter(|v| Self::usable_vector(v)),
-                    sparse_vector: input.sparse_vector.clone(),
-                    expires_at_ms: self
-                        .effective_ttl_ms(&input.namespace, input.ttl_ms)
-                        .map(|ttl| timestamp.saturating_add(ttl)),
-                    superseded_by: None,
-                    superseded_at_ms: None,
-                    valid_at_ms,
-                    invalid_at_ms: None,
-                    confidence_class,
-                    confidence,
-                    last_validated_at_ms: None,
-                    derived_from,
-                    quarantined_at_ms: quarantine.at_ms,
-                    quarantine_reason: quarantine.reason,
-                    quarantined_by: quarantine.by,
-                    quarantine_review_due_ms: quarantine.review_due_ms,
-                };
-                let (mut node, record) = memory_record_to_node_owned(record);
-                // MEMG-03: a rewrite must not wipe node-resident graph state
-                // (edges) — only an existing node can hold it — and stale
-                // derived_from lineage edges are dropped (field = canonical;
-                // the edge is derived navigability).
-                if previous.is_some() {
-                    carry_graph_state(&engine, &mut node)?;
-                }
-                chunk_stale_lineage.push(reconcile_lineage_edges(
-                    &engine,
-                    &mut node,
-                    &record.namespace,
-                    &record.derived_from,
-                    record.superseded_by.as_deref(),
-                ));
-                seen.insert(node_id, (version, quarantine_snapshot, record.clone()));
-                nodes.push(node);
-                chunk_previous.push(previous);
-                records.push(record);
-            }
-
-            // ── Single batch insert: WAL batch_append + KV write_batch ──
-            // Auto mode — rebuild only if the chunk exceeds the incremental
-            // threshold (default: 1000 nodes). In-memory backends (WASM,
-            // `:memory:`) have no filesystem to persist a rebuilt index to,
-            // so insert incrementally instead — rebuild_vector_index() calls
-            // fs (mmap/persist) which fails on wasm32 with "IO error:
-            // operation not supported on this platform" (load.test.ts).
-            let use_auto = self.config.backend_kind != BackendKind::InMemory;
-            let opts = BatchInsertOptions {
-                skip_existing_check: true,
-                skip_wal: false,
-                insert_mode: if use_auto {
-                    InsertMode::Auto
+        for input in &inputs {
+            let node_id = memory_node_id(&input.namespace, &input.key);
+            // Existing record: in-batch duplicate wins (already bumped), else
+            // consult the engine like put_one (pre-existing records from
+            // earlier batches should also increment, not reset to 1).
+            let (prev_version, prev_created_at_ms, mut quarantine, prev) =
+                if let Some((v, q, prev)) = seen.get(&node_id) {
+                    (Some(*v), Some(timestamp), q.clone(), Some(prev.clone()))
                 } else {
-                    InsertMode::Incremental
-                },
-                ..Default::default()
+                    // Under `_batch_guard`: no read guard is taken and
+                    // expired keys are purged inline (locked variant).
+                    match self.resolve_existing_for_write_locked(
+                        &engine,
+                        &input.namespace,
+                        &input.key,
+                    )? {
+                        Some(record) => (
+                            Some(record.version),
+                            Some(record.created_at_ms),
+                            QuarantineState::from_record(&record),
+                            Some(record),
+                        ),
+                        None => (None, None, QuarantineState::default(), None),
+                    }
+                };
+            let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
+            let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
+
+            // T1 (ADR-046 §D5): same write-time flag semantics as put_one
+            // (sticky wins; entry only when not already quarantined).
+            let quarantine_entered = quarantine.at_ms.is_none() && input.quarantine;
+            if quarantine_entered {
+                quarantine.at_ms = Some(timestamp);
+                quarantine.reason = Some("explicit_write".into());
+                quarantine.by = Some("system:put_batch".into());
+                quarantine.review_due_ms = self.quarantine_review_due_ms(timestamp);
+                entered_quarantine.push((input.namespace.clone(), input.key.clone()));
+            }
+
+            let (confidence_class, confidence, derived_from) =
+                self.materialize_confidence(input, Some(&seen))?;
+            let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
+            let quarantine_snapshot = quarantine.clone();
+
+            let record = MemoryRecord {
+                namespace: input.namespace.clone(),
+                key: input.key.clone(),
+                payload: input.payload.clone(),
+                metadata: input.metadata.clone(),
+                created_at_ms,
+                updated_at_ms: timestamp,
+                version,
+                node_id,
+                vector: input.vector.clone().filter(|v| Self::usable_vector(v)),
+                sparse_vector: input.sparse_vector.clone(),
+                expires_at_ms: self
+                    .effective_ttl_ms(&input.namespace, input.ttl_ms)
+                    .map(|ttl| timestamp.saturating_add(ttl)),
+                superseded_by: None,
+                superseded_at_ms: None,
+                valid_at_ms,
+                invalid_at_ms: None,
+                confidence_class,
+                confidence,
+                last_validated_at_ms: None,
+                derived_from,
+                quarantined_at_ms: quarantine.at_ms,
+                quarantine_reason: quarantine.reason,
+                quarantined_by: quarantine.by,
+                quarantine_review_due_ms: quarantine.review_due_ms,
             };
-            let chunk_needs_rebuild = opts.needs_rebuild(chunk.len());
-            engine.batch_insert_with_opts(&nodes, opts)?;
-            rebuild_needed = rebuild_needed || chunk_needs_rebuild;
-
-            // MEMG-03: counterpart-side cleanup of stale lineage edges
-            // (best-effort) + ensure the declared derived_from edges
-            // (idempotent). In-batch duplicate keys: only the last occurrence
-            // wins (mirrors the upsert semantics of the record itself).
-            let mut last_wins: HashSet<u128> = HashSet::with_capacity(records.len());
-            for (record, stale) in records.iter().zip(chunk_stale_lineage.iter()).rev() {
-                if !last_wins.insert(record.node_id) {
-                    continue;
-                }
-                for &(target, label) in stale {
-                    let _ = self.remove_edge(record.node_id, target, label);
-                }
-                for parent_key in &record.derived_from {
-                    self.ensure_edge(
-                        record.node_id,
-                        memory_node_id(&record.namespace, parent_key),
-                        LABEL_DERIVED_FROM,
-                    )?;
-                }
+            let (mut node, record) = memory_record_to_node_owned(record);
+            // MEMG-03: a rewrite must not wipe node-resident graph state
+            // (edges) — only an existing node can hold it — and stale
+            // derived_from lineage edges are dropped (field = canonical;
+            // the edge is derived navigability).
+            if prev.is_some() {
+                carry_graph_state(&engine, &mut node)?;
             }
-
-            // ── Derived/text/sparse indexes: per-record replacement ──
-            // Mirrors `put_one`: each record's namespace/payload/text/sparse
-            // entries are replaced incrementally (with the resolved previous
-            // record as the delete side for UPSERTS). This replaces the former
-            // full-DB rebuild per batch — O(batch) instead of O(total nodes),
-            // which made small batches on large stores pathologically slow
-            // (MEMG-11 A/B: 0.07× at store=2000/batch=20).
-            for (previous, record) in chunk_previous.iter().zip(records.iter()) {
-                self.replace_derived_indexes(&engine, previous.as_ref(), Some(record))?;
-            }
-
-            // SCH-05 review F3: audit each T1 entry post-commit (mirrors
-            // put_one; the write-time quarantine flag is a domain event).
-            for (ns, key) in &entered_quarantine {
-                self.audit(crate::audit::AuditEvent::new(
-                    "quarantine_enter",
-                    ns,
-                    key,
-                    "ok",
-                    Some("explicit_write".to_string()),
-                ));
-            }
-
-            // ── Post-processing (shredding; derived/text/sparse indexes were
-            // replaced per record right after the chunk insert) ──
-            if engine.config.enable_json_shredding {
-                // FIND-651: batch the shred rows through `write_backend_batch`
-                // (single insert_lock acquisition + single atomic write)
-                // instead of per-record direct `backend.put`s that could land
-                // while `create_snapshot` mirrors the backend.
-                let shred_ops: Vec<crate::backend::BackendWriteOp> = records
-                    .iter()
-                    .filter(|record| !record.metadata.is_empty())
-                    .filter_map(|record| {
-                        crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
-                    })
-                    .collect();
-                if !shred_ops.is_empty() {
-                    let _ = engine.write_backend_batch(shred_ops);
-                }
-            }
-
-            // ── Version history: 1 write_batch per chunk (best-effort, post-commit) ──
-            // Records already carry the final version (seen_versions bump), so
-            // the snapshots mirror the exact bump sequence per key.
-            let _ = super::super::version_history::write_snapshot_batch(
+            stale_lineage.push(reconcile_lineage_edges(
                 &engine,
-                &records,
-                self.config.version_history_limit,
-            );
-
-            all_results.extend(records);
+                &mut node,
+                &record.namespace,
+                &record.derived_from,
+                record.superseded_by.as_deref(),
+            ));
+            seen.insert(node_id, (version, quarantine_snapshot, record.clone()));
+            nodes.push(node);
+            previous.push(prev);
+            records.push(record);
         }
 
-        // ── HNSW index: rebuild from scratch when any chunk used Rebuild mode ──
+        // ── Stage B: single atomic node commit (FIND-640) ──
+        // One `batch_insert_with_opts` call for the WHOLE batch: the engine
+        // internally chunks the WAL/KV writes and rolls back every applied
+        // chunk on failure (KV restore/delete, HNSW removal, vstore
+        // tombstones, cache invalidation) — the node store is atomic across
+        // the batch in-process.
+        //
+        // `skip_existing_check: false` is REQUIRED for rollback safety: the
+        // engine's rollback restores `pre_existing_raw` per node — with the
+        // check skipped it would DELETE the KV entry of a pre-existing
+        // (upserted) record, silently losing the previous version.
+        //
+        // Auto mode — rebuild only if the batch exceeds the incremental
+        // threshold (default: 1000 nodes). In-memory backends (WASM,
+        // `:memory:`) have no filesystem to persist a rebuilt index to,
+        // so insert incrementally instead — rebuild_vector_index() calls
+        // fs (mmap/persist) which fails on wasm32 with "IO error:
+        // operation not supported on this platform" (load.test.ts).
+        let use_auto = self.config.backend_kind != BackendKind::InMemory;
+        let opts = BatchInsertOptions {
+            skip_existing_check: false,
+            skip_wal: false,
+            insert_mode: if use_auto {
+                InsertMode::Auto
+            } else {
+                InsertMode::Incremental
+            },
+            ..Default::default()
+        };
+        let rebuild_needed = opts.needs_rebuild(nodes.len());
+        engine.batch_insert_with_opts(&nodes, opts)?;
+
+        // ── Stage C: post-commit derived state ──
+
+        // MEMG-03: counterpart-side cleanup of stale lineage edges
+        // (best-effort) + ensure the declared derived_from edges
+        // (idempotent). In-batch duplicate keys: only the last occurrence
+        // wins (mirrors the upsert semantics of the record itself).
+        let mut last_wins: HashSet<u128> = HashSet::with_capacity(records.len());
+        for (record, stale) in records.iter().zip(stale_lineage.iter()).rev() {
+            if !last_wins.insert(record.node_id) {
+                continue;
+            }
+            for &(target, label) in stale {
+                let _ = self.remove_edge(record.node_id, target, label);
+            }
+            for parent_key in &record.derived_from {
+                self.ensure_edge(
+                    record.node_id,
+                    memory_node_id(&record.namespace, parent_key),
+                    LABEL_DERIVED_FROM,
+                )?;
+            }
+        }
+
+        // ── Derived/text/sparse indexes: single atomic commit (FIND-640) ──
+        // Mirrors `put_one`'s per-record replacement (namespace/payload/
+        // text/sparse entries replaced with the resolved previous record as
+        // the delete side for UPSERTS) but netted across the whole batch
+        // into ONE `write_backend_batch` — O(batch), no per-record backend
+        // round-trips, and no prefix-of-indexes state if the write fails.
+        self.replace_derived_indexes_batch(&engine, &previous, &records)?;
+
+        // SCH-05 review F3: audit each T1 entry post-commit (mirrors
+        // put_one; the write-time quarantine flag is a domain event).
+        for (ns, key) in &entered_quarantine {
+            self.audit(crate::audit::AuditEvent::new(
+                "quarantine_enter",
+                ns,
+                key,
+                "ok",
+                Some("explicit_write".to_string()),
+            ));
+        }
+
+        // ── Post-processing (shredding; derived/text/sparse indexes were
+        // committed above) ──
+        if engine.config.enable_json_shredding {
+            // FIND-651: batch the shred rows through `write_backend_batch`
+            // (single insert_lock acquisition + single atomic write)
+            // instead of per-record direct `backend.put`s that could land
+            // while `create_snapshot` mirrors the backend.
+            let shred_ops: Vec<BackendWriteOp> = records
+                .iter()
+                .filter(|record| !record.metadata.is_empty())
+                .filter_map(|record| {
+                    crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
+                })
+                .collect();
+            if !shred_ops.is_empty() {
+                let _ = engine.write_backend_batch(shred_ops);
+            }
+        }
+
+        // ── Version history: 1 write_batch for the batch (best-effort,
+        // post-commit). Records already carry the final version (`seen`
+        // bump), so the snapshots mirror the exact bump sequence per key.
+        let _ = super::super::version_history::write_snapshot_batch(
+            &engine,
+            &records,
+            self.config.version_history_limit,
+        );
+
+        // ── HNSW index: rebuild from scratch when the batch used Rebuild mode ──
         if rebuild_needed {
             engine.rebuild_vector_index()?;
         }
 
-        // Derived/text/sparse indexes were updated incrementally per record
-        // above (same path as `put_one`), so no full rebuild is needed here.
-        Ok(all_results)
+        // Derived/text/sparse indexes were committed atomically above
+        // (same net effect as `put_one`'s per-record path), so no full
+        // rebuild is needed here.
+        Ok(records)
     }
 
     /// Retrieve a single memory record by namespace and key.
@@ -2796,11 +2829,19 @@ impl Embedded {
                     version,
                     node_id,
                     // The delete loop only reads node_id/namespace/key/payload/
-                    // metadata. Skip materializing the dense vector (full
-                    // Vec<f32> clone) and the sparse vector (JSON parse) —
-                    // both were dead allocations in this path.
+                    // metadata — skip materializing the dense vector (full
+                    // Vec<f32> clone, dead allocation in this path).
                     vector: None,
-                    sparse_vector: None,
+                    // FIND-251: the sparse vector MUST be decoded for expired
+                    // records (only this `now > expires` branch reaches
+                    // `to_delete`, so non-expired candidates never pay the
+                    // parse): `sparse_delete_ops` keys the posting deletes off
+                    // it. Skipping it left stale
+                    // `BackendPartition::SparseIndex` postings behind.
+                    sparse_vector: super::super::serialization::sparse_vector_from_stored_field(
+                        fields.get(SPARSE_VECTOR_EXT_KEY),
+                        node_id,
+                    ),
                     expires_at_ms: Some(expires),
                     superseded_by: None,
                     superseded_at_ms: None,
@@ -2817,6 +2858,7 @@ impl Embedded {
         let mut all_ops = Vec::new();
         let mut total_payload_entries = 0u64;
         let mut total_posting = 0u64;
+        let mut total_sparse_postings = 0u64;
         let mut doc_stats_delta: i64 = 0;
         let mut term_deltas: BTreeMap<(String, String), i64> = BTreeMap::new();
         let mut namespace_deltas: BTreeMap<String, (i64, i64)> = BTreeMap::new();
@@ -2827,6 +2869,14 @@ impl Embedded {
             let _ =
                 super::super::version_history::purge_key(&engine, &record.namespace, &record.key);
             all_ops.extend(Self::derived_delete_ops(record)?);
+            // FIND-251: drop the sparse postings too — the same helper
+            // `replace_derived_indexes` uses for the delete side of a sparse
+            // replace. Without it the SparseIndex partition kept stale
+            // postings for expired records.
+            all_ops
+                .extend(super::super::serialization::impl_sparse_index::sparse_delete_ops(record));
+            total_sparse_postings +=
+                super::super::serialization::impl_sparse_index::sparse_posting_count(record);
             total_payload_entries += record.metadata.len() as u64;
 
             let terms = crate::text_index::record_terms(&record.payload);
@@ -2914,66 +2964,11 @@ impl Embedded {
             }
         }
 
-        for op in &all_ops {
-            match op {
-                BackendWriteOp::Put {
-                    partition: BackendPartition::TextIndex,
-                    key,
-                    value,
-                } => {
-                    if crate::text_index::is_term_stats_key(key) {
-                        if let Some((ns, token)) = Self::parse_term_stats_key(key) {
-                            if let Ok(stats) = crate::text_index::decode_term_stats(value) {
-                                let mut guard = engine.cache.text_stats.write();
-                                guard.insert((ns, token), stats);
-                                // ponytail: watermark eviction — drop first half if over limit
-                                if guard.len() > crate::config::MAX_TEXT_STATS_CACHE {
-                                    let keys: Vec<_> =
-                                        guard.keys().take(guard.len() / 2).cloned().collect();
-                                    for k in keys {
-                                        guard.remove(&k);
-                                    }
-                                }
-                            }
-                        }
-                    } else if crate::text_index::is_namespace_stats_key(key) {
-                        if let Some(ns) = Self::parse_namespace_stats_key(key) {
-                            if let Ok(stats) = crate::text_index::decode_namespace_stats(value) {
-                                let mut guard = engine.cache.text_ns.write();
-                                guard.insert(ns, stats);
-                                // ponytail: watermark eviction — drop first half if over limit
-                                if guard.len() > crate::config::MAX_TEXT_NS_CACHE {
-                                    let keys: Vec<_> =
-                                        guard.keys().take(guard.len() / 2).cloned().collect();
-                                    for k in keys {
-                                        guard.remove(&k);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                BackendWriteOp::Delete {
-                    partition: BackendPartition::TextIndex,
-                    key,
-                } => {
-                    if crate::text_index::is_term_stats_key(key) {
-                        if let Some((ns, token)) = Self::parse_term_stats_key(key) {
-                            let mut guard = engine.cache.text_stats.write();
-                            guard.remove(&(ns, token));
-                        }
-                    } else if crate::text_index::is_namespace_stats_key(key) {
-                        if let Some(ns) = Self::parse_namespace_stats_key(key) {
-                            let mut guard = engine.cache.text_ns.write();
-                            guard.remove(&ns);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+        engine.write_backend_batch(all_ops.clone())?;
 
-        engine.write_backend_batch(all_ops)?;
+        // Reflect the committed ops in the stats caches — only AFTER the
+        // batch succeeded (a failed write must not poison the cache).
+        Self::apply_text_stats_cache_updates(&engine, &all_ops);
 
         if let Some(mut state) = Self::load_derived_index_state(&engine)? {
             if state.schema_version == DERIVED_INDEX_SCHEMA_VERSION {
@@ -2995,6 +2990,17 @@ impl Embedded {
                 state.namespace_stats_entries =
                     Self::apply_u64_delta(state.namespace_stats_entries, namespace_stats_delta);
                 Self::write_text_index_state(&engine, &state)?;
+            }
+        }
+
+        // FIND-251: keep the sparse index state consistent with the postings
+        // removed above — same adjustment `replace_derived_indexes` applies
+        // for the (Some, None) delete case, batched.
+        if let Some(mut state) = Self::load_sparse_index_state(&engine)? {
+            if state.schema_version == SPARSE_INDEX_SCHEMA_VERSION {
+                state.record_count = state.record_count.saturating_sub(count);
+                state.posting_entries = state.posting_entries.saturating_sub(total_sparse_postings);
+                Self::write_sparse_index_state(&engine, &state)?;
             }
         }
 
@@ -3702,5 +3708,132 @@ mod tests {
             derived_from: Some(parents.iter().map(|s| (*s).to_string()).collect()),
             ..MemoryInput::new(ns, key, key)
         }
+    }
+
+    /// FIND-251: `purge_expired` must also delete the record's
+    /// `BackendPartition::SparseIndex` postings — the same cleanup
+    /// `replace_derived_indexes` applies on the delete side. A record with a
+    /// sparse vector and a lapsed deadline must leave zero postings behind.
+    #[test]
+    fn purge_expired_removes_sparse_index_postings() {
+        use crate::node::SparseVector;
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        db.put_record_exact(MemoryRecord {
+            namespace: "ttl".into(),
+            key: "exp".into(),
+            payload: "expired payload".into(),
+            node_id: memory_node_id("ttl", "exp"),
+            sparse_vector: Some(SparseVector(BTreeMap::from([(3, 0.5), (9, 1.0)]))),
+            // Deadline already passed at write time (epoch + 1 ms) —
+            // deterministic expiry, no clock wait.
+            expires_at_ms: Some(1),
+            ..Default::default()
+        })
+        .expect("seed expired record");
+
+        let engine = db.engine_handle().expect("engine");
+        assert_eq!(
+            engine
+                .scan_partition(BackendPartition::SparseIndex)
+                .expect("scan sparse index")
+                .len(),
+            2,
+            "seed must write one sparse posting per dim"
+        );
+
+        // A live record in the same namespace proves the purge only removes
+        // the expired key's postings.
+        db.put(MemoryInput {
+            sparse_vector: Some(SparseVector(BTreeMap::from([(3, 0.25)]))),
+            ..MemoryInput::new("ttl", "live", "live payload")
+        })
+        .expect("seed live record");
+
+        let purged = db.purge_expired().expect("purge_expired");
+        assert_eq!(purged, 1, "exactly the expired record is purged");
+
+        let remaining = engine
+            .scan_partition(BackendPartition::SparseIndex)
+            .expect("scan sparse index after purge");
+        assert_eq!(
+            remaining.len(),
+            1,
+            "expired record postings must be gone; the live record keeps its own"
+        );
+        assert!(
+            db.get("ttl", "exp").expect("get").is_none(),
+            "expired record is physically gone"
+        );
+
+        let state = Embedded::load_sparse_index_state(&engine)
+            .expect("load sparse index state")
+            .expect("sparse index state present");
+        assert_eq!(
+            state.posting_entries, 1,
+            "state must reflect only the live record's posting"
+        );
+    }
+
+    /// FIND-640: `put_batch` stages the WHOLE batch before any commit
+    /// (Stage A) — a record that fails deep-batch materialization (here a
+    /// `Derived` record whose parent does not exist) must leave **zero**
+    /// records committed. The batch is larger than the engine's internal
+    /// 1000-node write chunk, so under the old per-chunk-commit loop the
+    /// first chunk would already be durable when the failure hit.
+    #[test]
+    fn put_batch_late_failure_commits_zero_records() {
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+
+        const VALID_RECORDS: usize = 1001; // > engine BATCH_CHUNK_SIZE
+        let mut inputs: Vec<MemoryInput> = (0..VALID_RECORDS)
+            .map(|i| MemoryInput::new("atomic_ns", format!("r{i}"), format!("payload {i}")))
+            .collect();
+        // The failing record sits AFTER the first full 1000-node chunk:
+        // `Derived` requires a live parent, and `ghost` was never written.
+        inputs.push(MemoryInput {
+            namespace: "atomic_ns".into(),
+            key: "bad".into(),
+            payload: "unreachable".into(),
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(vec!["ghost".into()]),
+            ..Default::default()
+        });
+
+        let err = db
+            .put_batch(inputs)
+            .expect_err("batch must fail on the dangling parent");
+        assert!(
+            err.to_string().contains("ghost"),
+            "expected missing-parent error, got: {err}"
+        );
+
+        // Zero records committed — not a single one of the 1001 valid inputs.
+        for i in [0usize, 500, 1000] {
+            assert!(
+                db.get("atomic_ns", &format!("r{i}"))
+                    .expect("get")
+                    .is_none(),
+                "record r{i} must not be committed"
+            );
+        }
+        assert!(
+            db.search(MemorySearchRequest {
+                namespace: "atomic_ns".into(),
+                text_query: Some("payload".into()),
+                top_k: 5,
+                ..Default::default()
+            })
+            .expect("search")
+            .is_empty(),
+            "no staged record may surface through the index path"
+        );
+        assert!(
+            !db.list_namespaces()
+                .expect("list_namespaces")
+                .iter()
+                .any(|ns| ns == "atomic_ns"),
+            "the staged namespace must leave no derived-index trace"
+        );
     }
 }
