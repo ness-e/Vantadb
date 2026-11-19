@@ -333,6 +333,15 @@ fn run() -> anyhow::Result<()> {
                 new_key_stdin,
                 args.json,
             )?,
+            vantadb::cli::EncryptionCommand::VerifyKey {
+                key_file,
+                key_stdin,
+            } => cli_handlers::cmd_encryption_verify_key(
+                &args.db,
+                key_file.as_deref(),
+                key_stdin,
+                args.json,
+            )?,
         },
 
         Commands::Verify => {

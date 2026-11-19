@@ -1443,14 +1443,5 @@ fn warn_encryption_not_applied() {
 /// Map a crypto failure onto the crate error surface (ADR-0057 D6).
 #[cfg(feature = "encryption")]
 fn crypto_error(err: crate::crypto::CryptoError) -> Error {
-    match err {
-        crate::crypto::CryptoError::DecryptionFailed => Error::EncryptionKeyRejected {
-            artifact: "database".to_string(),
-        },
-        crate::crypto::CryptoError::RegistryInvalid(detail) => Error::EncryptionCorrupt {
-            artifact: "database".to_string(),
-            detail,
-        },
-        other => Error::generic_error(format!("Encryption error: {other}")),
-    }
+    crate::crypto::map_database_crypto_error(err)
 }

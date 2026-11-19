@@ -79,6 +79,34 @@ por proceso** y la reparte a los cuatro artefactos.
 - La master key **no** se persiste en ningun sitio de VantaDB. Si se pierde,
   la base cifrada **no** se puede abrir (ver §4).
 
+### 2.1 Verificacion previa sin abrir la base (`verify-key`)
+
+Para comprobar que una clave maestra corresponde al `encryption.registry`
+de una base antes de arrancar un proceso, despues de restaurar un backup o
+durante una auditoria sin detener el servidor activo:
+
+```bash
+# Desde un archivo con permisos restringidos (0600 en Unix)
+vanta-cli encryption verify-key --db /var/lib/vantadb --key-file /run/secrets/vanta.key
+
+# O leyendo una linea hexadecimal por stdin
+printf '%s\n' "$KEY" | vanta-cli encryption verify-key --db /var/lib/vantadb --key-stdin
+
+# O usando las variables estandar (VANTADB_ENCRYPTION_KEY_FILE / _CMD / _KEY)
+VANTADB_ENCRYPTION_KEY_FILE=/run/secrets/vanta.key vanta-cli encryption verify-key --db /var/lib/vantadb
+```
+
+Comportamiento garantizado (FIND-646):
+
+- **Sin lock y de solo lectura:** no adquiere `.vanta.lock`, por lo que puede
+  ejecutarse de forma segura incluso mientras otro proceso mantiene el motor
+  abierto; no modifica bytes ni `mtime` de `encryption.registry`.
+- **Clave valida:** devuelve codigo de salida `0` (o `{"valid": true, ...}`
+  con `--json`).
+- **Clave incorrecta o registro ausente:** rechaza con codigo distinto de `0`
+  (`Encryption key rejected for database (wrong key or tampered data)` si no
+  desempaqueta el `key_check`, o error explicito si no existe `encryption.registry`).
+
 ---
 
 ## 3. Rotacion de la master key

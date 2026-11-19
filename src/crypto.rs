@@ -1210,6 +1210,50 @@ pub(crate) fn decode_hex(s: &str) -> Result<Vec<u8>, CryptoError> {
         .collect()
 }
 
+/// Summary returned by [`verify_registry_key`] without holding any registry
+/// handle open or modifying on-disk state.
+pub(crate) struct VerifiedRegistryInfo {
+    pub(crate) key_version: u8,
+    pub(crate) artifacts: Vec<&'static str>,
+}
+
+/// Map a database-level [`CryptoError`] onto the crate [`Error`](crate::error::Error)
+/// surface (ADR-0057 D6). Shared between engine startup and `verify-key` so a
+/// wrong key or corrupted registry yields identical errors everywhere.
+pub(crate) fn map_database_crypto_error(err: CryptoError) -> crate::error::Error {
+    match err {
+        CryptoError::DecryptionFailed => crate::error::Error::EncryptionKeyRejected {
+            artifact: "database".to_string(),
+        },
+        CryptoError::RegistryInvalid(detail) => crate::error::Error::EncryptionCorrupt {
+            artifact: "database".to_string(),
+            detail,
+        },
+        other => crate::error::Error::generic_error(format!("Encryption error: {other}")),
+    }
+}
+
+/// Verify `key_material` against the existing `encryption.registry` under
+/// `data_dir` without acquiring `.vanta.lock`, creating a registry, or writing
+/// any bytes to disk (FIND-646).
+pub(crate) fn verify_registry_key(
+    data_dir: &std::path::Path,
+    key_material: &[u8],
+) -> crate::error::Result<VerifiedRegistryInfo> {
+    let registry = registry::KeyRegistry::open_existing(data_dir, key_material)
+        .map_err(map_database_crypto_error)?;
+    let key_version = registry.key_version();
+    let artifacts = registry
+        .artifacts()
+        .into_iter()
+        .map(|a| a.as_str())
+        .collect();
+    Ok(VerifiedRegistryInfo {
+        key_version,
+        artifacts,
+    })
+}
+
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {

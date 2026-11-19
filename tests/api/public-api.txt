@@ -826,6 +826,9 @@ pub enum vantadb::cli::EncryptionCommand
 pub vantadb::cli::EncryptionCommand::Rotate
 pub vantadb::cli::EncryptionCommand::Rotate::new_key_file: core::option::Option<alloc::string::String>
 pub vantadb::cli::EncryptionCommand::Rotate::new_key_stdin: bool
+pub vantadb::cli::EncryptionCommand::VerifyKey
+pub vantadb::cli::EncryptionCommand::VerifyKey::key_file: core::option::Option<alloc::string::String>
+pub vantadb::cli::EncryptionCommand::VerifyKey::key_stdin: bool
 impl clap_builder::derive::FromArgMatches for vantadb::cli::EncryptionCommand
 pub fn vantadb::cli::EncryptionCommand::from_arg_matches(&clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
 pub fn vantadb::cli::EncryptionCommand::from_arg_matches_mut(&mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
@@ -1265,6 +1268,7 @@ pub fn vantadb::cli_handlers::diagnostics::cmd_inspect(&str, &str, &str, bool, b
 pub fn vantadb::cli_handlers::diagnostics::cmd_stats(&str, bool, bool) -> vantadb::error::Result<()>
 pub mod vantadb::cli_handlers::encryption
 pub fn vantadb::cli_handlers::encryption::cmd_encryption_rotate(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::encryption::cmd_encryption_verify_key(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub mod vantadb::cli_handlers::export_md
 pub const vantadb::cli_handlers::export_md::MD_EXPORT_SCHEMA_VERSION: u32
 pub fn vantadb::cli_handlers::export_md::cmd_export_md(&str, core::option::Option<&str>, &str, bool) -> vantadb::error::Result<()>
@@ -1565,6 +1569,7 @@ pub fn vantadb::cli_handlers::cmd_delete_by_filter(&str, &str, &str, bool, bool)
 pub fn vantadb::cli_handlers::cmd_delete_certified(&str, &str, &str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_doctor(&str, vantadb::cli_handlers::DoctorOptions, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_encryption_rotate(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::cmd_encryption_verify_key(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_export(&str, core::option::Option<&str>, &str, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_export_md(&str, core::option::Option<&str>, &str, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_get(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>

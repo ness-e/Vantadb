@@ -560,6 +560,28 @@ pub enum EncryptionCommand {
         #[arg(long)]
         new_key_stdin: bool,
     },
+
+    /// Verify a master key against an existing database's
+    /// `encryption.registry` without opening the database or taking
+    /// `.vanta.lock` (FIND-646).
+    ///
+    /// Reads the key from `--key-file`, `--key-stdin`, or the standard
+    /// environment variables (`VANTADB_ENCRYPTION_KEY`,
+    /// `VANTADB_ENCRYPTION_KEY_FILE`, `VANTADB_ENCRYPTION_KEY_CMD`). There is
+    /// deliberately **no** `--key <hex>` flag (FIND-587).
+    #[command(group = ArgGroup::new("verify_key_source")
+        .args(["key_file", "key_stdin"])
+        .required(false)
+        .multiple(false))]
+    VerifyKey {
+        /// File holding the hex master key to verify (32 bytes = 64 hex chars).
+        #[arg(long)]
+        key_file: Option<String>,
+        /// Read the hex master key from stdin: one line, the trailing newline
+        /// is stripped.
+        #[arg(long)]
+        key_stdin: bool,
+    },
 }
 
 /// Subcommands for purge certificates (VER-02)
@@ -715,6 +737,61 @@ mod tests {
             err.to_string().contains("required"),
             "unexpected error: {err}"
         );
+    }
+
+    /// FIND-646 / FIND-587: `encryption verify-key` accepts `--key-file`,
+    /// `--key-stdin`, or no flags (env fallback), and rejects `--key` or both.
+    #[test]
+    fn encryption_verify_key_parses_safe_key_sources_only() {
+        let with_file = Cli::try_parse_from([
+            "vanta-cli",
+            "encryption",
+            "verify-key",
+            "--key-file",
+            "master.key",
+        ])
+        .expect("`encryption verify-key --key-file` must parse");
+        assert!(matches!(
+            with_file.command,
+            Commands::Encryption(EncryptionCommand::VerifyKey {
+                key_file: Some(ref p),
+                key_stdin: false,
+            }) if p == "master.key"
+        ));
+
+        let with_stdin =
+            Cli::try_parse_from(["vanta-cli", "encryption", "verify-key", "--key-stdin"])
+                .expect("`encryption verify-key --key-stdin` must parse");
+        assert!(matches!(
+            with_stdin.command,
+            Commands::Encryption(EncryptionCommand::VerifyKey {
+                key_file: None,
+                key_stdin: true,
+            })
+        ));
+
+        let env_fallback = Cli::try_parse_from(["vanta-cli", "encryption", "verify-key"])
+            .expect("`encryption verify-key` without flags must parse for env fallback");
+        assert!(matches!(
+            env_fallback.command,
+            Commands::Encryption(EncryptionCommand::VerifyKey {
+                key_file: None,
+                key_stdin: false,
+            })
+        ));
+
+        Cli::try_parse_from([
+            "vanta-cli",
+            "encryption",
+            "verify-key",
+            "--key-file",
+            "a.key",
+            "--key-stdin",
+        ])
+        .expect_err("combining --key-file and --key-stdin must fail");
+
+        Cli::try_parse_from(["vanta-cli", "encryption", "verify-key", "--key", "00112233"])
+            .expect_err("raw --key flag must not exist (FIND-587)");
     }
 
     /// Regression: `migrate run --format` help must list every accepted format.
