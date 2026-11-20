@@ -1395,3 +1395,39 @@ impl StorageEngine {
         Ok(recovered)
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use crate::config::Config;
+    use crate::node::{NodeTier, UnifiedNode};
+    use crate::storage::{BackendKind, StorageEngine};
+
+    #[test]
+    fn consolidate_node_rejects_out_of_bounds_segment_without_panic() {
+        let engine = StorageEngine::open_with_config(
+            ":memory:",
+            Some(Config {
+                backend_kind: BackendKind::InMemory,
+                ..Config::default()
+            }),
+        )
+        .expect("open in-memory engine");
+
+        let mut node = UnifiedNode::new(42);
+        node.tier = NodeTier::Hot;
+        engine.insert(&node).expect("insert hot node");
+
+        // Corrupt the HNSW storage offset to point at non-existent segment 99.
+        let corrupt_offset = crate::lsm::pack_offset(99, 64);
+        engine.hnsw.load().set_storage_offset(42, corrupt_offset);
+
+        let err = engine
+            .consolidate_node(&node)
+            .expect_err("corrupt seg_id out of bounds must return Err instead of panicking");
+        assert!(
+            err.to_string().contains("segment 99") || err.to_string().contains("out of"),
+            "unexpected error message: {err}"
+        );
+    }
+}

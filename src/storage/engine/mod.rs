@@ -2269,3 +2269,64 @@ impl Drop for StorageEngine {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod find_656_tests {
+    use super::*;
+    use crate::backend::BackendKind;
+    use crate::config::Config;
+
+    #[test]
+    fn test_config_mut_read_only_stays_consistent() {
+        // Case A: opened RW, flipped to read_only via config_mut().
+        let mut engine = StorageEngine::open_with_config(
+            ":memory:",
+            Some(Config {
+                backend_kind: BackendKind::InMemory,
+                read_only: false,
+                ..Config::default()
+            }),
+        )
+        .expect("open writable in-memory engine");
+
+        engine.config_mut().read_only = true;
+        assert!(
+            engine.is_read_only(),
+            "is_read_only() must reflect config_mut().read_only = true"
+        );
+        assert!(
+            engine.ensure_writable().is_err(),
+            "ensure_writable() must reject writes after config_mut().read_only = true"
+        );
+        let _ = engine.intern_label("should_not_persist_ro");
+        assert!(
+            engine
+                .get_from_partition(BackendPartition::InternalMetadata, LABEL_INTERN_KEY)
+                .expect("read InternalMetadata")
+                .is_none(),
+            "intern_label() must not persist under config_mut().read_only = true"
+        );
+
+        // Case B: opened RO, attempt to clear read_only via config_mut().
+        let mut ro_engine = StorageEngine::open_with_config(
+            ":memory:",
+            Some(Config {
+                backend_kind: BackendKind::InMemory,
+                read_only: true,
+                ..Config::default()
+            }),
+        )
+        .expect("open read-only in-memory engine");
+
+        ro_engine.config_mut().read_only = false;
+        assert!(
+            ro_engine.is_read_only(),
+            "engine opened read_only must remain read-only even if config_mut().read_only = false"
+        );
+        assert!(
+            ro_engine.ensure_writable().is_err(),
+            "ensure_writable() must reject writes on engine opened read_only"
+        );
+    }
+}

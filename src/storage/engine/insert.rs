@@ -1071,3 +1071,48 @@ impl StorageEngine {
         Ok(records.iter().map(|r| r.id).collect())
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod t32_tests {
+    use super::*;
+    use crate::config::Config;
+    use crate::storage::{BackendKind, StorageEngine};
+
+    #[test]
+    fn test_prealloc_vstore_batch_fits_above_half_memory_limit() {
+        // T32: when vstore.size is > 50% of mem_growth_cap and needed <= cap,
+        // prealloc_vstore_batch must clamp to cap via ensure_capacity rather
+        // than failing prematurely on `vstore.size * 2 > cap`.
+        let mut vstore = crate::storage::vfile::File::create_in_memory(3072)
+            .with_mem_growth_cap(4096);
+        vstore.write_cursor = 2048;
+        // batch_len = 1 -> batch_estimate = 1280 -> needed = 3328 <= 4096.
+        prealloc_vstore_batch(&mut vstore, 1)
+            .expect("needed (3328) <= cap (4096) must not fail prematurely on 2x doubling");
+        assert!(vstore.size >= 3328 && vstore.size <= 4096);
+    }
+
+    #[test]
+    fn test_prealloc_vstore_batch_in_memory_engine_above_half_limit() {
+        // Integration check in :memory: StorageEngine with declared memory_limit.
+        let cap = 256 * 1024u64;
+        let engine = StorageEngine::open_with_config(
+            ":memory:",
+            Some(Config {
+                backend_kind: BackendKind::InMemory,
+                memory_limit: Some(cap),
+                ..Config::default()
+            }),
+        )
+        .expect("open :memory: engine");
+
+        let mut vstore = engine.vstore0().expect("vstore0");
+        // Grow to 60% of cap, then prealloc another batch that keeps total <= cap.
+        vstore.grow_to(160 * 1024).expect("grow to 160 KiB");
+        vstore.write_cursor = 160 * 1024;
+        prealloc_vstore_batch(&mut vstore, 10)
+            .expect("needed (160 KiB + 12.8 KiB) <= 256 KiB must succeed");
+        assert!(vstore.size <= cap);
+    }
+}

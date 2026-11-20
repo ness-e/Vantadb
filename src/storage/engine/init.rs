@@ -1485,3 +1485,55 @@ fn warn_encryption_not_applied() {
 fn crypto_error(err: crate::crypto::CryptoError) -> Error {
     crate::crypto::map_database_crypto_error(err)
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod t32_tests {
+    use super::*;
+
+    #[test]
+    fn test_in_memory_zero_memory_limit_means_unlimited() {
+        let engine = StorageEngine::open_with_config(
+            ":memory:",
+            Some(Config {
+                backend_kind: BackendKind::InMemory,
+                memory_limit: Some(0),
+                ..Config::default()
+            }),
+        )
+        .expect("open :memory: with memory_limit: Some(0)");
+
+        let mut vstore = engine.vstore0().expect("vstore0");
+        // Some(0) means unconfigured/unlimited: growth past initial 64 MiB must succeed,
+        // not fail with ResourceLimit("capped at 0 bytes").
+        let target = vstore.size + 4096;
+        vstore
+            .ensure_capacity(target, target)
+            .expect("memory_limit: Some(0) must mean unlimited, not 0-byte cap");
+    }
+
+    #[test]
+    fn test_in_memory_tiny_memory_limit_coherence() {
+        let engine = StorageEngine::open_with_config(
+            ":memory:",
+            Some(Config {
+                backend_kind: BackendKind::InMemory,
+                memory_limit: Some(32),
+                ..Config::default()
+            }),
+        )
+        .expect("open :memory: with tiny memory_limit: Some(32)");
+
+        let mut vstore = engine.vstore0().expect("vstore0");
+        assert_eq!(vstore.size, STORAGE_ALIGNMENT);
+        // Existing header capacity (STORAGE_ALIGNMENT) is coherent with the cap.
+        vstore
+            .ensure_capacity(STORAGE_ALIGNMENT, STORAGE_ALIGNMENT)
+            .expect("header floor must remain coherent");
+        // Any growth above the floor still fails with ResourceLimit.
+        let err = vstore
+            .ensure_capacity(STORAGE_ALIGNMENT + 64, STORAGE_ALIGNMENT + 64)
+            .expect_err("growth above tiny limit must fail with ResourceLimit");
+        assert!(matches!(err, Error::ResourceLimit(_)), "got {err:?}");
+    }
+}

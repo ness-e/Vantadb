@@ -636,4 +636,66 @@ mod tests {
         assert_eq!(nodes.len(), 1, "should recover 1 node");
         assert_eq!(nodes[0].id, 100, "recovered node id should match");
     }
+
+    #[test]
+    fn test_from_engine_shares_purge_lock_across_wrappers() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Embedded::open(dir.path()).unwrap();
+        let engine = db.engine_handle().unwrap();
+
+        let w1 = Embedded::from_engine(engine.clone());
+        let w2 = Embedded::from_engine(engine);
+
+        assert!(
+            Arc::ptr_eq(&db.purge_lock, &w1.purge_lock),
+            "Embedded::from_engine must share purge_lock with original Embedded handle"
+        );
+        assert!(
+            Arc::ptr_eq(&w1.purge_lock, &w2.purge_lock),
+            "multiple Embedded::from_engine wrappers on the same StorageEngine must share purge_lock"
+        );
+
+        let guard = w1.purge_lock.write();
+        assert!(
+            w2.purge_lock.try_write().is_none(),
+            "sibling wrapper must contend on the same purge_lock"
+        );
+        drop(guard);
+    }
+
+    #[test]
+    fn test_from_engine_shares_sdk_locks_across_wrappers() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Embedded::open(dir.path()).unwrap();
+        let engine = db.engine_handle().unwrap();
+
+        let w1 = Embedded::from_engine(engine.clone());
+        let w2 = Embedded::from_engine(engine);
+
+        assert!(Arc::ptr_eq(&db.supersede_lock, &w1.supersede_lock));
+        assert!(Arc::ptr_eq(&w1.supersede_lock, &w2.supersede_lock));
+        assert!(Arc::ptr_eq(&db.merge_lock, &w1.merge_lock));
+        assert!(Arc::ptr_eq(&w1.merge_lock, &w2.merge_lock));
+        assert!(Arc::ptr_eq(
+            &w1.thread_message_lock,
+            &w2.thread_message_lock
+        ));
+        assert!(Arc::ptr_eq(&w1.thread_index_lock, &w2.thread_index_lock));
+        assert!(Arc::ptr_eq(&w1.skill_write_lock, &w2.skill_write_lock));
+        assert!(Arc::ptr_eq(&w1.dedup_filter, &w2.dedup_filter));
+
+        let g1 = w1.supersede_lock.lock();
+        assert!(
+            w2.supersede_lock.try_lock().is_none(),
+            "sibling wrapper must contend on shared supersede_lock (FIND-661)"
+        );
+        drop(g1);
+
+        let g2 = w1.merge_lock.lock();
+        assert!(
+            w2.merge_lock.try_lock().is_none(),
+            "sibling wrapper must contend on shared merge_lock (FIND-661)"
+        );
+        drop(g2);
+    }
 }

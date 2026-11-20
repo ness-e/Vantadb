@@ -328,3 +328,53 @@ fn test_snapshot_quiesce_orphan_repair_times_out_then_succeeds() {
         .fresh_hnsw()
         .expect("fresh_hnsw must succeed after the guard is released");
 }
+
+/// FIND-651 r2: `batch_insert_with_opts` drops chunk `insert_lock` guards before
+/// post-commit caching (`cache_batch_hot_nodes`) and `run_batch_eviction_if_needed`.
+/// While the snapshot quiesce barrier holds `insert_lock`, batch eviction must
+/// block/time out rather than calling `evict_cold_nodes_with_reason_locked`
+/// without the lock.
+#[cfg(feature = "fjall")]
+#[test]
+fn test_snapshot_quiesce_batch_eviction_respects_insert_lock() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let engine = std::sync::Arc::new(disk_engine(dir.path(), 200));
+
+    for id in 1..=4u128 {
+        let mut node = sample_node(id);
+        node.tier = crate::node::NodeTier::Hot;
+        engine.insert(&node).expect("seed hot node");
+    }
+    assert_eq!(engine.cache.volatile.read().len(), 4);
+
+    // Hold the quiesce barrier on this thread, as create_snapshot does.
+    let quiesce = engine
+        .insert_lock
+        .try_lock()
+        .expect("lock must be free at test start");
+
+    let (done_tx, done_rx) = mpsc::channel();
+    let evictor = std::thread::spawn({
+        let engine = engine.clone();
+        move || {
+            engine.run_batch_eviction_if_needed(true);
+            done_tx.send(()).expect("signal completion");
+        }
+    });
+
+    done_rx.recv().expect("evictor thread must terminate");
+    evictor.join().expect("join evictor");
+
+    assert_eq!(
+        engine.cache.volatile.read().len(),
+        4,
+        "batch eviction must not evict hot nodes while insert_lock quiesce guard is held"
+    );
+
+    drop(quiesce);
+    engine.run_batch_eviction_if_needed(true);
+    assert!(
+        engine.cache.volatile.read().len() < 4,
+        "batch eviction must proceed once insert_lock is released"
+    );
+}
