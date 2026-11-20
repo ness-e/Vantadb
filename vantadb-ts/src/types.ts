@@ -291,7 +291,7 @@ export interface NodeRecord {
   confidence_score: number;
   importance: number;
   hits: number;
-  last_accessed: string;
+  last_accessed: number;
   epoch: number;
   tier: "Hot" | "Cold";
   is_alive: boolean;
@@ -320,7 +320,7 @@ export interface EdgeRecord {
 
 export interface QueryResult {
   Read?: NodeRecord[];
-  Write?: { affected_nodes: number; message: string; node_id?: string };
+  Write?: { affected_nodes: number; message: string; node_id?: string | null };
   StaleContext?: { node_id: string };
 }
 

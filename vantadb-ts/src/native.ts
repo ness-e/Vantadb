@@ -95,6 +95,7 @@ export interface NativeClientBinding {
     namespace: string,
     query?: string,
     queryVector?: number[],
+    abort?: AbortHandle | undefined | null,
   ): Promise<GraphRagResult>;
   vacuum(): Promise<VacuumReport>;
   reopen(path?: string): Promise<void>;
@@ -644,6 +645,7 @@ export class NativeVantaDB implements NativeClientBinding {
    * @param namespace - Namespace whose records seed the pipeline.
    * @param query - Optional text query for lexical (BM25) seeds.
    * @param queryVector - Optional dense vector for ANN seeds.
+   * @param abort - Optional cooperative `AbortHandle` (same detach semantics as `query`).
    * @returns The canonical `GraphRagResult` wire shape (shared with the
    *   Python/WASM/TS surfaces). u128 ids travel as decimal strings.
    * @throws {DbError} If the instance is closed or the pipeline fails.
@@ -652,10 +654,16 @@ export class NativeVantaDB implements NativeClientBinding {
     namespace: string,
     query?: string,
     queryVector?: number[],
+    abort?: AbortHandle | undefined | null,
   ): Promise<GraphRagResult> {
     this._assertOpen();
     return this._native("graphragSearch", () =>
-      this.inner.graphragSearch(namespace, query ?? undefined, queryVector ?? undefined),
+      this.inner.graphragSearch(
+        namespace,
+        query ?? undefined,
+        queryVector ?? undefined,
+        abort ?? undefined,
+      ),
     );
   }
 

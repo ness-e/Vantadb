@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { MemoryRecord, SearchHit, NodeRecord, EdgeRecord, Value } from "../types.js";
+import type { MemoryRecord, SearchHit, NodeRecord, EdgeRecord, QueryResult, Value } from "../types.js";
 
 describe("TypeScript types are correctly defined", () => {
   it("MemoryRecord type has all required fields", () => {
@@ -58,13 +58,23 @@ describe("TypeScript types are correctly defined", () => {
       confidence_score: 0.9,
       importance: 0.5,
       hits: 10,
-      last_accessed: "1000",
+      last_accessed: 1000,
       epoch: 0,
       tier: "Hot",
       is_alive: true,
     };
     expect(node.edges.length).toBe(1);
     expect(node.edges[0].target).toBe("2");
+    expect(typeof node.last_accessed).toBe("number");
+  });
+
+  it("QueryResult Write accepts string, null, or omitted node_id", () => {
+    const withId: QueryResult = { Write: { affected_nodes: 1, message: "ok", node_id: "42" } };
+    const withNull: QueryResult = { Write: { affected_nodes: 1, message: "ok", node_id: null } };
+    const withoutId: QueryResult = { Write: { affected_nodes: 1, message: "ok" } };
+    expect(withId.Write?.node_id).toBe("42");
+    expect(withNull.Write?.node_id).toBeNull();
+    expect(withoutId.Write?.node_id).toBeUndefined();
   });
 
   it("Value variants work as discriminated union", () => {

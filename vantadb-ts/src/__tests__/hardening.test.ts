@@ -163,7 +163,7 @@ describe("Type guards edge cases", () => {
         confidence_score: 0.9,
         importance: 0.5,
         hits: 10,
-        last_accessed: "1000",
+        last_accessed: 1000,
         epoch: 0,
         tier: "Invalid",
         is_alive: true,

@@ -715,13 +715,45 @@ export interface GraphRagResult {
 /** Traversal direction string accepted by graph traversal entry points. */
 export type TraversalDirectionStr = "Forward" | "Reverse" | "Both";
 
-/** IQL query result (returned by `query`). Shape mirrors the SDK `QueryResult` (graph result). */
-export type IqlResult =
-  | { kind: "Read"; rows: IqlRow[] }
-  | { kind: "Write"; affected_nodes: number; message: string; node_id?: string }
-  | { kind: "StaleContext"; node_id: string };
+/** Externally tagged SDK `Value` emitted by `NodeRecord.fields` inside `QueryResult::Read`. */
+export type TaggedFieldValue =
+  | { String: string }
+  | { Int: number }
+  | { Float: number }
+  | { Bool: boolean }
+  | { DateTime: string }
+  | { Null: null }
+  | { ListString: string[] }
+  | { ListInt: number[] }
+  | { ListFloat: number[] }
+  | { ListBool: boolean[] }
+  | { ListDateTime: string[] };
 
-export type IqlRow = Record<string, MetadataValue>;
+/** Core `NodeRecord` wire shape emitted by `Client.query` (`src/sdk/serialization/graph_types.rs`). */
+export interface QueryNodeRecord {
+  /** u128 node id as a decimal string (API-01). */
+  id: string;
+  fields: Record<string, TaggedFieldValue>;
+  vector?: number[];
+  vector_dimensions: number;
+  edges: EdgeRecord[];
+  confidence_score: number;
+  importance: number;
+  hits: number;
+  /** Unix-ms timestamp of last access (`u64` JSON number). */
+  last_accessed: number;
+  epoch: number;
+  tier: "Hot" | "Cold";
+  is_alive: boolean;
+}
+
+/** IQL query result (returned by `query`). Externally tagged core `QueryResult` enum (`src/sdk/types/graph.rs`). */
+export type IqlResult =
+  | { Read: QueryNodeRecord[] }
+  | { Write: { affected_nodes: number; message: string; node_id?: string | null } }
+  | { StaleContext: { node_id: string } };
+
+export type IqlRow = QueryNodeRecord;
 
 /** Snippet returned by `generate_snippet` (already optionally highlighted). */
 export type Snippet = string;

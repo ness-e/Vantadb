@@ -1384,13 +1384,7 @@ export class Client {
    */
   query(query: string): QueryResult {
     this._assertOpen();
-    // FIND-125: runtime is the core `QueryResult` enum, externally tagged
-    // (`src/sdk/types/graph.rs:14-32`); the wasm `.d.ts` `IqlResult {kind…}`
-    // shape is drifted. Erased cast: zero runtime change.
-    return this._wasm(
-      "query",
-      () => this.inner.query(toWireString(query, "query: iql")) as unknown as QueryResult,
-    );
+    return this._wasm("query", () => this.inner.query(toWireString(query, "query: iql")));
   }
 
   /**
@@ -1463,12 +1457,14 @@ export class Client {
     return this._wasm("getNode", () => {
       const raw = this.inner.get_node(String(id));
       if (raw == null) return null;
-      // FIND-125: runtime is `JsNodeRecord` (`vantadb-wasm/src/lib.rs:234-247`
-      // — tagged `Value` fields, `target` edges, `Hot|Cold` only); the wasm
-      // `.d.ts` `Warm` tier variant remains drifted (FIND-540 fixed the
-      // `EdgeRecord` fields). Erased cast: zero runtime
-      // change — the `target→BigInt` mapping below is untouched.
+      // FIND-125: runtime is `JsNodeRecord` (`vantadb-wasm/src/lib.rs:293-325`
+      // — tagged `Value` fields, `target` edges, `Hot|Cold` only, string `last_accessed`).
+      // Normalize `last_accessed` to number and edge targets to bigint to match `NodeRecord`.
       const node = raw as unknown as NodeRecord;
+      node.last_accessed =
+        typeof (node as { last_accessed: unknown }).last_accessed === "string"
+          ? Number(node.last_accessed)
+          : node.last_accessed;
       // WASM serializes u128 edge targets as strings; expose them as bigint
       // (the SDK contract — see integration.test.ts "graph operations").
       node.edges = node.edges.map((e) => ({
@@ -1540,6 +1536,10 @@ export class Client {
       // (same SDK contract as getNode).
       return raw.map((node) => ({
         ...node,
+        last_accessed:
+          typeof (node as { last_accessed: unknown }).last_accessed === "string"
+            ? Number(node.last_accessed)
+            : node.last_accessed,
         edges: node.edges.map((e) => ({
           ...e,
           target: typeof e.target === "string" ? BigInt(e.target) : e.target,

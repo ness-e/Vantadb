@@ -11,10 +11,8 @@ import { VantaDb } from "../index.js";
 // projection to `target/bindings-parity/node.json`. The cross-language
 // comparison itself is `dev-tools/parity-compare.mjs` (canonical hash + diff).
 //
-// IQL is declared excluded: the Node binding does not expose an IQL `query`
-// method (37 #[napi] methods; capabilities.iql_queries is an engine flag, not
-// a surface) — see the DIST-17 task file §Subconjunto común + FIND-268. The
-// comparator enforces that every step keeps >= 2 bindings.
+// The Node binding exposes the full common surface including IQL (`query`,
+// FIND-268). `excluded` is empty; every step runs against the native binding.
 //
 // Wall-clock fields (created_at_ms, updated_at_ms, valid_at_ms, last_accessed)
 // are intentionally NOT part of the projection. Node ids and scores are; ids
@@ -78,6 +76,16 @@ describe("cross-language conformance — Node producer (DIST-17)", () => {
         scenario.graph.direction,
       );
 
+      const iqlWrite = await db.query(scenario.iql.write);
+      const iqlRead = await db.query(scenario.iql.read);
+      if (!iqlWrite.Write?.node_id) {
+        throw new Error("IQL write result is missing node_id");
+      }
+      const iql = {
+        write_node_id: String(iqlWrite.Write.node_id),
+        read_ids: (iqlRead.Read ?? []).map((node) => String(node.id)).sort(),
+      };
+
       // Sanity: the projection must be complete before it is written — an
       // empty or partial projection would otherwise pass the comparator
       // vacuously.
@@ -88,6 +96,7 @@ describe("cross-language conformance — Node producer (DIST-17)", () => {
       expect(search.every((row) => expectedIds.has(row.id) && row.score > 0)).toBe(true);
       expect(bfs[0]).toBe(put[0].node_id);
       expect(new Set(bfs)).toEqual(expectedIds);
+      expect(iql.read_ids).toEqual(["42424242"]);
 
       mkdirSync(fileURLToPath(new URL("../../target/bindings-parity/", import.meta.url)), {
         recursive: true,
@@ -98,8 +107,8 @@ describe("cross-language conformance — Node producer (DIST-17)", () => {
           {
             binding: "node",
             scenario: scenario.scenario,
-            excluded: ["iql"],
-            steps: { put, search, graph_bfs: bfs },
+            excluded: [],
+            steps: { put, search, graph_bfs: bfs, iql },
           },
           null,
           2,

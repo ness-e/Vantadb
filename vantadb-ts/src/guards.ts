@@ -58,7 +58,7 @@ export function isNodeRecord(n: unknown): n is NodeRecord {
     typeof obj.confidence_score === "number" &&
     typeof obj.importance === "number" &&
     typeof obj.hits === "number" &&
-    typeof obj.last_accessed === "string" &&
+    typeof obj.last_accessed === "number" &&
     typeof obj.epoch === "number" &&
     (obj.tier === "Hot" || obj.tier === "Cold") &&
     typeof obj.is_alive === "boolean"

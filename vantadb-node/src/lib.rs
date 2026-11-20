@@ -567,6 +567,7 @@ impl VantaDB {
         let out: Vec<vantadb::sdk::MemorySearchHit> = match abort_notify {
             Some(notify) => {
                 tokio::select! {
+                    biased;
                     _ = notify.notified() => {
                         return Err(napi::Error::new(
                             napi::Status::Cancelled,
@@ -1051,6 +1052,7 @@ impl VantaDB {
         let out = match abort_notify {
             Some(notify) => {
                 tokio::select! {
+                    biased;
                     _ = notify.notified() => {
                         return Err(napi::Error::new(
                             napi::Status::Cancelled,
@@ -1103,6 +1105,7 @@ impl VantaDB {
         let out = match abort_notify {
             Some(notify) => {
                 tokio::select! {
+                    biased;
                     _ = notify.notified() => {
                         return Err(napi::Error::new(
                             napi::Status::Cancelled,
@@ -1248,6 +1251,7 @@ impl VantaDB {
         let out = match abort_notify {
             Some(notify) => {
                 tokio::select! {
+                    biased;
                     _ = notify.notified() => {
                         return Err(napi::Error::new(
                             napi::Status::Cancelled,
@@ -2476,5 +2480,276 @@ mod tests {
             "storage quota exceeded for namespace",
         ));
         assert_eq!(from_engine_error(&quota_err), VantaErrorCode::QuotaExceeded);
+    }
+
+    fn poll_without_tokio_runtime<F: std::future::Future>(fut: F) -> F::Output {
+        struct NoopWake;
+        impl std::task::Wake for NoopWake {
+            fn wake(self: Arc<Self>) {}
+        }
+        let waker = std::task::Waker::from(Arc::new(NoopWake));
+        let mut cx = std::task::Context::from_waker(&waker);
+        let mut fut = std::pin::pin!(fut);
+        loop {
+            match fut.as_mut().poll(&mut cx) {
+                std::task::Poll::Ready(out) => return out,
+                std::task::Poll::Pending => std::thread::yield_now(),
+            }
+        }
+    }
+
+    fn unique_temp_dir(tag: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        std::env::temp_dir().join(format!(
+            "vantadb-node-unit-{tag}-{}-{nanos}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn drain_gate_drains_multi_thread_current_thread_and_no_runtime() {
+        // 1. Outside any tokio runtime (GC finalizer / plain OS thread).
+        let gate_no_rt = OpGate::new();
+        let Ok(guard_no_rt) = enter(&gate_no_rt) else {
+            panic!("gate should accept op before drain");
+        };
+        let releaser = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(15));
+            drop(guard_no_rt);
+        });
+        poll_without_tokio_runtime(drain_gate(gate_no_rt.clone()));
+        let Ok(()) = releaser.join() else {
+            panic!("releaser thread panicked");
+        };
+        assert!(
+            enter(&gate_no_rt).is_err(),
+            "gate must reject new ops after drain"
+        );
+
+        // 2. Inside a `current_thread` runtime (FIND-534: spawn_blocking prevents deadlock).
+        let Ok(ct_rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("current_thread runtime builds");
+        };
+        ct_rt.block_on(async {
+            let gate = OpGate::new();
+            let Ok(guard) = enter(&gate) else {
+                panic!("gate should accept op before drain");
+            };
+            let dropper = tokio::spawn(async move {
+                tokio::task::yield_now().await;
+                drop(guard);
+            });
+            drain_gate(gate.clone()).await;
+            let Ok(()) = dropper.await else {
+                panic!("dropper task panicked");
+            };
+            assert!(
+                enter(&gate).is_err(),
+                "current_thread gate must reject new ops after drain"
+            );
+        });
+
+        // 3. Inside a `multi_thread` runtime (`block_in_place` branch).
+        let Ok(mt_rt) = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+        else {
+            panic!("multi_thread runtime builds");
+        };
+        mt_rt.block_on(async {
+            let gate = OpGate::new();
+            let Ok(guard) = enter(&gate) else {
+                panic!("gate should accept op before drain");
+            };
+            let dropper = tokio::spawn(async move {
+                tokio::task::yield_now().await;
+                drop(guard);
+            });
+            drain_gate(gate.clone()).await;
+            let Ok(()) = dropper.await else {
+                panic!("dropper task panicked");
+            };
+            assert!(
+                enter(&gate).is_err(),
+                "multi_thread gate must reject new ops after drain"
+            );
+        });
+    }
+
+    #[test]
+    fn query_iql_preserves_u128_above_2_53_as_decimal_string() {
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("runtime builds");
+        };
+        rt.block_on(async {
+            let Ok(db) = VantaDB::connect(":memory:".to_string(), None).await else {
+                panic!("memory db connects");
+            };
+            let big_id = "9007199254740993"; // 2^53 + 1
+            let Ok(write_val) = db
+                .query(
+                    format!("INSERT NODE#{big_id} TYPE Person {{ name: \"Ada\" }}"),
+                    None,
+                )
+                .await
+            else {
+                panic!("IQL INSERT succeeds");
+            };
+            assert_eq!(
+                write_val["Write"]["node_id"].as_str(),
+                Some(big_id),
+                "u128 > 2^53 must serialize as exact decimal string, got: {write_val}"
+            );
+
+            let Ok(read_val) = db.query("SELECT * FROM Person".to_string(), None).await else {
+                panic!("IQL SELECT succeeds");
+            };
+            let Some(rows) = read_val["Read"].as_array() else {
+                panic!("expected Read array, got: {read_val}");
+            };
+            let Some(found) = rows.iter().find(|r| r["id"].as_str() == Some(big_id)) else {
+                panic!("expected node {big_id} in Read rows: {read_val}");
+            };
+            assert!(
+                found["last_accessed"].is_u64(),
+                "NodeRecord.last_accessed must be numeric u64, got: {}",
+                found["last_accessed"]
+            );
+
+            let Ok(()) = db.close().await else {
+                panic!("db closes cleanly");
+            };
+        });
+    }
+
+    #[test]
+    fn query_iql_rejects_writes_on_read_only_handle() {
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("runtime builds");
+        };
+        let dir = unique_temp_dir("ro-query");
+        let path_str = dir.to_string_lossy().into_owned();
+        rt.block_on(async {
+            let Ok(rw) = VantaDB::connect(path_str.clone(), None).await else {
+                panic!("rw db connects");
+            };
+            let Ok(_) = rw
+                .query(
+                    "INSERT NODE#1 TYPE Person { name: \"Seed\" }".to_string(),
+                    None,
+                )
+                .await
+            else {
+                panic!("seed insert succeeds");
+            };
+            let Ok(()) = rw.close().await else {
+                panic!("rw db closes");
+            };
+
+            let Ok(ro) =
+                VantaDB::connect(path_str.clone(), Some(json!({ "read_only": true }))).await
+            else {
+                panic!("ro db connects");
+            };
+            let Err(err) = ro
+                .query("INSERT NODE#2 TYPE Person {}".to_string(), None)
+                .await
+            else {
+                panic!("write IQL query must be rejected on read_only handle");
+            };
+            assert!(
+                err.reason.to_ascii_lowercase().contains("read"),
+                "expected read-only rejection, got: {}",
+                err.reason
+            );
+            let Ok(read_val) = ro.query("SELECT * FROM Person".to_string(), None).await else {
+                panic!("read IQL query still works in read_only mode");
+            };
+            assert!(read_val["Read"].is_array());
+            let Ok(()) = ro.close().await else {
+                panic!("ro db closes");
+            };
+        });
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn abort_handle_cancels_graphrag_search_and_context_assemble() {
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("runtime builds");
+        };
+        rt.block_on(async {
+            let Ok(db) = VantaDB::connect(":memory:".to_string(), None).await else {
+                panic!("memory db connects");
+            };
+
+            let graphrag_abort = AbortHandle::new();
+            graphrag_abort.abort();
+            let Err(graphrag_err) = db
+                .graphrag_search(
+                    "ns".to_string(),
+                    Some("hello".to_string()),
+                    None,
+                    Some(&graphrag_abort),
+                )
+                .await
+            else {
+                panic!("aborted graphrag_search must return Cancelled");
+            };
+            assert_eq!(graphrag_err.status, napi::Status::Cancelled);
+            assert!(
+                graphrag_err.reason.contains("graphrag_search aborted"),
+                "got: {}",
+                graphrag_err.reason
+            );
+
+            let assemble_abort = AbortHandle::new();
+            assemble_abort.abort();
+            let assemble_opts = json!({
+                "messages": [
+                    { "role": "user", "content": "hello" },
+                    { "role": "assistant", "content": "world" }
+                ],
+                "token_budget": 100
+            });
+            let Err(assemble_err) = db
+                .context_assemble(assemble_opts.clone(), Some(&assemble_abort))
+                .await
+            else {
+                panic!("aborted context_assemble must return Cancelled");
+            };
+            assert_eq!(assemble_err.status, napi::Status::Cancelled);
+            assert!(
+                assemble_err.reason.contains("context_assemble aborted"),
+                "got: {}",
+                assemble_err.reason
+            );
+
+            // Non-aborted context_assemble continues working normally.
+            let Ok(out) = db.context_assemble(assemble_opts, None).await else {
+                panic!("non-aborted context_assemble succeeds");
+            };
+            assert!(out["messages"].is_array());
+
+            let Ok(()) = db.close().await else {
+                panic!("db closes cleanly");
+            };
+        });
     }
 }

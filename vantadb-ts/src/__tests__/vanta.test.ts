@@ -116,7 +116,7 @@ describe("Type guards: isNodeRecord", () => {
     confidence_score: 0.9,
     importance: 0.5,
     hits: 10,
-    last_accessed: "1000",
+    last_accessed: 1000,
     epoch: 0,
     tier: "Hot",
     is_alive: true,
@@ -124,6 +124,10 @@ describe("Type guards: isNodeRecord", () => {
 
   it("accepts a well-formed NodeRecord", () => {
     expect(isNodeRecord(validNode)).toBe(true);
+  });
+
+  it("rejects string last_accessed (expects numeric u64 timestamp)", () => {
+    expect(isNodeRecord({ ...validNode, last_accessed: "1000" })).toBe(false);
   });
 
   it("rejects null", () => expect(isNodeRecord(null)).toBe(false));
@@ -612,6 +616,19 @@ describe("Client graph operations", () => {
     const node = db.getNode(10);
     expect(node).not.toBeNull();
     expect(node!.id).toBeDefined();
+    expect(typeof node!.last_accessed).toBe("number");
+    expect(isNodeRecord(node)).toBe(true);
+  });
+
+  it("query Read returns NodeRecord with numeric last_accessed", () => {
+    db.query("INSERT NODE#777 TYPE Probe { label: \"x\" }");
+    const res = db.query("SELECT * FROM Probe");
+    expect(Array.isArray(res.Read)).toBe(true);
+    expect(res.Read!.length).toBeGreaterThanOrEqual(1);
+    const hit = res.Read!.find((n) => n.id === "777");
+    expect(hit).toBeDefined();
+    expect(typeof hit!.last_accessed).toBe("number");
+    expect(isNodeRecord(hit)).toBe(true);
   });
 
   it("getNode returns null for missing node", () => {

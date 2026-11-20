@@ -176,6 +176,26 @@ describe("NativeVantaDB honest surfaces (FIND-536/537/539)", () => {
       code: "VANTADB_VALIDATION_ERROR",
     });
   });
+
+  it("graphragSearch forwards abort handle to the native binding", async () => {
+    const fakeAbort = { abort: () => {} } as unknown as import("vantadb-node").AbortHandle;
+    const expected = {
+      nodes: [],
+      edges: [],
+      context_text: "",
+      stats: { seeds_found: 0, nodes_expanded: 0, total_candidates: 0, expansion_hops_used: 0 },
+    };
+    let seenArgs: unknown[] = [];
+    const db = makeDbWith({
+      graphragSearch: (...args: unknown[]) => {
+        seenArgs = args;
+        return Promise.resolve(expected);
+      },
+    });
+    const out = await db.graphragSearch("ns", "hello", [0.1, 0.2], fakeAbort);
+    expect(out).toBe(expected);
+    expect(seenArgs).toEqual(["ns", "hello", [0.1, 0.2], fakeAbort]);
+  });
 });
 
 describe("mapCodeToCanonical keeps the core wire codes (ERROR_HANDLING.md §1.1)", () => {

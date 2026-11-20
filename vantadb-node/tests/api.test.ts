@@ -47,13 +47,11 @@ describe("vantadb-node api surface", () => {
     }
   });
 
-  // ── API-01: u128 wire round-trip (MemoryRecord.node_id, decimal string) ─
+  // ── API-01: u128 wire round-trip (MemoryRecord.node_id & QueryResult.Write.node_id) ─
   //
-  // Scope note (review P2-01): the Node binding exposes no `query`/`QueryResult`
-  // surface, so the `QueryResult::Write.node_id` variant is covered by the
-  // TS/WASM tests instead. What is exercised here is the napi record bridge:
-  // `MemoryRecord.node_id` crosses as a decimal string and must round-trip
-  // exactly for u128 values > 2^53 (an f64 number would silently round it).
+  // Both `MemoryRecord.node_id` and `QueryResult::Write.node_id` (`query()`,
+  // FIND-268) cross the napi boundary as exact decimal strings so u128 values
+  // > 2^53 never lose precision through f64.
 
   it("memory node_id > 2^53 round-trips as an exact decimal string", async () => {
     const db = await VantaDb.connect(tmp("u128wire"));
@@ -68,6 +66,32 @@ describe("vantadb-node api surface", () => {
       expect(got?.node_id).toBe(rec.node_id);
     } finally {
       await db.close();
+    }
+  });
+
+  it("query() preserves u128 node_id > 2^53 as decimal string and rejects writes in read_only", async () => {
+    const dir = tmp("iql-api01");
+    const bigId = "9007199254740993"; // 2^53 + 1
+    const db = await VantaDb.connect(dir);
+    try {
+      const writeRes = await db.query(`INSERT NODE#${bigId} TYPE Person { name: "Ada" }`);
+      expect(writeRes.Write).toBeDefined();
+      expect(writeRes.Write?.node_id).toBe(bigId);
+
+      const readRes = await db.query("SELECT * FROM Person");
+      expect(readRes.Read).toBeDefined();
+      const node = readRes.Read?.find((n) => n.id === bigId);
+      expect(node).toBeDefined();
+      expect(typeof node?.last_accessed).toBe("number");
+    } finally {
+      await db.close();
+    }
+
+    const ro = await VantaDb.connect(dir, { read_only: true });
+    try {
+      await expect(ro.query("INSERT NODE#42 TYPE Person {}")).rejects.toThrow(/read[-_ ]?only/i);
+    } finally {
+      await ro.close();
     }
   });
 
