@@ -115,6 +115,69 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
   });
 });
 
+describe("NativeVantaDB honest surfaces (FIND-536/537/539)", () => {
+  it("metricsPrometheus rejects with VANTADB_NOT_SUPPORTED — no metrics primitive in vantadb-node", async () => {
+    const db = makeDbWith({});
+    await expect(db.metricsPrometheus()).rejects.toBeInstanceOf(DbError);
+    await expect(db.metricsPrometheus()).rejects.toMatchObject({
+      code: "VANTADB_NOT_SUPPORTED",
+    });
+  });
+
+  it("findNodesByLabel rejects with VANTADB_NOT_SUPPORTED instead of a fabricated []", async () => {
+    const db = makeDbWith({});
+    await expect(db.findNodesByLabel("knows")).rejects.toMatchObject({
+      code: "VANTADB_NOT_SUPPORTED",
+    });
+  });
+
+  it("graphShortestPath rejects with VANTADB_NOT_SUPPORTED instead of a fabricated 2-hop path", async () => {
+    const db = makeDbWith({});
+    await expect(db.graphShortestPath(1, 2)).rejects.toMatchObject({
+      code: "VANTADB_NOT_SUPPORTED",
+    });
+  });
+
+  it("getEdges returns the real edges from getNode ([] when the node is absent)", async () => {
+    const edges = [
+      { target: "2", label: "knows", weight: 0.8, reverse: false, created_at_ms: 1000 },
+    ];
+    const db = makeDbWith({ getNode: () => Promise.resolve({ id: "1", edges }) });
+    expect(await db.getEdges(1)).toEqual(edges);
+    const empty = makeDbWith({ getNode: () => Promise.resolve(null) });
+    expect(await empty.getEdges(1)).toEqual([]);
+  });
+
+  it("query delegates to the native IQL primitive (FIND-268)", async () => {
+    const result = { Read: [{ id: "1", edges: [] }] };
+    let seenIql: unknown;
+    const db = makeDbWith({
+      query: (iql: string) => {
+        seenIql = iql;
+        return Promise.resolve(result);
+      },
+    });
+    expect(await db.query("SELECT * FROM Person")).toBe(result);
+    expect(seenIql).toBe("SELECT * FROM Person");
+  });
+
+  it("query rejects non-string iql with VANTADB_INVALID_ARGUMENT before hitting the engine", async () => {
+    const db = makeDbWith({ query: () => Promise.resolve({}) });
+    await expect(db.query(5 as unknown as string)).rejects.toMatchObject({
+      code: "VANTADB_INVALID_ARGUMENT",
+    });
+  });
+
+  it("query wraps engine rejections in a DbError", async () => {
+    const db = makeDbWith({
+      query: () => Promise.reject(new Error("VANTADB_VALIDATION_ERROR: iql parse error")),
+    });
+    await expect(db.query("(bad")).rejects.toMatchObject({
+      code: "VANTADB_VALIDATION_ERROR",
+    });
+  });
+});
+
 describe("mapCodeToCanonical keeps the core wire codes (ERROR_HANDLING.md §1.1)", () => {
   // Every code `Error::code()` emits in the Rust core must reach TS callers
   // unchanged; FFI-02's coarse numeric aliases must never rewrite them.

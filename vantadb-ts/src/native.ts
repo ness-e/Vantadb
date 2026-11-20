@@ -1,4 +1,4 @@
-import { DbError, ERROR_CODES, classifyWasmError, fromNativeError } from "./errors.js";
+import { DbError, ERROR_CODES, fromNativeError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 import { toFilterItems } from "./metadata.js";
 
@@ -18,6 +18,7 @@ import type {
   MemoryRecord,
   MetadataInput,
   PurgeCertificate,
+  QueryResult,
   ScanInput,
   SearchHit,
   SearchRequest,
@@ -26,6 +27,7 @@ import type {
 } from "./types.js";
 
 import type {
+  AbortHandle,
   DegreeEntry,
   FilterItem as NativeFilterItem,
   GraphEdgeRecord,
@@ -88,6 +90,7 @@ export interface NativeClientBinding {
   list(input: ListInput): Promise<MemoryListPage>;
   scan(input: ScanInput): Promise<MemoryListPage>;
   search(request: SearchRequest): Promise<SearchHit[]>;
+  query(iql: string, abort?: AbortHandle | undefined | null): Promise<QueryResult>;
   graphragSearch(
     namespace: string,
     query?: string,
@@ -849,14 +852,6 @@ export class NativeVantaDB implements NativeClientBinding {
   async getEdges(nodeId: string | number | bigint): Promise<GraphEdgeRecord[]> {
     this.ensureOpen();
     return this._native("getEdges", async () => {
-      if (
-        typeof (this.inner as unknown as { getEdges?: (id: string) => Promise<GraphEdgeRecord[]> })
-          .getEdges === "function"
-      ) {
-        return await (
-          this.inner as unknown as { getEdges: (id: string) => Promise<GraphEdgeRecord[]> }
-        ).getEdges(String(nodeId));
-      }
       const node = await this.inner.getNode(String(nodeId));
       return node?.edges ?? [];
     });
@@ -868,15 +863,12 @@ export class NativeVantaDB implements NativeClientBinding {
   async findNodesByLabel(label: string): Promise<string[]> {
     this.ensureOpen();
     return this._native("findNodesByLabel", async () => {
-      if (
-        typeof (this.inner as unknown as { findNodesByLabel?: (lbl: string) => Promise<string[]> })
-          .findNodesByLabel === "function"
-      ) {
-        return await (
-          this.inner as unknown as { findNodesByLabel: (lbl: string) => Promise<string[]> }
-        ).findNodesByLabel(label);
-      }
-      return [];
+      // FIND-539: no label-index primitive exists in vantadb-node —
+      // fail honestly instead of returning a fabricated empty set.
+      throw new DbError(
+        ERROR_CODES.NOT_SUPPORTED,
+        "findNodesByLabel: label index not supported by the native backend",
+      );
     });
   }
 
@@ -960,27 +952,12 @@ export class NativeVantaDB implements NativeClientBinding {
   ): Promise<string[]> {
     this.ensureOpen();
     return this._native("graphShortestPath", async () => {
-      if (
-        typeof (
-          this.inner as unknown as {
-            graphShortestPath?: (s: string, t: string, d: number, dir: string) => Promise<string[]>;
-          }
-        ).graphShortestPath === "function"
-      ) {
-        return await (
-          this.inner as unknown as {
-            graphShortestPath: (s: string, t: string, d: number, dir: string) => Promise<string[]>;
-          }
-        ).graphShortestPath(String(sourceId), String(targetId), maxDepth, direction);
-      }
-      const src = String(sourceId);
-      const tgt = String(targetId);
-      if (src === tgt) return [src];
-      const visited = await this.inner.graphBfs([src], maxDepth, direction);
-      if (visited.includes(tgt)) {
-        return [src, tgt];
-      }
-      return [];
+      // FIND-537: graphBfs returns a flat visited set without parents, so the
+      // path is not honestly reconstructible here — fail closed.
+      throw new DbError(
+        ERROR_CODES.NOT_SUPPORTED,
+        "graphShortestPath: shortest path not supported by the native backend",
+      );
     });
   }
 
@@ -1190,20 +1167,55 @@ export class NativeVantaDB implements NativeClientBinding {
   async metricsPrometheus(): Promise<string> {
     this.ensureOpen();
     return this._native("metricsPrometheus", async () => {
+      // FIND-536: vantadb-node exposes no metrics primitive — a hardcoded
+      // "vantadb_up 1" body would fabricate observability data.
+      throw new DbError(
+        ERROR_CODES.NOT_SUPPORTED,
+        "metricsPrometheus: metrics export not supported by the native backend",
+      );
+    });
+  }
+
+  /**
+   * Execute an IQL statement against the engine (FIND-268).
+   *
+   * Same signature shape as the WASM (`Client.query`) and Python
+   * (`Client.query`) bindings. Returns the externally-tagged `QueryResult`
+   * enum: `{Read: GraphNodeRecord[]}` for reads, `{Write: {affected_nodes,
+   * message, node_id}}` for mutations, `{StaleContext: {node_id}}` when
+   * rehydration is required. All u128 ids are decimal strings (API-01).
+   *
+   * `abort` (optional, last arg): cooperative cancellation via `AbortHandle`
+   * — same detach semantics as `search` (abort = detach: the op runs on,
+   * the engine is never cancelled).
+   */
+  async query(
+    iql: string,
+    abort?: AbortHandle | undefined | null,
+  ): Promise<QueryResult> {
+    this.ensureOpen();
+    if (typeof iql !== "string") {
+      throw new DbError(ERROR_CODES.INVALID_ARGUMENT, "query: iql must be a string");
+    }
+    return this._native("query", async () => {
       if (
         typeof (
           this.inner as unknown as {
-            metricsPrometheus?: () => Promise<string>;
+            query?: (i: string, a?: AbortHandle | null) => Promise<QueryResult>;
           }
-        ).metricsPrometheus === "function"
+        ).query === "function"
       ) {
         return await (
           this.inner as unknown as {
-            metricsPrometheus: () => Promise<string>;
+            query: (i: string, a?: AbortHandle | null) => Promise<QueryResult>;
           }
-        ).metricsPrometheus();
+        ).query(iql, abort ?? undefined);
       }
-      return "# HELP vantadb_up Whether VantaDB native engine is running\n# TYPE vantadb_up gauge\nvantadb_up 1\n";
+      // The linked vantadb-node binary predates the query() primitive.
+      throw new DbError(
+        ERROR_CODES.NOT_SUPPORTED,
+        "query: IQL not supported by the linked native binary (rebuild vantadb-node >= 0.10.0)",
+      );
     });
   }
 }

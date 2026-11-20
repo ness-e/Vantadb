@@ -299,13 +299,23 @@ export interface NodeRecord {
 
 export interface EdgeRecord {
   /**
-   * Target node id. The WASM layer serializes u128 ids as strings
-   * (JS number-safety); the SDK normalizes them to bigint on read.
-   * Both forms are accepted so hand-constructed fixtures round-trip.
+   * Target node id. Rust serializes u128 ids as decimal strings
+   * (`u128_serde`, `src/sdk/serialization/graph_types.rs`); `getNode()`/
+   * `recoverArchivedNodes()` normalize them to bigint on read while
+   * `query()` passes the wire strings through — both forms reach callers.
    */
   target: string | bigint;
   label: string;
   weight: number;
+  /**
+   * Whether this entry is the auto-created reverse half of a bidirectional
+   * edge (`addEdge`). Load-bearing for directional traversal
+   * (`TraversalDirection::Reverse`, src/graph.rs) — CORE-02. Always present
+   * on the wire.
+   */
+  reverse: boolean;
+  /** Logical creation timestamp (Unix ms); `0` when unknown (legacy data). */
+  created_at_ms: number;
 }
 
 export interface QueryResult {

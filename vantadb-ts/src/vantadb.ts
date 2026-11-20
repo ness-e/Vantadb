@@ -1465,7 +1465,8 @@ export class Client {
       if (raw == null) return null;
       // FIND-125: runtime is `JsNodeRecord` (`vantadb-wasm/src/lib.rs:234-247`
       // — tagged `Value` fields, `target` edges, `Hot|Cold` only); the wasm
-      // `.d.ts` (`target_id`, `Warm`) is drifted. Erased cast: zero runtime
+      // `.d.ts` `Warm` tier variant remains drifted (FIND-540 fixed the
+      // `EdgeRecord` fields). Erased cast: zero runtime
       // change — the `target→BigInt` mapping below is untouched.
       const node = raw as unknown as NodeRecord;
       // WASM serializes u128 edge targets as strings; expose them as bigint

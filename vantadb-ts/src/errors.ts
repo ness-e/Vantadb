@@ -30,6 +30,14 @@ export const ERROR_CODES = {
   TIMEOUT: "VANTADB_TIMEOUT",
   BUSY: "VANTADB_BUSY",
   IO_ERROR: "VANTADB_IO_ERROR",
+  /**
+   * SDK-level code (FIND-536): the requested operation has no primitive in
+   * the underlying binding. Not emitted by the Rust core — the core's
+   * `UnsupportedOperation` variant maps to `VANTADB_VALIDATION_ERROR`
+   * (`src/error.rs`); this code exists so SDK surfaces can fail honestly
+   * instead of fabricating responses.
+   */
+  NOT_SUPPORTED: "VANTADB_NOT_SUPPORTED",
 } as const;
 
 /** Union of the canonical `VANTADB_*` code strings in {@link ERROR_CODES}. */

@@ -528,12 +528,23 @@ export interface NodeRecord {
   is_alive: boolean;
 }
 
-/** One edge of a graph node. */
+/**
+ * One edge of a graph node — the serde shape of the core `EdgeRecord`
+ * (`src/sdk/serialization/graph_types.rs`): u128 `target` as a decimal
+ * string, `weight` as f64 number, `reverse`/`created_at_ms` always emitted
+ * (serde `default` only relaxes deserialization).
+ */
 export interface EdgeRecord {
-  target_id: string;
+  /** u128 target node id as a decimal string. */
+  target: string;
   label: string;
   weight: number;
-  created_at_ms: string;
+  /** Whether this entry is the auto-created reverse half of a bidirectional
+   * edge (`add_edge`). Load-bearing for directional traversal — CORE-02. */
+  reverse: boolean;
+  /** Logical creation timestamp (Unix ms) as a JS number; `0` when unknown
+   * (legacy data). */
+  created_at_ms: number;
 }
 
 /** Input for `insert_node`. */
