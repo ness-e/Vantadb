@@ -52,7 +52,7 @@ El gobierno de memoria exige mecanismos formales para purgar o invalidar informa
 
 El crate `vantadb-mcp` implementa perfiles especializados para conectar con agentes en IDEs (Claude Code, Cursor, OpenCode):
 
-- **`McpProfile::Brain`:** Expone un conjunto compacto de 12 herramientas esenciales más el meta-despachador `vanta_dispatch`. Esto evita agotar el context window del LLM mientras proporciona capacidades completas para:
+- **`McpProfile::Brain`:** Expone un conjunto compacto de 16 herramientas (superficie cognitiva L0→L3, `query_iql` para orquestación multi-paso tipada — `FIND-624`/`FIND-625`, `bugfix_*` y el meta-despachador `vanta_dispatch`). Esto evita agotar el context window del LLM mientras proporciona capacidades completas para:
   - Ingesta de turnos y hechos crudos (L0/L1).
   - Recuperación contextual híbrida (`vanta_recall`, `vanta_search`).
   - Síntesis de escenas episódicas y consolidación de persona (L2/L3).
