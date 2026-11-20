@@ -7,7 +7,7 @@
     "start": "tsx index.ts"
   },
   "dependencies": {
-    "langchain": "^1.0.0",
+    "langchain": "^1.2.3",
     "@langchain/community": "^1.1.18",
     "vantadb": "file:../.."
   },
