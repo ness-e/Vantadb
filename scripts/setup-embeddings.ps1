@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+﻿#Requires -Version 7.0
 <#
 .SYNOPSIS
   Asistente de instalacion VantaDB: seleccion de modulos + embeddings locales
@@ -40,7 +40,8 @@ param(
   [string]$DbPath,
   [string[]]$Modules,
   [switch]$NoProxy,
-  [switch]$SkipLiveTest
+  [switch]$SkipLiveTest,
+  [switch]$AllowUnpinnedOrt
 )
 
 Set-StrictMode -Version Latest
@@ -83,10 +84,19 @@ function Get-ModelTable($Manifest) {
 }
 
 function Invoke-DownloadCheck {
-  # Verificacion final sin red (contrato EMB-11): debe dar exit 0.
+  # Verificacion final sin red (contrato EMB-11 / FIND-641): download.py --check + verify.py --check.
   $dl = Join-Path (Get-RepoRoot) 'embeddings/download.py'
+  $vf = Join-Path (Get-RepoRoot) 'embeddings/verify.py'
   & python $dl --check
-  if ($LASTEXITCODE -ne 0) { throw 'download.py --check fallo (exit $LASTEXITCODE)' }
+  if ($LASTEXITCODE -ne 0) { throw "download.py --check fallo (exit $LASTEXITCODE)" }
+  & python $vf --check
+  if ($LASTEXITCODE -ne 0) { throw "verify.py --check fallo (exit $LASTEXITCODE)" }
+}
+
+function Invoke-VerifyModel($ModelId) {
+  $vf = Join-Path (Get-RepoRoot) 'embeddings/verify.py'
+  & python $vf --only $ModelId
+  if ($LASTEXITCODE -ne 0) { throw "verify.py --only $ModelId fallo (exit $LASTEXITCODE)" }
 }
 
 function Read-WithDefault($Prompt, $Default) {
@@ -177,21 +187,26 @@ function Find-DllUnder($Dir) {
 }
 
 function Test-OrtDllUsable($DllPath) {
-  # FIND-641 fail-closed: version >= 1.27 Y, cuando el major.minor coincide con
-  # el pin ($script:ortPinnedVersion), SHA-256 EXACTO del DLL oficial. Un DLL de
-  # otra version no es falsificable por hash (no hay pin) -> avisa explicito.
+  # FIND-641 fail-closed: exige version >= 1.27, major.minor == $script:ortPinnedVersion (1.30)
+  # y SHA-256 EXACTO del DLL oficial. Version distinta o sin SHA-256 verificado
+  # falla cerrado salvo override explicito (-AllowUnpinnedOrt o VANTADB_ALLOW_UNPINNED_ORT=1).
   $v = Get-DllVersion $DllPath
   if (-not $v -or $v -lt [version]'1.27') { return $false }
   if ($v.Major -eq $script:ortPinnedVersion.Major -and $v.Minor -eq $script:ortPinnedVersion.Minor) {
     $actual = (Get-FileHash -Path $DllPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $script:ortDllSha256) {
-      Write-Host "[setup] AVISO: $DllPath NO supera el SHA-256 fijado para ORT v$($script:ortVersion) (esperado $($script:ortDllSha256.Substring(0,16))..., got $($actual.Substring(0,16))...) -> rechazado (fail-closed)." -ForegroundColor Yellow
+      Write-Host "[setup] ERROR: $DllPath NO supera el SHA-256 fijado para ORT v$($script:ortVersion) (esperado $($script:ortDllSha256.Substring(0,16))..., got $($actual.Substring(0,16))...) -> rechazado (fail-closed)." -ForegroundColor Red
       return $false
     }
-  } else {
-    Write-Host "[setup] AVISO: ORT $v distinto del fijado ($($script:ortVersion)): integridad NO verificable por hash (solo version)." -ForegroundColor Yellow
+    return $true
   }
-  return $true
+  $override = $AllowUnpinnedOrt -or ($env:VANTADB_ALLOW_UNPINNED_ORT -eq '1')
+  if ($override) {
+    Write-Host "[setup] AVISO (override explicito): ORT $v distinto del fijado ($($script:ortVersion)); aceptado sin SHA-256 pinneado." -ForegroundColor Yellow
+    return $true
+  }
+  Write-Host "[setup] ERROR: ORT $v distinto del fijado ($($script:ortVersion)) sin SHA-256 verificado -> rechazado (fail-closed). Usa -AllowUnpinnedOrt o VANTADB_ALLOW_UNPINNED_ORT=1 para override explicito." -ForegroundColor Red
+  return $false
 }
 
 function Install-OrtStore($FromDll, $AllowDownload) {
@@ -481,7 +496,7 @@ $provider = 'local'
 $autoDownload = $NonInteractive  # NonInteractive: default sin preguntar.
 
 if (-not $embeddingsOn) {
-  Write-Host '[setup] embeddings OFF: sin modelo local ni provider (el engine cae a embeddings dummy si falta el modelo; DEF-08).'
+  Write-Host '[setup] embeddings OFF: sin modelo local ni provider (modo fail-closed por defecto con strict_embeddings=true; opt-out explicito via VANTADB_ALLOW_DUMMY_EMBEDDINGS=true).'
   if ($providersOn) { Write-Host '[setup] AVISO: providers sin embeddings no aplica (el provider es de embeddings).' }
 } elseif (-not $NonInteractive) {
   if ($providersOn) {
@@ -553,9 +568,10 @@ if ($embeddingsOn) {
 
   Invoke-DownloadCheck
   if ($provider -eq 'local') {
+    Invoke-VerifyModel $model.id
     Ensure-OrtNative $NonInteractive
     Write-Host "[setup] ORT_DYLIB_PATH=$env:ORT_DYLIB_PATH (solo sesion)"
-    Write-Host "[setup] OK modelo $($model.id) dim=$($model.dim) langs=$($model.langs -join ',') presente y verificado (--check)."
+    Write-Host "[setup] OK modelo $($model.id) dim=$($model.dim) langs=$($model.langs -join ',') presente y verificado (verify.py)."
   }
 }
 
@@ -645,9 +661,7 @@ function Invoke-LiveTest($Db) {
   & $cli --db $Db search --namespace $ns --query 'live test' --limit 3 | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'prueba viva: search fallo.' }
 
-  # DEF-08: aviso visible si el provider cae a embeddings dummy (fallback: true).
-  # Cubre AMBOS triggers (ORT no usable / modelo ausente) sin duplicar el
-  # mensaje: lo emite el probe compartido del core, leido via `status --json`.
+  # Verifica el estado de embeddings reportado por `status --json` (fail-closed por defecto con strict_embeddings=true).
   $status = (& $cli --db $Db status --json) -join "`n"
   if ($LASTEXITCODE -eq 0 -and $status) {
     try {
@@ -655,7 +669,7 @@ function Invoke-LiveTest($Db) {
       if ($emb -and $emb.fallback -eq $true) {
         Write-Host "[setup] AVISO: $($emb.notice)"
       } elseif ($emb -and $emb.fallback -eq $false) {
-        Write-Host '[setup] embeddings locales sin fallback (modelo + ORT OK).'
+        Write-Host '[setup] embeddings locales activos (modelo + ORT OK).'
       }
     } catch {
       Write-Host "[setup] AVISO: no pude leer el estado de embeddings: $($_.Exception.Message)"

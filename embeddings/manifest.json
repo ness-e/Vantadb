@@ -112,9 +112,9 @@
       "repo": "BAAI/bge-m3",
       "rev": "5617a9f",
       "dim": 1024,
-      "size_onnx_mb": 1200,
+      "size_onnx_mb": 2163,
       "size_hf_mb": 2270,
-      "onnx": "onnx/model_int8.onnx",
+      "onnx": "onnx/model.onnx",
       "langs": [
         "es",
         "en",

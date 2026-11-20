@@ -5,7 +5,7 @@
 ## Quick start (1-liner)
 
 ```bash
-# default multilingual (384d, 220 MB ONNX, 691 MB total) — EN+ES 16+ idiomas
+# default multilingual (384d, 448 MB ONNX, 919 MB total) — EN+ES 16+ idiomas
 python embeddings/download.py --only multilingual-e5-small
 
 # 3 modelos recomendados (multi + SOTA int8)
@@ -29,16 +29,16 @@ python embeddings/verify.py --check
 | 4 | `jina-es-v2-base` | `jinaai/jina-embeddings-v2-base-es` | 768 | 1100 MB | 1100 MB | 2.20 GB | ES | ES+EN | Apache-2.0 | ES optimizado |
 | 5 | `paraphrase-multilingual-MiniLM-L12-v2` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 470 MB | 471 MB | 941 MB | ES | ES+EN 50+ | Apache-2.0 | ES multi ligero |
 | 6 | `distiluse-multilingual` | `sentence-transformers/distiluse-base-multilingual-cased-v1` | 512 | 540 MB | 539 MB | 1.08 GB | ES | ES+EN 15+ | Apache-2.0 | ES multi base |
-| 7 | **`multilingual-e5-small`** | `intfloat/multilingual-e5-small` | **384** | **220 MB** | 471 MB | **691 MB** | **combined** | **ES+EN 16+** | **MIT** | **DEFAULT** |
-| 8 | `bge-m3` | `BAAI/bge-m3` | 1024 | 1.20 GB (int8) | 2.27 GB | 3.47 GB | combined | ES+EN 100+ | MIT | SOTA local ≤3 GB int8 |
+| 7 | **`multilingual-e5-small`** | `intfloat/multilingual-e5-small` | **384** | **448 MB** | 471 MB | **919 MB** | **combined** | **ES+EN 16+** | **MIT** | **DEFAULT** |
+| 8 | `bge-m3` | `BAAI/bge-m3` | 1024 | 2163 MiB | 2.27 GB | 4.43 GB | combined | ES+EN 100+ | MIT | SOTA local (`onnx/model.onnx` + `model.onnx_data`) |
 | 9 | `qwen3-embedding-8b` | `Qwen/Qwen3-Embedding-8B` | 4096 | — | 16.0 GB | 16.0 GB | combined | ES+EN 100+ | Apache-2.0 | **EXCEPCIÓN >3 GB — MTEB #1 75.1, GPU, Matryoshka** |
 
 - **Balance:** 3 EN + 3 ES + 3 Combined — tantos para español como para inglés y combinados.
-- **Formato:** ONNX (`onnx/model.onnx` o `model_int8.onnx` para bge-m3) + HF pytorch (`*.safetensors`). Comparar Rust `ort` vs Python `sentence-transformers`.
+- **Formato:** ONNX (`onnx/model.onnx` + `model.onnx_data` cuando aplica) + HF pytorch (`*.safetensors`). Comparar Rust `ort` vs Python `sentence-transformers`.
 - **Descarga recortada (FIND-71):** `download.py` usa `ALLOW_PATTERNS = ["*.json", "*.txt", "tokenizer*", "onnx/*", "*.safetensors"]` — sin `*.bin` global (duplicaba pesos cuando el repo trae ambos formatos → 3-4× lo declarado). Si un modelo resulta bin-only, añadir entrada explícita en `MODEL_PATTERNS` por id (`get_allow_patterns()`), nunca re-ampliar el global.
-- **Sizes re-medidos 2026-09-15 desde `manifest.json` (`size_onnx_mb + size_hf_mb`):** 253 / 170 / 878 / 2200 / 941 / 1079 / 691 / 3470 / 16000 MB — la tabla coincide con el manifest (fuente, Regla 11).
+- **Sizes desde `manifest.json` (`size_onnx_mb + size_hf_mb`):** 253 / 170 / 878 / 2200 / 941 / 1079 / 919 / 4433 / 16000 MB — la tabla coincide con el manifest (fuente, Regla 11).
 - **Regla de oro:** un modelo por namespace (misma dim para writes y query; cross-model rompe HNSW). Ver `docs/user/tutorials/05-embedding-integrations.md:126`.
-- **bge-m3 int8:** fp32 ONNX 2.3 GB + HF 2.27 GB = 4.57 GB >3 GB; por eso se pinnea `model_int8.onnx` (1.20 GB).
+- **bge-m3:** `BAAI/bge-m3@5617a9f` expone `onnx/model.onnx` + `onnx/model.onnx_data` (2163 MiB ONNX + 2270 MB HF = 4433 MB total).
 - **Qwen3:** sin ONNX oficial; solo HF (`trust_remote_code=True`), `onnx=null`, GPU-only, Matryoshka 4096→1024.
 
 ## Comandos
@@ -111,8 +111,8 @@ Tres proveedores, selección solo por env (sin recompilar):
 | 4 | `jina-es-v2-base` (768d, 1.10+1.10=2.20 GB) | Español optimizado 768d; solo si la base nace 768d y hay disco/RAM para 2.2 GB. |
 | 5 | `paraphrase-multilingual-MiniLM-L12-v2` (384d, 470+471=941 MB) | Multilingüe ligero 384d compatible en dim con el default (cambio sin re-ingerir si la base ya es 384d). En disco (verificado EMB-19). |
 | 6 | `distiluse-multilingual` (512d, 540+539=1.08 GB) | Multilingüe base 512d; base nueva 512d o nada (no mezclar con 384d). |
-| 7 | **`multilingual-e5-small` (384d, 220+471=691 MB) DEFAULT** | Default: ES+EN 16+ idiomas, dim 384, e5 con prefijos `query:/passage:` (EMB-16, margen asimétrico 0.1204 vs simétrico 0.0812, fuente: `docs/dev/tasks/EMB-16.md`). En disco. Primera opción salvo razón explícita. |
-| 8 | `bge-m3` (1024d, int8 1.20+2.27=3.47 GB) | SOTA local ≤3 GB (int8 `model_int8.onnx`); base nueva 1024d, disco ≥4 GB. Multilingüe 100+. |
+| 7 | **`multilingual-e5-small` (384d, 448+471=919 MB) DEFAULT** | Default: ES+EN 16+ idiomas, dim 384, e5 con prefijos `query:/passage:` (EMB-16, margen asimétrico 0.1204 vs simétrico 0.0812, fuente: `docs/dev/tasks/EMB-16.md`). En disco. Primera opción salvo razón explícita. |
+| 8 | `bge-m3` (1024d, 2163+2270=4433 MB) | SOTA local (`onnx/model.onnx` + `model.onnx_data`); base nueva 1024d, disco ≥5 GB. Multilingüe 100+. |
 | 9 | `qwen3-embedding-8b` (4096d, 16.0 GB HF-only, `onnx:null`) | EXCEPCIÓN GPU-only (≥16 GB VRAM, `trust_remote_code=True`, Matryoshka 4096→1024). Fuera de `ort` CPU. Solo `--include-exception`. |
 
 - En disco verificado (EMB-19): `all-MiniLM-L6-v2`, `multilingual-e5-small`, `paraphrase-multilingual-MiniLM-L12-v2` (los 3 × 384d). Resto: bajo demanda con `python embeddings/download.py --only <id>` (aviso Q2: tamaño/tiempo antes de descargar).

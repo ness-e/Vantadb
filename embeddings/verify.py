@@ -24,6 +24,7 @@ import argparse
 import json
 import math
 import pathlib
+import re
 import sys
 
 # FIND-384: resolver siempre respecto a __file__ (no cwd) para que el script
@@ -32,6 +33,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 MANIFEST = HERE / "manifest.json"
 MODELS_DIR = HERE / "models"
 LOCK = HERE / "manifest.lock"
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def sha256_file(path: pathlib.Path) -> str:
@@ -44,48 +46,63 @@ def sha256_file(path: pathlib.Path) -> str:
     return h.hexdigest()
 
 
-_lock_cache: dict | None = None
+_lock_cache: tuple[str, int, dict] | None = None
 
 
-def load_lock() -> dict | None:
-    """manifest.lock parseado (cache). None si no existe o JSON inválido."""
+def load_lock() -> dict:
+    """manifest.lock parseado (fail-closed: lanza error si falta o es inválido)."""
     global _lock_cache
-    if _lock_cache is None:
-        try:
-            _lock_cache = json.loads(LOCK.read_text(encoding="utf-8")) if LOCK.exists() else {}
-        except Exception:
-            _lock_cache = {}
-    return _lock_cache
+    if not LOCK.exists():
+        raise FileNotFoundError(f"manifest.lock no existe: {LOCK}")
+    st = LOCK.stat()
+    lock_key = str(LOCK)
+    if _lock_cache is not None and _lock_cache[0] == lock_key and _lock_cache[1] == st.st_mtime_ns:
+        return _lock_cache[2]
+    data = json.loads(LOCK.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("models"), list):
+        raise ValueError(f"manifest.lock inválido (se esperaba objeto con lista 'models'): {LOCK}")
+    _lock_cache = (lock_key, st.st_mtime_ns, data)
+    return data
 
 
 def verify_locked_hashes(mid: str, model_dir: pathlib.Path) -> bool:
-    """FIND-641 fail-closed: todo fichero pinneado en manifest.lock que exista
-    en disco debe coincidir con su SHA-256. Los ausentes se reportan (modelo no
-    descargado o parcial) sin fallar — el fail es el MISMATCH, no el vacío."""
-    lock = load_lock()
+    """FIND-641 fail-closed: todo modelo ONNX debe existir en manifest.lock, todos sus
+    ficheros pinneados deben existir en disco (missing == 0) y coincidir con su SHA-256."""
+    try:
+        lock = load_lock()
+    except (OSError, ValueError) as e:
+        print(f"       [integrity] FAIL {mid}: no se pudo cargar manifest.lock ({e})")
+        return False
     entries = {e.get("id"): e for e in lock.get("models", [])}
     entry = entries.get(mid)
     if entry is None:
-        return True  # no locked -> nada que verificar (nunca descargado)
+        print(f"       [integrity] FAIL {mid}: sin entrada en manifest.lock (fail-closed)")
+        return False
     sha = entry.get("sha256")
     if not isinstance(sha, dict) or not sha:
-        print(f"       [integrity] FAIL {mid}: entrada lock sin mapa sha256 (re-descarga para poblarlo)")
+        print(f"       [integrity] FAIL {mid}: entrada lock sin mapa sha256")
         return False
     ok = True
     verified, missing = 0, 0
     for rel, expected in sha.items():
+        if not isinstance(expected, str) or not SHA256_RE.fullmatch(expected):
+            print(f"       [integrity] FAIL {mid} {rel}: sha256 malformado en lock ({expected!r})")
+            ok = False
+            continue
         p = model_dir / rel
         if not p.exists():
+            print(f"       [integrity] FAIL {mid}: fichero pinneado faltante: {rel}")
             missing += 1
+            ok = False
             continue
         actual = sha256_file(p)
         if actual != expected:
-            print(f"       [integrity] FAIL {rel}: sha256 {actual[:16]}… != lock {str(expected)[:16]}… (artefacto corrupto/manipulado)")
+            print(f"       [integrity] FAIL {rel}: sha256 {actual[:16]}… != lock {expected[:16]}… (artefacto corrupto/manipulado)")
             ok = False
         else:
             verified += 1
     if ok:
-        print(f"       [integrity] OK {verified} fichero(s) verificados contra lock" + (f" ({missing} pinneados ausentes)" if missing else ""))
+        print(f"       [integrity] OK {verified} fichero(s) verificados contra lock")
     return ok
 
 
@@ -154,31 +171,58 @@ def check_structure(manifest: dict) -> bool:
     if not qwen or "exception" not in qwen[0] or qwen[0].get("onnx") is not None:
         print("[check] FAIL qwen3 debe tener exception y onnx=null", file=sys.stderr)
         ok = False
-    # FIND-641: integridad del lock — estructura sha256 + contenido de los
-    # ficheros pinneados presentes en disco (fail-closed en mismatch).
-    import re
-
-    sha_re = re.compile(r"^[0-9a-f]{64}$")
-    if LOCK.exists():
+    # FIND-641: integridad del lock (100% fail-closed) — existencia de
+    # manifest.lock, paridad 1:1 de repo/rev/sha256 para TODOS los modelos ONNX
+    # del manifest y verificación en disco cuando el modelo esté descargado.
+    try:
         lock = load_lock()
-        if not lock:
-            print("[check] FAIL manifest.lock JSON inválido o vacío", file=sys.stderr)
+    except (OSError, ValueError) as e:
+        print(f"[check] FAIL manifest.lock inválido o ausente: {e}", file=sys.stderr)
+        return False
+
+    lock_by_id: dict[str, dict] = {}
+    for e in lock.get("models", []):
+        eid = e.get("id")
+        if not isinstance(eid, str) or not eid:
+            print("[check] FAIL entrada en manifest.lock sin 'id'", file=sys.stderr)
             ok = False
-        else:
-            for e in lock.get("models", []):
-                sha = e.get("sha256")
-                if not isinstance(sha, dict) or not sha or not all(
-                    isinstance(v, str) and sha_re.fullmatch(v) for v in sha.values()
-                ):
-                    print(f"[check] FAIL lock {e.get('id')}: sha256 ausente o malformado", file=sys.stderr)
-                    ok = False
-            for e in lock.get("models", []):
-                if not verify_locked_hashes(str(e.get("id")), MODELS_DIR / str(e.get("id"))):
-                    ok = False
-    else:
-        print(f"[check] manifest.lock no existe aún ({LOCK}) — ok pre-download")
+            continue
+        if eid in lock_by_id:
+            print(f"[check] FAIL entrada duplicada en manifest.lock: {eid}", file=sys.stderr)
+            ok = False
+        lock_by_id[eid] = e
+
+    onnx_models = [m for m in manifest.get("models", []) if m.get("onnx") is not None]
+    for m in onnx_models:
+        mid = m["id"]
+        entry = lock_by_id.get(mid)
+        if entry is None:
+            print(f"[check] FAIL modelo ONNX '{mid}' falta en manifest.lock", file=sys.stderr)
+            ok = False
+            continue
+        if entry.get("repo") != m.get("repo") or entry.get("rev") != m.get("rev"):
+            print(
+                f"[check] FAIL paridad repo/rev en manifest.lock para '{mid}': "
+                f"lock=({entry.get('repo')}@{entry.get('rev')}) != manifest=({m.get('repo')}@{m.get('rev')})",
+                file=sys.stderr,
+            )
+            ok = False
+        sha = entry.get("sha256")
+        if not isinstance(sha, dict) or not sha or not all(
+            isinstance(v, str) and SHA256_RE.fullmatch(v) for v in sha.values()
+        ):
+            print(f"[check] FAIL lock '{mid}': sha256 ausente o no es hex-64 válido", file=sys.stderr)
+            ok = False
+        elif m["onnx"] not in sha:
+            print(f"[check] FAIL lock '{mid}': falta hash para onnx declarado '{m['onnx']}'", file=sys.stderr)
+            ok = False
+
+        model_dir = MODELS_DIR / mid
+        if model_dir.exists() and not verify_locked_hashes(mid, model_dir):
+            ok = False
+
     if ok:
-        print(f"[check] OK estructura manifest — {num_models} modelos, dims y rev pinned ok")
+        print(f"[check] OK estructura manifest + lock — {num_models} modelos ({len(onnx_models)} ONNX pinneados)")
     return ok
 
 
@@ -228,10 +272,8 @@ def write_verify_log(manifest: dict, targets: list[dict] | None = None, status: 
 
 
 def verify_model(m: dict) -> bool:
-    """SMOKE por modelo (FIND-71): abre sesión ONNX + carga tokenizer si hay descarga.
-
-    Retorna True en skips (no descargado / sin ort) — un skip NO es un pass
-    numérico. Para cosine real con asserts ver `sanity_embed.py`.
+    """SMOKE por modelo (FIND-71 / FIND-641): valida SHA-256 fail-closed contra
+    manifest.lock ANTES de abrir la sesión ONNX exacta y el tokenizer.
     """
     mid, dim, onnx_rel = m["id"], m["dim"], m["onnx"]
     model_dir = MODELS_DIR / mid
@@ -239,59 +281,46 @@ def verify_model(m: dict) -> bool:
         print(f"[skip] {mid}: no descargado ({model_dir} no existe)")
         return True  # skip no es fail en --all sin descarga
     print(f"[verify] {mid} dim={dim} ...", end=" ")
-    # intenta cargar ONNX si existe
-    ok = True
-    if onnx_rel:
-        onnx_path = model_dir / onnx_rel
-        if not onnx_path.exists():
-            # busca onnx alternativo
-            candidates = list(model_dir.rglob("*.onnx"))
-            if candidates:
-                onnx_path = candidates[0]
-            else:
-                print(f"FAIL onnx no encontrado ({onnx_rel})")
-                return False
-        try:
-            import onnxruntime as ort  # type: ignore
-            import tokenizers  # type: ignore
+    if not onnx_rel:
+        # HF-only (Qwen3, onnx: null — excluido explícitamente del lock ONNX)
+        print(f"OK HF-only dim={dim} (GPU, skip ONNX; excluido del lock ONNX)")
+        return True
 
-            # carga tokenizer
-            tok_path = model_dir / "tokenizer.json"
-            if not tok_path.exists():
-                # puede estar en subdir
-                alt = list(model_dir.rglob("tokenizer.json"))
-                tok_path = alt[0] if alt else tok_path
-            tokenizer = tokenizers.Tokenizer.from_file(str(tok_path)) if tok_path.exists() else None
-            sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
-            # minimal embed test
-            texts = ["hola mundo", "hola mundo", "hello world"]
-            # tokenize simple
-            if tokenizer:
-                enc = tokenizer.encode_batch(texts)
-                ids = [e.ids for e in enc]
-                # padding manual truncated
-                max_len = max(len(x) for x in ids)
-                # dummy — solo verifica que sesión corre
-                # si falla, reporta pero no bloquea check estructural
-            # fake embeddings para validar contrato cosine (si ort disponible pero sin pesos reales, usa dummy normals)
-            # En entorno sin modelos reales, no podemos validar numéricamente; pasamos dim check
-            print(f"OK (onnx={onnx_path.name} dim={dim})")
-        except ImportError as e:
-            print(f"skip ort/tokenizers no instalados ({e}) — dim check estructural OK")
-        except Exception as e:
-            print(f"FAIL {e}")
-            ok = False
-    else:
-        # HF-only (Qwen3)
-        print(f"OK HF-only dim={dim} (GPU, skip ONNX)")
-    # FIND-641: verificación fail-closed de pesos contra manifest.lock.
+    # FIND-641: verificación fail-closed de TODOS los ficheros pinneados ANTES de cargar ONNX.
     if not verify_locked_hashes(mid, model_dir):
+        print(f"FAIL integridad contra manifest.lock ({mid})")
+        return False
+
+    onnx_path = model_dir / onnx_rel
+    if not onnx_path.exists():
+        print(f"FAIL onnx declarado no encontrado ({onnx_rel})")
+        return False
+
+    ok = True
+    try:
+        import onnxruntime as ort  # type: ignore
+        import tokenizers  # type: ignore
+
+        tok_path = model_dir / "tokenizer.json"
+        if not tok_path.exists():
+            print(f"FAIL tokenizer.json no encontrado ({tok_path})")
+            return False
+        tokenizer = tokenizers.Tokenizer.from_file(str(tok_path))
+        _sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
+        texts = ["hola mundo", "hola mundo", "hello world"]
+        enc = tokenizer.encode_batch(texts)
+        _ = [e.ids for e in enc]
+        print(f"OK (onnx={onnx_path.name} dim={dim})")
+    except ImportError as e:
+        print(f"skip ort/tokenizers no instalados ({e}) — integridad lock OK")
+    except Exception as e:
+        print(f"FAIL {e}")
         ok = False
-    # report multi cosine threshold hint
-    if m["group"] in ("es", "combined"):
-        print(f"       multi cosine threshold >0.65 esperado para {mid}")
-    else:
-        print(f"       en-only cosine multi <0.50 esperado para {mid}")
+    if ok:
+        if m["group"] in ("es", "combined"):
+            print(f"       multi cosine threshold >0.65 esperado para {mid}")
+        else:
+            print(f"       en-only cosine multi <0.50 esperado para {mid}")
     return ok
 
 

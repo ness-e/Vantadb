@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 # FIND-384: resolver siempre respecto a __file__ (no cwd) para que el script
@@ -25,6 +26,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 MANIFEST = HERE / "manifest.json"
 LOCK = HERE / "manifest.lock"
 MODELS_DIR = HERE / "models"
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 # Base recortada FIND-71: sin "*.bin" global (duplicaba "*.safetensors" cuando el
 # repo trae ambos → descarga 3-4× lo declarado en README). safetensors es el
@@ -117,6 +119,70 @@ def write_manifest(manifest: dict) -> None:
     MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def load_lock_strict() -> dict:
+    """Lee manifest.lock en modo fail-closed (error si falta o JSON inválido)."""
+    if not LOCK.exists():
+        raise FileNotFoundError(f"manifest.lock no existe: {LOCK}")
+    data = json.loads(LOCK.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("models"), list):
+        raise ValueError(f"manifest.lock inválido (falta lista 'models'): {LOCK}")
+    return data
+
+
+def verify_dir_against_lock(
+    m: dict,
+    local_dir: pathlib.Path,
+    lock_entry: dict,
+    *,
+    delete_on_mismatch: bool = True,
+) -> bool:
+    """FIND-641 fail-closed: valida todos los hashes pinneados del modelo contra lock."""
+    mid = m["id"]
+    if lock_entry.get("repo") != m.get("repo") or lock_entry.get("rev") != m.get("rev"):
+        print(
+            f"[integrity] FAIL {mid}: lock=({lock_entry.get('repo')}@{lock_entry.get('rev')}) "
+            f"!= manifest=({m.get('repo')}@{m.get('rev')})",
+            file=sys.stderr,
+        )
+        return False
+    sha = lock_entry.get("sha256")
+    if not isinstance(sha, dict) or not sha:
+        print(f"[integrity] FAIL {mid}: entrada en manifest.lock sin mapa sha256", file=sys.stderr)
+        return False
+    if m.get("onnx") and m["onnx"] not in sha:
+        print(f"[integrity] FAIL {mid}: falta {m['onnx']} en sha256 de manifest.lock", file=sys.stderr)
+        return False
+
+    ok = True
+    mismatched: list[pathlib.Path] = []
+    for rel, expected in sha.items():
+        if not isinstance(expected, str) or not SHA256_RE.fullmatch(expected):
+            print(f"[integrity] FAIL {mid} {rel}: sha256 malformado en lock ({expected!r})", file=sys.stderr)
+            ok = False
+            continue
+        p = local_dir / rel
+        if not p.exists():
+            print(f"[integrity] FAIL {mid}: fichero pinneado faltante: {rel}", file=sys.stderr)
+            ok = False
+            continue
+        actual = sha256_file(p)
+        if actual != expected:
+            print(
+                f"[integrity] FAIL {mid} {rel}: sha256 {actual[:16]}… != lock {expected[:16]}…",
+                file=sys.stderr,
+            )
+            mismatched.append(p)
+            ok = False
+
+    if not ok and delete_on_mismatch:
+        # Eliminar ficheros corruptos/manipulados (y el onnx descargado si falló otro fichero)
+        for bad_path in mismatched:
+            bad_path.unlink(missing_ok=True)
+        if m.get("onnx"):
+            (local_dir / m["onnx"]).unlink(missing_ok=True)
+    return ok
+
+
 def merge_lock(new_entries: dict) -> dict:
     """Lock acumulativo: lee lock previo, merge por id (reemplaza si duplicado)."""
     existing: list[dict] = []
@@ -141,6 +207,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--check", action="store_true", help="solo valida manifest/lock sin descargar")
     p.add_argument("--dry-run", action="store_true", help="simula descarga (no red) mostrando targets filtrados")
     p.add_argument("--include-exception", action="store_true", help="incluye Qwen3 aunque sea >3GB (alias inverso de --skip-exception)")
+    p.add_argument(
+        "--update-lock",
+        action="store_true",
+        help="permite actualizar manifest.lock (y fallback rev stale) tras descargar; por defecto verifica fail-closed contra manifest.lock",
+    )
     return p.parse_args()
 
 
@@ -238,41 +309,47 @@ def main() -> int:
                 onnx_mb = m.get("size_onnx_mb") or 0
                 hf_mb = m.get("size_hf_mb") or 0
                 print(f"[check] {m['id']}: onnx={m.get('size_onnx_mb')} hf={m.get('size_hf_mb')} total={onnx_mb + hf_mb}MB patterns={get_allow_patterns(m['id'])}")
-        # lock: valida JSON + repo/rev vs manifest (subset acumulativo válido)
-        if LOCK.exists():
-            try:
-                lock = json.loads(LOCK.read_text(encoding="utf-8"))
-                by_id = {m["id"]: m for m in manifest.get("models", [])}
-                bad = 0
-                import re
-
-                sha_re = re.compile(r"^[0-9a-f]{64}$")
-                for e in lock.get("models", []):
-                    ref = by_id.get(e.get("id"))
-                    if ref is None or ref.get("repo") != e.get("repo") or ref.get("rev") != e.get("rev"):
-                        print(f"[check] FAIL lock diverge en {e.get('id')}: lock={e} manifest={ref}", file=sys.stderr)
-                        bad += 1
-                        ok = False
-                    # FIND-641: cada entrada locked exige sha256 {fichero: hex}.
-                    sha = e.get("sha256")
-                    if not isinstance(sha, dict) or not sha:
-                        print(f"[check] FAIL lock {e.get('id')}: sin mapa sha256 (re-descarga para poblarlo)", file=sys.stderr)
-                        bad += 1
-                        ok = False
-                    else:
-                        for rel, h in sha.items():
-                            if not isinstance(h, str) or not sha_re.fullmatch(h):
-                                print(f"[check] FAIL lock {e.get('id')} sha256[{rel}] no es hex-64: {h!r}", file=sys.stderr)
-                                bad += 1
-                                ok = False
-                if bad == 0:
-                    scope = "check por modelo" if args.only else "subset acumulativo"
-                    print(f"[check] lock OK ({LOCK} — {len(lock.get('models', []))} locked, {scope}, repo/rev vs manifest OK)")
-            except Exception as e:
-                print(f"[check] lock JSON inválido: {e}", file=sys.stderr)
-                ok = False
-        else:
-            print(f"[check] lock no existe aún ({LOCK}) — ok para EMB-01")
+        # lock: fail-closed — manifest.lock obligatorio, 1:1 para todos los modelos ONNX
+        try:
+            lock = load_lock_strict()
+            by_id = {m["id"]: m for m in manifest.get("models", [])}
+            lock_by_id = {e.get("id"): e for e in lock.get("models", []) if e.get("id")}
+            bad = 0
+            for e in lock.get("models", []):
+                ref = by_id.get(e.get("id"))
+                if ref is None or ref.get("repo") != e.get("repo") or ref.get("rev") != e.get("rev"):
+                    print(f"[check] FAIL lock diverge en {e.get('id')}: lock={e} manifest={ref}", file=sys.stderr)
+                    bad += 1
+                    ok = False
+                sha = e.get("sha256")
+                if not isinstance(sha, dict) or not sha:
+                    print(f"[check] FAIL lock {e.get('id')}: sin mapa sha256", file=sys.stderr)
+                    bad += 1
+                    ok = False
+                else:
+                    for rel, h in sha.items():
+                        if not isinstance(h, str) or not SHA256_RE.fullmatch(h):
+                            print(f"[check] FAIL lock {e.get('id')} sha256[{rel}] no es hex-64: {h!r}", file=sys.stderr)
+                            bad += 1
+                            ok = False
+            for m in manifest.get("models", []):
+                if m.get("onnx") is None:
+                    continue
+                entry = lock_by_id.get(m["id"])
+                if entry is None:
+                    print(f"[check] FAIL modelo ONNX '{m['id']}' falta en manifest.lock", file=sys.stderr)
+                    bad += 1
+                    ok = False
+                elif m["onnx"] not in (entry.get("sha256") or {}):
+                    print(f"[check] FAIL lock '{m['id']}': falta '{m['onnx']}' en sha256", file=sys.stderr)
+                    bad += 1
+                    ok = False
+            if bad == 0:
+                scope = "check por modelo" if args.only else "9/9 ONNX completos"
+                print(f"[check] lock OK ({LOCK} — {len(lock.get('models', []))} locked, {scope}, repo/rev vs manifest OK)")
+        except (OSError, ValueError) as e:
+            print(f"[check] FAIL lock inválido o ausente: {e}", file=sys.stderr)
+            ok = False
         return 0 if ok else 1
 
     if args.dry_run:
@@ -290,22 +367,48 @@ def main() -> int:
         print("[download] ningún modelo seleccionado", file=sys.stderr)
         return 1
 
+    lock_by_id: dict[str, dict] = {}
+    if not args.update_lock:
+        try:
+            lock = load_lock_strict()
+        except (OSError, ValueError) as e:
+            print(f"[error] fail-closed: no se pudo cargar manifest.lock ({e}). Usa --update-lock solo para regenerar.", file=sys.stderr)
+            return 1
+        lock_by_id = {e["id"]: e for e in lock.get("models", []) if isinstance(e.get("id"), str)}
+        for m in targets:
+            if m.get("onnx") is None:
+                continue
+            entry = lock_by_id.get(m["id"])
+            if entry is None or entry.get("repo") != m.get("repo") or entry.get("rev") != m.get("rev"):
+                print(
+                    f"[error] fail-closed: '{m['id']}' ({m.get('repo')}@{m.get('rev')}) "
+                    f"sin entrada válida en manifest.lock. Usa --update-lock explícitamente si estás actualizando el lock.",
+                    file=sys.stderr,
+                )
+                return 1
+
     # lazy import huggingface_hub solo cuando se necesita descargar
     try:
         from huggingface_hub import HfApi, snapshot_download  # type: ignore
     except ImportError:
         print("[error] huggingface_hub no instalado. Instala con: pip install huggingface_hub", file=sys.stderr)
         return 1
-    api = HfApi()
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     for m in targets:
         repo, rev, mid = m["repo"], m["rev"], m["id"]
         local_dir = MODELS_DIR / mid
-        # si ya está descargado en disco, skip (idempotente)
-        if local_dir.exists() and any(local_dir.rglob("*.onnx")) and any(local_dir.rglob("*.safetensors") or local_dir.rglob("*.bin")):
-            print(f"[skip] {mid} ya descargado en {local_dir}")
-            continue
+        # si ya existe en disco, verificar contra lock en lugar de saltar ciegamente
+        if local_dir.exists() and m.get("onnx") and (local_dir / m["onnx"]).exists():
+            if not args.update_lock:
+                if verify_dir_against_lock(m, local_dir, lock_by_id[mid], delete_on_mismatch=False):
+                    print(f"[skip] {mid} ya descargado y verificado contra lock en {local_dir}")
+                    continue
+                print(f"[error] {mid} en {local_dir} falló verificación contra manifest.lock (fail-closed)", file=sys.stderr)
+                return 1
+            elif any(local_dir.rglob("*.safetensors") or local_dir.rglob("*.bin")):
+                print(f"[skip] {mid} ya descargado en {local_dir}")
+                continue
         print(f"[download] {mid} <- {repo}@{rev} -> {local_dir}")
         used_rev = rev
         try:
@@ -317,12 +420,12 @@ def main() -> int:
             )
         except Exception as e:
             err = str(e)
-            # 404 "Revision Not Found" -> rev pinneado stale; resolver main y reintentar
-            if "Revision Not Found" in err or "Invalid rev id" in err or "404" in err:
+            # 404 "Revision Not Found": fail-closed salvo --update-lock explícito
+            if args.update_lock and ("Revision Not Found" in err or "Invalid rev id" in err or "404" in err):
                 try:
-                    actual = api.repo_info(repo, repo_type="model").sha
+                    actual = HfApi().repo_info(repo, repo_type="model").sha
                     actual_short = actual[:7]
-                    print(f"[warn] {mid}: rev pinneado '{rev}' stale, fallback a main = {actual_short}")
+                    print(f"[warn] {mid}: rev pinneado '{rev}' stale, fallback a main = {actual_short} (--update-lock)")
                     used_rev = actual_short
                     snapshot_download(
                         repo_id=repo,
@@ -330,7 +433,6 @@ def main() -> int:
                         local_dir=str(local_dir),
                         allow_patterns=get_allow_patterns(mid),
                     )
-                    # parchear manifest.json con el rev real para próximas corridas
                     m["rev"] = actual_short
                     write_manifest(manifest)
                     print(f"[manifest] {mid}.rev actualizado a {actual_short}")
@@ -340,18 +442,40 @@ def main() -> int:
             else:
                 print(f"[error] {mid}: {e}", file=sys.stderr)
                 return 1
-        # actualizar rev usado en manifest si difiere del pinneado original
-        m["rev"] = used_rev
+        # actualizar rev usado en manifest si difiere del pinneado original (solo --update-lock)
+        if args.update_lock:
+            m["rev"] = used_rev
+        # verificar descarga contra manifest.lock en modo por defecto (fail-closed)
+        if not args.update_lock and m.get("onnx") is not None:
+            if not verify_dir_against_lock(m, local_dir, lock_by_id[mid], delete_on_mismatch=True):
+                print(f"[error] abortando fail-closed: '{mid}' no coincide con manifest.lock", file=sys.stderr)
+                return 1
         # si el repo no trae onnx/ y no es excepción, avisar para optimum
         onnx_path = local_dir / (m["onnx"] or "")
         if m["onnx"] and not onnx_path.exists():
             print(f"[warn] {mid}: onnx no encontrado en HF ({m['onnx']}); exporta con: optimum-cli export onnx --model {repo} {local_dir}/onnx/", file=sys.stderr)
 
-    # manifest.lock acumulativo: merge con lock previo (key=id), reemplaza si mismo id.
-    # FIND-641: cada entrada lleva sha256 por fichero del conjunto cerrado.
-    lock = merge_lock({"version": manifest["version"], "models": [{"id": m["id"], "repo": m["repo"], "rev": m["rev"], "sha256": hash_model_files(m, MODELS_DIR / m["id"])} for m in targets]})
-    LOCK.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"[lock] escrito {LOCK} ({len(lock['models'])} modelos acumulados)")
+    if args.update_lock:
+        # manifest.lock acumulativo: solo se escribe cuando se pasa --update-lock.
+        lock = merge_lock(
+            {
+                "version": manifest["version"],
+                "models": [
+                    {
+                        "id": m["id"],
+                        "repo": m["repo"],
+                        "rev": m["rev"],
+                        "sha256": hash_model_files(m, MODELS_DIR / m["id"]),
+                    }
+                    for m in targets
+                    if m.get("onnx") is not None
+                ],
+            }
+        )
+        LOCK.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"[lock] escrito {LOCK} ({len(lock['models'])} modelos acumulados)")
+    else:
+        print(f"[lock] verificado fail-closed contra {LOCK} (sin mutar lock)")
     return 0
 
 

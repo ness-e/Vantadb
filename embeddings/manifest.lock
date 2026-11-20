@@ -2,12 +2,39 @@
   "version": 1,
   "models": [
     {
+      "id": "bge-small-en-v1.5",
+      "repo": "BAAI/bge-small-en-v1.5",
+      "rev": "5c38ec7",
+      "sha256": {
+        "onnx/model.onnx": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35",
+        "tokenizer.json": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+      }
+    },
+    {
       "id": "all-MiniLM-L6-v2",
       "repo": "sentence-transformers/all-MiniLM-L6-v2",
       "rev": "1110a24",
       "sha256": {
         "onnx/model.onnx": "6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452",
         "tokenizer.json": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037"
+      }
+    },
+    {
+      "id": "bge-base-en-v1.5",
+      "repo": "BAAI/bge-base-en-v1.5",
+      "rev": "a5beb1e",
+      "sha256": {
+        "onnx/model.onnx": "9bc579acdba21c253c62a9bf866891355a63ffa3442b52c8a37d75b2ccb91848",
+        "tokenizer.json": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+      }
+    },
+    {
+      "id": "jina-es-v2-base",
+      "repo": "jinaai/jina-embeddings-v2-base-es",
+      "rev": "8e2d780",
+      "sha256": {
+        "onnx/model.onnx": "91ee34079986442ab722cbbf362f4de59431185eef8b291a4f9eb13a935f2e06",
+        "tokenizer.json": "5cd8fa360a99a895a4afce83d98131bb74ec2e957ed238f6cdd6107358ca25dc"
       }
     },
     {
@@ -20,12 +47,31 @@
       }
     },
     {
+      "id": "distiluse-multilingual",
+      "repo": "sentence-transformers/distiluse-base-multilingual-cased-v1",
+      "rev": "826fee3",
+      "sha256": {
+        "onnx/model.onnx": "44fbf16e7072c7dd4472fb6f4a0bbc5c40ef7af29e5d2b2b39848970ed63b1c1",
+        "tokenizer.json": "5b4e1a8171c81dfd666ae40265b9530c6e0b3d53923fe8ac493dcc84229adf81"
+      }
+    },
+    {
       "id": "multilingual-e5-small",
       "repo": "intfloat/multilingual-e5-small",
       "rev": "614241f",
       "sha256": {
         "onnx/model.onnx": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
         "tokenizer.json": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+      }
+    },
+    {
+      "id": "bge-m3",
+      "repo": "BAAI/bge-m3",
+      "rev": "5617a9f",
+      "sha256": {
+        "onnx/model.onnx": "f84251230831afb359ab26d9fd37d5936d4d9bb5d1d5410e66442f630f24435b",
+        "onnx/model.onnx_data": "1eebfb28493f67bba03ce0ef64bfdc7fc5a3bd9d7493f818bb1d78cd798416b4",
+        "tokenizer.json": "21106b6d7dab2952c1d496fb21d5dc9db75c28ed361a05f5020bbba27810dd08"
       }
     },
     {
@@ -37,6 +83,14 @@
         "onnx/model.onnx_data": "9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2",
         "tokenizer.json": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
       }
+    }
+  ],
+  "excluded_non_onnx": [
+    {
+      "id": "qwen3-embedding-8b",
+      "repo": "Qwen/Qwen3-Embedding-8B",
+      "rev": "1d8ad4c",
+      "reason": "onnx is null (HF-only GPU exception >3GB)"
     }
   ]
 }
