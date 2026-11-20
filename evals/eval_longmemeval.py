@@ -118,6 +118,10 @@ EMBED_DIMS = 384
 _EMBED_CACHE: Dict[str, List[float]] = {}
 _EMBEDDER = None
 _FASTEMBED_CHECKED = False
+# ACT-02: under --strict-embeddings a silent vector=None is as bad as a fake store —
+# put() would write a vectorless record and the dense ablation would degrade to BM25
+# while still reporting a number. Strict mode must fail loudly instead.
+_STRICT_EMBEDDINGS = False
 
 
 def _get_embedder():
@@ -162,7 +166,12 @@ def embed_batch(texts: List[str]) -> List[Optional[List[float]]]:
                 h = hashlib.sha256(txt.encode("utf-8")).hexdigest()
                 _EMBED_CACHE[h] = vec
                 results[midx] = vec
-        except Exception:
+        except Exception as e:
+            if _STRICT_EMBEDDINGS:
+                raise RuntimeError(
+                    f"embedding failed under --strict-embeddings ({e}); refusing to write vector=None "
+                    f"(a dense ablation would silently degrade to BM25 and still emit a number)"
+                ) from e
             pass
 
     return results
@@ -649,6 +658,7 @@ def run_self_test() -> int:
 
 # ------------------------------------------------------------------ CLI Main
 def main() -> int:
+    global _STRICT_EMBEDDINGS
     parser = argparse.ArgumentParser(description="Certificación y ablación de LongMemEval-S (500q, recall_all@5 >= 0.85).")
     parser.add_argument("--questions", type=int, default=500, help="Número de preguntas a evaluar (default: 500).")
     parser.add_argument("--limit", type=int, default=0, help="Alias para limitar preguntas.")
@@ -675,6 +685,7 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        _STRICT_EMBEDDINGS = True
         print(f"[eval_longmemeval] Strict embeddings verificado: {EMBED_MODEL} ({EMBED_DIMS}d) activo.")
 
     # Locate dataset
@@ -710,6 +721,15 @@ def main() -> int:
         try:
             store = VantaAblationStore(backend=args.backend, ablation=mode)
         except Exception as e:
+            # ACT-02: un gate que puede pasar con datos sintéticos no es un gate.
+            # Con --strict-embeddings el store real es obligatorio: abortar, nunca degradar.
+            if args.strict_embeddings:
+                print(
+                    f"[eval_longmemeval] ERROR: --strict-embeddings activo pero VantaAblationStore no se pudo "
+                    f"construir ({e}). Abortando en vez de usar FakeAblationStore (un store falso no puede certificar).",
+                    file=sys.stderr,
+                )
+                return 1
             print(f"[eval_longmemeval] vantadb no disponible ({e}) → fallback a FakeAblationStore", file=sys.stderr)
             store = FakeAblationStore(ablation=mode)
 
