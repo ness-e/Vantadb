@@ -7708,6 +7708,7 @@ impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::skills::SkillStore<'
 pub const vantadb::skills::KEEP_RECENT: usize
 pub const vantadb::skills::SKILL_COLLECTION: &str
 pub const vantadb::skills::SKILL_HEAD_COLLECTION: &str
+pub const vantadb::skills::SKILL_HEAD_ID_COLLECTION: &str
 pub const vantadb::skills::SKILL_NS: &str
 pub mod vantadb::storage
 pub mod vantadb::storage::archive
