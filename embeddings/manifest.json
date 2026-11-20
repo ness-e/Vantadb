@@ -10,7 +10,9 @@
       "size_onnx_mb": 120,
       "size_hf_mb": 133,
       "onnx": "onnx/model.onnx",
-      "langs": ["en"],
+      "langs": [
+        "en"
+      ],
       "license": "MIT",
       "group": "en"
     },
@@ -22,7 +24,9 @@
       "size_onnx_mb": 80,
       "size_hf_mb": 90,
       "onnx": "onnx/model.onnx",
-      "langs": ["en"],
+      "langs": [
+        "en"
+      ],
       "license": "Apache-2.0",
       "group": "en"
     },
@@ -34,7 +38,9 @@
       "size_onnx_mb": 440,
       "size_hf_mb": 438,
       "onnx": "onnx/model.onnx",
-      "langs": ["en"],
+      "langs": [
+        "en"
+      ],
       "license": "MIT",
       "group": "en"
     },
@@ -46,7 +52,10 @@
       "size_onnx_mb": 1100,
       "size_hf_mb": 1100,
       "onnx": "onnx/model.onnx",
-      "langs": ["es", "en"],
+      "langs": [
+        "es",
+        "en"
+      ],
       "license": "Apache-2.0",
       "group": "es"
     },
@@ -58,7 +67,11 @@
       "size_onnx_mb": 470,
       "size_hf_mb": 471,
       "onnx": "onnx/model.onnx",
-      "langs": ["es", "en", "50+"],
+      "langs": [
+        "es",
+        "en",
+        "50+"
+      ],
       "license": "Apache-2.0",
       "group": "es"
     },
@@ -70,7 +83,11 @@
       "size_onnx_mb": 540,
       "size_hf_mb": 539,
       "onnx": "onnx/model.onnx",
-      "langs": ["es", "en", "15+"],
+      "langs": [
+        "es",
+        "en",
+        "15+"
+      ],
       "license": "Apache-2.0",
       "group": "es"
     },
@@ -79,10 +96,14 @@
       "repo": "intfloat/multilingual-e5-small",
       "rev": "614241f",
       "dim": 384,
-      "size_onnx_mb": 220,
+      "size_onnx_mb": 448,
       "size_hf_mb": 471,
       "onnx": "onnx/model.onnx",
-      "langs": ["es", "en", "16+"],
+      "langs": [
+        "es",
+        "en",
+        "16+"
+      ],
       "license": "MIT",
       "group": "combined"
     },
@@ -94,7 +115,11 @@
       "size_onnx_mb": 1200,
       "size_hf_mb": 2270,
       "onnx": "onnx/model_int8.onnx",
-      "langs": ["es", "en", "100+"],
+      "langs": [
+        "es",
+        "en",
+        "100+"
+      ],
       "license": "MIT",
       "group": "combined"
     },
@@ -106,7 +131,11 @@
       "size_onnx_mb": null,
       "size_hf_mb": 16000,
       "onnx": null,
-      "langs": ["es", "en", "100+"],
+      "langs": [
+        "es",
+        "en",
+        "100+"
+      ],
       "license": "Apache-2.0",
       "group": "combined",
       "exception": ">3GB — MTEB #1 75.1, GPU only, ONNX not recommended"
@@ -119,7 +148,12 @@
       "size_onnx_mb": 1034,
       "size_hf_mb": 600,
       "onnx": "onnx/model.onnx",
-      "langs": ["es", "en", "code", "100+"],
+      "langs": [
+        "es",
+        "en",
+        "code",
+        "100+"
+      ],
       "license": "Apache-2.0",
       "group": "combined"
     }
