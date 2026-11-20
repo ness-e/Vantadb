@@ -1298,6 +1298,109 @@ is a reproducibility smoke, not a measurement sample.
 †† single smoke run (machine under load): latency here varies run to run; the full-split
 row above is the reference measurement.
 
+### ACT-02 — dense-embeddings certification (v0.10.0 candidate): **NOT MEASURED at n=500**
+
+> **The `recall_all@5 >= 0.85` certification was not produced.** The dense path was
+> built from `HEAD`, wired end-to-end and run on the real corpus, but the official
+> 500-question run is **not feasible within this task's budget on this hardware**: the harness
+> re-ingests each question's haystack into its own namespace (embeddings are cached per
+> chunk-text, so the cost is the deduplicated count, not the worst case), and the measured
+> ingest rate puts the full split at **~42–55 hours of continuous CPU** (arithmetic below).
+> **No 500-question number is claimed anywhere in this document.** §23.3 previously
+> carried a projected `hybrid_graphrag = 0.8745` for exactly this gate; those
+> projections were retracted on 2026-11-20 rather than left standing next to a
+> certification.
+
+**What is measured — n=5 plumbing smoke (NOT a measurement sample):**
+
+| Metric | Value | Notes |
+|---|---|---|
+| `recall_all@5` / `recall_any@5` | **0.2000 / 0.2000** (1/5) | n=5, all `single-session-user` (the file is type-block ordered, so a `--questions 5` slice is single-type); with ~50 candidate sessions per question, chance alone is ≈0.10 — **n=5 cannot certify or refute the gate** |
+| answer F1 (lexical proxy) | 0.13 | deterministic judge, no LLM |
+| Ingest | **0.127 docs/s** — 255 sessions in 2,003.5 s (p50 7,414 ms/session, p95 17,026 ms) | 2,066 chunks → **1.03 chunks/s**; `memory` backend, per-question namespaces |
+| Query latency | **p50 134.51 ms · p95 143.24 ms** · 7.5 QPS | 5 queries; **p99 is not emitted by this harness** — do not infer one |
+| Ablation | `hybrid_graphrag` | dense 384d + BM25 RRF + associative expansion |
+| Real engine used | ✅ | log contains no `fallback a FakeAblationStore`; `--strict-embeddings` now aborts instead of degrading (guard added in this change) |
+
+**Why the 500-question run is blocked (all measured, then extrapolated):**
+
+- Corpus (counted on the real file): ≈23,867 session occurrences, **≈18,464 distinct session
+  texts** (1.29× duplication), ≈205,215 chunks, ≈39.46 M words.
+- Measured cost: **0.970 s per chunk** (**1.031 chunks/s**) / **7.86 s per session** (n=255
+  sampled sessions, representative: the smoke slice averages 1,563 words/session vs 1,653 for
+  the corpus). Batch size is irrelevant — 1 / 8 / 16 / 32 all give ≈1.0 chunks/s, and
+  `batch_size=256` fails outright (`onnxruntime … Attention_0 … bad allocation`). The ceiling
+  is per-document compute on a 15 W part, not batching. Multi-process (`parallel=6`) buys only
+  **~1.8×** (2.57 vs 1.40 chunks/s) — bandwidth/TDP bound, not core-bound — so it does not move
+  the full run from ~42 h to anything a single sitting absorbs.
+- Cache-aware (the harness keys its embedding cache on the text sha256, so duplicates are
+  embedded once): ≈157,354 chunks ÷ 1.031 chunks/s = **42.4 h**; worst case, nothing deduped:
+  205,215 ÷ 1.031 = **55.3 h**. Cross-check by session: 23,867 × 7.86 s = 52.1 h. Band
+  **~42–55 h** — the spread is the dedup assumption and it does not change the verdict.
+- The cost is ONNX CPU inference (bge-small on a 15 W laptop part), not the engine:
+  measured engine search alone was p50 1.459 ms in the text-only row above.
+
+**Reproduce (Regla 11):**
+
+```bash
+# 1. Native binding from HEAD — rebuild, do not trust a pre-existing .pyd:
+#    06a8eca2d changed vantadb-python/src/{lib,convert}.rs, and an older .pyd silently
+#    predates it. NOTE: do NOT pass --features python_sdk — that feature belongs to the
+#    core `vantadb` crate, not to `vantadb_py`; maturin fails with
+#    "the package 'vantadb_py' does not contain this feature: python_sdk".
+maturin build --release --manifest-path vantadb-python/Cargo.toml
+python -m pip install --force-reinstall --no-deps target/wheels/vantadb_py-*.whl
+
+# 2. Verify the entry point is Client (there is no vantadb.VantaDB in this binding):
+python -c "import vantadb; vantadb.Client(':memory:', backend='memory'); print('native-ok')"
+
+# 3. Dense smoke actually run for the numbers above (~33.5 min wall):
+python evals/eval_longmemeval.py --questions 5 --top-k 5 --strict-embeddings \
+  --ablation hybrid_graphrag --no-fail-gate \
+  --output evals/results/longmemeval_smoke5_dense.json
+
+# 4. Official 500-question run — NOT completed (~42–55 h on the machine below):
+python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings \
+  --ablation hybrid_graphrag --no-fail-gate \
+  --output evals/results/longmemeval_v0100.json
+```
+
+Only `evals/results/*.log` is covered by an ignore rule (`*.log`); the `.json` reports are
+**not** ignored. The 1.2 KB smoke report above is committed as the evidence for its table; the
+full-split report is an order of magnitude larger and stays regenerable (Regla 11: the command
+is the contract, the artifact is the receipt).
+
+**Environment (Regla 11):**
+
+| Field | Value |
+| :--- | :--- |
+| Date | 2026-11-20 (smoke run 02:00–02:33 −04:00) |
+| OS | Windows 11 Pro 10.0.26200 (64-bit) |
+| CPU | 12th Gen Intel Core i5-1235U (Alder Lake, 10 cores / 12 logical, 15 W) |
+| RAM | 31.78 GB |
+| Runtime | Python 3.14.7 (win-amd64, non-venv) · `vantadb` **0.9.0** wheel built from `HEAD` `884363b5a` (workspace version is still 0.9.0 pre-bump; the binary is HEAD, not the PyPI wheel) |
+| Embeddings | `fastembed` 0.8.1 · `onnxruntime` 1.29.0 · `BAAI/bge-small-en-v1.5` (384d) |
+| Dataset | `longmemeval_s_cleaned.json`, 277,383,467 B, sha256 `d6f21ea9d60a…c3a442` (verified on this machine) |
+
+**Limits (do not over-read):**
+
+- **n=5 is a plumbing smoke, not a measurement.** It does not show the gate passes and
+  it does not show it fails. The §19 full-500 text-only row (0.7617) remains the only
+  full-split number in this section.
+- The 42–55 h figure is **arithmetic from a measured per-chunk cost**, not a stopped-clock
+  observation of a completed 500-question run. Treat it as a feasibility bound.
+- `recall_all@5` and `recall_any@5` are never spliced into one claim (see `Limits` above);
+  at n=5 with a single gold session they are numerically identical by construction.
+- p99 is not produced by `evals/eval_longmemeval.py` (it reports p50/p95 only).
+- Dense-path query latency (p50 134 ms) includes **query embedding**, while the text-only
+  row above (p50 1.459 ms) does not — the two are not comparable.
+- This is own-protocol retrieval evidence recall with a deterministic judge: **not**
+  comparable to vendor leaderboards or LongMemEval QA-level (GPT-4o judge) numbers.
+
+> **Scope note:** the `### Environment` and `### Limits` blocks that follow belong to the §19
+> full-split run of 2026-09-30 (vantadb 0.7.0, text-only) — **not** to the ACT-02 smoke above.
+> This subsection carries its own `Environment` table.
+
 ### Environment (Regla 11)
 
 | Campo | Valor |
@@ -2317,13 +2420,16 @@ decision** (bandas) se aplico sobre el set publicado, sin excluir ninguna corrid
 
 ---
 
-## 23. Certificación LongMemEval-S (500q, recall_all@5 >= 0.85) y Benchmark LOCOMO vs Mem0 (MEM0-05 / ACT-02 / D2)
+## 23. LongMemEval-S (500q) — gate pendiente — y Benchmark LOCOMO vs Mem0 (MEM0-05 / ACT-02 / D2)
 
 > **Source of truth:** `evals/eval_longmemeval.py` (ACT-02 / D2) y `evals/eval_locomo.py` (MEM0-05).
-> Esta sección documenta la certificación de calidad de memoria para el release v0.9.1:
+> Esta sección documenta **metodología, comandos y el benchmark LoCoMo**. El gate ACT-02
+> **no está medido**: la corrida oficial de 500 preguntas no se completó (estado en §23.3 y
+> tasa de ingesta medida en §19 → "ACT-02 — dense-embeddings certification"). Nada de esta
+> sección sustituye ese número por una proyección.
 > 1. **Gate bloqueante de release (ACT-02):** `recall_all@5 >= 0.85` sobre las 500 preguntas
->    completas de LongMemEval-S (`xiaowu0162/longmemeval-cleaned`, MIT, sha256 `d6f21ea9…`).
-> 2. **Estudio sistemático de ablación:** `vector_only` vs `bm25_only` vs `hybrid_rrf` vs `hybrid_graphrag`.
+>    completas de LongMemEval-S (`xiaowu0162/longmemeval-cleaned`, MIT, sha256 `d6f21ea9…`) — **pendiente**.
+> 2. **Estudio sistemático de ablación:** `vector_only` vs `bm25_only` vs `hybrid_rrf` vs `hybrid_graphrag` — **pendiente**.
 > 3. **Validación estricta de embeddings:** `--strict-embeddings` impone el modelo denso
 >    `BAAI/bge-small-en-v1.5` (384d, fastembed ONNX local); aborta si no está disponible.
 > 4. **Benchmark LOCOMO (MEM0-05):** arnés reproducible sobre las 4 categorías canónicas
@@ -2355,7 +2461,7 @@ decision** (bandas) se aplico sobre el set publicado, sin excluir ninguna corrid
 
 ```bash
 # 1. Certificación de Gate LongMemEval-S (500 preguntas, top-k=5, strict-embeddings)
-python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings --ablation hybrid_graphrag --output evals/results/longmemeval_v091.json
+python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings --ablation hybrid_graphrag --output evals/results/longmemeval_v0100.json
 
 # 2. Estudio completo de ablación (vector_only, bm25_only, hybrid_rrf, hybrid_graphrag)
 python evals/eval_longmemeval.py --ablation all --questions 500 --output evals/results/longmemeval_ablation.json
@@ -2374,31 +2480,20 @@ python evals/eval_locomo.py --self-test
 ### 23.3 Resultados: Certificación LongMemEval-S (500q) y Estudio de Ablación
 
 > [!WARNING]
-> **ESTADO: PENDIENTE DE EJECUCIÓN REAL (PROYECCIÓN TEÓRICA / TARGET DE DISEÑO)**
-> Las cifras en la tabla a continuación representan proyecciones analíticas y targets de diseño del arnés multisesión; **NO constituyen una medición empírica certificada** hasta la ejecución completa y desatendida del gate oficial de 500 preguntas (`longmemeval_s_cleaned.json`) sobre el binario release final de VantaDB 0.9.1. El gate bloqueante (`recall_all@5 >= 0.85`) solo se dará por satisfecho una vez generado y auditado el archivo `evals/results/longmemeval_v091.json`.
-
-| Configuración / Modo de Ablación | recall_all@5 | recall_any@5 | F1 Respuesta (Léxico) | Latencia p50 (ms) | Latencia p95 (ms) | Ingest QPS | Estado del Gate (`>= 0.85`) |
-|---|---|---|---|---|---|---|---|
-| `bm25_only` (Léxico Puro) | 0.7167* | 0.8833* | 26.20* | 0.65 ms* | 1.10 ms* | 580.2* | ❌ GATE FAIL (Proyección < 0.85) |
-| `vector_only` (HNSW Denso Puro) | 0.7410* | 0.8950* | 28.40* | 1.15 ms* | 1.85 ms* | 185.0* | ❌ GATE FAIL (Proyección < 0.85) |
-| `hybrid_rrf` (HNSW + BM25 Fusion) | 0.8120* | 0.9410* | 34.80* | 1.48 ms* | 2.10 ms* | 182.5* | ❌ GATE FAIL (Proyección < 0.85) |
-| **`hybrid_graphrag` (Asociativo + RRF)** | **0.8745\*** | **0.9680\*** | **39.50\*** | **1.62 ms\*** | **2.35 ms\*** | **179.8\*** | **⏳ PENDIENTE CERTIFICACIÓN REAL** |
-
-*\*Valores proyectados teóricos pendientes de validación empírica en release 0.9.1.*
-
-#### Desglose por Tipo de Pregunta en `hybrid_graphrag` (recall_all@5 - Proyección):
-- `single-session-user`: **0.9540** (proyección sobre evidencias concentradas en un único turno)
-- `single-session-assistant`: **0.9850** (proyección sobre afirmaciones del asistente)
-- `single-session-preference`: **0.8850** (proyección sobre preferencias declaradas)
-- `knowledge-update`: **0.9320** (proyección sobre filtrado de versiones obsoletas)
-- `temporal-reasoning`: **0.8410** (proyección sobre ventana bitemporal)
-- `multi-session`: **0.7850** (proyección analítica sobre expansión asociativa Graph-RAG)
-
-> **Interpretación técnica del Gate:** Ni la búsqueda vectorial pura (`vector_only`, 0.7410) ni el índice léxico
-> (`bm25_only`, 0.7167) logran superar el umbral del 85% de forma aislada. La búsqueda híbrida estándar RRF
-> alcanza 0.8120, pero se queda corta en las 300 preguntas multi-sesión. La adición de la expansión asociativa
-> Graph-RAG proyecta elevar el `recall_all@5` a **0.8745** (**+6.25%** sobre RRF puro y **+15.78%** sobre BM25),
-> lo que permitiría superar el gate bloqueante de release una vez medido en ejecución oficial.
+> **ESTADO: NO MEDIDO — las cifras proyectadas que ocupaban esta tabla se retiraron el 2026-11-20 (ACT-02).**
+> Eran proyecciones analíticas, no mediciones: publicarlas dentro de la sección de certificación las volvía
+> citables como si lo fueran. La corrida oficial de 500 preguntas **no se completó** — el arnés re-ingesta
+> el haystack de cada pregunta en su propio namespace (los embeddings se cachean por texto, así que el coste
+> es el conteo deduplicado) y la tasa de ingesta medida (~1 chunk/s; 7.86 s por sesión, 8.10 chunks por
+> sesión) sitúa el split completo en **~42–55 h de CPU continua** en el hardware declarado en
+> §19 → "ACT-02 — dense-embeddings certification" → `Environment`.
+>
+> Lo que **sí** está medido (smoke n=5, tasa de ingesta real, entorno y comando reproducible) vive en
+> **§19 → "ACT-02 — dense-embeddings certification (v0.10.0 candidate)"**. El gate `recall_all@5 >= 0.85`
+> **sigue sin certificarse**: no hay número de 500 preguntas en este documento, y no se sustituye por
+> una proyección.
+>
+> El desglose por tipo de pregunta se publicará cuando exista la corrida real, no antes.
 
 ---
 
