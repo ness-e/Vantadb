@@ -20,22 +20,26 @@ the runner fails or is not configured.
 
 ## Scope & stability (Gate P — 2026-09-24)
 
-- **Core-only by decision (TS/Node/WASM)** (`API-STD-15`, Gate P): `vanta-memory` is an internal workspace
+- **Core-only by decision (TS/WASM; Node carries the DIST-19 S3 facade)** (`API-STD-15`, Gate P): `vanta-memory` is an internal workspace
   member consumed in-process by `vantadb-mcp`, `vanta-proxy` and `desktop/src-tauri`.
-  Exposing it requires new Rust bindings plus demonstrated demand (post-release, D42/D43).
-- **Binding scope (DIST-03, 2026-10-04):** **TS/Node/WASM: not exposed** — declared core-only,
+  Exposing it further requires new Rust bindings plus demonstrated demand (post-release, D42/D43).
+- **Binding scope (DIST-03, 2026-10-04):** **TS/WASM: not exposed** — declared core-only,
   with the WASM viability evidence in
   [`BINDINGS_NAMESPACES.md` §Cognitive layer scope](./BINDINGS_NAMESPACES.md#cognitive-layer-vanta-memory-scope-per-binding-dist-03-2026-10-04);
   a **minimal Python surface** (`memory_recall`/`memory_capture`) **landed** for the 0.9.0
-  train (DIST-02, 2026-10-04 — smoke e2e with local wheel). This page and that matrix are
+  train (DIST-02, 2026-10-04 — smoke e2e with local wheel), and the **DIST-19 S3
+  `VantaCognitiveAPI` facade** (`memoryRecall`, `contextAssemble`,
+  `memoryConsolidate`, `memoryReinforce`) **landed on `vantadb-node`**. This page and that matrix are
   reconciled to the landed surface (DIST-04, 2026-10-04).
 - **Crate distribution (DIST-01, 2026-10-04):** `vanta-memory` is **publishable**
   (`publish = false` removed; `cargo publish --dry-run` green + external smoke) with an
   explicit **hold** in `release-plz.toml` until the owner bootstraps crates.io Trusted
   Publishing (the first publish requires an API token — bootstrap checklist in the `release-plz.toml` hold entry; rationale in `docs/dev/tasks/DIST-01.md` §Decision).
 - **Stable Rust API:** the public surface documented here is the stable contract for in-repo
-  consumers. Binding re-export: **none for TS/Node/WASM** — `0` symbols by design (checked
-  with `rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm` → 0 matches).
+  consumers. Binding re-export: **none for TS/WASM** — `0` symbols by design (checked
+  with `rg "vanta[_-]memory" vantadb-ts vantadb-wasm` → 0 matches); `vantadb-node`
+  deliberately depends on `vanta-memory` for the DIST-19 S3 facade and is excluded
+  from the sweep.
 
 ## Facade — capture / recall / seed / ingest
 
@@ -43,8 +47,10 @@ the runner fails or is not configured.
 > Conceptual signatures for the four host-facing operations in-repo consumers
 > build against today. They summarize the stable Rust surface (§Scope & stability)
 > as a reading aid. Re-export today: **Python** exposes `capture`/`recall` as
-> `memory_capture`/`memory_recall` (DIST-02); `seed`/`ingest` are **not**
-> re-exported by any binding; TS/Node/WASM expose nothing (§Exposure triggers).
+> `memory_capture`/`memory_recall` (DIST-02); **Node** exposes the DIST-19 S3
+> facade (`memoryRecall`, `contextAssemble`, `memoryConsolidate`,
+> `memoryReinforce`); `seed`/`ingest` are **not**
+> re-exported by any binding; TS/WASM expose nothing (§Exposure triggers).
 > Further exposure still requires new bindings and a fired trigger.
 
 | Operation | Conceptual signature | Degradation (see §Degradation contract) |
@@ -166,13 +172,15 @@ constraints, and a re-run of the Gate P HITL decision (post-release, D42/D43).
 Rules:
 
 - One trigger fires → open the exposure design task (post-release only, D42/D43).
-- Zero triggers fired → this page stays the manual reference; **TS/Node/WASM
-  binding symbols stay at 0** (`rg vanta[_-]memory vantadb-ts vantadb-node vantadb-wasm`).
+- Zero triggers fired → this page stays the manual reference; **TS/WASM
+  binding symbols stay at 0** (`rg vanta[_-]memory vantadb-ts vantadb-wasm`;
+  `vantadb-node` is excluded — it carries the DIST-19 S3 facade).
   The Python minimal surface **landed** for the 0.9.0 train (DIST-02) is scoped in
   [`BINDINGS_NAMESPACES.md` §Cognitive layer scope](./BINDINGS_NAMESPACES.md#cognitive-layer-vanta-memory-scope-per-binding-dist-03-2026-10-04).
 - **DIST-03 (2026-10-04):** TS/WASM exposure was evaluated (compile checks +
-  official docs); outcome: per-binding scope declared (TS/Node/WASM core-only)
-  and the WASM port gap list captured as `FIND-255`.
+  official docs); outcome: per-binding scope declared (TS/WASM core-only)
+  and the WASM port gap list captured as `FIND-255`. (Later, DIST-19 S3 added
+  the Node facade — Node is no longer "core-only".)
 - Triggers are reviewed at release-train time, not continuously.
 
 ## Consumer status (host-gated primitives — 2026-10-08)

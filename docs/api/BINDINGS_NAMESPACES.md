@@ -20,7 +20,7 @@ tags: [vantadb, api, bindings, namespaces]
 |---|---|
 | `memory` | Records in a namespace: put/get/list/search/supersede/TTL purge, text snippets over payloads |
 | `graph` | Node/edge CRUD and traversals (BFS, DFS, topological sort, DAG check, PageRank, degree) |
-| `conversation` | Reserved — L0–L3 context-engine pipeline lives in crate `vanta-memory`, **not exposed via TS/Node/WASM; minimal Python surface in the 0.9.0 train** (D43; per-binding scope declared in §Cognitive layer scope, DIST-03) |
+| `conversation` | Reserved — L0–L3 context-engine pipeline lives in crate `vanta-memory`, **not exposed via TS/WASM; minimal Python surface in the 0.9.0 train; DIST-19 S3 `VantaCognitiveAPI` facade on Node** (D43; per-binding scope declared in §Cognitive layer scope, DIST-03) |
 | `skills` | Reserved — no binding surface exists today (D43) |
 | `wiki` | Summary/archive lifecycle over nodes (`recover_archived_nodes` — Python since SDKB-03, WASM/TS since TS-11). Full wiki features (pages/TDAM) are core-only (D43) — see §Sub-Client Roadmap |
 | `system` | Catch-all: constructors/lifecycle, capabilities/hardware profile, metrics, IQL query engine, index maintenance, compaction, import/export |
@@ -90,7 +90,8 @@ transport names the relevance field `score` (higher-is-better) and reserves
 | Node delete by id | `delete_node(id, reason)` | `deleteNode(id, reason?)` | `deleteNode(id, reason?)` | `delete_node(id, reason)` |
 | Batch write | `put_batch([{...}])` | `putBatch([{...}])` | `putBatch([{...}])` | `put_batch([{...}])` |
 | Cross-namespace search | `search_multi(namespaces, request)` | `searchMulti(request)` | `searchMulti(namespaces, request)` | `search_multi(namespaces, query_vector, …)` |
-| GraphRAG search (seed→expand→retrieve→context) | `graphrag_search(namespace, query?, query_vector?)` | `graphragSearch(namespace, query?, queryVector?)` | `graphragSearch(namespace, query?, queryVector?)` | `graphrag_search(namespace, query=None, query_vector=None)` |
+| GraphRAG search (seed→expand→retrieve→context) | `graphrag_search(namespace, query?, query_vector?)` | `graphragSearch(namespace, query?, queryVector?)` | `graphragSearch(namespace, query?, queryVector?, abort?)` | `graphrag_search(namespace, query=None, query_vector=None)` |
+| IQL query | `query(iql)` | `query(iql)` | `query(iql, abort?)` (FIND-268 landed; `abort` = `AbortHandle` detach) | `query(iql)` |
 | `u128` ids on the wire | decimal string (`node_id`); traversals return `bigint[]` | decimal string + `bigint` in/out | decimal string | native `int` (exact) |
 
 **Per-binding evidence (same-PR):** Python `tests/test_w1_surface.py` · TS
@@ -124,9 +125,12 @@ four bindings with a matrix row.
 - **Comparator:** `dev-tools/parity-compare.mjs` — canonical SHA-256 per step;
   exit 1 on divergence, missing artifact, or a step covered by fewer than two
   bindings (no vacuous pass).
-- **Declared exclusion:** Node does not expose an IQL `query` method
-  (capabilities report the engine flag, not a surface) → `iql` runs on
-  Python + WASM; tracked as FIND-268.
+- **Harness limitation (not an API gap):** the Node binding **does** expose
+  `query(iql, abort?)` (FIND-268 landed — `vantadb-node/index.d.ts`,
+  `QueryResult` wire shape shared with WASM/Python), but the Node parity
+  producer (`vantadb-node/tests/parity.test.ts`) still emits `excluded:
+  ["iql"]` and skips the step → `iql` runs on Python + WASM until the
+  producer is taught to emit it.
 - **Normalization (documented tolerance):** ids as decimal strings; search hits
   sorted by (score desc, id asc) with scores quantized to 6 decimals (≈5e-7);
   BFS sequence as produced (the core sorts each level); wall-clock fields
@@ -260,7 +264,7 @@ so the bare `get`/`delete` collision is gone.
 
 ## TypeScript (`vantadb-ts/src/vantadb.ts`) — 45 public methods (verificado 2026-09-15: +`count`/`supersede`/`similarToKey`/`searchMulti`/`removeEdge`; +`graphragSearch` DIST-15 2026-10-04; +`recoverArchivedNodes` TS-11 2026-10-04)
 
-(`native.ts` implements the async subset: `capabilities`, `close`, `delete`, `flush`, `get`, `graphragSearch`, `list`, `listNamespaces`, `put`, `putBatch`, `search`.)
+(`native.ts` implements the `vantadb-node` backend — `capabilities`, `close`, `reopen`, `flush`, `put`, `putBatch`, `get`, `delete`, `forget`, `list`, `scan`, `listNamespaces`, `search`, `query` (FIND-268, optional `AbortHandle`), `explainSearch`, `similarToKey`, `searchMulti`, `searchWithMethod`, `graphragSearch`, `versions`/`listRecordVersions`, `getVersion`/`getRecordAtVersion`, `supersede`, `count`, `deleteByFilter`, `compactLayout`, `compactWal`, `purgeExpired`, `rebuildIndex`, `vacuum`, `insertNode`, `getNode`, `deleteNode`, `addEdge`, `removeEdge`, `getEdges`, `graphBfs`, `graphDfs`, `graphTopologicalSort`, `graphIsDag`, `graphFilteredTraversal`, `graphDegree`. `findNodesByLabel`, `graphShortestPath` and `metricsPrometheus` have no primitive in `vantadb-node` and throw `VANTADB_NOT_SUPPORTED` (FIND-536) instead of fabricating a result.)
 
 | Method | Domain | Exposed today | Notes |
 |---|---|---|---|
@@ -403,8 +407,11 @@ Exposing any of these requires new Rust bindings (out of scope per D42). Tracked
 ## Cognitive layer (`vanta-memory`) scope per binding (DIST-03, 2026-10-04)
 
 > **Status:** normative as of DIST-03 (master plan 0.9.0); reconciled by DIST-04 (2026-10-04). The cognitive layer
-> (`vanta-memory`) is **declared core-only for TS/Node/WASM**; a **minimal
-> Python surface** **landed** for the 0.9.0 train (DIST-02, 2026-10-04). This is the
+> (`vanta-memory`) is **declared core-only for TS/WASM**; a **minimal
+> Python surface** **landed** for the 0.9.0 train (DIST-02, 2026-10-04), and
+> the **DIST-19 S3 facade** (`VantaCognitiveAPI`) **landed on Node**
+> (`vantadb-node`: `memoryRecall`, `contextAssemble`, `memoryConsolidate`,
+> `memoryReinforce`). This is the
 > explicit multi-binding promise — per binding, what exists and what does not.
 
 **Decision (DIST-03): declare scope, do not expose.** The alternative — a
@@ -447,31 +454,34 @@ it is a port, not a thin wrapper.
 | Cognitive surface (`vanta-memory`) | WASM | TS (`vantadb`) | Node (`vantadb-node`) | Python (`vantadb-python`) |
 |---|---|---|---|---|
 | L0 capture (`AutoCaptureHook::capture`) | — | — | — | ✅ minimal (`memory_capture`, DIST-02) |
-| Recall (`perform_auto_recall`) | — | — | — | ✅ minimal (`memory_recall`, DIST-02) |
+| Recall (`perform_auto_recall`) | — | — | ✅ facade (`memoryRecall`, DIST-19 S3) | ✅ minimal (`memory_recall`, DIST-02) |
 | Seed import (`seed::*`, fs-bound) | — | — | — | — |
 | Wiki ingest (`ingest::worker`) | — | — | — | — |
-| Dream / consolidation (`core::dream`) | — | — | — | — |
-| Context engine (`context_engine::*`) | — | — | — | — |
+| Dream / consolidation (`core::dream`) | — | — | ✅ facade (`memoryConsolidate`, DIST-19 S3) | — |
+| Context engine (`context_engine::*`) | — | — | ✅ facade (`contextAssemble`, DIST-19 S3) | — |
+| Outcome loop (`reinforce`) | — | — | ✅ facade (`memoryReinforce`, DIST-19 S3) | — |
 | Skill extraction (`core::skill`) | — | — | — | — |
 
 Legend: `—` = not exposed (declared out of scope); `✅ minimal` = recall +
 capture only, **landed** for the 0.9.0 train (DIST-02, 2026-10-04 — smoke e2e
-con wheel local; api-contract R-1 resolved). TS (`vantadb` npm) wraps the WASM
-build (D42 — zero WASM changes), so a TS exposure is blocked by the same WASM
-constraints; the native path (`NativeVantaDB` → `vantadb-node`) is unpublished
-and has no cognitive surface. Node (napi-rs) is the only runtime without the
-WASM blockers; it stays core-only under the same Gate P decision — candidate
-scope for the trigger-fired design task.
+con wheel local; api-contract R-1 resolved); `✅ facade` = the DIST-19 S3
+`VantaCognitiveAPI` thin facade shipped in `vantadb-node` (napi-rs — the only
+binding runtime without the WASM blockers; see `vantadb-node/src/lib.rs` §
+"DIST-19 S3"). TS (`vantadb` npm) wraps the WASM build (D42 — zero WASM
+changes), so a TS exposure is blocked by the same WASM constraints; its native
+path (`NativeVantaDB` → `vantadb-node`) does not forward the facade methods.
 
 **Status note (reconciled by DIST-04, 2026-10-04):** the Python minimal surface
 (DIST-02) has **landed**; this matrix and `VANTA_MEMORY.md` reflect the landed
 surface. The Python section counts above include `memory_capture`/`memory_recall`
-(46 → 48 pyclass methods; + `graphrag_search` from DIST-15 → 49).
+(46 → 48 pyclass methods; + `graphrag_search` from DIST-15 → 49). Since
+DIST-19 S3, `vantadb-node` also carries the `VantaCognitiveAPI` facade —
+`vantadb-node` is deliberately **out** of the invariant below.
 
-**Mechanical invariant (TS/Node/WASM declared core-only):**
+**Mechanical invariant (TS/WASM declared core-only):**
 
 ```bash
-rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm   # → 0 matches
+rg "vanta[_-]memory" vantadb-ts vantadb-wasm   # → 0 matches
 ```
 
 ### Runtime `capabilities()` parity
@@ -590,5 +600,9 @@ slices once the WASM path proves the wire shape — not part of this TS roadmap.
 ### Mechanical invariant (until a slice lands)
 
 ```bash
-rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm   # → 0 matches
+rg "vanta[_-]memory" vantadb-ts vantadb-wasm   # → 0 matches
 ```
+
+> `vantadb-node` is excluded from the sweep since DIST-19 S3: it depends on
+> `vanta-memory` for the `VantaCognitiveAPI` facade (`memoryRecall`,
+> `contextAssemble`, `memoryConsolidate`, `memoryReinforce`).

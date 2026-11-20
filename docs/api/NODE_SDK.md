@@ -150,18 +150,21 @@ Full typed surface: `index.d.ts` (auto-generated at build time by napi-rs — se
 
 | Method | Description |
 |--------|-------------|
-| `VantaDb.connect(path, options?)` | Open/create a database. `path` = directory (persistent) or `":memory:"`. `options: { read_only?, memory_limit? }` |
+| `VantaDb.connect(path, options?)` | Open/create a database. `path` = directory (persistent) or `":memory:"`. `options: { read_only?, memory_limit?, reserve_bytes? }` — `reserve_bytes` is the pre-reserved size of **one** LSM segment (default 1 MiB; a store owns 4 → total `4 × reserve_bytes`), clamped per segment to `memory_limit / 4` when a limit is set (FIND-517) |
 | `flush()` | Flush the WAL and memory-mapped files to disk |
-| `close()` | Drain in-flight ops, flush, close. New ops rejected with `database is closing` |
+| `close()` | Async drain: waits for every in-flight op to finish, then flushes and closes. New ops rejected with `database is closing` |
+| `reopen(path?)` | Drain + close the current engine, then open fresh on the same handle — same path by default, `path` to switch directories (EGO-12). On open failure the handle is left cleanly closed |
 | `put(record)` | Insert/update one memory record → `MemoryRecord` |
 | `putBatch(records)` | Insert/update many records atomically → `MemoryRecord[]` |
 | `get(namespace, key)` | Fetch a record, or `null` |
 | `delete(namespace, key)` | Delete a record → `boolean` (true if deleted) |
+| `forget(ns, key, mode?)` | Unified forgetting (TEC-03): `"soft"` (default) closes the validity window, `"hard"` physically deletes — both → `boolean`; `"certified"` → `PurgeCertificate` (VER-02) |
 | `list(namespace, options?)` | Paginate records with metadata filters → `{ records, next_cursor? }` |
 | `listNamespaces()` | All namespaces holding records → `string[]` |
-| `search(request)` | Hybrid/vector search → `MemorySearchHit[]` |
+| `search(request, abort?)` | Hybrid/vector search → `MemorySearchHit[]` |
 | `explainSearch(request)` | Search plan + per-hit scoring breakdown, without executing |
-| `capabilities()` | Stable runtime capabilities (sync) |
+| `query(iql, abort?)` | Execute an IQL statement → `QueryResult` (`{Read}` / `{Write}` / `{StaleContext}`). See [IQL](#iql-query) |
+| `capabilities()` | Stable runtime capabilities (sync): `{ runtime_profile, persistence, vector_search, iql_queries, read_only }` |
 | `insertNode(input)` | Insert/update a graph node (`id` as decimal string) |
 | `getNode(id)` | Fetch a graph node, or `null` |
 | `deleteNode(id, reason)` | Delete a graph node (reason recorded for auditing) |
@@ -186,12 +189,18 @@ Full typed surface: `index.d.ts` (auto-generated at build time by napi-rs — se
 | `similarToKey(ns, key, topK)` | Records similar to an existing record's vector (source excluded) |
 | `searchWithMethod(req, method?)` | `search()` with explicit backend (`Hnsw`/`Ivf`/`Flat`/`DiskAnn`/`Scann`, `null` = auto) |
 | `searchMulti(namespaces, req)` | Search several namespaces at once, merged by descending score |
+| `graphragSearch(ns, query?, queryVector?, abort?)` | GraphRAG pipeline (seed→expand→retrieve→context) → `GraphRagResult` |
+| `memoryRecall(options)` | One auto-recall pass over L1/session/agent/team memory (MEMG-24) → recall JSON, or `null` when there is nothing to inject |
+| `contextAssemble(options, abort?)` | Compact a chat history under a token budget (pure function — works even while the database is closing) |
+| `memoryConsolidate(options)` | LLM-free consolidation pass over one session (dream primitives). Fail-closed on non-idle sessions |
+| `memoryReinforce(hit, outcome)` | Report a recall outcome (`used`/`corrected`/`unused`) back into the record → updated record |
+| `checkpointSave(path)` | Full-database checkpoint: JSONL export with integrity manifest |
+| `checkpointLoad(path, quarantine?)` | Restore a `checkpointSave` file; `quarantine` defaults to `true` |
 
-> **⚠️ `bigint` runtime truth (FIND-BND12-01):** `count()`, `purgeExpired()`,
-> `compactLayout()`, and `deleteByFilter()` return **`bigint`** at runtime
-> (napi-rs maps Rust `u64` → BigInt — verified by `tests/api.test.ts`,
-> BND-12). `index.d.ts` still declares `Promise<number>` for these — the
-> declaration is stale; **trust the runtime**. Compare with `0n`, or wrap
+> **`bigint` runtime truth (FIND-BND12-01):** `count()`, `purgeExpired()`,
+> `compactLayout()`, and `deleteByFilter()` return **`bigint`** — napi-rs maps
+> Rust `u64` → BigInt and `index.d.ts` declares `Promise<bigint>` to match
+> (verified by `tests/api.test.ts`, BND-12). Compare with `0n`, or wrap
 > with `Number(...)` when you need a number:
 >
 > ```js
@@ -245,6 +254,7 @@ const hits = await db.search({
   distance_metric: "Cosine",     // or "Euclidean"
   filters: { lang: { String: "en" } },
   min_confidence: 0.5,           // opt-in confidence floor [0, 1] (SCH-04)
+  exclude_superseded: false,     // hide superseded records, default false
   as_of_ms: 1788134400000,       // valid-time point (ADR-046 §D3, SCH-07)
   valid_window: { from_ms: 0, to_ms: 1788134400000 }, // half-open overlap
   include_quarantined: false,    // quarantine view, default false (ADR-046 §D5)
@@ -255,7 +265,7 @@ const hits = await db.search({
 
 `list(namespace, options)` accepts the same v2 params plus `min_confidence`
 (`MemoryListOptions`: `as_of_ms`, `valid_window`, `include_quarantined`,
-`min_confidence`). Records returned by `get`/`list`/`search` carry the v2
+`min_confidence`, `exclude_superseded`). Records returned by `get`/`list`/`search` carry the v2
 fields (`valid_at_ms`, `invalid_at_ms`, `confidence_class`, `confidence`,
 `last_validated_at_ms`, `derived_from`, `quarantined_at_ms`,
 `quarantine_reason`, `quarantined_by`, `quarantine_review_due_ms`); u64
@@ -281,6 +291,45 @@ is documented inline in the Rust source
 hit carries `matched_tokens`, `matched_phrases`, and per-term BM25
 contributions (`bm25_terms`), plus RRF ranks when hybrid fusion ran.
 
+### IQL (`query`)
+
+```js
+const result = await db.query('FROM docs WHERE text ~ "deploy plan", min = 0.7 FETCH text');
+// { Read: GraphNodeRecord[] }        — SELECT-style reads (ids as decimal strings)
+// { Write: { affected_nodes, message, node_id? } } — INSERT/UPDATE/DELETE/RELATE
+// { StaleContext: { node_id } }      — rehydration required
+```
+
+`query(iql, abort?)` runs an IQL statement against the engine (FIND-268) and
+returns the externally-tagged `QueryResult` enum — the same signature shape
+and wire shape as the WASM (`Client.query`) and Python (`Client.query`)
+bindings; all `u128` ids travel as decimal strings. Grammar and semantics:
+[`IQL.md`](IQL.md). The same surface is exposed by the TypeScript wrapper's
+native backend (`NativeVantaDB.query`); a `vantadb-node` binary older than
+`0.10.0` fails there with `VANTADB_NOT_SUPPORTED` instead of a silent gap.
+
+### Cooperative cancellation (`AbortHandle`, DIST-20)
+
+`search()`, `query()`, `graphragSearch()` and `contextAssemble()` accept an
+optional trailing `abort?: AbortHandle` argument:
+
+```js
+import { AbortHandle } from "vantadb-node";
+
+const handle = new AbortHandle();
+const pending = db.search(req, handle);
+handle.abort();              // idempotent; safe before or after settle
+```
+
+`AbortHandle` is a **`Send`-safe cancellation token, not a DOM
+`AbortSignal`**: napi's `AbortSignal` is `!Send` (`Rc` internals) and cannot
+enter a `#[napi]` tokio future, so the binding exposes its own handle.
+Abort = **detach**: the promise settles as cancelled while the blocking op
+runs to completion on the engine — the engine itself is never cancelled and
+`close()` never blocks on a cancelled op. Wiring to a real `AbortSignal` is
+one line: `signal.addEventListener("abort", () => handle.abort())`. A
+pre-fired handle fails the next op fast with `Cancelled`.
+
 ### GraphRAG
 
 ```js
@@ -291,11 +340,13 @@ const result = await db.graphragSearch("docs", "vector database", undefined);
 //   stats: { seeds_found, nodes_expanded, total_candidates, expansion_hops_used } }
 ```
 
-`graphragSearch(namespace, query?, queryVector?)` runs the GraphRAG pipeline
-(seed → expand → retrieve → generate context) on a blocking thread
+`graphragSearch(namespace, query?, queryVector?, abort?)` runs the GraphRAG
+pipeline (seed → expand → retrieve → generate context) on a blocking thread
 (`spawn_blocking`). `id` / `source` / `target` are decimal strings (u128 ids
 exceed `Number.MAX_SAFE_INTEGER`). An oversized `queryVector` is rejected at
-the boundary. Full pipeline semantics: [`GRAPH_RAG.md`](GRAPH_RAG.md).
+the boundary. `abort` is the optional `AbortHandle` documented in
+[Cooperative cancellation](#cooperative-cancellation-aborthandle-dist-20).
+Full pipeline semantics: [`GRAPH_RAG.md`](GRAPH_RAG.md).
 
 ### Graph
 
@@ -354,6 +405,45 @@ const rebuild = await db.rebuildIndex();
 const reclaimed = await db.compactLayout(); // bigint: estimated bytes reclaimed
 await db.compactWal();                      // flush + archive WAL + fresh start
 const purged = await db.purgeExpired();     // bigint: TTL-expired records removed
+```
+
+### Cognitive layer (DIST-19 facade over `vanta-memory`)
+
+```js
+// One recall pass — returns the recall JSON, or null when nothing yields.
+const recall = await db.memoryRecall({
+  user_text: "what does the user prefer?",
+  session_key: "s-1",
+  // scope?, max_results?, min_overlap?, team_id?, agent_id?,
+  // allow_prefixes?, trust_aware?, now_ms?
+});
+
+// Compact a chat history under a token budget (pure function — safe to call
+// while the database is closing).
+const assembled = await db.contextAssemble({
+  messages: chatHistory,
+  token_budget: 4096,
+  // protected_prefix?, compaction_ratio?, min_keep?
+});
+
+// LLM-free dream consolidation over one idle session (fail-closed on a
+// non-idle session).
+await db.memoryConsolidate({ session_id: "s-1", now_ms: Date.now() });
+
+// Feed a recall outcome back into the record's confidence.
+await db.memoryReinforce(recall.recalled_memories[0], "used");
+```
+
+These four methods are a thin facade over the `vanta-memory` crate (the
+cognitive layer — see [`VANTA_MEMORY.md`](VANTA_MEMORY.md)); they exist only
+on this native binding, not on the WASM build.
+
+### Checkpoints
+
+```js
+await db.checkpointSave("./backup/export.jsonl");   // JSONL + integrity manifest
+await db.checkpointLoad("./backup/export.jsonl");   // quarantined by default
+await db.checkpointLoad("./backup/export.jsonl", false); // trusted source opt-out
 ```
 
 ## Error Handling

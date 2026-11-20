@@ -107,7 +107,7 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
 | Clause | Description |
 |--------|-------------|
 | `FROM <entity>` / `MATCH <entity>` | Entity type to search. `FROM` and `MATCH` are interchangeable. |
-| `SIGUE <min>..<max> "<label>"` | Graph traversal: follow edges with the given label, between `min` and `max` hops. |
+| `SIGUE <min>..<max> "<label>"` | Graph traversal: follow edges with the given label, between `min` and `max` hops. Strict: `min > max` is a parse error (FIND-525), and a `SIGUE` clause that fails to parse is a loud error — never a silent "no traversal" downgrade. |
 | `TYPE <type>` | Optional target type filter for traversal. |
 | `AS <alias>` | Alias for traversed nodes. |
 | `<alias>` | Target alias for result nodes (defaults to `"target"`). |
@@ -152,7 +152,7 @@ SELECT <field>, ... | <aggregate>, ... | * FROM <entity> [<alias>] [AS OF <unix-
 | `GROUP BY <field>` | Single group key for aggregation (minimum `IQL_VERSION_MIN_AGGREGATION` = 4): one output row per distinct value, first-seen order. Requires at least one aggregate in the projection. |
 | `FROM <entity> [<alias>]` | Same scan surface as `FROM`/`MATCH`; alias defaults to `target`. |
 | `AS OF <unix-ms>` | Valid-time point (SCH-03): same semantics as in `FROM`/`MATCH`. A subquery containing `AS OF` is a parse error — the clause is top-level only (no silent scoping). |
-| `JOIN <entity> <alias> ON <left> = <right>` | Chained joins; `ON` fields are alias-qualified (`p.addr_id = a.id`). |
+| `JOIN <entity> <alias> ON <left> = <right>` | Chained joins; `ON` fields are alias-qualified (`p.addr_id = a.id`). Field merge on a name collision: the **left** field wins under the bare name, and the losing right-side field stays reachable under the qualified key `<alias>.<field>` (`a.name` — the qualifier is the prefix of the `ON` right field; FIND-657). A genuinely stored dotted key still wins over the synthesized alias. |
 | `WHERE` | Mixes regular conditions and scalar subqueries: `<field> <op> (SELECT ...)`. |
 | `WITH TEMPERATURE <float>` | Query temperature (0.0 = deterministic/exhaustive). |
 | `LIMIT <n> [OFFSET <m>]` | Pagination: same semantics as in `FROM`/`MATCH` (see [Pagination](#pagination-limit--offset)). |
@@ -289,13 +289,42 @@ Conditions appear inside `WHERE` clauses, separated by `AND`.
 Values are strings, integers, floats, `true`, `false`, or `null` (see
 [Lexical Rules](#lexical-rules)).
 
-### Vector Similarity
+### `~` — Vector Similarity vs Lexical Match (FIND-520)
+
+The `~` operator has **two different semantics** depending on the `min`
+clause — they are not interchangeable:
 
 ```
-<field> ~ "<text_query>", min = <score>
+<field> ~ "<text_query>", min = <score>   -- vector similarity (HNSW ANN)
+<field> ~ "<text_query>"                  -- lexical text match (no embedding)
 ```
 
-Performs semantic vector search. The `~` operator triggers embedding-based similarity matching with a minimum score threshold. Several `~` conditions may appear in the same `WHERE` — they compose with `AND` semantics (the result is the intersection of the conditions).
+**With `min = <score>`** the condition is an embedding-based vector search:
+the query text is embedded and matched by cosine similarity against the
+field's stored vectors. `min` must be a finite float in `[0, 1]` —
+non-finite (`nan`, `inf`, `1e400`) or out-of-range literals are a **parse
+error** (FIND-522), never a silent zero-hit query.
+
+**Without `min`** the condition is a **lexical** match (`PhysicalTextFilter`,
+`text_contains_query`): no embedding is computed and the field's stored
+vector is irrelevant. The predicate is an **AND of every term AND every
+phrase** in the query (FIND-564): phrase tokens must all be present, and each
+quoted phrase must also match with exact adjacency. Matching is
+whitespace-tokenized and case-insensitive; an empty query matches
+everything.
+
+**Several `~` conditions compose with AND semantics** (FIND-563). For the
+vector form the **first** `~` predicate drives the ANN search (scoped to the
+queried entity, candidate window per [Pagination](#pagination-limit--offset))
+and every later `~` predicate wraps the stream in a `PhysicalVectorRefine`
+operator — brute-force cosine rescoring over the flowing rows, so the result
+is the intersection of all `~` conditions with recall bounded by a single
+candidate window. (When the CBO pushes selective relational filters first,
+**every** `~` predicate becomes a `PhysicalVectorRefine` over the filtered
+scan — same AND semantics.) A **failed** embedding is a query error, not 0
+hits (FIND-413); only a build compiled without any embedding feature passes
+`~` rows through unfiltered, with a loud one-shot notice. `PROFILE keyword`
+drops the vector arm entirely; `PROFILE vector` drops the lexical arm.
 
 ---
 

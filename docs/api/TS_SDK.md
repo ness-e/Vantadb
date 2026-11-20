@@ -638,7 +638,7 @@ interface Config {
 
 Every error thrown by the SDK is an instance of the `DbError` class (see
 [`vantadb-ts/src/errors.ts`](../../vantadb-ts/src/errors.ts)). All errors carry
-a stable `code` from the 10-element `ERROR_CODES` contract — **branch on
+a stable `code` from the 13-element `ERROR_CODES` contract — **branch on
 `code`, never on `message` text**.
 
 > **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md)
@@ -646,7 +646,7 @@ a stable `code` from the 10-element `ERROR_CODES` contract — **branch on
 > semantics, MCP `-320xx` mapping, and the upcoming `VANTADB_`-prefixed codes
 > from `ERR-CORE-01`.
 
-### `ERROR_CODES` (10 — contract surface)
+### `ERROR_CODES` (13 — contract surface)
 
 ```ts
 import { ERROR_CODES, DbError, wrapWasmError } from "vantadb";
@@ -659,10 +659,13 @@ const codes = ERROR_CODES;
 //   NOT_FOUND: "VANTADB_NOT_FOUND",
 //   INVALID_ARGUMENT: "VANTADB_INVALID_ARGUMENT",
 //   CORRUPT: "VANTADB_CORRUPT",
+//   SERIALIZATION: "VANTADB_SERIALIZATION",
 //   RESOURCE_LIMIT: "VANTADB_RESOURCE_LIMIT",
+//   QUOTA_EXCEEDED: "VANTADB_QUOTA_EXCEEDED",
 //   TIMEOUT: "VANTADB_TIMEOUT",
 //   BUSY: "VANTADB_BUSY",
 //   IO_ERROR: "VANTADB_IO_ERROR",
+//   NOT_SUPPORTED: "VANTADB_NOT_SUPPORTED",
 // }
 ```
 
@@ -676,8 +679,11 @@ const codes = ERROR_CODES;
 | `VANTADB_CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `Serialization`, `Schema`, `Restore`, `Backup` | ❌ |
 | `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument | `Iql` | ❌ |
 | `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `Io`, `Wal`, `Backend`, `Cli`, `Search`, `Runtime` | ✅ |
+| `VANTADB_SERIALIZATION` | Serialization/deserialization failure at the binding layer | binding-layer `ERR_SERIALIZATION` / `VANTADB_SERIALIZATION` wire codes and TS serializer failures (the core `code()` groups `Serialization` under `VANTADB_CORRUPT`) | ❌ |
+| `VANTADB_QUOTA_EXCEEDED` | Storage/record quota exceeded | binding-layer `ERR_QUOTA_EXCEEDED` / `VANTADB_QUOTA_EXCEEDED` and `quota exceeded` messages (the core `code()` groups `QuotaExceeded` under `VANTADB_RESOURCE_LIMIT`) | ❌ |
 | `VANTADB_WASM_ERROR` | Generic WASM-binding fallback | `Generic` (only when no `code` is attached) | ❌ |
 | `VANTADB_CLOSED` | Operation on a closed database handle | (lifecycle, not in `DbError`) | ❌ |
+| `VANTADB_NOT_SUPPORTED` | Operation has no primitive in the underlying binding — the SDK fails honestly instead of fabricating a result | SDK-level only (FIND-536): not emitted by `Error::code()`; the core's `UnsupportedOperation` variant maps to `VANTADB_VALIDATION_ERROR` | ❌ |
 
 > **Resolved (`ERR-TS-01`):** the `VANTADB_` prefix from `Error::code()`
 > is now live on the TS/WASM/Node wire — the values above are the contract.
@@ -692,7 +698,7 @@ const codes = ERROR_CODES;
 import { DbError } from "vantadb";
 
 export class DbError extends Error {
-  readonly code: string;        // one of the 10 VANTADB_* codes above
+  readonly code: string;        // one of the 13 VANTADB_* codes above
   readonly details?: unknown;   // structured payload (Rust variant fields)
   readonly timestamp: Date;
   // readonly cause?: unknown;  // ES2022 ErrorOptions — set by wrapWasmError/wrapNativeError
@@ -820,7 +826,7 @@ await db.close();
 - The native `.node` binary is **platform-specific**. If it is missing for the
   current platform, every method throws a `DbError` with a canonical `VANTADB_*`
   code — browsers must use the WASM wrapper instead.
-- Error surface is identical: `wrapNativeError` maps to the same 10-code
+- Error surface is identical: `wrapNativeError` maps to the same 13-code
   `ERROR_CODES` contract as `wrapWasmError` (`VANTADB_*`, branch on `code`),
   covered by `vantadb-ts/src/__tests__/native-error.test.ts` (TS-02/ERR-TS-01).
 - Package layout: `vantadb/native` → `dist/native.js` + `dist/native.d.ts`

@@ -211,9 +211,13 @@ payload so end-users see actionable guidance instead of a generic toast.
 ## 4. TypeScript / WASM error mapping
 
 The TypeScript SDK and WASM binding normalize Rust `Error` to a
-`DbError` class with a stable `code` from the 10-code contract. The wire
+`DbError` class with a stable `code` from the 13-code contract. The wire
 values are the canonical `VANTADB_*` codes (ERR-TS-01); the TS object keys
-keep their unprefixed names.
+keep their unprefixed names. `SERIALIZATION`, `QUOTA_EXCEEDED` and
+`NOT_SUPPORTED` are **binding-layer refinements**, not additional core
+codes — `Error::code()` still emits only the §1.1 set (`Serialization` and
+`QuotaExceeded` map to `VANTADB_CORRUPT` / `VANTADB_RESOURCE_LIMIT` there,
+and `UnsupportedOperation` maps to `VANTADB_VALIDATION_ERROR`).
 
 ```ts
 export const ERROR_CODES = {
@@ -223,10 +227,13 @@ export const ERROR_CODES = {
   NOT_FOUND: "VANTADB_NOT_FOUND",
   INVALID_ARGUMENT: "VANTADB_INVALID_ARGUMENT",
   CORRUPT: "VANTADB_CORRUPT",
+  SERIALIZATION: "VANTADB_SERIALIZATION",
   RESOURCE_LIMIT: "VANTADB_RESOURCE_LIMIT",
+  QUOTA_EXCEEDED: "VANTADB_QUOTA_EXCEEDED",
   TIMEOUT: "VANTADB_TIMEOUT",
   BUSY: "VANTADB_BUSY",
   IO_ERROR: "VANTADB_IO_ERROR",
+  NOT_SUPPORTED: "VANTADB_NOT_SUPPORTED", // SDK-level (FIND-536)
 } as const;
 ```
 
@@ -239,7 +246,7 @@ back into `err.code` and strips it from the message, falling back to
 
 ```ts
 export class DbError extends Error {
-  readonly code: ErrorCode;        // one of the 10 above
+  readonly code: ErrorCode;        // one of the 13 above
   readonly details?: unknown;      // structured payload (Rust variant fields)
   readonly timestamp: Date;
 

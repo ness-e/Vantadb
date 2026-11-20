@@ -725,7 +725,9 @@ Batch hybrid search over multiple request objects. Each element may be a
 `valid_window` (`{"from_ms", "to_ms"}`), `include_quarantined` and
 `search_profile` (`{"mode": "keyword"|"vector"|"hybrid", "rrf_k"?,
 "candidate_k"?, "dense_weight"?, "lexical_weight"?, "sparse_weight"?}`) — the
-same wire names `search()` accepts (FIND-578). Requests are validated eagerly
+same wire names `search()` accepts, **except** `search_profile`, which only
+the batch-request parser supports (`search()` has no `search_profile`
+parameter and always runs the default profile) (FIND-578). Requests are validated eagerly
 (raises `ValueError` on the first invalid element), then executed in parallel
 via Rayon with the GIL released. Returns one `[SearchHit]` list per request,
 in input order.

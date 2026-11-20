@@ -41,29 +41,37 @@ import { VantaDb } from "vantadb-node";
 const db = await VantaDb.connect("./data");   // o ":memory:"
 await db.put({ namespace: "agent/main", key: "pref-1", payload: "usa TypeScript" });
 
-const hit = await db.search({
+const hits = await db.search({
   namespace: "agent/main",
   query_vector: [...],
   text_query: "typescript",
 });
-console.log(hit.hits[0].record.payload, hit.hits[0].score);
+console.log(hits[0]?.record.payload, hits[0]?.score);   // search() → MemorySearchHit[]
+
+// IQL (mismo contrato que WASM/Python)
+const result = await db.query('FROM agent/main WHERE text ~ "typescript", min = 0.7');
 
 // Grafo dirigido con traversal filtrada
 await db.addEdge("1", "2", "depends_on");
 const dag = await db.graphIsDag(["1"]);
 
-await db.close();   // drena operaciones in-flight antes de flush
+await db.close();   // drain async: espera a las ops in-flight, flush, cierra
 ```
 
 ## API (`VantaDb` — todos async)
 
 | Área | Métodos |
 |------|---------|
-| Ciclo de vida | `connect(path, {read_only?, memory_limit?})` · `flush()` · `close()` |
-| Memoria | `put(record)` · `putBatch(records)` · `get(ns, key)` · `delete(ns, key)` · `list(ns, {filters?, limit?, cursor?})` · `listNamespaces()` |
-| Búsqueda | `search(request)` (vector+filters+text, hybrid) · `explainSearch(request)` |
+| Ciclo de vida | `connect(path, {read_only?, memory_limit?, reserve_bytes?})` · `flush()` · `close()` (drain async) · `reopen(path?)` |
+| Memoria | `put(record)` · `putBatch(records)` · `get(ns, key)` · `delete(ns, key)` · `forget(ns, key, mode?)` (`soft`/`hard`/`certified`) · `list(ns, {filters?, limit?, cursor?})` · `listNamespaces()` |
+| Búsqueda | `search(request, abort?)` (vector+filters+text, hybrid) · `explainSearch(request)` · `similarToKey` · `searchWithMethod` · `searchMulti` |
+| IQL | `query(iql, abort?)` → `{Read\|Write\|StaleContext}` (FIND-268) |
 | Grafo | `insertNode` · `getNode` · `deleteNode(id, reason)` · `addEdge` · `removeEdge` · `graphBfs/Dfs/TopologicalSort/IsDag/FilteredTraversal/Degree` |
-| Runtime | `capabilities()` |
+| GraphRAG | `graphragSearch(ns, query?, queryVector?, abort?)` |
+| Cognitiva (`vanta-memory`) | `memoryRecall` · `contextAssemble` · `memoryConsolidate` · `memoryReinforce` |
+| Mantenimiento | `vacuum` · `rebuildIndex` · `compactLayout` · `compactWal` · `purgeExpired` · `deleteByFilter` · `count` · `versions` · `getVersion` · `supersede` |
+| Portabilidad | `checkpointSave(path)` · `checkpointLoad(path, quarantine?)` |
+| Runtime | `capabilities()` · `AbortHandle` (cancelación cooperativa — detach, no DOM `AbortSignal`) |
 
 Los ids de grafo viajan como **decimal strings** (u128 > Number.MAX_SAFE_INTEGER).
 
