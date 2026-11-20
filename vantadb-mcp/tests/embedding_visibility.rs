@@ -63,7 +63,8 @@ fn def08_capabilities_reports_degraded_embeddings_notice() {
         .expect("degraded embedding status must carry a notice");
     for needle in [
         "fallback: true",
-        "deterministic dummy embeddings",
+        "fails closed",
+        "stores nodes without a vector",
         "scripts/setup-embeddings.ps1",
         "embeddings/verify.py --check",
     ] {

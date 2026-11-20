@@ -164,6 +164,9 @@ pub struct LocalOnnxProvider {
     #[allow(dead_code)]
     model_dir: String,
     allow_dummy: bool,
+    /// FIND-642: bytes reserved in the process-global ONNX budget while this
+    /// provider holds a session (released on drop).
+    reserved_bytes: u64,
 }
 
 /// Embedding model family — decides the e5 `query:`/`passage:` prefixes.
@@ -186,6 +189,75 @@ enum EmbedFamily {
 enum EmbedKind {
     Query,
     Document,
+}
+
+/// FIND-643: CPU features relevant to the ONNX Runtime ISA gate. `avx2`/`fma`
+/// are detected for observability and future gate refinement (e.g. if the
+/// loaded dylib ever moves to an x86-64-v3 baseline) — the shipped gate only
+/// requires `avx` (see `ort_cpu_supported`).
+#[cfg(feature = "embed-local")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) struct OrtCpuFeatures {
+    avx: bool,
+    avx2: bool,
+    fma: bool,
+}
+
+/// Detect host CPU features (CPUID/XGETBV via std; `is_x86_feature_detected`
+/// already accounts for OS AVX state). Non-x86 targets (aarch64 has NEON in
+/// baseline, wasm never reaches ORT loading) report full support.
+#[cfg(feature = "embed-local")]
+pub(crate) fn detect_ort_cpu_features() -> OrtCpuFeatures {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    {
+        OrtCpuFeatures {
+            avx: std::is_x86_feature_detected!("avx"),
+            avx2: std::is_x86_feature_detected!("avx2"),
+            fma: std::is_x86_feature_detected!("fma"),
+        }
+    }
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+    {
+        OrtCpuFeatures {
+            avx: true,
+            avx2: true,
+            fma: true,
+        }
+    }
+}
+
+/// FIND-643 pure ISA gate (unit-tested, no dylib).
+///
+/// Verified facts: (a) MLAS kernels runtime-dispatch with an SSE2 floor
+/// (DeepWiki platform-optimizations, onnxruntime#11833), BUT (b) the
+/// official Microsoft x64 release binaries — the dylib this engine loads
+/// via `ORT_DYLIB_PATH` / the setup wizard store — emit AVX in code paths
+/// that are NOT behind that dispatch, and crash with SIGILL on pre-AVX
+/// CPUs (documented downstream, e.g. kreuzberg install docs: "require
+/// AVX/AVX2 CPU instructions ... invalid opcode trap"; Microsoft's
+/// supported answer for non-AVX CPUs is building from source). (c) The
+/// `ort` crate's own pyke.io prebuilts go further (x86-64-v3 baseline),
+/// but `default-features=false` + `load-dynamic` means this engine never
+/// fetches them.
+///
+/// Minimum gate = AVX (x86-64-v2 SIMD floor; Sandy Bridge/Bulldozer 2011+).
+/// Returns `Err(feature)` naming the first missing required feature.
+/// Caveat: a self-compiled ORT without AVX on a pre-AVX CPU would be a
+/// false negative — accepted: the fallback degrades to dummy embeddings
+/// with an explicit warning, never a crash.
+#[cfg(feature = "embed-local")]
+pub(crate) fn ort_cpu_supported(f: OrtCpuFeatures) -> std::result::Result<(), &'static str> {
+    if !f.avx {
+        return Err("avx");
+    }
+    Ok(())
+}
+
+/// FIND-643 wrapper: `Ok(())` when the host CPU satisfies the ORT gate.
+#[cfg(feature = "embed-local")]
+pub(crate) fn ort_cpu_gate() -> std::result::Result<(), &'static str> {
+    ort_cpu_supported(detect_ort_cpu_features())
 }
 
 /// Classify the family from the model dir.
@@ -251,8 +323,26 @@ impl LocalOnnxProvider {
         let family = family_of(model_dir);
         // try to load tokenizer
         let tokenizer = Self::try_load_tokenizer(model_dir);
-        // try to load session
-        let session = Self::try_load_session(model_dir);
+        // FIND-642: the resident ONNX session counts against `memory_limit`.
+        // Estimate the footprint BEFORE loading (weights on disk x factor +
+        // fixed ORT overhead); strict mode fails closed with Error::Embedding,
+        // lenient mode degrades to the deterministic dummy with a warning.
+        let weights_bytes = Self::onnx_model_weights_bytes(model_dir);
+        let session_estimate = crate::memory_governor::estimate_onnx_session_bytes(weights_bytes);
+        let session = match Self::onnx_budget_decision(
+            session_estimate,
+            crate::config::Config::default().memory_limit,
+            cfg.strict_embeddings,
+        )? {
+            true => Self::try_load_session(model_dir),
+            false => None,
+        };
+        let reserved_bytes = if session.is_some() {
+            crate::memory_governor::reserve_onnx_session(session_estimate);
+            session_estimate
+        } else {
+            0
+        };
         let allow_dummy = !cfg.strict_embeddings;
         Ok(Self {
             session: session.map(parking_lot::Mutex::new),
@@ -261,6 +351,7 @@ impl LocalOnnxProvider {
             family,
             model_dir: model_dir.to_string(),
             allow_dummy,
+            reserved_bytes,
         })
     }
 
@@ -273,6 +364,7 @@ impl LocalOnnxProvider {
             family: EmbedFamily::Other,
             model_dir: "__dummy__".to_string(),
             allow_dummy: true,
+            reserved_bytes: 0,
         }
     }
 
@@ -446,6 +538,20 @@ impl LocalOnnxProvider {
         // must compile).
         #[cfg(not(target_arch = "wasm32"))]
         {
+            // FIND-643: SIGILL guard — `catch_unwind` cannot trap an illegal
+            // instruction, so the ISA the official dylib needs is checked
+            // BEFORE `init_from` touches it. A failed gate degrades to the
+            // dummy provider; strict mode surfaces Error::Embedding upstream.
+            if let Err(missing) = ort_cpu_gate() {
+                tracing::warn!(
+                    fallback = true,
+                    missing_isa = missing,
+                    "CPU lacks `{missing}` required by the official ONNX Runtime binary \
+                     (would SIGILL, not catchable); embedding calls fail closed (strict mode) \
+                     or degrade to deterministic vectors only if the dummy fallback is opted in"
+                );
+                return false;
+            }
             let path = Self::resolve_ort_dylib_path();
             let builder = match ort::init_from(&path) {
                 Ok(b) => b,
@@ -454,7 +560,8 @@ impl LocalOnnxProvider {
                         fallback = true,
                         error = %e,
                         path = %path.display(),
-                        "ONNX Runtime dylib unusable; using deterministic dummy embeddings"
+                        "ONNX Runtime dylib unusable; embedding calls fail closed (strict mode) \
+                         or degrade to deterministic vectors only if the dummy fallback is opted in"
                     );
                     return false;
                 }
@@ -471,7 +578,8 @@ impl LocalOnnxProvider {
                     tracing::warn!(
                         fallback = true,
                         path = %path.display(),
-                        "ONNX Runtime environment build failed; using deterministic dummy embeddings"
+                        "ONNX Runtime environment build failed; embedding calls fail closed (strict mode) \
+                         or degrade to deterministic vectors only if the dummy fallback is opted in"
                     );
                     return false;
                 }
@@ -486,7 +594,8 @@ impl LocalOnnxProvider {
                 tracing::warn!(
                     fallback = true,
                     path = %path.display(),
-                    "ONNX Runtime API unavailable; using deterministic dummy embeddings"
+                    "ONNX Runtime API unavailable; embedding calls fail closed (strict mode) \
+                     or degrade to deterministic vectors only if the dummy fallback is opted in"
                 );
                 return false;
             }
@@ -495,6 +604,109 @@ impl LocalOnnxProvider {
         #[cfg(target_arch = "wasm32")]
         {
             false
+        }
+    }
+
+    /// Candidate ONNX weights paths in commit order — shared by
+    /// `load_session_inner` and the FIND-642 budget estimator so the estimate
+    /// always prices the file that actually loads.
+    fn model_path_candidates(model_dir: &str) -> [std::path::PathBuf; 6] {
+        [
+            std::path::Path::new(model_dir)
+                .join("model.onnx")
+                .to_path_buf(),
+            std::path::Path::new(model_dir)
+                .join("onnx/model.onnx")
+                .to_path_buf(),
+            std::path::Path::new(model_dir)
+                .join("model_int8.onnx")
+                .to_path_buf(),
+            std::path::PathBuf::from("embeddings/models/multilingual-e5-small/onnx/model.onnx"),
+            std::path::PathBuf::from("embeddings/models/embeddinggemma-2/onnx/model.onnx"),
+            std::path::PathBuf::from("embeddings/models/embeddinggemma-300m/onnx/model.onnx"),
+        ]
+    }
+
+    /// Resolve the ONNX weights file a session would commit, using the same
+    /// candidate order as `load_session_inner` — including the hardcoded
+    /// default-model fallbacks (FIND-642: the budget estimate must price the
+    /// file that actually loads).
+    fn resolve_model_path(model_dir: &str) -> Option<std::path::PathBuf> {
+        for p in Self::model_path_candidates(model_dir) {
+            if p.exists() {
+                return Some(p);
+            }
+        }
+        // recursive fallback (mirrors load_session_inner): first *.onnx under
+        // model_dir, else model.onnx one level down.
+        if let Ok(dir) = std::fs::read_dir(model_dir) {
+            for e in dir.flatten() {
+                let path = e.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("onnx") {
+                    return Some(path);
+                }
+                let sub = path.join("model.onnx");
+                if sub.exists() {
+                    return Some(sub);
+                }
+            }
+        }
+        None
+    }
+
+    /// Total on-disk bytes of the resolved model weights plus `*.onnx_data`
+    /// external-data sidecars in the same directory (FIND-642).
+    fn onnx_model_weights_bytes(model_dir: &str) -> u64 {
+        let Some(p) = Self::resolve_model_path(model_dir) else {
+            return 0;
+        };
+        let mut total = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+        if let Some(dir) = p.parent() {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for e in entries.flatten() {
+                    let path = e.path();
+                    if path.extension().and_then(|s| s.to_str()) == Some("onnx_data") {
+                        total += std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+                    }
+                }
+            }
+        }
+        total
+    }
+
+    /// FIND-642 pure budget gate (unit-tested without the dylib): given the
+    /// estimated session footprint and the configured `memory_limit`, decide
+    /// whether the ONNX session may load.
+    ///
+    /// `Ok(true)` = load allowed · `Ok(false)` = over budget, degrade to the
+    /// deterministic dummy with an explicit warning (lenient mode) ·
+    /// `Err(Error::Embedding)` = strict-mode rejection (fail closed).
+    ///
+    /// `memory_limit` of `None`/`Some(0)` = "not configured" (same contract as
+    /// `MemoryGovernor::new`): unlimited, never blocks.
+    fn onnx_budget_decision(
+        estimate_bytes: u64,
+        memory_limit: Option<u64>,
+        strict: bool,
+    ) -> Result<bool> {
+        match memory_limit {
+            Some(limit) if limit > 0 && estimate_bytes > limit => {
+                if strict {
+                    Err(Error::Embedding(format!(
+                        "estimated ONNX session footprint ({estimate_bytes} bytes) exceeds memory_limit ({limit} bytes); \
+                         raise VANTADB_MEMORY_LIMIT, pick a smaller model, or set VANTADB_STRICT_EMBEDDINGS=false to degrade"
+                    )))
+                } else {
+                    tracing::warn!(
+                        fallback = true,
+                        estimate_bytes,
+                        memory_limit = limit,
+                        "ONNX session estimate exceeds memory_limit; using deterministic dummy embeddings"
+                    );
+                    Ok(false)
+                }
+            }
+            _ => Ok(true),
         }
     }
 
@@ -517,7 +729,8 @@ impl LocalOnnxProvider {
                 tracing::warn!(
                     fallback = true,
                     panic = msg,
-                    "ONNX Runtime panicked while loading session; using deterministic dummy embeddings"
+                    "ONNX Runtime panicked while loading session; embedding calls fail closed (strict mode) \
+                     or degrade to deterministic vectors only if the dummy fallback is opted in"
                 );
                 None
             }
@@ -528,20 +741,7 @@ impl LocalOnnxProvider {
         // Sessions borrow the shared 2.x Environment; `ensure_ort_ready` runs
         // first (see `try_load_session`), so absence here is belt-and-braces.
         let env = ORT_ENV.get()?;
-        let candidates = [
-            std::path::Path::new(model_dir)
-                .join("model.onnx")
-                .to_path_buf(),
-            std::path::Path::new(model_dir)
-                .join("onnx/model.onnx")
-                .to_path_buf(),
-            std::path::Path::new(model_dir)
-                .join("model_int8.onnx")
-                .to_path_buf(),
-            std::path::PathBuf::from("embeddings/models/multilingual-e5-small/onnx/model.onnx"),
-            std::path::PathBuf::from("embeddings/models/embeddinggemma-2/onnx/model.onnx"),
-            std::path::PathBuf::from("embeddings/models/embeddinggemma-300m/onnx/model.onnx"),
-        ];
+        let candidates = Self::model_path_candidates(model_dir);
         for p in candidates {
             if p.exists() {
                 if let Ok(sess) =
@@ -763,6 +963,17 @@ impl LocalOnnxProvider {
             }
         }
         Some(pooled)
+    }
+}
+
+#[cfg(feature = "embed-local")]
+impl Drop for LocalOnnxProvider {
+    fn drop(&mut self) {
+        // FIND-642: the session dies with `self`; release its budget
+        // reservation so `memory_limit` accounting stays honest.
+        if self.reserved_bytes > 0 {
+            crate::memory_governor::release_onnx_session(self.reserved_bytes);
+        }
     }
 }
 
@@ -1509,6 +1720,137 @@ mod tests {
         let provider = LocalOnnxProvider::new("").expect("provider build");
 
         assert_eq!(provider.model_dir, "C:/models/find414/onnx");
+    }
+
+    // ── FIND-642: ONNX session accounted against the RAM budget ────────
+    // Dylib-free: `onnx_budget_decision` is pure and
+    // `onnx_model_weights_bytes` works on a fake model.onnx.
+
+    #[test]
+    fn onnx_budget_decision_within_limit_loads() {
+        assert!(LocalOnnxProvider::onnx_budget_decision(100, Some(1000), true).unwrap());
+        // estimate == limit is allowed (only a strict excess is rejected).
+        assert!(LocalOnnxProvider::onnx_budget_decision(1000, Some(1000), true).unwrap());
+    }
+
+    #[test]
+    fn onnx_budget_decision_no_limit_never_blocks() {
+        // memory_limit None (unset) and Some(0) ("not configured") = unlimited.
+        assert!(LocalOnnxProvider::onnx_budget_decision(u64::MAX, None, true).unwrap());
+        assert!(LocalOnnxProvider::onnx_budget_decision(u64::MAX, Some(0), true).unwrap());
+    }
+
+    #[test]
+    fn onnx_budget_decision_strict_rejects_over_limit() {
+        let err = LocalOnnxProvider::onnx_budget_decision(2000, Some(1000), true)
+            .expect_err("strict must fail closed over the limit");
+        assert!(matches!(err, Error::Embedding(_)), "got {err:?}");
+        assert!(format!("{err}").contains("2000"));
+    }
+
+    #[test]
+    fn onnx_budget_decision_lenient_degrades() {
+        // Lenient mode: over budget degrades (no session) instead of erroring.
+        assert!(!LocalOnnxProvider::onnx_budget_decision(2000, Some(1000), false).unwrap());
+    }
+
+    #[test]
+    fn onnx_budget_weights_count_sidecar_data() {
+        // A fake model.onnx of known size + external-data sidecar must be
+        // priced together (embeddinggemma-2 layout: 0.4MB + 1033.9MB).
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("model.onnx"), vec![0u8; 1024]).unwrap();
+        std::fs::write(dir.path().join("model.onnx_data"), vec![0u8; 512]).unwrap();
+        assert_eq!(
+            LocalOnnxProvider::onnx_model_weights_bytes(dir.path().to_str().unwrap()),
+            1536
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn onnx_budget_over_limit_lenient_yields_dummy_provider() {
+        // Fake model.onnx + tiny memory_limit + non-strict -> provider builds,
+        // session is skipped (degraded), nothing is reserved.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("model.onnx"), vec![0u8; 4096]).unwrap();
+        let _strict = EnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "false");
+        let _allow = EnvGuard::set("VANTADB_ALLOW_DUMMY_EMBEDDINGS", "true");
+        let _limit = EnvGuard::set("VANTADB_MEMORY_LIMIT", "1MB");
+        let before = crate::memory_governor::onnx_session_reserved();
+        let provider = LocalOnnxProvider::new(dir.path().to_str().unwrap())
+            .expect("provider build must not error in lenient mode");
+        assert!(
+            !provider.is_real(),
+            "over-budget session must be skipped (degraded)"
+        );
+        assert_eq!(
+            crate::memory_governor::onnx_session_reserved(),
+            before,
+            "a skipped session must not leak budget"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn onnx_budget_over_limit_strict_errors() {
+        // Same setup but strict -> typed Error::Embedding, never a dummy.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("model.onnx"), vec![0u8; 4096]).unwrap();
+        let _strict = EnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "true");
+        let _allow = EnvGuard::set("VANTADB_ALLOW_DUMMY_EMBEDDINGS", "false");
+        let _limit = EnvGuard::set("VANTADB_MEMORY_LIMIT", "1MB");
+        let res = LocalOnnxProvider::new(dir.path().to_str().unwrap());
+        let err = match res {
+            Err(e) => e,
+            Ok(_) => panic!("strict over-budget must fail"),
+        };
+        assert!(matches!(err, Error::Embedding(_)), "got {err:?}");
+    }
+
+    // ── FIND-643: CPU ISA gate for the ORT dylib (no dylib required) ────
+
+    #[test]
+    fn ort_cpu_gate_rejects_missing_avx() {
+        let no_avx = super::OrtCpuFeatures {
+            avx: false,
+            avx2: false,
+            fma: false,
+        };
+        assert_eq!(
+            ort_cpu_supported(no_avx),
+            Err("avx"),
+            "pre-AVX CPU must be refused before the dylib loads (SIGILL)"
+        );
+    }
+
+    #[test]
+    fn ort_cpu_gate_accepts_avx_capable() {
+        let sandy = super::OrtCpuFeatures {
+            avx: true,
+            avx2: false,
+            fma: false,
+        };
+        assert_eq!(ort_cpu_supported(sandy), Ok(()));
+        let haswell = super::OrtCpuFeatures {
+            avx: true,
+            avx2: true,
+            fma: true,
+        };
+        assert_eq!(ort_cpu_supported(haswell), Ok(()));
+    }
+
+    #[test]
+    fn ort_cpu_gate_detection_runs() {
+        // Pure smoke on the host: the detection must run and its verdict be
+        // consistent (on this class of machine AVX is expected, but the gate
+        // contract is what is asserted, not the hardware).
+        let f = detect_ort_cpu_features();
+        assert_eq!(
+            ort_cpu_gate().is_ok(),
+            f.avx,
+            "gate verdict must equal ort_cpu_supported(detected)"
+        );
     }
 }
 

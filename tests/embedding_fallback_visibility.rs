@@ -76,7 +76,8 @@ fn assert_degraded_notice(embedding: &serde_json::Value) {
         .expect("degraded embedding status must carry a notice");
     for needle in [
         "fallback: true",
-        "deterministic dummy embeddings",
+        "fails closed",
+        "stores nodes without a vector",
         "NOT semantic",
         "scripts/setup-embeddings.ps1",
         "embeddings/verify.py --check",

@@ -3,6 +3,7 @@
 //! runtime introspection of engine behaviour and memory usage.
 
 pub(crate) mod core;
-pub(crate) mod native;
+// FIND-608 (ME-01): the empty `native` skeleton module was removed — its doc
+// promised re-exports that never existed. Everything lives in `core`.
 
 pub use core::*;

@@ -3,9 +3,12 @@
 /// Per-subsystem memory breakdown snapshot.
 ///
 /// These values are **observational**, not accounting-grade. RSS and virtual
-/// memory come from `sysinfo::Process` and represent the OS-reported values
-/// for the current process. HNSW node count and cache entries are logical
-/// counters maintained by the engine.
+/// memory are OS-reported values for the current process, sampled through the
+/// host's **native API first** (`GetProcessMemoryInfo` on Windows,
+/// `task_info` on macOS, `/proc/self` on Linux — see
+/// `core::_get_rss_virt`); `sysinfo::Process` is only the fallback when the
+/// native call fails. HNSW node count and cache entries are logical counters
+/// maintained by the engine.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MemoryBreakdownSnapshot {
     /// Process resident set size in bytes (OS-reported).

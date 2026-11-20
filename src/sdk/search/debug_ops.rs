@@ -1,12 +1,20 @@
 use super::super::builder::Embedded;
+// FIND-608 (absorbe FIND-147): every import below is only used by
+// `#[cfg(any(debug_assertions, test))]` methods — gate them identically so a
+// `--release`/`--benches` compile never emits `unused_imports` warnings.
+#[cfg(any(debug_assertions, test))]
 use super::super::serialization::{validate_metadata, validate_namespace};
 #[cfg(any(debug_assertions, test))]
 use super::super::serialization::{DERIVED_INDEX_STATE_KEY, TEXT_INDEX_STATE_KEY};
+#[cfg(any(debug_assertions, test))]
 use super::super::types::*;
+#[cfg(any(debug_assertions, test))]
 use super::debug;
+#[cfg(any(debug_assertions, test))]
 use crate::backend::BackendPartition;
 #[cfg(any(debug_assertions, test))]
 use crate::backend::BackendWriteOp;
+#[cfg(any(debug_assertions, test))]
 use crate::error::{Error, Result};
 
 impl Embedded {

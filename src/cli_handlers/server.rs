@@ -90,7 +90,8 @@ pub fn cmd_status(db_path: &str, verbose: bool, json_output: bool) -> Result<()>
     let stats = engine.stats();
     let metrics = crate::metrics::operational_metrics_snapshot();
     // DEF-08: visible fallback — this is the CLI status surface where the user
-    // sees whether local embeddings degraded to deterministic dummy vectors
+    // sees whether local embeddings are degraded (fail-closed / no-vector
+    // inserts, never synthetic vectors served)
     // (DISTRIBUTION §7 contract; probe shared with MCP `capabilities`).
     let embedding = crate::embedding_health::embedding_health();
 
@@ -154,7 +155,7 @@ pub fn cmd_status(db_path: &str, verbose: bool, json_output: bool) -> Result<()>
     let _ = term.write_line(&format!(
         "║     Fallback:       {:<38} ║",
         match embedding.fallback {
-            Some(true) => "Yes (deterministic dummy embeddings)".to_string(),
+            Some(true) => "Yes — degraded (fail-closed)".to_string(),
             Some(false) => "No".to_string(),
             None => "n/a (remote or not compiled)".to_string(),
         }

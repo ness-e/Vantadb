@@ -919,7 +919,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "capabilities",
-            "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only, embedding} so the agent can discover what the connected database supports. `embedding` is the DEF-08 visible-fallback probe: {provider, fallback, reason, detail, model_dir, model_present, notice} — `fallback:true` means deterministic dummy embeddings are being served (ORT unusable or model missing) and `notice` carries the user-facing message plus the remedy.",
+            "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only, embedding} so the agent can discover what the connected database supports. `embedding` is the DEF-08 visible-fallback probe: {provider, fallback, reason, detail, model_dir, model_present, notice} — `fallback:true` means the local embedding setup is degraded (ORT unusable or model missing): embedding calls fail closed in strict mode and inserts are stored without a vector — synthetic embeddings are never served — and `notice` carries the user-facing message plus the remedy.",
             "annotations": {
                 "title": "Capabilities",
                 "readOnlyHint": true,
