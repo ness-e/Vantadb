@@ -39,10 +39,13 @@ Se aplican [EXPANSION-CONTRACT](EXPANSION-CONTRACT.md),
 añade E10–E15 con mecanismos internos no cubiertos por E1–E9 — bucle del
 scheduler, cola persistida frente a overlay "processing" en RAM, autobatching,
 snapshot/dump, ranking rules y búsqueda federada. El eje de incidencias
-upstream (forge: issues/PRs/discussions/Actions/releases) **sigue NO
-acreditado por prohibición expresa** del propietario del clon
-(`C:\Users\Eros\meilisearch\AGENTS.md`): esta pasada tampoco accedió a la
-forge ni usó web/mirrors. Nada aquí modifica el clon.
+upstream (forge: issues/PRs/discussions/Actions/releases) quedó en esa
+pasada **NO acreditado por prohibición expresa** del propietario del clon
+(`C:\Users\Eros\meilisearch\AGENTS.md`): ni forge ni web/mirrors.
+**E3 acreditado 2026-11-20 tras levantar la restricción**: el propietario
+autorizó el acceso a la forge pública ese mismo día y §12.1 registra la
+tercera pasada con cuerpos de issues/PRs/releases realmente leídos.
+Nada aquí modifica el clon.
 
 | Frontera | Fuente y significado |
 |---|---|
@@ -275,10 +278,11 @@ Ese hecho no implica que la misma política convenga a memoria de agentes.
 interpretarse automáticamente como fallo de mutación.
 **Hipótesis:** publicación de estados y resultados divergen tras un crash;
 no se auditó todo recovery para afirmarlo como bug upstream.
-**Issues/PR/discussions/releases upstream:** la primera pasada no los consultó.
-§12 registra exactamente el listado visto en esta ampliación y el bloqueo
-posterior por instrucción explícita; no se presenta un listado como lectura
-de cuerpos ni se propone/modifica contenido upstream.
+**Issues/PR/discussions/releases upstream:** las dos primeras pasadas no los
+consultaron (prohibición del propietario, levantada el 2026-11-20). §12.1
+registra el listado original, el bloqueo y la tercera pasada con cuerpos
+leídos: **#6743 confirma upstream la ventana crash-entre-commits** que §0.3
+declaró sin auditar. No se propone ni modifica contenido upstream.
 
 **Seguridad/configuración:** E7 permite master-key opcional en el tipo, pero
 [`crates/meilisearch/src/main.rs:107-124`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/meilisearch/src/main.rs#L107-L124)
@@ -580,36 +584,222 @@ Extender/adaptar evidencia actual, no afirmar “faltan recibos”.
 
 ## 12. Fuentes públicas, benchmarks y UI real
 
-### 12.1. Incidencias: acceso limitado, no lectura ficticia
+### 12.1. Incidencias: **E3 acreditado 2026-11-20 tras levantar la restricción**
 
-Consulta 2026-11-07: `websearch.search` DDG/Bing
+**Historia del acceso (se conserva para trazabilidad).** Consulta 2026-11-07:
+`websearch.search` DDG/Bing
 `site:github.com/meilisearch/meilisearch/issues task cancel settings batch`
 devolvió vacío/Bing 301; `fetchWebContent` sí leyó el **listado** oficial.
 Después se recibió como instrucción activa `C:\Users\Eros\meilisearch\AGENTS.md`,
-que prohíbe acceder a features de forge; **no se abrieron cuerpos, PRs,
-discussions, releases ni logs posteriormente**. La investigación sigue siendo
-un informe de Vanta; no propone modificar Meilisearch ni escribe en su clon.
+que prohibía acceder a features de forge: las dos primeras pasadas (2026-11-07
+y la segunda lectura del 2026-11-20) no abrieron cuerpos, PRs, discussions,
+releases ni logs. **El propietario levantó la restricción el propio
+2026-11-20**: esta tercera pasada leyó cuerpos de issues, PRs y releases en
+`github.com/meilisearch/meilisearch` via web pública. La investigación sigue
+siendo un informe de Vanta; no propone modificar Meilisearch ni escribe en
+su clon. **Alcance declarado:** issues/PRs/releases con cuerpo leído; el foro
+de discussions (`github.com/orgs/meilisearch/discussions`) se vio sólo como
+listado —un título relevante quedó sin cuerpo («Silent document loss …
+succeeded additions vanished with no task-ledger trace», 2026-08-24)— y
+Actions/CI no se inspeccionó. `meilisearch/milli` está archivado desde
+2023-04-04 con 0 issues abiertos: las incidencias viven en el monorepo.
+Los cuatro títulos del listado de nov-07 (#6696, #6691, #6665, #6717) quedan
+ahora leídos y se citan con su estado real.
 
-El listado mostró títulos #6696 (prefix tras delete/update), #6691 (remove
-embedder), #6665 (snapshot S3 bloqueado) y #6717 (settings/prefix), todos en la
-vista Open. **No son incidencias leídas**: causa, revisión afectada, corrección
-y vigencia no acreditadas; no se convierten en bugs actuales ni en evidencia
-de una brecha Vanta. Se conserva la URL del listado
-<https://github.com/meilisearch/meilisearch/issues> como alcance observado,
-no como sustituto de cada cuerpo. Eje de incidencias públicas **no acreditado
-por prohibición expresa**, no “completo por tener enlaces”. En esta corrección
-no se accedió a issues/PRs/discussions/Actions/releases ni se buscó fallback,
-mirror o bypass. La segunda lectura (2026-11-20) mantuvo la misma restricción:
-sólo el árbol local del clon, sin forge ni web. No se propone ningún patch al
-clon upstream.
+**Incidencia crítica — upstream reconoce la ventana crash-entre-commits:**
 
-Hallazgos estáticos sí acreditados: E2/E6 separan commit/notify/stats;
-M3 encola settings antes de su aplicación; E3 permite omitir semantic.
-Segunda lectura: E10 acredita commit-de-cola antes de limpiar el overlay
-processing y re-encolado tras aborto; E11 el layout de la cola; E12 la
-prioridad/límites de batching; E13 snapshot/dump como tareas; E14 la
+- **#6743** "An index swap runs twice after a crash between its two commits,
+  so the indexes are swapped back" — **Open** (2026-11-18, v1.57.0 y `main`
+  `d15a086`). <https://github.com/meilisearch/meilisearch/issues/6743>.
+  `Batch::IndexSwap` commitea el efecto (`process_batch.rs:434`) en su propia
+  wtxn; `task.status = Succeeded` sólo se escribe en un segundo commit de
+  estados (`mod.rs:452`); "processing" nunca persiste. Un crash entre ambos
+  commits deja la tarea `enqueued` con el efecto ya aplicado: al reiniciar
+  se re-ejecuta y los índices quedan como antes del swap, con la cola
+  mostrando `succeeded` una vez y sin error. Reproducido con SIGKILL 13–45 ms
+  tras el 202. Es exactamente la ventana que §0.3/E10 declaró sin auditar
+  (commit de índice `process_batch.rs:197` vs commit de estado
+  `mod.rs:452`): **el defecto queda confirmado por upstream para operaciones
+  no idempotentes**; el propio cuerpo advierte que el split existe en todo
+  batch que commitea efecto antes que estado, inocuo sólo si la tarea es
+  idempotente.
+- **#1679** "Redesigning the update store" — **Closed** (2021, milestone
+  v0.25.0, tech discussion). <https://github.com/meilisearch/meilisearch/issues/1679>.
+  Antecedente citado por #6743: ya reconocía "processed task, but not marked
+  as such, and processed again on startup" como restricción de diseño.
+
+**Cola de tareas, batching y cancelación (E2/E6/E10–E12):**
+
+- **#4743** "Tasks stuck in `processing` state, lots of tasks" — **Closed**
+  (labels indexing/performance/support).
+  <https://github.com/meilisearch/meilisearch/issues/4743>. Mantainer: tras
+  crash+restart se reprocesa la última tarea "processing" una y otra vez; con
+  recursos insuficientes entra en bucle de crash. Confirma operativamente el
+  overlay en RAM y el re-encolado E10/E11.
+- **#4791** "Catch the `MDB_TXN_FULL` error and reduce the batch size to
+  eventually succeed" — **Open** (enhancement, Kerollmops).
+  <https://github.com/meilisearch/meilisearch/issues/4791>. El autobatching
+  puede producir una transacción demasiado grande para LMDB; upstream admite
+  que debería reintentar reduciendo el tamaño del batch como ya hace con
+  `MDB_MAP_FULL` (redimensiona el mapa y reintenta, cf. `mod.rs:353-367`).
+  PR #4795 quedó cerrada sin merge.
+- **#4598** "Index gets into bugged state when `documentDeletion` task fails
+  due to transaction size (`MDB_TXN_FULL`)" — **Closed**.
+  <https://github.com/meilisearch/meilisearch/issues/4598>. Tras el fallo,
+  `numberOfDocuments` y `fieldDistribution` divergían: instancia de la
+  divergencia efecto/estadísticas del patrón E6.
+- **#5334** "Allow the task cancelation even when the task queue is half
+  full" — **Closed** (completado v1.14.0 vía **PR #5492** merged).
+  <https://github.com/meilisearch/meilisearch/issues/5334> ·
+  <https://github.com/meilisearch/meilisearch/pull/5492>. Con la cola al 40 %
+  (`NoSpaceLeftInTaskQueue`, §11.1) ni siquiera se podía registrar una
+  cancelación; ahora `TaskCancelation` salta el chequeo de ocupación si
+  cancela algo. Confirma que la cancelación es una tarea más de la cola.
+- **#5362** "Tasks appear hung. Unable to cancel or delete processing tasks.
+  Error os error 112" — **Closed**.
+  <https://github.com/meilisearch/meilisearch/issues/5362>. Antecedente de
+  #5334: disco lleno impedía cancelar/borrar tareas.
+- **#6508** "Cancelled search requests remain in SearchQueue and can cause
+  spurious TooManySearchRequests" — **Open** (bug; PR #6521 referenciado).
+  <https://github.com/meilisearch/meilisearch/issues/6508>. Waiters
+  cancelados conservan slot en la cola de admisión de búsqueda (no la de
+  tareas): evicción de requests vivos y métrica `searches_waiting` inflada.
+- **#6578** "SearchQueue: `Permit::drop(self)` sends two release signals …
+  potential parallelism violation" — **Open**.
+  <https://github.com/meilisearch/meilisearch/issues/6578>. Doble señal de
+  liberación por permiso: el paralelismo configurado puede excederse.
+  Concurrencia de búsqueda, no del scheduler de tareas.
+
+**Snapshot/dump (E13):**
+
+- **#6665** "[bug] A silent S3 snapshot endpoint freezes the index
+  scheduler" — **Open** (2026-10-04).
+  <https://github.com/meilisearch/meilisearch/issues/6665>. El snapshot S3
+  (feature EE) conduce el streaming HTTP con `Handle::block_on` **en el único
+  hilo del scheduler**, sin timeout ni cota al request en vuelo: un endpoint
+  que acepta TCP y nunca responde congela toda la cola —altas, settings,
+  cancelaciones y dumps quedan `enqueued` indefinidamente mientras `/health`
+  sigue devolviendo 200— y la cancelación tampoco interrumpe (el stop flag
+  sólo se consulta entre partes multipart). Era el "snapshot S3 bloqueado"
+  del listado nov-07, ahora leído.
+- **PR #6160** "Attempt to fix task DB corruption on snapshots" — **Merged**
+  (2026-02-16), publicado en **release v1.35.1**.
+  <https://github.com/meilisearch/meilisearch/pull/6160> ·
+  <https://github.com/meilisearch/meilisearch/releases/tag/v1.35.1>.
+  Snapshot S3 streaming de la task DB bajo escrituras concurrentes: enviar
+  una tarea durante el snapshot podía corromperla; el fix bloquea la task
+  DB para escritura y usa la copia nativa LMDB del env. Coherente con la
+  ventana TOCTOU que el propio código E13 documenta
+  (`process_snapshot_creation.rs:128-138`, "prefiere copiar de más").
+- **#5280** "Fix db corruption when meili dies early in the dumpless upgrade
+  process" — **Closed** (bug, v1.13.0).
+  <https://github.com/meilisearch/meilisearch/issues/5280>. Otra ventana
+  crash-entre-escrituras: VERSION escrito antes de que index-scheduler
+  registrara su versión.
+
+**Federated search, híbrido y ranking (E3/E4/E14/E15):**
+
+- **#6723** "Federated search ignores custom ranking rules placed after a
+  relevancy rule when merging indexes (since v1.54.0)" — **Closed**, fijado
+  por **PR #6731** "Fix inter-index merge in federated search" (**Merged**
+  2026-11-12). <https://github.com/meilisearch/meilisearch/issues/6723> ·
+  <https://github.com/meilisearch/meilisearch/pull/6731>. Regresión en
+  `ScoreDetails::score_values`/`weighted_score_values`
+  (`milli/src/score_details.rs`, tocado en #6549): el adaptador `coalesce` se
+  reconstruye en cada llamada del closure y descarta un detalle tras cada
+  frontera de grupo, así que el merge inter-índice saltaba reglas. El pin
+  c18c819 (HEAD 2026-11-07) **precede al merge del fix**: la regresión está
+  presente en el código leído.
+- **#5613** "Fix distinct for federated search" — **Closed** (bug; fijado
+  por **PR #6214**, merged 2026-03-19).
+  <https://github.com/meilisearch/meilisearch/issues/5613> ·
+  <https://github.com/meilisearch/meilisearch/pull/6214>. `distinct` no se
+  aplicaba sobre la lista final federada y se permitía un distinct distinto
+  por query.
+- **#6540** "Duplicate pinned documents in federated search" — **Closed**
+  (bug; fijado por PR #6543).
+  <https://github.com/meilisearch/meilisearch/issues/6540>. Pins duplicados
+  cuando varias queries federadas golpean el mismo índice.
+- **#6482** "totalHits and totalPages ignore pagination.maxTotalHits with
+  page-based pagination" — **Open** (bug); **PR #6496** "Respect
+  pagination.maxTotalHits in total hits metadata" — **Open**.
+  <https://github.com/meilisearch/meilisearch/issues/6482> ·
+  <https://github.com/meilisearch/meilisearch/pull/6496>. Regresión: la
+  búsqueda single-index pasó por el path federado
+  (`perform_federated_search`), que calculaba el total estimado sin capar
+  `maxTotalHits`. Relacionado: **#6702** "maxTotalHits setting does not
+  limit the estimatedTotalHits value anymore" — **Open** (bug, 2026-10-28).
+  <https://github.com/meilisearch/meilisearch/issues/6702>.
+- **#6590** "When hybrid search is enabled, `estimatedTotalHits` equals
+  total index document count and facets ignore the query" — **Open**
+  (v1.53.0). <https://github.com/meilisearch/meilisearch/issues/6590>.
+  Instancia upstream de que `candidates` y hits/facets no son la misma
+  población (§0.4, §3, §7).
+
+**Settings y derivaciones (Candidata D):**
+
+- **#6691** "Removing an embedder does not work: action succeeds, but has
+  no effect" — **Open** (2026-10-17).
+  <https://github.com/meilisearch/meilisearch/issues/6691>. `PATCH
+  settings/embedders {"name": null}` produce una `settingsUpdate`
+  `succeeded` y el embedder sigue listado y aplicándose a documentos
+  nuevos. Instancia directa de "succeeded ≠ efecto aplicado" (M3, D).
+- **#6696** "Prefix search stops matching words after a deletion or update:
+  stored prefix entries are deleted but not recomputed" — **Open**
+  (2026-10-25). <https://github.com/meilisearch/meilisearch/issues/6696>.
+  Tras un batch en que una palabra desaparece, las entradas de prefijo se
+  borran y no se recomputan salvo que otra palabra del mismo prefijo cambie
+  en ese batch; `prefix_iter_mut` además borra prefijos más largos (`c`
+  elimina `co`, `com`, `comp`…) y el fallback se capa en 1 000 palabras.
+  Derivaciones silenciosamente divergentes tras un batch `succeeded`.
+- **#6717** "Settings update adding disableOnAttributes drops most matches
+  for 2–4 char prefixes on other attributes (v1.56.1)" — **Open**
+  (2026-11-03). <https://github.com/meilisearch/meilisearch/issues/6717>.
+  Una `settingsUpdate` `succeeded` degrada prefijos en atributos ajenos al
+  cambio de typoTolerance.
+- **#4493** "[Tracking-issue] Settings diff-indexing" — tracking issue
+  (descripción y comentarios de mantenimiento vistos; cabecera de estado no
+  verificada). <https://github.com/meilisearch/meilisearch/issues/4493>.
+  Upstream reconoce que settings→reindex es parcial por partes: borrar un
+  embedder reindexa los siguientes para no dejar "hueco", cambios de
+  `apiKey`/`documentTemplate` tienen semánticas de reindex distintas.
+
+**Payloads/huella (§0.2):**
+
+- **#6048** "Make sure payloads are effectively deleted on error" —
+  **Open** (bug, abierto por Kerollmops; cerrado not-planned y reabierto en
+  2026-08). <https://github.com/meilisearch/meilisearch/issues/6048>.
+  Payloads no se borran del disco cuando el error ocurre antes de
+  `FileStore`. Da estado upstream al FIXME de `documents.rs:1668` que §0.2
+  registró sin elevar a fuga.
+
+**Releases consultadas:** página oficial de releases leída el 2026-11-20:
+última **v1.57.0** (2026-11-16, tag `1b78265`), junto a v1.56.2/v1.56.1/
+v1.56.0, v1.55.x y v1.54.3; la v1.35.1 se cita por el fix de corrupción de
+task DB. Ninguna release publicada cierra #6743 al momento de la lectura.
+
+**Lectura del eje para Vanta:** el defecto transferible dominante es el
+split efecto/estado (#6743): toda mutación no idempotente necesita
+idempotencia, fence de revisión o commit único —ver backlog **X-MEI-05**—.
+#6665 añade que una tarea de mantenimiento con I/O externo síncrono en el
+hilo del scheduler congela toda la cola: timeouts, chequeos de cancelación
+dentro del I/O y no bloquear el writer único son controles transferibles.
+#6696/#6717/#6691 refuerzan D: un `succeeded` no acredita derivaciones
+consistentes ni siquiera el cambio de settings pedido. Estos hallazgos
+elevan la hipótesis de §3 de "no auditado" a "reconocido upstream" en los
+puntos citados; el resto de recovery sigue sin auditar.
+
+Hallazgos estáticos acreditados (sin cambios): E2/E6 separan commit/notify/
+stats; M3 encola settings antes de su aplicación; E3 permite omitir
+semantic. Segunda lectura: E10 acredita commit-de-cola antes de limpiar el
+overlay processing y re-encolado tras aborto; E11 el layout de la cola; E12
+la prioridad/límites de batching; E13 snapshot/dump como tareas; E14 la
 federación ponderada; E15 los criterios lexicográficos.
-Ninguno demuestra crash corruption ni que una tarea Succeeded siempre mienta.
+La lectura estática no demostró corrupción por crash; la forge sí confirma
+doble aplicación de efecto (#6743) y una corrupción de task DB en snapshot
+S3 ya corregida (#6160/v1.35.1). Una tarea `succeeded` no garantiza efecto
+aplicado en todos los caminos (#6691) ni derivaciones consistentes
+(#6696/#6717), pero tampoco "siempre miente".
 Seguridad: autorización de search/document/settings/task son acciones
 diferentes; explicar filtros nunca autoriza enumerar esquema ajeno.
 Una clave en UI/URL, payload de tarea y log de traces cruzan fronteras de
@@ -730,7 +920,9 @@ en `/` y assets sólo con feature/enable_frontend. `build.rs:19–76` descarga
 zip, compara SHA1 y genera recursos; **no se ejecutó**. Metadata
 `Cargo.toml:170–172` fija mini-dashboard v0.4.2 y SHA1
 `6a8a76d9ed79357959bc6d4e3816f753a605a27b`, no un SHA de commit de frontend.
-No se accedió a ese release tras la instrucción de forge.
+No se accedió a ese release tras la instrucción de forge; la tercera pasada
+de 2026-11-20 tampoco lo inspeccionó (fuera del alcance de issues/PRs/
+releases del motor).
 
 Lectura complementaria **de código público**, no forge:
 [package.json mini-dashboard v0.4.2][MD1] y [src/App.jsx][MD2] vía CDN jsDelivr.
@@ -766,14 +958,18 @@ No se certifica UI shipped de jobs, su persistencia ni render; no otro runtime.
 mini-dashboard focal y seams Vanta/Studio; segunda lectura E10–E15 sobre el
 mismo pin: bucle tick/overlay processing (E10), almacenamiento de cola (E11),
 autobatching (E12), snapshot/dump (E13), federación (E14) y ranking rules
-(E15). Sin recuperación integral tras crash entre commits, todos los
-kernels/providers, autorización end-to-end, componente EE ni SBOM.
-Issues no acreditados por prohibición y frontend a tag no SHA son límites reales
-que la revisión debe conservar. Si pasa a specs (>300 líneas), separar A
-lifecycle/receipts, B/C retrieval y D generation/UI. Este informe conserva
-los diez ejes, sin autoaceptación ni specs/harness creados.
-ME-1/ME-2 corregidos documentalmente; eje de incidencias sigue no acreditado
-por prohibición, no un cierre ficticio de cobertura ni permiso para bypass.
+(E15). Tercera pasada 2026-11-20: cuerpos de issues/PRs/releases de la forge
+pública (§12.1). Sin recuperación integral tras crash entre commits —#6743
+confirma la ventana, no su cierre—, todos los kernels/providers, autorización
+end-to-end, componente EE ni SBOM.
+Frontend a tag no SHA, discussions vistas sólo en listado y Actions/CI no
+inspeccionado son límites reales que la revisión debe conservar. Si pasa a
+specs (>300 líneas), separar A lifecycle/receipts, B/C retrieval y D
+generation/UI. Este informe conserva los diez ejes, sin autoaceptación ni
+specs/harness creados.
+ME-1/ME-2 corregidos documentalmente; eje de incidencias **acreditado
+2026-11-20 tras levantar la restricción**, sin cierre ficticio de cobertura:
+los límites residuales se enumeran arriba, no se ocultan.
 
 [ME2A]: https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/workloads/embeddings-settings-add.json#L1-L65
 [ME2B]: https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/workloads/embeddings-movies-subset-hf.json#L1-L61
