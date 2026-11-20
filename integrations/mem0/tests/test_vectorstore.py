@@ -66,6 +66,38 @@ class TestVectorStoreBaseMethods:
         # verify the updated payload was stored
         assert result.payload.get("data") == "new"
 
+    def test_6b_update_without_vector_preserves_stored_vector(self, store):
+        """Payload-only update must not drop the stored vector (FIND-94).
+
+        ``put()`` is a native upsert — a bare ``update()`` would clear the
+        vector unless the adapter re-fetches and re-sends it. Verified both
+        at the record level and semantically (the record must still rank ~1.0
+        for its original vector).
+        """
+        store.insert([VEC_128], payloads=[{"data": "keep me"}], ids=["nov1"])
+        store.update("nov1", payload={"data": "edited"})
+
+        rec = store._db.memory.get("test_mem0", "nov1")
+        assert rec is not None
+        assert list(rec.vector) == pytest.approx(VEC_128)
+
+        hits = store.search("edited", VEC_128, top_k=5)
+        assert hits and hits[0].id == "nov1"
+        assert hits[0].score == pytest.approx(1.0, abs=1e-3)
+        assert store.get("nov1").payload["data"] == "edited"
+
+    def test_6c_update_with_no_args_preserves_record(self, store):
+        """update() with neither vector nor payload is a safe no-op."""
+        store.insert([VEC_128], payloads=[{"data": "untouched"}], ids=["noop1"])
+        store.update("noop1")
+
+        rec = store._db.memory.get("test_mem0", "noop1")
+        assert rec is not None
+        assert list(rec.vector) == pytest.approx(VEC_128)
+        result = store.get("noop1")
+        assert result is not None
+        assert result.payload["data"] == "untouched"
+
     def test_7_list(self, store):
         store.insert(
             [VEC_128, VEC_128_B],

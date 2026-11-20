@@ -410,6 +410,48 @@ describe("vantadb-node api surface", () => {
     }
   });
 
+  it("close() waits for an in-flight op and rejects ops issued mid-drain", async () => {
+    const dir = tmp("drain-gate");
+    const db = await VantaDb.connect(dir);
+
+    // A batch large enough to still be running on the blocking pool when
+    // close() is called. The OpGuard is held across `spawn_blocking().await`
+    // (see put_batch in src/lib.rs), so drain() must wait for it.
+    const batch = Array.from({ length: 5000 }, (_, i) => ({
+      namespace: "drain",
+      key: `k${i}`,
+      payload: `record ${i}`,
+      vector: [i % 7, 1],
+    }));
+
+    const order: string[] = [];
+    const inflight = db.putBatch(batch).then((records) => {
+      order.push("op");
+      return records;
+    });
+
+    // Let the op future be polled and register its OpGuard in the gate
+    // before close() flips the durability barrier.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const closing = db.close().then(() => {
+      order.push("close");
+    });
+
+    // Mid-drain: `closing` is already set, so new ops are rejected while the
+    // admitted batch keeps running to completion.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    await expect(
+      db.put({ namespace: "drain", key: "late", payload: "too late" }),
+    ).rejects.toThrow(/database is closing/);
+
+    const [records] = await Promise.all([inflight, closing]);
+    expect(records).toHaveLength(batch.length);
+    // drain() blocks until every admitted OpGuard drops: the in-flight op
+    // must settle strictly before close() resolves.
+    expect(order).toEqual(["op", "close"]);
+  });
+
   it("operations are rejected once close() has begun", async () => {
     const db = await VantaDb.connect(tmp("closed"));
     try {
