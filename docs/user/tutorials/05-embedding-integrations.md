@@ -69,7 +69,7 @@ VANTADB_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx
 
 See `docs/api/EMBEDDINGS.md` for `LocalOnnxProvider` internals (mean-pool + L2, `load-dynamic`, dummy fallback).
 
-## Model matrix — 10 models (8 ≤3 GB + 1 int8-pinned + 1 exception >3 GB)
+## Model matrix — 10 models (9 ONNX + 1 HF-only GPU exception >3 GB)
 
 > All sizes are **per-format**; total per model = ONNX+HF. All accept EN or ES.
 
@@ -81,12 +81,12 @@ See `docs/api/EMBEDDINGS.md` for `LocalOnnxProvider` internals (mean-pool + L2, 
 | 4 | `jina-es-v2-base` | `jinaai/jina-embeddings-v2-base-es` | 768 | 161M | 1100 MB | 1100 MB | **2.20 GB** ✅ | **ES** | 64.5 multi | ES+EN | Apache-2.0 | **ES optimizado** |
 | 5 | `paraphrase-multilingual-MiniLM-L12-v2` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 118M | 470 MB | 471 MB | **941 MB** ✅ | **ES** | 63.0 multi | ES+EN 50+ | Apache-2.0 | ES multi ligero |
 | 6 | `distiluse-multilingual` | `sentence-transformers/distiluse-base-multilingual-cased-v1` | 512 | 135M | 540 MB | 539 MB | **1.08 GB** ✅ | **ES** | 62.8 multi | ES+EN 15+ | Apache-2.0 | ES multi base |
-| 7 | **`multilingual-e5-small`** | `intfloat/multilingual-e5-small` | 384 | 118M | 220 MB | 471 MB | **691 MB** ✅ | **Combined** | 64.1 multi | **ES+EN 16+** | MIT | **DEFAULT** |
-| 8 | `bge-m3` | `BAAI/bge-m3` | 1024 | 568M | 1.20 GB (int8) | 2.27 GB | **3.47 GB**\* | **Combined** | 69.1 | ES+EN 100+ | MIT | SOTA local, ONNX pinneado a int8 |
-| 9 | `embeddinggemma-2` | `onnx-community/embeddinggemma-2-ONNX` | 768 | — | 550 MB | 600 MB | **1.15 GB** ✅ | **Combined** | — | ES+EN+code 100+ | Gemma | moderno 768d |
+| 7 | **`multilingual-e5-small`** | `intfloat/multilingual-e5-small` | 384 | 118M | 448 MB | 471 MB | **919 MB** ✅ | **Combined** | 64.1 multi | **ES+EN 16+** | MIT | **DEFAULT** |
+| 8 | `bge-m3` | `BAAI/bge-m3` | 1024 | 568M | 2163 MiB | 2.27 GB | **4.43 GB**\* | **Combined** | 69.1 | ES+EN 100+ | MIT | SOTA local (`onnx/model.onnx` + `onnx/model.onnx_data`) |
+| 9 | `embeddinggemma-2` | `onnx-community/embeddinggemma-2-ONNX` | 768 | — | 1034 MB | 600 MB | **1.63 GB** ✅ | **Combined** | — | ES+EN+code 100+ | Apache-2.0 | moderno 768d |
 | 10 | `qwen3-embedding-8b` | `Qwen/Qwen3-Embedding-8B` | 4096 | 8B | — (HF only) | **16.0 GB** | **16.0 GB** >3 GB ⚠️ | **Combined** | **75.1** | ES+EN 100+ | Apache-2.0 | **EXCEPCIÓN >3 GB — MTEB #1 Jun 2026, Matryoshka, GPU** |
 
-\* `bge-m3` fp32 ONNX 2.3 GB + HF 2.27 GB = 4.57 GB >3 GB total; pinned `model_int8.onnx` (1.20 GB) → total 3.47 GB.
+\* `bge-m3` (`BAAI/bge-m3@5617a9f`) uses `onnx/model.onnx` + `onnx/model.onnx_data` (2163 MiB ONNX + 2.27 GB HF = 4433 MB total).
 
 \* MTEB Retrieval EN / multi, Jun 2026. Latency `e5-small` ONNX ~10 ms/512t CPU M1, `bge-m3` ~80 ms, `Qwen3` GPU.
 
@@ -98,11 +98,11 @@ See `docs/api/EMBEDDINGS.md` for `LocalOnnxProvider` internals (mean-pool + L2, 
 
 | Need | Pick | Why |
 |------|------|-----|
-| Offline default EN+ES, smallest that works | `multilingual-e5-small` **DEFAULT** | 384d, 691 MB total, EN+ES 16+ |
+| Offline default EN+ES, smallest that works | `multilingual-e5-small` **DEFAULT** | 384d, 919 MB total, EN+ES 16+ |
 | Best EN only, tiny | `all-MiniLM-L6-v2` | 170 MB total |
 | Best ES optimized | `jina-es-v2-base` | ES+EN specialist, 2.2 GB |
 | Balanced multi 50+ langs, still 384d | `paraphrase-multilingual-MiniLM-L12-v2` | 941 MB |
-| SOTA local ≤3 GB | `bge-m3` int8 | 1024d, 100+ langs, Matryoshka-capable |
+| SOTA local 1024d | `bge-m3` | 1024d, 100+ langs, `onnx/model.onnx` + `model.onnx_data` |
 | MTEB #1, GPU, Matryoshka 4096→1024 | `qwen3-embedding-8b` **EXCEPCIÓN** | 16 GB, `trust_remote_code=True` |
 
 ## Offline wiring (§3 consumers)

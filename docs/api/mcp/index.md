@@ -18,7 +18,7 @@ To avoid overwhelming an agent's context window with dozens of granular database
 
 | Profile | Target Environment | Tools | Description |
 |---|---|:---:|---|
-| **`McpProfile::Brain`** (default) | AI IDEs / Coding Agents | 15 | Cognitive memory surface including the meta-dispatch router. |
+| **`McpProfile::Brain`** (default) | AI IDEs / Coding Agents | 16 | Cognitive memory surface including the meta-dispatch router. |
 | **`McpProfile::Full`** | DB Administration | 84 | Complete engine introspection, raw queries, and index maintenance. |
 | Other profiles (`agent`, `dev`, `memory`) | Scoped integrations | varies | Additional profiles exist; tool counts are reported by the server at startup. |
 
@@ -27,10 +27,11 @@ startup (`tools/list`). The names below were measured on the 0.9.0 build.
 
 ---
 
-## 2. `McpProfile::Brain` Tool Surface (15 tools)
+## 2. `McpProfile::Brain` Tool Surface (16 tools)
 
 Memory: `memory_put`, `memory_get`, `memory_supersede`, `memory_recall`,
 `memory_dream`, `memory_search`, `memory_forget`
+Query: `query_iql`
 Scenes & dreams: `vanta_scene`, `vanta_dream`
 Graph & dispatch: `vanta_graph`, `vanta_dispatch`
 Bugfix context: `bugfix_record`, `bugfix_query`

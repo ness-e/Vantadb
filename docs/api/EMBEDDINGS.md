@@ -67,7 +67,7 @@ let batch = provider.embed_batch(&["hola mundo".into(), "hello world".into()])?;
 
 - `dim` auto-detected from `embeddings/manifest.json` (by `model_dir` substring) → `config.json:hidden_size` → default `384`.
 - `try_load_tokenizer` probes `model_dir/tokenizer.json`, `../tokenizer.json`, `../../tokenizer.json`.
-- `try_load_session` calls `ort::init().commit()` once (`load-dynamic`) then probes `model.onnx`, `onnx/model.onnx`, `model_int8.onnx`, or any `*.onnx` recursively.
+- `try_load_session` calls `ort::init().commit()` once (`load-dynamic`) then probes `model.onnx`, `onnx/model.onnx`, `model_int8.onnx`, or any `*.onnx` recursively (the cataloged `manifest.json` ONNX models all pin `onnx/model.onnx`, including `bge-m3` with its `onnx/model.onnx_data` external weights).
 - `run_onnx(text)` tokenizes → `input_ids` + `attention_mask` `[1, seq]` → `Session::run` (dynamic input names) → `last_hidden_state [1, seq, dim]` → mean-pool with mask → L2 normalize. Returns `None` on any missing piece → `embed()` then either **fails closed** with `Error::Embedding` (strict mode, the default) or falls back to `deterministic_embed` (only when `strict_embeddings` is off).
 - `deterministic_embed` is hash-seeded L2-normalized (ensures `cosine("hola mundo","hola mundo")>0.99` and multilingual `cosine("hola mundo","hello world")>0.60` even offline).
 
@@ -134,7 +134,7 @@ VANTADB_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx
 > read** — the `VANTADB_*` names above are the only ones the code consults (see
 > `docs/user/operations/CONFIGURATION.md` § Environment Variables Outside `VantaConfig`).
 
-## Model matrix — 10 models (8 ≤3 GB + 1 int8-pinned + 1 exception)
+## Model matrix — 10 models (9 ONNX + 1 HF-only GPU exception)
 
 > Source: `embeddings/manifest.json` §4 plan. Total per model = ONNX+HF.
 
@@ -146,13 +146,13 @@ VANTADB_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx
 | 4 | `jina-es-v2-base` | `jinaai/jina-embeddings-v2-base-es` | 768 | 1100 MB | 1100 MB | 2.20 GB | ES | ES+EN | Apache-2.0 | ES optimizado |
 | 5 | `paraphrase-multilingual-MiniLM-L12-v2` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 470 MB | 471 MB | 941 MB | ES | ES+EN 50+ | Apache-2.0 | ES multi ligero |
 | 6 | `distiluse-multilingual` | `sentence-transformers/distiluse-base-multilingual-cased-v1` | 512 | 540 MB | 539 MB | 1.08 GB | ES | ES+EN 15+ | Apache-2.0 | ES multi base |
-| 7 | **`multilingual-e5-small`** | `intfloat/multilingual-e5-small` | **384** | **220 MB** | 471 MB | **691 MB** | **combined** | **ES+EN 16+** | **MIT** | **DEFAULT** |
-| 8 | `bge-m3` | `BAAI/bge-m3` | 1024 | 1.20 GB (int8) | 2.27 GB | 3.47 GB | combined | ES+EN 100+ | MIT | SOTA local, ONNX pinneado a int8 (3.47 GB > 3 GB) |
-| 9 | `embeddinggemma-2` | `onnx-community/embeddinggemma-2-ONNX` | 768 | 550 MB | 600 MB | 1.15 GB | combined | ES+EN+code 100+ | Gemma | moderno 768d |
+| 7 | **`multilingual-e5-small`** | `intfloat/multilingual-e5-small` | **384** | **448 MB** | 471 MB | **919 MB** | **combined** | **ES+EN 16+** | **MIT** | **DEFAULT** |
+| 8 | `bge-m3` | `BAAI/bge-m3` | 1024 | 2163 MiB | 2.27 GB | 4.43 GB | combined | ES+EN 100+ | MIT | SOTA local (`onnx/model.onnx` + `onnx/model.onnx_data`) |
+| 9 | `embeddinggemma-2` | `onnx-community/embeddinggemma-2-ONNX` | 768 | 1034 MB | 600 MB | 1.63 GB | combined | ES+EN+code 100+ | Apache-2.0 | moderno 768d |
 | 10 | `qwen3-embedding-8b` | `Qwen/Qwen3-Embedding-8B` | 4096 | — (HF only) | 16.0 GB | 16.0 GB | combined | ES+EN 100+ | Apache-2.0 | EXCEPCIÓN >3 GB — MTEB #1 75.1, GPU, Matryoshka |
 
 - Balance: **3 EN + 3 ES + 4 Combined** — tantos para español como para inglés y combinados.
-- `bge-m3` fp32 ONNX 2.3 GB + HF 2.27 GB = 4.57 GB >3 GB; se pinnea `model_int8.onnx` (1.20 GB), lo que deja el total en 3.47 GB.
+- `bge-m3` (`BAAI/bge-m3@5617a9f`): usa `onnx/model.onnx` + `onnx/model.onnx_data` (2163 MiB ONNX + 2.27 GB HF = 4433 MB total).
 - `qwen3-embedding-8b` sin ONNX (`onnx: null`), solo HF (`trust_remote_code=True`), GPU-only, Matryoshka 4096→1024. Incluir con `download.py --include-exception` (CI usa `--skip-exception`).
 
 ## One-model-per-namespace (regla de oro)

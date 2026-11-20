@@ -305,7 +305,7 @@ function gather() {
       parseNpmVersion(nodeManifest) || "unreadable",
       entry[0],
       entry[1],
-      "npm (planned; `release-npm-node.yml`)",
+      "npm (`release-npm-node.yml`)",
       TAG_NS["vantadb-node"] || "—",
     );
   }
@@ -354,10 +354,10 @@ function gather() {
       ok: tsV === workspace,
     },
     {
-      surface: "`vantadb-node` (npm, never-published allowance 0.7.0)",
+      surface: "`vantadb-node` (npm)",
       found: nodeV,
       expected: workspace,
-      ok: nodeV === workspace || nodeV === "0.7.0",
+      ok: nodeV === workspace,
     },
     {
       surface: "`vantadb-py` (maturin dynamic version)",

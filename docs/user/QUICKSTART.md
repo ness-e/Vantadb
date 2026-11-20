@@ -254,7 +254,7 @@ and re-run audit (verified 2026-09-15: `passed: true` after rebuild).
 VantaDB is BYO-vector by default — you pass `vector=[...]` as above. For fully offline use, enable the optional `embed-local` feature (no Ollama, no network):
 
 ```bash
-# 1. Download the default model (384d, 220 MB ONNX, 691 MB total)
+# 1. Download the default model (384d, 448 MB ONNX, 919 MB total)
 python embeddings/download.py --only multilingual-e5-small
 
 # 2. Run with embed-local (Rust + CLI + MCP + SQL)
@@ -272,20 +272,20 @@ python embeddings/verify.py --check
 
 ### If ONNX Runtime or the model does not load
 
-VantaDB degrades gracefully instead of crashing: when local embeddings cannot
-load, all access keeps working with **deterministic dummy embeddings** — no
-panic, no abort — but similarity scores are **not semantic**, so vector recall
-quality is meaningless until the real model is restored. What you can observe:
+By default (`strict_embeddings = true`), VantaDB **fails closed** with `Error::Embedding`
+when local embeddings are selected (`VANTADB_EMBEDDING_PROVIDER=local`) and the ONNX
+Runtime library or model weights cannot be loaded — it does not silently invent
+synthetic vectors. (Operators who explicitly need non-semantic offline testing must
+opt out via `VANTADB_STRICT_EMBEDDINGS=false` / `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true`.)
+What to check when local embeddings fail to load:
 
 - **ONNX Runtime missing or incompatible** (native ≥ 1.27 is required): the
-  provider logs a warning with `fallback=true` on stderr — e.g.
-  `ONNX Runtime dylib unusable; using deterministic dummy embeddings`
-  (`src/llm.rs`:341-419, regression-tested by
-  `f100_incompatible_dylib_never_panics`). `vanta-cli status` and the MCP
-  `capabilities` tool report the same state in their `embedding` object.
-- **Model files missing**: `put` / `get` / `search` still work; `vanta-cli
-  status` (and the MCP `capabilities` tool) reports `"fallback": true` with the
-  same notice — verify with the commands below.
+  provider logs an explicit `Error::Embedding` diagnostic on stderr
+  (`src/llm.rs`, regression-tested by `f100_incompatible_dylib_never_panics`).
+  `vanta-cli status` and the MCP `capabilities` tool report the exact embedding
+  health state in their `embedding` object.
+- **Model files missing**: `vanta-cli status` (and the MCP `capabilities` tool)
+  reports the missing model diagnostic — verify with the commands below.
 
 To fix it, re-run the wizard — it installs a native ONNX Runtime ≥1.27 into a
 persistent store and sets `ORT_DYLIB_PATH` for the current session (run it in

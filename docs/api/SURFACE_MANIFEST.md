@@ -28,7 +28,7 @@ tags: [vantadb, surface, release]
 | `vantadb-ffi-core` | `vantadb-ffi-core` | 0.9.0 (workspace) | **INTERNAL** | `publish = false` (non-crates.io channel) | none (compiled into bindings) | std-only FFI leaf shared by node/python/wasm; zero external consumers (dependency-only crate) |
 | `vanta-memory` | `vanta-memory` | 0.9.0 (workspace) | **EXPERIMENTAL** | release-plz `release = false` | `v*.*.*` (held — DIST-01) | DIST-01 hold: manifest publishable, release-plz `release = false` until Trusted Publishing bootstrap (owner) |
 | `vanta-proxy` | `vanta-proxy` | 0.9.0 (workspace) | **FROZEN** | `publish = false` (non-crates.io channel) | none until 1.0 (frozen) | Freeze List until 1.0 (DIST-18 re-scoped); source build only, no publish |
-| `vantadb-node` | `vantadb-node (npm)` | 0.9.0 | **PUBLIC** | npm (planned; `release-npm-node.yml`) | `node-v*.*.*` (npm-node) | npm `vantadb-node` published via napi-rs (`release-npm-node.yml`); native Node.js binding |
+| `vantadb-node` | `vantadb-node (npm)` | 0.9.0 | **PUBLIC** | npm (`release-npm-node.yml`) | `node-v*.*.*` (npm-node) | npm `vantadb-node` published via napi-rs (`release-npm-node.yml`); native Node.js binding |
 | `providers/openai` | `vantadb-openai` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (manual dispatch — `release-providers.yml`) | PyPI `vantadb-openai` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity |
 | `providers/ollama` | `vantadb-ollama` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (manual dispatch — `release-providers.yml`) | PyPI `vantadb-ollama` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity |
 | `providers/litellm` | `vantadb-litellm` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (manual dispatch — `release-providers.yml`) | PyPI `vantadb-litellm` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity |
@@ -40,7 +40,7 @@ tags: [vantadb, surface, release]
 |---|---|---|
 | workspace (Rust crates) | 0.9.0 | 0.9.0 |
 | `vantadb` (npm, vantadb-ts) | 0.9.0 | 0.9.0 |
-| `vantadb-node` (npm, never-published allowance 0.7.0) | 0.9.0 | 0.9.0 |
+| `vantadb-node` (npm) | 0.9.0 | 0.9.0 |
 | `vantadb-py` (maturin dynamic version) | dynamic → 0.9.0 | dynamic → 0.9.0 |
 
 Gates: `node scripts/docs/check-npm-versions.mjs` (npm) + `tests/version_coherence.rs` (Rust surfaces + this manifest).

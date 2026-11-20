@@ -151,15 +151,15 @@ def load_embed_cache(path: pathlib.Path) -> int:
     """Preload ``sha256(text) -> vector`` pairs from an .npz built by precompute_embeddings.py."""
     import numpy as np  # lazy: keeps the no-flag path free of a new import
 
-    data = np.load(path)
-    keys, vecs = data["keys"], data["vecs"]
-    if vecs.ndim != 2 or vecs.shape[1] != EMBED_DIMS:
-        raise ValueError(
-            f"embed cache {path} has {vecs.shape[1] if vecs.ndim == 2 else '?'} dims, "
-            f"expected {EMBED_DIMS} ({EMBED_MODEL}) — wrong model, refusing to load"
-        )
-    for key, vec in zip(keys, vecs):
-        _EMBED_CACHE[str(key)] = vec.tolist()
+    with np.load(path) as data:
+        keys, vecs = data["keys"], data["vecs"]
+        if vecs.ndim != 2 or vecs.shape[1] != EMBED_DIMS:
+            raise ValueError(
+                f"embed cache {path} has {vecs.shape[1] if vecs.ndim == 2 else '?'} dims, "
+                f"expected {EMBED_DIMS} ({EMBED_MODEL}) — wrong model, refusing to load"
+            )
+        for key, vec in zip(keys, vecs):
+            _EMBED_CACHE[str(key)] = vec.tolist()
     return len(_EMBED_CACHE)
 
 
@@ -179,9 +179,8 @@ def save_embed_cache(path: pathlib.Path) -> int:
 
 def embed_batch(texts: List[str]) -> List[Optional[List[float]]]:
     global _EMBED_MISSES
-    embedder = _get_embedder()
-    if embedder is None or not texts:
-        return [None] * len(texts)
+    if not texts:
+        return []
 
     results: List[Optional[List[float]]] = [None] * len(texts)
     missing_idx: List[int] = []
@@ -196,6 +195,13 @@ def embed_batch(texts: List[str]) -> List[Optional[List[float]]]:
             missing_txt.append(txt)
 
     if missing_txt:
+        embedder = _get_embedder()
+        if embedder is None:
+            if _STRICT_EMBEDDINGS:
+                raise RuntimeError(
+                    "embedder unavailable under --strict-embeddings with cache miss; refusing to write vector=None"
+                )
+            return results
         _EMBED_MISSES += len(missing_txt)  # a miss = an embedding actually paid for on this machine
         try:
             raw = list(embedder.embed(missing_txt))
@@ -679,14 +685,35 @@ def run_self_test() -> int:
     rep_fail = {"recall_at_k": {"all": 0.7600}}
     assert rep_fail["recall_at_k"]["all"] < 0.85
 
-    # Verify strict-embeddings check logic
+    # Verify strict-embeddings check logic + cache hit when _EMBEDDER is None + np.load handle closed
     old_checked = globals()["_FASTEMBED_CHECKED"]
     old_embedder = globals()["_EMBEDDER"]
+    old_cache = dict(_EMBED_CACHE)
     try:
         globals()["_FASTEMBED_CHECKED"] = True
         globals()["_EMBEDDER"] = None
         assert not has_fastembed()
+
+        import tempfile
+        import numpy as np
+
+        sample_text = "cached_text_without_embedder"
+        sample_vec = [0.25] * EMBED_DIMS
+        _EMBED_CACHE.clear()
+        _EMBED_CACHE[hashlib.sha256(sample_text.encode("utf-8")).hexdigest()] = sample_vec
+        with tempfile.TemporaryDirectory() as td:
+            npz_path = pathlib.Path(td) / "cache.npz"
+            save_embed_cache(npz_path)
+            _EMBED_CACHE.clear()
+            assert load_embed_cache(npz_path) == 1
+            # On Windows, an unclosed np.load handle causes PermissionError on unlink
+            npz_path.unlink()
+            got = embed_batch([sample_text, "uncached_text"])
+            assert got[0] is not None and len(got[0]) == EMBED_DIMS
+            assert got[1] is None
     finally:
+        _EMBED_CACHE.clear()
+        _EMBED_CACHE.update(old_cache)
         globals()["_FASTEMBED_CHECKED"] = old_checked
         globals()["_EMBEDDER"] = old_embedder
 

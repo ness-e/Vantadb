@@ -74,4 +74,4 @@ Managing memory requires forgetting obsolete or sensitive data. The Python SDK a
 
 ## 4. MCP Integration (`McpProfile::Brain`)
 
-VantaDB exposes an optimized Model Context Protocol (MCP) server profile designed specifically for AI IDEs (Claude Code, Cursor, OpenCode). The `McpProfile::Brain` surface lists 15 cognitive tools, including the meta-dispatch router (`vanta_dispatch`) — measured on the 0.9.0 build. For hands-on setup instructions, see the [Getting Started Guide](../guide/getting-started.md).
+VantaDB exposes an optimized Model Context Protocol (MCP) server profile designed specifically for AI IDEs (Claude Code, Cursor, OpenCode). The `McpProfile::Brain` surface lists 16 cognitive tools, including the meta-dispatch router (`vanta_dispatch`) — measured on the 0.9.0 build. For hands-on setup instructions, see the [Getting Started Guide](../guide/getting-started.md).

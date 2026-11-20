@@ -77,15 +77,15 @@ same condition grammar.
 
 ## Query (`FROM` / `MATCH`)
 
-### Input estanque (FIND-518)
+### Strict Statement Parsing (FIND-518)
 
-Una sentencia IQL no admite texto sobrante: si queda algo después de la sentencia, es un
-**error de parseo**, no se descarta en silencio. Se tolera un `;` final (el REPL y el CLI lo
-envían). Una cláusula `WHERE` mal formada también es un error: no se ejecuta como un escaneo
-sin filtro.
+An IQL statement does not allow trailing garbage: if any tokens remain after the statement,
+parsing fails with an explicit **parse error** instead of silently discarding them. A single
+trailing `;` is tolerated (emitted by the REPL and CLI). A malformed `WHERE` clause is also
+rejected with an error — it never degrades to an unfiltered scan.
 
-Es un cambio de contrato observable en HTTP, MCP y CLI: una consulta que antes se ejecutaba
-parcialmente ahora falla con un error de parseo explícito (`malformed WHERE clause` o
+This contract is enforced consistently across HTTP, MCP, and CLI: queries that previously
+executed partially now fail explicitly with a parse error (`malformed WHERE clause` or
 `unexpected trailing input after the statement`).
 
 ### Syntax

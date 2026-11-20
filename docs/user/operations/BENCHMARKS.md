@@ -2525,33 +2525,33 @@ python evals/eval_locomo.py --self-test
 ### 23.4 Resultados: Benchmark LOCOMO frente a Cifras Publicadas de Mem0 (arXiv:2504.19413)
 
 > [!WARNING]
-> **ESTADO: PENDIENTE DE EJECUCIÓN REAL SOBRE DATASET COMPLETO (EVALUACIÓN SINTÉTICA/SMOKE PRELIMINAR)**
-> El dataset oficial de LoCoMo (CC-BY-NC) no se encuentra commiteado en el repositorio. Las cifras de VantaDB corresponden a extrapolaciones analíticas y pruebas sintéticas deterministas (`--smoke`). La certificación empírica frente al paper se realizará una vez descargado y conectado el dataset real completo.
+> **ESTADO: NOT MEASURED — las cifras proyectadas que ocupaban estas tablas se retiraron el 2026-11-20 (ACT-02), alineado con §23.3.**
+> El dataset oficial de LoCoMo (`snap-research/LoCoMo`, CC-BY-NC) no se encuentra commiteado en el repositorio y no se ha ejecutado una corrida real sobre el corpus completo. Las celdas de VantaDB no medidas permanecen explícitamente marcadas como `NOT MEASURED` hasta que se ejecute `evals/eval_locomo.py --dataset-path ...` y se publique el artefacto verificado.
 
 Comparativa frente a las cifras publicadas en la literatura por el equipo de Mem0
 (*Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory*, arXiv:2504.19413, Tabla 1 y Tabla 2):
 
 #### 1. Precisión y Calidad de Recuperación por Categoría
 
-| Categoría LoCoMo | Métrica de Calidad | Mem0 (Publicado arXiv:2504.19413) | VantaDB 0.9.1 (Proyección / Smoke) | Estado Comparativo |
+| Categoría LoCoMo | Métrica de Calidad | Mem0 (Publicado arXiv:2504.19413) | VantaDB 0.9.0 | Estado |
 |---|---|---|---|---|
-| **Single-Hop** | F1 / Recall@5 | F1: 38.72 · Rec@5: 0.820 | **F1: 44.80\*** · **Rec@5: 0.910\*** | Pendiente medición dataset real |
-| **Multi-Hop** | F1 / Recall@5 | F1: 28.64 · Rec@5: 0.650 | **F1: 35.20\*** · **Rec@5: 0.825\*** | Pendiente medición dataset real |
-| **Temporal Reasoning** | F1 / Recall@5 | F1: 24.18 · Rec@5: 0.580 | **F1: 32.10\*** · **Rec@5: 0.790\*** | Pendiente medición dataset real |
-| **Open-Domain** | F1 / Recall@5 | F1: 31.45 · Rec@5: 0.710 | **F1: 38.90\*** · **Rec@5: 0.860\*** | Pendiente medición dataset real |
-| **OVERALL** | F1 / Recall@5 / NDCG@5 | F1: 30.75 · Rec@5: 0.690 · NDCG: 0.650 | **F1: 37.75\*** · **Rec@5: 0.846\*** · **NDCG: 0.824\*** | **Target de Diseño / Pendiente Certificación** |
+| **Single-Hop** | F1 / Recall@5 | F1: 38.72 · Rec@5: 0.820 | `NOT MEASURED` | Pendiente medición dataset real |
+| **Multi-Hop** | F1 / Recall@5 | F1: 28.64 · Rec@5: 0.650 | `NOT MEASURED` | Pendiente medición dataset real |
+| **Temporal Reasoning** | F1 / Recall@5 | F1: 24.18 · Rec@5: 0.580 | `NOT MEASURED` | Pendiente medición dataset real |
+| **Open-Domain** | F1 / Recall@5 | F1: 31.45 · Rec@5: 0.710 | `NOT MEASURED` | Pendiente medición dataset real |
+| **OVERALL** | F1 / Recall@5 / NDCG@5 | F1: 30.75 · Rec@5: 0.690 · NDCG: 0.650 | `NOT MEASURED` | Pendiente medición dataset real |
 
 #### 2. Eficiencia Computacional, Latencia y Economía de Tokens
 
-| Dimensión Operacional | Mem0 (Pipeline LLM-Extract) | VantaDB 0.9.1 (FastGate + HNSW) | Factor Proyectado |
+| Dimensión Operacional | Mem0 (Pipeline LLM-Extract) | VantaDB 0.9.0 (FastGate + HNSW) | Estado |
 |---|---|---|---|
-| **Latencia Query p50** | ~350.0 ms | **1.35 ms\*** (Core engine sin embedding) | **~260x más rápido (core)** |
-| **Latencia Query p95** | ~550.0 ms | **2.80 ms\*** (Core engine sin embedding) | **~196x más rápido (core)** |
-| **Throughput Ingesta** | 1.3 docs/s (OSS) · 0.2 (Native) | **220.0 docs/s\*** | **~169x mayor rendimiento** |
-| **Throughput Búsqueda** | ~2.0 - 3.0 QPS | **450.0 QPS\*** | **~150x mayor QPS** |
-| **Consumo Tokens LLM** | ~2,400 tokens / consulta | **0 tokens** (Determinista FastGate) | **100% Reducción de Tokens** |
-| **Costo por 1,000 queries** | ~$7.20 USD (GPT-4o extraction) | **$0.00 USD** | **Cero dependencias ni factura de API** |
-| **Consumo RAM RSS Pico** | ~350 - 400 MB | **195.2 MB** | **~1.8x menor huella de memoria** |
+| **Latencia Query p50** | ~350.0 ms | `NOT MEASURED` | Pendiente medición LoCoMo real |
+| **Latencia Query p95** | ~550.0 ms | `NOT MEASURED` | Pendiente medición LoCoMo real |
+| **Throughput Ingesta** | 1.3 docs/s (OSS) · 0.2 (Native) | `NOT MEASURED` | Pendiente medición LoCoMo real |
+| **Throughput Búsqueda** | ~2.0 - 3.0 QPS | `NOT MEASURED` | Pendiente medición LoCoMo real |
+| **Consumo Tokens LLM** | ~2,400 tokens / consulta | **0 tokens** (Determinista FastGate, sin LLM en retrieval) | Propiedad arquitectónica |
+| **Costo por 1,000 queries** | ~$7.20 USD (GPT-4o extraction) | **$0.00 USD** (sin llamadas LLM externas) | Propiedad arquitectónica |
+| **Consumo RAM RSS Pico** | ~350 - 400 MB | `NOT MEASURED` | Pendiente medición LoCoMo real |
 
 ### 23.5 Entorno de Verificación (Regla 11)
 
@@ -2561,7 +2561,7 @@ Comparativa frente a las cifras publicadas en la literatura por el equipo de Mem
 | Sistema Operativo | Windows 11 Pro (build 26200, 64-bit) |
 | Procesador (CPU) | 12th Gen Intel Core i5-1235U (10c/12t) |
 | Memoria RAM Física | 31.78 GB |
-| Runtime | Python 3.11.9 (`.venv`) · `vantadb` 0.9.1 (PyO3 release build) |
+| Runtime | Python 3.11.9 (`.venv`) · `vantadb` 0.9.0 (PyO3 release build) |
 | Modelo de Embeddings | `fastembed` 0.8.1 · `BAAI/bge-small-en-v1.5` (384 dimensiones) |
 | Dataset LongMemEval | `xiaowu0162/longmemeval-cleaned` (500 preguntas, sha256 `d6f21ea9…`) |
 | Dataset LoCoMo | `snap-research/LoCoMo` (arXiv:2504.19413 / suite sintética determinista seed 42) |
