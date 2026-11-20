@@ -321,7 +321,7 @@ Error (RuntimeError)
 ├── ValidationError       # DimensionMismatch, DuplicateNode, Validation, InvalidInput, …
 ├── CorruptError          # IncompatibleFormat, WALVersionMismatch, Schema, Serialization, …
 ├── StorageError          # Io, Wal, Backend
-├── ConflictError         # ExecutionConflict, NodeIdCollision, CycleDetected
+├── ConflictError         # ExecutionConflict, CycleDetected (NodeIdCollision → ValidationError)
 ├── UnsupportedError      # UnsupportedOperation
 ├── ResourceLimitError    # ResourceLimit
 ├── BusyError             # DatabaseBusy, NotInitialized
@@ -384,7 +384,7 @@ Mapped from `Error` (Task `ERR-MCP-01`):
 |------|----------|------------------------|---------|
 | `-32001` | `vanta_busy` | `DatabaseBusy`, `NotInitialized` | Database is busy or not initialized |
 | `-32002` | `vanta_corrupt` | `WALVersionMismatch`, `IncompatibleFormat`, `Schema`, `Serialization` | Persisted data is corrupt |
-| `-32003` | `vanta_conflict` | `ExecutionConflict`, `NodeIdCollision`, `CycleDetected` | Concurrent modification conflict |
+| `-32003` | `vanta_conflict` | — reserved, not emitted (conflict variants fold into `vanta_validation` per `vantadb-mcp/src/error.rs`) | Concurrent modification conflict |
 | `-32004` | `vanta_not_found` | `NodeNotFound`, `NotFound` | Requested entity does not exist |
 | `-32005` | `vanta_unauthorized` | (auth layer) | Caller not authorized for this operation |
 | `-32006` | `vanta_rate_limited` | (rate limit layer) | Too many requests |

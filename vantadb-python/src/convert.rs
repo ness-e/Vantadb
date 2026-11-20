@@ -882,14 +882,14 @@ pub(crate) fn map_vanta_error(err: vantadb::error::Error) -> PyErr {
         CoreError::Validation { .. }
         | CoreError::DuplicateNode(_)
         | CoreError::DimensionMismatch { .. }
-        | CoreError::Serialization(_)
         | CoreError::InvalidInput(_)
-        | CoreError::Schema(_)
         | CoreError::NodeIdCollision(_)
         | CoreError::IqlParse { .. }
         | CoreError::Iql(_) => ValidationError::new_err(err.to_string()),
         CoreError::IncompatibleFormat { .. }
         | CoreError::WALVersionMismatch { .. }
+        | CoreError::Serialization(_)
+        | CoreError::Schema(_)
         | CoreError::Wal(_) => CorruptError::new_err(err.to_string()),
         CoreError::Timeout { .. } => TimeoutError::new_err(err.to_string()),
         CoreError::ResourceLimit(_) => ResourceLimitError::new_err(err.to_string()),

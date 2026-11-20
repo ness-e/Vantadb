@@ -541,10 +541,9 @@ export declare class VantaDb {
    *
    * This is the same convention as the Rust core (`MemorySearchHit.score`,
    * pinned by `src/sdk/serialization/vector_types.rs::tests`) and the Python SDK.
-   * It is **different** from the TypeScript wrapper `vantadb-ts`, which renames
-   * the field to `distance` and inverts the semantics (lower = more similar) —
-   * see `docs/api/TS_SDK.md` → "Distance vs Score (CODE-091)" for the full
-   * cross-binding table.
+   * `vantadb-ts` uses the same `score` convention (`SearchHit.score`,
+   * W1/API-02 — the legacy `distance` field was removed); see
+   * `docs/api/TS_SDK.md` → "Score, not distance" for the cross-binding table.
    */
   search(
     request: SearchRequest,
