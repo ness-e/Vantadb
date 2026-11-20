@@ -201,6 +201,95 @@ class TestSearchFilters:
         assert "u-b" in ids
         assert "u-a" not in ids
 
+    def _populate_rich_records(self, store):
+        store.insert(
+            [VEC_128, VEC_128_B, VEC_128],
+            payloads=[
+                {"data": "alice work", "user_id": "alice", "category": "work", "priority": 3},
+                {"data": "bob home", "user_id": "bob", "category": "home", "priority": 1},
+                {"data": "carol work", "user_id": "carol", "category": "work", "priority": 2},
+            ],
+            ids=["r-a", "r-b", "r-c"],
+        )
+
+    def test_search_compound_and_filter(self, store):
+        self._populate_rich_records(store)
+        results = store.search(
+            "memory",
+            VEC_128,
+            top_k=5,
+            filters={"AND": [{"category": "work"}, {"priority": {"$gte": 3}}]},
+        )
+        assert [r.id for r in results] == ["r-a"]
+
+    def test_search_compound_or_filter(self, store):
+        self._populate_rich_records(store)
+        results = store.search(
+            "memory",
+            VEC_128,
+            top_k=5,
+            filters={"OR": [{"user_id": "alice"}, {"user_id": "carol"}]},
+        )
+        assert {r.id for r in results} == {"r-a", "r-c"}
+
+    def test_search_compound_not_filter(self, store):
+        self._populate_rich_records(store)
+        results = store.search(
+            "memory",
+            VEC_128,
+            top_k=5,
+            filters={"NOT": [{"user_id": "bob"}]},
+        )
+        assert {r.id for r in results} == {"r-a", "r-c"}
+
+        results_dict = store.search(
+            "memory",
+            VEC_128,
+            top_k=5,
+            filters={"NOT": {"user_id": "bob"}},
+        )
+        assert {r.id for r in results_dict} == {"r-a", "r-c"}
+
+    def test_search_nested_compound_filters(self, store):
+        self._populate_rich_records(store)
+        results = store.search(
+            "memory",
+            VEC_128,
+            top_k=5,
+            filters={
+                "AND": [
+                    {"OR": [{"user_id": "alice"}, {"user_id": "bob"}]},
+                    {"NOT": [{"category": "home"}]},
+                ]
+            },
+        )
+        assert [r.id for r in results] == ["r-a"]
+
+    def test_search_non_scalar_filter_does_not_raise_typeerror(self, store):
+        self._populate_rich_records(store)
+        # Nested dict via $eq or bare non-scalar list of dicts must not crash PyO3
+        assert store.search("memory", VEC_128, top_k=5, filters={"meta": {"$eq": {"k": "v"}}}) == []
+        assert store.search("memory", VEC_128, top_k=5, filters={"items": [{"a": 1}]}) == []
+        assert store.search("memory", VEC_128, top_k=5, filters={"user_id": ["alice", "bob"]}) == []
+
+    def test_list_compound_filters(self, store):
+        self._populate_rich_records(store)
+        results = store.list(
+            filters={"AND": [{"category": "work"}, {"NOT": [{"user_id": "alice"}]}]},
+            top_k=10,
+        )
+        assert [r.id for r in results] == ["r-c"]
+
+    def test_search_and_list_top_k_non_positive_returns_empty(self, store):
+        self._populate_rich_records(store)
+        for k in (0, -1, -5):
+            assert store.search("memory", VEC_128, top_k=k) == []
+            assert store.search(
+                "memory", VEC_128, top_k=k, filters={"user_id": {"$neq": "bob"}}
+            ) == []
+            assert store.list(top_k=k) == []
+            assert store.list(filters={"user_id": {"$neq": "bob"}}, top_k=k) == []
+
 
 class TestFilterTranslationHelpers:
     """Pure-Python contract of the filter split — no engine needed."""
@@ -221,6 +310,21 @@ class TestFilterTranslationHelpers:
         assert native == {}
         assert residual == [("f", "$regex", "x")]
 
+    def test_translate_compound_and_non_scalar_to_residual(self):
+        from vantadb_mem0.vectorstore import _translate_filters
+
+        native, residual = _translate_filters(
+            {
+                "tenant": "t1",
+                "AND": [{"user_id": "alice"}, {"priority": {"$gte": 2}}],
+                "nested_eq": {"$eq": {"k": "v"}},
+                "tags": ["a", "b"],
+                "empty": {},
+            }
+        )
+        assert native == {"tenant": "t1"}
+        assert len(residual) == 4
+
     def test_matches_scalar_ops(self):
         from vantadb_mem0.vectorstore import _record_matches
 
@@ -234,6 +338,31 @@ class TestFilterTranslationHelpers:
         # Missing field never satisfies a predicate (fail closed).
         assert not _record_matches(payload, [("missing", "$eq", "x")])
         assert not _record_matches(payload, [("missing", "$bogus", "x")])
+
+    def test_matches_compound_nested_and_malformed_fails_closed(self):
+        from vantadb_mem0.vectorstore import _record_matches, _translate_filters
+
+        payload = {"user_id": "alice", "priority": 3, "role": "admin"}
+        _, res_ok = _translate_filters(
+            {
+                "AND": [
+                    {"OR": [{"user_id": "alice"}, {"user_id": "bob"}]},
+                    {"NOT": [{"role": "guest"}]},
+                    {"priority": {"$gte": 2}},
+                ]
+            }
+        )
+        assert _record_matches(payload, res_ok)
+
+        _, res_not_hit = _translate_filters({"NOT": [{"user_id": "alice"}]})
+        assert not _record_matches(payload, res_not_hit)
+
+        # Malformed logical payloads fail closed — never broaden results.
+        _, res_bad_not = _translate_filters({"NOT": ["not-a-dict"]})
+        assert not _record_matches(payload, res_bad_not)
+
+        _, res_bad_and = _translate_filters({"AND": "not-a-list"})
+        assert not _record_matches(payload, res_bad_and)
 
 
 class TestDeleteColGuard:

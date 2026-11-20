@@ -920,13 +920,31 @@ pub(crate) fn map_vanta_error(err: vantadb::error::Error) -> PyErr {
 /// cheap no-op when the GIL is already ours. Attribute set on an exception
 /// instance cannot fail in practice (it has `__dict__`; values are
 /// str/bool/None), so setattr errors are deliberately swallowed.
-fn attach_err_meta(py_err: &PyErr, err: &vantadb::error::Error) {
+fn attach_err_meta_parts(py_err: &PyErr, code: &str, retriable: bool, hint: Option<&str>) {
     Python::attach(|py| {
         let obj = py_err.value(py);
-        let _ = obj.setattr("code", err.code());
-        let _ = obj.setattr("retriable", err.is_retriable());
-        let _ = obj.setattr("hint", err.recovery_hint());
+        let _ = obj.setattr("code", code);
+        let _ = obj.setattr("retriable", retriable);
+        let _ = obj.setattr("hint", hint);
     });
+}
+
+fn attach_err_meta(py_err: &PyErr, err: &vantadb::error::Error) {
+    attach_err_meta_parts(py_err, err.code(), err.is_retriable(), err.recovery_hint());
+}
+
+/// Attach canonical ERR-PY-01 error metadata (`code`, `retriable`, `hint`) to a
+/// typed VantaDB exception created outside `map_vanta_error` (e.g. `L0Error`,
+/// `RecallError`), so `.code`/`.retriable`/`.hint` and `error_to_dict()` never
+/// fail with `AttributeError` or missing fields.
+pub(crate) fn with_err_meta(
+    py_err: PyErr,
+    code: &str,
+    retriable: bool,
+    hint: Option<&str>,
+) -> PyErr {
+    attach_err_meta_parts(&py_err, code, retriable, hint);
+    py_err
 }
 
 /// Parse a `TraversalDirection` from its Python string name.

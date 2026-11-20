@@ -46,9 +46,9 @@ use crate::convert::{
     operational_metrics_to_pydict, py_any_to_value, py_dict_to_filter_ops, py_dict_to_metadata,
     py_dict_to_sparse_vector, query_result_to_pydict, rebuild_report_to_pydict,
     runtime_profile_label, search_explanation_to_pydict, text_index_audit_report_to_pydict,
-    text_index_repair_report_to_pydict, BusyError, ConflictError, CorruptError, Error,
-    NoVectorError, NotFoundError, ResourceLimitError, StorageError, TimeoutError, UnsupportedError,
-    ValidationError,
+    text_index_repair_report_to_pydict, with_err_meta, BusyError, ConflictError, CorruptError,
+    Error, NoVectorError, NotFoundError, ResourceLimitError, StorageError, TimeoutError,
+    UnsupportedError, ValidationError,
 };
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
@@ -655,9 +655,12 @@ fn map_l0_error(err: L0Error) -> PyErr {
     match err {
         L0Error::Vanta(core) => map_vanta_error(core),
         L0Error::InvalidRole(role) => PyValueError::new_err(format!("invalid L0 role: {role}")),
-        L0Error::Cursor(cursor) => {
-            CorruptError::new_err(format!("malformed cursor payload: {cursor}"))
-        }
+        L0Error::Cursor(cursor) => with_err_meta(
+            CorruptError::new_err(format!("malformed cursor payload: {cursor}")),
+            "VANTADB_CORRUPT",
+            false,
+            Some("Repair or remove the malformed persisted L0 cursor, or restore from backup"),
+        ),
     }
 }
 
@@ -690,10 +693,19 @@ fn map_recall_error(err: RecallError) -> PyErr {
         | RecallError::Persona(PersonaError::Serde(_))
         | RecallError::Scene(SceneError::Serde(_))
         | RecallError::Profile(ProfileSyncError::Serde(_))
-        | RecallError::Profile(ProfileSyncError::Persona(PersonaError::Serde(_))) => {
-            CorruptError::new_err(format!("memory recall failed: {msg}"))
-        }
-        _ => PyRuntimeError::new_err(format!("memory recall failed: {msg}")),
+        | RecallError::Profile(ProfileSyncError::Persona(PersonaError::Serde(_))) => with_err_meta(
+            CorruptError::new_err(format!("memory recall failed: {msg}")),
+            "VANTADB_CORRUPT",
+            false,
+            Some("Repair or remove the malformed persisted memory record, or restore from backup"),
+        ),
+        #[allow(unreachable_patterns)]
+        _ => with_err_meta(
+            Error::new_err(format!("memory recall failed: {msg}")),
+            "VANTADB_IO_ERROR",
+            false,
+            None,
+        ),
     }
 }
 

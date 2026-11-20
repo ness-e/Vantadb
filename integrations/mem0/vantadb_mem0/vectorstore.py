@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, Callable
 
@@ -29,6 +30,14 @@ _DELETE_COL_MAX_ITERATIONS = 10_000
 # format `py_dict_to_filter_ops` accepts in the SDK: $eq/$neq/$gt/$gte/$lt/$lte,
 # plus mem0-style $in/$nin for parity with other vector stores).
 _KNOWN_OPS = frozenset({"$eq", "$neq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$nin"})
+_LOGICAL_KEY_MAP = {
+    "AND": "$and",
+    "OR": "$or",
+    "NOT": "$not",
+    "$and": "$and",
+    "$or": "$or",
+    "$not": "$not",
+}
 
 
 class OutputData:
@@ -105,6 +114,15 @@ def _build_payload(metadata, payload_text: str = "") -> Dict[str, Any]:
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _is_native_scalar(value: Any) -> bool:
+    """True when ``value`` is a scalar supported by ``py_dict_to_metadata``."""
+    if value is None or isinstance(value, (bool, int, str)):
+        return True
+    if isinstance(value, float):
+        return math.isfinite(value)
+    return False
+
+
 def _translate_filters(
     filters: Optional[Dict[str, Any]],
 ) -> Tuple[Dict[str, Any], List[Tuple[str, str, Any]]]:
@@ -112,26 +130,42 @@ def _translate_filters(
 
     VantaDB's ``memory.search``/``memory.list`` ``filters`` parameter only
     accepts a flat ``{field: scalar}`` map (metadata equality). Nested
-    ``{"$op": value}`` specs would be stored as an object literal and match
-    nothing, so they must never reach the binding.
+    ``{"$op": value}`` specs, logical combinators (``AND``/``OR``/``NOT``),
+    and non-scalar values (lists, dicts, non-finite floats, objects) are
+    routed to Python residual evaluation so they never trigger PyO3
+    ``TypeError`` or silently match nothing.
 
     Returns ``(native_eq, residual)``:
 
     - ``native_eq``: flat ``{field: value}`` equality dict, safe to pass to
       the binding (``None``-equivalent when empty).
     - ``residual``: ``[(field, op, value)]`` evaluated in Python by
-      :func:`_record_matches`. ``$eq`` goes push-down; every other operator
-      is residual. Unknown ``$op`` keys are kept as residual and fail closed
-      (the record is excluded) — a filter that cannot be applied must never
-      silently broaden the result set.
+      :func:`_record_matches`. Scalar ``$eq`` goes push-down; every other
+      operator, logical combinator, or non-scalar spec is residual. Unknown
+      ``$op`` keys and malformed logical shapes fail closed (the record is
+      excluded) — a filter that cannot be applied must never silently
+      broaden the result set.
     """
     native: Dict[str, Any] = {}
     residual: List[Tuple[str, str, Any]] = []
+    seen_logical: set[str] = set()
     for field, spec in (filters or {}).items():
+        if field in _LOGICAL_KEY_MAP:
+            norm_op = _LOGICAL_KEY_MAP[field]
+            if norm_op not in seen_logical:
+                seen_logical.add(norm_op)
+                residual.append((field, norm_op, spec))
+            continue
         if isinstance(spec, dict):
+            if not spec:
+                residual.append((field, "$eq", spec))
+                continue
             for op, val in spec.items():
                 if op == "$eq":
-                    native[field] = val
+                    if _is_native_scalar(val):
+                        native[field] = val
+                    else:
+                        residual.append((field, "$eq", val))
                 elif op in _KNOWN_OPS:
                     residual.append((field, op, val))
                 else:
@@ -142,9 +176,11 @@ def _translate_filters(
                         field,
                     )
                     residual.append((field, op, val))
-        else:
+        elif _is_native_scalar(spec):
             # Flat scalar -> implicit $eq, the canonical wire form.
             native[field] = spec
+        else:
+            residual.append((field, "$eq", spec))
     return native, residual
 
 
@@ -174,10 +210,43 @@ def _value_matches(actual: Any, op: str, expected: Any) -> bool:
     return False
 
 
+def _eval_subfilter(payload: Dict[str, Any], sub: Any) -> bool:
+    """Evaluate a nested filter dict against ``payload`` (fail-closed)."""
+    if not isinstance(sub, dict):
+        return False
+    sub_native, sub_residual = _translate_filters(sub)
+    for field, expected in sub_native.items():
+        if not _value_matches(payload.get(field), "$eq", expected):
+            return False
+    return _record_matches(payload, sub_residual)
+
+
+def _eval_logical(payload: Dict[str, Any], op: str, spec: Any) -> bool:
+    """Evaluate compound ``$and`` / ``$or`` / ``$not`` filter predicates."""
+    if op == "$and":
+        if not isinstance(spec, list) or not all(isinstance(item, dict) for item in spec):
+            return False
+        return all(_eval_subfilter(payload, item) for item in spec)
+    if op == "$or":
+        if not isinstance(spec, list) or not all(isinstance(item, dict) for item in spec):
+            return False
+        return any(_eval_subfilter(payload, item) for item in spec)
+    if op == "$not":
+        if isinstance(spec, dict):
+            return not _eval_subfilter(payload, spec)
+        if isinstance(spec, list) and all(isinstance(item, dict) for item in spec):
+            return not any(_eval_subfilter(payload, item) for item in spec)
+        return False
+    return False
+
+
 def _record_matches(payload: Dict[str, Any], residual: List[Tuple[str, str, Any]]) -> bool:
     """True when ``payload`` satisfies every residual filter predicate."""
     for field, op, expected in residual:
-        if not _value_matches(payload.get(field), op, expected):
+        if op in ("$and", "$or", "$not"):
+            if not _eval_logical(payload, op, expected):
+                return False
+        elif not _value_matches(payload.get(field), op, expected):
             return False
     return True
 
@@ -288,6 +357,8 @@ class VantaDBVectorStore(VectorStoreBase):
         candidate over-fetch). A filter is never silently dropped — unknown
         operators fail closed.
         """
+        if top_k <= 0:
+            return []
         native_eq, residual = _translate_filters(filters)
         fetch_k = top_k
         if residual:
@@ -451,6 +522,8 @@ class VantaDBVectorStore(VectorStoreBase):
         Same filter contract as :meth:`search` (FIND-579): equality specs
         are pushed down, other operators are evaluated in Python.
         """
+        if top_k <= 0:
+            return []
         native_eq, residual = _translate_filters(filters)
         fetch_k = top_k
         if residual:

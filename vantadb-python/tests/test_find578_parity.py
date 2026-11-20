@@ -306,14 +306,42 @@ def test_capabilities_runtime_profile_pascalcase_with_profile_alias():
 def test_recall_malformed_persona_raises_typed_corrupt_error():
     """A persisted persona record that fails to deserialize must surface as
     ``CorruptError`` (data corruption), not collapse to a bare RuntimeError —
-    and still be catchable through the ``vanta.Error`` hierarchy."""
+    with canonical ``.code``/``.retriable``/``.hint`` metadata and valid
+    ``error_to_dict()``, and still catchable through ``vanta.Error``."""
     db = _db()
     db.put("persona/sess-1", "persona.md", "{{{not json")
-    with pytest.raises(vanta.CorruptError):
+    with pytest.raises(vanta.CorruptError) as exc:
         db.memory_recall("hello", "sess-1")
+    assert exc.value.code == "VANTADB_CORRUPT"
+    assert exc.value.retriable is False
+    assert isinstance(exc.value.hint, str) and exc.value.hint
+    d = vanta.error_to_dict(exc.value)
+    assert d["name"] == "CorruptError"
+    assert d["code"] == "VANTADB_CORRUPT"
+    assert d["retriable"] is False
+    assert d["hint"] == exc.value.hint
     # Same path catchable via the hierarchy base (backward compat).
-    with pytest.raises(vanta.Error):
+    with pytest.raises(vanta.Error) as base_exc:
         db.memory_recall("hello", "sess-1")
+    assert base_exc.value.code == "VANTADB_CORRUPT"
+
+
+def test_l0_malformed_cursor_raises_typed_corrupt_error():
+    """A persisted L0 cursor that fails to deserialize must surface as
+    ``CorruptError`` with canonical ``.code``/``.retriable``/``.hint`` metadata
+    and valid ``error_to_dict()``."""
+    db = _db()
+    db.put("l0_cursor/sess-1", "__cursor", "{{{not json")
+    with pytest.raises(vanta.CorruptError) as exc:
+        db.memory_capture("sess-1", [{"role": "user", "content": "hello"}])
+    assert exc.value.code == "VANTADB_CORRUPT"
+    assert exc.value.retriable is False
+    assert isinstance(exc.value.hint, str) and exc.value.hint
+    d = vanta.error_to_dict(exc.value)
+    assert d["name"] == "CorruptError"
+    assert d["code"] == "VANTADB_CORRUPT"
+    assert d["retriable"] is False
+    assert d["hint"] == exc.value.hint
 
 
 # ── FIND-582 M-1: canonical package + stub surface ──────────────────────────

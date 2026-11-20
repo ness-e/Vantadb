@@ -318,8 +318,9 @@ def test_async_wrapper_stub_matches_real_asyncclient():
 
 
 def test_wrapper_stub_declares_search_request():
-    """SearchRequest dataclass must exist in __init__.pyi with its real fields."""
+    """SearchRequest dataclass must exist in __init__.pyi with all real fields."""
     stub = _parse_stub(PKG / "__init__.pyi")["SearchRequest"]
+    real = _parse_stub(PKG / "__init__.py")["SearchRequest"]
     fields = {
         "namespace",
         "query_vector",
@@ -329,8 +330,21 @@ def test_wrapper_stub_declares_search_request():
         "distance_metric",
         "method",
         "explain",
+        "query_sparse",
+        "exclude_superseded",
+        "min_confidence",
+        "as_of_ms",
+        "valid_window",
+        "include_quarantined",
+        "search_profile",
     }
-    assert fields <= set(stub["members"]) | set(stub["methods"]), (
+    assert fields <= set(stub["members"]), (
         f"SearchRequest incompleto en stub: members={sorted(stub['members'])}"
+    )
+    assert set(stub["members"]) == set(real["members"]), (
+        f"SearchRequest stub members {sorted(stub['members'])} != real {sorted(real['members'])}"
+    )
+    assert set(stub["methods"]["__init__"]) == set(real["members"]), (
+        f"SearchRequest.__init__ stub params {stub['methods']['__init__']} != real {sorted(real['members'])}"
     )
     assert "asdict" in stub["methods"]
