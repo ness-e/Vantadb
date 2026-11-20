@@ -76,9 +76,13 @@ def test_hybrid_search_hit_exposes_score_not_distance():
 
 
 def test_put_batch_signature_is_array_of_objects():
-    """put_batch(records) — one positional array, no legacy columnar kwargs."""
+    """put_batch(records, confidence=None) — one positional array, no legacy
+    columnar kwargs. `confidence` is the optional batch-level default
+    appended by FIND-199 (additive, end of signature)."""
     params = _param_names(_client_cls().put_batch)
-    assert params == ["records"], f"put_batch params {params} != ['records']"
+    assert params == ["records", "confidence"], (
+        f"put_batch params {params} != ['records', 'confidence']"
+    )
 
 
 def test_search_multi_signature_matches_matrix():

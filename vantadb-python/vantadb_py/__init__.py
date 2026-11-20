@@ -134,6 +134,22 @@ class SearchRequest:
         explain: Whether to include search explanations (default False).
         query_sparse: Optional dict of sparse term weights keyed by ``u32``
             dimension id (``{7: 1.5}``); fused with dense/text scores.
+        exclude_superseded: Hide superseded and validity-expired records
+            (default False — ADR-028/ADR-046 §D3-6, FIND-578).
+        min_confidence: Optional confidence floor in ``[0, 1]``; only hits
+            whose record confidence is ``>=`` the value are returned
+            (ADR-046 §D2, FIND-578).
+        as_of_ms: Optional valid-time point — only records valid at that
+            instant are returned (ADR-046 §D3, FIND-578).
+        valid_window: Optional ``{"from_ms": int, "to_ms": int}`` half-open
+            validity-window overlap filter (ADR-046 §D3, FIND-578).
+        include_quarantined: Opt-in view of quarantined records (default
+            False — ADR-046 §D5, FIND-578).
+        search_profile: Optional dict ``{"mode": "keyword"|"vector"|"hybrid",
+            "rrf_k"?: int, "candidate_k"?: int, "dense_weight"?: float,
+            "lexical_weight"?: float, "sparse_weight"?: float}`` — the
+            per-request search profile (MEM-01, FIND-578). Omitted fields use
+            the core defaults.
 
     Example::
 
@@ -158,6 +174,14 @@ class SearchRequest:
     method: str | None = None
     explain: bool = False
     query_sparse: dict | None = None
+    # FIND-578: parity fields `Client.search` already exposes — the batch
+    # path must not return different rows for the same corpus.
+    exclude_superseded: bool = False
+    min_confidence: float | None = None
+    as_of_ms: int | None = None
+    valid_window: dict | None = None
+    include_quarantined: bool = False
+    search_profile: dict | None = None
 
     def asdict(self) -> dict:
         """Return this request as a plain dict (for non-dataclass callers).
@@ -367,6 +391,7 @@ class AsyncClient:
         vector: list[float] | None = None,
         ttl_ms: int | None = None,
         sparse_vector: dict | None = None,
+        confidence: float | None = None,
     ):
         return await self._run(
             self._sync.put,
@@ -377,6 +402,7 @@ class AsyncClient:
             vector,
             ttl_ms,
             sparse_vector,
+            confidence,
         )
 
     # ── Cognitive layer (DIST-02: vanta-memory capture/recall) ──
@@ -435,13 +461,15 @@ class AsyncClient:
         """Insert a node by explicit id (W1/API-02 canonical name)."""
         return await self._run(self._sync.insert_node, id, content, vector, fields)
 
-    async def put_batch(self, records):
+    async def put_batch(self, records, *, confidence: float | None = None):
         """Insert records from a list of dicts (W1/API-02 array-of-objects).
 
         Each dict mirrors ``put()`` kwargs: ``{"namespace", "key", "payload",
-        "metadata", "vector", "ttl_ms"}``. ``key`` is required.
+        "metadata", "vector", "ttl_ms", "confidence"}``. ``key`` is required.
+        ``confidence`` is a batch-level default (``[0,1]``); a per-record
+        ``"confidence"`` key takes precedence (FIND-199).
         """
-        return await self._run(self._sync.put_batch, records)
+        return await self._run(self._sync.put_batch, records, confidence)
 
     async def put_batch_raw(
         self,

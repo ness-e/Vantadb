@@ -188,10 +188,12 @@ class Client:
         vector: Any | None = None,
         ttl_ms: int | None = None,
         sparse_vector: dict | None = None,
+        confidence: float | None = None,
     ) -> Record: ...
     def put_batch(
         self,
         records: list[dict],
+        confidence: float | None = None,
     ) -> list[Record]: ...
     def put_batch_raw(
         self,
@@ -203,6 +205,9 @@ class Client:
         ttls: list[int | None] | None = None,
     ) -> list[Record]: ...
     def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
+    def forget(
+        self, namespace: str, target: str | dict, mode: str = "soft"
+    ) -> dict: ...
     def count(self, namespace: str, filters: dict | None = None) -> int: ...
     def similar_to_key(
         self, namespace: str, key: str, top_k: int = 10
@@ -385,10 +390,12 @@ class MemoryClient:
         vector: Any | None = None,
         ttl_ms: int | None = None,
         sparse_vector: dict | None = None,
+        confidence: float | None = None,
     ) -> Record: ...
     def put_batch(
         self,
         records: list[dict],
+        confidence: float | None = None,
     ) -> list[Record]: ...
     def put_batch_raw(
         self,
@@ -400,6 +407,9 @@ class MemoryClient:
         ttls: list[int | None] | None = None,
     ) -> list[Record]: ...
     def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
+    def forget(
+        self, namespace: str, target: str | dict, mode: str = "soft"
+    ) -> dict: ...
     def count(self, namespace: str, filters: dict | None = None) -> int: ...
     def similar_to_key(
         self, namespace: str, key: str, top_k: int = 10

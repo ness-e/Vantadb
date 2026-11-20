@@ -81,6 +81,12 @@ class SearchRequest:
     method: str | None
     explain: bool
     query_sparse: dict | None
+    exclude_superseded: bool
+    min_confidence: float | None
+    as_of_ms: int | None
+    valid_window: dict | None
+    include_quarantined: bool
+    search_profile: dict | None
 
     def __init__(
         self,
@@ -93,6 +99,12 @@ class SearchRequest:
         method: str | None = None,
         explain: bool = False,
         query_sparse: dict | None = None,
+        exclude_superseded: bool = False,
+        min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+        search_profile: dict | None = None,
     ) -> None: ...
     def asdict(self) -> dict:
         """Return this request as a plain dict (for non-dataclass callers)."""
@@ -195,6 +207,7 @@ class AsyncClient:
         vector: list[float] | None = None,
         ttl_ms: int | None = None,
         sparse_vector: dict | None = None,
+        confidence: float | None = None,
     ) -> Record: ...
     async def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     async def count(self, namespace: str, filters: dict | None = None) -> int: ...
@@ -209,7 +222,9 @@ class AsyncClient:
     async def insert_node(
         self, id: int, content: str, vector: Any, fields: dict | None = None
     ) -> None: ...
-    async def put_batch(self, records: list[dict]) -> list[Record]: ...
+    async def put_batch(
+        self, records: list[dict], *, confidence: float | None = None
+    ) -> list[Record]: ...
     async def put_batch_raw(
         self,
         vectors: Any,

@@ -178,6 +178,7 @@ db.put(
     vector: Optional[VectorInput] = None,
     ttl_ms: Optional[int] = None,
     sparse_vector: Optional[dict] = None,
+    confidence: Optional[float] = None,
 ) -> Record
 ```
 
@@ -187,18 +188,26 @@ finite floats) that participates in sparse search alongside the dense vector —
 the same shape WASM/TS `put()` accept. Keys must be Python `int`s (`{7: 1.5}`);
 numeric-string keys (`{"7": 1.5}`) are rejected, unlike the JS bindings where
 object keys are always strings.
+
+`confidence` (FIND-199) declares the record's confidence in `[0, 1]` for
+asserted records (ADR-046 §D4); `None` keeps the default `D_a` (`1.0`).
+Out-of-range or non-finite values are rejected with `ValidationError`,
+never clamped.
 #### `put_batch()`
 
 ```python
 db.put_batch(
     records: List[dict],
+    confidence: Optional[float] = None,
 ) -> List[Record]
 ```
 
 Insert or update multiple records from an **array of objects** (W1/API-02 —
 the same shape as WASM `put_batch`, TS `putBatch` and Node `putBatch`). Each
 dict mirrors the `put()` keyword arguments; `key` is required and
-`namespace` defaults to `"default"`:
+`namespace` defaults to `"default"`. The `confidence` kwarg is a batch-level
+default in `[0, 1]`; a per-record `"confidence"` key takes precedence over it
+(FIND-199):
 
 ```python
 db.put_batch([
@@ -710,10 +719,16 @@ db.search_batch_requests(
 
 Batch hybrid search over multiple request objects. Each element may be a
 `dict` or a typed `SearchRequest` dataclass, and supports the fields
-`namespace`, `query_vector`, `text_query`, `filters`, `distance_metric`, and
-`top_k`. Requests are validated eagerly (raises `ValueError` on the first
-invalid element), then executed in parallel via Rayon with the GIL released.
-Returns one `[SearchHit]` list per request, in input order.
+`namespace`, `query_vector`, `query_sparse`, `text_query`, `filters`,
+`distance_metric`, `method`, `explain`, `top_k` and the parity fields
+`exclude_superseded`, `min_confidence`, `as_of_ms`,
+`valid_window` (`{"from_ms", "to_ms"}`), `include_quarantined` and
+`search_profile` (`{"mode": "keyword"|"vector"|"hybrid", "rrf_k"?,
+"candidate_k"?, "dense_weight"?, "lexical_weight"?, "sparse_weight"?}`) — the
+same wire names `search()` accepts (FIND-578). Requests are validated eagerly
+(raises `ValueError` on the first invalid element), then executed in parallel
+via Rayon with the GIL released. Returns one `[SearchHit]` list per request,
+in input order.
 
 ```python
 requests = [
@@ -1142,11 +1157,11 @@ print(f"HNSW nodes: {metrics['hnsw_nodes_count']}")
 db.capabilities() -> dict
 ```
 
-Introspect the stable runtime capabilities exposed by the SDK. Returns a dict with `profile` (`ENTERPRISE`, `PERFORMANCE`, or `LOW_RESOURCE`), `read_only`, `persistence`, `vector_search`, and `iql_queries`.
+Introspect the stable runtime capabilities exposed by the SDK. Returns a dict with `runtime_profile` (`Enterprise`, `Performance`, or `LowResource` — the PascalCase wire labels shared with WASM/TS/Node, FIND-256), `read_only`, `persistence`, `vector_search`, and `iql_queries`. The legacy `profile` key remains as a backward-compatible alias carrying the same value.
 
 ```python
 caps = db.capabilities()
-print(f"Runtime profile: {caps['profile']}")
+print(f"Runtime profile: {caps['runtime_profile']}")
 print(f"Read-only: {caps['read_only']}")
 ```
 
@@ -1160,7 +1175,7 @@ Return capabilities merged with system memory telemetry. Combines the `capabilit
 
 ```python
 profile = db.hardware_profile()
-print(f"Profile: {profile['profile']}, RSS: {profile.get('process_rss_bytes', 'N/A')}")
+print(f"Profile: {profile['runtime_profile']}, RSS: {profile.get('process_rss_bytes', 'N/A')}")
 ```
 
 #### `generate_snippet()`

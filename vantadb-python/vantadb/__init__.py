@@ -15,14 +15,31 @@ with warnings.catch_warnings():
     from vantadb_py import *
     from vantadb_py import __version__
 
+# FIND-582 M-1: the canonical package re-exports the full ``vantadb_py``
+# surface — including the typed error hierarchy (11 classes), ``error_to_dict``
+# and ``memory_node_id`` — so ``from vantadb import X`` matches what the
+# runtime actually provides. Kept in sync with ``__init__.pyi``.
 __all__ = [
     "AsyncClient",
+    "BusyError",
     "Client",
+    "ConflictError",
+    "CorruptError",
+    "Error",
     "ListResult",
+    "NoVectorError",
+    "NotFoundError",
     "Record",
+    "ResourceLimitError",
     "SearchHit",
     "SearchRequest",
+    "StorageError",
+    "TimeoutError",
+    "UnsupportedError",
+    "ValidationError",
     "Vector",
     "__version__",
     "connect",
+    "error_to_dict",
+    "memory_node_id",
 ]

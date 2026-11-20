@@ -145,7 +145,7 @@ four bindings with a matrix row.
 | Capability | WASM (`vantadb-wasm`) | TS (`vantadb-ts`) | Node (`vantadb-node`) | Python (`vantadb-python`) |
 |---|---|---|---|---|
 | v2 record fields on reads | `memory_record_to_js` + `vantadb_wasm.d.ts` | `MemoryRecord` in `types.ts` (passthrough) | `MemoryRecord` in `index.d.ts` (serde wire) | `Record`/`SearchHit` getters + `__getitem__` + `.pyi` |
-| `as_of_ms` / `valid_window` on `search` | `SearchRequest` struct | passthrough (native + wasm) | `parse_search_request` | `search`/`memory.search` kwargs |
+| `as_of_ms` / `valid_window` on `search` | `SearchRequest` struct | passthrough (native + wasm) | `parse_search_request` | `search`/`memory.search` kwargs + `search_batch_requests` (`SearchRequest`/dict — `FIND-578`) |
 | `as_of_ms` / `valid_window` on `list` | `ListOptions` struct | `ListOptions` passthrough | `parse_list_options` | `memory.list` kwargs |
 | `include_quarantined` (search + list) | ✅ | ✅ | ✅ | ✅ |
 | `min_confidence` (search + list) | ✅ | ✅ | ✅ | ✅ |
@@ -482,7 +482,7 @@ rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm   # → 0 matches
 
 | Field (canonical: core serde shape) | WASM | TS | Node | Python |
 |---|---|---|---|---|
-| `runtime_profile` | ✅ | ✅ | ✅ | ⚠️ key `profile` + UPPER labels — `FIND-256` |
+| `runtime_profile` | ✅ | ✅ | ✅ | ✅ (key `runtime_profile` + PascalCase labels; legacy `profile` key kept as alias — `FIND-256` fixed in `FIND-578`) |
 | `persistence` | ✅ | ✅ | ✅ | ✅ |
 | `vector_search` | ✅ | ✅ | ✅ | ✅ |
 | `iql_queries` | ✅ | ✅ | ✅ | ✅ |

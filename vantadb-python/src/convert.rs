@@ -312,11 +312,13 @@ pub(crate) fn set_python_value(
     }
 }
 
+/// Stable label for the runtime profile — PascalCase, the same wire value
+/// the core serde emits and the WASM/TS/Node bindings expose (FIND-256).
 pub(crate) fn runtime_profile_label(profile: RuntimeProfile) -> &'static str {
     match profile {
-        RuntimeProfile::Enterprise => "ENTERPRISE",
-        RuntimeProfile::Performance => "PERFORMANCE",
-        RuntimeProfile::LowResource => "LOW_RESOURCE",
+        RuntimeProfile::Enterprise => "Enterprise",
+        RuntimeProfile::Performance => "Performance",
+        RuntimeProfile::LowResource => "LowResource",
     }
 }
 
@@ -446,10 +448,12 @@ pub(crate) fn capabilities_to_pydict(
     capabilities: &Capabilities,
 ) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
-    dict.set_item(
-        "profile",
-        runtime_profile_label(capabilities.runtime_profile),
-    )?;
+    let profile = runtime_profile_label(capabilities.runtime_profile);
+    // FIND-256: `runtime_profile` is the canonical cross-binding key (WASM/TS/
+    // Node shape, PascalCase label); `profile` stays as a documented
+    // backward-compatible alias carrying the same value.
+    dict.set_item("runtime_profile", profile)?;
+    dict.set_item("profile", profile)?;
     dict.set_item("read_only", capabilities.read_only)?;
     dict.set_item("persistence", capabilities.persistence)?;
     dict.set_item("vector_search", capabilities.vector_search)?;

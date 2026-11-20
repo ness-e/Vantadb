@@ -51,8 +51,10 @@ Helper centralization (this crate `src/api/scores.rs`): `cosine_distance_to_simi
 (`similarity = 1 - distance`) and `cosine_similarity_to_distance`
 (`distance = 1 - similarity`, clamped to `[0, 2]`) are the canonical mappings.
 The `1 - distance/2` form is a **different** quantity — normalized relevance in
-`[0, 1]` — and lives in `cosine_distance_to_relevance`; adapters that need MMR
-relevance call that helper instead of re-deriving `1.0 - s/2.0`
+`[0, 1]` — and lives in `cosine_distance_to_relevance`. **These helpers are
+Rust-internal: they are not exported to the Python/TS/WASM bindings.**
+Bindings and adapters that need a `[0, 1]` relevance re-derive `1.0 - s/2.0`
+locally, or (current adapters) feed MMR the raw similarity score directly
 (`integrations/langchain/vantadb_langchain/vectorstore.py`,
 `integrations/llamaindex/vantadb_llamaindex/vectorstore.py`).
 

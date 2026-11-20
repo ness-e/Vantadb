@@ -16,7 +16,8 @@ use vantadb::config::Config;
 use vantadb::index::IndexType;
 use vantadb::metadata;
 use vantadb::sdk::{
-    Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput, ValidWindow,
+    Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput, SearchProfileConfig,
+    SearchProfileMode, ValidWindow,
 };
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{DistanceMetric, MAX_K, MAX_VEC_DIM};
@@ -525,6 +526,8 @@ forward_to_db!(WikiClient {
 /// - ``vector`` (optional list of floats or NumPy array)
 /// - ``ttl_ms`` (optional int)
 /// - ``sparse_vector`` (optional dict of ``u32`` dim → weight)
+/// - ``confidence`` (optional float in ``[0,1]`` — declared confidence for
+///   asserted records, ADR-046 §D4; range validated at the core boundary)
 fn record_to_memory_input(py: Python<'_>, record: &Bound<'_, PyAny>) -> PyResult<MemoryInput> {
     let dict = record.cast::<PyDict>().map_err(|_| {
         PyTypeError::new_err(
@@ -573,6 +576,13 @@ fn record_to_memory_input(py: Python<'_>, record: &Bound<'_, PyAny>) -> PyResult
                 PyTypeError::new_err("put_batch: record 'sparse_vector' must be a dict")
             })?;
             input.sparse_vector = py_dict_to_sparse_vector(Some(sparse))?;
+        }
+    }
+    if let Some(conf) = dict.get_item("confidence")? {
+        if !conf.is_none() {
+            input.confidence = Some(conf.extract::<f32>().map_err(|_| {
+                PyTypeError::new_err("put_batch: record 'confidence' must be a float in [0,1]")
+            })?);
         }
     }
 
@@ -652,10 +662,38 @@ fn map_l0_error(err: L0Error) -> PyErr {
 }
 
 /// Map a recall error into the Python exception hierarchy.
+///
+/// FIND-258: the nested wrappers (`Persona`/`Scene`/`Profile`) also carry a
+/// core `vantadb::error::Error` via `#[from]` chains (call-sites with `?` in
+/// `perform_auto_recall_governed`). Delegating those to `map_vanta_error`
+/// preserves the `VANTADB_*` `code`/`retriable`/`hint` contract instead of
+/// collapsing to a bare `RuntimeError` — the same chain-walk precedent as
+/// the desktop host (ERR-DESK-01, `desktop/src-tauri/src/commands/memory.rs`).
 fn map_recall_error(err: RecallError) -> PyErr {
+    use vanta_memory::core::persona::PersonaError;
+    use vanta_memory::core::profile::ProfileSyncError;
+    use vanta_memory::core::scene::SceneError;
+    let msg = err.to_string();
     match err {
-        RecallError::Vanta(core) => map_vanta_error(core),
-        other => PyRuntimeError::new_err(format!("memory recall failed: {other}")),
+        // Chains that end in a core error delegate to `map_vanta_error` so the
+        // typed subclass + `VANTADB_*` code cross the binding intact.
+        RecallError::Vanta(core)
+        | RecallError::Persona(PersonaError::Vanta(core))
+        | RecallError::Scene(SceneError::Vanta(core))
+        | RecallError::Profile(ProfileSyncError::Vanta(core))
+        | RecallError::Profile(ProfileSyncError::Persona(PersonaError::Vanta(core))) => {
+            map_vanta_error(core)
+        }
+        // A persisted payload that fails to deserialize is data corruption —
+        // coherent with `L0Error::Cursor` → `CorruptError` (FIND-258).
+        RecallError::MalformedRecord(_)
+        | RecallError::Persona(PersonaError::Serde(_))
+        | RecallError::Scene(SceneError::Serde(_))
+        | RecallError::Profile(ProfileSyncError::Serde(_))
+        | RecallError::Profile(ProfileSyncError::Persona(PersonaError::Serde(_))) => {
+            CorruptError::new_err(format!("memory recall failed: {msg}"))
+        }
+        _ => PyRuntimeError::new_err(format!("memory recall failed: {msg}")),
     }
 }
 
@@ -832,21 +870,33 @@ impl Client {
     /// Records of one batch may route into different namespaces by setting
     /// each dict's ``namespace`` (ERR-030 routing, per record).
     ///
+    /// ``confidence`` (FIND-199) declares a batch-level confidence in ``[0,1]``
+    /// for asserted records (ADR-046 §D4); a per-record ``"confidence"`` dict
+    /// key takes precedence over the batch default. Range/finiteness are
+    /// validated at the core boundary (``ValidationError``).
+    ///
     /// For zero-copy ingestion of a 2D NumPy vector matrix, use
     /// ``put_batch_raw`` (PERF-15 buffer path, unchanged).
     ///
     /// Returns a list of ``MemoryRecord`` objects in input order.
-    #[pyo3(signature = (records))]
+    #[pyo3(signature = (records, confidence=None))]
     fn put_batch(
         &self,
         py: Python,
         records: Vec<Bound<'_, PyAny>>,
+        confidence: Option<f32>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
         let _g = enter(&self.op_gate)?;
 
         let mut inputs = Vec::with_capacity(records.len());
         for record in records {
-            inputs.push(record_to_memory_input(py, &record)?);
+            let mut input = record_to_memory_input(py, &record)?;
+            // Batch-level default: applies only where the record does not
+            // declare its own "confidence" (FIND-199).
+            if input.confidence.is_none() {
+                input.confidence = confidence;
+            }
+            inputs.push(input);
         }
 
         let engine = self.engine.clone();
@@ -1053,6 +1103,10 @@ impl Client {
     ///     sparse_vector: Optional dict of sparse term weights keyed by ``u32``
     ///         dimension id (``{7: 1.5, 42: 0.75}``); participates in sparse-dot
     ///         search alongside the dense vector. Empty/None skips sparse.
+    ///     confidence: Optional declared confidence in ``[0,1]`` for asserted
+    ///         records (ADR-046 §D4, FIND-199); ``None`` = default ``D_a``
+    ///         (1.0). Out-of-range/non-finite values are rejected by the core
+    ///         boundary (``ValidationError``), never clamped.
     ///
     /// Returns:
     ///     MemoryRecord: The stored record, exposing ``namespace``, ``key``,
@@ -1081,7 +1135,7 @@ impl Client {
 
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None, sparse_vector=None))]
+    #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None, sparse_vector=None, confidence=None))]
     fn put(
         &self,
         py: Python,
@@ -1092,6 +1146,7 @@ impl Client {
         vector: Option<&Bound<'_, PyAny>>,
         ttl_ms: Option<u64>,
         sparse_vector: Option<&Bound<'_, PyDict>>,
+        confidence: Option<f32>,
     ) -> PyResult<VantaPyMemoryRecord> {
         let _g = enter(&self.op_gate)?;
         let mut input = MemoryInput::new(namespace, key, payload);
@@ -1105,6 +1160,9 @@ impl Client {
             None => None,
         };
         input.sparse_vector = py_dict_to_sparse_vector(sparse_vector)?;
+        // FIND-199: opt-in declared confidence; the core boundary enforces
+        // finite ∈ [0,1] (ADR-046 §D4 — ValidationError, never clamped).
+        input.confidence = confidence;
 
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust storage write + index update
@@ -2059,7 +2117,10 @@ impl Client {
     /// Each element is a [`SearchRequest`][1] dataclass or an equivalent
     /// ``dict`` with the same keys as ``search``: ``namespace``,
     /// ``query_vector``, ``filters``, ``text_query``, ``top_k``,
-    /// ``distance_metric``, ``explain``.
+    /// ``distance_metric``, ``method``, ``explain``, ``query_sparse`` and —
+    /// since FIND-578 — the parity fields ``exclude_superseded``,
+    /// ``min_confidence``, ``as_of_ms``, ``valid_window``,
+    /// ``include_quarantined`` and ``search_profile``.
     ///
     /// [1]: https://vantadb.github.io (see `vantadb_py.SearchRequest`)
     ///
@@ -2841,6 +2902,48 @@ impl Client {
             None => None,
         };
 
+        // FIND-578: the batch path exposes the full `MemorySearchRequest`
+        // parity surface — the same corpus must not return different rows
+        // depending on the entry point. `search_profile` exists here even
+        // though the `search()` kwargs do not carry it yet (batch requests
+        // bind to the core wire shape, not to the `search()` signature).
+        let exclude_superseded: bool = match Self::request_field(obj, "exclude_superseded")? {
+            Some(v) => v.extract()?,
+            None => false,
+        };
+
+        let min_confidence: Option<f32> = match Self::request_field(obj, "min_confidence")? {
+            Some(v) => Some(v.extract()?),
+            None => None,
+        };
+
+        let as_of_ms: Option<u64> = match Self::request_field(obj, "as_of_ms")? {
+            Some(v) => Some(v.extract()?),
+            None => None,
+        };
+
+        let valid_window = match Self::request_field(obj, "valid_window")? {
+            Some(v) => {
+                let dict = v.cast::<PyDict>().map_err(|_| {
+                    PyTypeError::new_err(
+                        "search request 'valid_window' must be a dict {from_ms, to_ms}",
+                    )
+                })?;
+                py_valid_window(Some(dict))?
+            }
+            None => None,
+        };
+
+        let include_quarantined: bool = match Self::request_field(obj, "include_quarantined")? {
+            Some(v) => v.extract()?,
+            None => false,
+        };
+
+        let search_profile = match Self::request_field(obj, "search_profile")? {
+            Some(v) => Some(py_search_profile(&v)?),
+            None => None,
+        };
+
         Ok((
             MemorySearchRequest {
                 namespace,
@@ -2851,14 +2954,14 @@ impl Client {
                 top_k,
                 distance_metric,
                 explain,
-                exclude_superseded: false,
-                // SCH-03 temporal params + SCH-04 filter: batch request objects
-                // do not carry them yet (parity with `exclude_superseded`).
-                min_confidence: None,
-                as_of_ms: None,
-                valid_window: None,
-                include_quarantined: false,
-                search_profile: None,
+                exclude_superseded,
+                // SCH-04 confidence floor + SCH-07 temporal/quarantine params —
+                // validated at the core boundary (same wire names as `search`).
+                min_confidence,
+                as_of_ms,
+                valid_window,
+                include_quarantined,
+                search_profile,
                 range: None,
                 group_by: None,
                 mmr: None,
@@ -2906,6 +3009,81 @@ fn py_valid_window(value: Option<&Bound<'_, PyDict>>) -> PyResult<Option<ValidWi
         .extract::<u64>()
         .map_err(|_| PyValueError::new_err("valid_window.to_ms must be a non-negative integer"))?;
     Ok(Some(ValidWindow { from_ms, to_ms }))
+}
+
+/// FIND-578: parse a `search_profile` dict into the core
+/// [`SearchProfileConfig`] — the per-request search profile (MEM-01). Shape:
+/// `{"mode": "keyword"|"vector"|"hybrid", "rrf_k"?: int, "candidate_k"?: int,
+/// "dense_weight"?: float, "lexical_weight"?: float, "sparse_weight"?: float}`.
+/// Omitted fields stay `None` and delegate to the core defaults (`RRF_K`,
+/// `hybrid_candidate_budget`, weight 1.0); unknown keys are rejected — never
+/// silently ignored (same contract as `parse_search_method`/`valid_window`).
+fn py_search_profile(value: &Bound<'_, PyAny>) -> PyResult<SearchProfileConfig> {
+    let dict = value.cast::<PyDict>().map_err(|_| {
+        PyTypeError::new_err(
+            "search request 'search_profile' must be a dict, e.g. {\"mode\": \"hybrid\"}",
+        )
+    })?;
+
+    const KNOWN_KEYS: [&str; 6] = [
+        "mode",
+        "rrf_k",
+        "candidate_k",
+        "dense_weight",
+        "lexical_weight",
+        "sparse_weight",
+    ];
+    for (key, _) in dict.iter() {
+        let key: String = key.extract()?;
+        if !KNOWN_KEYS.contains(&key.as_str()) {
+            return Err(PyValueError::new_err(format!(
+                "Unknown search_profile key \"{key}\" — known values: {}",
+                KNOWN_KEYS.join(", ")
+            )));
+        }
+    }
+
+    let mode = match dict.get_item("mode")? {
+        Some(v) if !v.is_none() => match v.extract::<String>()?.as_str() {
+            "keyword" => SearchProfileMode::Keyword,
+            "vector" => SearchProfileMode::Vector,
+            "hybrid" => SearchProfileMode::Hybrid,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                "Unknown search_profile mode \"{other}\" — known values: keyword, vector, hybrid"
+            )))
+            }
+        },
+        _ => SearchProfileMode::default(),
+    };
+
+    let opt_usize = |key: &str| -> PyResult<Option<usize>> {
+        match dict.get_item(key)? {
+            Some(v) if !v.is_none() => Ok(Some(v.extract::<usize>().map_err(|_| {
+                PyTypeError::new_err(format!(
+                    "search_profile.{key} must be a non-negative integer"
+                ))
+            })?)),
+            _ => Ok(None),
+        }
+    };
+    let opt_f32 = |key: &str| -> PyResult<Option<f32>> {
+        match dict.get_item(key)? {
+            Some(v) if !v.is_none() => Ok(Some(v.extract::<f32>().map_err(|_| {
+                PyTypeError::new_err(format!("search_profile.{key} must be a float"))
+            })?)),
+            _ => Ok(None),
+        }
+    };
+
+    Ok(SearchProfileConfig {
+        mode,
+        rrf_k: opt_usize("rrf_k")?,
+        candidate_k: opt_usize("candidate_k")?,
+        dense_weight: opt_f32("dense_weight")?,
+        lexical_weight: opt_f32("lexical_weight")?,
+        sparse_weight: opt_f32("sparse_weight")?,
+    })
 }
 
 /// Connect to a VantaDB database.
