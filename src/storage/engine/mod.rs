@@ -618,6 +618,29 @@ impl StorageEngine {
         self.label_intern.lock().resolve(id).map(|s| s.to_string())
     }
 
+    /// Resolve a batch of label ids in a **single** `label_intern`
+    /// acquisition (GR-02 / FIND-607), returning a `id → label` snapshot
+    /// for the ids that resolve.
+    ///
+    /// Unknown ids are omitted: databases written before NOT-01 persisted
+    /// the interner can hold edges whose label ids no longer resolve —
+    /// that is degraded data, not an I/O error, so callers decide whether
+    /// to skip or degrade.
+    ///
+    /// Regla 8: `label_intern` sits outside the `insert_lock` order
+    /// (`intern_label` persists under it); callers MUST NOT hold
+    /// `insert_lock`, `label_intern`, or any storage/index guard when
+    /// calling this — take the snapshot before/after those sections.
+    pub(crate) fn resolve_labels(
+        &self,
+        ids: &std::collections::HashSet<u32>,
+    ) -> std::collections::HashMap<u32, String> {
+        let intern = self.label_intern.lock();
+        ids.iter()
+            .filter_map(|&id| intern.resolve(id).map(|s| (id, s.to_string())))
+            .collect()
+    }
+
     /// Convert a `UnifiedNode` to an SDK `NodeRecord`, resolving edge labels.
     pub fn node_to_record(&self, node: crate::node::UnifiedNode) -> crate::sdk::NodeRecord {
         crate::sdk::serialization::graph_types::unified_to_record(node, &self.label_intern.lock())

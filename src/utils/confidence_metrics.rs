@@ -70,11 +70,12 @@ impl OriginCollisionTracker {
     ///
     /// This metric helps identify problematic origins with high collision rates
     /// in multi-agent coordination scenarios.
+    ///
+    /// UT-02 / FIND-607 (R-8): the formula lives in
+    /// [`compute_confidence_friction`] — this method delegates to it so the
+    /// term is defined exactly once.
     pub fn compute_friction(&self) -> f32 {
-        self.origins
-            .iter()
-            .map(|(_, (count, confidence))| ((*count as f32 + 1.0).log2()) * confidence)
-            .sum()
+        compute_confidence_friction(&self.origins)
     }
 
     /// Get the number of unique origins tracked.
@@ -124,8 +125,10 @@ impl OriginCollisionTracker {
 
 /// Compute the friction metric from a collision tracker map.
 ///
-/// This is a functional alternative to the method-based approach,
-/// useful for one-off calculations without maintaining state.
+/// This is the single source of the logarithmic friction formula
+/// (UT-02 / FIND-607, R-8) and the functional alternative to the
+/// method-based approach, useful for one-off calculations without
+/// maintaining state.
 ///
 /// # Arguments
 /// * `origins` - Map of owner_role → (collision_count, confidence_score)

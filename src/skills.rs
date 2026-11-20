@@ -59,6 +59,12 @@ pub const SKILL_NS: &str = "skills";
 pub const SKILL_COLLECTION: &str = "skill";
 /// Collection holding the unique partial index `(owner, name) WHERE is_head`.
 pub const SKILL_HEAD_COLLECTION: &str = "skill_head";
+/// Collection holding the per-skill head pointer (`skill_id` → head
+/// `version`), written atomically with every head change (SK-02 /
+/// FIND-607). Lets `get_head` resolve in O(1) instead of scanning every
+/// version row; skills written before this index existed fall back to the
+/// version scan.
+pub const SKILL_HEAD_ID_COLLECTION: &str = "skill_head_id";
 /// TTL cleanup keeps this many most-recent non-head versions per skill.
 pub const KEEP_RECENT: usize = 3;
 
@@ -100,8 +106,25 @@ impl<'a> SkillStore<'a> {
 
     /// Resolve the current head of `skill_id`, or `None` when the skill
     /// does not exist.
+    ///
+    /// SK-02 / FIND-607: O(1) via the `skill_head_id` pointer written
+    /// atomically with every head change. The version scan remains only
+    /// as a clean fallback for rows written before the pointer existed
+    /// (legacy data) or when the pointer is stale.
     pub fn get_head(&self, skill_id: &str) -> Result<Option<SkillRecord>> {
         validate_skill_id(skill_id)?;
+        if let Some(index) = self
+            .entities
+            .get(SKILL_NS, SKILL_HEAD_ID_COLLECTION, skill_id)?
+        {
+            let version = int_field(&index, "version")? as u64;
+            if let Some(record) = self.get_version(skill_id, version)? {
+                if record.is_head {
+                    return Ok(Some(record));
+                }
+            }
+            // Stale pointer — fall through to the scan.
+        }
         for row in self.scan_versions(skill_id)? {
             if bool_field(&row, "is_head")? {
                 return Ok(Some(entity_to_record(row)?));
@@ -146,36 +169,87 @@ impl<'a> SkillStore<'a> {
 
     /// List skill heads (current versions) with optional owner / name-prefix
     /// filters, ordered by name.
+    ///
+    /// SK-03 / FIND-607: the `owner_agent` / `name_prefix` filters and the
+    /// `offset`/`limit` window are applied on the lightweight `skill_head`
+    /// index rows **before** any version row is read, and the page's rows
+    /// are fetched in a single `get_many` batch — no N+1 reads and the
+    /// resident set of full records is bounded to the requested page.
     pub fn list(&self, opts: SkillListOptions) -> Result<SkillListPage> {
         let page = self
             .entities
             .list(SKILL_NS, SKILL_HEAD_COLLECTION, usize::MAX, 0)?;
-        let mut records = Vec::with_capacity(page.items.len());
-        for index in page.items {
-            let skill_id = str_field(&index, "skill_id")?;
-            let version = int_field(&index, "version")? as u64;
-            let Some(head) = self.get_version(&skill_id, version)? else {
-                continue; // stale index row (should not happen under batch writes)
-            };
-            if let Some(owner) = &opts.owner_agent {
-                if head.owner_agent != *owner {
-                    continue;
-                }
-            }
-            if let Some(prefix) = &opts.name_prefix {
-                if !head.name.starts_with(prefix.as_str()) {
-                    continue;
-                }
-            }
-            records.push(head);
-        }
-        records.sort_by(|a, b| a.name.cmp(&b.name));
-        let total = records.len();
-        let items = records
+        let mut matched: Vec<&Entity> = page
+            .items
+            .iter()
+            .filter(|index| {
+                let owner_ok = match &opts.owner_agent {
+                    Some(owner) => {
+                        index.fields.get("owner_agent").and_then(FieldValue::as_str)
+                            == Some(owner.as_str())
+                    }
+                    None => true,
+                };
+                let prefix_ok = match &opts.name_prefix {
+                    Some(prefix) => index
+                        .fields
+                        .get("name")
+                        .and_then(FieldValue::as_str)
+                        .is_some_and(|n| n.starts_with(prefix.as_str())),
+                    None => true,
+                };
+                owner_ok && prefix_ok
+            })
+            .collect();
+        // Stable sort by `name` preserves the pre-change output order:
+        // `entities.list` already orders by id (`{owner}#{name}`), so
+        // equal names keep that relative order.
+        matched.sort_by(|a, b| {
+            let an = a
+                .fields
+                .get("name")
+                .and_then(FieldValue::as_str)
+                .unwrap_or_default();
+            let bn = b
+                .fields
+                .get("name")
+                .and_then(FieldValue::as_str)
+                .unwrap_or_default();
+            an.cmp(bn)
+        });
+        let total = matched.len();
+        let window: Vec<(String, u64)> = matched
             .into_iter()
             .skip(opts.offset)
             .take(opts.limit)
+            .map(|index| {
+                Ok((
+                    str_field(index, "skill_id")?,
+                    int_field(index, "version")? as u64,
+                ))
+            })
+            .collect::<Result<_>>()?;
+        let keys: Vec<Vec<u8>> = window
+            .iter()
+            .map(|(skill_id, version)| version_key(skill_id, *version))
             .collect();
+        let key_refs: Vec<&[u8]> = keys.iter().map(Vec::as_slice).collect();
+        let rows = self
+            .engine
+            .get_many_from_partition(BackendPartition::InternalMetadata, &key_refs)?;
+        let mut by_key: HashMap<Vec<u8>, Entity> = HashMap::with_capacity(rows.len());
+        for (key, bytes) in rows {
+            let entity: Entity = serde_json::from_slice(&bytes)
+                .map_err(|e| Error::serialization(ChainedError::with_source("skill version", e)))?;
+            by_key.insert(key, entity);
+        }
+        let mut items = Vec::with_capacity(window.len());
+        for key in &keys {
+            let Some(entity) = by_key.remove(key) else {
+                continue; // stale index row (should not happen under batch writes)
+            };
+            items.push(entity_to_record(entity)?);
+        }
         Ok(SkillListPage { items, total })
     }
 
@@ -233,6 +307,11 @@ impl<'a> SkillStore<'a> {
                 partition: BackendPartition::InternalMetadata,
                 key: head_index_key(&input.owner_agent, &input.name),
                 value: serialize_entity(&head_index_entity(&record))?,
+            },
+            BackendWriteOp::Put {
+                partition: BackendPartition::InternalMetadata,
+                key: head_id_index_key(&record.skill_id),
+                value: serialize_entity(&head_id_index_entity(&record))?,
             },
         ])?;
         Ok(SkillWriteResult {
@@ -351,6 +430,10 @@ impl<'a> SkillStore<'a> {
         ops.push(BackendWriteOp::Delete {
             partition: BackendPartition::InternalMetadata,
             key: head_index_key(&head.owner_agent, &head.name),
+        });
+        ops.push(BackendWriteOp::Delete {
+            partition: BackendPartition::InternalMetadata,
+            key: head_id_index_key(&head.skill_id),
         });
         self.write_batch(ops)?;
         Ok(true)
@@ -706,6 +789,11 @@ impl<'a> SkillStore<'a> {
                 key: head_index_key(&new_head.owner_agent, &new_head.name),
                 value: serialize_entity(&head_index_entity(new_head))?,
             },
+            BackendWriteOp::Put {
+                partition: BackendPartition::InternalMetadata,
+                key: head_id_index_key(&new_head.skill_id),
+                value: serialize_entity(&head_id_index_entity(new_head))?,
+            },
         ])?;
         Ok(SkillWriteResult {
             record: new_head.clone(),
@@ -836,6 +924,31 @@ fn head_index_entity(record: &SkillRecord) -> Entity {
     }
 }
 
+/// Head-id index entity: one row per `skill_id` pointing at the current
+/// head version (SK-02 / FIND-607). Written in the same atomic batch as
+/// the version row and the `(owner, name)` index.
+fn head_id_index_entity(record: &SkillRecord) -> Entity {
+    let mut fields = HashMap::new();
+    fields.insert("version".into(), FieldValue::Int(record.version as i64));
+    fields.insert(
+        "owner_agent".into(),
+        FieldValue::String(record.owner_agent.clone()),
+    );
+    fields.insert("name".into(), FieldValue::String(record.name.clone()));
+    fields.insert(
+        "updated_at".into(),
+        FieldValue::Int(record.updated_at as i64),
+    );
+    Entity {
+        namespace: SKILL_NS.into(),
+        collection: SKILL_HEAD_ID_COLLECTION.into(),
+        id: record.skill_id.clone(),
+        fields,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+    }
+}
+
 // ── Field accessors ──
 
 fn str_field(entity: &Entity, name: &str) -> Result<String> {
@@ -924,6 +1037,10 @@ fn head_index_key(owner: &str, name: &str) -> Vec<u8> {
         SKILL_HEAD_COLLECTION,
         &head_entity_id(owner, name),
     )
+}
+
+fn head_id_index_key(skill_id: &str) -> Vec<u8> {
+    entity_key(SKILL_NS, SKILL_HEAD_ID_COLLECTION, skill_id)
 }
 
 fn entity_key(namespace: &str, collection: &str, entity_id: &str) -> Vec<u8> {

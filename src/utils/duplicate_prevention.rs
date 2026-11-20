@@ -79,18 +79,9 @@ impl DuplicatePreventionFilter {
         map.get(&(namespace.to_string(), content_hash)).cloned()
     }
 
-    fn calculate_hashes(&self, key: u128) -> [usize; 3] {
-        let mut idxs = [0; 3];
-        for (i, &salt) in K_SALTS.iter().enumerate() {
-            let mut hasher = XxHash64::with_seed(0);
-            key.hash(&mut hasher);
-            salt.hash(&mut hasher);
-            idxs[i] = (hasher.finish() as usize) % self.bits_count;
-        }
-        idxs
-    }
-
-    fn calculate_hashes_str(&self, key: &str) -> [usize; 3] {
+    /// Salted XxHash64 positions for a key (UT-02 / FIND-607, R-8: single
+    /// source — `u128` and `str` callers shared two identical copies).
+    fn calculate_hashes<K: Hash + ?Sized>(&self, key: &K) -> [usize; 3] {
         let mut idxs = [0; 3];
         for (i, &salt) in K_SALTS.iter().enumerate() {
             let mut hasher = XxHash64::with_seed(0);
@@ -141,7 +132,7 @@ impl DuplicatePreventionFilter {
 
     /// Mark a record ID as processed to prevent future duplicates.
     pub fn mark_processed(&self, record_id: u128) {
-        let idxs = self.calculate_hashes(record_id);
+        let idxs = self.calculate_hashes(&record_id);
         self.set_bits(&idxs);
     }
 
@@ -149,7 +140,7 @@ impl DuplicatePreventionFilter {
     ///
     /// Returns `true` if the record is likely a duplicate (false positives possible).
     pub fn is_duplicate(&self, record_id: u128) -> bool {
-        let idxs = self.calculate_hashes(record_id);
+        let idxs = self.calculate_hashes(&record_id);
         self.check_bits(&idxs)
     }
 
@@ -182,13 +173,13 @@ impl DuplicatePreventionFilter {
 
     /// Mark an agent role as blocked to prevent future operations from that role.
     pub fn block_role(&self, owner_role: &str) {
-        let idxs = self.calculate_hashes_str(owner_role);
+        let idxs = self.calculate_hashes(owner_role);
         self.set_bits(&idxs);
     }
 
     /// Check if an agent role is blocked.
     pub fn is_role_blocked(&self, owner_role: &str) -> bool {
-        let idxs = self.calculate_hashes_str(owner_role);
+        let idxs = self.calculate_hashes(owner_role);
         self.check_bits(&idxs)
     }
 }

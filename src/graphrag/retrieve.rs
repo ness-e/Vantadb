@@ -116,18 +116,47 @@ pub fn collect_edges(
     all.sort_unstable();
 
     let nodes = engine.get_many(&all)?;
-    let mut edges = Vec::new();
 
+    // GR-02 / FIND-607: resolve labels in ONE `label_intern` acquisition
+    // instead of one lock per edge (N lock round-trips on the search
+    // path). The snapshot is taken after `get_many` returned — no
+    // storage/index guard is held while `label_intern` is locked
+    // (Regla 8; `label_intern` is outside the `insert_lock` order).
+    let label_ids: HashSet<u32> = nodes
+        .iter()
+        .flat_map(|n| n.edges.iter().map(|e| e.label_id))
+        .collect();
+    let labels = engine.resolve_labels(&label_ids);
+    let mut unresolved = 0usize;
+
+    let mut edges = Vec::new();
     for node in &nodes {
         for edge in &node.edges {
             if expanded_set.contains(&edge.target) || top_ids.contains(&edge.target) {
+                let label = match labels.get(&edge.label_id) {
+                    Some(label) => label.clone(),
+                    None => {
+                        // Degraded, not fatal: pre-NOT-01 databases stored
+                        // edges before the interner was persisted, so their
+                        // label ids legitimately do not resolve.
+                        unresolved += 1;
+                        String::new()
+                    }
+                };
                 edges.push(GraphRagEdge {
                     source: node.id,
                     target: edge.target,
-                    label: engine.resolve_label(edge.label_id).unwrap_or_default(),
+                    label,
                 });
             }
         }
+    }
+    if unresolved > 0 {
+        tracing::warn!(
+            unresolved,
+            "graphrag: edge label ids missing from the label interner \
+             (legacy pre-NOT-01 data or corruption) — emitted as empty labels"
+        );
     }
 
     // Final order is pinned: (source, target, label). Cross-binding parity

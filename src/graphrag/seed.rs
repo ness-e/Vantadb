@@ -1,5 +1,4 @@
 use crate::error::Result;
-use crate::node::DistanceMetric;
 use crate::sdk::{Embedded, MemorySearchRequest};
 
 pub fn find_seeds(
@@ -13,12 +12,19 @@ pub fn find_seeds(
         return Ok(Vec::new());
     }
 
+    // GR-04 / FIND-608: score seeds with the index's own distance metric.
+    // A hardcoded `Cosine` made seed scores non-comparable (and the exact
+    // scan fallback plain wrong) when the index was built with another
+    // metric, e.g. Euclidean.
+    let engine = embedded.engine_handle()?;
+    let distance_metric = engine.vec_index().distance_metric();
+
     let request = MemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector: query_vector.map(|v| v.to_vec()).unwrap_or_default(),
         text_query: query.map(|q| q.to_string()),
         top_k: k,
-        distance_metric: DistanceMetric::Cosine,
+        distance_metric,
         ..Default::default()
     };
 

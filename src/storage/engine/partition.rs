@@ -73,4 +73,21 @@ impl StorageEngine {
     ) -> Result<Option<Vec<u8>>> {
         self.backend.get(partition, key)
     }
+
+    /// Retrieve multiple values from the given backend partition in one
+    /// batch call (SK-03 / FIND-607).
+    ///
+    /// Keys that do not exist are omitted from the result. Backends with a
+    /// native multi-get override answer in a single round-trip; the rest
+    /// degrade to sequential `get`s inside `backend.get_many`.
+    ///
+    /// Read-only path — takes no engine lock, so callers MUST NOT hold
+    /// `insert_lock` or a `volatile_cache` write guard (Regla 8).
+    pub(crate) fn get_many_from_partition(
+        &self,
+        partition: BackendPartition,
+        keys: &[&[u8]],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.backend.get_many(partition, keys)
+    }
 }

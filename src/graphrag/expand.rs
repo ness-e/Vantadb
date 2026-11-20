@@ -72,8 +72,14 @@ pub fn expand_nodes_capped(
         if visited.len() >= max_nodes {
             break;
         }
-        let Ok(Some(node)) = engine.get(current) else {
-            continue;
+        // GR-01 / FIND-607: `Ok(None)` is the benign case — the node was
+        // deleted (or tombstoned) concurrently and is simply skipped. Any
+        // `Err` is a real storage/corruption failure and must propagate:
+        // swallowing it shrank the graph silently.
+        let node = match engine.get(current) {
+            Ok(Some(node)) => node,
+            Ok(None) => continue,
+            Err(e) => return Err(e),
         };
         // EGO-15: cap hub fan-out — a high-degree node otherwise triggers a
         // combinatorial read burst (Ego bounded this defensively client-side).
