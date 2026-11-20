@@ -19,9 +19,12 @@ import json
 import pathlib
 import sys
 
-MANIFEST = pathlib.Path(__file__).parent / "manifest.json"
-LOCK = pathlib.Path(__file__).parent / "manifest.lock"
-MODELS_DIR = pathlib.Path(__file__).parent / "models"
+# FIND-384: resolver siempre respecto a __file__ (no cwd) para que el script
+# funcione invocado desde cualquier directorio de trabajo.
+HERE = pathlib.Path(__file__).resolve().parent
+MANIFEST = HERE / "manifest.json"
+LOCK = HERE / "manifest.lock"
+MODELS_DIR = HERE / "models"
 
 # Base recortada FIND-71: sin "*.bin" global (duplicaba "*.safetensors" cuando el
 # repo trae ambos → descarga 3-4× lo declarado en README). safetensors es el
@@ -73,6 +76,40 @@ def get_allow_patterns(model_id: str) -> list[str]:
 
 def load_manifest() -> dict:
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
+
+
+# FIND-641: conjunto cerrado de ficheros con hash pinneado en manifest.lock —
+# el ONNX declarado (+ sidecar model.onnx_data si existe) y tokenizer.json.
+def model_integrity_files(m: dict, model_dir: pathlib.Path) -> list[str]:
+    files: list[str] = []
+    onnx_rel = m.get("onnx")
+    if onnx_rel:
+        files.append(onnx_rel)
+        data = model_dir / pathlib.PurePosixPath(onnx_rel).parent / "model.onnx_data"
+        if data.exists():
+            files.append(str(data.relative_to(model_dir)).replace("\\", "/"))
+    if (model_dir / "tokenizer.json").exists():
+        files.append("tokenizer.json")
+    return files
+
+
+def sha256_file(path: pathlib.Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def hash_model_files(m: dict, model_dir: pathlib.Path) -> dict[str, str]:
+    """SHA-256 por fichero del conjunto cerrado (para manifest.lock, FIND-641)."""
+    return {
+        rel: sha256_file(model_dir / rel)
+        for rel in model_integrity_files(m, model_dir)
+        if (model_dir / rel).exists()
+    }
 
 
 def write_manifest(manifest: dict) -> None:
@@ -153,8 +190,15 @@ def check_manifest(manifest: dict) -> bool:
     if num_models < 9:
         print(f"[check] FAIL manifest debe tener al menos 9 modelos, tiene {num_models}", file=sys.stderr)
         ok = False
-    if manifest.get("default") != "multilingual-e5-small":
-        print(f"[check] FAIL default debe ser multilingual-e5-small", file=sys.stderr)
+    # FIND-384: default se valida contra los ids del propio manifest (fuente
+    # única de verdad), sin literal duplicado del modelo por defecto.
+    default_id = manifest.get("default")
+    model_ids = {m.get("id") for m in manifest.get("models", [])}
+    if not isinstance(default_id, str) or default_id not in model_ids:
+        print(f"[check] FAIL default '{default_id}' no existe entre los ids del manifest", file=sys.stderr)
+        ok = False
+    elif any(m.get("id") == default_id and "exception" in m for m in manifest.get("models", [])):
+        print(f"[check] FAIL default '{default_id}' apunta a un modelo con exception", file=sys.stderr)
         ok = False
     # balance grupos base (en>=3, es>=3, combined>=3)
     from collections import Counter
@@ -200,12 +244,27 @@ def main() -> int:
                 lock = json.loads(LOCK.read_text(encoding="utf-8"))
                 by_id = {m["id"]: m for m in manifest.get("models", [])}
                 bad = 0
+                import re
+
+                sha_re = re.compile(r"^[0-9a-f]{64}$")
                 for e in lock.get("models", []):
                     ref = by_id.get(e.get("id"))
                     if ref is None or ref.get("repo") != e.get("repo") or ref.get("rev") != e.get("rev"):
                         print(f"[check] FAIL lock diverge en {e.get('id')}: lock={e} manifest={ref}", file=sys.stderr)
                         bad += 1
                         ok = False
+                    # FIND-641: cada entrada locked exige sha256 {fichero: hex}.
+                    sha = e.get("sha256")
+                    if not isinstance(sha, dict) or not sha:
+                        print(f"[check] FAIL lock {e.get('id')}: sin mapa sha256 (re-descarga para poblarlo)", file=sys.stderr)
+                        bad += 1
+                        ok = False
+                    else:
+                        for rel, h in sha.items():
+                            if not isinstance(h, str) or not sha_re.fullmatch(h):
+                                print(f"[check] FAIL lock {e.get('id')} sha256[{rel}] no es hex-64: {h!r}", file=sys.stderr)
+                                bad += 1
+                                ok = False
                 if bad == 0:
                     scope = "check por modelo" if args.only else "subset acumulativo"
                     print(f"[check] lock OK ({LOCK} — {len(lock.get('models', []))} locked, {scope}, repo/rev vs manifest OK)")
@@ -288,8 +347,9 @@ def main() -> int:
         if m["onnx"] and not onnx_path.exists():
             print(f"[warn] {mid}: onnx no encontrado en HF ({m['onnx']}); exporta con: optimum-cli export onnx --model {repo} {local_dir}/onnx/", file=sys.stderr)
 
-    # manifest.lock acumulativo: merge con lock previo (key=id), reemplaza si mismo id
-    lock = merge_lock({"version": manifest["version"], "models": [{"id": m["id"], "repo": m["repo"], "rev": m["rev"]} for m in targets]})
+    # manifest.lock acumulativo: merge con lock previo (key=id), reemplaza si mismo id.
+    # FIND-641: cada entrada lleva sha256 por fichero del conjunto cerrado.
+    lock = merge_lock({"version": manifest["version"], "models": [{"id": m["id"], "repo": m["repo"], "rev": m["rev"], "sha256": hash_model_files(m, MODELS_DIR / m["id"])} for m in targets]})
     LOCK.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"[lock] escrito {LOCK} ({len(lock['models'])} modelos acumulados)")
     return 0

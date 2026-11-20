@@ -116,7 +116,7 @@
       "repo": "onnx-community/embeddinggemma-2-ONNX",
       "rev": "daa72c5",
       "dim": 768,
-      "size_onnx_mb": 550,
+      "size_onnx_mb": 1034,
       "size_hf_mb": 600,
       "onnx": "onnx/model.onnx",
       "langs": ["es", "en", "code", "100+"],

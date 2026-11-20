@@ -38,7 +38,7 @@ echo "installing vantadb-py on Python $ver ..."
 "$PY" -m pip install --upgrade pip
 "$PY" -m pip install vantadb-py
 
-"$PY" -c "import vantadb; print('vantadb', vantadb.__version__())" \
+"$PY" -c "import vantadb; print('vantadb', vantadb.__version__)" \
     || die "installation succeeded but import check failed"
 
 # ── Rust SDK alternative ─────────────────────────────────────────────────────
@@ -46,5 +46,5 @@ echo
 echo "Rust SDK: add to Cargo.toml (library crate, not a cargo install binary):"
 cat <<'EOF'
 [dependencies]
-vantadb = "0.5.0"
+vantadb = "0.9"
 EOF

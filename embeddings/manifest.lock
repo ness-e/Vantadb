@@ -4,22 +4,39 @@
     {
       "id": "all-MiniLM-L6-v2",
       "repo": "sentence-transformers/all-MiniLM-L6-v2",
-      "rev": "1110a24"
+      "rev": "1110a24",
+      "sha256": {
+        "onnx/model.onnx": "6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452",
+        "tokenizer.json": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037"
+      }
     },
     {
       "id": "paraphrase-multilingual-MiniLM-L12-v2",
       "repo": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-      "rev": "e8f8c21"
+      "rev": "e8f8c21",
+      "sha256": {
+        "onnx/model.onnx": "10f7a088420252b26caf819236ca2c9d2987afd0fc06fec7553b542a5655a05a",
+        "tokenizer.json": "2c3387be76557bd40970cec13153b3bbf80407865484b209e655e5e4729076b8"
+      }
     },
     {
       "id": "multilingual-e5-small",
       "repo": "intfloat/multilingual-e5-small",
-      "rev": "614241f"
+      "rev": "614241f",
+      "sha256": {
+        "onnx/model.onnx": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
+        "tokenizer.json": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+      }
     },
     {
       "id": "embeddinggemma-2",
       "repo": "onnx-community/embeddinggemma-2-ONNX",
-      "rev": "daa72c5"
+      "rev": "daa72c5",
+      "sha256": {
+        "onnx/model.onnx": "bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3",
+        "onnx/model.onnx_data": "9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2",
+        "tokenizer.json": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+      }
     }
   ]
 }

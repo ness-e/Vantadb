@@ -13,7 +13,7 @@ set -e
 #                         valid ids: engine,mcp,server,proxy,desktop,embeddings,providers;
 #                         omitted = wizard defaults mcp,server,proxy,embeddings)
 # Trust: TLS required + official repo URL + sha256 of the payload verified
-# in-script when the .sha256 asset exists (warn-and-continue otherwise).
+# in-script (fail-closed: aborts if the .sha256 asset is missing or mismatches).
 # To verify manually, download the file and compare against the
 # published .sha256 asset before piping to sh.
 
@@ -165,7 +165,12 @@ if EXPECTED_RAW=$(curl -sLf --ssl-reqd "$CHECKSUM_URL" 2>/dev/null); then
   fi
   echo "✅ Checksum verified"
 else
-  echo "⚠️ No checksum file at $CHECKSUM_URL — skipping verification"
+  # FIND-641: fail-closed — a release asset without a published .sha256 cannot
+  # be installed by this installer. Verify manually against the release page.
+  echo "❌ No checksum file at $CHECKSUM_URL — aborting (fail-closed)"
+  echo "   The release must publish $TARBALL.sha256; refusing to install an unverifiable binary."
+  rm -rf "$TMPDIR"
+  exit 1
 fi
 
 # Extract binaries from tarball (vanta-cli and optional vantadb-server)

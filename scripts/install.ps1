@@ -11,7 +11,7 @@
 #                        valid ids: engine,mcp,server,proxy,desktop,embeddings,providers;
 #                        omitted = wizard defaults mcp,server,proxy,embeddings)
 # Trust: TLS 1.2 + official repo URL + sha256 of the payload verified
-# in-script when the .sha256 asset exists (warn-and-continue otherwise).
+# in-script (fail-closed: aborts if the .sha256 asset is missing or mismatches).
 # To verify manually, download the file and compare its hash
 # against the published .sha256 asset before piping to iex.
 # Compat: Windows PowerShell 5.1+ and PowerShell 7+ (DIST-05).
@@ -100,19 +100,27 @@ try {
     Exit 1
 }
 
-# Verify checksum
+# Verify checksum (FIND-641 fail-closed: missing .sha256 or mismatch -> abort)
 try {
     $expected = (Invoke-RestMethod -Uri $checksumUrl -UseBasicParsing).Split()[0]
-    $computed = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLower()
-    if ($expected -ne $computed) {
-        Write-Host "❌ Checksum mismatch!" -ForegroundColor Red
-        Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
-        Exit 1
-    }
-    Write-Host "✅ Checksum verified" -ForegroundColor Green
 } catch {
-    Write-Host "⚠️ No checksum file at $checksumUrl — skipping verification" -ForegroundColor Yellow
+    Write-Host "❌ No checksum file at $checksumUrl — aborting (fail-closed)" -ForegroundColor Red
+    Write-Host "   The release must publish $zipName.sha256; refusing to install an unverifiable binary." -ForegroundColor Yellow
+    Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
+    Exit 1
 }
+if ([string]::IsNullOrWhiteSpace($expected) -or $expected -notmatch '^[0-9a-fA-F]{64}$') {
+    Write-Host "❌ Checksum asset at $checksumUrl is not a valid SHA-256 — aborting (fail-closed)" -ForegroundColor Red
+    Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
+    Exit 1
+}
+$computed = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLower()
+if ($expected.ToLower() -ne $computed) {
+    Write-Host "❌ Checksum mismatch!" -ForegroundColor Red
+    Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
+    Exit 1
+}
+Write-Host "✅ Checksum verified" -ForegroundColor Green
 
 # Extract vanta-cli.exe and vantadb-server.exe from zip
 Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force

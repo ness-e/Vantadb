@@ -144,6 +144,14 @@ function Test-OpenAiKey {
 
 $script:ortVersion = '1.30.0'
 $script:ortZip = 'onnxruntime-win-x64-1.30.0.zip'
+# FIND-641: integridad fail-closed del runtime nativo. El zip de GitHub no
+# publica checksum, asi que el pin es el SHA-256 del onnxruntime.dll win-x64
+# contenido en el zip (el artefacto que el proceso ejecuta). Procedencia
+# verificada: Microsoft.ML.OnnxRuntime 1.30.0 desde nuget.org, nupkg validado
+# contra el SHA-512 del catalogo oficial NuGet
+# (api.nuget.org/v3/catalog0 .../microsoft.ml.onnxruntime.1.30.0.json).
+$script:ortPinnedVersion = [version]'1.30'
+$script:ortDllSha256 = '7e39e2bdbba836d98071ef28620735ba36a47c554cf794585269aecc50fab0da'
 
 function Get-OrtStore {
   # Persistente fuera del repo (Temp/ es efimero, repo-local contamina git).
@@ -168,9 +176,30 @@ function Find-DllUnder($Dir) {
     Select-Object -First 1 -ExpandProperty FullName
 }
 
+function Test-OrtDllUsable($DllPath) {
+  # FIND-641 fail-closed: version >= 1.27 Y, cuando el major.minor coincide con
+  # el pin ($script:ortPinnedVersion), SHA-256 EXACTO del DLL oficial. Un DLL de
+  # otra version no es falsificable por hash (no hay pin) -> avisa explicito.
+  $v = Get-DllVersion $DllPath
+  if (-not $v -or $v -lt [version]'1.27') { return $false }
+  if ($v.Major -eq $script:ortPinnedVersion.Major -and $v.Minor -eq $script:ortPinnedVersion.Minor) {
+    $actual = (Get-FileHash -Path $DllPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $script:ortDllSha256) {
+      Write-Host "[setup] AVISO: $DllPath NO supera el SHA-256 fijado para ORT v$($script:ortVersion) (esperado $($script:ortDllSha256.Substring(0,16))..., got $($actual.Substring(0,16))...) -> rechazado (fail-closed)." -ForegroundColor Yellow
+      return $false
+    }
+  } else {
+    Write-Host "[setup] AVISO: ORT $v distinto del fijado ($($script:ortVersion)): integridad NO verificable por hash (solo version)." -ForegroundColor Yellow
+  }
+  return $true
+}
+
 function Install-OrtStore($FromDll, $AllowDownload) {
   $store = Get-OrtStore
   if ($FromDll) {
+    if (-not (Test-OrtDllUsable $FromDll)) {
+      throw "DLL origen '$FromDll' no supera la verificacion de integridad (fail-closed, sin cambios)."
+    }
     New-Item -ItemType Directory -Force $store | Out-Null
     Copy-Item $FromDll (Join-Path $store 'onnxruntime.dll') -Force
     return (Join-Path $store 'onnxruntime.dll')
@@ -185,6 +214,12 @@ function Install-OrtStore($FromDll, $AllowDownload) {
     Expand-Archive $zip -DestinationPath (Join-Path $store 'pkg') -Force
     $dll = Find-DllUnder (Join-Path $store 'pkg')
     if (-not $dll) { throw 'zip sin onnxruntime.dll' }
+    # FIND-641: SHA-256 del DLL extraido contra el pin oficial; mismatch -> aborta.
+    if (-not (Test-OrtDllUsable $dll)) {
+      Remove-Item (Join-Path $store 'pkg') -Recurse -Force -ErrorAction SilentlyContinue
+      throw "onnxruntime.dll descargado NO coincide con el SHA-256 fijado (posible artefacto corrupto o manipulado). Abortando fail-closed."
+    }
+    Write-Host '[setup] integridad ORT verificada: SHA-256 del DLL coincide con el pin oficial.'
     Copy-Item $dll (Join-Path $store 'onnxruntime.dll') -Force
     Remove-Item $zip -ErrorAction SilentlyContinue
     return (Join-Path $store 'onnxruntime.dll')
@@ -200,15 +235,19 @@ function Ensure-OrtNative($AutoDownload) {
   $store = Get-OrtStore
   $dll = Join-Path $store 'onnxruntime.dll'
   if ((Get-DllVersion $dll) -ge $need) {
-    Write-Host "[setup] ORT nativo $((Get-DllVersion $dll)) en store persistente."
-    $env:ORT_DYLIB_PATH = $dll
-    return
+    if (Test-OrtDllUsable $dll) {
+      Write-Host "[setup] ORT nativo $((Get-DllVersion $dll)) en store persistente."
+      $env:ORT_DYLIB_PATH = $dll
+      return
+    }
+    Write-Host '[setup] DLL del store rechazado por integridad -> se reinstala.' -ForegroundColor Yellow
+    Remove-Item $dll -Force -ErrorAction SilentlyContinue
   }
   if ($env:ORT_DYLIB_PATH) {
     $cur = $env:ORT_DYLIB_PATH
     if (Test-Path $cur -PathType Leaf) { $cur = Split-Path $cur }
     $found = Find-DllUnder $cur
-    if ($found -and ((Get-DllVersion $found) -ge $need)) {
+    if ($found -and ((Get-DllVersion $found) -ge $need) -and (Test-OrtDllUsable $found)) {
       $env:ORT_DYLIB_PATH = $found  # normaliza a archivo (FIND-176: `ort` carga un archivo, no un directorio)
       Write-Host "[setup] ORT nativo $((Get-DllVersion $found)) via ORT_DYLIB_PATH existente."
       return

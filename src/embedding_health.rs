@@ -11,9 +11,10 @@
 //! - **(a) ONNX Runtime unusable** — [`ort::init_from`] loads the dylib and
 //!   checks its version, returning `Err` instead of panicking: the exact
 //!   pre-check `src/llm.rs:341-419` runs before building a session (FIND-100).
-//! - **(b) model files missing** (`model.onnx` + `tokenizer.json`) — today the
-//!   provider degrades to deterministic dummy vectors in silence
-//!   (`src/llm.rs:206`, `src/llm.rs:526-531`).
+//! - **(b) model files missing** (`model.onnx` + `tokenizer.json`) — the
+//!   provider has no real session: strict mode fails closed
+//!   (`Error::Embedding`) and non-strict inserts are stored WITHOUT a vector
+//!   (`src/executor.rs` FIND-485) — synthetic vectors are never persisted.
 //!
 //! Approximation (deliberate, documented): files present ⇒ assumed real. A
 //! present-but-corrupt model still degrades silently inside the provider;
@@ -38,9 +39,13 @@ pub const REMEDY: &str =
 pub struct EmbeddingHealth {
     /// Effective provider (`VANTADB_EMBEDDING_PROVIDER`; default `ollama`).
     pub provider: String,
-    /// `true` = deterministic dummy embeddings confirmed; `false` = local setup
-    /// verified; `null` = not applicable (remote provider, or this build has no
-    /// `embed-local` feature) — remote degradation is reported per call (EMB-13).
+    /// `true` = local embedding setup degraded (model files missing or ONNX
+    /// Runtime unusable): embedding calls fail closed in strict mode and
+    /// non-strict inserts are stored without a vector — no synthetic
+    /// embeddings are ever served or persisted (FIND-484); `false` = local
+    /// setup verified; `null` = not applicable (remote provider, or this build
+    /// has no `embed-local` feature) — remote degradation is reported per call
+    /// (EMB-13).
     pub fallback: Option<bool>,
     /// Degradation trigger, from the DISTRIBUTION §6 vocabulary: `"model"` or
     /// `"dylib"`. `null` when not degraded / not applicable.
@@ -54,7 +59,10 @@ pub struct EmbeddingHealth {
     /// User-facing notice — present only when `fallback == true`.
     pub notice: Option<String>,
     /// Diagnostic status: "Ready" (model loaded/verified), "StrictUnavailable" (model missing in strict mode),
-    /// "DegradedDummy" (model missing with dummy fallback), "NotApplicable" (no embed-local feature or remote provider).
+    /// "DegradedDummy" (model missing, non-strict — historical wire name kept
+    /// for compatibility; the engine still serves no synthetic embeddings:
+    /// nodes are stored without a vector), "NotApplicable" (no embed-local
+    /// feature or remote provider).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
 }
@@ -207,12 +215,18 @@ fn local_health_with_strict(
 
 /// The notice contract (DISTRIBUTION §7): machine-readable flag + consequence
 /// + remedy, in one line.
+///
+/// FIND-484: the text must describe the fail-closed reality — the engine
+/// never serves or persists synthetic embeddings (strict mode returns
+/// `Error::Embedding`; non-strict inserts are stored without a vector), so
+/// the old "serves deterministic dummy embeddings" claim was simply false.
 #[cfg(feature = "embed-local")]
 fn build_notice(detail: &str) -> String {
     format!(
         "[vantadb] Local embeddings degraded (fallback: true): {detail}. \
-         VantaDB serves deterministic dummy embeddings — recall is NOT semantic \
-         until restored. Fix: {REMEDY}"
+         Recall is NOT semantic until restored — the engine fails closed \
+         (strict mode) or stores nodes without a vector; it never serves \
+         synthetic embeddings. Fix: {REMEDY}"
     )
 }
 
@@ -353,6 +367,16 @@ fn resolve_ort_dylib_path() -> std::path::PathBuf {
 /// panic `ort::api()` would raise (FIND-100).
 #[cfg(feature = "embed-local")]
 fn ort_load_error_at(path: &std::path::Path) -> Option<String> {
+    // FIND-643: on a CPU below the ISA the official dylib needs, `init_from`
+    // cannot return an `Err` — the process dies on SIGILL before that. Gate on
+    // CPU features first and surface a typed reason through the same
+    // "dylib unusable" health path.
+    if let Err(missing) = crate::llm::ort_cpu_gate() {
+        return Some(format!(
+            "CPU does not satisfy the ONNX Runtime ISA requirement (missing `{missing}`); \
+             the official binary would terminate the process with SIGILL"
+        ));
+    }
     ort::init_from(path).err().map(|e| e.to_string())
 }
 
@@ -383,8 +407,15 @@ mod tests {
         assert_eq!(health.model_present, Some(false));
         let notice = health.notice.expect("degraded status must carry a notice");
         assert!(notice.contains("fallback: true"), "notice: {notice}");
+        // FIND-484: fail-closed guidance — the engine no longer claims to
+        // serve dummy embeddings; the notice must say what actually happens.
+        assert!(notice.contains("fails closed"), "notice: {notice}");
         assert!(
-            notice.contains("deterministic dummy embeddings"),
+            notice.contains("stores nodes without a vector"),
+            "notice: {notice}"
+        );
+        assert!(
+            notice.contains("never serves synthetic embeddings"),
             "notice: {notice}"
         );
         assert!(notice.contains("NOT semantic"), "notice: {notice}");

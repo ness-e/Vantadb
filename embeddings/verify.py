@@ -26,8 +26,67 @@ import math
 import pathlib
 import sys
 
-MANIFEST = pathlib.Path(__file__).parent / "manifest.json"
-MODELS_DIR = pathlib.Path(__file__).parent / "models"
+# FIND-384: resolver siempre respecto a __file__ (no cwd) para que el script
+# funcione invocado desde cualquier directorio de trabajo.
+HERE = pathlib.Path(__file__).resolve().parent
+MANIFEST = HERE / "manifest.json"
+MODELS_DIR = HERE / "models"
+LOCK = HERE / "manifest.lock"
+
+
+def sha256_file(path: pathlib.Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+_lock_cache: dict | None = None
+
+
+def load_lock() -> dict | None:
+    """manifest.lock parseado (cache). None si no existe o JSON inválido."""
+    global _lock_cache
+    if _lock_cache is None:
+        try:
+            _lock_cache = json.loads(LOCK.read_text(encoding="utf-8")) if LOCK.exists() else {}
+        except Exception:
+            _lock_cache = {}
+    return _lock_cache
+
+
+def verify_locked_hashes(mid: str, model_dir: pathlib.Path) -> bool:
+    """FIND-641 fail-closed: todo fichero pinneado en manifest.lock que exista
+    en disco debe coincidir con su SHA-256. Los ausentes se reportan (modelo no
+    descargado o parcial) sin fallar — el fail es el MISMATCH, no el vacío."""
+    lock = load_lock()
+    entries = {e.get("id"): e for e in lock.get("models", [])}
+    entry = entries.get(mid)
+    if entry is None:
+        return True  # no locked -> nada que verificar (nunca descargado)
+    sha = entry.get("sha256")
+    if not isinstance(sha, dict) or not sha:
+        print(f"       [integrity] FAIL {mid}: entrada lock sin mapa sha256 (re-descarga para poblarlo)")
+        return False
+    ok = True
+    verified, missing = 0, 0
+    for rel, expected in sha.items():
+        p = model_dir / rel
+        if not p.exists():
+            missing += 1
+            continue
+        actual = sha256_file(p)
+        if actual != expected:
+            print(f"       [integrity] FAIL {rel}: sha256 {actual[:16]}… != lock {str(expected)[:16]}… (artefacto corrupto/manipulado)")
+            ok = False
+        else:
+            verified += 1
+    if ok:
+        print(f"       [integrity] OK {verified} fichero(s) verificados contra lock" + (f" ({missing} pinneados ausentes)" if missing else ""))
+    return ok
 
 
 def cosine(a: list[float], b: list[float]) -> float:
@@ -75,8 +134,15 @@ def check_structure(manifest: dict) -> bool:
         if not isinstance(m.get("rev"), str) or len(m["rev"]) != 7:
             print(f"[check] FAIL {m['id']} rev pinned", file=sys.stderr)
             ok = False
-    if manifest.get("default") != "multilingual-e5-small":
-        print(f"[check] FAIL default debe ser multilingual-e5-small", file=sys.stderr)
+    # FIND-384: default se valida contra los ids del propio manifest (fuente
+    # única de verdad), sin literal duplicado del modelo por defecto.
+    default_id = manifest.get("default")
+    model_ids = {m.get("id") for m in manifest.get("models", [])}
+    if not isinstance(default_id, str) or default_id not in model_ids:
+        print(f"[check] FAIL default '{default_id}' no existe entre los ids del manifest", file=sys.stderr)
+        ok = False
+    elif any(m.get("id") == default_id and "exception" in m for m in manifest.get("models", [])):
+        print(f"[check] FAIL default '{default_id}' apunta a un modelo con exception", file=sys.stderr)
         ok = False
     # balance base 3/3/3
     from collections import Counter
@@ -88,13 +154,36 @@ def check_structure(manifest: dict) -> bool:
     if not qwen or "exception" not in qwen[0] or qwen[0].get("onnx") is not None:
         print("[check] FAIL qwen3 debe tener exception y onnx=null", file=sys.stderr)
         ok = False
+    # FIND-641: integridad del lock — estructura sha256 + contenido de los
+    # ficheros pinneados presentes en disco (fail-closed en mismatch).
+    import re
+
+    sha_re = re.compile(r"^[0-9a-f]{64}$")
+    if LOCK.exists():
+        lock = load_lock()
+        if not lock:
+            print("[check] FAIL manifest.lock JSON inválido o vacío", file=sys.stderr)
+            ok = False
+        else:
+            for e in lock.get("models", []):
+                sha = e.get("sha256")
+                if not isinstance(sha, dict) or not sha or not all(
+                    isinstance(v, str) and sha_re.fullmatch(v) for v in sha.values()
+                ):
+                    print(f"[check] FAIL lock {e.get('id')}: sha256 ausente o malformado", file=sys.stderr)
+                    ok = False
+            for e in lock.get("models", []):
+                if not verify_locked_hashes(str(e.get("id")), MODELS_DIR / str(e.get("id"))):
+                    ok = False
+    else:
+        print(f"[check] manifest.lock no existe aún ({LOCK}) — ok pre-download")
     if ok:
         print(f"[check] OK estructura manifest — {num_models} modelos, dims y rev pinned ok")
     return ok
 
 
 def write_verify_log(manifest: dict, targets: list[dict] | None = None, status: str = "PASS", mode: str = "check-only") -> pathlib.Path:
-    log = pathlib.Path(__file__).parent / "verify.log"
+    log = HERE / "verify.log"
     models = targets if targets is not None else manifest.get("models", [])
     lines = []
     lines.append(f"# verify {status} — {mode} — {len(models)} modelos")
@@ -121,7 +210,7 @@ def write_verify_log(manifest: dict, targets: list[dict] | None = None, status: 
     lines.append("")
     lines.append(f"mode: {mode}")
     # also check manifest.lock
-    lock_path = pathlib.Path(__file__).parent / "manifest.lock"
+    lock_path = HERE / "manifest.lock"
     if lock_path.exists():
         try:
             j = json.loads(lock_path.read_text(encoding="utf-8"))
@@ -195,6 +284,9 @@ def verify_model(m: dict) -> bool:
     else:
         # HF-only (Qwen3)
         print(f"OK HF-only dim={dim} (GPU, skip ONNX)")
+    # FIND-641: verificación fail-closed de pesos contra manifest.lock.
+    if not verify_locked_hashes(mid, model_dir):
+        ok = False
     # report multi cosine threshold hint
     if m["group"] in ("es", "combined"):
         print(f"       multi cosine threshold >0.65 esperado para {mid}")

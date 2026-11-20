@@ -172,7 +172,12 @@ impl StorageEngine {
 
         // PERF-10: Periodic MemoryGovernor sync for used_bytes
         if let Some(ref gov) = self.memory_governor {
-            gov.set_used_bytes(effective);
+            // FIND-642: `effective` is process RSS and already includes the
+            // resident ONNX session, which `used_bytes()` adds on top from the
+            // global reservation — subtract it here or it is counted twice.
+            gov.set_used_bytes(
+                effective.saturating_sub(crate::memory_governor::onnx_session_reserved()),
+            );
             if gov.should_evict() && gov.try_start_eviction() {
                 let reason = if gov.needs_urgent_eviction() {
                     EvictionReason::Oom
