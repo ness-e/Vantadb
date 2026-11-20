@@ -108,7 +108,9 @@ pub(crate) fn prealloc_vstore_batch(
     // `ensure_capacity` grows to min(cap, max(needed, size*2)) — a raw
     // `grow_to(size*2)` overshoots `mem_growth_cap` and fails at >50% of
     // `Config::memory_limit` on `:memory:` stores (FIND-597 residual).
-    vstore.ensure_capacity(needed + 4096, vstore.size.saturating_mul(2))?;
+    // required = the batch contract (must fit under the cap);
+    // desired = headroom hint, clamped to mem_growth_cap by ensure_capacity.
+    vstore.ensure_capacity(needed, needed + 4096)?;
     Ok(())
 }
 

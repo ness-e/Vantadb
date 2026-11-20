@@ -25,6 +25,15 @@ impl StorageEngine {
 
     #[inline]
     pub(crate) fn ensure_writable(&self) -> Result<()> {
+        // Effective flag: an engine *opened* read-only stays read-only even
+        // if config_mut().read_only is flipped to false (files are mapped
+        // RO / no WAL — writes cannot be un-blocked post-open, FIND-656).
+        if self.is_read_only() {
+            return Err(Error::Validation {
+                field: "read_only".into(),
+                reason: "StorageEngine is read-only; write operation rejected".into(),
+            });
+        }
         Self::guard_write_allowed(&self.config)
     }
 

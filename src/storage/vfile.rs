@@ -657,7 +657,9 @@ impl File {
     /// write that cannot fit returns `ResourceLimit` instead of an OOM
     /// abort at allocation time).
     pub(crate) fn with_mem_growth_cap(mut self, cap: u64) -> Self {
-        self.mem_growth_cap = Some(cap);
+        // Config::memory_limit = Some(0) means "unlimited" — a 0-byte cap
+        // would reject every write, so normalize it away.
+        self.mem_growth_cap = (cap > 0).then_some(cap);
         self
     }
 

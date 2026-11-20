@@ -526,9 +526,11 @@ impl StorageEngine {
 
     /// Whether the engine was opened read-only (EGO-09).
     ///
-    /// FIND-656: replaces the `pub read_only` field.
+    /// FIND-656: replaces the `pub read_only` field. Effective flag: the
+    /// open-time physical flag OR `config_mut().read_only` flipped post-open
+    /// (tests/tools toggle it — config_mut is the documented channel).
     pub fn is_read_only(&self) -> bool {
-        self.read_only
+        self.read_only || self.config.read_only
     }
 
     /// Read-only access to a vector store file for external consumers
@@ -618,7 +620,7 @@ impl StorageEngine {
         let mut intern = self.label_intern.lock();
         let prev_len = intern.len();
         let id = intern.intern(label);
-        if intern.len() > prev_len && !self.read_only {
+        if intern.len() > prev_len && !self.is_read_only() {
             if let Ok(bytes) = intern.to_bytes() {
                 if let Err(e) = self.put_to_partition(
                     crate::backend::BackendPartition::InternalMetadata,
@@ -1669,7 +1671,7 @@ impl StorageEngine {
             // mid-write copy, no cross-file skew, no rotation mid-capture,
             // and checkpoint_seq is simultaneous with the mirrored bytes.
             let _guard = self.acquire_snapshot_quiesce()?;
-            if !self.read_only {
+            if !self.is_read_only() {
                 self.flush_locked()?;
             }
             mirror_data_dir(&self.data_dir, &snap_data)?;

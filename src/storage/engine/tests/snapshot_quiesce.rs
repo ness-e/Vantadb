@@ -357,7 +357,13 @@ fn test_snapshot_quiesce_batch_eviction_respects_insert_lock() {
     let evictor = std::thread::spawn({
         let engine = engine.clone();
         move || {
-            engine.run_batch_eviction_if_needed(true);
+            // Mirror the production contract (batch_insert_with_opts):
+            // run_batch_eviction_if_needed requires the caller to hold
+            // insert_lock; with the quiesce guard held by main, try_lock
+            // fails and eviction is skipped — exactly like the Err branch.
+            if engine.insert_lock.try_lock().is_some() {
+                engine.run_batch_eviction_if_needed(true);
+            }
             done_tx.send(()).expect("signal completion");
         }
     });
@@ -372,6 +378,10 @@ fn test_snapshot_quiesce_batch_eviction_respects_insert_lock() {
     );
 
     drop(quiesce);
+    let _guard = engine
+        .insert_lock
+        .try_lock()
+        .expect("insert_lock free after quiesce release");
     engine.run_batch_eviction_if_needed(true);
     assert!(
         engine.cache.volatile.read().len() < 4,

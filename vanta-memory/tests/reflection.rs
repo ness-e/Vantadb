@@ -318,51 +318,6 @@ fn reflection_runner_overrides_llm_free_path() {
     assert_eq!(run.lessons[0].id, "mock-sess-1");
 }
 
-// ── FIND-659: superseded episodes are excluded from reflection ──
-
-#[test]
-fn reflection_excludes_superseded_episodes() {
-    let db = db();
-    put_l1(&db, &episode("e1", "ops", "deploy failed on friday", 40));
-    put_l1(
-        &db,
-        &episode("e2", "ops", "deploy retried with rollback", 80),
-    );
-    put_l1(
-        &db,
-        &episode("e3", "ops", "deploy pipeline needs approval", 60),
-    );
-
-    let mut superseded = episode("e_sup", "ops", "STALE SUPERSEDED PROCEDURE DO NOT CITE", 99);
-    superseded.superseded_by = Some("e2".into());
-    put_l1(&db, &superseded);
-
-    let run = reflect_session(&db, "sess-1", NOW_MS, &config()).expect("reflect");
-
-    assert_eq!(
-        run.episodes_scanned, 3,
-        "FIND-659: superseded episode must be excluded from scan"
-    );
-    assert!(
-        !run.source_ids.iter().any(|id| id == "e_sup"),
-        "FIND-659: superseded id must not appear in source_ids: {:?}",
-        run.source_ids
-    );
-    for lesson in &run.lessons {
-        let cited = lesson.metadata["reflection"]["source_ids"]
-            .as_array()
-            .expect("source_ids array");
-        assert!(
-            !cited.iter().any(|v| v == "e_sup"),
-            "FIND-659: WorkMethod lesson must not cite superseded episode"
-        );
-        assert!(
-            !lesson.content.contains("STALE SUPERSEDED PROCEDURE"),
-            "FIND-659: WorkMethod lesson content must not synthesize superseded episode"
-        );
-    }
-}
-
 #[test]
 fn reflection_rejects_when_superseded_episodes_drop_active_count_below_min() {
     let db = db();

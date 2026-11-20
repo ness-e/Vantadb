@@ -1427,15 +1427,16 @@ mod tests {
         node.tier = NodeTier::Hot;
         engine.insert(&node).expect("insert hot node");
 
-        // Corrupt the HNSW storage offset to point at non-existent segment 99.
-        let corrupt_offset = crate::lsm::pack_offset(99, 64);
+        // Corrupt the HNSW storage offset to point at a segment that packs
+        // (6-bit field, <63) but does not exist in vector_store.
+        let corrupt_offset = crate::lsm::pack_offset(62, 64);
         engine.hnsw.load().set_storage_offset(42, corrupt_offset);
 
         let err = engine
             .consolidate_node(&node)
             .expect_err("corrupt seg_id out of bounds must return Err instead of panicking");
         assert!(
-            err.to_string().contains("segment 99") || err.to_string().contains("out of"),
+            err.to_string().contains("segment 62") || err.to_string().contains("out of"),
             "unexpected error message: {err}"
         );
     }
