@@ -24,7 +24,14 @@ classifiers = [
 ]
 dependencies = [
     "vantadb-py>=0.6.1,<0.10.0",
-    "mem0ai>=0.1.0,<1",
+    # FIND-644: floor 2.0.18 — mem0ai <2.0.18 is covered by open advisories:
+    # GHSA-7587-9684-52r6 (CVE-2026-115324, critical SQLi in the Databricks
+    # vector store, fixed 1.0.8), GHSA-5324-3w58-qpp2 (CVE-2026-116575,
+    # cross-tenant session-scope leak, fixed 2.0.18) and GHSA-xqxw-r767-67m7
+    # (CVE-2026-7597, pickle deserialization in faiss.py, fixed 2.0.0b2).
+    # Verified compatible: adapter only implements
+    # mem0.vector_stores.base.VectorStoreBase, unchanged in 2.x (tested 2.2.1).
+    "mem0ai>=2.0.18,<3",
 ]
 
 [project.urls]

@@ -30,7 +30,11 @@ classifiers = [
 ]
 # H-10: the SDK requirement was previously hidden in the README. Declared
 # here so `pip install vantadb-litellm` brings a working embed() out of the box.
-dependencies = ["litellm>=1.0,<2"]
+# FIND-644: floor 1.105.0 — 40+ advisories cover <1.105 (the last fixed line
+# is 1.104.0rc2; highest fixed stable 1.103.1/1.102.2/1.101.3/1.100.4 plus
+# GHSA-3cv6-jpf6-8222 →1.96.2). 1.105.0 is the first stable with zero open
+# advisories on PyPI/OSV. Cap <2 unchanged.
+dependencies = ["litellm>=1.105.0,<2"]
 
 [project.urls]
 Homepage = "https://github.com/ness-e/Vantadb"

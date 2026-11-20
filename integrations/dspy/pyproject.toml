@@ -24,7 +24,10 @@ classifiers = [
 ]
 dependencies = [
     "vantadb-py>=0.6.1,<0.10.0",
-    "dspy>=2.6,<3",
+    # FIND-644: floor 3.0.4 — GHSA-vvw2-h478-xwr3/PYSEC-2026-1318 affect
+    # everything <=3.0.3 and ship no 2.x fix. Adapter only consumes
+    # `dspy.Prediction` (with ImportError fallback), stable across 3.x.
+    "dspy>=3.0.4,<4",
 ]
 
 [project.urls]

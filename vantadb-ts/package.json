@@ -73,5 +73,11 @@
     "typescript-eslint": "^8.64.0",
     "vite-plugin-wasm": "^3.6.0",
     "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "test-exclude": {
+      "glob": "^14.0.2",
+      "minimatch": "^11.0.1"
+    }
   }
 }

@@ -24,7 +24,10 @@ classifiers = [
 ]
 dependencies = [
     "vantadb-py>=0.6.1,<0.10.0",
-    "llama-index-core>=0.12,<1",
+    # FIND-644: floor 0.13.0 — 14 advisories on 0.12.x; the last 0.12 fix is
+    # 0.12.41 but GHSA-cr7q-2w66-hjcm/PYSEC-2026-1562 only land at 0.13.0,
+    # which is verified clean.
+    "llama-index-core>=0.13.0,<1",
 ]
 
 [project.urls]
