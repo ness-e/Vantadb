@@ -122,6 +122,12 @@ _FASTEMBED_CHECKED = False
 # put() would write a vectorless record and the dense ablation would degrade to BM25
 # while still reporting a number. Strict mode must fail loudly instead.
 _STRICT_EMBEDDINGS = False
+# ACT-02 (Step 8): optional on-disk cache of sha256(text) -> vector, produced by
+# evals/data/precompute_embeddings.py (GPU) and consumed here. The key is the same one
+# embed_batch already uses, so a precomputed vector is indistinguishable from a local one.
+# Without --embed-cache nothing changes.
+_EMBED_CACHE_PATH: Optional[pathlib.Path] = None
+_EMBED_MISSES = 0
 
 
 def _get_embedder():
@@ -141,7 +147,38 @@ def has_fastembed() -> bool:
     return _get_embedder() is not None
 
 
+def load_embed_cache(path: pathlib.Path) -> int:
+    """Preload ``sha256(text) -> vector`` pairs from an .npz built by precompute_embeddings.py."""
+    import numpy as np  # lazy: keeps the no-flag path free of a new import
+
+    data = np.load(path)
+    keys, vecs = data["keys"], data["vecs"]
+    if vecs.ndim != 2 or vecs.shape[1] != EMBED_DIMS:
+        raise ValueError(
+            f"embed cache {path} has {vecs.shape[1] if vecs.ndim == 2 else '?'} dims, "
+            f"expected {EMBED_DIMS} ({EMBED_MODEL}) — wrong model, refusing to load"
+        )
+    for key, vec in zip(keys, vecs):
+        _EMBED_CACHE[str(key)] = vec.tolist()
+    return len(_EMBED_CACHE)
+
+
+def save_embed_cache(path: pathlib.Path) -> int:
+    """Persist the whole cache (preloaded + newly embedded) so a partial cache can be completed."""
+    import numpy as np  # lazy: keeps the no-flag path free of a new import
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    keys = list(_EMBED_CACHE)
+    np.savez(
+        path,
+        keys=np.array(keys),
+        vecs=np.array([_EMBED_CACHE[k] for k in keys], dtype=np.float32),
+    )
+    return len(keys)
+
+
 def embed_batch(texts: List[str]) -> List[Optional[List[float]]]:
+    global _EMBED_MISSES
     embedder = _get_embedder()
     if embedder is None or not texts:
         return [None] * len(texts)
@@ -159,6 +196,7 @@ def embed_batch(texts: List[str]) -> List[Optional[List[float]]]:
             missing_txt.append(txt)
 
     if missing_txt:
+        _EMBED_MISSES += len(missing_txt)  # a miss = an embedding actually paid for on this machine
         try:
             raw = list(embedder.embed(missing_txt))
             for midx, txt, emb in zip(missing_idx, missing_txt, raw):
@@ -658,13 +696,14 @@ def run_self_test() -> int:
 
 # ------------------------------------------------------------------ CLI Main
 def main() -> int:
-    global _STRICT_EMBEDDINGS
+    global _STRICT_EMBEDDINGS, _EMBED_CACHE_PATH
     parser = argparse.ArgumentParser(description="Certificación y ablación de LongMemEval-S (500q, recall_all@5 >= 0.85).")
     parser.add_argument("--questions", type=int, default=500, help="Número de preguntas a evaluar (default: 500).")
     parser.add_argument("--limit", type=int, default=0, help="Alias para limitar preguntas.")
     parser.add_argument("--top-k", type=int, default=TOP_K, help="Profundidad de recuperación top_k (default: 5).")
     parser.add_argument("--gate-threshold", type=float, default=GATE_THRESHOLD, help="Umbral del gate para recall_all@k (default: 0.85).")
     parser.add_argument("--strict-embeddings", action="store_true", help="Falla si fastembed con BAAI/bge-small-en-v1.5 no está disponible.")
+    parser.add_argument("--embed-cache", default=None, metavar="PATH", help="Caché en disco (.npz) de sha256(texto)->vector: precarga al arrancar, persiste al terminar y reporta los misses (un miss = embedding calculado en esta máquina).")
     parser.add_argument("--ablation", choices=["vector_only", "bm25_only", "hybrid_rrf", "hybrid_graphrag", "all"], default="hybrid_graphrag")
     parser.add_argument("--data", default="", help="Ruta a dataset JSON de LongMemEval.")
     parser.add_argument("--backend", default="memory", help="Backend de VantaDB.")
@@ -687,6 +726,14 @@ def main() -> int:
             return 1
         _STRICT_EMBEDDINGS = True
         print(f"[eval_longmemeval] Strict embeddings verificado: {EMBED_MODEL} ({EMBED_DIMS}d) activo.")
+
+    if args.embed_cache:
+        _EMBED_CACHE_PATH = pathlib.Path(args.embed_cache)
+        if _EMBED_CACHE_PATH.is_file():
+            loaded = load_embed_cache(_EMBED_CACHE_PATH)
+            print(f"[eval_longmemeval] Embed cache: {loaded} vectores precargados desde {_EMBED_CACHE_PATH}")
+        else:
+            print(f"[eval_longmemeval] Embed cache: {_EMBED_CACHE_PATH} no existe todavía; se escribirá al terminar.")
 
     # Locate dataset
     data_path = pathlib.Path(args.data) if args.data else DEFAULT_DATA
@@ -740,6 +787,17 @@ def main() -> int:
         if primary_report is None or mode == args.ablation or mode == "hybrid_graphrag":
             primary_report = rep
 
+    # Persist the cache at the end of the ablation loop (a partial cache is still progress:
+    # the next run completes it instead of starting from zero). Skipped when nothing was
+    # embedded — e.g. --ablation bm25_only — so we never write a file load_embed_cache rejects.
+    if _EMBED_CACHE_PATH is not None and _EMBED_CACHE:
+        entries = save_embed_cache(_EMBED_CACHE_PATH)
+        print(
+            f"[eval_longmemeval] Embed cache: {entries} vectores en {_EMBED_CACHE_PATH} · "
+            f"misses de esta corrida: {_EMBED_MISSES} "
+            f"(un miss = embedding calculado en esta máquina, no servido por el caché)"
+        )
+
     # Export report
     out_file = pathlib.Path(args.output)
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -752,6 +810,12 @@ def main() -> int:
         "gate_threshold": args.gate_threshold,
         "ablation_results": all_reports,
     }
+    if _EMBED_CACHE_PATH is not None:
+        final_payload["embed_cache"] = {
+            "path": str(_EMBED_CACHE_PATH),
+            "entries_total": len(_EMBED_CACHE),
+            "misses": _EMBED_MISSES,
+        }
     out_file.write_text(json.dumps(final_payload, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\n[eval_longmemeval] Reporte exportado a {out_file}")
 

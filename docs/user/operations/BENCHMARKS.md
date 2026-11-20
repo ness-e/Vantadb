@@ -1365,6 +1365,31 @@ python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings \
   --output evals/results/longmemeval_v0100.json
 ```
 
+**How to finish it without 42 h of CPU:** the protocol does not need to change — only who
+computes the vectors. `evals/data/precompute_embeddings.py` embeds the ≈157K unique chunk texts
+elsewhere (CUDA) into an `sha256(text) -> vector` `.npz`, and the harness replays it through
+`--embed-cache`. A cache miss is counted and reported in the JSON, so a silently cold cache
+cannot pass as a fast run — `misses` must be 0 for the run to mean anything.
+
+```bash
+# on a GPU box / Colab (T4) — environment only, no project dependency:
+pip install fastembed onnxruntime-gpu
+python evals/data/precompute_embeddings.py --provider cuda \
+    --dataset longmemeval_s_cleaned.json --output embeddings_bge_small_500q.npz
+
+# back on any machine: embeddings are read, not computed
+python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings \
+    --ablation hybrid_graphrag --no-fail-gate \
+    --embed-cache embeddings_bge_small_500q.npz \
+    --output evals/results/longmemeval_v0100.json
+```
+
+The embedding half moves to the GPU; ingest and search stay where the binding was built, so the
+retrieval numbers remain a property of this engine and not of the GPU box. Alignment is not
+assumed: the precompute script imports `session_text`/`chunk_session_text` from the harness
+instead of re-implementing them, and the pair was verified end-to-end on one question
+(405 texts → `misses = 0`, identical recall).
+
 Only `evals/results/*.log` is covered by an ignore rule (`*.log`); the `.json` reports are
 **not** ignored. The 1.2 KB smoke report above is committed as the evidence for its table; the
 full-split report is an order of magnitude larger and stays regenerable (Regla 11: the command

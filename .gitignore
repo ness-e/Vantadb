@@ -161,6 +161,8 @@ benchmarks/datasets/
 evals/memory_bench_report.json
 evals/memory_harness_report*.json
 evals/runners/report_h2h_*.json
+# ACT-02: regenerable embedding cache (~240 MB for the 500q corpus) — the command is the contract
+evals/data/*.npz
 lcov.info
 *.profraw
 vantadb-ts/coverage/
