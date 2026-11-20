@@ -21,9 +21,32 @@ pub fn build_server_state(
     api_key: Option<&str>,
     concurrency: usize,
 ) -> (tempfile::TempDir, Arc<ServerState>) {
+    build_server_state_with(path, api_key, concurrency, None)
+}
+
+/// Same as [`build_server_state`] but lets the caller set
+/// `Config::export_base_dir` on the engine; `Embedded::from_engine` snapshots
+/// it into `Embedded.config`, which is what the FIND-347 HTTP sandbox checks.
+/// Required by tests that exercise absolute import/export paths over HTTP —
+/// without a configured base dir those paths are rejected by design.
+pub fn build_server_state_with(
+    path: &Path,
+    api_key: Option<&str>,
+    concurrency: usize,
+    export_base_dir: Option<std::path::PathBuf>,
+) -> (tempfile::TempDir, Arc<ServerState>) {
     let dir = tempfile::tempdir().unwrap();
     let storage_path = dir.path().join(path);
-    let storage = Arc::new(StorageEngine::open(storage_path.to_str().unwrap()).unwrap());
+    let storage = Arc::new(
+        StorageEngine::open_with_config(
+            storage_path.to_str().unwrap(),
+            Some(vantadb::config::Config {
+                export_base_dir,
+                ..Default::default()
+            }),
+        )
+        .unwrap(),
+    );
     let db = vantadb::Embedded::from_engine(storage.clone());
     // MOD-12: mirror production startup (`cli_server::run`) which ensures
     // indexes are current after wrapping the raw engine — without this,

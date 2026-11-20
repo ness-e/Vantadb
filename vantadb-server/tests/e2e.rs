@@ -880,12 +880,20 @@ async fn test_e2e_search_zero_limit_cursor_progresses() {
 /// invalid_at := superseded_at, confidence := D_a).
 #[tokio::test]
 async fn test_e2e_import_v1_jsonl_path_normalizes() {
-    let (_dir, state) = build_e2e_context(None, 10);
+    // Host-side v1 fixture (temp path). FIND-347 rejects absolute paths over
+    // HTTP unless `export_base_dir` is configured, so the fixture dir is set
+    // as the sandbox base — mirrors a production deployment that opt-in to
+    // host-path import/export.
+    let fixture_dir = tempfile::tempdir().unwrap();
+    let (_dir, state) = helpers::build_server_state_with(
+        Path::new("db"),
+        None,
+        10,
+        Some(fixture_dir.path().to_path_buf()),
+    );
     let (base, _handle) = spawn_server(state, 0).await;
     let client = reqwest::Client::new();
 
-    // Host-side v1 fixture (temp path: the export sandbox rejects `..`).
-    let fixture_dir = tempfile::tempdir().unwrap();
     let fixture = fixture_dir.path().join("export-v1.jsonl");
     std::fs::write(
         &fixture,
