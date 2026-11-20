@@ -37,7 +37,7 @@ tags: [research, memory, engineering]
 | Comparación propia | VantaDB `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`, `develop`, limpio al inicio; no se usa c561158 como prueba actual |
 | Ejecución | Ninguna app, test, benchmark, instalación, build o servicio; sólo lecturas y documentos |
 
-Se leyeron [EXPANSION-CONTRACT](EXPANSION-CONTRACT.md), [METHOD](METHOD.md), [BENCHMARK-NOTES](BENCHMARK-NOTES.md) y el [estudio OpenViking](../../Backlog-OpenViking-VantaDB.md). Sus exigencias se aplican aquí; sus defectos históricos no se importan.
+Se leyeron [EXPANSION-CONTRACT](EXPANSION-CONTRACT.md), [METHOD](METHOD.md), [BENCHMARK-NOTES](BENCHMARK-NOTES.md) y el [estudio OpenViking](../Backlog-OpenViking-VantaDB.md). Sus exigencias se aplican aquí; sus defectos históricos no se importan.
 
 ### 0.1 Mapa y modelo
 

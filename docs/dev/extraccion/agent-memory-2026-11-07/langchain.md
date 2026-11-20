@@ -26,7 +26,7 @@ tags: [research, memory, engineering]
 ## 0. Identidad, mapa y fronteras
 
 Investigacion estatica del 2026-11-07. El archivo estaba ausente del worktree:
-se recupero su evidencia mediante `git show HEAD:docs/dev/research/agent-memory-2026-11-07/langchain.md`,
+se recupero su evidencia mediante `git show HEAD:docs/dev/extraccion/agent-memory-2026-11-07/langchain.md`,
 sin checkout/reset. Se conservan las tres oportunidades previas —compactacion
 causal, scores y aprobacion— y se desarrollan historial y limites/retry.
 No se ejecutaron aplicaciones, tests, benchmarks ni servicios.

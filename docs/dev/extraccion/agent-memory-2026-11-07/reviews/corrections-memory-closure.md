@@ -637,7 +637,7 @@ estado de aceptación del lead.
 ### Operaciones y alcance de escritura
 
 En esta reconfirmación solo se escribió
-`docs/dev/research/agent-memory-2026-11-07/reviews/corrections-memory-closure.md`,
+`docs/dev/extraccion/agent-memory-2026-11-07/reviews/corrections-memory-closure.md`,
 mediante patches. Lecturas: terminal (`sed`, `nl`, `grep`, `wc`, hashes),
 Git read-only (`show`, `ls-tree`, `cat-file`, `rev-parse`, `status`,
 `check-ignore`, `ls-files`), lectura pública raw/HTML y comparación de textos

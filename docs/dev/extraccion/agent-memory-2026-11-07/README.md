@@ -28,7 +28,7 @@ tags: [research, memory, index]
 | [BENCHMARK-NOTES.md](BENCHMARK-NOTES.md) | Notas metodológicas de benchmarks (definiciones de métricas, claims vs ejecución) |
 | [github-candidates.json](github-candidates.json) | Snapshot UTC 2026-11-07 de los 50 candidatos (stars, licencia detectada) — valores congelados |
 | [clone-manifest.json](clone-manifest.json) | Manifiesto de clones: commit SHA, shallow, rama, omisiones por repo |
-| [../../Backlog-OpenViking-VantaDB.md](../../Backlog-OpenViking-VantaDB.md) | Informe central de OpenViking (`b8e8895`): los diez puntos en profundidad, fichas F1–F10, seguridad, licencias |
+| [../Backlog-OpenViking-VantaDB.md](../Backlog-OpenViking-VantaDB.md) | Informe central de OpenViking (`b8e8895`): los diez puntos en profundidad, fichas F1–F10, seguridad, licencias |
 
 ## Inventario (37 elegidos + OpenViking ya estudiado)
 
@@ -73,7 +73,7 @@ Datos `stars`/`licencia`/`SHA` **copiados** de los JSON congelados (snapshot 202
 | topoteretes/cognee | memoria de agente | [cognee.md](cognee.md) | 33118 | `8853378eae` | Apache-2.0 |
 | VectifyAI/PageIndex | RAG / índice | [pageindex.md](pageindex.md) | 40160 | `2ac8694bf8` | MIT |
 | vectorize-io/hindsight | memoria de agente | [hindsight.md](hindsight.md) | 59509 | `eb963cb5a9` | MIT |
-| volcengine/OpenViking | context DB agentes | [Backlog-OpenViking-VantaDB.md](../../Backlog-OpenViking-VantaDB.md) | 41718 | `b8e88959f3` | AGPL-3.0 |
+| volcengine/OpenViking | context DB agentes | [Backlog-OpenViking-VantaDB.md](../Backlog-OpenViking-VantaDB.md) | 41718 | `b8e88959f3` | AGPL-3.0 |
 
 ## Adiciones por excepción del propietario (5)
 

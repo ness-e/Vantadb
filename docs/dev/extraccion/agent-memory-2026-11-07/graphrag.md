@@ -28,7 +28,7 @@ tags: [research, memory, engineering]
 
 Ampliación estática del **2026-11-07**, conforme al [contrato completo](EXPANSION-CONTRACT.md),
 [METHOD](METHOD.md) y [BENCHMARK-NOTES](BENCHMARK-NOTES.md), con
-[OpenViking](../../Backlog-OpenViking-VantaDB.md) como referencia de profundidad, no de algoritmo.
+[OpenViking](../Backlog-OpenViking-VantaDB.md) como referencia de profundidad, no de algoritmo.
 Se conserva el SHA del manifiesto; no se actualizó ningún clon. Los hallazgos anteriores
 válidos se mantienen; se corrigen su baseline Vanta histórico y el eje de issues no leído.
 No se afirma lectura total, reproducción de incidencias ni superioridad medida.

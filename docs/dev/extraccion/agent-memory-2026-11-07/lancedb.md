@@ -618,7 +618,7 @@ laguna total en ese tramo, no acredita una auditoría Cloud.
 
 ### 11.2 Dependencias, validaciones y división futura
 
-Relaciones: A habilita hidratación compuesta D; B necesita identidad de origen y usa C para publicar con revisión esperada, pero auditoría B read-only puede adelantarse; E amplía explain sin requerir reemplazo. C exige resolver garantías propias de escritura si se pretende all-or-nothing. Coinciden con familias transversales de identidad/derivados/auditoría/pipeline del [modelo OpenViking](../../Backlog-OpenViking-VantaDB.md), no candidatos de backlog duplicados.
+Relaciones: A habilita hidratación compuesta D; B necesita identidad de origen y usa C para publicar con revisión esperada, pero auditoría B read-only puede adelantarse; E amplía explain sin requerir reemplazo. C exige resolver garantías propias de escritura si se pretende all-or-nothing. Coinciden con familias transversales de identidad/derivados/auditoría/pipeline del [modelo OpenViking](../Backlog-OpenViking-VantaDB.md), no candidatos de backlog duplicados.
 
 Pendiente manual: reproducción #4844 en versión aislada, fallos por fase de C, concurrencia A/B/checkpoint, comportamiento de cancelación D, consumo de memoria efectivo y equivalencia de datos/metricas de §7. No se ejecutó ninguno. Una futura aprobación se divide en specs de contrato de escritura, frescura de artefactos, lectura/proyección y diagnóstico Studio; no se crean specs ni IDs ahora.
 

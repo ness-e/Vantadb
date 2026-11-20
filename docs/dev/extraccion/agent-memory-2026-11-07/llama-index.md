@@ -889,7 +889,7 @@ sin gastar modelos; D usa identidad de A/C si se aprueba publicación;
 E modifica identidad A cuando altera inputs semánticos. B/E comparten
 gobernanza/budget existente, no nuevo pipeline. Las fichas no reservan IDs ni
 modifican backlog; se reconciliarán con familias transversales de
-[OpenViking](../../Backlog-OpenViking-VantaDB.md) antes de specs.
+[OpenViking](../Backlog-OpenViking-VantaDB.md) antes de specs.
 
 **División futura (>300 líneas):** specs de identidad/proyección A/E,
 sincronización/progreso C/D y relaciones/contexto B; conservar este dossier

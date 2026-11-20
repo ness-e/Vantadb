@@ -40,7 +40,7 @@ tags: [research, memory, engineering]
 
 **Dictamen:** interesa la frontera aplicación/memoria remota: namespace explícito, perfiles separados de recuperación, caché de continuación, estados de procesamiento, borrado selectivo y provenance visible. **No es una implementación pública acreditada del motor SaaS**. El clon no permite certificar extracción, almacenamiento vectorial, transacciones, replicación, borrado físico o aislamiento de tenants.
 
-Leyenda: **[H]** hecho de fuente leída; **[D]** documentación; **[R]** reporte upstream, no reproducción propia; **[I]** inferencia; **[P]** propuesta; **[?]** laguna. Fuentes S: pin del clon; B: MemoryBench externo; V: Vanta indicado. Se aplicaron [METHOD](METHOD.md), [BENCHMARK-NOTES](BENCHMARK-NOTES.md) y [EXPANSION-CONTRACT](EXPANSION-CONTRACT.md). El antecedente [OpenViking](../../Backlog-OpenViking-VantaDB.md) aporta diseño, no prueba del estado actual de Vanta.
+Leyenda: **[H]** hecho de fuente leída; **[D]** documentación; **[R]** reporte upstream, no reproducción propia; **[I]** inferencia; **[P]** propuesta; **[?]** laguna. Fuentes S: pin del clon; B: MemoryBench externo; V: Vanta indicado. Se aplicaron [METHOD](METHOD.md), [BENCHMARK-NOTES](BENCHMARK-NOTES.md) y [EXPANSION-CONTRACT](EXPANSION-CONTRACT.md). El antecedente [OpenViking](../Backlog-OpenViking-VantaDB.md) aporta diseño, no prueba del estado actual de Vanta.
 
 ### 0.2 Mapa, stack y dependencias
 
