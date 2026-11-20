@@ -1373,13 +1373,13 @@ class TestAsyncClient:
                             "namespace": "ns1",
                             "key": "a",
                             "payload": "alpha",
-                            "vector": [0.1] * 3,
+                            "vector": [0.1] * 8,
                         },
                         {
                             "namespace": "ns1",
                             "key": "b",
                             "payload": "beta",
-                            "vector": [0.2] * 3,
+                            "vector": [0.2] * 8,
                             "metadata": {"type": "greek"},
                         },
                     ]
@@ -1392,7 +1392,7 @@ class TestAsyncClient:
                 # put_batch_raw with 2D numpy array (zero-copy)
                 import numpy as np
 
-                vectors = np.ones((2, 4), dtype=np.float32)
+                vectors = np.ones((2, 8), dtype=np.float32)
                 raw = await db.put_batch_raw(
                     vectors,
                     ["k1", "k2"],

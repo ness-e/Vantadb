@@ -203,7 +203,9 @@ pub(crate) fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> P
         }
         let len = buf.item_count();
         if len > MAX_VEC_DIM {
-            return Err(VantaValueError::new_err(format!(
+            // FIND-578 contract: dimension overflow is a ValidationError
+            // (typed), same class the binding layer emits for the same check.
+            return Err(ValidationError::new_err(format!(
                 "vector dimension {len} exceeds maximum {MAX_VEC_DIM}"
             )));
         }
@@ -237,7 +239,9 @@ pub(crate) fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> P
         }
         let len = buf.item_count();
         if len > MAX_VEC_DIM {
-            return Err(VantaValueError::new_err(format!(
+            // FIND-578 contract: dimension overflow is a ValidationError
+            // (typed), same class the binding layer emits for the same check.
+            return Err(ValidationError::new_err(format!(
                 "vector dimension {len} exceeds maximum {MAX_VEC_DIM}"
             )));
         }
@@ -276,7 +280,7 @@ pub(crate) fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> P
     })?;
     let len = result.len();
     if len > MAX_VEC_DIM {
-        return Err(VantaValueError::new_err(format!(
+        return Err(ValidationError::new_err(format!(
             "vector dimension {len} exceeds maximum {MAX_VEC_DIM}"
         )));
     }
