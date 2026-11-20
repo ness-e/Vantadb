@@ -337,17 +337,35 @@ impl StorageEngine {
     }
 
     /// Phase 3: WAL batch append (P3: skipped when `skip_wal`).
+    ///
+    /// `now_ms` stamps `last_accessed` on every `WalRecord::Insert` — the same
+    /// stamp `serialize_batch_nodes` writes into the vstore/KV copies and the
+    /// same stamp `insert()` puts on its WAL record, so a replayed batch
+    /// restores the recency heuristic the live path wrote instead of the
+    /// caller-side construction timestamp.
+    ///
+    /// FIND-640: when the batch runs inside an implicit WAL txn frame this
+    /// helper is called during the WAL phase (all chunks durable before any
+    /// store is touched); without a frame (`skip_wal` or WAL disabled) it is
+    /// called interleaved inside the apply loop, as before.
     pub(crate) fn append_batch_wal(
         &self,
         nodes: &[UnifiedNode],
         opts: &BatchInsertOptions,
+        now_ms: u64,
     ) -> Result<()> {
         if opts.skip_wal {
             return Ok(());
         }
         if let Some(ref sharded) = self.wal {
-            let records: Vec<WalRecord> =
-                nodes.iter().map(|n| WalRecord::Insert(n.clone())).collect();
+            let records: Vec<WalRecord> = nodes
+                .iter()
+                .map(|n| {
+                    let mut wal_node = n.clone();
+                    wal_node.last_accessed = now_ms;
+                    WalRecord::Insert(wal_node)
+                })
+                .collect();
             sharded.batch_append(records)?;
         }
         Ok(())
@@ -378,7 +396,7 @@ impl StorageEngine {
     /// eviction path it drives (`consolidate_node_locked`) assumes the FIND-651
     /// quiesce barrier is already held and never re-acquires the non-reentrant
     /// lock. `batch_insert_with_opts` re-acquires it around this call after
-    /// the per-chunk guards drop.
+    /// the FIND-640 whole-batch guard drops.
     pub(crate) fn run_batch_eviction_if_needed(&self, needs_eviction: bool) {
         if !needs_eviction {
             return;
@@ -427,12 +445,22 @@ impl StorageEngine {
     }
 
     /// Build the KV put op for one node (metadata payload, LE-id key).
-    pub(crate) fn build_kv_put_op(&self, node: &UnifiedNode) -> Result<BackendWriteOp> {
-        let created_by = self.txn.snapshot_id();
+    ///
+    /// `stamp_txn` becomes `created_by_txn` of the metadata. FIND-640: under
+    /// the implicit batch WAL frame this is the dedicated `batch_txn` id —
+    /// the recovery undo pass only purges entries whose `created_by_txn`
+    /// matches the uncommitted `record_txn_id`, so stamping the shared
+    /// `txn.snapshot_id()` would make batch entries indistinguishable from
+    /// foreign inserts and silently defeat the undo.
+    pub(crate) fn build_kv_put_op(
+        &self,
+        node: &UnifiedNode,
+        stamp_txn: u64,
+    ) -> Result<BackendWriteOp> {
         let metadata = NodeMetadata {
             relational: node.relational.clone(),
             edges: node.edges.clone(),
-            created_by_txn: created_by,
+            created_by_txn: stamp_txn,
             deleted_by_txn: None,
         };
         let metadata_val =
@@ -445,32 +473,41 @@ impl StorageEngine {
     }
 
     /// Stage one node: vstore write + offset pack + KV op (HNSW entry inline).
+    ///
+    /// `stamp_txn` is the `created_by_txn` written into the KV metadata (see
+    /// [`Self::build_kv_put_op`]); `now_ms` stamps `last_accessed` on the
+    /// vstore copy.
     pub(crate) fn stage_one_node(
         &self,
         vstore: &mut crate::storage::vfile::File,
         node: &UnifiedNode,
         now_ms: u64,
+        stamp_txn: u64,
     ) -> Result<(u64, BackendWriteOp)> {
         let mut active_node = node.clone();
         active_node.last_accessed = now_ms;
         let local_off = crate::storage::ops::write_node_to_vstore(vstore, &active_node)?;
         let storage_offset = crate::lsm::pack_offset(0, local_off);
-        let op = self.build_kv_put_op(&active_node)?;
+        let op = self.build_kv_put_op(&active_node, stamp_txn)?;
         Ok((storage_offset, op))
     }
 
     /// Phase 2: vstore writes + KV/HNSW staging for the whole batch.
+    ///
+    /// `stamp_txn` threads into every staged KV op's `created_by_txn` — the
+    /// dedicated `batch_txn` under FIND-640's implicit txn frame.
     pub(crate) fn serialize_batch_nodes(
         &self,
         nodes: &[UnifiedNode],
         now_ms: u64,
         should_insert_hnsw: bool,
         bufs: &mut BatchStageBufs,
+        stamp_txn: u64,
     ) -> Result<()> {
         let mut vstore = self.vstore0()?;
         prealloc_vstore_batch(&mut vstore, nodes.len())?;
         for node in nodes {
-            let (storage_offset, op) = self.stage_one_node(&mut vstore, node, now_ms)?;
+            let (storage_offset, op) = self.stage_one_node(&mut vstore, node, now_ms, stamp_txn)?;
             bufs.vstore_offsets.push(storage_offset);
             if should_insert_hnsw {
                 bufs.push_entry(node.id, &node.bitset, &node.vector, storage_offset);
@@ -857,6 +894,19 @@ impl StorageEngine {
     /// **P1** ΓÇö `skip_existing_check` avoids per-node existence check.
     /// **P3** ΓÇö `skip_wal` skips WAL record generation + `batch_append`.
     ///
+    /// **Batch-wide atomicity (FIND-640):** with WAL durability enabled
+    /// (`!opts.skip_wal && wal.is_some()`) the whole batch is framed in an
+    /// implicit WAL transaction: `Begin(batch_txn)` → per-chunk `Insert`
+    /// `batch_append`s → `Prepare{txn_id, op_count}` → per-chunk store apply →
+    /// `Commit(batch_txn)`, all under a single `insert_lock` hold. The durable
+    /// `Commit` is the commit point: a crash before it leaves zero records of
+    /// the batch after reopen (recovery discards the frame and the undo pass
+    /// purges applied entries via `created_by_txn`); a crash after it replays
+    /// the `Insert` records idempotently. An in-process error rolls back the
+    /// applied prefix and appends a best-effort `Abort`. With `skip_wal`
+    /// there is no frame — the legacy per-chunk durable units remain (each
+    /// chunk stays independently durable; opt-in for regenerable bulk loads).
+    ///
     /// HNSW behavior is controlled by `InsertMode`:
     /// - `InsertMode::Incremental` ΓÇö inserts each node into the HNSW index
     ///   as it is written. Good for small batches.
@@ -897,8 +947,86 @@ impl StorageEngine {
         let mut applied_records: Vec<AppliedEntry> = Vec::with_capacity(nodes.len());
         let mut all_staged_offsets: Vec<u64> = Vec::with_capacity(nodes.len());
 
+        // FIND-640: when a WAL is active the whole batch runs inside an
+        // implicit transaction frame ([Begin → Insert records → Prepare] →
+        // apply → Commit). The commit point is the durable `Commit` marker;
+        // recovery discards every frame without one (open_txn EOF/Abort rule)
+        // and the TXN-01 undo pass purges applied KV/HNSW/vstore entries via
+        // `created_by_txn == batch_txn`.
+        //
+        // `batch_txn` is a dedicated id NOT registered in `txn.active` —
+        // registering it would make `insert()`/`delete()` observe
+        // `has_active()==true` and buffer foreign writes into a buffer this
+        // frame never drains (they would silently die with it). The stamp is
+        // still applied on every path (it is also this batch's `created_by_txn`
+        // pseudo-txn id, like `snapshot_id()` was before).
+        //
+        // `opts.skip_wal` opts out of the frame entirely (no WAL → nothing to
+        // discard; documented opt-in for regenerable bulk loads).
+        let wal_framed = !opts.skip_wal && self.wal.is_some();
+        let batch_txn = self.txn.alloc_implicit_id();
+
         let execution_result: Result<()> = (|| {
-            for chunk in nodes.chunks(BATCH_CHUNK_SIZE) {
+            // FIND-640 / FIND-651 (correctness, not optional): ONE
+            // `insert_lock` guard held for the WHOLE batch. The recovery
+            // `open_txn` tracking assumes the records of a txn occupy
+            // *contiguous* global_seq slots. Every WAL mutation takes
+            // `insert_lock`, so holding it across the frame guarantees no
+            // foreign write interleaves between our per-chunk `batch_append`s
+            // — an interleaved `Insert` would be misattributed to `batch_txn`
+            // by `record_txn_id` and discarded with the prefix on recovery
+            // (silent loss of an independently committed write). The old
+            // per-chunk guard was only sound because each chunk was itself a
+            // self-contained durable unit.
+            let _guard = self.acquire_insert_lock(
+                "acquire insert_lock in batch_insert_with_opts (FIND-640 txn frame)",
+            )?;
+
+            if wal_framed {
+                // ── WAL phase: all durable truth before touching stores ──
+                // Exact mirror of `commit_transaction` phase-1 (RES-01):
+                // [Begin + ops + Prepare] becomes durable first, so a crash
+                // during the WAL phase leaves zero applied work (undo pass
+                // trivially empty) and a crash during apply finds every op
+                // durable, discriminated by `created_by_txn`.
+                self.wal_coordinator()
+                    .append(&WalRecord::Begin(batch_txn))?;
+                for (chunk_idx, chunk) in nodes.chunks(BATCH_CHUNK_SIZE).enumerate() {
+                    // FIND-640 test hook: fails the `batch_append` of the
+                    // second-and-later WAL chunks (chunk_idx > 0 → never the
+                    // first), so tests can crash mid-WAL-phase deterministically
+                    // (`wal_append_fail` cannot target a specific chunk under
+                    // sharded WALs).
+                    #[cfg(feature = "failpoints")]
+                    fail::fail_point!("put_batch_wal_chunk_fail", chunk_idx > 0, |_| {
+                        Err(crate::error::Error::Io(std::io::Error::other(
+                            "Simulated batch WAL-phase chunk append failure",
+                        )))
+                    });
+                    let _ = chunk_idx; // consumed only under `failpoints`
+                    self.append_batch_wal(chunk, &opts, now_ms)?;
+                }
+                // RES-01 uniformity: every multi-op txn emits Prepare;
+                // `op_count` stays a replay-time integrity cross-check.
+                self.wal_coordinator().append(&WalRecord::Prepare {
+                    txn_id: batch_txn,
+                    op_count: nodes.len() as u32,
+                })?;
+            }
+
+            // ── Apply phase: per-chunk staging under the same guard ──
+            for (chunk_idx, chunk) in nodes.chunks(BATCH_CHUNK_SIZE).enumerate() {
+                // FIND-640 test hook: fires at chunk boundaries inside the
+                // apply loop (chunk_idx > 0 → the 2nd chunk onward) so tests
+                // can fail or panic mid-apply after a committed prefix.
+                #[cfg(feature = "failpoints")]
+                fail::fail_point!("put_batch_chunk_commit_fail", chunk_idx > 0, |_| {
+                    Err(crate::error::Error::Io(std::io::Error::other(
+                        "Simulated batch apply-phase chunk failure",
+                    )))
+                });
+                let _ = chunk_idx; // consumed only under `failpoints`
+
                 let mut bufs = BatchStageBufs::with_capacity(chunk.len());
 
                 let chunk_pre_existing: Vec<Option<Vec<u8>>> = if opts.skip_existing_check {
@@ -915,32 +1043,47 @@ impl StorageEngine {
                         .collect()
                 };
 
-                {
-                    let _guard =
-                        self.acquire_insert_lock("acquire insert_lock in batch_insert chunk")?;
-                    // FIND-651: staging writes each node into the vstore mmap —
-                    // it must run inside the guard, not before it, so a
-                    // concurrent create_snapshot can't copy `vstore_L0.vanta`
-                    // mid-append while the batch's WAL/KV commit is pending.
-                    self.serialize_batch_nodes(chunk, now_ms, should_insert_hnsw, &mut bufs)?;
-                    all_staged_offsets.extend_from_slice(&bufs.vstore_offsets);
-                    self.append_batch_wal(chunk, &opts)?;
-                    let kv_ops = std::mem::take(&mut bufs.kv_ops);
-                    self.write_batch_kv_or_tombstone(kv_ops, &bufs.vstore_offsets)?;
-
-                    if should_insert_hnsw {
-                        self.insert_hnsw_leveled(&bufs.hnsw_entries)?;
-                    }
-
-                    for (i, node) in chunk.iter().enumerate() {
-                        applied_records.push(AppliedEntry {
-                            id: node.id,
-                            pre_existing_raw: chunk_pre_existing[i].clone(),
-                            vstore_offset: bufs.vstore_offsets[i],
-                            inserted_hnsw: should_insert_hnsw,
-                        });
-                    }
+                // FIND-651: staging writes each node into the vstore mmap —
+                // it must run inside the guard, not before it, so a
+                // concurrent create_snapshot can't copy `vstore_L0.vanta`
+                // mid-append while the batch's WAL/KV commit is pending.
+                self.serialize_batch_nodes(
+                    chunk,
+                    now_ms,
+                    should_insert_hnsw,
+                    &mut bufs,
+                    batch_txn,
+                )?;
+                all_staged_offsets.extend_from_slice(&bufs.vstore_offsets);
+                if !wal_framed {
+                    // No txn frame (`skip_wal` or WAL disabled): keep the
+                    // legacy interleaved WAL append per chunk.
+                    self.append_batch_wal(chunk, &opts, now_ms)?;
                 }
+                let kv_ops = std::mem::take(&mut bufs.kv_ops);
+                self.write_batch_kv_or_tombstone(kv_ops, &bufs.vstore_offsets)?;
+
+                if should_insert_hnsw {
+                    self.insert_hnsw_leveled(&bufs.hnsw_entries)?;
+                }
+
+                for (i, node) in chunk.iter().enumerate() {
+                    applied_records.push(AppliedEntry {
+                        id: node.id,
+                        pre_existing_raw: chunk_pre_existing[i].clone(),
+                        vstore_offset: bufs.vstore_offsets[i],
+                        inserted_hnsw: should_insert_hnsw,
+                    });
+                }
+            }
+
+            if wal_framed {
+                // COMMIT POINT (FIND-640): the durable `Commit` marker —
+                // everything before it is preparation, everything after is
+                // epilogue. After this append is durable the batch is
+                // committed; before it, recovery discards the whole frame.
+                self.wal_coordinator()
+                    .append(&WalRecord::Commit(batch_txn))?;
             }
             Ok(())
         })();
@@ -986,6 +1129,17 @@ impl StorageEngine {
                 }
             }
 
+            // FIND-640: best-effort `Abort` closes the open WAL frame so
+            // post-mortem recovery discards [Begin..Prepare] by the Abort
+            // rule instead of EOF — symmetrical with `commit_transaction`'s
+            // error path. `_rollback_guard` is still held here: the marker
+            // mutates the WAL (FIND-651). Best-effort: if the append itself
+            // fails the frame stays EOF-open and recovery discards it
+            // fail-safe anyway (R6).
+            if wal_framed {
+                let _ = self.wal_coordinator().append(&WalRecord::Abort(batch_txn));
+            }
+
             return Err(err);
         }
 
@@ -998,8 +1152,9 @@ impl StorageEngine {
         let needs_eviction = self.cache_batch_hot_nodes(nodes);
         // FIND-651: `run_batch_eviction_if_needed` drives the `_locked`
         // eviction variant, which requires `insert_lock` to be held — but the
-        // per-chunk guards above are already dropped, so it must be
-        // re-acquired here (non-reentrant; callers never hold it, per this
+        // FIND-640 whole-batch guard above is already dropped (it ended with
+        // the execution closure, right after the Commit append), so it must
+        // be re-acquired here (non-reentrant; callers never hold it, per this
         // method's doc contract). A lock timeout skips this best-effort
         // eviction instead of failing an already-committed batch — the same
         // skip-when-contended policy `maybe_auto_flush` uses; the trigger is

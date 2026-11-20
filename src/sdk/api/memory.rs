@@ -1406,12 +1406,13 @@ impl Embedded {
 
     /// Insert or update multiple namespace-scoped persistent memory records.
     ///
-    /// Uses `batch_insert_with_opts()` internally — WAL `batch_append` + KV
-    /// `write_batch` per internal 1000-node engine chunk — followed by a
-    /// single netted derived/text/sparse index commit for the WHOLE batch
-    /// (`replace_derived_indexes_batch`; MEMG-11: O(batch), no full-DB
-    /// rebuild). UPSERTs bump versions like `put()` (in-batch duplicates
-    /// included).
+    /// Uses `batch_insert_with_opts()` internally — one implicit WAL
+    /// transaction frame (`Begin`/`Prepare`/`Commit` markers) wrapping
+    /// per-chunk WAL `batch_append` + KV `write_batch` under a single
+    /// `insert_lock` hold — followed by a single netted derived/text/sparse
+    /// index commit for the WHOLE batch (`replace_derived_indexes_batch`;
+    /// MEMG-11: O(batch), no full-DB rebuild). UPSERTs bump versions like
+    /// `put()` (in-batch duplicates included).
     ///
     /// # Atomicity (FIND-640 — staged commit contract)
     ///
@@ -1424,27 +1425,37 @@ impl Embedded {
     ///   before any record commits — a failure here leaves zero records
     ///   behind (previously, a mid-batch failure kept earlier 1000-entry
     ///   chunks committed).
-    /// - **Stage B (node commit):** every staged node commits through a
-    ///   single `batch_insert_with_opts` call; the engine rolls back all of
-    ///   its internal write chunks on failure (KV restore, HNSW removal,
-    ///   vstore tombstones, cache invalidation), so the node store is
-    ///   atomic across the batch **in-process**: any `Err` return from this
-    ///   call left zero (or zero-net-change) records behind.
+    /// - **Stage B (node commit, crash-atomic):** every staged node commits
+    ///   through a single `batch_insert_with_opts` call. The engine frames
+    ///   the batch in an implicit WAL transaction (`Begin` → `Insert`
+    ///   records → `Prepare` → apply → `Commit`) holding `insert_lock` for
+    ///   the whole frame; **the durable `WalRecord::Commit` is the commit
+    ///   point**. A *process crash* before it leaves zero records after
+    ///   reopen — recovery discards the uncommitted frame (open-txn
+    ///   EOF/`Abort` rule) and the undo pass purges any applied
+    ///   KV/HNSW/vstore prefix by `created_by_txn`. A crash after it is
+    ///   idempotently replayed — the whole batch survives. An in-process
+    ///   `Err` still rolls back all applied chunks (KV restore, HNSW
+    ///   removal, vstore tombstones, cache invalidation) and appends a
+    ///   best-effort `Abort`, so `Err` remains truthful: nothing committed,
+    ///   nothing resurrects.
     /// - **Stage C (derived indexes):** namespace/payload/text/sparse index
     ///   entries are computed with netted stats and committed in ONE
     ///   `write_backend_batch` — atomic for the index layer.
     ///
     /// # Residuals (explicit trade-offs of the staged design)
     ///
-    /// - **Crash window in Stage B:** the engine chunks its WAL/KV commits
-    ///   internally (1000 nodes each). A *process crash* between chunks
-    ///   leaves the already-committed prefix durable — in-process rollback
-    ///   cannot run post-mortem. WAL replay on reopen applies each committed
-    ///   chunk as a self-consistent unit, so a crashed >1000-record batch can
-    ///   surface a record prefix. Closing this needs engine-level WAL
-    ///   transaction markers (begin/commit + recovery discard of
-    ///   unconfirmed batches) — deferred; reported as the FIND-640
-    ///   residual.
+    /// - **Upsert overwrite under crash (R3, FIND-640):** a crash before
+    ///   `Commit` on a batch overwriting a *checkpointed* (already-flushed)
+    ///   record loses the previous version — the undo pass deletes the
+    ///   batch-stamped KV entry but the WAL frame does not carry the old
+    ///   payload (same semantics as an aborted explicit transaction,
+    ///   TXN-01). Re-`put` the record to restore it. Fresh-record crashes
+    ///   are unaffected: nothing resurfaces.
+    /// - **`skip_wal` opt-in (engine API):** `batch_insert_with_opts` callers
+    ///   may pass `skip_wal: true` for regenerable bulk loads — without a
+    ///   WAL there is no frame, so mid-batch crashes can still surface a
+    ///   committed prefix. `put_batch` itself always runs `skip_wal: false`.
     /// - **Post-commit failure in Stage C:** lineage-edge or index-state
     ///   bookkeeping I/O can still return `Err` with the nodes already
     ///   committed — the same exposure class as `put()`. Index entry/state
@@ -1642,10 +1653,12 @@ impl Embedded {
 
         // ── Stage B: single atomic node commit (FIND-640) ──
         // One `batch_insert_with_opts` call for the WHOLE batch: the engine
-        // internally chunks the WAL/KV writes and rolls back every applied
-        // chunk on failure (KV restore/delete, HNSW removal, vstore
-        // tombstones, cache invalidation) — the node store is atomic across
-        // the batch in-process.
+        // frames it as an implicit WAL transaction (Begin → per-chunk Insert
+        // records → Prepare → apply → Commit) under a single insert_lock
+        // hold, so it is atomic across the batch in-process (Err → rollback
+        // of every applied chunk + best-effort Abort) AND across crashes
+        // (pre-Commit crash → recovery discards the frame + undo pass; the
+        // durable Commit is the commit point).
         //
         // `skip_existing_check: false` is REQUIRED for rollback safety: the
         // engine's rollback restores `pre_existing_raw` per node — with the

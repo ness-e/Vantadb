@@ -69,6 +69,21 @@ impl TxnManager {
         txn_id
     }
 
+    /// Allocate a fresh txn id WITHOUT registering it in `active`.
+    ///
+    /// FIND-640: implicit batch transactions need a unique stamp for WAL
+    /// markers (`Begin`/`Prepare`/`Commit`/`Abort`) and for the
+    /// `created_by_txn` field of every `NodeMetadata` the batch writes — the
+    /// recovery undo pass discriminates uncommitted batch entries by that
+    /// stamp. The id must NOT appear in `active`: `insert()`/`delete()`
+    /// check `has_active()` and would buffer foreign writes into this txn's
+    /// buffer (or error with "Multiple active transactions"), where they
+    /// would be silently dropped when the implicit frame is discarded —
+    /// the frame has no `take()`/`discard()` bookkeeping of its own.
+    pub(crate) fn alloc_implicit_id(&self) -> u64 {
+        self.next_txn_id.fetch_add(1, Ordering::Relaxed)
+    }
+
     /// Current id for snapshots and non-txn MVCC stamps (Relaxed — same
     /// ordering the engine used for `begin_snapshot`/insert stamps).
     pub(crate) fn snapshot_id(&self) -> u64 {

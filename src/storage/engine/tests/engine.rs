@@ -1344,7 +1344,7 @@ fn d1a_batch_wal_skip_flag_is_noop() {
         ..Default::default()
     };
     engine
-        .append_batch_wal(&[], &opts)
+        .append_batch_wal(&[], &opts, 0)
         .expect("skip_wal must be a noop Ok");
 }
 
@@ -1449,7 +1449,7 @@ fn d1a_prealloc_grows_small_store() {
 #[test]
 fn d1a_build_kv_put_op_key_shape() {
     let engine = in_memory_engine();
-    let op = engine.build_kv_put_op(&sample_node(95)).expect("build");
+    let op = engine.build_kv_put_op(&sample_node(95), 7).expect("build");
     match op {
         crate::backend::BackendWriteOp::Put { key, .. } => {
             assert_eq!(key, 95u128.to_le_bytes().to_vec(), "key is the LE id");
@@ -1469,6 +1469,7 @@ fn d1a_serialize_batch_nodes_fills_vecs() {
             123,
             false,
             &mut bufs,
+            7,
         )
         .expect("serialize");
     assert_eq!(bufs.kv_ops.len(), 1, "one KV op per node");
@@ -1481,7 +1482,7 @@ fn d1a_stage_one_node_returns_offset_and_put() {
     let engine = in_memory_engine();
     let mut guard = engine.vector_store[0].write();
     let (off, op) = engine
-        .stage_one_node(&mut guard, &sample_node(101), 7)
+        .stage_one_node(&mut guard, &sample_node(101), 7, 42)
         .expect("stage");
     let _ = off;
     assert!(
@@ -1497,7 +1498,13 @@ fn d1a_tombstone_offset_flags_header() {
     let engine = in_memory_engine();
     let mut bufs = super::super::insert::BatchStageBufs::with_capacity(1);
     engine
-        .serialize_batch_nodes(std::slice::from_ref(&sample_node(102)), 0, false, &mut bufs)
+        .serialize_batch_nodes(
+            std::slice::from_ref(&sample_node(102)),
+            0,
+            false,
+            &mut bufs,
+            7,
+        )
         .expect("serialize");
     let (_, local) = unpack_offset(bufs.vstore_offsets[0]);
     let mut guard = engine.vector_store[0].write();

@@ -9,6 +9,7 @@ use crate::node::UnifiedNode;
 
 // ─── Sub-modules (one per source module) ──────────────────────
 
+mod batch_atomicity;
 mod engine;
 mod incremental;
 mod init;
