@@ -50,7 +50,7 @@ for doc in results:
 
 - `similarity_search(query, k=4)` — search by text
 - `similarity_search_by_vector(embedding, k=4)` — search by raw vector
-- `similarity_search_with_score(query, k=4)` — search with cosine distance
+- `similarity_search_with_score(query, k=4)` — search with raw cosine **similarity** score (higher = more similar; the core `MemorySearchHit.score` scale, not a clamped [0,1] relevance)
 - `add_texts(texts, metadatas=None, ids=None)` — add documents
 - `delete(ids=...)` — delete by key
 - `from_texts(texts, embedding, metadatas=None, ids=None)` — create + populate store

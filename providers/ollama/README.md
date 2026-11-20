@@ -43,6 +43,7 @@ print(rid, results)
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `embed` | `embed(texts) -> list[list[float]]` | Generate embeddings via Ollama's `/api/embed`. |
+| `embed_batch` | `embed_batch(texts, batch_size=100) -> list[list[float]]` | Chunked variant of `embed` (PROV-11): one request per `batch_size` chunk, order preserved; `batch_size` must be `>= 1`. |
 | `store` | `store(text, embedding, metadata=None, key=None) -> str` | Store a record; returns `"<namespace>:<key>"`. `key` upserts at a deterministic key, else auto-generated. Metadata values must be `str`/`bool`/`int`/`float`. |
 | `search` | `search(namespace, query_embedding, text_query=None, filters=None, distance_metric=None, top_k=10) -> list[dict]` | Hybrid vector + BM25 search (`distance_metric`: `"cosine"` or `"euclidean"`/`"l2"`). Returns full records plus `score`. |
 | `get` | `get(namespace, key) -> dict \| None` | Retrieve a single record, or `None` if not found. |

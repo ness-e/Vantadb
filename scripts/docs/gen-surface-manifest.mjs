@@ -114,15 +114,15 @@ const STATUS_OVERRIDES = {
   ],
   "providers/openai": [
     "EXPERIMENTAL",
-    "PyPI `vantadb-openai` channel prepared (PROV-12), not yet published",
+    "PyPI `vantadb-openai` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity",
   ],
   "providers/ollama": [
     "EXPERIMENTAL",
-    "PyPI `vantadb-ollama` channel prepared (PROV-12), not yet published",
+    "PyPI `vantadb-ollama` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity",
   ],
   "providers/litellm": [
     "EXPERIMENTAL",
-    "PyPI `vantadb-litellm` channel prepared (PROV-12), not yet published",
+    "PyPI `vantadb-litellm` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity",
   ],
   fuzz: ["INTERNAL", "cargo-fuzz harness; outside the workspace; never distributed"],
 };
@@ -139,9 +139,9 @@ const TAG_NS = {
   "vantadb-mcp": "transitive via server binaries",
   "vanta-proxy": "none until 1.0 (frozen)",
   "vantadb-ffi-core": "none (compiled into bindings)",
-  "providers/openai": "`providers-v*.*.*` (pending first publish)",
-  "providers/ollama": "`providers-v*.*.*` (pending first publish)",
-  "providers/litellm": "`providers-v*.*.*` (pending first publish)",
+  "providers/openai": "`providers-v*.*.*` (manual dispatch — `release-providers.yml`)",
+  "providers/ollama": "`providers-v*.*.*` (manual dispatch — `release-providers.yml`)",
+  "providers/litellm": "`providers-v*.*.*` (manual dispatch — `release-providers.yml`)",
   fuzz: "none (CI harness `fuzz.yml`)",
 };
 

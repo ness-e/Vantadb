@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-293 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+294 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (2)
 
@@ -67,7 +67,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Write receipts (VER-10) — attestation of writes](./api/WRITE_RECEIPTS.md)                    | reference | Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan                            |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)                  | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (160)
+## Internal / contributor (161)
 
 ### Architecture decision records — 62
 
@@ -136,7 +136,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [ADR-0014: PITR — experimental standalone API, engine integration deferred](./dev/architecture/adr/ADR-0014-pitr.md)                                                                      | adr  | The pitr feature is declared in Cargo.toml (pitr = \[\]) and gates _(superseded)_                                                                                                                                                                                                                                             |
 | [ADR-0015: Coverage policy gate — root crate vs workspace and bindings](./dev/architecture/adr/ADR-0015-coverage-policy.md)                                                               | adr  | Superseded by ADR-0018, which resolves the _(superseded)_                                                                                                                                                                                                                                                                     |
 
-### Concepts & architecture — 18
+### Concepts & architecture — 19
 
 | Document                                                                                                                                        | Kind    | Summary                                                                                                                                                                                                                                                               |
 | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -158,6 +158,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM threads: lock-free multi-thread design (STRAT-04)](./dev/architecture/WASM_THREADS.md)                                                    | concept | Design and measured first slice for lock-free multi-threaded WASM (SharedArrayBuffer + atomics), with COOP/COEP requirements and single-thread fallback                                                                                                               |
 | [Experimental Governance — Proposed Design (NOT Implemented)](./dev/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md)                             | concept | The only existing code related to this document is src/gds.rs _(draft)_                                                                                                                                                                                               |
 | [LISP Experimental Analysis — Features to Recover](./dev/architecture/LISP_ANALYSIS.md)                                                         | concept | The experimental LISP DSL had fundamental architectural problems _(draft)_                                                                                                                                                                                            |
+| [VantaDB Studio — technical reconciliation spec (develop-desktop vs develop)](./dev/architecture/desktop-reconciliation.md)                     | concept | Merge-base inventory, API-break map, compile plan and packaging/signing workflow design for reconciling VantaDB Studio (develop-desktop) with develop _(draft)_                                                                                                       |
 
 ### Index — 3
 

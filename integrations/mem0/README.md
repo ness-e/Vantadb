@@ -46,7 +46,11 @@ for r in results:
   when an embedding callable is set)
 - `search(query, vectors, top_k=5, filters=None)` — search by a pre-computed
   dense vector (mem0 supplies the embedding); returns `OutputData` objects
-  (`.id`, `.score`, `.payload`)
+  (`.id`, `.score`, `.payload`). `filters` scopes results exactly: flat
+  `{"field": value}` / `{"$eq": v}` is pushed down to the engine; `$neq`/`$ne`,
+  `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin` are evaluated as a Python
+  post-filter; unknown operators fail closed (never broaden the result set) —
+  this is what enforces mem0's `user_id`/`agent_id` isolation
 - `delete(key)` — delete a memory by key
 - `list(filters=None, top_k=100)` — list memories
 

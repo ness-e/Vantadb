@@ -28,6 +28,12 @@ temporal fallback = last 30 days + explicit warning. Full rules: `TOKEN-BUDGET.m
 - **Codex:** copy `codex/hooks.json` → `<repo>/.codex/hooks.json` (or `~/.codex/hooks.json`);
   review/trust via `/hooks`. Docs: `https://developers.openai.com/codex/hooks`.
 
+OpenCode `session.idle` resolves a stable per-session thread
+(`vanta-opencode-idle-<sessionID>`, reused via `thread_list`, created once via
+`thread_create`) before `thread_send` — `thread_id` is a required arg
+(`vantadb-mcp/src/threads.rs`), and bus events arrive through the generic
+`event` hook in current opencode (FIND-169).
+
 Launcher (recall hooks): `vanta-cli mcp-call --db <DB_PATH> --tool memory_recall --args '{...}'`
 (one-shot, no pwsh — WIRE-10; the binary the installer puts in `~/.vanta/bin`.
 Per-message hooks splice the verbatim prompt as `{{prompt}}`, resolved

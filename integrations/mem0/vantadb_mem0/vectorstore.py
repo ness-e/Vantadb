@@ -1,14 +1,34 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional, Tuple, Callable
 
 import vantadb_py as vanta
 from mem0.vector_stores.base import VectorStoreBase
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_NAMESPACE = "mem0"
 DEFAULT_TOP_K = 5
+
+# FIND-579: candidate over-fetch factor used when a mem0 `filters` dict
+# contains operators that cannot be pushed down to the engine (they are
+# evaluated in Python instead). Bounded so a filtered search never returns
+# fewer than `top_k` hits unless the corpus genuinely lacks matches.
+_POST_FILTER_OVERFETCH = 4
+_POST_FILTER_MIN_CANDIDATES = 25
+
+# M-8: hard bound for `delete_col()` — each iteration deletes up to one page
+# of 1000 records; the cap only triggers on a pathological loop (records
+# re-created faster than deleted, or a backend that never reports progress).
+_DELETE_COL_MAX_ITERATIONS = 10_000
+
+# Filter operators evaluated in the Python post-filter (mirrors the wire
+# format `py_dict_to_filter_ops` accepts in the SDK: $eq/$neq/$gt/$gte/$lt/$lte,
+# plus mem0-style $in/$nin for parity with other vector stores).
+_KNOWN_OPS = frozenset({"$eq", "$neq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$nin"})
 
 
 class OutputData:
@@ -81,6 +101,88 @@ def _build_payload(metadata, payload_text: str = "") -> Dict[str, Any]:
 
 
 # ──────────────────────────────────────────────────────────────────────
+#  Filter translation (FIND-579)
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _translate_filters(
+    filters: Optional[Dict[str, Any]],
+) -> Tuple[Dict[str, Any], List[Tuple[str, str, Any]]]:
+    """Split a mem0-style ``filters`` dict into engine push-down + residual ops.
+
+    VantaDB's ``memory.search``/``memory.list`` ``filters`` parameter only
+    accepts a flat ``{field: scalar}`` map (metadata equality). Nested
+    ``{"$op": value}`` specs would be stored as an object literal and match
+    nothing, so they must never reach the binding.
+
+    Returns ``(native_eq, residual)``:
+
+    - ``native_eq``: flat ``{field: value}`` equality dict, safe to pass to
+      the binding (``None``-equivalent when empty).
+    - ``residual``: ``[(field, op, value)]`` evaluated in Python by
+      :func:`_record_matches`. ``$eq`` goes push-down; every other operator
+      is residual. Unknown ``$op`` keys are kept as residual and fail closed
+      (the record is excluded) — a filter that cannot be applied must never
+      silently broaden the result set.
+    """
+    native: Dict[str, Any] = {}
+    residual: List[Tuple[str, str, Any]] = []
+    for field, spec in (filters or {}).items():
+        if isinstance(spec, dict):
+            for op, val in spec.items():
+                if op == "$eq":
+                    native[field] = val
+                elif op in _KNOWN_OPS:
+                    residual.append((field, op, val))
+                else:
+                    logger.warning(
+                        "vantadb_mem0: unsupported filter operator %r on field %r; "
+                        "failing closed (hits excluded)",
+                        op,
+                        field,
+                    )
+                    residual.append((field, op, val))
+        else:
+            # Flat scalar -> implicit $eq, the canonical wire form.
+            native[field] = spec
+    return native, residual
+
+
+def _value_matches(actual: Any, op: str, expected: Any) -> bool:
+    """Evaluate one (field, op, expected) triple against a stored value."""
+    if op in ("$eq",):
+        return actual == expected
+    if op in ("$neq", "$ne"):
+        return actual != expected
+    if op == "$in":
+        return isinstance(expected, (list, tuple, set)) and actual in expected
+    if op == "$nin":
+        return isinstance(expected, (list, tuple, set)) and actual not in expected
+    try:
+        if op == "$gt":
+            return actual > expected
+        if op == "$gte":
+            return actual >= expected
+        if op == "$lt":
+            return actual < expected
+        if op == "$lte":
+            return actual <= expected
+    except TypeError:
+        # Incomparable types (e.g. str vs int) cannot satisfy the predicate.
+        return False
+    # Unknown operator: fail closed — never broaden a filtered query.
+    return False
+
+
+def _record_matches(payload: Dict[str, Any], residual: List[Tuple[str, str, Any]]) -> bool:
+    """True when ``payload`` satisfies every residual filter predicate."""
+    for field, op, expected in residual:
+        if not _value_matches(payload.get(field), op, expected):
+            return False
+    return True
+
+
+# ──────────────────────────────────────────────────────────────────────
 #  VectorStoreBase implementation
 # ──────────────────────────────────────────────────────────────────────
 
@@ -144,8 +246,7 @@ class VantaDBVectorStore(VectorStoreBase):
         write.  Logged for observability; actual creation happens on
         first insert.
         """
-        import logging
-        logging.getLogger(__name__).info(
+        logger.info(
             f"create_col({name}): VantaDB auto-creates on first insert; "
             f"vector_size={vector_size}, distance={distance} ignored"
         )
@@ -180,18 +281,39 @@ class VantaDBVectorStore(VectorStoreBase):
 
         ``vectors`` is a single dense vector (list of floats).  Mem0 handles
         embeddings externally and passes the result here.
+
+        ``filters`` (FIND-579): flat ``{field: value}`` pairs and ``$eq``
+        specs are pushed down to the engine's metadata filter; any other
+        operator spec is evaluated as an exact Python post-filter (with
+        candidate over-fetch). A filter is never silently dropped — unknown
+        operators fail closed.
         """
+        native_eq, residual = _translate_filters(filters)
+        fetch_k = top_k
+        if residual:
+            fetch_k = max(top_k * _POST_FILTER_OVERFETCH, _POST_FILTER_MIN_CANDIDATES)
         results = self._db.memory.search(
-            self.namespace, vectors, top_k=top_k, distance_metric="cosine"
+            self.namespace,
+            vectors,
+            top_k=fetch_k,
+            distance_metric="cosine",
+            filters=native_eq or None,
         )
-        return [
-            OutputData(
-                id=hit.key,
-                score=_normalize_score(hit.score),
-                payload=_build_payload(hit.metadata, hit.payload),
+        out: List[OutputData] = []
+        for hit in results:
+            payload = _build_payload(hit.metadata, hit.payload)
+            if residual and not _record_matches(payload, residual):
+                continue
+            out.append(
+                OutputData(
+                    id=hit.key,
+                    score=_normalize_score(hit.score),
+                    payload=payload,
+                )
             )
-            for hit in results
-        ]
+            if len(out) >= top_k:
+                break
+        return out
 
     def delete(self, vector_id: str) -> None:
         """Delete a single record by its id."""
@@ -255,17 +377,61 @@ class VantaDBVectorStore(VectorStoreBase):
         ``memory.list`` + ``memory.delete``. Re-list from the start
         until empty (no advancing cursor while deleting: offsets
         shift under mutation and would skip records past page 1).
+
+        M-8 strict progress guard: the loop exits only on an empty page.
+        Three non-progress signals raise instead of spinning forever:
+
+        - a page identical to the previous one (every key survived a
+          full delete pass);
+        - two consecutive passes in which ``memory.delete`` reported
+          ``False`` for every listed key (a read-only or failing
+          backend). One zero-delete pass is tolerated so a concurrent
+          deleter cannot false-positive the guard — if that actor
+          finished, the next page is empty and the loop exits cleanly.
+        - an iteration cap, for the pathological case where records are
+          re-created faster than they are deleted.
+
+        ``delete`` returning ``None`` (older bindings) is tolerated as a
+        success signal — the identical-page check above still guards
+        that case; only an explicit ``False`` counts as a failed delete.
         """
-        while True:
+        prev_keys: Optional[frozenset] = None
+        zero_delete_passes = 0
+        for _ in range(_DELETE_COL_MAX_ITERATIONS):
             try:
                 records = self._db.memory.list(self.namespace, limit=1000)
             except Exception as e:
                 raise RuntimeError(f"Failed to delete collection {self.namespace}: {e}") from e
             page = records.records if hasattr(records, 'records') else records
             if not page:
-                break
+                return
+            keys = frozenset(r.key for r in page)
+            if keys == prev_keys:
+                raise RuntimeError(
+                    f"delete_col({self.namespace}): no progress — the same "
+                    f"{len(keys)} keys survived a full delete pass"
+                )
+            prev_keys = keys
+            deleted = 0
             for r in page:
-                self._db.memory.delete(self.namespace, r.key)
+                if self._db.memory.delete(self.namespace, r.key) is not False:
+                    deleted += 1
+            if deleted == 0:
+                zero_delete_passes += 1
+                if zero_delete_passes >= 2:
+                    raise RuntimeError(
+                        f"delete_col({self.namespace}): memory.delete "
+                        "reported failure for every key in two "
+                        "consecutive passes — backend is not making "
+                        "progress"
+                    )
+            else:
+                zero_delete_passes = 0
+        raise RuntimeError(
+            f"delete_col({self.namespace}): exceeded "
+            f"{_DELETE_COL_MAX_ITERATIONS} iterations without reaching an "
+            "empty page"
+        )
 
     def col_info(self) -> Dict[str, Any]:
         """Return basic metadata about the collection."""
@@ -280,16 +446,33 @@ class VantaDBVectorStore(VectorStoreBase):
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 100,
     ) -> List[OutputData]:
-        """List records in the collection, optionally filtered."""
-        raw = self._db.memory.list(self.namespace, filters=filters, limit=top_k)
-        return [
-            OutputData(
-                id=r.key,
-                score=1.0,
-                payload=_build_payload(r.metadata, r.payload),
+        """List records in the collection, optionally filtered.
+
+        Same filter contract as :meth:`search` (FIND-579): equality specs
+        are pushed down, other operators are evaluated in Python.
+        """
+        native_eq, residual = _translate_filters(filters)
+        fetch_k = top_k
+        if residual:
+            fetch_k = max(top_k * _POST_FILTER_OVERFETCH, _POST_FILTER_MIN_CANDIDATES)
+        raw = self._db.memory.list(
+            self.namespace, filters=native_eq or None, limit=fetch_k
+        )
+        out: List[OutputData] = []
+        for r in raw.records:
+            payload = _build_payload(r.metadata, r.payload)
+            if residual and not _record_matches(payload, residual):
+                continue
+            out.append(
+                OutputData(
+                    id=r.key,
+                    score=1.0,
+                    payload=payload,
+                )
             )
-            for r in raw.records
-        ]
+            if len(out) >= top_k:
+                break
+        return out
 
     def reset(self) -> None:
         """Delete the collection so it is recreated on next use."""

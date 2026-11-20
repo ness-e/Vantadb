@@ -29,9 +29,9 @@ tags: [vantadb, surface, release]
 | `vanta-memory` | `vanta-memory` | 0.9.0 (workspace) | **EXPERIMENTAL** | release-plz `release = false` | `v*.*.*` (held — DIST-01) | DIST-01 hold: manifest publishable, release-plz `release = false` until Trusted Publishing bootstrap (owner) |
 | `vanta-proxy` | `vanta-proxy` | 0.9.0 (workspace) | **FROZEN** | `publish = false` (non-crates.io channel) | none until 1.0 (frozen) | Freeze List until 1.0 (DIST-18 re-scoped); source build only, no publish |
 | `vantadb-node` | `vantadb-node (npm)` | 0.9.0 | **PUBLIC** | npm (planned; `release-npm-node.yml`) | `node-v*.*.*` (npm-node) | npm `vantadb-node` published via napi-rs (`release-npm-node.yml`); native Node.js binding |
-| `providers/openai` | `vantadb-openai` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (pending first publish) | PyPI `vantadb-openai` channel prepared (PROV-12), not yet published |
-| `providers/ollama` | `vantadb-ollama` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (pending first publish) | PyPI `vantadb-ollama` channel prepared (PROV-12), not yet published |
-| `providers/litellm` | `vantadb-litellm` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (pending first publish) | PyPI `vantadb-litellm` channel prepared (PROV-12), not yet published |
+| `providers/openai` | `vantadb-openai` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (manual dispatch — `release-providers.yml`) | PyPI `vantadb-openai` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity |
+| `providers/ollama` | `vantadb-ollama` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (manual dispatch — `release-providers.yml`) | PyPI `vantadb-ollama` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity |
+| `providers/litellm` | `vantadb-litellm` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (manual dispatch — `release-providers.yml`) | PyPI `vantadb-litellm` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity |
 | `fuzz` | `vantadb-fuzz` | see manifest | **INTERNAL** | `publish = false` (non-crates.io channel) | none (CI harness `fuzz.yml`) | cargo-fuzz harness; outside the workspace; never distributed |
 
 ## Versions (REL-03 — generated, not manual)

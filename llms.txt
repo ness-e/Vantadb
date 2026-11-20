@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-293 documentation pages; it deliberately omits the 0 task files,
+294 documentation pages; it deliberately omits the 0 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -130,6 +130,7 @@ is in docs/index.md in the repository.
 - [Workflow local de desarrollo](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/developer/local-workflow.md): Herramientas del flujo diario: Justfile, verify scripts, perfiles de build y comandos de documentación.
 - [Experimental Governance — Proposed Design (NOT Implemented)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md): The only existing code related to this document is src/gds.rs
 - [LISP Experimental Analysis — Features to Recover](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/LISP_ANALYSIS.md): The experimental LISP DSL had fundamental architectural problems
+- [VantaDB Studio — technical reconciliation spec (develop-desktop vs develop)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/desktop-reconciliation.md): Merge-base inventory, API-break map, compile plan and packaging/signing workflow design for reconciling VantaDB Studio (develop-desktop) with develop
 
 ## Guides
 

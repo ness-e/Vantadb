@@ -120,11 +120,11 @@ Retrieve a specific memory by key.
 
 ```python
 memory = db.memory.get("agent/session-1", "ctx-001")
-print(memory["payload"])
-print(memory["metadata"])
+print(memory["payload"])   # Record supports dict-style access...
+print(memory.metadata)     # ...and attribute access
 ```
 
-**Returns:** Dictionary with `payload`, `metadata`, `vector` (if available), or `None` if not found.
+**Returns:** `Record` object with `payload`, `metadata`, `vector` (if available), or `None` if not found.
 
 ### search()
 
@@ -172,7 +172,7 @@ results = db.search(
 - `method`: Optional index backend override: `"ivf"`, `"scann"`, `"hnsw"` or `"flat"`. Defaults to the engine's configured routing.
 - `explain`: Include search explanations (default `False`)
 
-**Returns:** List of `VantaSearchHit` with `key`, `payload`, `metadata`, `vector`, `score`, and timestamps.
+**Returns:** List of `SearchHit` objects with attribute access: `key`, `payload`, `metadata`, `vector`, `score`, and timestamps (`created_at_ms`, `updated_at_ms`, `version`, `confidence`, ...).
 
 **Performance Notes:**
 - Hybrid search uses RRF (Reciprocal Rank Fusion) for deterministic ranking
@@ -247,7 +247,7 @@ metrics = db.operational_metrics()
 print(f"Process RSS: {metrics['process_rss_bytes'] / 1024 / 1024:.2f} MB")
 print(f"HNSW Nodes: {metrics['hnsw_nodes_count']}")
 print(f"HNSW Logical Memory: {metrics['hnsw_logical_bytes'] / 1024 / 1024:.2f} MB")
-print(f"MMap Resident Pages: {metrics['mmap_resident_pages']}")
+print(f"MMap Resident Bytes: {metrics['mmap_resident_bytes']}")  # may be None
 ```
 
 ### Export/Import
@@ -269,28 +269,28 @@ db.import_file("./backup.jsonl")
 
 ### Batch Inserts (`put_batch`)
 
-Insert multiple records in one call. Two forms are supported:
+Insert multiple records in one call. `put_batch` takes a single positional
+argument: a **list of record dicts**, each mirroring the `put()` keyword
+arguments (canonical cross-SDK shape, W1/API-02):
 
 ```python
-# Form 1: list of tuples (namespace, key, payload, metadata, vector, ttl_ms)
-entries = [
-    ("ns1", "k1", "payload 1", {"type": "note"}, [0.1, 0.2], None),
-    ("ns1", "k2", "payload 2", {"type": "note"}, [0.3, 0.4], 60_000),
+records = [
+    {"namespace": "ns1", "key": "k1", "payload": "payload 1",
+     "metadata": {"type": "note"}, "vector": [0.1, 0.2]},
+    {"namespace": "ns1", "key": "k2", "payload": "payload 2",
+     "metadata": {"type": "note"}, "vector": [0.3, 0.4], "ttl_ms": 60_000},
 ]
-db.put_batch(entries=entries)
-
-# Form 2: parallel kwargs (shared namespace + lists)
-db.put_batch(
-    namespace="ns1",
-    keys=["k1", "k2"],
-    payloads=["payload 1", "payload 2"],
-    metadatas=[{"type": "note"}, {"type": "note"}],
-    vectors=[[0.1, 0.2], [0.3, 0.4]],
-    ttls=[None, 60_000],
-)
+db.put_batch(records)
 ```
 
-For zero-copy bulk loads from a 2D numpy float32 array, use `put_batch_raw(vectors, keys, ...)`.
+`key` is required per record; `namespace` defaults to `"default"`, `payload`
+to `""`, and `metadata`/`vector`/`ttl_ms` are optional. A batch-level
+`confidence` keyword (`db.put_batch(records, confidence=0.9)`) applies to
+records that do not declare their own `"confidence"` key.
+
+For zero-copy bulk loads from a 2D NumPy float32 array, use
+`put_batch_raw(vectors, keys, payloads=None, metadatas=None, namespaces=None, ttls=None)` —
+`keys` is required, the rest are optional per-row parallel lists.
 
 ### TTL / Expiration
 
@@ -320,7 +320,7 @@ Call it during maintenance windows or after large delete/purge workloads.
 VantaDB exposes an IQL (query language) interface through `db.query()`. IQL returns results as a JSON string:
 
 ```python
-result = db.query('SELECT * FROM memory WHERE namespace = "agent/session-1" LIMIT 10')
+result = db.query('SELECT * FROM agent_session_1 LIMIT 10')
 ```
 
 The MCP server exposes the same capability as the `query_iql` tool. (LISP is not supported.)
@@ -397,7 +397,7 @@ results = vector_store.similarity_search("rust database", k=3)
 Package: `vantadb-llamaindex` (source in `integrations/llamaindex/`).
 
 ```bash
-pip install vantadb-llamaindex llama-index-core
+pip install vantadb-llamaindex llama-index-core llama-index-embeddings-openai
 ```
 
 ```python
@@ -468,7 +468,7 @@ All mutations are written to WAL before being applied to storage:
 
 Reciprocal Rank Fusion merges independent rankings:
 ```python
-score = sum(1 / (k + rank_i) for each ranking)
+score = sum(1.0 / (k + rank_i) for rank_i in rankings)  # k = 60 (ADR-0005)
 ```
 - No parameter tuning required
 - Deterministic results
@@ -505,9 +505,9 @@ Source: `docs/user/operations/BENCHMARKS.md` §1 (Stress Protocol, AVX2 environm
 # Set appropriate memory limit based on workload
 db = vantadb.Client("./db", memory_limit_bytes=512_000_000)  # 512MB
 
-# Monitor RSS drift
+# Monitor RSS drift against the configured budget
 metrics = db.operational_metrics()
-if metrics['process_rss_bytes'] > threshold:
+if metrics['process_rss_bytes'] > 512_000_000 * 0.9:
     # Consider rebuilding index or compacting WAL
     db.rebuild_index()
     db.compact_wal()
@@ -535,9 +535,9 @@ if metrics['process_rss_bytes'] > threshold:
 ### Index Rebuild Strategy
 
 ```python
-# After bulk import
+# After bulk import (batch = list of record dicts)
 for batch in large_dataset:
-    db.put_batch(entries=batch)
+    db.put_batch(batch)
 db.rebuild_index()  # Optimize layout
 
 # Periodic maintenance (weekly)
@@ -672,8 +672,8 @@ def rag_pipeline(query, db, embedding_fn):
         top_k=5
     )
     
-    # Build context
-    context = "\n".join([r['record']['payload'] for r in results])
+    # Build context (SearchHit exposes attributes, not dict indexing)
+    context = "\n".join([r.payload for r in results])
     
     # Generate response (with your LLM)
     response = llm.generate(f"Context: {context}\n\nQuestion: {query}")
@@ -706,18 +706,20 @@ def agent_memory_loop(agent, db, embedding_fn):
 ### Caching Layer
 
 ```python
-def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
+import time
+
+def cache_with_vantadb(db, key, compute_fn, embedding_fn, ttl_seconds=3600):
     # Try cache first
     cached = db.memory.get("cache", key)
-    if cached and time.time() - cached['metadata']['timestamp'] < ttl_seconds:
-        return cached['payload']
-    
-    # Compute and cache
+    if cached and time.time() - cached["metadata"]["timestamp"] < ttl_seconds:
+        return cached["payload"]
+
+    # Compute and cache (payload must be str)
     result = compute_fn()
     db.put(
         namespace="cache",
         key=key,
-        payload=result,
+        payload=str(result),
         metadata={"timestamp": time.time()},
         vector=embedding_fn(str(result))
     )
@@ -726,7 +728,7 @@ def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
 
 ## Limitations
 
-### Current Boundaries (v0.5.x)
+### Current Boundaries (v0.9.x)
 
 **Supported:**
 - Embedded storage with WAL durability

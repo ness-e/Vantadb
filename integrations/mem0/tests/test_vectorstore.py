@@ -130,6 +130,177 @@ class TestBackwardCompat:
         assert store.get(key) is None
 
 
+# ── FIND-579: filters are honored (user_id isolation) ─────────
+
+
+class TestSearchFilters:
+    """mem0 scopes memories per user/agent via ``filters`` — dropping them
+    leaks one user's memories into another user's context."""
+
+    def _populate_two_users(self, store):
+        store.insert(
+            [VEC_128, VEC_128_B],
+            payloads=[
+                {"data": "alice memory", "user_id": "alice"},
+                {"data": "bob memory", "user_id": "bob"},
+            ],
+            ids=["u-a", "u-b"],
+        )
+
+    def test_search_filters_flat_user_id(self, store):
+        self._populate_two_users(store)
+        results = store.search("memory", VEC_128, top_k=5, filters={"user_id": "alice"})
+        ids = {r.id for r in results}
+        assert "u-a" in ids
+        assert "u-b" not in ids
+
+    def test_search_filters_eq_operator(self, store):
+        self._populate_two_users(store)
+        results = store.search(
+            "memory", VEC_128, top_k=5, filters={"user_id": {"$eq": "alice"}}
+        )
+        ids = {r.id for r in results}
+        assert "u-a" in ids
+        assert "u-b" not in ids
+
+    def test_search_filters_no_match(self, store):
+        self._populate_two_users(store)
+        results = store.search(
+            "memory", VEC_128, top_k=5, filters={"user_id": "carol"}
+        )
+        assert results == []
+
+    def test_search_without_filters_returns_all(self, store):
+        self._populate_two_users(store)
+        results = store.search("memory", VEC_128, top_k=5)
+        ids = {r.id for r in results}
+        assert {"u-a", "u-b"} <= ids
+
+    def test_search_residual_operator_postfilter(self, store):
+        """Operators that cannot be pushed down are evaluated in Python."""
+        self._populate_two_users(store)
+        results = store.search(
+            "memory", VEC_128, top_k=5, filters={"user_id": {"$neq": "alice"}}
+        )
+        ids = {r.id for r in results}
+        assert "u-b" in ids
+        assert "u-a" not in ids
+
+    def test_search_unknown_operator_fails_closed(self, store):
+        """An operator the adapter cannot evaluate must not broaden results."""
+        self._populate_two_users(store)
+        results = store.search(
+            "memory", VEC_128, top_k=5, filters={"user_id": {"$contains": "ali"}}
+        )
+        assert results == []
+
+    def test_list_filters_flat_user_id(self, store):
+        self._populate_two_users(store)
+        results = store.list(filters={"user_id": "bob"}, top_k=10)
+        ids = {r.id for r in results}
+        assert "u-b" in ids
+        assert "u-a" not in ids
+
+
+class TestFilterTranslationHelpers:
+    """Pure-Python contract of the filter split — no engine needed."""
+
+    def test_translate_flat_and_eq(self):
+        from vantadb_mem0.vectorstore import _translate_filters
+
+        native, residual = _translate_filters(
+            {"user_id": "alice", "meta": {"$eq": 1, "$gte": 5}}
+        )
+        assert native == {"user_id": "alice", "meta": 1}
+        assert residual == [("meta", "$gte", 5)]
+
+    def test_translate_unknown_op_residual(self):
+        from vantadb_mem0.vectorstore import _translate_filters
+
+        native, residual = _translate_filters({"f": {"$regex": "x"}})
+        assert native == {}
+        assert residual == [("f", "$regex", "x")]
+
+    def test_matches_scalar_ops(self):
+        from vantadb_mem0.vectorstore import _record_matches
+
+        payload = {"user_id": "alice", "priority": 3}
+        assert _record_matches(payload, [("user_id", "$eq", "alice")])
+        assert not _record_matches(payload, [("user_id", "$neq", "alice")])
+        assert _record_matches(payload, [("priority", "$gte", 3)])
+        assert not _record_matches(payload, [("priority", "$lt", 3)])
+        assert _record_matches(payload, [("user_id", "$in", ["alice", "bob"])])
+        assert not _record_matches(payload, [("user_id", "$nin", ["alice"])])
+        # Missing field never satisfies a predicate (fail closed).
+        assert not _record_matches(payload, [("missing", "$eq", "x")])
+        assert not _record_matches(payload, [("missing", "$bogus", "x")])
+
+
+class TestDeleteColGuard:
+    """M-8: delete_col must not loop forever when deletes make no progress."""
+
+    class _FakeMemory:
+        def __init__(self, keys, delete_ok=False):
+            self._keys = keys
+            self._delete_ok = delete_ok
+
+        def list(self, namespace, **kwargs):
+            import types
+
+            return types.SimpleNamespace(
+                records=[types.SimpleNamespace(key=k) for k in self._keys]
+            )
+
+        def delete(self, namespace, key):
+            if self._delete_ok:
+                self._keys.remove(key)
+            return self._delete_ok
+
+    class _FakeDb:
+        def __init__(self, memory):
+            self.memory = memory
+
+    def test_delete_col_raises_on_no_progress(self, store):
+        """If memory.delete returns False the page repeats → explicit error."""
+        store._db = self._FakeDb(self._FakeMemory(["k1", "k2"], delete_ok=False))
+        with pytest.raises(RuntimeError, match="no progress"):
+            store.delete_col()
+
+    class _RotatingMemory:
+        """list() returns a *different* page each call; delete() always fails.
+
+        The identical-page check can never fire here — only the consecutive
+        zero-deletion-passes guard can stop the loop.
+        """
+
+        def __init__(self):
+            self._gen = 0
+
+        def list(self, namespace, **kwargs):
+            import types
+
+            self._gen += 1
+            return types.SimpleNamespace(
+                records=[
+                    types.SimpleNamespace(key=f"k{self._gen}-{i}") for i in range(3)
+                ]
+            )
+
+        def delete(self, namespace, key):
+            return False
+
+    def test_delete_col_raises_on_zero_delete_passes(self, store):
+        """Every delete() reporting False twice in a row → explicit error."""
+        store._db = self._FakeDb(self._RotatingMemory())
+        with pytest.raises(RuntimeError, match="not making progress"):
+            store.delete_col()
+
+    def test_delete_col_empties_normally(self, store):
+        store.insert([VEC_128], payloads=[{"data": "x"}], ids=["d1"])
+        store.delete_col()
+        assert store.list(top_k=10) == []
+
+
 # ── OutputData helper ─────────────────────────────────────────
 
 
