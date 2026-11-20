@@ -114,6 +114,17 @@ impl StorageEngine {
         })
     }
 
+    /// Read-guard twin of [`Self::vstore0`] for read-only paths (ERR-003).
+    pub(crate) fn vstore0_read(
+        &self,
+    ) -> Result<parking_lot::RwLockReadGuard<'_, crate::storage::vfile::File>> {
+        self.vector_store.first().map(|v| v.read()).ok_or_else(|| {
+            crate::error::Error::generic_error(
+                "corrupt storage: vector_store has no segment 0".to_string(),
+            )
+        })
+    }
+
     /// Scan the backend and physically remove entries whose MVCC delete
     /// stamp is older than `safe_cutoff`. A version is reclaimable when
     /// `deleted_by_txn < safe_cutoff` because any snapshot created at or

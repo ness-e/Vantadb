@@ -618,20 +618,24 @@ impl StorageEngine {
         };
 
         if hnsw.is_empty() {
-            // Rebuild from L0 (and eventually all levels) — for now L0 is primary
-            let report = {
-                let l0_vf = vector_store[0].write();
-                crate::storage::archive::rebuild_hnsw_from_vstore(hnsw, &l0_vf, index_path)?
-            };
-            crate::metrics::record_ann_rebuild(report.duration_ms, report.scanned_nodes);
-            if report.scanned_nodes > 0 {
-                info!(
-                    scanned_nodes = report.scanned_nodes,
-                    indexed_vectors = report.indexed_vectors,
-                    skipped_tombstones = report.skipped_tombstones,
-                    duration_ms = report.duration_ms,
-                    "Index reconstructed from File"
-                );
+            // Rebuild from L0 (and eventually all levels) — for now L0 is
+            // primary. An empty `vector_store` means there is nothing to
+            // rebuild from; skip instead of panicking on a raw index (ERR-003).
+            if let Some(l0) = vector_store.first() {
+                let report = {
+                    let l0_vf = l0.write();
+                    crate::storage::archive::rebuild_hnsw_from_vstore(hnsw, &l0_vf, index_path)?
+                };
+                crate::metrics::record_ann_rebuild(report.duration_ms, report.scanned_nodes);
+                if report.scanned_nodes > 0 {
+                    info!(
+                        scanned_nodes = report.scanned_nodes,
+                        indexed_vectors = report.indexed_vectors,
+                        skipped_tombstones = report.skipped_tombstones,
+                        duration_ms = report.duration_ms,
+                        "Index reconstructed from File"
+                    );
+                }
             }
         }
 

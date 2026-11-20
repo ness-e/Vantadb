@@ -523,7 +523,7 @@ impl StorageEngine {
         let report = {
             // Rebuild from L0 (primary segment). For L1+ data, the offsets
             // will be updated when the HNSW is populated from all levels.
-            let vstore = self.vector_store[0].read();
+            let vstore = self.vstore0_read()?;
             crate::storage::archive::rebuild_hnsw_from_vstore_with_segment(
                 &mut *rebuilt,
                 &vstore,
@@ -579,7 +579,7 @@ impl StorageEngine {
 
         // ponytail: compact_layout_bfs compacts L0 only. Multi-level BFS
         // compaction is handled by compact_level().
-        let mut vstore = self.vector_store[0].write();
+        let mut vstore = self.vstore0()?;
         let hnsw = self.hnsw.load();
 
         let entry_point_id = match hnsw.entry_point() {
@@ -945,7 +945,7 @@ impl StorageEngine {
 
         let file_size_before = {
             // ponytail: compact L0 only
-            let vs = self.vector_store[0].read();
+            let vs = self.vstore0_read()?;
             vs.mmap_bytes().len() as u64
         };
 
@@ -954,7 +954,7 @@ impl StorageEngine {
 
         let file_size_after = {
             // ponytail: compact L0 only
-            let vs = self.vector_store[0].read();
+            let vs = self.vstore0_read()?;
             vs.mmap_bytes().len() as u64
         };
 
