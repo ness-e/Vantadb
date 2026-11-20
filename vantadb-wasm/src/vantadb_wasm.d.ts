@@ -15,11 +15,11 @@
  *  - typed enums for the few string-flagged arguments
  *  - JSDoc on every method (copied from the Rust doc comments)
  *
- * Build wiring: `dev-tools/build-wasm-types.mjs` replaces the generated
- * `export class Client` block in `pkg/vantadb_wasm.d.ts` with the
- * contents of this file after `wasm-pack build`. The generated `InitInput`,
- * `InitOutput`, and `SyncInitInput` types are preserved unchanged because
- * they map 1:1 to the wasm-bindgen runtime glue.
+ * Build wiring: `dev-tools/build-wasm-types.mjs` overwrites the generated
+ * `pkg/vantadb_wasm.d.ts` with this file after `wasm-pack build` (the
+ * bundler pkg auto-initializes and exports only `Client`, so no init
+ * glue is declared). The `web`/`nodejs` targets keep their generated
+ * .d.ts which does include `initSync`/`__wbg_init`.
  *
  * Source of truth: `vantadb-wasm/src/lib.rs`. When the Rust signatures
  * change, update this file in the same PR.
@@ -31,241 +31,12 @@
  * are decimal strings (u128 > 2^53).
  */
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WebAssembly init types (preserved from generated .d.ts verbatim — these are
-// the runtime glue wasm-bindgen expects and must not be edited)
-// ─────────────────────────────────────────────────────────────────────────────
+// NOTE (FFI glue): the shipped bundler build (pkg/) auto-initializes the
+// module at import time and exports only `Client` — there is no
+// `initSync`/`__wbg_init`/`InitOutput` surface to type here. The web
+// target (pkg-web/) still exposes them and ships its own wasm-bindgen
+// .d.ts, so consumers of that target are covered separately.
 
-export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
-
-// `InitOutput` is the FFI glue wasm-bindgen exposes after `initSync` /
-// `__wbg_init`. Consumers do NOT touch this directly — they use the high-
-// level `Client` class. The pointer-based signatures here are 1:1 with the
-// generated WebAssembly bindings and use `unknown` (not `any`) for the few
-// JsValue slots, so the file stays type-safe without `any`. The bindings
-// accept `unknown` at the call site because `unknown` is the top type.
-export interface InitOutput {
-  readonly memory: WebAssembly.Memory;
-  readonly __wbg_vantadb_free: (a: number, b: number) => void;
-  readonly vantadb_add_edge: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-    g: number,
-    h: number,
-    i: number,
-    j: bigint,
-  ) => [number, number];
-  readonly vantadb_audit_text_index: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_audit_text_index_deep: (
-    a: number,
-    b: number,
-    c: number,
-  ) => [number, number, number];
-  readonly vantadb_bulk_import: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_bulk_import_bytes: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_capabilities: (a: number) => [number, number, number];
-  readonly vantadb_close: (a: number) => [number, number];
-  readonly vantadb_compact_layout: (a: number) => [bigint, number, number];
-  readonly vantadb_compact_wal: (a: number) => [number, number];
-  readonly vantadb_connect_idb: (a: number, b: number) => [number, number, number];
-  readonly vantadb_connect_persistent: (a: number, b: number) => [number, number, number];
-  readonly vantadb_count: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-  ) => [bigint, number, number];
-  readonly vantadb_delete: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-  ) => [number, number, number];
-  readonly vantadb_delete_by_filter: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-  ) => [bigint, number, number];
-  readonly vantadb_delete_idb: (a: number) => [number, number, number];
-  readonly vantadb_delete_node: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-  ) => [number, number];
-  readonly vantadb_disable_auto_save: (a: number) => void;
-  readonly vantadb_enable_auto_save: (a: number) => void;
-  readonly vantadb_explain_memory_search: (
-    a: number,
-    b: number,
-    c: number,
-  ) => [number, number, number];
-  readonly vantadb_export_all: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_export_namespace: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-  ) => [number, number, number];
-  readonly vantadb_export_namespace_filtered: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-  ) => [number, number, number];
-  readonly vantadb_flush: (a: number) => [number, number];
-  readonly vantadb_generate_snippet: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-  ) => [number, number];
-  readonly vantadb_get: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-  ) => [number, number, number];
-  readonly vantadb_get_node: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_graph_bfs: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-  ) => [number, number, number];
-  readonly vantadb_graph_degree: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_graph_dfs: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-  ) => [number, number, number];
-  readonly vantadb_graph_filtered_traversal: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-    g: number,
-  ) => [number, number, number];
-  readonly vantadb_graph_is_dag: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_graph_topological_sort: (
-    a: number,
-    b: number,
-    c: number,
-  ) => [number, number, number];
-  readonly vantadb_import_file: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_import_records: (a: number, b: number) => [number, number, number];
-  readonly vantadb_insert_node: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-    g: number,
-    h: number,
-  ) => [number, number];
-  readonly vantadb_is_auto_save_enabled: (a: number) => number;
-  readonly vantadb_list: (a: number, b: number, c: number, d: number) => [number, number, number];
-  readonly vantadb_list_namespaces: (a: number) => [number, number, number];
-  readonly vantadb_load: (a: number) => [number, number, number];
-  readonly vantadb_load_idb: (a: number) => [number, number, number];
-  readonly vantadb_new: (a: number) => [number, number, number];
-  readonly vantadb_open: (a: number, b: number) => [number, number, number];
-  readonly vantadb_operational_metrics: (a: number) => [number, number, number];
-  readonly vantadb_purge_expired: (a: number) => [bigint, number, number];
-  readonly vantadb_put: (a: number, b: number) => [number, number, number];
-  readonly vantadb_put_batch: (a: number, b: number) => [number, number, number];
-  readonly vantadb_query: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_rebuild_index: (a: number) => [number, number, number];
-  readonly vantadb_reindex_hnsw_from_text: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-  ) => [number, number, number];
-  readonly vantadb_remove_edge: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-    g: number,
-  ) => [number, number];
-  readonly vantadb_repair_text_index: (a: number) => [number, number, number];
-  readonly vantadb_save: (a: number) => [number, number, number];
-  readonly vantadb_save_idb: (a: number) => [number, number, number];
-  readonly vantadb_search: (a: number, b: number) => [number, number, number];
-  readonly vantadb_search_multi: (a: number, b: number, c: number) => [number, number, number];
-  readonly vantadb_search_vector: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-  ) => [number, number, number];
-  readonly vantadb_similar_to_key: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-  ) => [number, number, number];
-  readonly vantadb_supersede: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number,
-    f: number,
-    g: number,
-  ) => [number, number];
-  readonly vantadb_try_auto_save: (a: number) => [number, number, number];
-  readonly wasm_bindgen__convert__closures_____invoke__he5211670e4cc5c11: (
-    a: number,
-    b: number,
-    c: unknown,
-  ) => [number, number];
-  readonly wasm_bindgen__convert__closures_____invoke__h0bf0d27f3df94d79: (
-    a: number,
-    b: number,
-    c: unknown,
-    d: unknown,
-  ) => void;
-  readonly __wbindgen_malloc: (a: number, b: number) => number;
-  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbindgen_exn_store: (a: number) => void;
-  readonly __externref_table_alloc: () => number;
-  readonly __wbindgen_externrefs: WebAssembly.Table;
-  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
-  readonly __externref_table_dealloc: () => number;
-  readonly __wbindgen_start: () => void;
-}
-
-export type SyncInitInput = BufferSource | WebAssembly.Module;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Domain types (the public surface for TypeScript consumers)
@@ -524,7 +295,7 @@ export interface NodeRecord {
   /** Last-accessed timestamp as a decimal string (policy string-u64). */
   last_accessed: string;
   epoch: number;
-  tier: "Hot" | "Warm" | "Cold";
+  tier: "Hot" | "Cold";
   is_alive: boolean;
 }
 
@@ -557,10 +328,10 @@ export interface NodeInsertInput {
 
 /** Capabilities reported by `capabilities()`. */
 export interface Capabilities {
+  /** Current runtime performance profile (core `RuntimeProfile`). */
+  runtime_profile: "Enterprise" | "Performance" | "LowResource";
   /** True when the engine is backed by durable storage (OPFS/IDB/Worker). */
   persistence: boolean;
-  /** Engine backend in use. */
-  backend: string;
   /** Vector search support. */
   vector_search: boolean;
   /** IQL query support. */
@@ -826,6 +597,14 @@ export class Client {
    * the JS wrapper — drop references after close to allow WASM GC.
    */
   close(): void;
+
+  /**
+   * Asynchronously close the database, flushing any pending state to
+   * OPFS / IndexedDB and draining in-flight operations before releasing
+   * the engine (FFI-02). Prefer this over `close()` when a persist
+   * backend is attached so pending saves are awaited.
+   */
+  closeAsync(): Promise<void>;
 
   /** Worker proxy: read a file from the connected worker. */
   worker_read(path: string): Promise<Uint8Array | null>;
@@ -1124,10 +903,10 @@ export class Client {
    * (decimal strings).
    * @returns the visited node ids in BFS order.
    */
-  graph_bfs(roots: string[], max_depth: number, direction: TraversalDirectionStr): string[];
+  graph_bfs(roots: string[], max_depth: number, direction: TraversalDirectionStr): bigint[];
 
   /** Perform a depth-first traversal from the given root node ids. */
-  graph_dfs(roots: string[], max_depth: number, direction: TraversalDirectionStr): string[];
+  graph_dfs(roots: string[], max_depth: number, direction: TraversalDirectionStr): bigint[];
 
   /** Compute a topological sort order starting from the given root node ids. */
   graph_topological_sort(roots: string[]): string[];
@@ -1152,30 +931,3 @@ export class Client {
    */
   graph_degree(roots: string[]): GraphDegreeEntry[];
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Init functions (preserved from generated .d.ts verbatim — these are the
-// runtime glue wasm-bindgen expects and must not be edited)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Instantiates the given `module`, which can either be bytes or a precompiled `WebAssembly.Module`.
- *
- * @param module - Passing `SyncInitInput` directly is deprecated.
- * @returns the {@link InitOutput} for the module.
- */
-export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
-
-/**
- * If `module_or_path` is `{RequestInfo}` or `{URL}`, makes a request and for
- * everything else, calls `WebAssembly.instantiate` directly.
- *
- * @param module_or_path - Passing `InitInput` directly is deprecated.
- * @returns a `Promise` that resolves to the {@link InitOutput}.
- */
-export default function __wbg_init(
-  module_or_path?:
-    | { module_or_path: InitInput | Promise<InitInput> }
-    | InitInput
-    | Promise<InitInput>,
-): Promise<InitOutput>;
