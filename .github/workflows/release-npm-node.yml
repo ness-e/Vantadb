@@ -79,6 +79,8 @@ jobs:
           fi
           npx napi build --platform --release --target "$RUST_TARGET" $CROSS_FLAG --js index.cjs
           npx napi build --platform --release --target "$RUST_TARGET" $CROSS_FLAG --esm --js index.js
+          # FIND-546: napi regen drops the VantaDB -> VantaDb runtime alias
+          node scripts/patch-exports.mjs
 
       - name: Upload native binary
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
