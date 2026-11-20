@@ -20,7 +20,7 @@
 //! 1. **Never mutates `l1/<session>`** — reads via
 //!    `read_active_session_records` (FIND-659: current records only — a
 //!    superseded episode is audit lineage, not lesson material; same leak
-//!    class as the FIND-277 L2 fix), writes only to (fix(memory): exclude superseded episodes from reflection via read_active_session_records (FIND-659))
+//!    class as the FIND-277 L2 fix), writes only to
 //!    `reflection/<session>/<run_id>`.
 //! 2. **LLM-free by default** — deterministic lessons; a host may inject a
 //!    [`Reflector`] for true synthesis.
@@ -360,7 +360,7 @@ pub fn reflect_session(
         ));
     }
     // FIND-659: read_active_session_records, not the raw reader — superseded
-    // episodes would otherwise feed lessons (and count toward min_episodic). (fix(memory): exclude superseded episodes from reflection via read_active_session_records (FIND-659))
+    // episodes would otherwise feed lessons (and count toward min_episodic).
     let records = read_active_session_records(db, session_id)?;
     let episodes: Vec<MemoryRecord> = records
         .into_iter()
