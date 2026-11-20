@@ -549,7 +549,15 @@ impl StorageEngine {
     /// }
     /// ```
     pub fn vector_store_read(&self, level: usize) -> parking_lot::RwLockReadGuard<'_, File> {
-        self.vector_store[level].read()
+        self.vector_store
+            .get(level)
+            .unwrap_or_else(|| {
+                panic!(
+                    "vector_store_read: level {level} out of range                      ({} segments)",
+                    self.vector_store.len()
+                )
+            })
+            .read()
     }
 
     /// Return the VectorStoreService facade for multi-level vector store and segment registry.

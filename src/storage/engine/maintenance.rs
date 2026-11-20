@@ -336,7 +336,16 @@ impl StorageEngine {
 
         if offset > 0 {
             let (seg_id, local_off) = crate::lsm::unpack_offset(offset);
-            let vstore = self.vector_store[seg_id as usize].read();
+            let vstore = self
+                .vector_store
+                .get(seg_id as usize)
+                .ok_or_else(|| {
+                    crate::error::Error::generic_error(format!(
+                        "corrupt storage: packed offset references segment {seg_id}                          but vector_store has {} segments",
+                        self.vector_store.len()
+                    ))
+                })?
+                .read();
             // ADR-0057 W3: in an encrypted segment the payload is not at
             // `local_off` in the mapping (it lives inside the AEAD
             // envelope), so the page-release hint does not apply.

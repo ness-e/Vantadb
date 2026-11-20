@@ -105,9 +105,10 @@ pub(crate) fn prealloc_vstore_batch(
     // ponytail: fixed estimate; tune if fragmentation appears
     let batch_estimate = batch_len as u64 * 1280;
     let needed = vstore.write_cursor + batch_estimate;
-    if needed > vstore.size {
-        vstore.grow_to(std::cmp::max(vstore.size * 2, needed + 4096))?;
-    }
+    // `ensure_capacity` grows to min(cap, max(needed, size*2)) — a raw
+    // `grow_to(size*2)` overshoots `mem_growth_cap` and fails at >50% of
+    // `Config::memory_limit` on `:memory:` stores (FIND-597 residual).
+    vstore.ensure_capacity(needed + 4096, vstore.size.saturating_mul(2))?;
     Ok(())
 }
 
@@ -1084,8 +1085,8 @@ mod t32_tests {
         // T32: when vstore.size is > 50% of mem_growth_cap and needed <= cap,
         // prealloc_vstore_batch must clamp to cap via ensure_capacity rather
         // than failing prematurely on `vstore.size * 2 > cap`.
-        let mut vstore = crate::storage::vfile::File::create_in_memory(3072)
-            .with_mem_growth_cap(4096);
+        let mut vstore =
+            crate::storage::vfile::File::create_in_memory(3072).with_mem_growth_cap(4096);
         vstore.write_cursor = 2048;
         // batch_len = 1 -> batch_estimate = 1280 -> needed = 3328 <= 4096.
         prealloc_vstore_batch(&mut vstore, 1)
