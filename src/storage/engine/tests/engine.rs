@@ -1509,18 +1509,24 @@ fn d1a_tombstone_offset_flags_header() {
 }
 
 #[test]
-fn d1a_commit_batch_locked_cold_ok() {
-    use super::super::insert::BatchStageBufs;
+fn d1a_batch_insert_commits_cold_node() {
+    // D1a residual: `commit_batch_locked` was test-only dead code — the
+    // production path (`batch_insert_with_opts`) inlines the same commit
+    // phases per chunk (WAL → KV → HNSW → cache/evict → auto-flush). This
+    // test exercises that real path instead of the removed helper.
     let engine = in_memory_engine();
     let node = sample_node(103);
     engine
-        .commit_batch_locked(
-            std::slice::from_ref(&node),
-            &crate::storage::engine::BatchInsertOptions::default(),
-            BatchStageBufs::with_capacity(0),
-            false,
-        )
-        .expect("commit with staged-empty bufs must succeed");
+        .batch_insert(std::slice::from_ref(&node))
+        .expect("batch_insert of a single Cold node must succeed");
+    assert!(
+        engine.get(103).expect("get").is_some(),
+        "committed node must be readable"
+    );
+    assert!(
+        engine.lookup_index_offset(103).is_some(),
+        "committed node must be indexed (InsertMode::Auto → incremental for len < 1000)"
+    );
 }
 
 #[test]

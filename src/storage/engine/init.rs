@@ -527,33 +527,51 @@ impl StorageEngine {
                 || caps.profile == crate::hardware::HardwareProfile::LowResource
                 || effective_memory < 16 * GIB);
 
-        let mut hnsw: Box<dyn IndexPort> =
-            match crate::index::port_impl::open_index_port(&index_path, use_mmap, image_crypto) {
-                Ok(loaded) => {
-                    if use_mmap {
-                        info!(
-                            backend = "mmap",
-                            "HNSW Resource Governance: MMap backend activated (cold-start)"
-                        );
-                    }
-                    loaded
+        let mut hnsw: Box<dyn IndexPort> = match crate::index::port_impl::open_index_port(
+            &index_path,
+            // ADR-0001: a `read_only` open loads the image with `fs::read`
+            // — never an RW handle + writable `MmapMut` (which also fails
+            // on read-only filesystems, forcing a spurious rebuild). The
+            // loaded index then keeps no file-backed write surface.
+            use_mmap && !config.read_only,
+            image_crypto,
+        ) {
+            Ok(loaded) => {
+                if loaded.is_mmap() {
+                    info!(
+                        backend = "mmap",
+                        "HNSW Resource Governance: MMap backend activated (cold-start)"
+                    );
                 }
-                Err(_) => {
-                    if use_mmap {
-                        info!(
-                            backend = "mmap",
-                            "HNSW Resource Governance: MMap backend activated (fresh)"
-                        );
-                        crate::index::port_impl::new_mmap_port(index_path.clone())
-                    } else {
-                        info!(
-                            backend = "in-memory",
-                            "HNSW Performance Mode: InMemory backend"
-                        );
-                        crate::index::port_impl::new_in_memory_port()
-                    }
+                loaded
+            }
+            Err(_) => {
+                if config.read_only {
+                    // ADR-0001 residual: a fresh index under `read_only`
+                    // must be RAM-resident — `new_mmap_port` is lazy
+                    // (creates nothing today), but it records the image
+                    // path a future ungated `persist_*` call would write
+                    // to. `recover_state` rebuilds the graph in memory.
+                    info!(
+                        backend = "in-memory",
+                        "HNSW read-only: no persisted image — in-memory rebuild"
+                    );
+                    crate::index::port_impl::new_in_memory_port()
+                } else if use_mmap {
+                    info!(
+                        backend = "mmap",
+                        "HNSW Resource Governance: MMap backend activated (fresh)"
+                    );
+                    crate::index::port_impl::new_mmap_port(index_path.clone())
+                } else {
+                    info!(
+                        backend = "in-memory",
+                        "HNSW Performance Mode: InMemory backend"
+                    );
+                    crate::index::port_impl::new_in_memory_port()
                 }
-            };
+            }
+        };
 
         if let Some(threshold) = config.flat_threshold {
             hnsw.set_flat_threshold(Some(threshold));

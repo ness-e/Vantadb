@@ -377,8 +377,8 @@ impl StorageEngine {
     /// Precondition: the caller MUST hold `insert_lock` — the `_locked`
     /// eviction path it drives (`consolidate_node_locked`) assumes the FIND-651
     /// quiesce barrier is already held and never re-acquires the non-reentrant
-    /// lock. `commit_batch_locked` holds it; `batch_insert_with_opts` re-acquires
-    /// it around this call after the per-chunk guards drop.
+    /// lock. `batch_insert_with_opts` re-acquires it around this call after
+    /// the per-chunk guards drop.
     pub(crate) fn run_batch_eviction_if_needed(&self, needs_eviction: bool) {
         if !needs_eviction {
             return;
@@ -569,29 +569,6 @@ impl StorageEngine {
             self.add_node_to_stats(&mut stats, node);
         }
         cap_cardinality(&mut stats);
-    }
-
-    /// Commit under one insert_lock guard (ERR-010): WAL → KV → HNSW →
-    /// cache/evict → auto-flush. Same order as the inline code.
-    #[allow(dead_code)]
-    pub(crate) fn commit_batch_locked(
-        &self,
-        nodes: &[UnifiedNode],
-        opts: &BatchInsertOptions,
-        mut bufs: BatchStageBufs,
-        should_insert_hnsw: bool,
-    ) -> Result<()> {
-        let _guard = self.acquire_insert_lock("acquire insert_lock in batch_insert")?;
-        self.append_batch_wal(nodes, opts)?;
-        let kv_ops = std::mem::take(&mut bufs.kv_ops);
-        self.write_batch_kv_or_tombstone(kv_ops, &bufs.vstore_offsets)?;
-        if should_insert_hnsw {
-            self.insert_hnsw_leveled(&bufs.hnsw_entries)?;
-        }
-        let needs_eviction = self.cache_batch_hot_nodes(nodes);
-        self.run_batch_eviction_if_needed(needs_eviction);
-        self.maybe_auto_flush();
-        Ok(())
     }
 
     /// Apply an insert to the stores (vstore, KV backend, HNSW, cache).

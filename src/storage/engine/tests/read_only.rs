@@ -95,6 +95,75 @@ fn fjall_read_only_open_never_mutates_files() {
     );
 }
 
+/// Residual (ADR-0001): a `read_only` open of a database **without** a
+/// persisted HNSW image must still open — `recover_state` rebuilds the index
+/// from the vstore in memory — and must not write `data/vector_index.bin`
+/// (or any file outside the Fjall open-metadata allowlist). `init_indexes`
+/// selects a RAM-resident fresh index under `read_only` so nothing file-backed
+/// can be persisted even by a future ungated caller.
+#[test]
+fn fjall_read_only_open_without_hnsw_image_does_not_write() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("path");
+    let image = dir.path().join("data").join("vector_index.bin");
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(fjall_config(path, false)))
+            .expect("open writer engine");
+        engine
+            .insert(&canary_node(72, "vantadb-ro-no-hnsw-image"))
+            .expect("insert");
+        engine.flush().expect("flush persists the index image");
+    }
+    assert!(
+        image.exists(),
+        "the RW flush must have persisted data/vector_index.bin"
+    );
+    std::fs::remove_file(&image).expect("delete the HNSW image");
+
+    let before = super::read_only_files::snapshot_tree(dir.path());
+
+    {
+        let engine = StorageEngine::open_with_config(path, Some(fjall_config(path, true)))
+            .expect("a read_only open without an HNSW image must still open");
+        assert!(engine.is_read_only());
+        // The vstore rebuild repopulated the index in memory: the node is
+        // indexed and readable again.
+        assert_eq!(
+            engine.index_coordinator().node_count(),
+            1,
+            "recover_state must rebuild the index from the vstore"
+        );
+        let read = engine.get(72).expect("get").expect("the node is there");
+        assert_eq!(
+            read.relational.get("ro_canary"),
+            Some(&FieldValue::String("vantadb-ro-no-hnsw-image".to_string())),
+            "a read_only open still reads the data"
+        );
+    }
+
+    let after = super::read_only_files::snapshot_tree(dir.path());
+    let (created, mutated, removed) = super::read_only_files::diff_snapshots(&before, &after);
+
+    let is_allowed = |p: &std::path::PathBuf| super::read_only_files::fjall_open_allowlist(p);
+    let bad_created: Vec<_> = created.iter().filter(|p| !is_allowed(p)).collect();
+    let bad_mutated: Vec<_> = mutated.iter().filter(|p| !is_allowed(p)).collect();
+    let bad_removed: Vec<_> = removed.iter().filter(|p| !is_allowed(p)).collect();
+
+    assert!(
+        bad_created.is_empty() && bad_mutated.is_empty() && bad_removed.is_empty(),
+        "a read_only open without an HNSW image must not touch files outside \
+         the Fjall metadata allowlist (ADR-0001). Unexpected created: \
+         {bad_created:?}; mutated: {bad_mutated:?}; removed: {bad_removed:?}. \
+         Allowed-but-changed Fjall metadata: created {created:?}; mutated \
+         {mutated:?}; removed {removed:?}"
+    );
+    assert!(
+        !image.exists(),
+        "the read_only open must not recreate data/vector_index.bin"
+    );
+}
+
 /// FIND-632: a second open of a Fjall directory whose `.lock` is already
 /// held — even a `read_only` one — fails with `Error::DatabaseBusy`, because
 /// Fjall takes an exclusive file lock on every open

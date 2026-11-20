@@ -969,6 +969,12 @@ impl Embedded {
     /// Shared logic for inserting/updating a single memory record with FastGate deduplication.
     /// Used by both `put()` and `put_batch()`.
     fn put_one(&self, input: MemoryInput) -> Result<MemoryRecord> {
+        // The guard precedes ANY state mutation: `dedup_filter.check_and_mark`
+        // below *marks* the bloom — previously a read_only `put` marked the
+        // key and only then failed inside `insert_one_internal`, leaving the
+        // bloom claiming content the store never accepted (and letting the
+        // exact-match → `reinforce` fallback return `Ok` on a rejected write).
+        self.check_read_only()?;
         let dedup_policy = input.dedup_policy.unwrap_or(self.config.dedup_policy);
         if dedup_policy == DedupPolicy::Off {
             return self.insert_one_internal(input);
@@ -1471,6 +1477,13 @@ impl Embedded {
 
     fn put_batch_inner(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
         use crate::storage::engine::{BatchInsertOptions, InsertMode};
+
+        // Reject before any work: Stage A's `resolve_existing_for_write_locked`
+        // can purge expired records (a mutation via `engine.delete`) long
+        // before Stage B's `batch_insert_with_opts` reaches the engine-side
+        // `ensure_writable` — the read_only rejection must come first, with
+        // the typed `Validation{read_only}` error.
+        self.check_read_only()?;
 
         for input in &inputs {
             validate_namespace(&input.namespace)?;
@@ -3347,6 +3360,67 @@ mod tests {
             .put_batch(valid_batch)
             .expect("batch within quota succeeds");
         assert_eq!(res.len(), 2);
+    }
+
+    /// Residual (read_only × FastGate): `put` under `read_only` must be
+    /// rejected BEFORE `dedup_filter.check_and_mark` mutates the bloom —
+    /// otherwise the bloom claims content the store never accepted, and the
+    /// exact-match → `reinforce` fallback could return `Ok` on a rejected
+    /// write.
+    #[test]
+    fn put_read_only_does_not_mark_dedup_bloom() {
+        let db = Embedded::open_with_config(Config {
+            read_only: true,
+            ..Config::in_memory()
+        })
+        .expect("open read-only db");
+
+        let mut input = MemoryInput::new("ns", "k1", "payload one");
+        input.dedup_policy = Some(DedupPolicy::Semantic);
+        let err = db
+            .put(input)
+            .expect_err("put must be rejected under read_only");
+        assert!(
+            matches!(err, Error::Validation { ref field, .. } if field == "read_only"),
+            "expected Validation{{read_only}}, got {err:?}"
+        );
+
+        // The bloom must NOT hold the rejected write's key: a fresh
+        // `check_and_mark` on the same filter key still reports "new".
+        let norm_text = normalize_content("payload one");
+        let filter_key = format!("{}\0{}", "ns", norm_text);
+        assert!(
+            !db.dedup_filter.check_and_mark(filter_key.as_bytes()),
+            "a rejected put must not mark the dedup bloom filter"
+        );
+        // And no exact-registry entry was recorded for the rejected write.
+        assert!(
+            db.dedup_filter
+                .lookup_exact("ns", hash_content(&norm_text))
+                .is_none(),
+            "a rejected put must not register in the exact dedup registry"
+        );
+    }
+
+    /// Same ordering for the batch path: `put_batch` under `read_only` must
+    /// fail before Stage A's existing-record resolution can purge expired
+    /// records (a mutation) — previously only Stage B's engine-side
+    /// `ensure_writable` rejected it.
+    #[test]
+    fn put_batch_read_only_rejected_before_staging() {
+        let db = Embedded::open_with_config(Config {
+            read_only: true,
+            ..Config::in_memory()
+        })
+        .expect("open read-only db");
+
+        let err = db
+            .put_batch(vec![MemoryInput::new("ns", "k1", "payload")])
+            .expect_err("put_batch must be rejected under read_only");
+        assert!(
+            matches!(err, Error::Validation { ref field, .. } if field == "read_only"),
+            "expected Validation{{read_only}}, got {err:?}"
+        );
     }
 
     #[test]
