@@ -42,10 +42,19 @@ impl Embedded {
         // found nothing. The index holds vectors of ONE dimension
         // (`vector_dimension` is the canonical rule, FIND-411).
         validate_vector_dimension(hnsw.vector_dimension(), vector.len())?;
+        // FIND-571 (residual): `vector_store[0]` was a latent panic — a
+        // store whose segment registry holds no L0 segment crashed the SDK
+        // K-NN path instead of erroring. `.first()` + the same error the
+        // storage layer reports (`vstore0`) keeps the failure loud.
+        let Some(l0) = engine.vector_store.first() else {
+            return Err(crate::error::Error::generic_error(
+                "corrupt storage: vector_store has no segment 0".to_string(),
+            ));
+        };
         let results = {
             // ponytail: search reads from L0 only. Multi-level search
             // will need a segment-merged view.
-            let vs = engine.vector_store[0].read();
+            let vs = l0.read();
             hnsw.search_nearest(
                 vector,
                 None,

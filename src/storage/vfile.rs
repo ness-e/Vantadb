@@ -13,10 +13,10 @@
 //! (REVIEW-04 split).
 
 use crate::binary_header::Header;
-#[cfg(feature = "encryption")]
-use crate::crypto::{Cipher, Zeroize};
 #[cfg(all(test, feature = "encryption"))]
 use crate::crypto::EncryptionStream;
+#[cfg(feature = "encryption")]
+use crate::crypto::{Cipher, Zeroize};
 use crate::error::{Error, Result};
 use crate::node::DiskNodeHeader;
 #[cfg(unix)]
@@ -534,6 +534,13 @@ pub struct File {
     /// Read from the cleartext header, so the reader decides by the bytes
     /// on disk, never by configuration (ADR-0057 D1).
     format_version: u16,
+    /// FIND-597: hard byte cap for [`FileMap::InMemory`] growth, derived
+    /// from the engine's declared `Config::memory_limit`. `None` (the
+    /// default) leaves growth unbounded — the engine-level RSS guard
+    /// remains the budget enforcer. Only ever set on the in-memory
+    /// backend's segments: the mmap'd on-disk files reserve address
+    /// space, not RSS.
+    mem_growth_cap: Option<u64>,
     /// The encryption context of the `vfile` artefact (`None` = plaintext).
     #[cfg(feature = "encryption")]
     pub(crate) crypto: Option<Arc<VFileCrypto>>,
@@ -601,8 +608,19 @@ impl File {
     }
 
     /// Create a File backed entirely by in-memory storage (no disk I/O).
+    ///
+    /// FIND-597: the buffer is **eagerly allocated** — real RSS, unlike
+    /// the mmap'd on-disk segments whose reservation is only address
+    /// space — so the initial reservation is capped by
+    /// [`crate::hardware::HardwareCapabilities::resident_default_ceiling`]
+    /// (`min(host RAM × 15 %, 256 MiB)`). Callers that need a bigger
+    /// segment grow it on demand via [`File::grow_to`]; the engine
+    /// derives a tighter, `Config::memory_limit`-aware reservation in
+    /// `storage::engine::init`.
     pub fn create_in_memory(initial_size: u64) -> Self {
-        let size = initial_size.max(STORAGE_ALIGNMENT);
+        let size = initial_size
+            .max(STORAGE_ALIGNMENT)
+            .min(crate::hardware::HardwareCapabilities::global().resident_default_ceiling());
         // `AlignedBytes::zeroed` guarantees a 4-aligned base so `f32` vector
         // reads are never misaligned (AUDIT-03; `Vec<u8>` would only be align-1).
         // Single-use constructor contract: the only failure mode is OOM at
@@ -623,6 +641,7 @@ impl File {
             write_cursor: STORAGE_ALIGNMENT,
             read_only: false,
             format_version: VFILE_VERSION,
+            mem_growth_cap: None,
             #[cfg(feature = "encryption")]
             crypto: None,
             #[cfg(feature = "encryption")]
@@ -630,6 +649,42 @@ impl File {
             #[cfg(feature = "encryption")]
             cipher: None,
         }
+    }
+
+    /// FIND-597: declare the hard byte cap for [`FileMap::InMemory`]
+    /// growth — the engine passes `Config::memory_limit` so a single
+    /// in-memory vstore can never eat the whole declared budget (a
+    /// write that cannot fit returns `ResourceLimit` instead of an OOM
+    /// abort at allocation time).
+    pub(crate) fn with_mem_growth_cap(mut self, cap: u64) -> Self {
+        self.mem_growth_cap = Some(cap);
+        self
+    }
+
+    /// Grow the segment so it holds at least `required` bytes, preferring
+    /// `desired` (the caller's growth hint — the write paths pass a
+    /// doubling of the current size).
+    ///
+    /// FIND-597: under `mem_growth_cap` the growth stops at the cap even
+    /// when `desired` overshoots it — the doubling hint is a performance
+    /// choice, `required` is the contract — and a requirement that
+    /// cannot fit inside the cap is an [`Error::ResourceLimit`]. Without
+    /// a cap this is `grow_to(desired.max(required))`.
+    pub(crate) fn ensure_capacity(&mut self, required: u64, desired: u64) -> Result<()> {
+        if self.size >= required {
+            return Ok(());
+        }
+        let target = desired.max(required);
+        if let Some(cap) = self.mem_growth_cap {
+            if required > cap {
+                return Err(Error::ResourceLimit(format!(
+                    "in-memory segment needs {required} bytes but is capped at \
+                     {cap} bytes (Config::memory_limit)"
+                )));
+            }
+            return self.grow_to(target.min(cap));
+        }
+        self.grow_to(target)
     }
 
     fn open_with_mode(path: PathBuf, initial_size: u64, read_only: bool) -> Result<Self> {
@@ -745,6 +800,7 @@ impl File {
             write_cursor,
             read_only,
             format_version: header.format_version,
+            mem_growth_cap: None,
             #[cfg(feature = "encryption")]
             crypto,
             #[cfg(feature = "encryption")]
@@ -1017,6 +1073,20 @@ impl File {
         }
         match &mut self.mmap {
             FileMap::InMemory(data) => {
+                // FIND-597: with a declared `mem_growth_cap` the segment
+                // cannot grow past the budget — every byte of this
+                // buffer is real RSS (unlike the mmap'd on-disk
+                // segments). The write paths route through
+                // `ensure_capacity`, which clamps the doubling hint to
+                // the cap; a direct request past it is a ResourceLimit.
+                if let Some(cap) = self.mem_growth_cap {
+                    if new_size > cap {
+                        return Err(Error::ResourceLimit(format!(
+                            "in-memory segment growth to {new_size} bytes exceeds \
+                             the {cap} byte cap (Config::memory_limit)"
+                        )));
+                    }
+                }
                 data.grow_zeroed(new_size as usize)?;
                 self.size = new_size;
                 Ok(())
@@ -1160,7 +1230,10 @@ impl File {
         let record = self.seal_node(offset, header, payload)?;
         let end = offset + record.len() as u64;
         if end > self.size {
-            self.grow_to(end.max(self.size.saturating_mul(2)))?;
+            // FIND-597: `ensure_capacity` clamps the doubling hint to
+            // the `mem_growth_cap` and turns `end > cap` into a typed
+            // ResourceLimit instead of an unbounded allocation.
+            self.ensure_capacity(end, end.max(self.size.saturating_mul(2)))?;
         }
         let start = offset as usize;
         self.mmap_bytes_mut()?[start..start + record.len()].copy_from_slice(&record);
@@ -1457,6 +1530,45 @@ mod tests {
         let vf = File::create_in_memory(1024);
         assert!(vf.size >= 1024);
         assert_eq!(vf.write_cursor, STORAGE_ALIGNMENT);
+    }
+
+    #[test]
+    fn test_vfile_create_in_memory_caps_initial_reservation() {
+        // FIND-597: the eager reservation can never exceed the default
+        // ceiling `min(host RAM × 15 %, 256 MiB)` — even when the caller
+        // asks for the impossible.
+        let ceiling = crate::hardware::HardwareCapabilities::global().resident_default_ceiling();
+        let vf = File::create_in_memory(u64::MAX);
+        assert_eq!(vf.size, ceiling);
+        assert!(vf.size <= 256 * 1024 * 1024);
+        assert!(vf.size >= STORAGE_ALIGNMENT);
+    }
+
+    #[test]
+    fn test_vfile_in_memory_growth_cap_enforced() {
+        // FIND-597: under `mem_growth_cap` the doubling hint clamps to
+        // the cap, a requirement that cannot fit is a ResourceLimit,
+        // and a direct `grow_to` past the cap is rejected.
+        let mut vf = File::create_in_memory(STORAGE_ALIGNMENT).with_mem_growth_cap(1024);
+        vf.ensure_capacity(512, 4096).expect("fits within cap");
+        assert_eq!(vf.size, 1024, "doubling hint must clamp to the cap");
+
+        let err = vf.ensure_capacity(2048, 4096).unwrap_err();
+        assert!(
+            matches!(err, Error::ResourceLimit(_)),
+            "requirement beyond the cap must be ResourceLimit, got {err}"
+        );
+
+        let err = vf.grow_to(2048).unwrap_err();
+        assert!(
+            matches!(err, Error::ResourceLimit(_)),
+            "direct grow_to past the cap must be ResourceLimit, got {err}"
+        );
+
+        // A file without a cap still grows freely.
+        let mut vf = File::create_in_memory(STORAGE_ALIGNMENT);
+        vf.ensure_capacity(4096, 4096).expect("uncapped growth");
+        assert_eq!(vf.size, 4096);
     }
 
     #[test]

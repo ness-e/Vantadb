@@ -2,6 +2,52 @@
 use crate::config::Config;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+/// FIND-642: process-global reservation (bytes) for resident ONNX embedding
+/// sessions. The `LocalOnnxProvider` lives outside any single `StorageEngine`,
+/// so its footprint cannot be charged to one governor instance — it is tracked
+/// globally and folded into every governor's `used_bytes()` instead. With
+/// `embed-local` the model resident would otherwise sit outside the
+/// `memory_limit` budget entirely.
+static ONNX_SESSION_RESERVED_BYTES: AtomicU64 = AtomicU64::new(0);
+
+/// Fixed overhead per ONNX Runtime session on top of the model weights:
+/// CPU EP arena allocator, intra/inter-op thread pools and graph partition
+/// buffers. Heuristic — there is no published official figure; 64 MiB is a
+/// conservative floor observed for a minimal session.
+pub(crate) const ONNX_RUNTIME_OVERHEAD_BYTES: u64 = 64 * 1024 * 1024;
+
+/// FIND-642: estimated resident bytes of an ORT session whose weights occupy
+/// `weights_bytes` on disk (`model.onnx` + `model.onnx_data` sidecars).
+///
+/// Factor 1.5× weights + [`ONNX_RUNTIME_OVERHEAD_BYTES`]: weights are loaded
+/// into the session (or mapped), plus a copy window during commit and the
+/// runtime overhead above. Heuristic, deliberately biased high — the
+/// documented failure mode is underestimation, never overestimation.
+pub(crate) fn estimate_onnx_session_bytes(weights_bytes: u64) -> u64 {
+    weights_bytes
+        .saturating_mul(3)
+        .saturating_div(2)
+        .saturating_add(ONNX_RUNTIME_OVERHEAD_BYTES)
+}
+
+/// Reserve `bytes` of estimated ONNX session memory against the global budget.
+pub(crate) fn reserve_onnx_session(bytes: u64) {
+    ONNX_SESSION_RESERVED_BYTES.fetch_add(bytes, Ordering::Relaxed);
+}
+
+/// Release a previous [`reserve_onnx_session`] reservation (saturating: a
+/// double-release leaves the counter at 0, never wraps).
+pub(crate) fn release_onnx_session(bytes: u64) {
+    let _ = ONNX_SESSION_RESERVED_BYTES.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |cur| {
+        Some(cur.saturating_sub(bytes))
+    });
+}
+
+/// Bytes currently reserved for resident ONNX sessions.
+pub(crate) fn onnx_session_reserved() -> u64 {
+    ONNX_SESSION_RESERVED_BYTES.load(Ordering::Relaxed)
+}
+
 /// Memory usage governor with watermarks and eviction control.
 pub(crate) struct MemoryGovernor {
     /// Maximum allowed memory in bytes.
@@ -63,8 +109,17 @@ impl MemoryGovernor {
         self.used_bytes.fetch_sub(bytes, Ordering::Relaxed);
     }
 
-    /// Current estimated memory usage in bytes.
+    /// Current estimated memory usage in bytes, including the process-global
+    /// ONNX session reservation (FIND-642).
     pub fn used_bytes(&self) -> u64 {
+        self.used_bytes
+            .load(Ordering::Relaxed)
+            .saturating_add(onnx_session_reserved())
+    }
+
+    /// Bytes tracked by this governor instance only (no ONNX reservation).
+    /// Used by tests that need the per-engine counter in isolation.
+    pub fn engine_used_bytes(&self) -> u64 {
         self.used_bytes.load(Ordering::Relaxed)
     }
 
@@ -75,17 +130,17 @@ impl MemoryGovernor {
 
     /// Returns `true` if usage is above the high watermark.
     pub fn should_evict(&self) -> bool {
-        self.used_bytes.load(Ordering::Relaxed) > self.high_water_mark
+        self.used_bytes() > self.high_water_mark
     }
 
     /// Returns `true` if usage is above the memory limit (urgent).
     pub fn needs_urgent_eviction(&self) -> bool {
-        self.memory_limit != 0 && self.used_bytes.load(Ordering::Relaxed) > self.memory_limit
+        self.memory_limit != 0 && self.used_bytes() > self.memory_limit
     }
 
     /// Returns `true` if usage is above the low watermark.
     pub fn above_low_water(&self) -> bool {
-        self.used_bytes.load(Ordering::Relaxed) > self.low_water_mark
+        self.used_bytes() > self.low_water_mark
     }
 
     /// Try to start an eviction cycle. Returns `false` if already running.
@@ -231,5 +286,56 @@ mod tests {
         let gov = make_gov(1_000_000);
         gov.set_used_bytes(5000);
         assert_eq!(gov.used_bytes(), 5000);
+    }
+
+    // ── FIND-642: ONNX session budget accounting (no dylib required) ──
+
+    #[test]
+    #[serial_test::serial]
+    fn onnx_budget_estimate_factor() {
+        // estimate = 1.5x weights + fixed ORT overhead; documented heuristic.
+        assert_eq!(estimate_onnx_session_bytes(0), ONNX_RUNTIME_OVERHEAD_BYTES);
+        assert_eq!(
+            estimate_onnx_session_bytes(100 * 1024 * 1024),
+            150 * 1024 * 1024 + ONNX_RUNTIME_OVERHEAD_BYTES
+        );
+        // saturating: u64::MAX weights must not wrap around to a small value.
+        assert_eq!(
+            estimate_onnx_session_bytes(u64::MAX),
+            u64::MAX / 2 + ONNX_RUNTIME_OVERHEAD_BYTES
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn onnx_budget_reservation_counts_against_limit() {
+        let gov = make_gov(1_000_000); // high water = 750_000
+        reserve_onnx_session(900_000);
+        assert!(gov.used_bytes() >= 900_000);
+        assert!(gov.should_evict(), "900k over 750k high watermark");
+        assert!(!gov.needs_urgent_eviction(), "900k under 1M limit");
+        release_onnx_session(900_000);
+        assert_eq!(onnx_session_reserved(), 0);
+        assert_eq!(gov.used_bytes(), 0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn onnx_budget_reservation_can_trip_urgent_eviction() {
+        let gov = make_gov(1_000_000);
+        reserve_onnx_session(1_500_000);
+        assert!(gov.needs_urgent_eviction(), "reservation above the limit");
+        release_onnx_session(1_500_000);
+        assert!(!gov.needs_urgent_eviction());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn onnx_budget_release_saturates_not_wraps() {
+        // Double release must leave the counter at 0, never wrap (FIND-572 policy).
+        reserve_onnx_session(100);
+        release_onnx_session(100);
+        release_onnx_session(100);
+        assert_eq!(onnx_session_reserved(), 0);
     }
 }

@@ -35,6 +35,30 @@ use tracing::{info, warn};
 const MIB: usize = 1024 * 1024;
 const GIB: u64 = 1024 * 1024 * 1024;
 
+/// FIND-606: absolute top of the RocksDB block-cache + memtable budget,
+/// even when `Config::memory_limit` declares more. The engine's volatile
+/// node cache reserves ~25 % of host RAM (`storage::engine::insert`),
+/// the HNSW index is 100 % RAM-resident and the decrypt caches share the
+/// same physical memory — a 1 TiB declared limit must not mint a
+/// ~600 GiB block cache.
+const ROCKSDB_MAX_BUDGET: usize = 8 * 1024 * 1024 * 1024;
+
+/// FIND-606: RocksDB's combined block-cache + memtable budget.
+///
+/// `Config::memory_limit` — the same number the RSS guard enforces —
+/// derives the budget; undeclared, it falls back to the default
+/// resident ceiling (`min(host RAM × 15 %, 256 MiB)`) instead of the
+/// raw total RAM of the host. The result is capped absolutely at
+/// [`ROCKSDB_MAX_BUDGET`]. `0` still yields a non-zero budget.
+fn rocksdb_budget(config: &Config, caps: &crate::hardware::HardwareCapabilities) -> usize {
+    let effective_memory = config
+        .memory_limit
+        .unwrap_or_else(|| caps.resident_default_ceiling());
+    ((effective_memory as f64) * 0.60)
+        .min(ROCKSDB_MAX_BUDGET as f64)
+        .max(1.0) as usize
+}
+
 /// RocksDB-backed implementation of `StorageBackend`.
 ///
 /// Owns the `rocksdb::DB` instance and all column family configuration.
@@ -54,8 +78,20 @@ impl RocksDbBackend {
 
         // Memory limit resolution priority:
         // 1. Explicit config.memory_limit (from Python SDK constructor)
-        // 2. Hardware detection (from HardwareCapabilities)
-        let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
+        // 2. FIND-606: a modest default ceiling (`min(host RAM × 15 %,
+        //    256 MiB)`) — never the total RAM of the host. The old
+        //    fallback sized the block cache at 45 % of *host* RAM
+        //    (≈29 GiB on a 64 GiB box) in parallel with the engine's
+        //    ~25 % volatile-cache reserve and the RAM-resident HNSW
+        //    index: three uncapped reservations on the same physical
+        //    memory (`.opencode/rules/memory-budget.md` R-3/R-4).
+        //
+        // `host_or_declared` keeps the mmap heuristic honest: it answers
+        // "how much RAM can this process really use" — the declared
+        // limit when present, the physical RAM otherwise — while
+        // `rocksdb_budget` is the cache+memtable reservation.
+        let host_or_declared = config.memory_limit.unwrap_or(caps.total_memory);
+        let rocksdb_budget = rocksdb_budget(config, caps);
 
         let mut opts = Options::default();
         opts.create_if_missing(!config.read_only);
@@ -74,23 +110,43 @@ impl RocksDbBackend {
         let mut cold_bopts = rocksdb::BlockBasedOptions::default();
         cold_bopts.set_bloom_filter(10.0, false);
 
-        // OOM Guard: Cap LRU Cache and WriteBuffer to ~60% of effective capacity
-        let rocksdb_budget = (effective_memory as f64 * 0.60) as usize;
+        // OOM Guard (FIND-606 + BK-02): the block cache and the memtables
+        // share ONE budget — 75 % for the LRU cache, 25 % for memtables —
+        // and a shared `WriteBufferManager` enforces the memtable share
+        // across the DB and all 10 column families (the memtable arena
+        // usage is additionally charged to the block cache, so the pair
+        // can never exceed `rocksdb_budget`).
         let cache_size = (rocksdb_budget as f64 * 0.75) as usize; // 75% focus on block cache
         let write_buffer_total = rocksdb_budget - cache_size; // 25% for memtables
 
-        let write_buffer_size = (write_buffer_total / 2).clamp(8 * MIB, 128 * MIB);
+        // BK-02: the per-CF buffer is bounded by the memtable share
+        // itself — the old 8 MiB floor won over a small computed budget
+        // and could reserve more than the 25 % the split promised. The
+        // WBM is the hard cap; this floor only keeps RocksDB's own
+        // minimum sane.
+        let wb_floor = (8 * MIB).min(write_buffer_total / 2).max(64 * 1024);
+        let write_buffer_size = (write_buffer_total / 2).clamp(wb_floor, 128 * MIB);
 
         opts.set_write_buffer_size(write_buffer_size);
         opts.set_max_write_buffer_number(2);
 
-        let cache = rocksdb::Cache::new_lru_cache(cache_size);
+        let cache = rocksdb::Cache::new_lru_cache(cache_size.max(1));
+        // BK-02: one WriteBufferManager shared by the DB and every CF —
+        // previously each CF could hold `max_write_buffer_number` buffers
+        // of `write_buffer_size` with no joint cap.
+        let wbm = rocksdb::WriteBufferManager::new_write_buffer_manager_with_cache(
+            write_buffer_total.max(1),
+            true, // allow_stall: back-pressure at the cap instead of OOM
+            cache.clone(),
+        );
+        opts.set_write_buffer_manager(&wbm);
         bopts.set_block_cache(&cache);
         cold_bopts.set_block_cache(&cache);
 
         info!(
             rocksdb_budget_mb = rocksdb_budget / MIB,
             cache_mb = cache_size / MIB,
+            memtable_budget_mb = write_buffer_total / MIB,
             memtable_mb = write_buffer_size / MIB,
             "RocksDB memory configured"
         );
@@ -98,12 +154,12 @@ impl RocksDbBackend {
         opts.set_block_based_table_factory(&bopts);
 
         if caps.profile == crate::hardware::HardwareProfile::LowResource
-            || effective_memory < 16 * GIB
+            || host_or_declared < 16 * GIB
         {
             opts.set_allow_mmap_reads(true);
             opts.set_allow_mmap_writes(true);
             warn!(
-                effective_memory_gb = effective_memory / GIB,
+                effective_memory_gb = host_or_declared / GIB,
                 "RAM < 16GB — MMap access forced (Resource Governance)"
             );
         }
@@ -117,10 +173,15 @@ impl RocksDbBackend {
         let mut shadow_opts = rocksdb::Options::default();
         shadow_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
         shadow_opts.set_block_based_table_factory(&cold_bopts);
+        // BK-02: the shared WBM caps memtables across ALL column families
+        // — CF options built from `Options::default()` don't inherit the
+        // DB-level one (`default_opts` and its clones do).
+        shadow_opts.set_write_buffer_manager(&wbm);
 
         let mut archive_opts = rocksdb::Options::default();
         archive_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
         archive_opts.set_block_based_table_factory(&bopts);
+        archive_opts.set_write_buffer_manager(&wbm);
 
         let mut tombstone_opts = default_opts.clone();
         tombstone_opts.set_block_based_table_factory(&cold_bopts);
@@ -429,6 +490,52 @@ mod tests {
     #[test]
     fn test_rocksdb_open() {
         let (_b, _dir) = open_rocksdb();
+    }
+
+    #[test]
+    fn test_rocksdb_budget_default_ceiling() {
+        // FIND-606: with no declared `memory_limit` the budget stays
+        // inside the default resident ceiling — it must never scale to
+        // 60 % of raw host RAM again.
+        let caps = crate::hardware::HardwareCapabilities::global();
+        let budget = rocksdb_budget(&Config::default(), caps);
+        assert!(budget <= caps.resident_default_ceiling() as usize);
+        assert!(budget > 0);
+    }
+
+    #[test]
+    fn test_rocksdb_budget_absolute_cap_on_declared_limit() {
+        // FIND-606: even a declared `u64::MAX` limit cannot mint an
+        // unbounded block cache — the budget is capped at
+        // ROCKSDB_MAX_BUDGET.
+        let caps = crate::hardware::HardwareCapabilities::global();
+        let config = Config {
+            memory_limit: Some(u64::MAX),
+            ..Default::default()
+        };
+        assert_eq!(rocksdb_budget(&config, caps), ROCKSDB_MAX_BUDGET);
+    }
+
+    #[test]
+    fn test_rocksdb_open_small_memory_limit() {
+        // FIND-597 + BK-02: a small declared limit must still open —
+        // the per-CF write_buffer_size is bounded by the memtable share
+        // (the old 8 MiB clamp could exceed the whole budget) and the
+        // shared WriteBufferManager caps all column families.
+        let dir = tempdir().unwrap();
+        let config = Config {
+            memory_limit: Some(16 * MIB as u64),
+            ..Default::default()
+        };
+        let backend = RocksDbBackend::open(dir.path().to_str().unwrap(), &config).unwrap();
+        backend.put(BackendPartition::Default, b"k", b"v").unwrap();
+        assert_eq!(
+            backend
+                .get(BackendPartition::Default, b"k")
+                .unwrap()
+                .unwrap(),
+            b"v"
+        );
     }
 
     #[test]

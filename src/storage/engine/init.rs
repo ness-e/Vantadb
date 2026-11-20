@@ -13,7 +13,7 @@ use crate::index_port::IndexPort;
 use crate::lsm::SegmentLevel;
 use crate::node::{FilterBitset, LabelIntern, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{BackendKind, GIB, MIB};
+use crate::storage::engine::{BackendKind, GIB, MIB, STORAGE_ALIGNMENT};
 use crate::storage::ops;
 #[cfg(unix)]
 use crate::storage::vfile::install_sigbus_handler;
@@ -120,7 +120,31 @@ impl StorageEngine {
         let (hnsw, vector_store, segment_registry, wal_writer, wal_replay_ms, wal_records_replayed) =
             if matches!(config.backend_kind, BackendKind::InMemory) {
                 let hnsw = crate::index::port_impl::new_in_memory_port();
-                let vs = File::create_in_memory(64 * MIB);
+                // FIND-597: `create_in_memory` eagerly allocates its
+                // buffer — real RSS, unlike the mmap'd on-disk segments
+                // whose reservation is only address space — so it must
+                // fit inside `Config::memory_limit`. The reservation
+                // keeps the historical 64 MiB while the budget allows
+                // and shrinks to a quarter of the effective limit below
+                // that: the HNSW index is 100 % RAM-resident
+                // (`.opencode/rules/memory-budget.md` R-1) and the rest
+                // of the engine needs headroom. `0` effective memory =
+                // "limit undetected" (Miri) keeps the historical size;
+                // the floor is the segment header (FIND-517: a smaller
+                // buffer cannot hold the VFLE header + cursor).
+                let initial_vstore = if effective_memory == 0 {
+                    64 * MIB
+                } else {
+                    (effective_memory / 4).clamp(STORAGE_ALIGNMENT, 64 * MIB)
+                };
+                let mut vs = File::create_in_memory(initial_vstore);
+                // FIND-597: a declared `memory_limit` also installs a
+                // hard growth cap on the segment — a single vstore can
+                // never eat the whole budget (a write that cannot fit
+                // returns `ResourceLimit`, not an OOM abort).
+                if let Some(limit) = config.memory_limit {
+                    vs = vs.with_mem_growth_cap(limit);
+                }
                 let vstore = vec![parking_lot::RwLock::new(vs)];
                 let reg = crate::lsm::SegmentRegistry::new();
                 let wal_writer = None;

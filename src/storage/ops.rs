@@ -80,7 +80,10 @@ pub(crate) fn write_node_to_vstore(vstore: &mut File, node: &UnifiedNode) -> Res
     if total_needed > vstore.size {
         // ponytail: saturating to avoid overflow if size > 2^63 (already past sane limits)
         let new_size = (vstore.size.saturating_mul(2)).max(total_needed.saturating_add(4096));
-        vstore.grow_to(new_size)?;
+        // FIND-597: `ensure_capacity` clamps the doubling hint to the
+        // segment's `mem_growth_cap` (Config::memory_limit) and turns a
+        // requirement that cannot fit into a ResourceLimit.
+        vstore.ensure_capacity(total_needed, new_size)?;
     }
     let mut header = DiskNodeHeader::new(node.id);
     header.vector_offset = offset + header_size;
@@ -320,7 +323,10 @@ fn write_node_to_vstore_encrypted(vstore: &mut File, node: &UnifiedNode) -> Resu
     if total_needed > vstore.size {
         // ponytail: saturating to avoid overflow if size > 2^63 (already past sane limits)
         let new_size = (vstore.size.saturating_mul(2)).max(total_needed.saturating_add(4096));
-        vstore.grow_to(new_size)?;
+        // FIND-597: `ensure_capacity` clamps the doubling hint to the
+        // segment's `mem_growth_cap` (Config::memory_limit) and turns a
+        // requirement that cannot fit into a ResourceLimit.
+        vstore.ensure_capacity(total_needed, new_size)?;
     }
     vstore.write_node(offset, &header, &payload)?;
     // ponytail: saturating to avoid overflow in 64-byte alignment if total_needed near u64::MAX

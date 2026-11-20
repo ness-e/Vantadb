@@ -87,6 +87,23 @@ impl HardwareCapabilities {
         }
     }
 
+    /// FIND-597 / FIND-606 (`.opencode/rules/memory-budget.md` R-4):
+    /// default byte ceiling for a **single** resident structure whose
+    /// size is decided at open when the operator declared no
+    /// `Config::memory_limit` — `min(total RAM × 15 %, 256 MiB)`.
+    ///
+    /// Consumers: the eager in-memory vstore reservation
+    /// (`storage::vfile::File::create_in_memory`) and the RocksDB
+    /// block-cache/memtable budget (`backends::rocksdb_backend`). Both
+    /// used to reserve either a flat amount or a fraction of raw host
+    /// RAM with no ceiling the operator could lower. `total_memory == 0`
+    /// (Miri, detection failure) still returns a usable non-zero floor.
+    pub(crate) fn resident_default_ceiling(&self) -> u64 {
+        const MIN: u64 = 1024 * 1024; // 1 MiB
+        const MAX: u64 = 256 * 1024 * 1024; // 256 MiB
+        (self.total_memory / 100 * 15).clamp(MIN, MAX)
+    }
+
     /// Return the default path to the hardware profile cache file (`.vanta_profile`).
     ///
     /// Resolution order:

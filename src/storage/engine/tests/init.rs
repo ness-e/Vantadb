@@ -50,6 +50,38 @@ fn test_open_with_config_custom_memory_limit() {
 }
 
 #[test]
+fn test_open_in_memory_respects_memory_limit_reservation() {
+    // FIND-597: a `:memory:` store opened with a small declared
+    // `memory_limit` must not eagerly reserve the historical 64 MiB —
+    // the in-memory buffer is real RSS, so the reservation derives from
+    // the budget (a quarter of it) and the segment is capped at the
+    // declared limit.
+    let config = Config {
+        backend_kind: BackendKind::InMemory,
+        memory_limit: Some(16 * 1024 * 1024),
+        ..Config::default()
+    };
+    let engine = StorageEngine::open_with_config(":memory:", Some(config))
+        .expect("16 MiB in-memory store must open");
+    {
+        let l0 = engine.vector_store[0].read();
+        assert!(
+            l0.size <= 16 * 1024 * 1024 / 4,
+            "in-memory L0 reserved {} bytes against a 16 MiB budget",
+            l0.size
+        );
+    }
+    // The hard growth cap turns `memory_limit` into a real bound: a
+    // segment that would grow past the declared budget is rejected.
+    let mut l0 = engine.vector_store[0].write();
+    let err = l0.grow_to(20 * 1024 * 1024).unwrap_err();
+    assert!(
+        matches!(err, crate::error::Error::ResourceLimit(_)),
+        "growth past memory_limit must be ResourceLimit, got {err}"
+    );
+}
+
+#[test]
 fn test_open_with_config_read_only_in_memory() {
     let engine = StorageEngine::open_with_config(
         ":memory:",
