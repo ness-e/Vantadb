@@ -159,6 +159,92 @@ Objetos, proyección externa, ejecución de plugins y recepción HTTP no compart
 esa transacción. Un éxito canónico no significa que todas las copias físicas
 hayan desaparecido ni que un consumidor externo haya visto la corrección.
 
+### Cadena de hidratación: principal → política → resolver → hidratación
+
+**Estado: acreditada (hecho)** en el camino HTTP/CLI/MCP sobre el adapter
+PostgreSQL leído. Cada tramo tiene evidencia concreta; los límites se declaran
+al final, no como lagunas de la cadena.
+
+**Principal.** [`serve` reconoce `Bearer` y resuelve la clave contra
+`API.Keys map[string]corpus.Scope`, fijando el scope en el contexto:
+api.go:164-174](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/transport/httpapi/api.go#L164-L174);
+[`requestScope`:203-208](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/transport/httpapi/api.go#L203-L208)
+lo entrega al handler estricto
+([`strict_core.go:28`](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/transport/httpapi/strict_core.go#L28)).
+`Scope` es `{Organization, Actions, Corpora}`,
+[corpus.go:29-58](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/corpus/corpus.go#L29-L58):
+el principal es una clave opaca de despliegue, no un IdP ni usuario final.
+MCP/CLI llaman al mismo HTTP
+([`mcp.go:177-182`](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/online/mcp.go#L177-L182));
+los workers usan scopes fabricados desde trabajo durable
+([`trusted.go:10-29`](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/content/trusted.go#L10-L29)),
+no los grants del caller.
+
+**Política.** Única tabla [`actionRequirements`, actions.go:109-206](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/corpus/actions.go#L109-L206),
+evaluada por [`Scope.Require`:212-240](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/corpus/actions.go#L212-L240).
+`retrieval.search` y `content.hydrate` exigen `content:read`+`search:query`
+(actions.go:176,137). En búsqueda: `Require` al entrar
+(retrieval.go:225), `scope.Contains` por corpus (267-269), `Routing.Authorize`
+que verifica existencia en la organización y no archivado
+([searchable.go:140-153](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L140-L153)),
+y estrechamiento `scope.Corpora = q.CorpusIDs` antes de servir al plugin
+([plugin.go:214-215](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/retrieval/plugin.go#L214-L215)).
+En hidratación: `Require(ActionContentHydrate)`
+([content/searchable.go:378](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/content/searchable.go#L378))
+y ocultación por fila `!scope.Contains(corpusID) → ausente`
+([postgres/searchable.go:572-574](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L572-L574),
+misma comprobación en el recheck :540-542). El destino de una Relation
+también pasa `scope.Contains` antes de resolverse
+([records.go:154-156](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/records.go#L154-L156)).
+
+**Resolver.** El candidato del índice sólo porta IDs; la referencia se resuelve
+contra canon: routing `Generation` por corpus
+([retrieval.go:303](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/retrieval/retrieval.go#L303) →
+[searchable.go:123-139](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L123-L139) →
+[`routedGenerationSQL`, eligibility.go:29-31](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/eligibility.go#L29-L31));
+luego `hydrationLookupsSQL` segment→version→record→corpus
+([searchable.go:452-486](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L452-L486)),
+cobertura `effectiveServingSQL` por media type aceptado con gaps de rollback
+([:488-495](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L488-L495),
+[routing_settings.go:79-98](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/routing_settings.go#L79-L98))
+y la verja `hydrationFenceSQL` —generación ruteada = candidata,
+`r.current_version_id=v.id`, `eligibleVersionSQL`, corpus no archivado—
+([:497-498](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L497-L498);
+predicado en [eligibility.go:16-17](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/eligibility.go#L16-L17)).
+Las Relations se resuelven por identidad estable hacia la versión vigente
+elegible con el mismo predicado y sin distinguir ausente/retirado/no autorizado
+([records.go:150-170](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/records.go#L150-L170);
+[`resolveRelations`, content.go:752-774](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/content/content.go#L752-L774)).
+
+**Hidratación.** `serve` pide candidatos por oleadas acotadas
+([plugin.go:593-637](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/retrieval/plugin.go#L593-L637))
+y `hydrate` los lee con caché por búsqueda
+([:654-677](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/retrieval/plugin.go#L654-L677)).
+`Service.Hydrate` secuencia: autorización → lookup por lote → lectura de
+blobs distintos (paralelismo 16) → **recheck posterior a los bytes con los
+mismos predicados**, porque acceso y vigencia pueden cambiar durante la lectura
+([searchable.go:377-429](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/content/searchable.go#L377-L429),
+[:524-545](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L524-L545)).
+`excerpts` corta por runas y exige `Hash(texto)==TextSHA256`
+([:434-511](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/content/searchable.go#L434-L511));
+los SourceRanges multi-Part se resuelven sólo tras autorizar
+([:583-628](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L583-L628)).
+La lectura de una Version completa repite el patrón: `Require` →
+`scope.Contains` → archivado → blobs de manifiesto/texto con comprobación
+`NormalizedText(manifest)==text` → relaciones vivas
+([content.go:681-750](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/content/content.go#L681-L750),
+reader [versions.go:29-50](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/versions.go#L29-L50)).
+
+**Límites del hecho.** El índice jamás sirve contenido: cada ID se rehidrata
+desde canon ([weaviate/item.go:437](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/weaviate/item.go#L437));
+sin `HydrationRechecker` el dominio repite `Baseline.Hydrate` completo
+(searchable.go:411-419). `Blobs.Read` y su aislamiento de objetos no se
+inspeccionaron; `API.Keys` es configuración estática (vida de la clave fuera
+de esta lectura); la facade demo añade su propia sesión y `authorizeRecord`
+([server.mjs:413-422](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/quivr-search/server.mjs#L413-L422))
+sin sustituir la política del engine. No se auditó cada otro transport ni los
+scopes internos de Temporal/plugin HTTP.
+
 ### Recuperación, filtros y evidencia: no basta con un score
 
 [retrieval.Service.Search:223-355](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/retrieval/retrieval.go#L223-L355)
@@ -248,7 +334,7 @@ decidir política de recreación y retención antes de activar.
 
 **Caso/unidad:** cambio de plugin/modelo mientras job viejo sigue en curso;
 evaluación opcional no debe ocupar todo trabajo necesario para servir.
-**Evidencia:** `ServingProjectionStore/RunServing`, `serving_projection.go:12-104`.
+**Evidencia:** `ServingProjectionStore/RunServing`, `serving_projection.go:12-101`.
 Elegibilidad, GenerationID y espacio servido son controles distintos.
 **Delta/seam:** WikiStore `begin_processing/complete/put_page`, scheduler
 `vanta-memory/src/services/scheduler.rs::run_pass`, task checkpoints.
@@ -356,7 +442,11 @@ aparentemente vigente. Unidad: `Service.resolveRelations` (§0) y
 El adapter consulta identidad estable con scope, versión actual y elegibilidad;
 ausente/no listo/retirado/quarantined/inaccesible no exponen target IDs.
 La **relación fuente** se conserva: no se promete ocultar un nombre que el
-propio documento autorizado ya contenga.
+propio documento autorizado ya contenga. La cadena principal→política→
+resolver→hidratación quedó acreditada en §0: la verja SQL se reevalúa tras
+leer los bytes
+([RecheckHydration, searchable.go:524-545](https://github.com/The-Vibe-Company/quivr/blob/bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f/internal/adapters/postgres/searchable.go#L524-L545)),
+de modo que una revocación concurrente con la lectura no entrega el handle.
 
 **Delta/seam:** `src/wiki/store.rs::WikiStore::{get_page,list_pages}` y
 provenance de L1. El caller debe resolver/autorizar **antes** de entregar texto a
@@ -723,9 +813,17 @@ requiere revisión independiente del responsable.
 **Leído:** rangos enlazados de dominio/SQL, serving projection, retrieval,
 monitoring/webhook; runner run/scoring/trec/public_sets y percentiles; cliente,
 feed, AddText, facade/entrada React; seams Vanta y cuerpos Studio indicados.
+Además la cadena completa de hidratación: autenticación Bearer→Scope
+(api.go), política de acciones (corpus/actions.go), autorización/routing
+y verja SQL de elegibilidad (searchable.go, eligibility.go,
+routing_settings.go, records.go), hidratación por lotes con recheck
+post-lectura (content/searchable.go, retrieval/plugin.go), lectura de
+Version con relaciones vivas (content.go, versions.go) y scopes trusted de
+workers (trusted.go).
 **No leído completo:** todos los plugins/SQL/migrations, modelos/tokenizers
 externos, datasets descargados, campaña/Modal/OSS bakeoff, billing, authz de
-todos los transports, replay/SSRF total ni transitivas/licencias de assets.
+todos los transports, el object store tras `Blobs.Read`, replay/SSRF total
+ni transitivas/licencias de assets.
 No tests, apps, builds, benchmarks, instalaciones, servicios o git writes.
 
 Relaciones: B necesita identidad/vigencia A para publicación; C consume cambio

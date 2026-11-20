@@ -31,12 +31,42 @@ tags: [research, memory, engineering]
 |---|---|
 | Clon solicitado | `C:\Users\Eros\letta`, `letta-ai/letta`, `main`, `8816d3a8516893bfdc0fa14bfb1235226012e295` |
 | Selección | Excepción expresa del owner: 25 377 estrellas en [manifest adicional](clone-additions-manifest.json); no supera el filtro original de 30k ni lo modifica |
-| Qué contiene | `README.md`, `AGENTS.md`, políticas y Apache-2.0; **landing, no servidor implementado** [L0][L1] |
+| Qué contiene | Landing de documentación/políticas + `.github/`; **cero archivos de código fuente** (sin `src/`, paquetes, tests ni servidor): inventario completo en la tabla siguiente [L0][L1] |
 | Complemento remoto | `letta-ai/letta-code`, `9176d8c0b16f408e9240422a98379a423e2176c3`, observado por API el 2026-11-07; no nuevo clon/candidato ni cambio del manifest |
 | Vanta | Snapshot contractual `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`; no se persigue HEAD concurrente |
 | Método | [EXPANSION-CONTRACT](EXPANSION-CONTRACT.md), [VANTA-REFERENCE](VANTA-REFERENCE.md), [METHOD](METHOD.md), [BENCHMARK-NOTES](BENCHMARK-NOTES.md), leídos sin modificarlos |
 
 **Dictamen:** atribuir al clon las capacidades del antiguo MemGPT/servidor Python sería falso. Su README remite al harness actual Letta Code; `AGENTS.md` prohíbe usar V1/archive para comparaciones e integraciones actuales. **No se leyó archive, tags, paquetes Python retirados ni Docker V1.** La ampliación inspecciona únicamente fuente pública actual complementaria y la distingue del clon seleccionado. No acredita todo Letta Cloud.
+
+### Inventario verificado del clon local
+
+Relectura directa del checkout `C:\Users\Eros\letta` (`main` @ `8816d3a8516893bfdc0fa14bfb1235226012e295`, 2026-11-20): **0 archivos `.ts/.py/.rs/.go`, 0 `package.json`, 0 tests**. Todo mecanismo citado en este informe procede del complemento remoto fijado [L2-L23] o de documentación viva [D1-D4], **nunca del clon**.
+
+| Archivo del clon | Contenido verificado (`archivo:línea`) |
+|---|---|
+| `README.md` (38 l.) | «The current source code lives in `letta-ai/letta-code`» — `README.md:5`; instalación npm `@letta-ai/letta-code`, `letta`, `letta server` — `README.md:7-25`; chat web, canales, Agent SDK y Letta Cloud — `README.md:27-34`; rama `archive` = «retired Letta V1 API server» — `README.md:36-38` |
+| `AGENTS.md` (48 l.) | «`main` is intentionally a small landing page» — `AGENTS.md:5`; archive sin fixes ni security updates — `AGENTS.md:7`; lista de usos prohibidos (benchmarks, comparaciones, adaptadores, copias) — `AGENTS.md:11-26`; tabla de redirección a letta-code/SDK para todo trabajo actual — `AGENTS.md:28-46` |
+| `SECURITY.md` (21 l.) | «This repository is a landing page, not an actively maintained server» — `SECURITY.md:7`; V1/archive/Docker fuera de alcance de reportes de seguridad — `SECURITY.md:9-18` |
+| `AI_POLICY.md` (70 l.) | «the code in this repo is ARCHIVED» — `AI_POLICY.md:5-10`; obligación de divulgar uso de IA; remite a AGENTS.md |
+| `CONTRIBUTING.md` (5 l.) | «This repository is archived and does not accept changes to the retired Letta V1 server» — `CONTRIBUTING.md:3` |
+| `PRIVACY.md` (206 l.) / `TERMS.md` (42 l.) | Telemetría/datos de servicios hospedados y términos legales; sin contenido arquitectónico |
+| `CITATION.cff` / `LICENSE` | Cita al paper MemGPT arXiv:2310.08560 (2023); Apache-2.0 |
+| `.github/` | `workflows/issue-guard.yml` (validación de issues con allowlist), `ISSUE_TEMPLATE/config.yml` (blank issues deshabilitadas, redirige a letta-code), `TRUSTED_CONTRIBUTORS` |
+
+### Matriz de verificación: mecanismos solicitados frente al clon
+
+| Mecanismo pedido | Estado en el clon | Dónde quedó realmente acreditado |
+|---|---|---|
+| Separación memoria committed / sincronizada / compilada / utilizada | **Ausente — sin código** | Complemento: commit vs sync [L4:1180-1268,1833-1977]; compilación con `memfsRevision` [L5:23-39,65-130] |
+| Mecanismos de contexto (bloques, inyección, layout) | **Ausente** | Complemento [L5][L7][L18]; guías vivas [D1][D2] |
+| Checkpoints / persistencia de ejecución | **Ausente** | Complemento: `LocalStore` persistencia local acotada [L11]; no es checkpoint de tarea ni recovery certificado |
+| Self-editing memory (el agente edita su memoria) | **Ausente** | Complemento: MemFS + flujo editar→validar→commit [L3][L4][L6]; herramientas concretas de edición no auditadas íntegras |
+| Sleeptime / consolidación en segundo plano | **Ausente** | Complemento: reparación de conflictos en background [L10] y compactación [L12]. **Ningún proceso denominado “sleeptime” fue localizado en la muestra**; no atribuir el concepto MemGPT V1 al producto actual |
+| Tools de memoria (API de herramientas del agente) | **Ausente** | Complemento: wrappers de búsqueda [L23] y recall local [L19-L21]; tools de archivo/MemFS localizadas por imports, no auditadas completas |
+| Archival memory como colección separada | **Ausente** y **tampoco acreditada en el complemento** | §0 «tres superficies» abajo; no importar endpoints V1 |
+| Self-editing de bloques core estilo V1 (`core_memory_replace` etc.) | **Ausente** | No verificado en la muestra del complemento; la edición leída es de archivos MemFS, no de una API de bloques homónima |
+
+Regla de lectura reforzada: **hecho leído** = línea citada de archivo existente; **inferencia** = conclusión derivada de esas líneas; **no acreditado** = sin evidencia ni en el clon ni en el pin. Las 25 377 estrellas, el nombre MemGPT y `CITATION.cff` no son evidencia de implementación.
 
 Leyenda: **Código** = implementación estática fijada; **documentación** = declaración; **reporte** = incidencia upstream no reproducida; **propuesta** = contrato futuro, no API implementada. Fecha de consulta externa: 2026-11-07. No ejecución, instalaciones, servicios ni operaciones Git de escritura.
 
@@ -412,11 +442,13 @@ L0/L1 apuntan al **clon solicitado**; L2-L17 al **complemento actual remoto**, n
 
 ### Cobertura y cierre
 
+Clon local releído íntegro el 2026-11-20 (9 archivos de texto + `.github/`, 0 archivos de código): su aporte es **exclusivamente declarativo** — identidad del producto, redirección a letta-code y prohibiciones de uso de V1. Ningún mecanismo de memoria se verifica desde el clon; ver matriz de §0.
+
 Lectura de cuerpos: checkout/scoping/árbol [L3:108-155,280-465], commit y sync [L4:1180-1268,1833-1977], compilador [L5:1-130], formato completo [L7], validador [L6:1-180], lock [L9:1-140], repair [L10:119-234], compactación [L12:43-205,718-867], scanner completo, defaults de bloques y runner. LocalStore: modelos/mapas, creación/listado/borrado y puntos de persistencia seleccionados, no archivo entero. MemFS/auth/helper restantes se localizaron por símbolos/imports; **localizar no cuenta como auditar cuerpo**.
 
 Ampliación de cierre: leídos completos [L18][L19][L21][L22][L23]; [L20] lectura directa de DTOs, texto buscable, ranking, fechas, colección de filas, errores y entry point (`1-185,285-630`), no auditoría del parser `187-283` ni del lector JSONL importado. Guías [D1-D3] leídas completas como documentación viva (consulta 2026-11-07, sin SHA); [D4] solo para identificar/excluir redirección legacy. Se releyó cuerpo y comentario visible de #4831; se conservan las otras incidencias previamente documentadas sin afirmar nueva reproducción. GitHub Trees por `urllib` agotó rate limit 403; fallback a raw fijado funcionó. Metasearch `site:docs.letta.com "recall" "MemFS"` no devolvió resultados en Bing/DuckDuckGo; no se dedujo ausencia.
 
-No leído: V1 deliberadamente; App Server completo, backend SaaS, clientes desktop/web completos, SDK transitivo, servidor Git remoto y enforcement de todas las rutas. No se ejecutaron los tests, herramientas Git de las trazas, CLI ni benchmark. La fuente complementaria evita un informe histórico falso, pero no convierte esta muestra en auditoría completa del nuevo producto.
+No leído: V1 deliberadamente; App Server completo, backend SaaS, clientes desktop/web completos, SDK transitivo, servidor Git remoto y enforcement de todas las rutas. No se ejecutaron los tests, herramientas Git de las trazas, CLI ni benchmark. La fuente complementaria evita un informe histórico falso, pero no convierte esta muestra en auditoría completa del nuevo producto. Sigue sin acreditarse: proceso “sleeptime” homónimo, API de bloques core autoeditada estilo V1, colección archival separada, tools de edición MemFS completas y cualquier garantía del servidor remoto detrás de `/v1/*`.
 
 Dependencias: B → A para publicación validada; A → E para visibilidad; C usa revisión/validación A/B; D se integra al assembler sin esperar Git/Cloud; F/G comparten refs, no un índice adicional. Cada ficha tiene aceptación manual futura, no especificación de harness. Pendientes externos: alcance SDK/App Server, cobertura end-to-end de auth/checkout tras los fixes reportados de #4249 y matices de #5091, políticas de reparación compartida y divergencia guía system/ frente a layout local v2.
 

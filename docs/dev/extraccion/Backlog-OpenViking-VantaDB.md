@@ -119,7 +119,17 @@ Rutas citadas en todo el documento son relativas al checkout `C:\Users\Eros\Open
 | Colas | QueueFS persistente at-least-once | `openviking/storage/queuefs/` (`add_resource_processor.py`, `semantic_processor.py`, …) |
 | Gateway | Management API, capture | `openviking_gateway/management.py:191`, `app.py:127-176,292-378`, `config.py:102-104,162-168` |
 | Seguridad | Auth plugins, SSRF guard, path/zip safety | `openviking/server/auth/plugins/{dev,trusted}.py`, `openviking/utils/network_guard.py:123-135`, `openviking/utils/path_safety.py`, `openviking/utils/zip_safe.py`, `openviking/server/routers/webdav.py:45-61,162-171` |
-| UI | Studio MemoryImpact | `web-studio/src/features/workbench/sessions/components/memory-impact.tsx` |
+| UI | Studio MemoryImpact + parser de diffs | `web-studio/src/features/workbench/sessions/components/memory-impact.tsx:52-368`, `web-studio/src/features/workbench/sessions/lib/memory-diff.ts:62-94` |
+| UI | Montaje SPA `/studio` (fallback + confinamiento) | `openviking/server/app.py:817-865` |
+| UI | Sonda de capabilities por contrato | `web-studio/src/shared/lib/studio-service.ts:40-171` |
+| UI | Credenciales dual data/control, interceptores axios | `web-studio/src/shared/api/ov-client/client.ts:126-266` |
+| UI | Credenciales cifradas AES-GCM (IndexedDB) | `web-studio/src/features/connection/lib/credential-storage.ts:1-40` |
+| UI | Onboarding con verificación real de conexión | `web-studio/src/features/connection/lib/onboarding.ts:155-346` |
+| UI | Pipeline de tareas inferido desde `queue_status` | `web-studio/src/features/workbench/tasks/lib/task-pipeline.ts:26-140` |
+| UI | Observer → tablas ASCII parseadas | `web-studio/src/features/workbench/monitoring/lib/parse-status.ts:19-40` |
+| UI | Detalle de retrieval (score/nivel/match_reason) | `web-studio/src/features/workbench/retrieval/components/retrieval-detail-sheet.tsx:40-158` |
+| UI | Cliente OpenAPI generado | `web-studio/src/gen/ov-client/sdk.gen.ts` (~84 endpoints), `web-studio/types/ov-server/*` |
+| UI | Productor de `memory_diff.json` en el VFS | `openviking/session/compressor_v3.py:1383-1403` (lectura UI: `web-studio/src/features/workbench/sessions/lib/api.ts:281-322`) |
 | Docs | Helper (agent integration) | `docs/en/agent-integrations/14-openviking-helper.md` |
 | Benchmarks | Harnesses | `benchmark/README.md`, `benchmark/locomo/*`, `benchmark/tau2/*`, `benchmark/RAG/*` (`pipeline.py:187-202`) |
 
@@ -127,7 +137,8 @@ Rutas citadas en todo el documento son relativas al checkout `C:\Users\Eros\Open
 
 - **[Hecho]** La raíz del repo es **AGPL-3.0**: `LICENSE` y headers `SPDX-License-Identifier: AGPL-3.0` muestreados en `openviking/*.py` (p.ej. `hierarchical_retriever.py:2`, `index_consistency.py:2`, `scope_filter.py:2`). El cambio de licencia a AGPL se introdujo en el commit `ce998873f` (historial).
 - **[Hecho]** `crates/` (RAGFS, `ov_cli`) declara **Apache-2.0** — licencias mixtas por subárbol.
-- **[Hipótesis]** El inventario por archivo está **incompleto**: solo hubo muestreo, no barrido SPDX completo. Antes de cualquier reutilización directa/derivada hay que completarlo.
+- **[Hecho]** Cierre parcial del inventario para el subárbol UI (barrido dirigido posterior): `web-studio/` (817 ficheros) **no contiene headers SPDX** ni campo `license` en su `package.json` → hereda AGPL-3.0 raíz; `frontend/packages/react/package.json` declara `"license": "AGPL-3.0-only"`; `sdk/typescript/package.json` declara `"Apache-2.0"`.
+- **[Hipótesis]** El inventario por archivo del resto (`openviking/`, `crates/` más allá de lo declarado, `bot/`, `benchmark/`) sigue **incompleto**: solo hubo muestreo, no barrido SPDX completo. Antes de cualquier reutilización directa/derivada hay que completarlo.
 - **Regla:** reescribir a otro lenguaje **no** exime de la licencia — una traducción/port sustancial puede ser obra derivada. Estudiar ideas y reimplementarlas limpiamente es distinto de trasladar código; el gate legal es obligatorio para cualquier reutilización directa o derivada.
 - **No se filtró la investigación por licencia** (registrar todo lo relevante); sí se registra provenance por hallazgo.
 
@@ -149,7 +160,7 @@ Alcance declarado por el subagente: lectura estática únicamente; sin ejecució
 
 **Recomendaciones de la auditoría:** (1) gateway `management_key` obligatorio o `management_api=false` por defecto; (2) patrón adoptable para VantaDB — gate "dev-mode solo si bind loopback" (ver §9: resultó ser **falso positivo** en VantaDB, ya existía); (3) SSRF con pinning de IP en conexión o resolver inyectado, eliminar exención allowlist; (4) hashing de keys ON por defecto + redacción de campos secretos en dumps; (5) formalizar `// SAFETY:` y contract-testing del ABI, `cargo audit`/`deny` en CI.
 
-**Cobertura no revisada:** `openviking_gateway` completo (lua, capture, protocols), `crates/ragfs` multibackend/shell, parsers individuales, frontend/web-studio, totalidad de `unsafe` de `provider.rs`. No se ejecutó `cargo audit`, semgrep ni tests.
+**Cobertura no revisada:** `openviking_gateway` completo (lua, capture, protocols), `crates/ragfs` multibackend/shell, parsers individuales, totalidad de `unsafe` de `provider.rs`. No se ejecutó `cargo audit`, semgrep ni tests. *(Actualización posterior: `web-studio/` recibió una pasada estática dirigida — ver §10.2: hallazgos positivos sin auditoría de seguridad formal — credential contract fail-closed, cifrado AES-GCM de credenciales, redacción de secretos en errores, confinamiento SPA `is_relative_to` en `app.py:856`; sin ejecución ni análisis XSS/dependencias.)*
 
 ### 0.8 Capacidades existentes de VantaDB — no duplicar
 
@@ -234,7 +245,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 ### Ficha F4 — Ledger de contexto entregado por sesión y revisión
 
 - **Objetivo:** registrar qué contexto (id+revisión) se seleccionó, renderizó y **entregó** por sesión y ventana de turnos, con confirmación idempotente — evita reinyectar lo ya entregado y permite auditar la inyección.
-- **Lectura de código (OV):** `retrieve/context_assembler/ledger.py` (`_record_turn`, `_resolve_turn`), `session/session.py:3270-3286` (contexto para search), `session/session.py:1489-1498`.
+- **Lectura de código (OV):** `retrieve/context_assembler/ledger.py` (`_record_turn`, `_resolve_turn`); mecanismo RMW verificado en segunda pasada: `load()` lee el JSON entero (`:98-108`) y `record()` lo reescribe entero (`:160-173`) **sin CAS ni lock** — el mecanismo exacto del lost-update de #7170; degrada a ledger vacío si es ilegible (`status="new"`, `:104-107`) y a `write_failed` best-effort si falla la escritura (`:171-173`); un `detail=="uri"` (servido sin contenido) **no** suprime en turnos siguientes (`:126-130`) — distinción real servido-completo vs servido-referencia que F4 ya exige (Selected/Rendered vs Delivered). `session/session.py:3270-3286` (contexto para search), `session/session.py:1489-1498`.
 - **Anclaje en VantaDB:** sesiones existentes y store propio — estado de ledger **dedicado por sesión** (no acoplado al JSON global del checkpoint); la actualización atómica se garantiza por CAS **o** por una sección crítica compartida que cubra lectura+escritura. La carrera RMW histórica observada en [`checkpoint.rs`](../../vanta-memory/src/utils/checkpoint.rs) (§4-B) debe resolverse antes de prometer garantías basadas en estado compartido, no porque el ledger deba usar ese registro.
 - **Contrato propuesto (hipotético):** `DeliveryLedger { session_id, entries: [{context_id, revision, state: Selected|Rendered|Delivered, turn}] }`; update atómico (CAS o sección crítica compartida sobre read+write); `confirm_delivery(entry)` idempotente; ventana de turnos configurable. La confirmación de entrega es semántica de aplicación: **no** es una promesa de exactly-once de red.
 - **Pasos:** (1) resolver la carrera RMW del checkpoint global (§4-B) antes de prometer garantías sobre estado compartido; (2) esquema de entradas por sesión+context_id+revisión en estado dedicado; (3) transiciones de estado atómicas; (4) consulta "¿qué se entregó ya en esta ventana?"; (5) integración con el assembler (F3).
@@ -318,7 +329,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 ### Ficha F10 — Inspector de evidencia y onboarding en Studio existente
 
 - **Objetivo:** en VantaDB Studio existente (worktree `develop-desktop`, Tauri v2): onboarding de integraciones con consentimiento + inspector del ciclo captura→extracción→recall→inyección con evidencia real.
-- **Lectura de código (OV):** `web-studio/src/features/workbench/sessions/components/memory-impact.tsx` (MemoryImpact), `docs/en/agent-integrations/14-openviking-helper.md` (perfiles cloud/selfhost, detección de agentes, setup MCP/hooks/plugins, inspección de sesiones, inventario, sync selectivo, captura de evidencia + commit + recall + inject — **solo documentado, no verificado en runtime**; el fuente de Helper no está en el checkout).
+- **Lectura de código (OV, ampliada en segunda pasada):** `web-studio/src/features/workbench/sessions/components/memory-impact.tsx:52-368` + parser `lib/memory-diff.ts:62-94` (MemoryImpact: diff add/update/delete con before/after por `archive_NNN`); productor del artefacto `openviking/session/compressor_v3.py:1383-1403` (`memory_diff.json` escrito en el propio VFS; leído por convención en `sessions/lib/api.ts:281-322`); sonda de capabilities `shared/lib/studio-service.ts:40-171`; onboarding con verificación real `features/connection/lib/onboarding.ts:155-346`; credenciales dual fail-closed `shared/api/ov-client/client.ts:213-266` + cifrado `features/connection/lib/credential-storage.ts:1-40`; pipeline de tareas inferido `tasks/lib/task-pipeline.ts:26-140` (evidencia de que el backend no expone estados explícitos → F7); `docs/en/agent-integrations/14-openviking-helper.md` (perfiles cloud/selfhost, detección de agentes, setup MCP/hooks/plugins, inspección de sesiones, inventario, sync selectivo, captura de evidencia + commit + recall + inject — **solo documentado, no verificado en runtime**; el fuente de Helper no está en el checkout, re-verificado).
 - **Anclaje en VantaDB:** VantaDB Studio existente (conexiones, memoria, skills, escenas, actividad, diagnóstico de retrieval) — **extenderlo, no crear producto nuevo**.
 - **Contrato propuesto (hipotético):** `IntegrationCandidate { kind, evidence, config_diff }` con detección → preview → consentimiento → aplicación sin sobrescritura; `TimelineEvent { stage: Capture|Extract|Recall|Inject, ref, ts }`; memory diff + provenance + presupuesto de descartes (F3); sync selectivo por categoría.
 - **Pasos:** (1) inspector de timeline sobre datos reales (read-only primero); (2) memory diff/provenance en UI; (3) detección de integraciones con preview + consentimiento, nunca escritura silenciosa; (4) sync selectivo; (5) superficie de errores reales de transporte/capabilities.
@@ -519,21 +530,86 @@ Supersession (**FIND-277**, **FIND-577**), spill (**FIND-294**), hooks (**FIND-2
 
 ## 10. Evaluación de escritorio / UI
 
+> **Extensión de esta sección (segunda pasada, solo lectura):** lectura dirigida sobre el árbol completo de `web-studio/` (~756 ficheros `.ts/.tsx` fuente) más verificaciones puntuales en `openviking/` (productor del artefacto `memory_diff.json`, ledger del assembler, montaje SPA en el servidor). Sigue siendo evidencia **estática**: ni Web Studio, ni Helper, ni VantaDB Studio se ejecutaron.
+
 **Tres productos separados — no confundirlos ni atribuir stack entre ellos:**
 
 | Producto | Naturaleza | Stack verificado |
 |---|---|---|
-| **OpenViking Helper** | App nativa descargable, documentada beta Windows x64/macOS | **Fuente no localizado en el checkout — no atribuir stack.** El directorio `dsh-desktop-smoke` (Electron) pertenece a **otro** producto (DeepSeek Harness Desktop), no a Helper |
-| **Web Studio** | SPA servida por el backend | React 19 / Vite / TypeScript / TanStack Router+Query / Tailwind / cliente OpenAPI + adapter; depende del servidor (chat VikingBot) — `web-studio/` |
-| **`frontend/`** | Biblioteca de UI, **no** runtime | workspace Node `^20.19 \|\| >=22.12`, React 18/19 peer |
+| **OpenViking Helper** | App nativa descargable, documentada beta Windows x64/macOS | **Fuente no localizado en el checkout — no atribuir stack** (re-verificado: solo `docs/{en,zh}/agent-integrations/14-openviking-helper.md`, screenshots en `docs/images/openviking-helper/` y binarios 0.0.19 en CDN). El script `.github/scripts/dsh-desktop-smoke.mjs` pertenece a **otro** producto (DeepSeek Harness Desktop), no a Helper |
+| **Web Studio** | SPA servida por el propio servidor FastAPI en `/studio` | React 19 / Vite 7 / TypeScript 5.7 / TanStack Router+Query+Table+Form / Tailwind 4+shadcn / cliente OpenAPI generado + adapter axios — `web-studio/package.json:20-92`, `openviking/server/app.py:817-865` |
+| **`frontend/`** | Biblioteca de UI, **no** runtime | workspace Node `^20.19 \|\| >=22.12`, React 18/19 peer; `frontend/packages/react/package.json` declara `license: "AGPL-3.0-only"` |
 
-**Helper (solo documentación [Claim], no runtime):** `docs/en/agent-integrations/14-openviking-helper.md` + [docs oficiales](https://docs.openviking.ai/en/agent-integrations/14-openviking-helper): perfiles cloud/selfhost, detección de agentes, setup de MCP/hooks/plugins, inspección de sesiones locales, inventario, sync selectivo, captura de evidencia + commit + recall + inject. Nada verificado en ejecución.
+### 10.1 Web Studio — qué es y cómo está escrita
 
-**MemoryImpact:** `web-studio/src/features/workbench/sessions/components/memory-impact.tsx` — componente de impacto de memoria por sesión, fuente de la idea del inspector (F10).
+- **[Hecho] No es app de escritorio ni embebida en Tauri/Electron:** es una SPA compilada con Vite que el servidor FastAPI sirve como estático en `/studio` con fallback SPA — `/studio/{path}` devuelve el fichero si existe o `index.html` para deep links de TanStack Router, con confinamiento `is_relative_to` anti-traversal (`openviking/server/app.py:817-865`); `/` redirige a `/studio/`. El bundle se genera en un stage docker `web-studio-builder`, se empaqueta dentro del wheel pip (`package-data`) y en desarrollo se apunta con `OPENVIKING_WEB_STUDIO_DIR` (`app.py:817-829`). **No existe IPC nativo:** toda la comunicación es HTTP REST.
+- **[Hecho] Escala y organización:** ~756 `.ts/.tsx` en `src/` con arquitectura feature-sliced: `src/app` (router/layouts/providers), `src/routes` (file-based routing de TanStack, ~24 rutas), `src/features/{workbench,admin,connection,resource-acl,oauth}`, `src/shared/{api,lib,ui,hooks,types}`, `src/gen/ov-client` (cliente generado), `types/ov-server` (tipos generados, 8 ficheros: `api/v1/{console,content,fs,search,sessions,tasks}.ts`, `bot/v1/chat.ts`, `common.ts`).
+- **[Hecho] Cliente API generado desde el contrato del servidor:** `script/gen-server-client` + `@hey-api/openapi-ts` producen `src/gen/ov-client/sdk.gen.ts` (1.043 líneas, ~84 endpoints `/api/v1/*` y `/bot/v1/*`) y `types.gen.ts` (4.634 líneas); el adapter propio `shared/api/ov-client/client.ts` envuelve el SDK generado con interceptores axios. Lección: el contrato UI↔servidor se genera, no se escribe a mano — y existe evidencia documental de auditoría periódica del contrato (`web-studio/docs/api-contract-audit.md`, con snapshot de commit del servidor).
+- **[Hecho] Dependencias que delatan funciones:** CodeMirror (editor código/markdown), `@xyflow/react`+`@dagrejs/dagre`+`three`/`postprocessing` (grafos 2D/3D), `streamdown`+`rehype-sanitize` (markdown streaming saneado), `recharts`+`@uiw/react-heat-map` (métricas/heatmap), `@rjsf/*` (formularios por JSON Schema), `diff` (diffs de snapshots), `@microsoft/fetch-event-source` (SSE), `i18next` (locales `en` y `zh-CN`), `qrcode.react`, `sonner` (`web-studio/package.json:20-92`).
+- **[Hecho] Documentación interna de contratos:** `web-studio/docs/` incluye `api-contract-audit.md` (verificación de endpoints contra commit fijado del servidor), `permission-matrix.md`, `admin-workbench-refactor.md` (contrato de credenciales data/control, anti-fallback), `user-journeys.md`, `frontend-structure.md` — la UI documenta sus propias invariantes de seguridad.
 
-**VantaDB Studio (ya existente):** worktree `develop-desktop`, Tauri v2 Rust/React/Vite con memoria, conexiones, skills, escenas, actividad y diagnóstico de retrieval; bridge tipado (`desktop/src/vanta.ts`, `vanta-http-map.ts`). **No proponer funciones que ya existen.**
+### 10.2 Conexión al motor y modelo de credenciales [Hecho]
 
-**Evaluación:** el valor incremental para VantaDB está en (1) onboarding de integraciones con detección+consentimiento+preview y (2) inspector de evidencia del ciclo captura→extracción→recall→inyección (F10) — no en construir otra consola ni un Helper propio. La evaluación de UI en runtime **no se realizó** (sin ejecución de ninguna app).
+- **Transporte:** REST `axios` contra `baseUrl` = mismo origen o `VITE_OV_BASE_URL` (`client.ts:36-44,196-203`); streaming por SSE a `/bot/v1/chat/stream` con tipos de evento cerrados (`response|interrupt|tool_call|tool_result|reasoning|iteration|content_delta|reasoning_delta`, `sessions/lib/sse.ts:6-15`); la clave activa se guarda en `sessionStorage` (no persiste entre sesiones, `client.ts:46-72`).
+- **Credencial dual data-plane/control-plane:** `apiKey` (datos de tenant) y `adminApiKey` (management) son dos credenciales separadas; `X-API-Key` o `Authorization: Bearer` según el modo de auth detectado; headers de identidad `X-OpenViking-Account`/`X-OpenViking-User` solo en modo trusted (`client.ts:126-131,230-266`).
+- **Fail-closed por ámbito:** con `credentialScope='data'` el interceptor **rechaza antes de enviar** cualquier request a `/api/v1/admin/*` (`PERMISSION_DENIED`, `client.ts:213-222`) y borra headers de control residuales (`:226-229`); la credencial de control solo se admite en endpoints read-only de operación (`/health`, `/api/v1/system/status`, `/api/v1/console/*`, `/api/v1/observer/*`, `/api/v1/tasks` — `canUseControlCredential` :134-146). El contrato "la root key nunca hace fallback a peticiones de datos" está documentado en `web-studio/docs/admin-workbench-refactor.md`.
+- **Cifrado de credenciales en reposo:** perfiles guardados con AES-GCM-256 vía Web Crypto y clave **no exportable** en IndexedDB, con transacción atómica read/create para primera pestaña; el comentario declara honestamente el límite: "encryption at rest, not an XSS/extension security boundary" (`features/connection/lib/credential-storage.ts:1-40`).
+- **Onboarding con verificación real:** `verifyStudioSetup` no acepta credenciales a ciegas — hace probe de salud, resuelve `authMode` (dev/api_key/trusted), clasifica el rol (root/admin/user), reconoce keys invertidas root↔user, exige una lectura de datos real (`GET /api/v1/fs/ls` con `node_limit=1`) o un endpoint admin según el caso, y **redacta los secretos de los mensajes de error** (`features/connection/lib/onboarding.ts:52-56,155-305`); perfiles multi-conexión persistidos cifrados (`:320-346`).
+- **Sonda de capabilities por contrato, no por reachability:** `STUDIO_FEATURES` asigna a cada feature opcional un endpoint `probe` (`/api/v1/console/audit`, `/api/v1/watches`, `/api/v1/observer/system`) y `classifyCapabilityResponse` valida la **forma de la respuesta** (`result.tasks` array, `items`+`total`, `is_healthy`+`components`) antes de mostrar la feature; estados `supported|unavailable|forbidden|unknown` con comentario explícito "A reachable endpoint is not enough: verify the read contract" (`shared/lib/studio-service.ts:40-89,97-171`). Es la implementación práctica de "instalado ≠ funcionando".
+- **Telemetría opt-in por endpoint:** el interceptor inyecta `telemetry: true` en POSTs a `/api/v1/search/{find,search}`, `/api/v1/resources` y `sessions/{id}/commit` cuando está habilitado (`client.ts:21-27,112-124,148-164`).
+- **Errores:** envelope `{status:'error', error:{code,message,details}}` normalizado a `OvClientError` con `requestId` propagado (`client.ts:166-171,274-298`).
+
+### 10.3 Vistas y capacidades diagnósticas verificadas [Hecho salvo indicación]
+
+| Vista (ruta) | Qué muestra | Mecanismo / evidencia |
+|---|---|---|
+| `/filesystem` | Árbol `viking://` navegable, explorer con tareas activas; **terminal embebido** que ejecuta comandos REST (fs/search/sessions/compile); visor de diff entre snapshots | `features/workbench/filesystem/components/context-explorer.tsx:1-60`, `terminal-panel.tsx` (2.764 líneas; imports `fetchFsList/Tree/Stat`, `commitSession`, `fetchSearch`, `postFsMv`…), `snapshot-diff-viewer.tsx`, endpoints `/api/v1/snapshot/{log,commit,diff,show}` y `/api/v1/pack/export` en `filesystem/lib/data-management.ts:44-203` |
+| `/retrieval` | Búsqueda con **score, nivel L0/L1/L2, `match_reason`, URI, tipo (resource/memory/skill), resumen** y salto a filesystem | `retrieval/components/retrieval-detail-sheet.tsx:40-158`; probe de contexto `hooks/use-resource-context-probe.ts:27-50` (`fs/ls` sobre `viking://resources/`) |
+| `/sessions` | Chat con VikingBot vía SSE; lista de threads; archivos de sesión paginados | `sessions/lib/sse.ts`, `use-chat*.ts`, `api.ts` |
+| `/sessions` (MemoryImpact) | **Diff de memoria por commit** — adds/updates/deletes con `before`/`after`, `memory_type`, URI, agrupado por `archive_NNN`; link a `/agent-experience/$uri` | `sessions/components/memory-impact.tsx:52-241,305-368`; parser `lib/memory-diff.ts:62-94` |
+| `/tasks` | **Pipeline visual por tipo de tarea** (resource ingestion: externalParse→[semantic‖embedding]; `session_commit`; `admin_reindex`; `connector_import` con fetch+auth previos) | `tasks/lib/task-pipeline.ts:46-140` (pasos), `:146-267` (grupos serial/parallel) |
+| `/monitoring` | Estado de componentes + **colas** (In Progress/Pending/Processed/Errors/Total) | `monitoring/components/observer-status-content.tsx:16-73`, `queue-status-card.tsx:18-44` |
+| `/request-logs` | Auditoría de requests con filtros `request_id`/`api_type`/`status` | `request-logs/lib/api.ts` → `GET /api/v1/console/audit` |
+| `/home` | Dashboard: summary, serie de tokens, heatmap de context-commits | `home/lib/api.ts:20-52` → `/api/v1/console/{dashboard/summary,tokens,context-commits}` |
+| `/agent-experience` | Trayectorias de experiencias con outcome (success/failure/partial/unknown/unfinished), distribución, traza de origen | `agent-experience/lib/api.ts:149-192` → `/api/v1/agent-evolution/experiences/{trajectories,outcomes}` + `fs/attrs` |
+| `/watches` | CRUD de watches + historial + enable/disable | `watches/page.tsx` → `/api/v1/watches` |
+| `/arranger` | Grafo de contexto (xyflow+dagre; deps 3D presentes) | `routes/arranger/-components/context-graph.tsx` |
+| `/skills`, `/directory`, `/memories` | Skills persistidas, directorio de usuarios, redirect a memorias | `routes/skills`, `directory`, `memories-redirect` |
+| `/admin/*` | Usuarios/grupos/cuentas, gateway, vikingbot, configuración servidor, agent-evolution, extraction-rules | `features/admin/*`; endpoints `/api/v1/admin/accounts*` en `sdk.gen.ts` |
+| `/permissions`, `/connections`, `/settings`, `/oauth/*`, `/onboarding` | ACL de recursos, perfiles multi-conexión, preferencias, consent OAuth, gate de primer uso | `features/resource-acl`, `connection`, `routes/oauth/{consent,verify}.tsx`, `app-shell.tsx` |
+
+**Capacidades diagnósticas concretas (inventario):**
+
+1. **"Por qué se recuperó esto"**: score + `match_reason` + nivel + tipo en cada resultado (`retrieval-detail-sheet.tsx:100-158`).
+2. **Impacto de extracción por sesión**: el pipeline escribe `memory_diff.json` **dentro del propio VFS** en `{archive_uri}/memory_diff.json` (`openviking/session/compressor_v3.py:1383-1403`, llamadas `:519-524,:579-584`; ignora memorias sin cambios `:385-414,:1332-1350`); la UI lo lee por convención `archive_{001..commit_count}` con `content/read?raw=true` (`sessions/lib/api.ts:281-322`, URI en `:305`) — **evidencia-persistida-por-el-core consumida por la UI**, sin endpoint dedicado.
+3. **Salud de colas y componentes**: `/api/v1/observer/{system,queue,retrieval,filesystem,models,lock,vikingdb}` (`sdk.gen.ts`).
+4. **Estado de pipeline por tarea**: la UI **infiere** pasos desde `task.result.queue_status` (`error_count`/`processed` por cola) — `task-pipeline.ts:26-40`; **[Inferencia]** esto sugiere que el backend **no expone una máquina de estados explícita** por item y la UI la reconstruye — refuerza la premisa de F7.
+5. **Contrato frágil detectado [Hecho]:** los endpoints observer devuelven **tablas ASCII** que la UI trocea (`parse-status.ts:19-40` parsea `+---+` y `| col |`; `queue-status-card.tsx:18-44` busca columnas por nombre) — diagnóstico acoplado al formato de texto; no adoptar este patrón.
+6. **Consistencia y debug**: `/api/v1/system/consistency`, `/api/v1/debug/vector/{count,scroll}`, `/api/v1/stats/*` expuestos en el SDK (su uso concreto en vistas no fue rastreado exhaustivamente — **[Inferencia]** de disponibilidad, no de pantalla).
+7. **Request ledger**: auditoría con `request_id` end-to-end (`/api/v1/console/audit`).
+
+### 10.4 OpenViking Helper — solo documentación [Claim, no acreditado]
+
+`docs/en/agent-integrations/14-openviking-helper.md` (+espejo zh): app nativa beta (Windows x64, macOS arm64/x64, binarios 0.0.19 en CDN) que documenta: detección de agentes locales instalados (Claude Code, Codex, Cursor, TRAE, OpenCode) con estado de integración; perfiles cloud/selfhost con test de conexión; **timeline de sesión local parseado** que muestra si hubo recall/inyección antes del prompt, llamadas a herramientas MCP, captura de turnos post-respuesta, commit antes de compactación y acciones de ciclo de vida; inventario de memorias/skills locales por agente+proyecto con estado de sync; **sync selectivo** al servicio activo con aviso explícito de privacidad ("el contenido solo se envía al sincronizar"). **Fuente ausente del checkout (re-verificado):** ninguna capacidad está acreditada en código; se registra como lista de funciones aspiracionales documentadas.
+
+### 10.5 Contraste con VantaDB Studio — qué aplicar [Hecho sobre el repo VantaDB]
+
+VantaDB Studio existe (worktree `develop-desktop`, Tauri v2 Rust/React/Vite): Inspector por registro con tabs general/metadata/vector/payload/historial (`desktop/src/components/inspector/Inspector.tsx:45-50`), diff de historial (`historial-diff.ts`), Timeline de auditoría unificada de ops (`components/activity/Timeline.tsx`), bridge tipado `src/vanta.ts` con **tres transports** (`vanta-http-map.ts`, `vanta-wasm-map.ts`), comandos Tauri `src-tauri/src/commands/{audit,connection,crash,data,embed,jobs,memory,metrics,secrets,snapshots}.rs` y `ipc-manifest.json`. **No proponer funciones que ya existen.**
+
+Verificado **ausente** en `desktop/src` (búsqueda dirigida, sin hits de onboarding/detección/consentimiento): onboarding de integraciones, detección con consentimiento, vista de impacto por consolidación, sonda de capabilities. Lo aplicable:
+
+1. **Sonda de capabilities por contrato** (de §10.2): ocultar/degradar features de Studio según verificación de lectura real, no solo reachability — directamente adoptable.
+2. **Onboarding con verificación real + higiene de credenciales** (de §10.2): probe health→auth→lectura antes de guardar perfil; clasificación de credenciales; redacción de secretos en errores; en Tauri la clave maestra correspondería al keyring del SO en vez de IndexedDB.
+3. **Separación data/control fail-closed** (de §10.2): si Studio llega a exponer plano de administración, el patrón "rechazar antes de enviar" es el modelo correcto.
+4. **Vista de impacto por consolidación** (de §10.3-2): diff add/update/delete con before/after por evento de extracción — el patrón clave es **el pipeline persistiendo un artefacto de evidencia consultable** (en VantaDB: registro interno, no archivo en VFS), no el formato JSON concreto.
+5. **Superficie visual del pipeline de jobs** (de §10.3-4): diagrama por tipo de job **con estados reales del backend** (F7), evitando la inferencia por heurística que OV se ve obligado a hacer.
+6. **Detalle de retrieval con razón**: score+razón+provenance por hit (VantaDB ya tiene diagnóstico de retrieval — extender con razón de match si no la expone).
+7. **Cliente generado desde contrato**: el `ipc-manifest.json` + bridges de Studio ya van en esa dirección; la lección de OV es mantener la auditoría contrato↔servidor versionada (`docs/api-contract-audit.md`).
+8. **No adoptar**: tablas ASCII como contrato de diagnóstico (§10.3-5); convención `archive_NNN` adivinada desde `commit_count` (acoplamiento frágil a naming interno); credenciales en `sessionStorage` (en Tauri hay almacén seguro nativo).
+
+### 10.6 Evaluación y límites
+
+El valor incremental para VantaDB está en (1) onboarding de integraciones con detección+consentimiento+preview, (2) inspector de evidencia del ciclo captura→extracción→recall→inyección (F10), y (3) los patrones transversales de §10.5 — **no** en construir otra consola ni un Helper propio. Web Studio demuestra que el diferencial de OV no es la UI en sí sino **qué evidencia persiste el core para que la UI la muestre** (`memory_diff.json`, `queue_status`, `match_reason`, audit log). La evaluación de UI en runtime **no se realizó** (sin ejecución de ninguna app); las capacidades Helper son [Claim] documental sin fuente; y las vistas descritas en §10.3 se verificaron por código, no por renderizado.
 
 ---
 
@@ -606,12 +682,13 @@ Nada de lo siguiente se ejecutó ni debe presumirse verificado:
 
 ## Apéndice E. Incógnitas y lagunas de evidencia
 
-- **Fuente de OpenViking Helper no localizada** en el checkout → stack, arquitectura interna y realización de funciones documentadas, desconocidas. `dsh-desktop-smoke` pertenece a otro producto (DeepSeek Harness Desktop).
-- **Inventario SPDX por archivo incompleto** — muestreo de headers, no barrido; el reparto AGPL/Apache-2.0 por subárbol no está cerrado.
+- **Fuente de OpenViking Helper no localizada** en el checkout (re-verificado en segunda pasada: solo docs en/zh + screenshots + binarios 0.0.19 en CDN) → stack, arquitectura interna y realización de funciones documentadas, desconocidas. `.github/scripts/dsh-desktop-smoke.mjs` pertenece a otro producto (DeepSeek Harness Desktop).
+- **Inventario SPDX por archivo incompleto** — cerrado para los subárboles UI (`web-studio/` sin headers → AGPL raíz; `frontend/packages/react` AGPL-3.0-only; `sdk/typescript` Apache-2.0, §0.6); sigue abierto para `openviking/`, `bot/`, `benchmark/` — muestreo de headers, no barrido.
 - **Ninguna medida de rendimiento comparativa** (ragfs vs WAL, ANN flat vs HNSW, latencias de colas): toda comparativa de garantías es cualitativa.
-- **Cobertura de seguridad parcial**: `openviking_gateway` (lua/capture/protocols), `crates/ragfs` multibackend/shell, parsers individuales, frontend/web-studio y la mayoría de los 40 `unsafe` de `provider.rs` sin revisar; sin `cargo audit` ni semgrep.
+- **Cobertura de seguridad parcial**: `openviking_gateway` (lua/capture/protocols), `crates/ragfs` multibackend/shell, parsers individuales y la mayoría de los 40 `unsafe` de `provider.rs` sin revisar; `web-studio/` recibió solo una pasada estática dirigida (§10.2-10.3), sin análisis XSS/deps ni ejecución; sin `cargo audit` ni semgrep.
 - **Muestra de issues acotada**: 15 de 79 leídos a fondo; selección por recencia+búsquedas temáticas, no exhaustiva.
 - **Estado de `check_access`/enforcement HTTP** — `middleware.rs:178-180` es intención declarada, no enforcement verificado (FIND-305 pendiente).
-- **Evaluación de UI en runtime no realizada**: ni OV Studio/Helper ni VantaDB Studio se ejecutaron.
+- **Evaluación de UI en runtime no realizada**: ni OV Studio/Helper ni VantaDB Studio se ejecutaron (la lectura estática de web-studio se amplió en segunda pasada; renderizado, flujos y errores reales siguen sin verificar).
+- **Contrato observer frágil detectado** (nuevo, segunda pasada): los endpoints `/api/v1/observer/*` devuelven tablas ASCII que la UI trocea por formato (`parse-status.ts:19-40`) — diagnóstico acoplado a representación textual; registrado en §10.3-5, no adoptar.
 - **Evolución posterior del backlog**: estado de LoCoMo/LongMemEval/NIAH/FIND-* fechado; puede haber cambiado desde el corte.
 - **`memory_harness` proxies**: abstención/economía/fidelidad no equivalen a evaluación juzgada por LLM — laguna metodológica propia declarada.

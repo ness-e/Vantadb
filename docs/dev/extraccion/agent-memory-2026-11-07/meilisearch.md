@@ -34,6 +34,16 @@ Se aplican [EXPANSION-CONTRACT](EXPANSION-CONTRACT.md),
 [VANTA-REFERENCE](VANTA-REFERENCE.md), [METHOD](METHOD.md) y
 [BENCHMARK-NOTES](BENCHMARK-NOTES.md), sin cambiar sus protocolos.
 
+**Segunda lectura en profundidad (2026-11-20)** sobre el mismo pin
+`c18c81973ad5d3e126f4583cdd16a9ec1719aa4a` (HEAD releído por `git log`):
+añade E10–E15 con mecanismos internos no cubiertos por E1–E9 — bucle del
+scheduler, cola persistida frente a overlay "processing" en RAM, autobatching,
+snapshot/dump, ranking rules y búsqueda federada. El eje de incidencias
+upstream (forge: issues/PRs/discussions/Actions/releases) **sigue NO
+acreditado por prohibición expresa** del propietario del clon
+(`C:\Users\Eros\meilisearch\AGENTS.md`): esta pasada tampoco accedió a la
+forge ni usó web/mirrors. Nada aquí modifica el clon.
+
 | Frontera | Fuente y significado |
 |---|---|
 | Identidad del clon | `C:\Users\Eros\meilisearch`, `main`, `c18c81973ad5d3e126f4583cdd16a9ec1719aa4a`, HEAD releído el 2026-11-07 |
@@ -105,8 +115,35 @@ borrar ni que desaparezcan payloads de backups/tareas históricas.
 En [lib.rs:994-1018](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/lib.rs#L994-L1018)
 la cancelación solicita detener tareas procesándose; no es undo de commits.
 El scheduler puede agrupar tareas: orden de tarea, estado de batch y número de
-documentos no son contadores intercambiables. Recovery integral, retención de
-payloads y propagación de cancelación tras proxy quedan sin auditar.
+documentos no son contadores intercambiables.
+
+Mecánica de cancelación leída en la segunda pasada (E10/E12):
+
+- `MustStopProcessing` es un `AtomicBool` cooperativo consultado dentro de los
+  bucles de indexación/volcado
+  ([`milli/src/must_stop_processing.rs:4-19`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/milli/src/must_stop_processing.rs#L4-L19);
+  consultas en
+  [`process_dump_creation.rs:90-93,122-124,180-182`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/process_dump_creation.rs#L90-L182)).
+  Se activa al registrar una `TaskCancelation` que interseca el bitmap de
+  procesamiento ([`lib.rs:996-999`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/lib.rs#L996-L999)).
+- Un aborto devuelve `AbortedIndexation`/`AbortedTask`: el `wtxn` se aborta y
+  las tareas vuelven a cola conservando `started_at`
+  ([`scheduler/mod.rs:331-347`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/mod.rs#L331-L347));
+  `MaxDatabaseSizeReached` redimensiona el índice y reintenta
+  ([`mod.rs:353-367`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/mod.rs#L353-L367)).
+- Sólo las tareas **enqueued** reciben `Status::Canceled` + `canceled_by`;
+  el rollback de upgrade y la limpieza de temporales de compactación son casos
+  específicos, no undo general
+  ([`process_batch.rs:1217-1242,1298-1347`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/process_batch.rs#L1217-L1347)).
+- Tras reinicio, el canal broadcast se siembra con `StartProcessing`
+  ([`scheduler/mod.rs:132-134`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/mod.rs#L132-L134)):
+  como "processing" es overlay en RAM, una tarea en cola reaparece `enqueued`.
+  No se auditó la reanudación si el crash ocurre entre commit de índice
+  (process_batch.rs:197) y commit de estado de tarea (mod.rs:452).
+
+Recovery parcialmente acreditado (re-encolado tras aborto y semilla de arranque);
+restauración desde snapshot/dump, corrupción de cola y propagación de
+cancelación tras proxy quedan sin auditar.
 
 ### 0.4 Consulta, filtros y búsqueda híbrida
 
@@ -162,13 +199,25 @@ Ese hecho no implica que la misma política convenga a memoria de agentes.
 | E7 | [`crates/meilisearch/src/option.rs:214-232`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/meilisearch/src/option.rs#L214-L232) | Env/master-key son configuración explícita |
 | E8 | [`crates/xtask/src/bench/workload.rs:22-85`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/xtask/src/bench/workload.rs#L22-L85) y [`139-183`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/xtask/src/bench/workload.rs#L139-L183) | Workload, reports, borrado DB, arranque y terminación de servicio |
 | E9 | [`crates/meilisearch/src/lib.rs:822-854`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/meilisearch/src/lib.rs#L822-L854) | Rutas mini-dashboard condicionadas a feature y enable_frontend |
+| E10 | [`crates/index-scheduler/src/scheduler/mod.rs:168-500`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/mod.rs#L168-L500) y [`crates/index-scheduler/src/lib.rs:626-673`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/lib.rs#L626-L673) | Bucle tick: hilo dedicado, `stop_processing` después del commit de cola, aborto re-encola; estado "processing" sólo en RAM |
+| E11 | [`crates/index-scheduler/src/queue/tasks.rs:33-52`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/queue/tasks.rs#L33-L52) y [`crates/index-scheduler/src/queue/mod.rs:263-361`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/queue/mod.rs#L263-L361) | Ocho DB LMDB: tareas + bitmaps invertidos por status/kind/índice/fechas; cleanup encola `TaskDeletion`; TODO reconoce que `Status::Processing` no debería serializarse |
+| E12 | [`crates/index-scheduler/src/scheduler/create_batch.rs:540-839`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/create_batch.rs#L540-L839) y [`crates/index-scheduler/src/scheduler/autobatcher.rs:89-133`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/autobatcher.rs#L89-L133) | Prioridad estricta de tipos; autobatching por índice con límites de cantidad y bytes; `BatchStopReason` documenta por qué se cerró el batch |
+| E13 | [`crates/index-scheduler/src/scheduler/process_snapshot_creation.rs:116-258`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/process_snapshot_creation.rs#L116-L258) y [`process_dump_creation.rs:90-209`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/index-scheduler/src/scheduler/process_dump_creation.rs#L90-L209) | Snapshot = copia cruda de envs LMDB + update files de tareas enqueued; dump = exportación lógica JSON con vectores re-inyectados; ambos son tareas con recibo |
+| E14 | [`crates/meilisearch/src/search/federated/types.rs:44-242`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/meilisearch/src/search/federated/types.rs#L44-L242), [`perform.rs:562-615,1233-1307`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/meilisearch/src/search/federated/perform.rs#L562-L615) y [`weighted_scores.rs:5-14`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/meilisearch/src/search/federated/weighted_scores.rs#L5-L14) | Búsqueda federada existe: multi-query/multi-índice con `weight` por query, merge por comparación de score values (no RRF); `remote_errors` por remoto sin tumbar la respuesta; remotos requieren feature `network` (EE) |
+| E15 | [`crates/milli/src/criterion.rs:27-58,121-131`](https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/crates/milli/src/criterion.rs#L27-L131) | Ranking rules = criterios lexicográficos secuenciales (words, typo, proximity, attributeRank, sort, wordPosition, exactness), configurables; no mezcla ponderada |
 
 ### Ficha candidata A — recibo durable de tarea y resultado no ambiguo
 
 - **Objetivo:** que aceptar un trabajo de ingesta no se confunda con completar
   indexación; mantener diagnóstico de fallo/cancelación.
 - **Unidad mínima / fuente:** vocabulario E1 y orden commit→notify E2;
-  separación de estadísticas no críticas E6.
+  separación de estadísticas no críticas E6. La segunda lectura añade: overlay
+  "processing" en RAM frente a cola persistida (E10/E11), `stop_processing`
+  ordenado tras el commit (E10, `scheduler/mod.rs:452-459`), aborto que
+  re-encola sin falsos terminales (E10, `mod.rs:331-347`), batches que comparten
+  un único commit de índice (E12; `process_batch.rs:183-197`) y recibo por
+  ítem (`receivedDocuments`/`indexedDocuments`, `matchedTasks`/`canceledTasks`;
+  `task_view.rs:137-181`). Snapshot/dump también son tareas con recibo (E13).
 - **Seam Vanta existente:** scheduler/ingestors/checkpoints y API de actividad
   ya acreditados en [METHOD](METHOD.md#vantadb-como-referencia);
   `src/backend.rs` y `src/wal.rs:999-1028`.
@@ -254,11 +303,21 @@ No cambiar RRF por ratios ni importar ranking editorial/typo tolerance por
 analogía con memoria. No agregar colas y estados duplicados.
 No usar «tarea succeeded» como prueba universal de fsync o calidad semántica.
 No transformar atributos filterable en sustituto de autorización de namespace.
+Segunda lectura: no importar el merge federado de score values ponderados
+(E14) ni la cadena de criterios lexicográficos E15 como modelo de relevancia
+de memoria; la federación multi-índice/multi-remoto responde a un producto de
+búsqueda distribuida, no a un scope de recall embebido — se documenta como
+hecho, no como candidata. No copiar bitmaps LMDB ni la máquina de
+autobatching (E11/E12): en Vanta equivaldría a otra cola y otro scheduler.
+No confundir snapshot-crudo-de-env (E13) con checkpoint lógico exportable:
+son dos artefactos con semántica de restauración distinta.
 
 ## 6. Método, licencia y cobertura
 
-Lectura estática E1-E9, main/config, LICENSE, LICENSE-EE y workloads;
-§11–§12 amplían settings, tareas/batches, runner y frontend por CDN.
+Lectura estática E1–E9, main/config, LICENSE, LICENSE-EE y workloads;
+§11–§12 amplían settings, tareas/batches, runner y frontend por CDN;
+segunda lectura E10–E15 cubre scheduler interno, cola, autobatching,
+snapshot/dump, federación y ranking rules.
 No se ejecutaron scripts/builds/tests/benchmarks/servidores ni se instaló nada.
 No se modificó el repositorio Meilisearch ni su forge.
 Shallow, historia/tags omitidos; LFS/submódulos no materializados según manifiesto.
@@ -304,6 +363,8 @@ umbrales, prompts, scoring o harnesses.
 | Explicación retrieval/Studio | Existe; cobertura de rutas parcial | Omitido vs ejecutado sin hits puede enriquecer contrato |
 | WAL/backend y auditorías ANN/híbrido | Existen; vigencia pendiente dirty | No reemplazarlos con estado de task |
 | Ranking editorial pin/scale | No aplicable al mínimo de memoria | No propuesto |
+| Búsqueda federada multi-índice/remoto | No existe (ni se propone): E14 documenta merge por score values ponderados y `remote_errors` parciales en upstream | Converge sólo en declarar errores parciales si hubiera fan-out futuro |
+| Snapshot/dump como operación con recibo | Checkpoints/auditoría existen | E13: recibo/estado observable de mantenimiento converge con A/C9; no otra infra |
 | UI desktop nueva | No necesaria | Studio ya cubre inspección |
 
 ## 9. Debilidades sugeridas
@@ -362,12 +423,68 @@ es tarea, no anuncio de reindex concluido. Search lee `rtxn` del índice; una
 consulta iniciada antes del commit no tiene por qué ver settings/documentos
 nuevos. Revisión del primario y generación de proyección deben distinguirse.
 
+**Cola y ciclo de vida (segunda lectura, E10–E13):** la cola es un env LMDB
+con `all_tasks` más bitmaps invertidos por status/kind/índice/fechas/canceled_by
+(`queue/tasks.rs:33–52`); `register` crea `status: Enqueued`, `batch_uid: None`
+(`queue/mod.rs:263–297`) dentro de un `wtxn` cuyo commit precede al despertar
+del scheduler (`lib.rs:964–1016`). "Processing" es overlay en RAM
+(`processing.rs:11–18`): el bitmap persistido no debería serializarlo
+(TODO en `queue/tasks.rs:38`), así que tras restart una tarea en curso vuelve
+a `enqueued` vía `StartProcessing` (`scheduler/mod.rs:132–134`). `tick`
+procesa un batch por iteración en hilo dedicado y hace commit de resultados
+antes de limpiar el overlay — el comentario explícito de `mod.rs:457–458` exige
+`stop_processing` **después** del commit para que un batch no desaparezca de la
+vista. Backpressure: `NoSpaceLeftInTaskQueue` al superar 40 % del map size
+(`lib.rs:966–972`, umbral en `lib.rs:110`) y `cleanup_task_queue` auto-encola
+una `TaskDeletion`
+cuando se rebasa `max_number_of_tasks` (`queue/mod.rs:300–361`). Los update
+files se borran tras el commit del batch (`scheduler/mod.rs:461–488`) y los
+webhooks se notifican después del commit, en hilo aparte, NDJSON+gzip y
+best-effort — un fallo sólo se loguea (`lib.rs:1182–1280`). Prioridad de
+batching: cancelación > upgrade > network > taskDeletion > compaction >
+export > snapshot > dump > resto por índice (`create_batch.rs:540–705`);
+autobatching agrupa tareas del mismo índice con límites de cantidad y de bytes
+de content_file (`create_batch.rs:768–824`), y cada batch registra su
+`BatchStopReason` (`tasks/mod.rs:999–1049`).
+
+**Aceptación frente a resultado observable:** HTTP 202 devuelve
+`SummarizedTaskView` (`routes/mod.rs:148–183`); `cancel_tasks` responde 200 con
+FIXME reconociendo que debería ser 202 (`routes/tasks.rs:415–419`). La lectura
+usa un snapshot LMDB: `perform_search` abre `index.read_txn()`
+(`search/mod.rs:1870`), así que el commit de índice de `process_batch.rs:197`
+es la única frontera de visibilidad — ni el 202 ni `status: succeeded`
+intervienen en qué ve el lector. `DetailsView` separa recibido de aplicado por
+ítem (`received_documents`/`indexed_documents`, `matched_tasks`/`canceled_tasks`;
+`task_view.rs:137–181`). Hecho leído; no se afirma equivalencia con el modelo
+de concurrencia de Vanta.
+
+**Snapshot, dump y federación (E13–E15):** `process_snapshots_to_disk` copia
+versión, env del scheduler, update files **sólo de tareas enqueued**, cada
+índice y el env de auth, y empaqueta en tar.gz read-only
+(`process_snapshot_creation.rs:116–258`); el propio código documenta la
+ventana TOCTOU entre copiar el env y releer enqueued y prefiere copiar de más
+(`:128–138`). El dump es exportación lógica (documentos JSON, vectores
+re-inyectados en `_vectors`, tareas, batches, claves, webhooks;
+`process_dump_creation.rs:90–209`). La federación existe como multi-search con
+`federation`: `weight` por query, merge por comparación de
+`WeightedScoreValue` con fallback a `weightedRankingScore` global
+(`perform.rs:562–615`, `weighted_scores.rs:5–14`), errores por remoto en
+`remote_errors` sin tumbar la respuesta (`perform.rs:1233–1307`,
+`types.rs:226–228`) y flag `degraded` sólo para analytics
+(`types.rs:237–241`); las queries `remote` requieren la feature `network` (EE).
+Hecho leído de código; la inferencia "no es RRF" está acreditada por la
+comparación de iteradores de score, no por documentación externa. Las
+ranking rules E15 son criterios lexicográficos secuenciales configurables —
+otro mecanismo distinto de la mezcla ponderada.
+
 ### 11.2. A — recibo/resultado de tarea: once campos completados
 
 1. **Caso agente:** se captura una memoria/documento y el caller necesita saber
    si puede recuperarla, si falló o si pidió cancelar después de aplicarse.
-2. **Fuente/unidad:** E1/E2/E6 y M2: estados, commit→notify, batch/progress,
-   commit de índice separado de stats; no portar scheduler LMDB.
+2. **Fuente/unidad:** E1/E2/E6, M2 y la segunda lectura E10–E13: estados,
+   commit→notify, batch/progress, commit de índice separado de stats, overlay
+   processing-en-RAM, `stop_processing` tras commit, aborto que re-encola,
+   backpressure 40 % y cleanup por `TaskDeletion`; no portar scheduler LMDB.
 3. **Delta:** Vanta tiene scheduler/checkpoints/ingestors/jobs y recibos de
    escritura; falta acreditar contrato uniforme captura→aplicación→proyecciones
    en todas sus rutas. No negar lo implementado.
@@ -482,10 +599,16 @@ de una brecha Vanta. Se conserva la URL del listado
 no como sustituto de cada cuerpo. Eje de incidencias públicas **no acreditado
 por prohibición expresa**, no “completo por tener enlaces”. En esta corrección
 no se accedió a issues/PRs/discussions/Actions/releases ni se buscó fallback,
-mirror o bypass. No se propone ningún patch al clon upstream.
+mirror o bypass. La segunda lectura (2026-11-20) mantuvo la misma restricción:
+sólo el árbol local del clon, sin forge ni web. No se propone ningún patch al
+clon upstream.
 
 Hallazgos estáticos sí acreditados: E2/E6 separan commit/notify/stats;
 M3 encola settings antes de su aplicación; E3 permite omitir semantic.
+Segunda lectura: E10 acredita commit-de-cola antes de limpiar el overlay
+processing y re-encolado tras aborto; E11 el layout de la cola; E12 la
+prioridad/límites de batching; E13 snapshot/dump como tareas; E14 la
+federación ponderada; E15 los criterios lexicográficos.
 Ninguno demuestra crash corruption ni que una tarea Succeeded siempre mienta.
 Seguridad: autorización de search/document/settings/task son acciones
 diferentes; explicar filtros nunca autoriza enumerar esquema ajeno.
@@ -582,7 +705,11 @@ prompts, thresholds ni configuraciones nuevos durante esta autoría.
 | Filtro | E5 filterable y profundidad | Existe vector/payload index, `src/sdk/search/vector.rs`, backend | C declara error/capacidad, no autorización por metadata |
 | Provenance/sesiones | Documento/tarea no sesión autobiográfica | Existe `MemoryRecord` y sesiones; `core/record/{l1_dedup,lifecycle}.rs` | No sustituir dedup/supersession |
 | Budgets/cuotas | Deadline search/limits, no budget de agente equivalente | Existen `assemble_with_recall`, `apply_recall_budget`, `src/config.rs:760–762` | C7 mantiene unidades y ruta real de recall |
-| Ingestors/scheduler/checkpoint | Cola/tareas/batches/progress E1–E6 | Existen worker/callback/TaskCheckpointManager | A/C9 amplía contrato, no scheduler nuevo |
+| Ingestors/scheduler/checkpoint | Cola/tareas/batches/progress E1–E6; overlay processing-en-RAM E10/E11, re-encolado tras aborto E10 | Existen worker/callback/TaskCheckpointManager | A/C9 amplía contrato, no scheduler nuevo |
+| Batching/agrupación | Autobatching por índice con límites y `BatchStopReason` E12 | No aplicable: Vanta no agrupa mutaciones ajenas en un commit compartido | No trasladar; documenta que conteos por batch ≠ conteos por ítem |
+| Snapshot/dump | Copia cruda de envs vs exportación lógica, ambas como tareas E13 | Checkpoints/auditoría existen; recibo de mantenimiento no uniforme | A/C9/C16: resultado observable de operaciones de mantenimiento |
+| Ranking rules | Criterios lexicográficos configurables E15 | RRF/scores existen; no hay cadena de criterios | No trasladar (§5); E4 sigue siendo la evidencia de explicación |
+| Búsqueda federada | Existe E14: weight por query, merge por score values, `remote_errors` parciales, remoto=EE | No existe fan-out multi-backend en Vanta | Hecho documentado; sólo converge el patrón errores-parciales-declarados, no se propone |
 | Evidencia de escritura | Queue/index commits diferentes | Existe WriteReceipt MV1; cobertura integral de proyecciones parcial | D/C14 no otra WAL ni firma inventada |
 | Settings/reindex | SettingsUpdate M3; workloads ME2A/ME2B separan añadir embedder de insertar con él | Config/ingestors/auditoría existen; manifest integral no acreditado | D/C4 liga revisión/fingerprint/visibilidad; modelo efectivo/caché no inferidos |
 | UI | Mini-dashboard empaquetado y cliente externo | Studio existe MS1; jobs no acreditados al pin | C16 propone fases/resultado en diagnóstico existente |
@@ -636,12 +763,15 @@ error parcial y restart no ocultan IDs aplicados ni declaran visible lo pendient
 No se certifica UI shipped de jobs, su persistencia ni render; no otro runtime.
 
 **Fuentes/cobertura/cierre:** E1–E9, §0, M1–M4, licencias raíz/EE, cliente
-mini-dashboard focal y seams Vanta/Studio. Sin recuperación integral,
-todos los kernels/providers, autorización end-to-end, componente EE ni SBOM.
+mini-dashboard focal y seams Vanta/Studio; segunda lectura E10–E15 sobre el
+mismo pin: bucle tick/overlay processing (E10), almacenamiento de cola (E11),
+autobatching (E12), snapshot/dump (E13), federación (E14) y ranking rules
+(E15). Sin recuperación integral tras crash entre commits, todos los
+kernels/providers, autorización end-to-end, componente EE ni SBOM.
 Issues no acreditados por prohibición y frontend a tag no SHA son límites reales
 que la revisión debe conservar. Si pasa a specs (>300 líneas), separar A
 lifecycle/receipts, B/C retrieval y D generation/UI. Este informe conserva
-los diez ejes, sin autoaceptación ni specs/backlog/harness creados.
+los diez ejes, sin autoaceptación ni specs/harness creados.
 ME-1/ME-2 corregidos documentalmente; eje de incidencias sigue no acreditado
 por prohibición, no un cierre ficticio de cobertura ni permiso para bypass.
 

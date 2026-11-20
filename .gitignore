@@ -144,6 +144,7 @@ job_log.txt
 job*_logs/
 # AMPLIO: cualquier dir terminado en logs
 *logs/
+!docs/dev/extraccion/backlogs/
 build_logs/
 validation_logs/
 # traces runtime raiz (campanas)
