@@ -439,11 +439,17 @@ La primera acción de cada candidato es comprobar su equivalente existente.
 
 ### Ficha candidata G — campos derivados indexables no implican proyección pública
 
-> **Estado: requisito documental exploratorio — NO unidad de código
-> extraída.** La fuente mínima es la issue #54126 (sostiene el requisito,
-> no el comportamiento del pin). El validador/expansor wildcard upstream y
-> el serializador de resultados Vanta/binding a extender no se localizaron
-> en esta lectura; G no cuenta como extracción completada en la cobertura.
+> **Estado: extracción completada (localización complementaria del pin
+> `eba8be50f8`).** La primera lectura no localizó el validador/expansor;
+> la segunda pasada lo fija en
+> `internal/proxy/dql/util_dql.go::translateOutputFields:174-320` con la
+> compuerta `SchemaHelper.CanRetrieveRawFieldData`
+> (`pkg/util/typeutil/schema.go:642-653`) — referencia M19 — y el seam
+> Vanta en `src/sdk/serialization/mod.rs:428-580` /
+> `src/sdk/serialization/vector_types.rs:102-178`. La issue #54126 sigue
+> siendo la fuente del requisito (sostiene el requisito, no el
+> comportamiento del pin): el mecanismo vigente ya implementa la regla
+> equivalente para outputs BM25, no para MinHash.
 
 - **Problema agente:** devolver un campo interno por wildcard filtra datos
   derivados o introduce vectores internos en el contexto del modelo.
@@ -451,9 +457,29 @@ La primera acción de cada candidato es comprobar su equivalente existente.
   BM25 de vectores binarios aportados por el usuario; refiere `82ecdb68` y
   su único comentario pregunta si sigue deseado tras #54129, sin demostrar
   implementación. Evidencia de requisito upstream, no demostración de fallo
-  vigente en el pin ni en Vanta.
+  vigente en el pin ni en Vanta. Mecanismo vigente localizado (M19):
+  `translateOutputFields` (`internal/proxy/dql/util_dql.go:174-320`) es la
+  única frontera nombre→proyección compartida por Query y Search; el
+  wildcard `*` expande solo campos con `CanRetrieveRawFieldData == true`
+  (`util_dql.go:211-219`), la petición explícita de un campo no retornable
+  falla (`:257-262`) y la compuerta es `IsFunctionOutput && type == BM25`
+  (`pkg/util/typeutil/schema.go:642-653`): «indexable ≠ retornable» ya
+  existe, tipado por función y sin alcance por caller. MinHash aún no está
+  cubierto por esa compuerta — que es exactamente lo que pide #54126 —
+  ni hay proyección por scope/ACL en ella.
 - **Delta/seam:** V2 particiones internas, V4 resultados SDK y V7 gobernanza
-  de inyección. Ya hay provenance/ACL; revisar proyección efectiva por binding.
+  de inyección. Seam real localizado (pin `97c9623`): `record_from_node` /
+  `memory_record_from_node_inner` (`src/sdk/serialization/mod.rs:428-580`)
+  materializa el `MemoryRecord` público y elimina los `RESERVED_FIELDS`
+  (`:459-479`, strip en `:524-526`) de `metadata` — proyección inversa a la
+  de Milvus (denylist interna fija, no lista pedida por el caller).
+  `MemorySearchRequest` (`src/sdk/serialization/vector_types.rs:102-178`)
+  no tiene parámetro de proyección/`output_fields`: cada hit devuelve el
+  registro completo (`MemorySearchHit`, `:257-264`), luego no existe
+  wildcard que ampliar — el contrato a especificar es dónde aterrizaría
+  `validate_projection` y si `RESERVED_FIELDS` debe pasar de strip fijo a
+  capability por revisión/scope. Consumidores del seam: `vector.rs:265`,
+  `lexical.rs:138`, `sparse.rs:56`, `api/search.rs:109`.
 - **Alternativas:** lista explícita del caller (necesaria, no cubre wildcard);
   centralizar capabilities de campo en serialización existente (preferida);
   eliminar capacidad de indexación (rechazada: problema diferente).
@@ -568,7 +594,7 @@ justifica «añadir planner», «añadir WAL» o «añadir cuotas».
 | D | Si hay consumidor asíncrono que necesite cursor propio; no imponerlo al camino síncrono |
 | E | Errores pre/poscommit, IDs de mutación y dueño único de retry |
 | F | Scheduler/reportes actuales y evidencia de contención, antes de separar recursos |
-| G | Proyección y ACL vigentes en SDK/bindings — pendiente: localizar validación de output_fields, expansión wildcard y proyección antes/después de reload en el pin + equivalente Vanta ruta/símbolo; requisito documental, extracción no completada |
+| G | Localizada en segunda lectura: `translateOutputFields` (`internal/proxy/dql/util_dql.go:174-320`) + `CanRetrieveRawFieldData` (`pkg/util/typeutil/schema.go:642-653`) en el pin [M19]; seam Vanta `record_from_node`/`RESERVED_FIELDS` (`src/sdk/serialization/mod.rs:428-580`) y `MemorySearchRequest` sin parámetro de proyección (`vector_types.rs:102-178`). Pendiente: validar proyección antes/después de reload y en bindings externos (Python/Node/server) |
 
 Los tests de drop/reopen mencionados por la ficha anterior no equivalen a
 interrupción de energía ni se ejecutaron aquí. Las auditorías propias siguen
@@ -589,7 +615,7 @@ de ataque que el mínimo local no necesita.
 
 ## 6. Método, licencia y límites
 
-Sólo estático: rangos M1–M18 y guías citadas, más incidencias públicas del §3.
+Sólo estático: rangos M1–M19 y guías citadas, más incidencias públicas del §3.
 No se ejecutó producto, tests, builds, benchmarks ni servicios. Shallow sin historia completa/tags; LFS y
 submódulos sin materializar según manifiesto; Knowhere/segcore y backends WAL
 externos no auditados. Omitidos: CDC, todas las políticas de recovery/GC,
@@ -781,6 +807,7 @@ upstream no se tratan como el mismo nivel de prueba.
 | M16 | [httpserver/constant.go:61-69,119-124](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/distributed/proxy/httpserver/constant.go#L61-L69); [dql/README.md:1-55](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/proxy/dql/README.md#L1-L55), superficies/flujo documental |
 | M17 | [http/server.go:50-53,177-179,274-300](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/http/server.go#L274-L300), [router.go:96-169](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/http/router.go#L96-L169), [webui/index.html](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/http/webui/index.html), [bundle:1498](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/http/webui/assets/index-nmS7rbPW.js#L1498), [http_param.go:254-261](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/pkg/util/paramtable/http_param.go#L254-L261); `auth.go` por símbolos y `rbac.go:1-80`, no auditoría integral |
 | M18 | [checker.py:457-535,888-907,3233-3337](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/tests/python_client/chaos/checker.py#L3233-L3337), `trace`, exception handler, contadores y BulkInsertChecker; [chaos_commons.py:41-51](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/tests/python_client/chaos/chaos_commons.py#L41-L51); [bulk conftest:4-10](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/tests/python_client/bulk_insert/conftest.py#L4-L10) |
+| M19 | [dql/util_dql.go:174-320](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/proxy/dql/util_dql.go#L174-L320), `translateOutputFields` (wildcard `*`, agregados, struct arrays, `$meta["k"]`, `removePkField`); [typeutil/schema.go:642-653](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/pkg/util/typeutil/schema.go#L642-L653), `CanRetrieveRawFieldData`; call sites [task_search.go:365,395-400,664-702,864-870,1334-1352,1703-1729](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/proxy/dql/task_search.go#L340-L400) y [task_query.go:392-443,665-753](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/proxy/dql/task_query.go#L665-L753); [search_util.go:684-694](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/proxy/dql/search_util.go#L684-L694), `getOutputFieldIDs`; [planparserv2/plan_parser_v2.go:278-281](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/parser/planparserv2/plan_parser_v2.go#L278-L281), `ParseIdentifier`; [search_pipeline.go:1252-1275,1336-1359](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/internal/proxy/dql/search_pipeline.go#L1252-L1275), requery; [common.go:70-71](https://github.com/milvus-io/milvus/blob/eba8be50f84776210d3946d83840dea18924846f/pkg/common/common.go#L70-L71), `MetaFieldName = "$meta"` |
 
 ### 11.2 Referencia VantaDB y seams existentes
 
@@ -800,8 +827,9 @@ inventario previamente fijado, con ese límite.
 
 ### 11.3 Cobertura leída/no leída y red pública
 
-Leídos: contratos locales, rangos M1–M18, README/config/Go workspace/licencia
-y V1–V6; V7 por referencia. Incidencias leídas: cuerpos #49435/#54126,
+Leídos: contratos locales, rangos M1–M19, README/config/Go workspace/licencia
+y V1–V6; V7 por referencia. M19 se añadió en la localización complementaria
+de la candidata G. Incidencias leídas: cuerpos #49435/#54126,
 últimos cuatro comentarios de la primera y único comentario de la segunda.
 El resultado inicial de búsqueda de issues fue exploración, no sustituto de
 leer cada cuerpo. No se consultó nueva metadata de repos ni se recalcularon
@@ -850,13 +878,15 @@ preguntas, scoring, umbrales ni harnesses.
 - Se preservan hallazgos válidos de tSafe, estados de segmento, separación
   load/publicación, reserva de recursos, riesgos y runner bulk.
 - Ampliaciones: stack/modelo/APIs/deployment, tres flujos con errores/contexto/
-  fronteras de commit, propuestas A–F (D de inspiración documental) y
-  requisito exploratorio G sin extracción de código completada, issues reales,
-  prerrequisitos por candidato, matriz Vanta fijada y WebUI embebida real.
+  fronteras de commit, propuestas A–F (D de inspiración documental), issues
+  reales, prerrequisitos por candidato, matriz Vanta fijada y WebUI embebida
+  real. G empezó como requisito exploratorio; su extracción de código se
+  completó en localización complementaria del pin (M19 + seam Vanta
+  `record_from_node`/`RESERVED_FIELDS`).
 - Hallazgo adicional de benchmark: preparación de BulkInsertChecker puede
   reemplazar archivos y excepciones no cubren todo el denominador; riesgo
   estático explicitado, no corrección ni medición propia.
-- Fuentes: M1–M18 y V1–V7 con límites; #49435/#54126 y comentarios indicados
+- Fuentes: M1–M19 y V1–V7 con límites; #49435/#54126 y comentarios indicados
   efectivamente leídos en GitHub API. No se declara un fix actual por cierre.
 - Lagunas: WAL/GC/FFI completo, backends/SDK/UI externos, licencias transitivas,
   fouram y validación dinámica. Responsable principal decide revisión/aceptación.

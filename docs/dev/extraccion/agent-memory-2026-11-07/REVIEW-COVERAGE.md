@@ -16,11 +16,13 @@ Se refiere al cumplimiento documental del
 [referencia VantaDB](VANTA-REFERENCE.md). OpenViking es la referencia separada,
 no un elemento adicional de los 42.
 
-**Estado vigente — INPUT FROZEN LEAD (Tanda 8):** existen autoría y
+**Estado vigente (actualizado 2026-11-20):** existen autoría y
 revisión independiente para **los 42** proyectos. El lead acepta
-documentalmente **41 con límites** y **1 limitado**: Meilisearch entregado
-con restricción expresa — **E3 incidencias NO acreditado**, no se equipara
-a cumplimiento total de los diez ejes. Los recibos, review y closure se
+documentalmente **42 con límites**. Meilisearch pasó de "limitado" a
+"aceptado con límites": su eje E3 de incidencias fue **acreditado el
+2026-11-20** tras levantar la restricción de forge del propietario
+(~20 issues/PRs/releases leídos; alcance residual: discussions solo en
+listado, Actions/CI no inspeccionado). Los recibos, review y closure se
 enlazan por proyecto abajo. Los estados anteriores (12/30) son históricos;
 las closures aplicadas son `corrections-memory-closure.md` (11),
 `corrections-engines-closure.md` (8) y `corrections-platforms-closure.md`
@@ -92,7 +94,7 @@ las correcciones y sus evidencias.
 | [milvus](milvus.md) | Aceptado con limites | Lead; [closure Chroma/Milvus](reviews/chroma-milvus-closure.md) |
 | [weaviate](weaviate.md) | Aceptado con limites | Lead cerro W1/W2 y redacciones; [review W/P](reviews/weaviate-pgvector.md) |
 | [faiss](faiss.md) | Aceptado con limites | Lead; [engines: Faiss](reviews/engines.md#faiss) |
-| [meilisearch](meilisearch.md) | Entregado con restriccion expresa — **E3 incidencias NO acreditado** | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: Meilisearch](reviews/platforms-retrieval-remaining.md#meilisearch); usuario prohíbe forge: sin lectura de cuerpos ni fallbacks — no equivale a cumplimiento de diez ejes |
+| [meilisearch](meilisearch.md) | Aceptado con limites — **E3 acreditado 2026-11-20** tras levantar la restricción de forge (~20 incidencias leídas, §12.1); alcance residual: discussions solo listado, Actions/CI no inspeccionado | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: Meilisearch](reviews/platforms-retrieval-remaining.md#meilisearch); §12.1 del informe |
 | [pgvector](pgvector.md) | Aceptado con limites | Lead cerro P1 y redacciones; [review W/P](reviews/weaviate-pgvector.md) |
 | [redis](redis.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: Redis](reviews/engines-rag-remaining.md#redis); grupo B  |
 | [tidb](tidb.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: TiDB](reviews/engines-rag-remaining.md#tidb); grupo B  |
@@ -118,10 +120,10 @@ las correcciones y sus evidencias.
 | [autogen](autogen.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [frameworks-additions: AutoGen](reviews/frameworks-additions.md#autogen); grupo C  |
 | [openai-agents-python](openai-agents-python.md) | Aceptado con limites | Lead; [frameworks-additions: OpenAI Agents Python](reviews/frameworks-additions.md#openai-agents-python) |
 
-La tabla refleja la autoridad congelada del lead (Tanda 8): **42
-informes revisados**, **41 aceptaciones con límites**, **1 limitado**
-(Meilisearch, E3 incidencias no acreditado por prohibición de forge del
-usuario — sin lectura de cuerpos ni fallbacks). Las enmiendas residuales
+La tabla refleja la autoridad congelada del lead (Tanda 8) más la
+actualización 2026-11-20: **42 informes revisados**, **42 aceptaciones
+con límites**. Meilisearch dejó de estar limitado al acreditarse E3.
+Las enmiendas residuales
 del lead (CBM UI, LanceDB §0.7, Supermemory dirty/pin) quedan registradas
 como corrección del propio lead, no como falta de revisión independiente.
 Aceptación documental de informe **no** es spec lista: la integración E de
