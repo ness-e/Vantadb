@@ -535,10 +535,12 @@ impl StorageEngine {
 
     /// Read-only access to a vector store file for external consumers
     /// (diagnostics, tests, benches). FIND-655: exposes only `read()` —
-    /// `mmap_bytes_mut`/`write_header`/`grow_to` are unreachable outside
-    /// the crate, and `vfile::File::file` (the raw `StdFile` handle, which
+    /// The mutation bypass is closed by non-escape, not visibility:
+    /// `vfile::File::file` (the raw `StdFile` handle, which
     /// `Write for &StdFile`/`set_len` could mutate without `insert_lock`)
-    /// is `pub(crate)`, closing the snapshot-mirror mutation bypass.
+    /// is `pub(crate)`, and only read-guards ever leave the engine, so no
+    /// `&mut File` can reach `write_header`/`grow_to`/`mmap_bytes_mut`
+    /// from outside the crate.
     ///
     /// ```compile_fail
     /// use std::io::Write;

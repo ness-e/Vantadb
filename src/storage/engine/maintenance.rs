@@ -663,6 +663,7 @@ impl StorageEngine {
     ///
     /// Scans tracked nodes and auto-transitions cold f32 → SQ8 and hot SQ8 → f32.
     pub fn run_quantization_maintenance(&self) -> Result<QuantizationMaintenanceReport> {
+        self.ensure_writable()?;
         let mut quantized = 0u64;
         let mut promoted = 0u64;
         let mut scanned = 0u64;
@@ -1095,7 +1096,7 @@ impl StorageEngine {
         let _guard = self.acquire_insert_lock("acquire insert_lock in compact_level")?;
 
         let started = Instant::now();
-        let target_level = level + 1;
+        let target_level = level.saturating_add(1);
 
         // L3 is the terminal tier — there is no L4 to promote into. A direct
         // compact_level(3) call (or a single-segment store) is a no-op, never

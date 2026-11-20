@@ -279,6 +279,9 @@ impl StorageEngine {
     /// behavior: only RocksDB compacts). A typed `Result<bool>` replaces
     /// the old silent no-op, and failures warn instead of vanishing.
     pub fn request_compaction(&self) {
+        if self.is_read_only() {
+            return;
+        }
         // FIND-651: backend compaction rewrites LSM files — it must hold the
         // quiesce guard so `create_snapshot` never mirrors a half-compacted
         // backend. Best-effort contract preserved: contention skips the run

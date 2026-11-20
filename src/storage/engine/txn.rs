@@ -220,6 +220,7 @@ impl StorageEngine {
     /// error if >1 (use explicit `_in_txn` methods).
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn begin_transaction(&self) -> Result<u64> {
+        self.ensure_writable()?;
         Ok(self.txn.begin())
     }
 
@@ -239,6 +240,7 @@ impl StorageEngine {
     /// Insert inside an explicit transaction (concurrent-safe).
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert_in_txn(&self, node: &UnifiedNode, txn_id: u64) -> Result<()> {
+        self.ensure_writable()?;
         if !self.txn.is_active(txn_id) {
             return Err(crate::error::Error::InvalidInput(format!(
                 "Transaction {} is not active",
@@ -260,6 +262,7 @@ impl StorageEngine {
     /// Delete inside an explicit transaction (concurrent-safe).
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete_in_txn(&self, id: u128, reason: &str, txn_id: u64) -> Result<()> {
+        self.ensure_writable()?;
         if !self.txn.is_active(txn_id) {
             return Err(crate::error::Error::InvalidInput(format!(
                 "Transaction {} is not active",
@@ -278,6 +281,7 @@ impl StorageEngine {
     /// then apply to stores.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn commit_transaction(&self, txn_id: u64) -> Result<()> {
+        self.ensure_writable()?;
         // 1. Verify and unregister, draining the buffer in one step.
         let Some(buffer) = self.txn.take(txn_id) else {
             // Phase 1 fallback: if no buffering, just append Commit marker.
