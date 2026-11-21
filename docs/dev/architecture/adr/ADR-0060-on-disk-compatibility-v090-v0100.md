@@ -173,10 +173,33 @@ points refine decision 8:
    provides one); it passed locally on 2026-11-09. In regular CI it is skipped, so the
    permanent guarantee rests on the inventory showing identical plaintext formats.
 
+### Amendment 2026-11-24 — batch-transaction frames in the WAL (FIND-640 / ADR-0061)
+
+`v0.10.0` now frames every multi-chunk `put_batch` in an implicit WAL
+transaction (`Begin` → `Insert`×chunks → `Prepare` → `Commit`), reusing the
+`WalRecord` markers that have existed — byte-identical — since before `v0.9.0`.
+No format constant changes (`WAL_FORMAT_VERSION`, `WAL_POSTCARD_VERSION`, chain
+hash all unchanged); the inventory row above stays valid. Two compatibility
+notes:
+
+1. **Forward read (v0.9.0 opening a v0.10.0 WAL) is safe.** `v0.9.0`'s recovery
+   already implements `open_txn`/skip-mask discard for uncommitted transaction
+   frames, so a `v0.9.0` open drops an interrupted batch's WAL records instead
+   of replaying them.
+2. **Compound event caveat (R4).** `v0.9.0` discards the *WAL* prefix but lacks
+   the `v0.10.0` undo pass (`TXN-01` layer B, `init.rs`): if a `v0.10.0` process
+   crashed mid-batch — after the apply phase wrote KV/HNSW/vstore but before
+   `Commit` — and the directory is then opened by `v0.9.0`, the applied prefix
+   stays visible in KV. This requires a crash *and* a downgrade in sequence;
+   `v0.9.0` cannot be patched retroactively, so the caveat is recorded here and
+   in ADR-0061 §R4 rather than fixed.
+
 ## References
 
 - [ADR-0057: Encryption at rest](./ADR-0057-encryption-at-rest.md) — D1 artefact set, D7
   no implicit migration to encrypted.
+- [ADR-0061: Implicit batch transactions](./ADR-0061-implicit-batch-transactions.md) —
+  FIND-640 design, commit point, residuals R3/R4.
 - `docs/dev/tasks/FIND-499.md` §Reglas de versión — the `classify` contract this ADR
   cites.
 - `src/migration.rs`, `src/binary_header.rs`, `src/sdk/serialization/impl_index.rs`,

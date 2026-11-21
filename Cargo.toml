@@ -313,6 +313,10 @@ name = "batch_existing_check"
 harness = false
 
 [[bench]]
+name = "batch_txn_overhead"
+harness = false
+
+[[bench]]
 name = "param_sweep"
 harness = false
 
