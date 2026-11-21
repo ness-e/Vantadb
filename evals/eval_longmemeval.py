@@ -97,6 +97,35 @@ def bleu1(gold: str, pred: str) -> float:
     return bp * prec
 
 
+# Generic capitalized tokens are not entities: sentence-initial words ("The",
+# "What"), question words, and the literal "Session" prefix written into every
+# doc. Without this filter every session shares ~dozens of "entities" and the
+# graph degenerates to a clique whose expansion injects noise into top-5
+# (ACT-02 recall_all@5 collapse — evidence displaced by boosted distractors).
+_ENTITY_STOPWORDS = frozenset({
+    "session", "user", "assistant", "system",
+    "the", "a", "an", "and", "or", "but", "if", "then", "so", "as", "at",
+    "what", "when", "where", "who", "whom", "whose", "why", "how", "which",
+    "did", "do", "does", "is", "are", "was", "were", "will", "would", "can",
+    "could", "should", "may", "might", "shall", "must", "be", "been", "am",
+    "i", "you", "we", "they", "he", "she", "it", "me", "him", "us", "them",
+    "my", "your", "his", "her", "its", "our", "their",
+    "this", "that", "these", "those", "there", "here",
+    "in", "on", "to", "for", "of", "with", "by", "from", "about", "into",
+    "over", "after", "before", "between", "during", "under", "again", "once",
+    "up", "down", "out", "off", "too", "very", "not", "no",
+    "yes", "ok", "okay", "hi", "hello", "hey", "thanks", "thank", "please",
+    "sorry", "sure", "great", "good", "well", "now", "just", "also", "really",
+    "much", "many", "some", "any", "all", "each", "every", "most", "more",
+    "less", "few", "other", "another", "same", "different", "new", "old",
+    "next", "last", "first", "second", "one", "two", "three", "let", "lets",
+    "today", "tomorrow", "yesterday", "pm",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+    "sunday", "january", "february", "march", "april", "june", "july",
+    "august", "september", "october", "november", "december",
+})
+
+
 def extract_entities(text: str) -> Set[str]:
     """Extract named entities, dates, and key tokens for associative Graph-RAG expansion."""
     tokens = set()
@@ -109,7 +138,7 @@ def extract_entities(text: str) -> Set[str]:
     # Distinctive alphanumeric markers
     markers = re.findall(r"\b[A-Za-z]+-\d+\b", text)
     tokens.update(m.lower() for m in markers)
-    return tokens
+    return tokens - _ENTITY_STOPWORDS
 
 
 # ------------------------------------------------------------------ FastEmbed
@@ -228,6 +257,27 @@ def embed_one(text: str) -> List[float]:
     return []
 
 
+def embed_query_one(text: str) -> List[float]:
+    """Embed a query with the BGE retrieval instruction (asymmetric retrieval).
+
+    Documents are embedded with embed() (passage semantics); queries must use
+    query_embed() so the model applies the query prefix it was trained with.
+    """
+    embedder = _get_embedder()
+    if embedder is None:
+        if _STRICT_EMBEDDINGS:
+            raise RuntimeError(
+                "embedder unavailable under --strict-embeddings; refusing query vector=None"
+            )
+        return []
+    try:
+        return [float(x) for x in next(iter(embedder.query_embed([text])))]
+    except Exception as e:
+        if _STRICT_EMBEDDINGS:
+            raise RuntimeError(f"query embedding failed under --strict-embeddings ({e})") from e
+        return []
+
+
 def chunk_session_text(text: str, target_words: int = 250, overlap: int = 1) -> List[str]:
     lines = text.splitlines(keepends=True)
     units: List[str] = []
@@ -296,7 +346,7 @@ class VantaAblationStore:
         import vantadb
         self.backend = backend
         self.ablation = ablation  # 'vector_only' | 'bm25_only' | 'hybrid_rrf' | 'hybrid_graphrag'
-        db_path = "" if backend == "memory" else ":memory:"
+        db_path = ":memory:" if backend == "memory" else backend
         self.db = vantadb.Client(db_path, backend=backend)
         self.version = getattr(vantadb, "__version__", "0.9.1")
         self._raw_sessions: Dict[Tuple[str, str], str] = {}
@@ -326,7 +376,7 @@ class VantaAblationStore:
             )
             return
 
-        chunks = chunk_session_text(text, target_words=250, overlap=1)
+        chunks = chunk_session_text(text, target_words=250, overlap=20)
         vecs = embed_batch(chunks) if self.ablation != "bm25_only" else [None] * len(chunks)
         records = []
         for idx, chunk_str in enumerate(chunks):
@@ -359,17 +409,21 @@ class VantaAblationStore:
         return {"payload": rec.payload, "namespace": rec.namespace, "confidence": float(rec.confidence)}
 
     def search(self, ns: str, query: str, top_k: int) -> List[Dict[str, Any]]:
-        candidate_k = max(top_k * 6, 25)
+        # Chunk-level candidate window before session dedup: with ~8.6
+        # chunks/session, k=30 covered only ~10-20 distinct sessions of ~48,
+        # so multi-evidence questions could not get all gold sessions into
+        # top-5. A deeper window lets dedup see most sessions in the haystack.
+        candidate_k = max(top_k * 40, 200)
 
         # 1. Primary search dispatch based on ablation mode
         if self.ablation == "vector_only":
-            q_vec = embed_one(query)
+            q_vec = embed_query_one(query)
             hits = self.db.search(ns, q_vec if q_vec else None, top_k=candidate_k)
         elif self.ablation == "bm25_only":
             hits = self.db.search(ns, None, text_query=query, top_k=candidate_k)
         else:
             # hybrid_rrf and hybrid_graphrag
-            q_vec = embed_one(query)
+            q_vec = embed_query_one(query)
             hits = self.db.search(ns, q_vec if q_vec else None, text_query=query, top_k=candidate_k)
 
         # 2. FastGate deduplication to session level
@@ -411,36 +465,52 @@ class VantaAblationStore:
             # Find candidate sessions that share entities with top hits or query
             graph_boosts: Dict[str, float] = collections.defaultdict(float)
             top_candidates = sorted(seen_sessions.values(), key=lambda x: x["score"], reverse=True)[:5]
+            # RRF fused scores live in ~[0.008, 0.033]; the previous absolute
+            # boosts (+0.25/entity, +0.15*score/entity×5 cands) reached ~15x the
+            # best real score and injected never-retrieved sessions into top-5.
+            # All boosts are now scaled to the top retrieved score and capped,
+            # so linked sessions can fill tail slots but cannot dominate.
+            max_score = top_candidates[0]["score"] if top_candidates else 0.0
+            # Hub entities (linked to >30% of the namespace's sessions) carry no
+            # selectivity — skip them entirely instead of boosting the clique.
+            ns_session_count = sum(1 for (sns, _) in self._session_entities if sns == ns)
+            hub_cutoff = max(3, int(0.30 * ns_session_count)) if ns_session_count else 0
 
             for cand in top_candidates:
+                base_score = cand["score"]  # snapshot: boosts chain off the
+                # unmutated score, not the already-inflated one
                 cand_sid = cand["key"]
                 cand_ents = self._session_entities.get((ns, cand_sid), set())
-                # Overlap with query entities
+                # Overlap with query entities — relative to the RRF scale
                 query_overlap = cand_ents & q_entities
-                if query_overlap:
-                    cand["score"] += 0.25 * len(query_overlap)
+                if query_overlap and max_score > 0:
+                    cand["score"] += 0.15 * max_score * min(len(query_overlap), 3) / 3
 
                 # Entity associative hops to linked sessions
                 for ent in cand_ents:
                     linked_sids = self._entity_to_sessions.get((ns, ent), set())
+                    if hub_cutoff and len(linked_sids) > hub_cutoff:
+                        continue
                     for l_sid in linked_sids:
                         if l_sid != cand_sid:
-                            graph_boosts[l_sid] += 0.15 * cand["score"]
+                            graph_boosts[l_sid] += 0.05 * base_score
 
-            # Incorporate linked sessions into candidates
+            # Incorporate linked sessions into candidates — capped below the
+            # best retrieved score so rescued evidence can displace weak
+            # candidates but never drown the top hits.
+            inject_cap = 0.6 * max_score if max_score > 0 else 0.0
             for l_sid, boost in graph_boosts.items():
+                capped = min(boost, inject_cap)
                 if l_sid in seen_sessions:
-                    seen_sessions[l_sid]["score"] += boost
-                else:
-                    raw_l = self._raw_sessions.get((ns, l_sid))
-                    if raw_l is not None:
-                        seen_sessions[l_sid] = {
-                            "key": l_sid,
-                            "score": boost,
-                            "confidence": 0.85,
-                            "namespace": ns,
-                            "payload": raw_l,
-                        }
+                    seen_sessions[l_sid]["score"] += capped
+                elif raw_l := self._raw_sessions.get((ns, l_sid)):
+                    seen_sessions[l_sid] = {
+                        "key": l_sid,
+                        "score": capped,
+                        "confidence": 0.85,
+                        "namespace": ns,
+                        "payload": raw_l,
+                    }
 
         deduped = sorted(seen_sessions.values(), key=lambda x: x["score"], reverse=True)
         return deduped[:top_k]

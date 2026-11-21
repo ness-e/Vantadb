@@ -2471,16 +2471,24 @@ decision** (bandas) se aplico sobre el set publicado, sin excluir ninguna corrid
   de la pregunta residan en el top-5 retornado. En preguntas multi-sesión (300 de las 470 preguntas
   no-abstención de LongMemEval-S), recuperar una sola sesión no es suficiente (lo que medía `recall_any@5`).
 - **Arquitectura de Recuperación Híbrida Graph-RAG:**
-  - **Leg Denso:** Ingesta particionada en ventanas de turnos (~200-300 palabras con solape de 1 turno)
-    vectorizadas con `BAAI/bge-small-en-v1.5` (384d) y almacenadas en grafo HNSW.
-  - **Leg Léxico:** Índice BM25 sobre el texto íntegro de la sesión.
-  - **Fusión RRF:** Reciprocal Rank Fusion ($k=60$) para combinar las listas ordenadas.
+  - **Leg Denso:** Ingesta particionada en chunks (~250 palabras, solape de 20 palabras)
+    vectorizados con `BAAI/bge-small-en-v1.5` (384d, `passage_embed`-equivalente vía `embed()`)
+    y almacenados en grafo HNSW. Las queries se vectorizan con `query_embed()` — la rama
+    asimétrica del modelo BGE que aplica la instrucción de retrieval con la que fue entrenado.
+  - **Leg Léxico:** Índice BM25 namespace-scoped sobre los mismos chunks indexados (el documento
+    recuperable es el chunk, no la sesión íntegra).
+  - **Fusión RRF:** Reciprocal Rank Fusion ($k=60$) del engine sobre una ventana de candidatos
+    de `max(top_k*40, 200)` chunks — suficiente para cubrir la mayoría de las ~48 sesiones del
+    haystack tras la deduplicación (~8.6 chunks/sesión).
   - **Filtro Bitemporal:** Soporte nativo para ventanas válidas (`valid_window`) y consultas históricas (`as_of_ms`).
-  - **Expansión Asociativa Graph-RAG (`hybrid_graphrag`):** Detecta co-ocurrencia de entidades clave
-    y marcadores temporales entre sesiones dialogadas adyacentes, expandiendo el conjunto de candidatos
-    antes de la deduplicación.
-  - **FastGate Deduplication:** Agrupa los chunks recuperados por `session_id`, toma el score máximo
-    por sesión y aplica poda de confianza determinista sin invocar tokens LLM.
+  - **Expansión Asociativa Graph-RAG (`hybrid_graphrag`):** Heurística del harness de evaluación
+    — **no** el pipeline GraphRAG nativo del engine (`graphrag_search`). Extrae entidades por
+    sesión (capitalizadas, fechas, marcadores), filtra stopwords y entidades-hub (>30% del
+    namespace) para evitar el grafo-clique, y aplica boosts escalados a la magnitud RRF
+    (~0.03) con tope de inyección del 60% del mejor score — nunca puede desplazar el top real.
+  - **Deduplicación a sesión:** El harness agrupa los chunks recuperados por `session_id`, toma
+    el score máximo por sesión y trunca a `top_k` sesiones. (FastGate no interviene: `put_batch`
+    la bypassa por diseño — `DedupPolicy::Off`.)
 
 ### 23.2 Comandos Reproducibles (Regla 11)
 
@@ -2505,20 +2513,41 @@ python evals/eval_locomo.py --self-test
 ### 23.3 Resultados: Certificación LongMemEval-S (500q) y Estudio de Ablación
 
 > [!WARNING]
-> **ESTADO: NO MEDIDO — las cifras proyectadas que ocupaban esta tabla se retiraron el 2026-11-20 (ACT-02).**
-> Eran proyecciones analíticas, no mediciones: publicarlas dentro de la sección de certificación las volvía
-> citables como si lo fueran. La corrida oficial de 500 preguntas **no se completó** — el arnés re-ingesta
-> el haystack de cada pregunta en su propio namespace (los embeddings se cachean por texto, así que el coste
-> es el conteo deduplicado) y la tasa de ingesta medida (~1 chunk/s; 7.86 s por sesión, 8.10 chunks por
-> sesión) sitúa el split completo en **~42–55 h de CPU continua** en el hardware declarado en
-> §19 → "ACT-02 — dense-embeddings certification" → `Environment`.
+> **ESTADO: GATE FAIL MEDIDO — la corrida oficial de 500 preguntas se completó y falló el gate.
+> La causa raíz se identificó en el harness de evaluación (no en el core del engine) y una
+> re-corrida con el harness corregido está en curso.**
 >
-> Lo que **sí** está medido (smoke n=5, tasa de ingesta real, entorno y comando reproducible) vive en
-> **§19 → "ACT-02 — dense-embeddings certification (v0.10.0 candidate)"**. El gate `recall_all@5 >= 0.85`
-> **sigue sin certificarse**: no hay número de 500 preguntas en este documento, y no se sustituye por
-> una proyección.
+> **Primera corrida oficial** (`hybrid_graphrag`, `--strict-embeddings`, 23 867 sesiones ingeridas,
+> `bge-small-en-v1.5` real — `llm_tokens_consumed=0`):
 >
-> El desglose por tipo de pregunta se publicará cuando exista la corrida real, no antes.
+> | Métrica | Resultado | Gate |
+> |---|---|---|
+> | `recall_all@5` | **0.1383** | `>= 0.85` — **FAIL** |
+> | `recall_any@5` | 0.4489 | informativo |
+> | `answer_f1` | 0.34 | informativo |
+>
+> **Corrida discriminativa `bm25_only` (misma dataset y protocolo):**
+>
+> | Métrica | Resultado |
+> |---|---|
+> | `recall_all@5` | **0.8000** |
+> | `recall_any@5` | 0.9596 |
+> | `answer_f1` | 0.66 |
+> | p50 query | 5.51 ms · 148.8 QPS |
+>
+> **Diagnóstico (verificado por la ablación):** el leg BM25 del engine recupera la evidencia
+> (0.80 ≈ baseline histórico 0.7617, `any@5`=0.96 confirma que la evidencia *está* en el índice);
+> el colapso a 0.1383 provino de tres defectos del harness, ya corregidos: (1) la expansión
+> "GraphRAG" del harness creaba un grafo-clique (la entidad literal `Session` enlazaba todo) e
+> inyectaba sesiones con boosts ~15× el score RRF máximo, expulsando la evidencia real del top-5;
+> (2) la ventana de candidatos de 30 chunks cubría ~10-20 sesiones de ~48 — insuficiente para
+> preguntas multi-evidencia tras el dedup; (3) queries embebidas sin la instrucción BGE
+> (`embed()` en vez de `query_embed()`).
+>
+> **Lectura honesta:** el gate `recall_all@5 >= 0.85` sigue **sin certificarse**. Los números de
+> arriba son mediciones reales del harness defectuoso — se publican tal cual (ACT-02 DoD: "publicar
+> el número tal cual + FIND; no se baja el umbral"). La tabla final se actualizará con la re-corrida
+> del harness corregido; si el gate sigue sin alcanzarse, la métrica honesta es la que se publica.
 
 ---
 
