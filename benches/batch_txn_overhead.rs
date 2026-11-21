@@ -41,9 +41,8 @@ fn make_nodes(count: usize) -> Vec<UnifiedNode> {
     (0..count)
         .map(|i| {
             let mut node = UnifiedNode::new(i as u128);
-            node.vector = VectorRepresentations::Full(
-                (0..DIM).map(|_| rng.random::<f32>()).collect(),
-            );
+            node.vector =
+                VectorRepresentations::Full((0..DIM).map(|_| rng.random::<f32>()).collect());
             node.relational
                 .insert("tag".to_string(), FieldValue::String("v1".to_string()));
             node
