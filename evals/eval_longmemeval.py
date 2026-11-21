@@ -193,21 +193,49 @@ def load_embed_cache(path: pathlib.Path) -> int:
 
 
 def save_embed_cache(path: pathlib.Path) -> int:
-    """Persist the whole cache (preloaded + newly embedded) so a partial cache can be completed."""
+    """Persist the whole cache (preloaded + newly embedded) so a partial cache can be completed.
+
+    Atomic: writes to a sibling temp file and renames, so a kill mid-write can
+    never leave a corrupt .npz that load_embed_cache would reject.
+    """
     import numpy as np  # lazy: keeps the no-flag path free of a new import
 
     path.parent.mkdir(parents=True, exist_ok=True)
     keys = list(_EMBED_CACHE)
+    # np.savez appends ".npz" to any name not already ending in it — the temp
+    # name must keep the suffix for os.replace to find the file.
+    tmp = path.with_name(path.stem + ".tmp.npz")
     np.savez(
-        path,
+        tmp,
         keys=np.array(keys),
         vecs=np.array([_EMBED_CACHE[k] for k in keys], dtype=np.float32),
     )
+    tmp.replace(path)
     return len(keys)
 
 
+# Checkpoint cadence: after this many NEW embeddings the cache is flushed to
+# disk. A killed run then loses at most ~1000 embeddings of compute instead of
+# hours — the 2026-11-21 run died ~10h in (agent host restart) with all work
+# held only in memory.
+_EMBED_CHECKPOINT_EVERY = 1000
+_EMBED_SINCE_CHECKPOINT = 0
+
+
+def _maybe_checkpoint_cache() -> None:
+    global _EMBED_SINCE_CHECKPOINT
+    if _EMBED_CACHE_PATH is None or _EMBED_SINCE_CHECKPOINT < _EMBED_CHECKPOINT_EVERY:
+        return
+    _EMBED_SINCE_CHECKPOINT = 0
+    entries = save_embed_cache(_EMBED_CACHE_PATH)
+    print(
+        f"[eval_longmemeval] Embed cache checkpoint: {entries} vectores persistidos",
+        flush=True,
+    )
+
+
 def embed_batch(texts: List[str]) -> List[Optional[List[float]]]:
-    global _EMBED_MISSES
+    global _EMBED_MISSES, _EMBED_SINCE_CHECKPOINT
     if not texts:
         return []
 
@@ -232,6 +260,7 @@ def embed_batch(texts: List[str]) -> List[Optional[List[float]]]:
                 )
             return results
         _EMBED_MISSES += len(missing_txt)  # a miss = an embedding actually paid for on this machine
+        _EMBED_SINCE_CHECKPOINT += len(missing_txt)
         try:
             raw = list(embedder.embed(missing_txt))
             for midx, txt, emb in zip(missing_idx, missing_txt, raw):
@@ -239,6 +268,7 @@ def embed_batch(texts: List[str]) -> List[Optional[List[float]]]:
                 h = hashlib.sha256(txt.encode("utf-8")).hexdigest()
                 _EMBED_CACHE[h] = vec
                 results[midx] = vec
+            _maybe_checkpoint_cache()
         except Exception as e:
             if _STRICT_EMBEDDINGS:
                 raise RuntimeError(
@@ -601,7 +631,8 @@ def run_longmemeval_run(
 
     t_ingest0 = time.perf_counter()
     n_docs = 0
-    for q in questions:
+    n_q = len(questions)
+    for qi, q in enumerate(questions, 1):
         qid = q["question_id"]
         ns = f"{namespace_prefix}/{qid}"
         ids = list(q.get("haystack_session_ids", []))
@@ -611,15 +642,26 @@ def run_longmemeval_run(
             store.put(ns, sid, f"Session {sid}:\n{session_text(sess)}")
             ingest_latencies_ms.append((time.perf_counter() - s) * 1000.0)
             n_docs += 1
+        if qi % 25 == 0 or qi == n_q:
+            elapsed = time.perf_counter() - t_ingest0
+            rate = n_docs / elapsed if elapsed > 0 else 0.0
+            eta_h = (elapsed / qi) * (n_q - qi) / 3600 if qi else 0.0
+            print(
+                f"[eval_longmemeval] ingest {qi}/{n_q} preguntas · {n_docs} docs · "
+                f"{rate:.2f} docs/s · ETA ~{eta_h:.1f}h",
+                flush=True,
+            )
     ingest_s = time.perf_counter() - t_ingest0
 
     t_query0 = time.perf_counter()
-    for q in questions:
+    for qi, q in enumerate(questions, 1):
         qid = q["question_id"]
         ns = f"{namespace_prefix}/{qid}"
         s = time.perf_counter()
         hits = store.search(ns, q["question"], top_k)
         query_latencies_ms.append((time.perf_counter() - s) * 1000.0)
+        if qi % 50 == 0 or qi == n_q:
+            print(f"[eval_longmemeval] query {qi}/{n_q}", flush=True)
 
         gold = set(q.get("answer_session_ids", []))
         top_keys = {h["key"] for h in hits}
