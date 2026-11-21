@@ -37,7 +37,7 @@ tags: [extraccion, backlog, graphiti]
 - **Problema:** un episodio recibido hoy describe una asignación anterior; el escritor no debe convertir una llegada tardía en autoridad para invalidar la asignación actual. El delta es separar fecha efectiva del hecho del tiempo de conocimiento — no «añadir timestamps»: `record_input` ya materializa `valid_at` desde `created_at`.
 - **Contrato hipotético (tipos propuestos):** `struct FactClock { valid_from: Option<i64>, valid_until: Option<i64>, learned_at: i64, source_reference: Option<i64> }`; `enum IntervalAction { KeepBoth, CloseExisting, CloseIncoming, Undetermined }`; `fn compare_contradictory_facts(existing: &FactClock, incoming: &FactClock) -> Result<IntervalAction, TemporalError>`. Entrada: dos hechos previamente autorizados con contradicción ya establecida por el llamador; salida: decisión y razón auditable. Error por intervalo mal formado o fecha inválida, no por falta de LLM.
 - **Fuente de evidencia:** `graphiti_core/edges.py:263-291` (G2, `EntityEdge`: `created_at`/`valid_at`/`invalid_at`/`expired_at`/`reference_time` — conocimiento, validez y ancla de extracción distintos; comentarios excluyen interpretar planes futuros como hechos ocurridos), `graphiti_core/utils/maintenance/edge_operations.py:715-1035` (G3, `_apply_temporal_invalidation`: compara fechas sin decidir verdad; el helper de contradicciones omite intervalos disjuntos — no es álgebra completa ni prueba de identidad temporal).
-- **Seam VantaDB:** `vanta-memory/src/core/record/l1_dedup.rs` (decisión) y `vanta-memory/src/core/record/l1_writer.rs::record_input`, `write_memory`, lifecycle (aplicación); el SDK sigue dueño del storage [V1][V2].
+- **Seam VantaDB:** `vanta-memory/src/core/record/l1_dedup.rs` (decisión) y `vanta-memory/src/core/record/l1_writer.rs::record_input`, `write_memory`, lifecycle (aplicación); el SDK sigue dueño del storage [V1] [V2].
 - **Acciones:**
   1. Definir semántica UTC/extremos y lectura compatible con campos ausentes.
   2. Incorporar fechas explícitas sin reinterpretar historia (no backfill desde `created_at` como fecha de mundo).
@@ -56,7 +56,7 @@ tags: [extraccion, backlog, graphiti]
 - **Problema:** la persona vuelve al mismo proyecto meses después: fact string idéntica no implica misma ocurrencia; un fast path que compara texto normalizado y endpoints sin gate temporal colapsa recurrencias disjuntas.
 - **Contrato hipotético (tipos propuestos):** `enum OccurrenceMatch { SameOccurrence, DistinctOccurrence, NeedsReview }`; `fn dedup_eligibility(stored_id: &str, stored_revision: u64, old: &FactClock, new: &FactClock) -> Result<OccurrenceMatch, TemporalError>` — gate como precondición de `DedupDecision` antes de dedup exacto, semántico y por lote. El ID lógico de fuente no cambia por revisión; el ID de ocurrencia puede diferir aunque el texto coincida. El resultado enlaza revisión base, no autoriza write por sí mismo.
 - **Fuente de evidencia:** `graphiti_core/utils/maintenance/edge_operations.py:715-1035` (G3; `_dedupe_extracted_edge:945-955` sigue comparando texto normalizado y endpoints sin gate temporal en el fast path — observación estática del clon) e issue pública [#1865](https://github.com/getzep/graphiti/issues/1865) (open; reproducción declarada en 0.30.2: mismo texto/endpoints reutiliza arista aunque intervalos disjuntos).
-- **Seam VantaDB:** `vanta-memory/src/core/record/l1_dedup.rs` (precondición de `DedupDecision`); el escritor conserva su aplicación única `write_memory`/`apply_dedup_batch` [V1][V2] — extender las decisiones actuales, no crear un deduplicador paralelo.
+- **Seam VantaDB:** `vanta-memory/src/core/record/l1_dedup.rs` (precondición de `DedupDecision`); el escritor conserva su aplicación única `write_memory`/`apply_dedup_batch` [V1] [V2] — extender las decisiones actuales, no crear un deduplicador paralelo.
 - **Acciones:**
   1. Documentar la identidad actual de dedup.
   2. Añadir el gate puro de elegibilidad.
@@ -95,7 +95,7 @@ tags: [extraccion, backlog, graphiti]
 - **Problema:** distinguir «no hay hechos» de «falló embedding» y saber si el resultado procede de episodio, entidad o resumen; un brazo omitido no debe aparecer exitoso ni un fallo transformarse en lista vacía exitosa.
 - **Contrato hipotético (tipos propuestos):** `enum EvidenceKind { RawMessage, Fact, Entity, DerivedContext }`; `enum ArmState { Complete, Skipped, Failed }`; `struct RecallTrace { kind: EvidenceKind, state: ArmState, requested_recipe: String, effective_recipe: String }`; `fn attach_recall_trace(result: ExistingRecallResult) -> TracedRecall`. Score con tipo/origen, no probabilidad; ID/revisión del registro canónico; scope preservado al expandir/hidratar.
 - **Fuente de evidencia:** `graphiti_core/search/search.py:70-255` (G4: query vacía termina sin embedding; vector suministrado evita repetir la llamada; brazos edge/node/episode/community con `semaphore_gather`, cada uno con su config y filtros aplicables; `_trace_phase` marca error y relanza — no fabrica cero resultados como éxito), `graphiti_core/search/search_config.py:32-139` (G5: métodos/rerankers/resultados tipados por superficie — RRF, distancia y cross-encoder no producen probabilidades comparables).
-- **Seam VantaDB:** `vanta-memory/src/core/hooks/auto_recall.rs::RecallConfig`, `search_records_core` y `vanta-memory/src/context_engine/engine.rs::assemble_with_recall` [V3][V4] — el core híbrido existe y `core_search` es false por defecto: no afirmar BM25 efectivo por el simple hecho de que exista el flag.
+- **Seam VantaDB:** `vanta-memory/src/core/hooks/auto_recall.rs::RecallConfig`, `search_records_core` y `vanta-memory/src/context_engine/engine.rs::assemble_with_recall` [V3] [V4] — el core híbrido existe y `core_search` es false por defecto: no afirmar BM25 efectivo por el simple hecho de que exista el flag.
 - **Acciones:**
   1. Mapear recetas y errores actuales.
   2. Añadir campos opcionales backwards-compatible en el recall existente.
@@ -127,3 +127,8 @@ tags: [extraccion, backlog, graphiti]
 - **Criterio negativo:** una inspección nunca se convierte en permiso de escritura; una respuesta tardía tras cambio de conexión/scope se descarta — no pisa la selección nueva.
 - **Independencia:** no requiere migración de datos para empezar; el rollback oculta el panel sin cambiar hechos; al cambiar conexión/scope se cancela la carga e ignora la respuesta antigua.
 - **No objetivos:** renderizar todo el grafo, importar Neo4j Browser ni acciones destructivas por LLM. Abierto: diseño humano de la navegación temporal.
+
+[V1]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L112-L620
+[V2]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_dedup.rs#L112-L250
+[V3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/hooks/auto_recall.rs#L133-L335
+[V4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L150-L264

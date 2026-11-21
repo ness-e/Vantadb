@@ -1,6 +1,6 @@
 ---
 title: "Reconfirmación independiente de correcciones de motores y RAG"
-kind: research
+kind: review
 status: proposed
 description: "Cierre selectivo documental de ocho reworks, con ledger por eje, contraste de fuentes y residuales explícitos"
 tags: [research, memory, engineering]

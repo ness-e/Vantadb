@@ -1,6 +1,6 @@
 ---
 title: "Revisión independiente de Agno, AutoGen, Agents SDK y Flowise"
-kind: research
+kind: review
 status: proposed
 description: "Ledgers adversariales de cuatro informes, contraste estático de fuentes y correcciones verificables sin aceptación final"
 tags: [research, memory, engineering]

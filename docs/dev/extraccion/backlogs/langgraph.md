@@ -86,7 +86,7 @@ tags: [extraccion, backlog, langgraph]
 
 - **Problema:** el adapter no debe aceptar opciones que no puede preservar: `index` no se traslada a `_put` en la lectura del informe y `PutOp.ttl` ya se rechaza con `NotImplementedError`; un serializer permisivo sin allowlist degrada tipos silenciosamente.
 - **Contrato hipotético (tipos propuestos):** `StoreCapabilities { semantic, ttl, field_indexing, ordered_batch }` y envelope `codec_version/type/payload`. `ordered_batch` significa declarar el modelo de visibilidad, no imponer read-your-writes como contrato universal. Namespace es una tupla sin colisiones; ACL se aplica antes de buscar.
-- **Fuente de evidencia (clone):** `libs/checkpoint/langgraph/store/base/__init__.py:160-240,475-520` (`SearchOp`/`PutOp`, `index` en `:490-520`) [L7]; `libs/langgraph/langgraph/channels/binop.py:107-150` (`BinaryOperatorAggregate.update`) [L8]; `libs/checkpoint/langgraph/checkpoint/serde/jsonplus.py:83-101,104-147` (fallback de reconstrucción de `JsonPlusSerializer`; `pickle_fallback=False` por defecto no implica seguridad general — msgpack es permisivo salvo strict/allowlist) [L9][L13].
+- **Fuente de evidencia (clone):** `libs/checkpoint/langgraph/store/base/__init__.py:160-240,475-520` (`SearchOp`/`PutOp`, `index` en `:490-520`) [L7]; `libs/langgraph/langgraph/channels/binop.py:107-150` (`BinaryOperatorAggregate.update`) [L8]; `libs/checkpoint/langgraph/checkpoint/serde/jsonplus.py:83-101,104-147` (fallback de reconstrucción de `JsonPlusSerializer`; `pickle_fallback=False` por defecto no implica seguridad general — msgpack es permisivo salvo strict/allowlist) [L9] [L13].
 - **Seam VantaDB:** `integrations/langchain/vantadb_langchain/store.py:97-139,231-271` (`VantaDBStore.batch`/`_search_semantic`); Vanta delega serde al paquete instalado [V6] — fijar versión, política y escritor autorizado es prerrequisito; context engine existente para budgets sin asignar presupuesto independiente al adapter.
 - **Acciones:**
   1. Enumerar las opciones del contrato upstream congelado.
@@ -158,3 +158,11 @@ tags: [extraccion, backlog, langgraph]
 - **Criterio negativo:** seleccionar un checkpoint nunca despacha tools ni afirma equivalencia de replay con revisión desconocida; migración aditiva no inventa revisión de grafo histórica.
 - **Independencia:** sí como vista de inspección — el host decide rama/durability y confirma snapshots; cancelar una consulta no cancela el workflow; rollback solo oculta la vista nueva.
 - **No objetivos:** determinismo de LLM, undo remoto ni duplicar Studio.
+
+[L11]: https://github.com/langchain-ai/langgraph/blob/e5e37b5d70dbfd93c7006bd90a658c6179a95946/libs/checkpoint/langgraph/store/memory/__init__.py#L206-L440
+[L12]: https://github.com/langchain-ai/langgraph/blob/e5e37b5d70dbfd93c7006bd90a658c6179a95946/libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py#L458-L515
+[L13]: https://github.com/langchain-ai/langgraph/blob/e5e37b5d70dbfd93c7006bd90a658c6179a95946/libs/checkpoint/langgraph/checkpoint/serde/jsonplus.py#L104-L147
+[V6]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/langchain/vantadb_langchain/checkpointer.py#L41-L350
+[V7]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/langchain/vantadb_langchain/store.py#L39-L296
+[V8]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/langchain/pyproject.toml#L25-L32
+[V9]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/approval.rs#L1-L168

@@ -661,11 +661,9 @@ al dossier. No se crean esas tareas, harnesses o archivos ahora.
 [S2]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/core/src/kvs/write_barrier.rs#L1-L60
 [S3]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/datastore/src/triggers.rs#L1476-L1538
 [S4]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/datastore/src/triggers.rs#L1572-L1625
-[S5]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/core/src/kvs/rollback.rs#L1-L165
 [S6]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/core/src/kvs/rollback.rs#L165-L261
 [S7]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/engine-local/benches/point_read.rs#L1-L152
 [S8]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/engine-local/Cargo.toml#L118-L134
-[SL]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/LICENSE#L1-L68
 [SCFG]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/engine-local/src/lib.rs#L65-L155
 [SDEP]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/engine-local/Cargo.toml#L15-L110
 [SEXEC]: https://github.com/surrealdb/surrealdb/blob/9577ac5f0caa60a39d5a334e9352aed0e232f9e6/surrealdb/core/src/kvs/ds.rs#L12039-L12060

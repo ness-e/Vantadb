@@ -1,6 +1,6 @@
 ---
 title: "Reconfirmación de correcciones de Chroma y Milvus"
-kind: research
+kind: review
 status: proposed
 description: "Cierre propuesto de CH-1, CH-2 y MV-1; MV-2 conserva una contradicción de cobertura documental"
 tags: [research, memory, engineering]

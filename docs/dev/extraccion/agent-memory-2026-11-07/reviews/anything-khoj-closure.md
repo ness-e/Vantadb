@@ -1,6 +1,6 @@
 ---
 title: "Cierre propuesto de revisión — AnythingLLM y Khoj"
-kind: research
+kind: review
 status: proposed
 description: "Tercer contraste independiente postcorrecciones: dos ledgers, evidencia reutilizada, fuentes comprobadas y un residual documental de alcance por operación"
 tags: [research, memory, engineering]

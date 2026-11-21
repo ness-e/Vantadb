@@ -89,7 +89,7 @@ tags: [extraccion, backlog, mem0]
 
 - **Problema:** la variante OSS enlaza entidades normalizadas con `memory_ids`; un boost por coocurrencia/alias puede mejorar el diagnóstico de identidad sin aristas semánticas — pero un enlace a una revisión borrada nunca autoriza devolver su texto.
 - **Contrato hipotético:** `EntityProjection { scope, normalized_entity, extractor_version, members: [(memory_id, revision)] }`; entrada evento confirmado, salida estado de proyección; error de NLP no es cero entidades certificado; estado de proyección separado del primario con generación propia.
-- **Fuente de evidencia:** `mem0/memory/main.py:1100-1220` (normaliza nombres, embeddings batch/individual, match exacto antes que semántico, combina conjuntos, escribe entidades; excepciones de esa fase se registran sin invalidar el primario) [M-entity][M-entity-full] y `:2052-2144` (update/delete: primero el vector, luego history — sin `try` que convierta el fallo de history en éxito) [M-mutate] — informe §Ficha E.
+- **Fuente de evidencia:** `mem0/memory/main.py:1100-1220` (normaliza nombres, embeddings batch/individual, match exacto antes que semántico, combina conjuntos, escribe entidades; excepciones de esa fase se registran sin invalidar el primario) [M-entity] [M-entity-full] y `:2052-2144` (update/delete: primero el vector, luego history — sin `try` que convierta el fallo de history en éxito) [M-mutate] — informe §Ficha E.
 - **Seam VantaDB:** `vanta-memory/src/core/record/l1_writer.rs` post-commit y auditoría existente; grafo y búsqueda existentes — no «añadir grafo».
 - **Acciones:** 1) comparar alias/metadatos existentes; 2) estudiar `l1_writer` post-commit y auditoría; 3) producir enlaces versionados; 4) reconciliar y probar invalidación antes de usar como señal; 5) elegir generación activa con rollback a la anterior o boost desactivado.
 - **Dependencias:** después de X-M00-01/X-M00-02 (recibos y pertenencia); cambiar extractor requiere reindexar solo derivados, no cambiar IDs fuente; actualización condicional/reconciliación — doble lectura no es doble escritura permanente.
@@ -112,3 +112,14 @@ tags: [extraccion, backlog, mem0]
 - **Criterio negativo:** un recibo incompleto sobrevive al cierre del cliente; no restaurar texto purgado como compensación; restaurar datos personales borrados no es rollback permitido ni implícito.
 - **Independencia:** desactivar nuevas purgas es rollback operativo; mínimo purga de contenido online.
 - **No objetivos:** backups/retención legal y borrado seguro del soporte físico requieren decisiones separadas; borrar todo el historial elimina evidencia operativa — no es la candidata.
+
+[M-add]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/memory/main.py#L918-L1098
+[M-entity-full]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/memory/main.py#L1100-L1220
+[M-entity]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/memory/main.py#L1100-L1115
+[M-mutate]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/memory/main.py#L2052-L2144
+[M-score]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/utils/scoring.py#L60-L139
+[M-search]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/memory/main.py#L1642-L1745
+[M-storage]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/memory/storage.py#L102-L191
+[V-recall]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/hooks/auto_recall.rs#L303-L334
+[V-record]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/abstractions/types.rs#L71-L154
+[V-write]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L389-L456

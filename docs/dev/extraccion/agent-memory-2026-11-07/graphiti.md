@@ -97,7 +97,7 @@ verificó contra sus proveedores.
 `expired_at`, momento en que se registró invalidación. `reference_time` pertenece
 al episodio productor, no debe sustituirse silenciosamente por reloj de ingesta.
 Los comentarios excluyen interpretar planes/promesas futuras como hechos ya
-ocurridos o soft deadlines como fin de validez [G2:274-286].
+ocurridos o soft deadlines como fin de validez [G2]:274-286.
 
 **Alcance de “bitemporal”:** los campos soportan dos ejes de tiempo; su existencia
 no prueba consultas históricas completas de atributos de nodos, consistencia de
@@ -120,7 +120,7 @@ acreditó un runtime de ejecución resumible a partir de estas clases.
 - El vector puede proporcionarse; solo se genera cuando la receta necesita
   semántica/MMR. Query whitespace devuelve `SearchResults()` [G4].
 - `_process_episode_data` borra `episode.content` cuando
-  `store_raw_episode_content` es falso [G9:1031-1035]. “Tiene episodios” no
+  `store_raw_episode_content` es falso [G9]:1031-1035. “Tiene episodios” no
   garantiza conservación del original literal.
 - `remove_episode` preserva hechos soportados por otros episodios y reconstruye
   resúmenes supervivientes [G11]. No prueba borrado físico completo.
@@ -149,7 +149,7 @@ acreditó un runtime de ejecución resumible a partir de estas clases.
 **Fallo/cancelación:** antes de persistir, un error de proveedor no debe contarse
 como episodio publicado; después del bulk puede quedar saga/comunidad pendiente.
 No se inspeccionaron transacciones de todos los drivers ni compensaciones.
-La docstring aconseja episodios secuenciales y esperar cada uno [G1:1404-1413];
+La docstring aconseja episodios secuenciales y esperar cada uno [G1]:1404-1413;
 no certifica concurrencia. Reintentar con UUID estable reduce ambigüedad, pero
 no acredita exactamente-una-vez de todos los efectos. Vanta debe preservar
 original y publicar derivados por revisión, no copiar esta secuencia como
@@ -166,14 +166,14 @@ garantía atómica.
    llamada; receta lexical no necesita generarlo [G4].
 3. Ejecuta edge/node/episode/community search con `semaphore_gather`.
    Cada brazo recibe su config y filtros aplicables; comunidad no recibe
-   el mismo argumento `SearchFilters` en esta agregación [G4:160-220].
+   el mismo argumento `SearchFilters` en esta agregación [G4]:160-220.
 4. Rerank según receta. RRF, distancia y cross-encoder no producen
    probabilidades comparables entre clases [G5].
 5. REST transforma aristas a facts; `/get-memory` compone texto desde mensajes
    y llama search [G13]. Campo presente en DTO no prueba propagación.
 
 **Fallo:** `_trace_phase` marca error y relanza; no fabrica cero resultados
-como éxito [G4:79-94]. No se acreditó contrato global de partial-success;
+como éxito [G4]:79-94. No se acreditó contrato global de partial-success;
 no asumir que gather salva todos los brazos tras un error. **Concurrencia:**
 no se acreditó snapshot único entre búsqueda, expansión e hidratación.
 **Borrado:** un resultado ya entregado no desaparece del consumidor. La propuesta
@@ -192,7 +192,7 @@ Vanta conserva revisión/origen y declara estado por brazo sin cambiar ranking.
    completa ni prueba de identidad temporal.
 3. `remove_episode` carga entity_edges y elimina su UUID de `edge.episodes`.
    Si quedan fuentes guarda la arista; sin ellas la agenda para borrar
-   [G11:2174-2190].
+   [G11]:2174-2190.
 4. Obtiene entidades por MENTIONS y elimina las mencionadas solo por ese
    episodio. Guarda aristas supervivientes con embedding cargado, borra
    aristas sin soporte, nodos y episodio mediante llamadas separadas.
@@ -211,7 +211,7 @@ No convertir “invalidado” en “olvidado”.
 | Orden | Recomendación | Valor incremental y condición |
 |---|---|---|
 | Primero | Revalidar frontera de reemplazo L1 antes de invalidación destructiva | `persist_planned` borra antes de put; aplicar intervalos no debe ampliar esa ventana [V1] |
-| Primero | Contrato de tiempo efectivo separado de llegada | Vanta ya escribe valid_at; no se propone “añadir timestamps”, sino evitar confluir nacimiento del registro y validez del hecho [V1:545-557] |
+| Primero | Contrato de tiempo efectivo separado de llegada | Vanta ya escribe valid_at; no se propone “añadir timestamps”, sino evitar confluir nacimiento del registro y validez del hecho [V1]:545-557 |
 | Después | Identidad temporal antes de dedup de relaciones | Mismo texto y endpoints pueden describir recurrencias disjuntas; issue #1865 |
 | Después | Retirada de soporte y stale derivado explícitos | Extender provenance/supersession; no borrar hecho con otras fuentes ni servir resumen retirado como vigente |
 | En paralelo | Trazabilidad por brazo y propagación de parámetros | Comparar receta solicitada y efectiva, sin otro índice o assembler |
@@ -570,10 +570,10 @@ SHA `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`.
    de crash loss ni de una transacción envolvente. Debe aclararse antes de
    activar reemplazo/retirada nuevos, no antes de modelar intervalos.
 2. **Éxito parcial:** `mark_contradicted_targets` documenta error propagado
-   después del nuevo registro persistido [V1:332-348]. Un Err puede coexistir
+   después del nuevo registro persistido [V1]:332-348. Un Err puede coexistir
    con commit primario; retry necesita ID/revisión, no asumir rollback.
 3. **Tiempo existente:** `valid_at_ms` se materializa desde created_at
-   del registro [V1:484-558]. El delta es distinguir tiempo del hecho y del
+   del registro [V1]:484-558. El delta es distinguir tiempo del hecho y del
    conocimiento, no “Vanta no tiene temporalidad”.
 4. **Scope existente:** `RecallScope`, `RecallConfig`, `InjectionPolicy` [V3]
    ya gobiernan inyección. Cualquier expansión por soporte debe conservarlos;
@@ -619,7 +619,7 @@ LoCoMo QA ni éxito de agente. No se ejecutaron ni se “corrigieron”.
   Serializa `baseline_graph_results.json` y `candidate_graph_results.json`;
   elimina vectores de objetos de resultado, no acredita borrado de la base.
   Los nombres de grupo son persistentes y se reutilizan: no hay reset ni
-  restauración en el runner leído [G6:32-180]. No suministra UUID a los
+  restauración en el runner leído [G6]:32-180. No suministra UUID a los
   episodios; repetir contra el mismo destino puede acumular datos, no produce
   necesariamente un corpus limpio. `eval_cli.py:25-35` [G7] permite repetir
   candidate sin reconstruir baseline. El coste de un baseline reutilizado
@@ -638,9 +638,9 @@ LoCoMo QA ni éxito de agente. No se ejecutaron ni se “corrigieron”.
   puede dividir por cero; un error de proveedor no tiene fila de error
   normalizada en el bucle leído.
 - **Defecto de contexto estático:** `add_episode_context` almacena strings
-  `msg['content']` [G6:67-68]; en el juez, `episodes` es ese string y
+  `msg['content']` [G6]:67-68; en el juez, `episodes` es ese string y
   `episodes[0]`/`episodes[1:]` seleccionan primer carácter y resto
-  [G6:155-165], no mensaje actual/lista previa. Esto compromete la
+  [G6]:155-165, no mensaje actual/lista previa. Esto compromete la
   interpretación del score; no se cambió prompt, juez ni runner.
 
 ### 6.2 Qué transferencia es admisible
@@ -703,9 +703,9 @@ concreta; “No acreditado” no equivale a inexistencia.
 
 | Tipo | Hallazgo local | Qué falta antes de actuar |
 |---|---|---|
-| Código | Delete→put explícito en `persist_planned` [V1:289-294] | Examinar garantías del caller/SDK y fallo entre operaciones; no anunciar pérdida reproducida |
-| Código | Error de marcado puede propagarse después de persistir [V1:345-348] | Contrato de recibo/commit y retry discriminante; no tratar Err como rollback |
-| Código | valid_at nace de created_at [V1:547-558] | Determinar semántica por productor; no reinterpretar todo created_at como fecha histórica |
+| Código | Delete→put explícito en `persist_planned` [V1]:289-294 | Examinar garantías del caller/SDK y fallo entre operaciones; no anunciar pérdida reproducida |
+| Código | Error de marcado puede propagarse después de persistir [V1]:345-348 | Contrato de recibo/commit y retry discriminante; no tratar Err como rollback |
+| Código | valid_at nace de created_at [V1]:547-558 | Determinar semántica por productor; no reinterpretar todo created_at como fecha histórica |
 | Código | Core híbrido opt-in en ruta de recall [V3] | Confirmar configuración efectiva en consumidor, no decir que no existe híbrido |
 | Hipótesis | Derivado retirado sigue en contexto/cache | Inspección de retirada, hidratación y preview por revisión; no bug atribuido sin ruta |
 | Hipótesis separada | RMW global de checkpoint puede perder actualizaciones | `utils/checkpoint::mutate:112-117` del snapshot; seguir callers/serialización; no confundir con delete→put |

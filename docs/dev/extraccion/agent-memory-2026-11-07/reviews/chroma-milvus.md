@@ -1,6 +1,6 @@
 ---
 title: "Revisión independiente de Chroma y Milvus"
-kind: research
+kind: review
 status: proposed
 description: "Contraste adversarial estático de los informes Chroma y Milvus con fuentes fijadas, contratos y lagunas verificables"
 tags: [research, memory, engineering]

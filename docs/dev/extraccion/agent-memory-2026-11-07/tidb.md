@@ -537,9 +537,7 @@ mantener dossier como fuente. No crear archivos nuevos ahora.
 [T3]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/util/memory/tracker.go#L333-L384
 [T3S]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/util/memory/tracker.go#L78-L110
 [T4]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/util/memory/tracker.go#L450-L609
-[T5]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/util/sqlkiller/sqlkiller.go#L30-L202
 [T6]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/util/sqlkiller/sqlkiller.go#L204-L268
-[T7]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/util/memory/bench_test.go#L1-L42
 [T8]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/server/http_status.go#L402-L425
 [TE]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/server/http_status.go#L77-L95
 [TS]: https://github.com/pingcap/tidb/blob/41efd866c3801a637ab2d6712b86d8b2cd77ac5b/pkg/server/http_status.go#L283-L288

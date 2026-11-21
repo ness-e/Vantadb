@@ -1,6 +1,6 @@
 ---
 title: "Revisión independiente de motores y RAG pendientes"
-kind: research
+kind: review
 status: proposed
 description: "Recibos adversariales de Redis, TiDB, SurrealDB, LlamaIndex, GraphRAG, RAGFlow y Quivr con evidencias y correcciones pendientes"
 tags: [research, memory, engineering]

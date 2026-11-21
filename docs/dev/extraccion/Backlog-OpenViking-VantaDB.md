@@ -167,13 +167,13 @@ Alcance declarado por el subagente: lectura estática únicamente; sin ejecució
 Verificado contra el repo; cualquier propuesta debe tratar esto como base, no como carencia:
 
 - **Retrieval híbrido:** BM25 + HNSW + RRF (con variantes de búsqueda y MMR en `src/sdk/search/`).
-- **Provenance, sesiones, supersession:** dedup L1 con juicio LLM opcional `store|update|merge|skip` + `contradicts` → supersession, degradando a `store` sin LLM ([`vanta-memory/src/core/record/l1_dedup.rs`](../../vanta-memory/src/core/record/l1_dedup.rs)).
-- **Ensamblado de contexto existente:** [`vantadb-mcp/src/context.rs`](../../vantadb-mcp/src/context.rs) (recall + compaction + presupuesto compartido) y [`vanta-memory/src/context_engine/engine.rs`](../../vanta-memory/src/context_engine/engine.rs) — **extender, no crear un assembler nuevo**.
-- **Auditoría de índice existente:** audit/rebuild/repair + drift del text index en [`src/cli_handlers/index.rs`](../../src/cli_handlers/index.rs).
-- **Auth:** gate de arranque que rechaza bind no-loopback sin auth (`validate_auth_config`, [`src/server/bootstrap.rs:41-87`](../../src/server/bootstrap.rs)) — el hallazgo inicial "falta gate loopback" fue **falso positivo** corregido por la revisión adversarial.
-- **Ingestors wiki con claves deterministas** para reingesta idempotente ([`src/wiki/ingestors.rs`](../../src/wiki/ingestors.rs)).
+- **Provenance, sesiones, supersession:** dedup L1 con juicio LLM opcional `store|update|merge|skip` + `contradicts` → supersession, degradando a `store` sin LLM ([`vanta-memory/src/core/record/l1_dedup.rs`](../../../vanta-memory/src/core/record/l1_dedup.rs)).
+- **Ensamblado de contexto existente:** [`vantadb-mcp/src/context.rs`](../../../vantadb-mcp/src/context.rs) (recall + compaction + presupuesto compartido) y [`vanta-memory/src/context_engine/engine.rs`](../../../vanta-memory/src/context_engine/engine.rs) — **extender, no crear un assembler nuevo**.
+- **Auditoría de índice existente:** audit/rebuild/repair + drift del text index en [`src/cli_handlers/index.rs`](../../../src/cli_handlers/index.rs).
+- **Auth:** gate de arranque que rechaza bind no-loopback sin auth (`validate_auth_config`, [`src/server/bootstrap.rs:41-87`](../../../src/server/bootstrap.rs)) — el hallazgo inicial "falta gate loopback" fue **falso positivo** corregido por la revisión adversarial.
+- **Ingestors wiki con claves deterministas** para reingesta idempotente ([`src/wiki/ingestors.rs`](../../../src/wiki/ingestors.rs)).
 - **Desktop:** worktree `develop-desktop` con VantaDB Studio (Tauri v2, Rust/React/Vite): memoria, conexiones, skills, escenas, actividad, diagnóstico de retrieval — ya existe; no proponer otra consola.
-- **Benchmarks propios ya medidos:** existen resultados previos de la serie Paso 23 (`benchmarks/`, `vantadb-python/tests/test_step23_demos.py`, [`docs/user/operations/BENCHMARKS.md`](../user/operations/BENCHMARKS.md)) — queda **descartada** la vieja afirmación "VantaDB no tiene benchmarks medidos". Lo que está en cuestión es la **certificación LoCoMo** (§9-C), que es distinto.
+- **Benchmarks propios ya medidos:** existen resultados previos de la serie Paso 23 (`benchmarks/`, `vantadb-python/tests/test_step23_demos.py`, [`docs/user/operations/BENCHMARKS.md`](../../user/operations/BENCHMARKS.md)) — queda **descartada** la vieja afirmación "VantaDB no tiene benchmarks medidos". Lo que está en cuestión es la **certificación LoCoMo** (§9-C), que es distinto.
 
 ---
 ## 1. Recomendaciones para VantaDB
@@ -232,7 +232,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 
 - **Objetivo:** dotar al ensamblado de contexto **existente** de presupuesto total explícito, reserva de respuesta, cuotas por categoría, redistribución de remanente y contabilidad de descartes — **no** crear un assembler nuevo.
 - **Lectura de código (OV):** `retrieve/context_assembler/` completo: `pipeline.py`, `gather.py`, `budget.py`, `tiers.py`, `params.py`, `render.py`, `models.py`, `expansion.py`, `recall_preset.py`, `rewrite.py`, `ledger.py`. Leer pipeline→gather→budget→tiers→params→render como flujo, sin portarlo mecánicamente.
-- **Anclaje en VantaDB:** [`vantadb-mcp/src/context.rs`](../../vantadb-mcp/src/context.rs) (`context_assemble`: recall + compaction + presupuesto compartido) y [`vanta-memory/src/context_engine/engine.rs`](../../vanta-memory/src/context_engine/engine.rs) (`assemble_with_recall` o equivalente — verificar nombre actual en worktree).
+- **Anclaje en VantaDB:** [`vantadb-mcp/src/context.rs`](../../../vantadb-mcp/src/context.rs) (`context_assemble`: recall + compaction + presupuesto compartido) y [`vanta-memory/src/context_engine/engine.rs`](../../../vanta-memory/src/context_engine/engine.rs) (`assemble_with_recall` o equivalente — verificar nombre actual en worktree).
 - **Contrato propuesto (hipotético):** `ContextBudget { total, reserved_response, category_quotas: Map<Category, usize> }`; resultado `AssembledContext { selected: Vec<Item>, discarded: Vec<(Item, DiscardReason)>, per_category_count }`; estimator de tokens **declarado** (nunca afirmar tokenización exacta); tier `explicit|detail`.
 - **Pasos:** (1) leer pipeline OV como referencia; (2) mapear `context.rs`/`engine.rs` actuales; (3) añadir presupuesto/cuotas/redistribución al flujo existente; (4) registrar descartes con razón; (5) citations/wrappers consistentes.
 - **Dependencias:** estimator declarado; esquema de ítems con categoría y nivel (F1/F2 ayudan); ninguna dependencia de OV en runtime.
@@ -246,7 +246,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 
 - **Objetivo:** registrar qué contexto (id+revisión) se seleccionó, renderizó y **entregó** por sesión y ventana de turnos, con confirmación idempotente — evita reinyectar lo ya entregado y permite auditar la inyección.
 - **Lectura de código (OV):** `retrieve/context_assembler/ledger.py` (`_record_turn`, `_resolve_turn`); mecanismo RMW verificado en segunda pasada: `load()` lee el JSON entero (`:98-108`) y `record()` lo reescribe entero (`:160-173`) **sin CAS ni lock** — el mecanismo exacto del lost-update de #7170; degrada a ledger vacío si es ilegible (`status="new"`, `:104-107`) y a `write_failed` best-effort si falla la escritura (`:171-173`); un `detail=="uri"` (servido sin contenido) **no** suprime en turnos siguientes (`:126-130`) — distinción real servido-completo vs servido-referencia que F4 ya exige (Selected/Rendered vs Delivered). `session/session.py:3270-3286` (contexto para search), `session/session.py:1489-1498`.
-- **Anclaje en VantaDB:** sesiones existentes y store propio — estado de ledger **dedicado por sesión** (no acoplado al JSON global del checkpoint); la actualización atómica se garantiza por CAS **o** por una sección crítica compartida que cubra lectura+escritura. La carrera RMW histórica observada en [`checkpoint.rs`](../../vanta-memory/src/utils/checkpoint.rs) (§4-B) debe resolverse antes de prometer garantías basadas en estado compartido, no porque el ledger deba usar ese registro.
+- **Anclaje en VantaDB:** sesiones existentes y store propio — estado de ledger **dedicado por sesión** (no acoplado al JSON global del checkpoint); la actualización atómica se garantiza por CAS **o** por una sección crítica compartida que cubra lectura+escritura. La carrera RMW histórica observada en [`checkpoint.rs`](../../../vanta-memory/src/utils/checkpoint.rs) (§4-B) debe resolverse antes de prometer garantías basadas en estado compartido, no porque el ledger deba usar ese registro.
 - **Contrato propuesto (hipotético):** `DeliveryLedger { session_id, entries: [{context_id, revision, state: Selected|Rendered|Delivered, turn}] }`; update atómico (CAS o sección crítica compartida sobre read+write); `confirm_delivery(entry)` idempotente; ventana de turnos configurable. La confirmación de entrega es semántica de aplicación: **no** es una promesa de exactly-once de red.
 - **Pasos:** (1) resolver la carrera RMW del checkpoint global (§4-B) antes de prometer garantías sobre estado compartido; (2) esquema de entradas por sesión+context_id+revisión en estado dedicado; (3) transiciones de estado atómicas; (4) consulta "¿qué se entregó ya en esta ventana?"; (5) integración con el assembler (F3).
 - **Dependencias:** §4-B solo en cuanto desbloquea promesas sobre estado compartido; el ledger usa estado dedicado por sesión, no el JSON global; F1 (context_id+revision); F3 (puntos de selección/render).
@@ -260,7 +260,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 
 - **Objetivo:** operador declarativo y determinista para **aplicar** la fusión una vez que `l1_dedup` ya decidió `update|merge` — nunca sustituir la decisión LLM.
 - **Lectura de código (OV):** `session/memory/merge_op/`: `base.py` (registry ABC), `factory.py`, `patch.py`, `patch_handler.py`, `replace.py`, `sum.py`, `link_merge.py`, `immutable.py`; plantillas por tipo en `system_assets/memory/memory_templates/builtin/*.yaml`.
-- **Anclaje en VantaDB:** [`l1_dedup.rs`](../../vanta-memory/src/core/record/l1_dedup.rs) — pipeline de dos fases (keyword recall + LLM judge) que hoy aplica `update/merge` sin álgebra declarativa; el operador se inserta **después** de `DedupDecision`.
+- **Anclaje en VantaDB:** [`l1_dedup.rs`](../../../vanta-memory/src/core/record/l1_dedup.rs) — pipeline de dos fases (keyword recall + LLM judge) que hoy aplica `update/merge` sin álgebra declarativa; el operador se inserta **después** de `DedupDecision`.
 - **Contrato propuesto (hipotético):** enum cerrado `MergeOp = Patch | Replace | Sum | Immutable | Link`, permitido por esquema del registro; campos tipados; precedencia explícita `(authority, revision, policy, tie_estable)`; rechazo de mutaciones desconocidas/incompatibles/protegidas; guard anti-replay para `Sum`.
 - **Pasos:** (1) definir enum y esquema por tipo de memoria; (2) handlers deterministas por op sobre campos tipados; (3) resolver precedencia y rechazo; (4) replay guard para `Sum`; (5) integrar tras la decisión LLM en `apply_dedup_batch` o equivalente.
 - **Dependencias:** **reemplazo L1 seguro como prerequisito** (§4-A) — un merge que elimina antes de reemplazar hereda la pérdida; contrato de campos tipados por tipo.
@@ -274,7 +274,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 
 - **Objetivo:** extender el checker existente al eje **registro canónico ↔ vector ↔ revisión de derivado**: detectar missing/orphan/stale/invalid por revisión.
 - **Lectura de código (OV):** `storage/index_consistency.py:14-50` — job que reconstruye expectativas desde storage canónico y verifica `Eq(uri)` por nivel en el índice.
-- **Anclaje en VantaDB:** [`src/cli_handlers/index.rs`](../../src/cli_handlers/index.rs) — `cmd_audit_index`, drift de text index, `cmd_repair_text_index`. El checker actual audita postings/BM25; el eje propuesto es contenido↔vector por revisión, que **no es el mismo** (delimitación de la revisión adversarial).
+- **Anclaje en VantaDB:** [`src/cli_handlers/index.rs`](../../../src/cli_handlers/index.rs) — `cmd_audit_index`, drift de text index, `cmd_repair_text_index`. El checker actual audita postings/BM25; el eje propuesto es contenido↔vector por revisión, que **no es el mismo** (delimitación de la revisión adversarial).
 - **Contrato propuesto (hipotético):** `ConsistencyExpectation { record_id, revision, expected_derivatives }`; `AuditReport { missing, orphan, stale_revision, invalid }`; diagnóstico separado de reparación; jobs de reparación idempotentes guardados por `current_revision`.
 - **Pasos:** (1) mapear comandos actuales; (2) definir expectativa por registro+revisión; (3) auditoría diagnóstico-only; (4) reparación como job separado con guard de revisión; (5) tratar **fallo de lectura ≠ ausencia** (lección [#7132](https://github.com/volcengine/OpenViking/issues/7132)).
 - **Dependencias:** F2 (revisiones de derivados); jobs existentes; §4 si la reparación escribe L1.
@@ -288,7 +288,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 
 - **Objetivo:** hacer observable el scheduler/ingesta existente con estados explícitos `Captured → ExtractionQueued → Extracted → Indexing → Ready` más `Failed | Retryable | Cancelled`, revisiones, timestamps e idempotencia.
 - **Lectura de código (OV):** QueueFS = colas persistentes at-least-once (`storage/queuefs/`: `add_resource_msg.py`, `add_resource_processor.py`, `semantic_processor.py`, colas embedding/reindex/session_commit/external_task); jobs con ACK de captura.
-- **Anclaje en VantaDB:** scheduler/jobs existentes + ingestors wiki de claves deterministas ([`src/wiki/ingestors.rs`](../../src/wiki/ingestors.rs)).
+- **Anclaje en VantaDB:** scheduler/jobs existentes + ingestors wiki de claves deterministas ([`src/wiki/ingestors.rs`](../../../src/wiki/ingestors.rs)).
 - **Contrato propuesto (hipotético):** `IngestItem { key, revision, state, timestamps por transición, idempotency_key, error?, partial_result? }`; máquina de estados explícita; **ACK de captura ≠ ready**; reintentos acotados; "lock/deferral" ≠ "ejecución fallida".
 - **Pasos:** (1) inventariar transiciones actuales del scheduler; (2) modelo de estados + persistencia; (3) reintentos acotados con clasificación retryable/failed; (4) reanudación en **todos** los límites tras restart; (5) superficie de consulta por estado.
 - **Dependencias:** claves deterministas existentes; persistencia de jobs.
@@ -316,7 +316,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 
 - **Objetivo:** reingesta incremental por watches: manifest de revisiones, debounce, unidad de cambio + ancestros, exclusiones, permisos, rename/delete, versión de parser, conectores remotos.
 - **Lectura de código (OV):** `resource/watch_{manager,runtime,pagination,storage,store,store_file,store_mysql,types}.py`, `service/resource_service.py`, `storage/resource_diff.py`, parsers por tipo; `routers/resources.py`.
-- **Anclaje en VantaDB:** ingestors con claves deterministas ([`src/wiki/ingestors.rs`](../../src/wiki/ingestors.rs)) — la reingesta idempotente ya existe; lo nuevo es la detección incremental por watch.
+- **Anclaje en VantaDB:** ingestors con claves deterministas ([`src/wiki/ingestors.rs`](../../../src/wiki/ingestors.rs)) — la reingesta idempotente ya existe; lo nuevo es la detección incremental por watch.
 - **Contrato propuesto (hipotético):** `Watch { root, excludes, debounce_ms, parser_version }`; `ChangeEvent { unit_id, kind: Upsert|Rename|Delete, ancestors, revision }`; eventos idempotentes; conector remoto separado del parsing (fetch ≠ parse).
 - **Pasos:** (1) manifest de revisiones por unidad; (2) debounce + coalescing de eventos; (3) propagación a ancestros (F1); (4) rename/delete como eventos de primera clase; (5) `parser_version` en el manifest para reprocesar al cambiar parser; (6) conectores remotos con validación de fuente.
 - **Dependencias:** F1 (ancestros), F7 (estados), FIND-299 (watches ya en backlog); §4 para escrituras seguras.
@@ -369,7 +369,7 @@ Ordenadas por prioridad consolidada (todas son propuestas; ninguna imita código
 
 Orden estricto — todo [Histórico], revalidar contra el worktree actual:
 
-1. **Reemplazo L1 no indivisible** — rutas secuencial y batch eliminan registros antes de escribir los nuevos; [`l1_writer.rs:430-446`](../../vanta-memory/src/core/record/l1_writer.rs) documenta que un fallo intermedio deja eliminaciones aplicadas. Limitación confirmada **estáticamente**; sin reproducción dinámica de pérdida. Relacionar con **FIND-221, TXN-01, CRASH-01** sin confundir sus alcances (no es el mismo problema que el WAL de CRASH-01). Bloquea F2 (borrados en cascada) y F5 (merge = reemplazo).
+1. **Reemplazo L1 no indivisible** — rutas secuencial y batch eliminan registros antes de escribir los nuevos; [`l1_writer.rs:430-446`](../../../vanta-memory/src/core/record/l1_writer.rs) documenta que un fallo intermedio deja eliminaciones aplicadas. Limitación confirmada **estáticamente**; sin reproducción dinámica de pérdida. Relacionar con **FIND-221, TXN-01, CRASH-01** sin confundir sus alcances (no es el mismo problema que el WAL de CRASH-01). Bloquea F2 (borrados en cascada) y F5 (merge = reemplazo).
 2. **Checkpoint global susceptible de lost update** — `CheckpointManager` mantiene JSON global (`checkpoint.rs:79-84`) y `mutate()` separa lectura/modificación/escritura (`:111-116`) sin CAS ni guard compartido; el worker bloquea **por sesión** pero la clave del checkpoint es **global** → hipótesis de carrera que requiere prueba determinista. El comentario que promete atomicidad in-process no es garantía mecánica. Bloquea F4.
 3. **Blindaje del harness LoCoMo** — `eval_locomo.py:826-856`: puede generar datos sintéticos por defecto y degradar a `FakeLocomoStore` fuera de `--self-test`; además el loader no normaliza el esquema original de conversaciones LoCoMo al de preguntas esperado. Resolver dentro de **MEM0-05** antes de usar LoCoMo como evidencia competitiva (§7).
 4. **Recovery/atomicidad propios** — `CRASH-01` y `TXN-01` (`Backlog.md`): recovery abre el segmento por shard y reproduce ese reader (`src/storage/engine/init.rs:618-649`); commit aplica mutaciones antes del marcador durable `Commit` (`src/storage/engine/txn.rs:333-381`). Justifica priorizarlos; **no demuestra** pérdida tras crash por sí solo.
@@ -449,9 +449,9 @@ Pin de: commits, datasets, agente, modelos, prompts, presupuestos, configs y con
 
 ### 7.5 Estado del harness propio de VantaDB [Histórico]
 
-- [`evals/eval_locomo.py:826-856`](../../evals/eval_locomo.py): genera datos sintéticos por defecto y degrada a `FakeLocomoStore` fuera de `--self-test`; el loader no normaliza el esquema original de conversaciones LoCoMo al esquema de preguntas esperado → usar LoCoMo como **certificación** está bloqueado por esto (filas históricas MEM0-05).
-- [`evals/eval_longmemeval.py`](../../evals/eval_longmemeval.py): variantes `vector_only|bm25_only|hybrid_rrf|hybrid_graphrag`, gate declarado `recall_all@5 >= 0.85` — describe el harness, **no demuestra resultados**.
-- [`evals/memory_harness.py`](../../evals/memory_harness.py): proxies de abstención, economía de tokens y fidelidad de escritura — no evalúan respuestas generadas/juzgadas por LLM.
+- [`evals/eval_locomo.py:826-856`](../../../evals/eval_locomo.py): genera datos sintéticos por defecto y degrada a `FakeLocomoStore` fuera de `--self-test`; el loader no normaliza el esquema original de conversaciones LoCoMo al esquema de preguntas esperado → usar LoCoMo como **certificación** está bloqueado por esto (filas históricas MEM0-05).
+- [`evals/eval_longmemeval.py`](../../../evals/eval_longmemeval.py): variantes `vector_only|bm25_only|hybrid_rrf|hybrid_graphrag`, gate declarado `recall_all@5 >= 0.85` — describe el harness, **no demuestra resultados**.
+- [`evals/memory_harness.py`](../../../evals/memory_harness.py): proxies de abstención, economía de tokens y fidelidad de escritura — no evalúan respuestas generadas/juzgadas por LLM.
 - Existen resultados medidos previos de la serie Paso 23 (`benchmarks/`, `docs/user/operations/BENCHMARKS.md`) — la afirmación antigua "sin benchmarks medidos" queda descartada; LoCoMo-certificación es lo pendiente.
 
 ### 7.6 Escenarios propuestos para VantaDB (metodología, sin umbrales inventados)
@@ -505,11 +505,11 @@ Todo **[Histórico]** — hallazgos estáticos sobre la base analizada; el workt
 
 ### 9-A. Reemplazo L1 no indivisible [Hecho estático]
 
-Las rutas secuencial y batch eliminan registros antes de persistir los nuevos; [`l1_writer.rs:430-446`](../../vanta-memory/src/core/record/l1_writer.rs) lo documenta explícitamente (un fallo intermedio deja eliminaciones ya aplicadas). MEMG-11 (group-commit/throughput, entregado) **no contradice** el riesgo: mejorar throughput no hace indivisible delete+replace. Relacionar — sin equiparar — con **FIND-221** (atomicidad real del lote, parcial), **TXN-01** y **CRASH-01** (WAL/recovery; alcance distinto).
+Las rutas secuencial y batch eliminan registros antes de persistir los nuevos; [`l1_writer.rs:430-446`](../../../vanta-memory/src/core/record/l1_writer.rs) lo documenta explícitamente (un fallo intermedio deja eliminaciones ya aplicadas). MEMG-11 (group-commit/throughput, entregado) **no contradice** el riesgo: mejorar throughput no hace indivisible delete+replace. Relacionar — sin equiparar — con **FIND-221** (atomicidad real del lote, parcial), **TXN-01** y **CRASH-01** (WAL/recovery; alcance distinto).
 
 ### 9-B. Checkpoint global con RMW separado [Hecho patrón / Hipótesis de carrera]
 
-`mutate()` en [`checkpoint.rs:111-116`](../../vanta-memory/src/utils/checkpoint.rs) hace lectura, modificación y escritura separadas sobre la clave global `checkpoint.json` (`:79-84`); el lock es por sesión pero la clave es compartida → intercalación susceptible de lost update **[Hipótesis]**, requiere reproducción determinista. Análogo conceptual al issue upstream #7170 (ledger sobrescrito por recalls concurrentes).
+`mutate()` en [`checkpoint.rs:111-116`](../../../vanta-memory/src/utils/checkpoint.rs) hace lectura, modificación y escritura separadas sobre la clave global `checkpoint.json` (`:79-84`); el lock es por sesión pero la clave es compartida → intercalación susceptible de lost update **[Hipótesis]**, requiere reproducción determinista. Análogo conceptual al issue upstream #7170 (ledger sobrescrito por recalls concurrentes).
 
 ### 9-C. Harness LoCoMo no apto para certificación [Hecho estático]
 
@@ -521,7 +521,7 @@ Supersession (**FIND-277**, **FIND-577**), spill (**FIND-294**), hooks (**FIND-2
 
 ### 9-E. Falsos positivos descartados (registro)
 
-- **"Falta gate de bind loopback sin auth"** → **descartado**: `validate_auth_config` ya existe y es fail-closed ([`src/server/bootstrap.rs:41-87`](../../src/server/bootstrap.rs)). El subagente de seguridad lo propuso sin verificar; la revisión adversarial lo eliminó (falso positivo FIND-07).
+- **"Falta gate de bind loopback sin auth"** → **descartado**: `validate_auth_config` ya existe y es fail-closed ([`src/server/bootstrap.rs:41-87`](../../../src/server/bootstrap.rs)). El subagente de seguridad lo propuso sin verificar; la revisión adversarial lo eliminó (falso positivo FIND-07).
 - **"Falta sistema de dedup"** → descartado: `l1_dedup.rs` existe (decisión LLM + supersession); reformulado como merge declarativo post-decisión (F5).
 - **"Falta auditoría de índice"** → reformulado: existe audit/drift/repair de text-index; lo propuesto es el eje contenido↔vector↔derivado (F6).
 - **"VantaDB sin benchmarks medidos"** → descartado: existen resultados Paso 23; LoCoMo-certificación es lo pendiente.

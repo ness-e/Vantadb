@@ -383,7 +383,7 @@ autorización integral, SSRF de cada fetcher y deployment no auditados.
 
 ### 12.2. Runners: denominadores, costes y efectos concretos
 
-**FRAMES** [S15:57–139]: defaults port 8987, k=8, concurrency=6,
+**FRAMES** [S15]:57–139: defaults port 8987, k=8, concurrency=6,
 limit=0 (todas), judge `gpt-4o-mini`. JSONL usa prompt/answer/wiki_links;
 `ask` llama `/api/v1/rag` con timeout 900 y retries=2.
 Gold se convierte a conjunto de slugs; recall = intersección/gold y **gold
@@ -447,7 +447,7 @@ D sólo si se necesita comparación documental. C no requiere Pathway ni LLM.
 
 ### 12.4. Interfaz real, Studio y cierre
 
-Cliente web [S14:422–458] hace POST `/api/v1/rag`, renderiza answer, notice y
+Cliente web [S14]:422–458 hace POST `/api/v1/rag`, renderiza answer, notice y
 sources o error, y refresca stats. `index.html:269,292–306` consulta catálogo,
 config y stats; busy es estado del formulario, no task durable.
 No usa `AbortController` en esa llamada leída; no convertir cerrar página en

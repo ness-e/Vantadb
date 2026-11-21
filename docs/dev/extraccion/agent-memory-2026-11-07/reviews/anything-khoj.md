@@ -1,6 +1,6 @@
 ---
 title: "Revisión independiente — AnythingLLM y Khoj"
-kind: research
+kind: review
 status: proposed
 description: "Contraste adversarial estático por proyecto, con ledger de cobertura, recibos de fuentes y veredictos propuestos sin aceptación final."
 tags: [research, memory, engineering]

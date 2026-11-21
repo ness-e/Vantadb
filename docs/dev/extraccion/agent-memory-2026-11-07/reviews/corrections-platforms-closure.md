@@ -1,6 +1,6 @@
 ---
 title: "Reconfirmación independiente de correcciones: plataformas y frameworks"
-kind: research
+kind: review
 status: proposed
 description: "Cierre documental propuesto de once informes y diecisiete hallazgos históricos, con evidencia estática y límites por proyecto"
 tags: [research, memory, engineering]

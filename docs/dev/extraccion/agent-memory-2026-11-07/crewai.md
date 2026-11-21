@@ -675,7 +675,6 @@ Vanta. Referencias R1-R12 y hallazgos parciales válidos se conservaron.
 [CL]: https://github.com/crewAIInc/crewAI/blob/73f48320dbe6e2dc7a9bc54fefc6a13637b9485c/lib/crewai/src/crewai/agents/agent_executor.py#L1920-L2008
 [CM]: https://github.com/crewAIInc/crewAI/blob/73f48320dbe6e2dc7a9bc54fefc6a13637b9485c/lib/crewai/src/crewai/agents/agent_builder/base_agent_executor.py#L31-L69
 [CN]: https://github.com/crewAIInc/crewAI/blob/73f48320dbe6e2dc7a9bc54fefc6a13637b9485c/lib/crewai/src/crewai/agent/core.py#L1050-L1088
-[CO]: https://github.com/crewAIInc/crewAI/blob/73f48320dbe6e2dc7a9bc54fefc6a13637b9485c/lib/crewai/src/crewai/experimental/evaluation/agent_evaluator.py#L208-L365
 [CP]: https://github.com/crewAIInc/crewAI/blob/73f48320dbe6e2dc7a9bc54fefc6a13637b9485c/lib/crewai/src/crewai/experimental/evaluation/experiment/result_display.py#L14-L27
 [CQ]: https://github.com/crewAIInc/crewAI/blob/73f48320dbe6e2dc7a9bc54fefc6a13637b9485c/lib/crewai/src/crewai/experimental/evaluation/experiment/result.py#L9-L143
 [CV1]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L176-L459

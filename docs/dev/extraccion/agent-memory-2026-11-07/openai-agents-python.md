@@ -271,10 +271,6 @@ Runtime necesario: **ninguno**; no iniciar/reiniciar procesos.
 [O2]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/src/agents/memory/session.py#L21-L108
 [O3]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/src/agents/memory/sqlite_session.py#L261-L358
 [O4]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/src/agents/memory/sqlite_session.py#L447-L520
-[O5]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/src/agents/run_internal/session_persistence.py#L1873-L1962
-[O6]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/src/agents/memory/openai_responses_compaction_session.py#L559-L650
-[O7]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/examples/sandbox/tutorials/dataroom_metric_extract/evals.py#L1-L315
-[O8]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/src/agents/extensions/visualization.py#L1-L65
 [OM]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/Makefile#L1-L135
 [OL]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/LICENSE#L1-L21
 [OU]: https://github.com/openai/openai-agents-python/blob/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/README.md#L5-L21

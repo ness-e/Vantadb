@@ -57,7 +57,7 @@ no son observaciones de runtime propio.
 | Construcción de jerarquía | `core/node_parser/relational/hierarchical.py:14-229` [L20] | Lista plana de todos los niveles; enlaces padre/hijo |
 | Contexto | `core/memory/memory.py:339-544` [L6][L16] | Estimación multimodal y productores de bloques |
 | Memoria/archivo | `core/memory/memory.py:546-845`; `core/storage/chat_store/sql.py:372-406` [L22], [L23] | ACTIVE→ARCHIVED y fan-out posterior; no commit de todos los receptores |
-| Evaluación | `core/evaluation/{benchmarks/beir,retrieval/*}.py` [L7][L17–L19] | BEIR delegado y métricas por IDs propias |
+| Evaluación | `core/evaluation/{benchmarks/beir,retrieval/*}.py` [L7] [L17]–[L19] | BEIR delegado y métricas por IDs propias |
 | Integraciones | `llama-index-integrations/`, `llama-index-packs/` | Mapa del monorepo, no auditoría de cada plugin |
 | Producto externo | README [L8] | LlamaCloud/LlamaParse; no código del servicio acreditado |
 
@@ -76,18 +76,18 @@ nuevos IDs no es actualización por identidad. `SOURCE`, `PREVIOUS`, `NEXT`,
 no valida un árbol ni que los nodos compartan revisión/tenant.
 `ref_doc_id` identifica fuente; node ID, hash, vector ID y sesión no son
 sinónimos. `TextNode.hash` usa SHA-256 de texto + representación de metadata
-[L10:801-803], distinto del hash de transformación por secuencia de nodos [L1].
+[L10] (801-803), distinto del hash de transformación por secuencia de nodos [L1].
 
 Formato central Pydantic/JSON: texto, embedding opcional, metadata plana,
 relaciones, información de tipo. `IngestionCache` guarda nodos serializados
-por `doc_to_json` en KV y los reconstruye por `json_to_doc` [L11:27-46].
+por `doc_to_json` en KV y los reconstruye por `json_to_doc` [L11]:27-46.
 La caché usa collection configurable; no constituye política de autorización.
 `StorageContext.persist` invoca stores secuencialmente [L15]; los vector
 stores pueden ser externos. No hay manifest de commit conjunto en ese tramo.
 No se auditó pickle, cada serializer ni cada implementación de store.
 
 `MetadataMode::{ALL,EMBED,LLM,NONE}` decide qué metadata entra en el texto;
-las listas de exclusión de embedding y LLM son separadas [L9:337-359].
+las listas de exclusión de embedding y LLM son separadas [L9]:337-359.
 Excluir una clave del prompt **no la borra** del docstore, caché o logs.
 `NodeWithScore` transporta puntuación del retriever; el padre de auto-merge
 recibe media de hijos, no distancia ANN medida. Chat y memoria por bloques
@@ -116,16 +116,16 @@ activar proveedor. No ejecutar/importar el paquete para comprobar defaults.
    `_update_docstore` sucede después (`655-660`). El retorno de `run` no es
    una transacción conjunta ni prueba durabilidad del backend remoto.
    Fallo entre ambos exige reconciliar, no repetir ciegamente.
-6. El camino de índice `VectorStoreIndex._add_nodes_to_index` [L14:220-258]
+6. El camino de índice `VectorStoreIndex._add_nodes_to_index` [L14]:220-258
    añade vectores, recibe nuevos IDs y almacena copias sin embedding cuando
    el vector store no guarda texto o hay override; image/index nodes son
    excepciones. Evita duplicación de vector, pero introduce ownership de
    texto condicionado por capacidades del backend.
-7. Persistencia explícita [L15:182-202] escribe docstore, index store, graph
+7. Persistencia explícita [L15]:182-202 escribe docstore, index store, graph
    y cada vector namespace por separado. Caída intermedia no equivale a
    snapshot consistente. No se inspeccionó fsync ni atomización de cada store.
 
-Async `arun` [L12:693-882] repite decisión→transformación→async_add→docstore;
+Async `arun` [L12]:693-882 repite decisión→transformación→async_add→docstore;
 los workers se reúnen mediante `asyncio.gather`. Hay hash anticipado también
 en `_ahandle_duplicates:698`. Cancelar un await no revierte stores externos
 o procesos que ya actuaron; el esquema no acredita cancelación transaccional.
@@ -141,7 +141,7 @@ hostil necesita validación; no se afirma que todo parser genere ciclos.
 Padre no resoluble puede fallar la lectura; no hay fallback universal leído.
 El logger INFO incluye extracto de texto aunque verbose sea falso.
 
-`Memory._get_memory_blocks_content` [L16:446-479] obtiene bloques por prioridad
+`Memory._get_memory_blocks_content` [L16]:446-479 obtiene bloques por prioridad
 con `session_id`; tipo no admitido produce `ValueError`.
 `_estimate_token_count` cuenta texto con tokenizer y usa estimaciones para
 imagen/audio/vídeo/documento; ignora CachePoint/ToolCallBlock en ese bucle,
@@ -164,7 +164,7 @@ son contratos distintos; no usar node IDs como IDs de fuente sin mapping.
 
 ### 0.6 De dónde procede la jerarquía y dónde vive cada nivel
 
-`HierarchicalNodeParser.from_defaults` [L20:113-154][L20] compone
+`HierarchicalNodeParser.from_defaults` [L20]:113-154[L20] compone
 `SentenceSplitter` por nivel; defaults observados `[2048,512,128]` y overlap
 20, **no parámetros recomendados para Vanta**. Rechaza combinar chunk_sizes
 con parser IDs o IDs sin mapa. `_recursively_get_nodes_from_nodes:160-205`
@@ -193,8 +193,8 @@ debe validar, no convertir todo metadata JSON en nodo por confianza.
 
 ### 0.7 Memoria conversacional: lectura, truncamiento y archivo
 
-`Memory.aget` [L22:624-670][L22] lee mensajes ACTIVE de la sesión, obtiene
-productores secuencialmente [L16:459-463], estima tokens, trunca, formatea
+`Memory.aget` [L22]:624-670[L22] lee mensajes ACTIVE de la sesión, obtiene
+productores secuencialmente [L16]:459-463, estima tokens, trunca, formatea
 template y después inserta contenido en mensajes. No contabiliza otra vez
 el mensaje final completo en ese tramo: overhead de formato/wire no queda
 certificado por la suma previa. `_insert_memory_content:574-622` hace copia
@@ -205,7 +205,7 @@ no inferir de ello persistencia automática del cambio en SQL.
 Al superar su presupuesto de historia, esta selecciona mensajes antiguos,
 intenta conservar un turno completo y llama a `archive_oldest_messages`
 **antes** de `asyncio.gather(block.aput(...))` para los receptores
-(`781-797`). La implementación SQL leída [L23:372-406][L23] selecciona por
+(`781-797`). La implementación SQL leída [L23]:372-406[L23] selecciona por
 timestamp/ID y cambia estado a ARCHIVED con `session.commit()`: no borra
 físicamente esos mensajes ni confirma que cada bloque los haya procesado.
 
@@ -249,7 +249,7 @@ evidencia aunque avance el worktree. No se reindexó ni escribió tooling.
    No tratar ese argumento como ACL. Hidratación de padre debe conservar
    permisos/revisión en el host y no solo confiar en el filtro del ANN.
 
-Tests leídos [V14:148-166,221-241][V14] cubren EQ, roundtrip textual y documentan
+Tests leídos [V14]:148-166,221-241[V14] cubren EQ, roundtrip textual y documentan
 que top_k=0 vuelve al default 4. Su existencia **no** acredita ejecución,
 cobertura de postfiltros complejos ni un bug por el fallback de k=0:
 es intención explícita del test. Filtros/tuplas alineadas y supervivencia de
@@ -423,11 +423,11 @@ Agregar casos de árbol plano [L20] con padre no publicado, metadata corrupta
 - **Caso:** sincronización paginada de una carpeta de conocimiento; el
   operador quiere inspeccionar altas/cambios/borrados sin gastar embeddings
   ni eliminar documentos que faltan solo en esa página.
-- **Evidencia:** `_handle_upserts` [L2:469-507] mezcla clasificación y
-  mutación; `refresh_ref_docs` [L13:429-452] compara hashes. Requisito público
+- **Evidencia:** `_handle_upserts` [L2]:469-507 mezcla clasificación y
+  mutación; `refresh_ref_docs` [L13]:429-452 compara hashes. Requisito público
   #23768 (§3) solicita separar preview; no es implementación upstream.
 - **Delta/seam:** Vanta ya separa `plan_write` y `persist_planned`
-  [V8:160-176], pero su plan privado L1 es por decisión de dedup.
+  [V8]:160-176, pero su plan privado L1 es por decisión de dedup.
   `merge_page` [V4] y chunks [V5] son seams de importación documental.
   Delta: plan read-only de sincronización, no otro clasificador LLM.
 - **Contrato Rust propuesto:** `IngestPreview { scope, basis_revision,
@@ -464,8 +464,8 @@ Agregar casos de árbol plano [L20] con padre no publicado, metadata corrupta
 
 - **Caso:** proceso añade vectores y falla antes del docstore; reintento
   debe distinguir «transformé», «publiqué», «proyección disponible» y «no sé».
-- **Evidencia/unidad:** [L3:648-662], [L12:868-882], [L14:230-258] y
-  persistencia secuencial [L15:182-202]; #22638 muestra por qué un hash
+- **Evidencia/unidad:** [L3]:648-662, [L12]:868-882, [L14]:230-258 y
+  persistencia secuencial [L15]:182-202; #22638 muestra por qué un hash
   publicado durante decisión no equivale a éxito.
 - **Delta/seam:** `TaskCheckpointManager` [V10] ya ofrece progreso at-least-once
   y ownership single-writer; scheduler [V9] ejecuta jobs; [V8] escribe L1.
@@ -490,7 +490,7 @@ Agregar casos de árbol plano [L20] con padre no publicado, metadata corrupta
 - **Commit/concurrencia:** caída entre efecto y receipt sigue siendo posible;
   resolver mediante idempotencia/reconciliación, no prometer atomicidad
   distribuida. Un dueño por operación/revisión o publicación condicional;
-  [V8:430-446] admite fallo parcial delete-before-put: conservarlo visible.
+  [V8]:430-446 admite fallo parcial delete-before-put: conservarlo visible.
 - **Persistencia/migración:** schema aditivo en checkpoint/resultado existente;
   registros previos sin recibo son desconocidos. No reingestar masivamente
   por falta de receipt. Rollback detiene nuevas etapas y mantiene evidencia.
@@ -557,8 +557,8 @@ Agregar casos de árbol plano [L20] con padre no publicado, metadata corrupta
 - **Caso agente:** el contexto puede seguir funcionando tras compactar, pero
   el operador necesita saber si el original se conservó realmente para
   inspección/rellamada o si solo queda el stub.
-- **Fuente/unidad mínima:** orden archivo→fan-out de [L22:781-797][L22] y commit
-  ARCHIVED en [L23:372-406][L23]. Lección: «retirado del contexto activo»,
+- **Fuente/unidad mínima:** orden archivo→fan-out de [L22]:781-797[L22] y commit
+  ARCHIVED en [L23]:372-406[L23]. Lección: «retirado del contexto activo»,
   «archivado» y «aceptado por cada derivación» no son un estado único.
   No copiar su waterfall ni el presupuesto.
 - **Delta/seam revalidado:** Vanta **ya tiene** `SpillSink`, `DbSpillSink`,
@@ -579,7 +579,7 @@ Agregar casos de árbol plano [L20] con padre no publicado, metadata corrupta
 - **Commit/ownership/cancelación:** un dueño de reporte por ejecución;
   conservar `Unknown` si no se puede confirmar la escritura al interrumpir.
   No avanzar un cursor como si fuera acuse de todos los receptores:
-  [V17:88-96][V17] es RMW del estado, no transacción multi-receptor. No se
+  [V17]:88-96[V17] es RMW del estado, no transacción multi-receptor. No se
   demuestra aquí un avance erróneo del cursor en Vanta.
 - **Dependencias/relaciones:** usa IDs/scope existentes y [V7]; comparte la
   semántica de outcome de D, pero D es ingesta documental y F es copia de
@@ -626,7 +626,7 @@ No se certifica un defecto de Vanta por analogía con ninguna de estas rutas.
 
 | Incidencia / estado observado | Reporte, código y aplicabilidad |
 |---|---|
-| [#22638: docstore duplicates_only strategy poisoned hash](https://github.com/run-llama/llama_index/issues/22638), **open**, creada 2026-08-11T13:20:29Z, actualizada 2026-08-28T03:47:27Z | Reporta core 0.14.23: transformación falla tras `set_document_hash`, retry omite documento. El SHA fijado aún muestra escritura anticipada sync [L2:463] y async [L12:698], aunque tiene `_update_docstore` posterior. Evidencia estática consistente con mecanismo, no ejecución propia ni prueba para todos los stores |
+| [#22638: docstore duplicates_only strategy poisoned hash](https://github.com/run-llama/llama_index/issues/22638), **open**, creada 2026-08-11T13:20:29Z, actualizada 2026-08-28T03:47:27Z | Reporta core 0.14.23: transformación falla tras `set_document_hash`, retry omite documento. El SHA fijado aún muestra escritura anticipada sync [L2]:463 y async [L12]:698, aunque tiene `_update_docstore` posterior. Evidencia estática consistente con mecanismo, no ejecución propia ni prueba para todos los stores |
 | [#23768: read-only preview of IngestionPipeline upsert changes](https://github.com/run-llama/llama_index/issues/23768), **open**, creada 2026-10-28T15:07:23Z, actualizada 2026-10-31T12:07:31Z | Solicita clasificación separada sin transformaciones/escritura, delta vs snapshot y respeto de ref_doc_id. Su propio texto advierte que preview no garantiza aplicación posterior. Es requisito, no fix ni función ya implementada; fundamenta C |
 
 **Validaciones discriminantes futuras:** para #22638, docstore limpio +
@@ -672,8 +672,8 @@ identidad/procesador; B relaciones/revisión y presupuesto compartido; C modo
 delta/snapshot y basis; D evidencia de commit y reconciliación; E inventario
 de exportación. Diagnósticos read-only C/E no exigen resolver una transacción
 multialmacén. Para D activo sí hay que respetar la ventana parcial de
-`apply_dedup_batch` [V8:390-456]; no mezclarla con recovery del WAL.
-`TaskCheckpointManager` [V10:11-27,113-121] documenta single-writer por
+`apply_dedup_batch` [V8]:390-456; no mezclarla con recovery del WAL.
+`TaskCheckpointManager` [V10]:11-27,113-121 documenta single-writer por
 tarea y resume at-least-once: no usarlo como scheduler distribuido o CAS.
 
 ## 5. Qué no trasladar
@@ -765,8 +765,8 @@ reset/borrado quedan bajo contrato del adapter y sobre datos desechables.
 ### 7.2 Evaluación programática por IDs: HitRate y MRR
 
 Cadena leída: `BaseRetrievalEvaluator.evaluate`→`aevaluate`
-[L17:103-166]→`RetrieverEvaluator._aget_retrieved_ids_and_texts`
-[L18:35-50]→retriever async→postprocesadores→listas IDs/textos→
+[L17] (103-166)→`RetrieverEvaluator._aget_retrieved_ids_and_texts`
+[L18] (35-50)→retriever async→postprocesadores→listas IDs/textos→
 `metric.compute` [L19]. No es CLI con dataset incorporado; el llamador aporta
 query y expected_ids, y elige métricas por nombre. No hay modelo de juez ni
 answerer en esta cadena; no se inspeccionó runner de dataset completo.
@@ -825,10 +825,10 @@ Prioridad condicional: A si el operador pierde la versión efectiva de ingesta;
 B si una ampliación ya existente no conserva decisiones y revisiones.
 Una mejora puramente de reporte puede bastar; no se presupone nuevo subsistema.
 
-**Hechos negativos acotados:** [V8:430-446] conserva delete-before-put en
+**Hechos negativos acotados:** [V8]:430-446 conserva delete-before-put en
 lote L1 y comentario de fallo parcial; D debe expresar ese outcome.
 [V10] documenta resume at-least-once, no exactly-once de side effects;
-es límite declarado, no bug descubierto. [V6:197-218] conserva prefijo
+es límite declarado, no bug descubierto. [V6]:197-218 conserva prefijo
 protegido aun si excede budget: no afirmar cabida absoluta.
 **No acreditado:** paridad de A/C/E con todos los hosts/adaptadores.
 **Hipótesis:** hash anticipado de #22638 no se traslada a Vanta sin trazar

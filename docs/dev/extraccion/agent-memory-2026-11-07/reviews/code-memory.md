@@ -1,6 +1,6 @@
 ---
 title: "Revisión adversarial independiente de code-memory"
-kind: research
+kind: review
 status: proposed
 description: "Contraste documental independiente de cuatro productores de grafos de código, sus flujos y deltas frente a VantaDB"
 tags: [research, memory, engineering]

@@ -571,7 +571,7 @@ split y generación del archivo externo siguen sin verificarse.
 
 **No acreditado:** snapshot compuesto expuesto y sello de derivado con definición. Falta de evidencia en esta muestra no equivale a ausencia de implementación en otro módulo o commit.
 
-**Falsos positivos descartados:** «falta híbrido/RRF», «no hay chunks», «no hay explain/auditoría/jobs/Studio» contradicen [V1-V7][S1-S2]. Tampoco hay evidencia para «Lance es más durable/rápido» ni «Vanta carece de benchmarks»: se conserva la distinción del protocolo y Paso 23. #4844 no es un bug propio por analogía.
+**Falsos positivos descartados:** «falta híbrido/RRF», «no hay chunks», «no hay explain/auditoría/jobs/Studio» contradicen [V1]–[V7] [S1]–[S2]. Tampoco hay evidencia para «Lance es más durable/rápido» ni «Vanta carece de benchmarks»: se conserva la distinción del protocolo y Paso 23. #4844 no es un bug propio por analogía.
 
 ## 10. UI y VantaDB Studio
 

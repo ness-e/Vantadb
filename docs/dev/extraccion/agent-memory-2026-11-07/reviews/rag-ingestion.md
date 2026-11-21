@@ -1,6 +1,6 @@
 ---
 title: "Revisión adversarial independiente de retrieval e ingesta RAG"
-kind: research
+kind: review
 status: proposed
 description: "Contraste documental independiente de LanceDB, LlamaIndex, GraphRAG, RAGFlow y Quivr, sin ejecución ni aceptación final"
 tags: [research, memory, engineering]

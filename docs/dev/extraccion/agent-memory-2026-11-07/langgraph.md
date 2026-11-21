@@ -56,10 +56,10 @@ Ampliacion conservadora del informe existente, con referencia Vanta fija
 | Capa/ruta | Modelo y responsabilidad | Frontera |
 |---|---|---|
 | `libs/langgraph/langgraph/graph/`, `channels/` | Grafo, canales y reducers; `BinaryOperatorAggregate` [L8] | Runtime del host, no storage Vanta |
-| `pregel/_loop.py`, `_runner.py` | Supersteps, tareas, writes, interrupcion/error y snapshots [L4][L6] | Decide cuando llamar al saver; no transaccion con tools externas |
+| `pregel/_loop.py`, `_runner.py` | Supersteps, tareas, writes, interrupcion/error y snapshots L4, L6 | Decide cuando llamar al saver; no transaccion con tools externas |
 | `libs/checkpoint/.../checkpoint/base/` | `CheckpointTuple`, `channel_values/channel_versions/versions_seen`, metadata, parent y pending writes [L1] | Checkpoint serializable no basta sin codigo/reducers compatibles |
 | `checkpoint/serde/jsonplus.py` | Tipo + bytes, reconstructores/allowlist [L9][L13] | Deserializacion Python privilegiada; no entrada de usuario |
-| `checkpoint-postgres/` | Checkpoints, blobs versionados, writes y SQL de conflicto [L2][L3] | PostgreSQL/psycopg opcionales, no requisitos del embebido |
+| `checkpoint-postgres/` | Checkpoints, blobs versionados, writes y SQL de conflicto L2, L3 | PostgreSQL/psycopg opcionales, no requisitos del embebido |
 | `checkpoint-sqlite/` | Tablas checkpoints/writes, lock y cursor [L12] | Lock de instancia no demuestra aislamiento entre procesos |
 | `store/base/`, `store/memory/` | `Item`, `SearchItem`, `GetOp/PutOp/SearchOp/ListNamespacesOp`; JSON por namespace/key [L7][L11] | KV/retrieval entre runs, separado de replay |
 | `libs/sdk-py`, `libs/sdk-js`, `libs/cli` | Clientes/arranque de Agent Server | Servidor y UI externos no se infieren del SDK |
@@ -490,7 +490,7 @@ no este microbenchmark. No se diseña harness ni configuracion nuevos.
 | Context assembly/compactacion/shared budget | Existe | Referencia; mantener IDs al compactar |
 | Borrado de thread | Existe, cierre concurrente parcial | [V6]; E verifica generaciones, paginas y recibo |
 | Permiso vigente al resume de copia histórica | **No acreditado end-to-end** | B/E/F: host revalida checkpoint/fuente antes de decode/resume/entrega; LG-1 es aceptación futura, no fuga probada |
-| Exactly-once con efectos externos | No acreditado | [L5][L6]; tampoco lo prueba LangGraph |
+| Exactly-once con efectos externos | No acreditado | L5, L6; tampoco lo prueba LangGraph |
 | Runtime Pregel embebido | No aplicable | Orquestacion fuera del motor |
 
 ## 9. Debilidades sugeridas

@@ -31,7 +31,7 @@ tags: [extraccion, backlog, lancedb]
 - **Problema:** un inspector recupera IDs y después hidrata texto; una actualización entre ambos pasos puede mostrar el score de una revisión junto al contenido de otra. El pin no reemplaza validación de permisos.
 - **Contrato hipotético (tipos propuestos):** `ReadCoordinate { scope, logical_revision }`; `hydrate_at(coordinate, ids) -> Result<HydratedBatch, ReadConflict>`. Errores diferenciados: revisión no retenida, cambio concurrente, acceso denegado, IO — no usar «no existe» para todos.
 - **Fuente de evidencia (clone):** `rust/lancedb/src/table/dataset.rs:101-128,215-226` (`DatasetConsistencyWrapper::{new_query_snapshot, ensure_mutable}`) [LD]. Extraer el principio de un handle de lectura ligado a revisión, no su implementación con Lance.
-- **Seam VantaDB:** `src/sdk/search/hybrid.rs` (`Embedded::hybrid_search`) y `src/sdk/search/explain.rs` (`explain_memory_search`) [V1][V2] ya producen retrieval y explicación; añadir coordenada verificable para consumidores de varios pasos si el contrato existente no la comunica.
+- **Seam VantaDB:** `src/sdk/search/hybrid.rs` (`Embedded::hybrid_search`) y `src/sdk/search/explain.rs` (`explain_memory_search`) [V1] [V2] ya producen retrieval y explicación; añadir coordenada verificable para consumidores de varios pasos si el contrato existente no la comunica.
 - **Acciones:**
   1. Inventariar revisiones/snapshots actuales del SDK.
   2. Definir alcance por consulta frente a namespace.
@@ -162,3 +162,27 @@ tags: [extraccion, backlog, lancedb]
 - **Criterio negativo:** un resultado omitido o saltado nunca se presenta como reparación completa; un worker no marca limpio un artefacto que no procesó ni una revisión distinta de la suya.
 - **Independencia:** condicionada — el informe la justifica solo si se aprueba reparación por partes; depende de X-LAN-02 primero y de X-LAN-03 para publicación; rollback detiene publicación y conserva dirty sin borrar el origen ni declarar clean.
 - **No objetivos:** transacción distribuida, traductor de expresiones, ejecución de funciones ajenas ni nuevo motor de artefactos; no trasladar sidecars, Roaring físico ni formato Lance.
+
+[LAA]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/remote/table.rs#L772-L812
+[LD]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table/dataset.rs#L14-L270
+[LF]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table/merge.rs#L337-L444
+[LG]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table/update.rs#L87-L130
+[LH]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table/delete.rs#L12-L61
+[LI]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/query.rs#L1517-L1695
+[LJ]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table/query.rs#L334-L425
+[LK]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/rerankers/rrf.rs#L19-L149
+[LL]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table/freshness.rs#L4-L110
+[LO]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/query.rs#L1458-L1514
+[LT]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table.rs#L3931-L3943
+[LU]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/index/waiter.rs#L1-L89
+[LV]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table/freshness.rs#L1451-L1564
+[LW]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/table/freshness.rs#L1633-L1724
+[S1]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/desktop/src/vanta.ts#L1-L90
+[V1]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/sdk/search/hybrid.rs#L7-L60
+[V2]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/sdk/search/explain.rs#L9-L90
+[V3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/wiki/ingestors.rs#L1-L89
+[V5]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/services/scheduler.rs#L1-L118
+[V6]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/ingest/merge.rs#L128-L186
+[V7]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/cli_handlers/index.rs#L1-L115
+[V8]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L390-L456
+[V9]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/checkpoint.rs#L69-L116

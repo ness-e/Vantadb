@@ -1,6 +1,6 @@
 ---
 title: "Cierre propuesto de revisión independiente de la consolidación"
-kind: research
+kind: review
 status: proposed
 description: "Contraste final de CONSOLIDATED y BENCHMARK-NOTES con la autoridad congelada, cierres T7 y objetos Git V/S"
 ---

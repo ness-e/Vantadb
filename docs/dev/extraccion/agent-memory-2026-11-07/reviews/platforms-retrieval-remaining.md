@@ -1,6 +1,6 @@
 ---
 title: "Revisión independiente: frameworks y recuperación restantes"
-kind: research
+kind: review
 status: proposed
 description: "Contraste adversarial de siete informes con recibos individuales, fuentes congeladas, límites públicos y decisiones propuestas para VantaDB"
 tags: [research, memory, engineering]

@@ -1,6 +1,6 @@
 ---
 title: "Revisión independiente de seis estudios de memoria y código"
-kind: research
+kind: review
 status: proposed
 description: "Recibos adversariales de Cognee, Graphiti, MemPalace, CodeGraph, Graphify y Understand Anything, sin aceptación final"
 tags: [research, memory, engineering]

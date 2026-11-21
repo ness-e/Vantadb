@@ -1,6 +1,6 @@
 ---
 title: "Revisión adversarial documental de Mem0, Cognee, Graphiti y MemPalace"
-kind: research
+kind: review
 status: proposed
 description: "Ledger independiente de evidencia, discrepancias y correcciones verificables para cuatro estudios de memoria"
 tags: [research, memory, engineering]

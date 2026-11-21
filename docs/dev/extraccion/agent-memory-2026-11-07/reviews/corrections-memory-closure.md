@@ -1,6 +1,6 @@
 ---
 title: "Reconfirmación independiente del rework de once informes de memoria y código"
-kind: research
+kind: review
 status: proposed
 description: "Recibos estáticos por proyecto, mapa de diecinueve correcciones y límites de los dictámenes propuestos"
 tags: [research, memory, engineering]

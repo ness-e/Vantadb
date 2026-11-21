@@ -30,7 +30,7 @@ tags: [extraccion, backlog, langchain]
 
 - **Problema:** un agente con varias tools paralelas no debe recordar un resultado sin su llamada, ni perder una instrucción por un resumen fallido; un resumen vacío no equivale a compactación exitosa.
 - **Contrato hipotético (tipos propuestos):** `ContextGroup { message_ids, call_ids, dependencies }`; una decisión ligada a revisión de entrada produce `kept/replaced/evidence_refs/estimated_tokens` en el reporte actual. Errores diferenciados: fuente cambiada, grupo roto, resumen vacío, presupuesto excedido. El prefijo protegido puede impedir caber (informe §4).
-- **Fuente de evidencia (clone):** `libs/langchain_v1/langchain/agents/middleware/summarization.py:485-523` (`SummarizationMiddleware.before_model`), `:758-805` (`_find_token_based_cutoff`: búsqueda binaria + corrección de frontera buscando la llamada AI de ToolMessages), `:900-986` (corte seguro y `_create_summary`; retorno vacío pasa por `.strip()` sin guard) [C1][C13]; issue [langchain-ai/langchain#41323](https://github.com/langchain-ai/langchain/issues/41323) (mecanismo aún visible estáticamente — validar, no atribuir defecto a Vanta).
+- **Fuente de evidencia (clone):** `libs/langchain_v1/langchain/agents/middleware/summarization.py:485-523` (`SummarizationMiddleware.before_model`), `:758-805` (`_find_token_based_cutoff`: búsqueda binaria + corrección de frontera buscando la llamada AI de ToolMessages), `:900-986` (corte seguro y `_create_summary`; retorno vacío pasa por `.strip()` sin guard) [C1] [C13]; issue [langchain-ai/langchain#41323](https://github.com/langchain-ai/langchain/issues/41323) (mecanismo aún visible estáticamente — validar, no atribuir defecto a Vanta).
 - **Seam VantaDB:** `vanta-memory/src/context_engine/engine.rs::{assemble_inner, assemble_with_recall}`, `SpillSink`, `IntegratedContext` [V2] — añadir invariantes de grupo y recibo de sustitución, no otro compactador.
 - **Acciones:**
   1. Resolver IDs de mensajes/llamadas.
@@ -162,3 +162,16 @@ tags: [extraccion, backlog, langchain]
 - **Criterio negativo:** un touch nunca muta fuente ni `updated_at` por el solo hecho de leer; lo efímero no se presenta como durable; referencia no resoluble se rechaza, no se reinterpreta.
 - **Independencia:** sí — capa experimental opcional sobre scoring/adapters existentes; el informe declara explícitamente que no se adoptan scoring/configs/umbrales upstream ni se implementa la capa aún.
 - **No objetivos:** portar el buffer, pesos o índice posicional de `time_weighted_retriever`; repetir retrieval ni crear índice.
+
+[C10]: https://github.com/langchain-ai/langchain/blob/d9caf083577c43a91c5bf6bd1f7dfc289581184d/libs/langchain_v1/langchain/agents/middleware/tool_call_limit.py#L308-L388
+[C11]: https://github.com/langchain-ai/langchain/blob/d9caf083577c43a91c5bf6bd1f7dfc289581184d/libs/langchain_v1/langchain/agents/middleware/tool_retry.py#L295-L413
+[C13]: https://github.com/langchain-ai/langchain/blob/d9caf083577c43a91c5bf6bd1f7dfc289581184d/libs/langchain_v1/langchain/agents/middleware/summarization.py#L746-L1005
+[C1]: https://github.com/langchain-ai/langchain/blob/d9caf083577c43a91c5bf6bd1f7dfc289581184d/libs/langchain_v1/langchain/agents/middleware/summarization.py#L485-L525
+[C2]: https://github.com/langchain-ai/langchain/blob/d9caf083577c43a91c5bf6bd1f7dfc289581184d/libs/langchain_v1/langchain/agents/middleware/context_editing.py#L79-L155
+[C3]: https://github.com/langchain-ai/langchain/blob/d9caf083577c43a91c5bf6bd1f7dfc289581184d/libs/langchain_v1/langchain/agents/middleware/human_in_the_loop.py#L759-L850
+[C5]: https://github.com/langchain-ai/langchain/blob/d9caf083577c43a91c5bf6bd1f7dfc289581184d/libs/core/langchain_core/runnables/history.py#L522-L580
+[C6]: https://github.com/langchain-ai/langchain/blob/d9caf083577c43a91c5bf6bd1f7dfc289581184d/libs/core/langchain_core/vectorstores/base.py#L450-L540
+[V2]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L71-L266
+[V3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/task_checkpoint.rs#L122-L188
+[V4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/approval.rs#L1-L168
+[V5]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L176-L420

@@ -47,7 +47,7 @@ tags: [extraccion, backlog, light-rag]
 
 - **Problema:** retirar una fuente compartida sin registro deja derivados huérfanos o elimina compartidos; una fila de tracking presente pero vacía es autoritativa y no debe repoblarse desde el nodo.
 - **Contrato hipotético:** `ContributionLedger::sources(scope, derived_id, revision) -> Result<ContributionState, LedgerError>`; estado distingue `Missing`, `PresentEmpty` y `Present(set)`; lectura corrupta/IO nunca se convierte en vacío.
-- **Fuente de evidencia:** `lightrag/operate.py:2490-2520` (`_merge_nodes_then_upsert`: tracking y unión de fuentes); `lightrag/lightrag.py:5679-5745` (prueba previa al purge) — informe §Ficha B [L4][L9].
+- **Fuente de evidencia:** `lightrag/operate.py:2490-2520` (`_merge_nodes_then_upsert`: tracking y unión de fuentes); `lightrag/lightrag.py:5679-5745` (prueba previa al purge) — informe §Ficha B [L4] [L9].
 - **Seam VantaDB:** `apply_triplet_with_source` y metadatos `source_episode_ids`/`derived_from` — `vanta-memory/src/core/ontology/mod.rs:147-212`.
 - **Acciones:** 1) definir autoría por documento/episodio y revisión; 2) registrar contribuciones antes de mutar derivados; 3) reconstruir desde supervivientes; 4) enlazar con borrado/supersession existentes. Preferido: extender `source_episode_ids`/`derived_from` antes que un ledger separado; migración aditiva marcada como incompleta → backfill solo con evidencia → activar retirada probada.
 - **Dependencias:** X-LRA-05 consume la prueba de contribuciones; el escritor de contribución posee la revisión y registra antes de exponer el derivado; serializar/CAS por fuente usando el backend actual; retry conserva operación. No truncar el ledger aunque se limite la vista de contexto.
@@ -75,7 +75,7 @@ tags: [extraccion, backlog, light-rag]
 
 - **Problema:** «sin datos» puede ocultar timeout o denegación; un fallback que cambia silenciosamente de corpus produce una respuesta engañosa.
 - **Contrato hipotético:** `EnrichmentOutcome { candidates, stage_status, omitted_evidence }` con el error de autorización no degradable a búsqueda sin filtros.
-- **Fuente de evidencia:** `lightrag/operate.py:4754-4796` (vacíos/errores diferenciados de `kg_query`); `lightrag/operate.py:5890-5903` (falta de tokenizer en `_build_context_str`) — informe §Ficha D [L5][L7].
+- **Fuente de evidencia:** `lightrag/operate.py:4754-4796` (vacíos/errores diferenciados de `kg_query`); `lightrag/operate.py:5890-5903` (falta de tokenizer en `_build_context_str`) — informe §Ficha D [L5] [L7].
 - **Seam VantaDB:** `perform_auto_recall_governed` — `vanta-memory/src/core/hooks/auto_recall.rs:399-408`; retorno `Result` de `assemble_with_recall`.
 - **Acciones:** 1) acordar taxonomía de estados con telemetría/recall existentes; 2) mapear en la frontera del adapter; 3) propagar estado a diagnóstico, cliente y Studio. Ampliar reportes/errores actuales antes que un DTO paralelo.
 - **Dependencias:** el worker actual posee cancelación/retry — no nuevo almacén ni scheduler; reportar éxito parcial sin sobreescribir fallo persistido; logs sin texto ni credenciales.
@@ -103,7 +103,7 @@ tags: [extraccion, backlog, light-rag]
 
 - **Problema:** un agente necesita conectar dos episodios por una relación explícita y explicar de dónde salió.
 - **Contrato hipotético:** `plan_materialization(scope, source_revision, assertions) -> Result<MaterializationPlan, MaterializeError>` con entidades de identidad contextual, relaciones tipadas, contribuciones y proyecciones; `commit(plan, expected_revision) -> Receipt`; errores `InvalidAssertion`, `IdentityAmbiguous`, `Denied`, `RevisionConflict`, `ProjectionPending`.
-- **Fuente de evidencia:** `lightrag/operate.py:710-850` (validación), `:2727-3465` (`_merge_nodes_then_upsert`/`_merge_edges_then_upsert`: superset, contribuciones, dirección conservada) y `:3514-3725` (`merge_nodes_and_edges`: Phase 0 superset por documento + `on_anchors_durable`) — informe §Ficha F [L3][L15][L16].
+- **Fuente de evidencia:** `lightrag/operate.py:710-850` (validación), `:2727-3465` (`_merge_nodes_then_upsert`/`_merge_edges_then_upsert`: superset, contribuciones, dirección conservada) y `:3514-3725` (`merge_nodes_and_edges`: Phase 0 superset por documento + `on_anchors_durable`) — informe §Ficha F [L3] [L15] [L16].
 - **Seam VantaDB:** `apply_triplet_with_source` y grafo existente — `vanta-memory/src/core/ontology/mod.rs:147-212`; proyección sobre índices existentes.
 - **Acciones:** 1) inventariar esquema bitemporal/linaje; 2) validar assertion sin mutar; 3) registrar superset/ownership; 4) publicar primario; 5) proyectar índices existentes con diagnóstico. Extracción LLM fuera de locks/commit y opcional; cancelación previa descarta el plan, posterior exige receipt/reparación X-LRA-05.
 - **Dependencias:** X-LRA-01 consume esta evidencia; X-LRA-02/X-LRA-05 son requisito al compartir/eliminar; X-LRA-03 acredita qué parte llegó al modelo; fence de revisión/serialización del backend.
@@ -117,7 +117,7 @@ tags: [extraccion, backlog, light-rag]
 
 - **Problema:** recuperar una tabla de un informe explicando página y revisión, y retirar su descripción al revocar el documento o la modalidad.
 - **Contrato hipotético:** `plan_modality(source_id, expected_revision, modality, artifact_ref, analysis_outcome) -> Result<ModalityPlan, ModalityError>`; salida con IDs de chunks/contribuciones y fingerprint del extractor; errores `Denied`, `InvalidArtifact`, `AnalysisFailed`, `RevisionConflict`, `Cancelled`, `ProjectionPending`. Invariantes: el derivado no es el original, el opt-out no revive éxito antiguo y ningún path recibido concede acceso al filesystem.
-- **Fuente de evidencia:** `lightrag/pipeline.py:4805-4948` (`_analyze_worker`: cancelación y outcomes omitted/completed/soft-failed), `:6841-6945` (`analyze_multimodal`: opciones `i/t/e` por documento, sidecars conservados aunque no se activen) y `:7956-8075` (`_build_mm_chunks_from_sidecars`: solo materializa `success`, rechaza `failure`, filtra modalidades de la revisión actual) — informe §Ficha G [LM2][LM3][LM4].
+- **Fuente de evidencia:** `lightrag/pipeline.py:4805-4948` (`_analyze_worker`: cancelación y outcomes omitted/completed/soft-failed), `:6841-6945` (`analyze_multimodal`: opciones `i/t/e` por documento, sidecars conservados aunque no se activen) y `:7956-8075` (`_build_mm_chunks_from_sidecars`: solo materializa `success`, rechaza `failure`, filtra modalidades de la revisión actual) — informe §Ficha G [LM2] [LM3] [LM4].
 - **Seam VantaDB:** `src/wiki/ingestors.rs:45-89` (`Ingestor`/`IngestChunk`) → `ingest/merge.rs` (`CandidatePage`, `commit`) y `vanta-memory/src/core/ontology/mod.rs` (`apply_triplet_with_source`); estado por `ingest/callback.rs` (`IngestProgress`, `ProgressTracker::update_progress`).
 - **Acciones:** 1) inventariar campos del ingestor existente; 2) validar artefacto/revisión sin mutación; 3) analizar fuera de locks; 4) guardar contribuciones (X-LRA-02); 5) publicar por generación (X-LRA-06); 6) retirar por X-LRA-05. Migración aditiva marca legacy desconocido; backfill solo desde originales retenidos.
 - **Dependencias:** C4 para identidad/revisión; X-LRA-02/X-LRA-05 y C14 para stale/retirada; X-LRA-04/C9 para progreso; X-LRA-03/C7 para presupuesto/cita. No bloquea el recall textual.
@@ -126,3 +126,11 @@ tags: [extraccion, backlog, light-rag]
 - **Criterio negativo:** la descripción generada es salida del modelo, no evidencia visual verificada; un análisis `failed` no se convierte en `skipped` ni materializa chunks.
 - **Independencia:** una modalidad y un ingestor existente como mínimo; rollback detiene nueva extracción y preserva la capacidad de leer/retirar lo ya publicado.
 - **No objetivos:** no OCR universal, fórmula nueva de ranking ni corpus de evaluación nuevo; no VLM obligatorio ni otro almacén binario; no copiar parsers ni prompts. Abiertos: retención de binarios y licencia de cada parser/modelo.
+
+[L15]: https://github.com/HKUDS/LightRAG/blob/aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a/lightrag/operate.py#L2727-L3465
+[L16]: https://github.com/HKUDS/LightRAG/blob/aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a/lightrag/operate.py#L3514-L3725
+[L17]: https://github.com/HKUDS/LightRAG/blob/aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a/lightrag/lightrag.py#L6015-L6725
+[L18]: https://github.com/HKUDS/LightRAG/blob/aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a/docs/design/PurgeRecoveryContract.md
+[LM2]: https://github.com/HKUDS/LightRAG/blob/aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a/lightrag/pipeline.py#L4805-L4948
+[LM3]: https://github.com/HKUDS/LightRAG/blob/aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a/lightrag/pipeline.py#L6841-L6945
+[LM4]: https://github.com/HKUDS/LightRAG/blob/aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a/lightrag/pipeline.py#L7956-L8075

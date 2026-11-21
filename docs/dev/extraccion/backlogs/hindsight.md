@@ -107,7 +107,7 @@ tags: [extraccion, backlog, hindsight]
 - **Problema:** dos fuentes autorizadas separadamente no deben mezclarse en el mismo prompt por compartir tags originales; el límite es la entrada al LLM de consolidación, no solo la salida de recall.
 - **Contrato hipotético (tipos propuestos):** `partition_consolidation(items: &[ScopedSource]) -> Result<Vec<ScopedBatch>, ScopeError>`; entrada = revisiones + ámbitos resueltos; salida = lotes homogéneos; errores scope inválido/no autorizado. Una fuente fanout no cambia de ámbito por tomar tags del primer elemento.
 - **Fuente de evidencia (clone):** `engine/consolidation/consolidator.py:655-703` (`_consolidation_batch_key:655-694` distingue combined/scope/fanout; `_scope_sort_key:697-703` — orden de locks total) [H3].
-- **Seam VantaDB:** `vanta-memory/src/core/record/l1_writer.rs::plan_write` y `default_tenancy` [V1]; `vanta-memory/src/core/scene/auto_consolidate.rs` [V3]; sellos agent/team e `InjectionPolicy` existentes [V1][V2].
+- **Seam VantaDB:** `vanta-memory/src/core/record/l1_writer.rs::plan_write` y `default_tenancy` [V1]; `vanta-memory/src/core/scene/auto_consolidate.rs` [V3]; sellos agent/team e `InjectionPolicy` existentes [V1] [V2].
 - **Acciones:**
   1. Resolver ámbitos antes de la inferencia.
   2. Ordenar claves canónicamente.
@@ -157,3 +157,15 @@ tags: [extraccion, backlog, hindsight]
 - **Criterio negativo:** un texto generado nunca se convierte en hecho por defecto; ninguna herramienta amplía permisos ni persiste sin solicitud explícita.
 - **Independencia:** tercera tanda del informe — solo ante un requisito real de razonamiento; adapter de lectura opcional sobre reflexión/assembly existentes, no un reflect autónomo generalista.
 - **No objetivos:** reflect autónomo generalista; nuevo runtime agentic. Abiertos: utilidad real y contrato de salida por SDK.
+
+[H12]: https://github.com/vectorize-io/hindsight/blob/eb963cb5a929d92c081371df64c2d5c2fe3351af/hindsight-api-slim/hindsight_api/models.py#L15-L183
+[H1]: https://github.com/vectorize-io/hindsight/blob/eb963cb5a929d92c081371df64c2d5c2fe3351af/hindsight-api-slim/hindsight_api/engine/retain/orchestrator.py#L1378-L1485
+[H2]: https://github.com/vectorize-io/hindsight/blob/eb963cb5a929d92c081371df64c2d5c2fe3351af/hindsight-api-slim/hindsight_api/engine/search/fusion.py#L8-L176
+[H3]: https://github.com/vectorize-io/hindsight/blob/eb963cb5a929d92c081371df64c2d5c2fe3351af/hindsight-api-slim/hindsight_api/engine/consolidation/consolidator.py#L655-L776
+[H4]: https://github.com/vectorize-io/hindsight/blob/eb963cb5a929d92c081371df64c2d5c2fe3351af/hindsight-api-slim/hindsight_api/engine/reflect/agent.py#L503-L592
+[H5]: https://github.com/vectorize-io/hindsight/blob/eb963cb5a929d92c081371df64c2d5c2fe3351af/hindsight-api-slim/hindsight_api/engine/search/retrieval.py#L129-L248
+[H7]: https://github.com/vectorize-io/hindsight/blob/eb963cb5a929d92c081371df64c2d5c2fe3351af/hindsight-api-slim/hindsight_api/engine/mental_model_refresh.py#L1-L65
+[V1]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L117-L315
+[V2]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/hooks/auto_recall.rs#L302-L335
+[V3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/reflection/mod.rs#L118-L186
+[V4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L228-L329

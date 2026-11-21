@@ -34,7 +34,7 @@ tags: [extraccion, backlog, llama-index]
 
 - **Problema:** tras el postfiltro el código modifica solo `nodes`; `ids` y `similarities` pueden divergir en longitud y correspondencia posicional si el postfiltro rechaza un hit. Medir nuevas políticas sobre resultados desalineados falsea comparaciones. Además `_build_vanta_filters` no consulta `MetadataFilters.condition` en el tramo leído, y el argumento `filters` de `get_nodes` solo hace gets por `node_ids` — no es ACL.
 - **Contrato hipotético:** — el informe no propone un tipo nuevo para esta candidata (corrección de fidelidad del adapter existente, no extracción de mecanismo). Comportamiento deseado: las tres colecciones `nodes/ids/similarities` quedan alineadas tras cualquier rechazo; la condición de filtros se traduce o se rechaza explícitamente; `filters` de `get_nodes` documentado como no-autorización.
-- **Fuente de evidencia:** `integrations/llamaindex/vantadb_llamaindex/vectorstore.py:377-406` (postfiltro y `_build_vanta_filters`), `:460-471` (`get_nodes`); tests `integrations/llamaindex/tests/test_vectorstore.py:148-166,221-241` — informe §0.8 [V13][V14]. Nota: es el adapter del propio repo VantaDB, no el clone llama_index.
+- **Fuente de evidencia:** `integrations/llamaindex/vantadb_llamaindex/vectorstore.py:377-406` (postfiltro y `_build_vanta_filters`), `:460-471` (`get_nodes`); tests `integrations/llamaindex/tests/test_vectorstore.py:148-166,221-241` — informe §0.8 [V13] [V14]. Nota: es el adapter del propio repo VantaDB, no el clone llama_index.
 - **Seam VantaDB:** `integrations/llamaindex/vantadb_llamaindex/vectorstore.py` — integración existente en el repo (pin `97c9623`), no propuesta.
 - **Acciones:** 1) alinear las tres colecciones en el rechazo del postfiltro; 2) consultar/traducir `MetadataFilters.condition` o rechazar lo no soportado explícitamente; 3) aclarar en contrato que `filters` de `get_nodes` no es autorización; 4) apoyarse en los tests existentes y añadir cobertura de postfiltros complejos.
 - **Dependencias:** la hidratación de padre conserva permisos/revisión en el host — no confiar solo en el filtro del ANN; condiciona X-LLI-03 y cualquier adaptación BEIR (medir sobre resultados desalineados falsea la comparación).
@@ -62,7 +62,7 @@ tags: [extraccion, backlog, llama-index]
 
 - **Problema:** explicar por qué un fragmento recuperado se amplió a su sección padre y qué evidencia quedó representada, sin duplicar contenido en el presupuesto.
 - **Contrato hipotético:** `ExpansionDecision { source_revision, selected_ids, replacement_id, reason, provenance }` unido al reporte existente; errores tipados `MissingParent/InvalidRelation/RevisionConflict/Denied`.
-- **Fuente de evidencia:** `llama-index-core/llama_index/core/retrievers/auto_merging_retriever.py:35-164,166-194` — informe §Candidata B [L4][L5], como contraste, no sus ratios ni su media de scores.
+- **Fuente de evidencia:** `llama-index-core/llama_index/core/retrievers/auto_merging_retriever.py:35-164,166-194` — informe §Candidata B [L4] [L5], como contraste, no sus ratios ni su media de scores.
 - **Seam VantaDB:** `ContextEngine::assemble`/`assemble_with_recall` — `vanta-memory/src/context_engine/engine.rs:93-218` [V6]; `AssembleOutput`/`CompactionReport` — `vanta-memory/src/context_engine/types.rs:1-98` [V7].
 - **Acciones:** 1) comprobar qué jerarquía/secciones conserva el ingestor; 2) resolver referencias dentro de la misma revisión y namespace; 3) proponer la expansión como paso opcional previo al consumo del presupuesto compartido — el assembler sigue decidiendo qué cabe; 4) conservar IDs originales y motivo, deduplicar cobertura de origen y presupuestar con el estimador existente.
 - **Dependencias:** padres direccionables, revisión de fuente, límites existentes del contexto y garantía de que cada relación proviene de entrada validada; X-LLI-01 (fidelidad del adapter previa); condicionada a corpus jerárquico autorizado y árbol importado validado.
@@ -127,3 +127,29 @@ tags: [extraccion, backlog, llama-index]
 - **Criterio negativo:** conservar `Unknown` si no se puede confirmar la escritura al interrumpir; `stored` no es fsync ni retención perpetua; no se demuestra en el informe un avance erróneo del cursor en Vanta.
 - **Independencia:** reporte efímero opcional primero, sin reindexación ni reescritura de originales; alternativa: contador actual + warning si basta para operación; desactivar el reporte no cambia la compactación ni borra copias.
 - **No objetivos:** no crear offloader, almacén de chat ni cursor nuevos; no cambiar por defecto fail-open a fail-closed ni exigir todos los receptores; no diseñar otra política de presupuesto. Abierta: la política de bloqueo queda decisión pendiente.
+
+[L11]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/ingestion/cache.py#L1-L78
+[L12]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/ingestion/pipeline.py#L693-L882
+[L13]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/indices/base.py#L372-L485
+[L14]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/indices/vector_store/base.py#L220-L258
+[L15]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/storage/storage_context.py#L149-L216
+[L1]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/ingestion/pipeline.py#L46-L110
+[L22]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/memory/memory.py#L546-L845
+[L23]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/storage/chat_store/sql.py#L372-L406
+[L2]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/ingestion/pipeline.py#L451-L507
+[L3]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/ingestion/pipeline.py#L580-L662
+[L4]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/retrievers/auto_merging_retriever.py#L35-L164
+[L5]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/retrievers/auto_merging_retriever.py#L166-L194
+[L9]: https://github.com/run-llama/llama_index/blob/444fdf0684707de62ebb447d658dba137dd9cb99/llama-index-core/llama_index/core/schema.py#L207-L359
+[V10]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/task_checkpoint.rs#L1-L121
+[V11]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/hooks/auto_recall.rs#L115-L142
+[V13]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/llamaindex/vantadb_llamaindex/vectorstore.py#L27-L471
+[V14]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/llamaindex/tests/test_vectorstore.py#L148-L241
+[V16]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/spill.rs#L65-L261
+[V17]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/offload/state_manager.rs#L78-L96
+[V4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/ingest/merge.rs#L128-L186
+[V5]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/wiki/ingestors.rs#L1-L89
+[V6]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L93-L218
+[V7]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/types.rs#L1-L98
+[V8]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L160-L176
+[V9]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/services/scheduler.rs#L1-L118

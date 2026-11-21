@@ -1,6 +1,6 @@
 ---
 title: "Revisión independiente — Weaviate y pgvector"
-kind: research
+kind: review
 status: proposed
 description: "Recibo de revisión estática de dos informes, con cobertura por eje, discrepancias contrastadas y límites de evidencia"
 tags: [research, review, vector]

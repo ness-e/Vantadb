@@ -261,9 +261,7 @@ Runtime requerido: **ninguno**; no iniciar ni reiniciar procesos.
 [P0]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/requirements.txt#L1-L16
 [P1]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/local_api.py#L88-L178
 [P2]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/local_api.py#L219-L286
-[P3]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/tree_optimize.py#L172-L266
 [P4]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/local_store.py#L1-L186
-[P5]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/flash/api.py#L1-L100
 [P6]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/cookbook/pageindex-vs-vector-10k/pageindex-vs-vector-10k.ipynb#L91-L630
 [P7]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/README.md#L163-L176
 [PA]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/README.md#L37
@@ -299,7 +297,7 @@ valida PDF/opciones, extrae páginas PyPDF2, ejecuta standard/Flash, valida boun
 y sólo entonces asigna UUID `pi-...` y guarda meta completed bajo store lock.
 Standard: `tree_parser` → `meta_processor` selecciona TOC con/sin números o
 sin TOC, verifica índices, intenta reparación y cambia de estrategia; divide
-nodos grandes recursivamente y añade introducciones [P9:1134–1247].
+nodos grandes recursivamente y añade introducciones [P9]:1134–1247.
 Flash: `extract_toc:124–155` parsea por página con PDFium, procesa geometría
 y bloques; el cierre ensambla outline y puede incorporar bookmarks como
 detected/bookmarks/hybrid. Optimización es una fase posterior [P10].
@@ -501,8 +499,6 @@ garantías de código dirty que aquí no se ha incorporado como evidencia.
 [P9]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/page_index_classic.py#L1134-L1247
 [P10]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/flash/main.py#L124-L155
 [P11]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/tree_optimize.py#L925-L1004
-[P12]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/agent_tools.py#L910-L1008
-[P13]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/agent_tools.py#L1011-L1127
 [P14]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/local_chat.py#L1434-L1501
 [PV4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/attestation.rs#L654-L738
 [PS1]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/memory/MemoryLens.tsx#L57-L412

@@ -1,6 +1,6 @@
 ---
 title: "Revisión independiente de cinco informes de memoria"
-kind: research
+kind: review
 status: proposed
 description: "Dictámenes adversariales delimitados de Hindsight, Agentmemory, Supermemory, TencentDB Agent Memory y Letta"
 tags: [research, memory, engineering]

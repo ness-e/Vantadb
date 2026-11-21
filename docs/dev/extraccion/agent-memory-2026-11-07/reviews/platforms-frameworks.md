@@ -1,6 +1,6 @@
 ---
 title: "Revisión adversarial independiente: plataformas y frameworks"
-kind: research
+kind: review
 status: proposed
 description: "Contraste documental independiente de Dify, Langflow, LangChain, LangGraph y CrewAI contra código congelado y referencia Vanta"
 tags: [research, memory, engineering]

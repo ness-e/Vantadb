@@ -1,6 +1,6 @@
 ---
 title: "Revisión adversarial independiente de motores"
-kind: research
+kind: review
 status: proposed
 description: "Contraste estático de Qdrant, Faiss, Redis, TiDB y SurrealDB contra sus clones congelados y la referencia VantaDB"
 tags: [research, memory, engineering]
