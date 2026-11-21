@@ -2471,7 +2471,8 @@ decision** (bandas) se aplico sobre el set publicado, sin excluir ninguna corrid
   de la pregunta residan en el top-5 retornado. En preguntas multi-sesión (300 de las 470 preguntas
   no-abstención de LongMemEval-S), recuperar una sola sesión no es suficiente (lo que medía `recall_any@5`).
 - **Arquitectura de Recuperación Híbrida Graph-RAG:**
-  - **Leg Denso:** Ingesta particionada en chunks (~250 palabras, solape de 20 palabras)
+  - **Leg Denso:** Ingesta particionada en chunks (~250 palabras, solape de 1 turno de diálogo
+    entre chunks consecutivos — `overlap` es en unidades de turno, no palabras)
     vectorizados con `BAAI/bge-small-en-v1.5` (384d, `passage_embed`-equivalente vía `embed()`)
     y almacenados en grafo HNSW. Las queries se vectorizan con `query_embed()` — la rama
     asimétrica del modelo BGE que aplica la instrucción de retrieval con la que fue entrenado.

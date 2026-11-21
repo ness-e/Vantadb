@@ -406,7 +406,12 @@ class VantaAblationStore:
             )
             return
 
-        chunks = chunk_session_text(text, target_words=250, overlap=20)
+        # NOTE: `overlap` is counted in TURN units, not words (see
+        # chunk_session_text: step = (j - i) - overlap). overlap=1 shares one
+        # turn between consecutive chunks — larger values explode the corpus:
+        # overlap=20 made step collapse to 1 unit and produced ~35 near-duplicate
+        # chunks/session (646k unique texts vs ~157k) — 4x the embedding cost.
+        chunks = chunk_session_text(text, target_words=250, overlap=1)
         vecs = embed_batch(chunks) if self.ablation != "bm25_only" else [None] * len(chunks)
         records = []
         for idx, chunk_str in enumerate(chunks):
