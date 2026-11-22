@@ -50,7 +50,7 @@ jobs:
 
       - name: Run tests (Audit profile, core)
         timeout-minutes: 25
-        run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+        run: cargo nextest run --locked --profile audit --features "cli,arrow,tls,opentelemetry"
 
   build:
     name: Build ${{ matrix.target }}
@@ -106,8 +106,8 @@ jobs:
           fi
           # AUD-047: published vanta-cli must include the HTTP server (server feature).
           # default features stay lean; release binary is the one place users get server.
-          cargo build --release --target ${{ matrix.target }} --features "server,embed-local,$ALLOC_FEATURES" --package vantadb --bin vanta-cli
-          cargo build --release --target ${{ matrix.target }} --features "embed-local,$ALLOC_FEATURES" --package vantadb-server
+          cargo build --release --locked --target ${{ matrix.target }} --features "server,embed-local,$ALLOC_FEATURES" --package vantadb --bin vanta-cli
+          cargo build --release --locked --target ${{ matrix.target }} --features "embed-local,$ALLOC_FEATURES" --package vantadb-server
 
       - name: Package binaries (Unix)
         if: runner.os != 'Windows'

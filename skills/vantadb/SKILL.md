@@ -103,7 +103,7 @@ db.put(
 **Parameters:**
 - `namespace`: Logical namespace for isolation (e.g., "agent/session-1")
 - `key`: Unique identifier within namespace
-- `payload`: Text content or structured data
+- `payload`: UTF-8 text string (`str`)
 - `metadata`: Dictionary of scalar fields for filtering
 - `vector`: Float32 embedding vector (dimensionality must be consistent)
 - `ttl_ms`: Optional TTL in milliseconds — the record expires after this time and is excluded from search; expired records are removed by `purge_expired()`
@@ -188,7 +188,7 @@ List all memories in a namespace with optional filtering.
 # List all memories
 result = db.memory.list("agent/session-1", limit=100)
 memories = result.records  # list of records
-total = result.total_count  # total matching count
+total = result.total_count  # number of records returned in this page (len(result.records))
 next_cursor = result.next_cursor  # None when no more pages
 
 # List with metadata filter
@@ -317,10 +317,11 @@ Call it during maintenance windows or after large delete/purge workloads.
 
 ### IQL Queries
 
-VantaDB exposes an IQL (query language) interface through `db.query()`. IQL returns results as a JSON string:
+VantaDB exposes an IQL (query language) interface through `db.query()` (returns a formatted text representation) and `db.query_structured()` (returns a parsed dict such as `{"kind": "read", "records": [...]}`):
 
 ```python
-result = db.query('SELECT * FROM agent_session_1 LIMIT 10')
+result_text = db.query('SELECT * FROM agent_session_1 LIMIT 10')
+structured = db.query_structured('SELECT * FROM agent_session_1 LIMIT 10')
 ```
 
 The MCP server exposes the same capability as the `query_iql` tool. (LISP is not supported.)

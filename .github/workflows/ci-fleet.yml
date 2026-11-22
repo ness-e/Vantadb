@@ -101,15 +101,15 @@ jobs:
       # use local storage paths (./examples_*_data) and exit 0 on success.
       # Build once first: 4 serial `run` would each recompile the workspace.
       - name: "Build all examples once"
-        run: cargo build --examples
+        run: cargo build --examples --locked
       - name: "Rust example: basic"
-        run: cargo run --example basic
+        run: cargo run --example basic --locked
       - name: "Rust example: hybrid"
-        run: cargo run --example hybrid
+        run: cargo run --example hybrid --locked
       - name: "Rust example: graphrag"
-        run: cargo run --example graphrag
+        run: cargo run --example graphrag --locked
       - name: "Rust example: concurrent"
-        run: cargo run --example concurrent
+        run: cargo run --example concurrent --locked
   python-examples:
     if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
@@ -500,9 +500,9 @@ jobs:
         # providers/* are intentionally NOT workspace members — lint them
         # individually via --manifest-path (mirrors ci-rust.yml cargo check).
         run: |
-          cargo clippy --manifest-path providers/openai/Cargo.toml -- -D warnings
-          cargo clippy --manifest-path providers/ollama/Cargo.toml -- -D warnings
-          cargo clippy --manifest-path providers/litellm/Cargo.toml -- -D warnings
+          cargo clippy --manifest-path providers/openai/Cargo.toml --locked -- -D warnings
+          cargo clippy --manifest-path providers/ollama/Cargo.toml --locked -- -D warnings
+          cargo clippy --manifest-path providers/litellm/Cargo.toml --locked -- -D warnings
 
       - name: Install maturin (prebuilt binary, same route everywhere)
         uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
