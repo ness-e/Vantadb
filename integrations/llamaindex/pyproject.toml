@@ -30,6 +30,9 @@ dependencies = [
     "llama-index-core>=0.13.0,<1",
 ]
 
+[project.optional-dependencies]
+openai = ["llama-index-embeddings-openai>=0.3.0"]
+
 [project.urls]
 Homepage = "https://github.com/ness-e/Vantadb"
 Repository = "https://github.com/ness-e/Vantadb"

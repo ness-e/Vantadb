@@ -173,9 +173,11 @@ class VantaDBMemoryBackend(_Protocol):
             )
 
     def get_record(self, record_id: str) -> Optional[_Rec]:
+        not_found_exc = getattr(vanta, "NotFoundError", None)
+        caught = (KeyError, not_found_exc) if isinstance(not_found_exc, type) else (KeyError,)
         try:
             r = self._db.memory.get(self.namespace, record_id)
-        except Exception:
+        except caught:
             return None
         if r is None:
             return None
@@ -194,16 +196,12 @@ class VantaDBMemoryBackend(_Protocol):
         categories: Optional[list] = None,
         metadata_filter: Optional[dict] = None,
         limit: int = 10,
-        min_score: float = 0.0,
+        min_score: Optional[float] = None,
     ) -> list:
         if not query_embedding:
             return []
         fetch = limit * 2 + 10  # oversample: el filtro por scope/categoría recorta
-        try:
-            hits = self._db.memory.search(self.namespace, list(query_embedding), top_k=fetch)
-            hits = list(hits)
-        except Exception:
-            return []
+        hits = list(self._db.memory.search(self.namespace, list(query_embedding), top_k=fetch))
         cats = set(categories or [])
         out = []
         for h in hits:
@@ -217,7 +215,7 @@ class VantaDBMemoryBackend(_Protocol):
             if metadata_filter and any(meta.get(k) != v for k, v in metadata_filter.items()):
                 continue
             score = float(getattr(h, "score", 0.0) or 0.0)
-            if score < min_score:
+            if min_score is not None and score < min_score:
                 continue
             vec = getattr(h, "vector", None)
             out.append((self._from_stored(h.key, h.payload, meta,
@@ -323,3 +321,20 @@ class VantaDBMemoryBackend(_Protocol):
 
     async def adelete(self, **kw: Any) -> int:
         return self.delete(**kw)
+
+    # -- lifecycle (FIND-582 M-10) -----------------------------------------
+    def flush(self) -> None:
+        """Flush pending writes to durable storage."""
+        if hasattr(self._db, "flush"):
+            self._db.flush()
+
+    def close(self) -> None:
+        """Close the underlying VantaDB client."""
+        if hasattr(self._db, "close"):
+            self._db.close()
+
+    def __enter__(self) -> "VantaDBMemoryBackend":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self.close()

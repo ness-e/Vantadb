@@ -199,3 +199,21 @@ class VantaDBRetriever(DSPyRetrieve):
             raise ValueError("key must be a non-empty string")
         vector = self.embedding(text) if self.embedding else None
         self._db.put(self.namespace, key, text, metadata=metadata, vector=vector)
+
+    # ── Lifecycle management ──────────────────────────────────
+
+    def flush(self) -> None:
+        """Flush pending writes to durable storage."""
+        if hasattr(self._db, "flush"):
+            self._db.flush()
+
+    def close(self) -> None:
+        """Close the underlying VantaDB client."""
+        if hasattr(self._db, "close"):
+            self._db.close()
+
+    def __enter__(self) -> "VantaDBRM":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self.close()

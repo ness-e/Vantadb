@@ -313,12 +313,10 @@ class VantaDBDocumentStore:
             A list of matching ``Document`` objects.
         """
         vanta_filters = self._haystack_filter_to_vanta(filters)
-        results = self._db.memory.list(
-            self.namespace,
-            filters=vanta_filters or {},
-            limit=_MAX_LIST_LIMIT,
-        )
-        docs = [self._record_to_document(r) for r in results.records]
+        docs = [
+            self._record_to_document(r)
+            for r in self._iter_matching_records(vanta_filters or {})
+        ]
 
         # Client-side post-filtering for filters VantaDB can't handle
         # natively (AND, OR, NOT, non-== operators, or compound conditions
@@ -330,6 +328,23 @@ class VantaDBDocumentStore:
             docs = _post_filter_documents(docs, filters)
 
         return docs
+
+    def _iter_matching_records(self, vanta_filters: Dict[str, Any]):
+        """Yield matching stored records across all cursor pages (FIND-582 M-6)."""
+        cursor = None
+        while True:
+            page = self._db.memory.list(
+                self.namespace,
+                filters=vanta_filters or {},
+                limit=_COUNT_PAGE_SIZE,
+                cursor=cursor,
+            )
+            if not page or not page.records:
+                break
+            yield from page.records
+            cursor = getattr(page, "next_cursor", None)
+            if cursor is None:
+                break
 
     def delete_documents(
         self,
@@ -361,12 +376,10 @@ class VantaDBDocumentStore:
             if doc_id:
                 self._db.memory.delete(self.namespace, str(doc_id))
                 return
-        results = self._db.memory.list(
-            self.namespace, filters=filters or {}, limit=_MAX_LIST_LIMIT,
-        )
-        for rec in results.records:
-            if rec.key:
-                self._db.memory.delete(self.namespace, rec.key)
+        # Collect keys across all pages first so mid-iteration deletion cannot skip records.
+        keys = [rec.key for rec in self._iter_matching_records(filters or {}) if rec.key]
+        for key in keys:
+            self._db.memory.delete(self.namespace, key)
 
     def count_documents(self) -> int:
         """Return the total number of documents in the store.
@@ -480,3 +493,21 @@ class VantaDBDocumentStore:
             top_k=k, distance_metric="cosine",
         )
         return [self._hit_to_document(hit) for hit in results]
+
+    # ── Lifecycle management ───────────────────────────────
+
+    def flush(self) -> None:
+        """Flush pending writes to durable storage."""
+        if hasattr(self._db, "flush"):
+            self._db.flush()
+
+    def close(self) -> None:
+        """Close the underlying VantaDB client."""
+        if hasattr(self._db, "close"):
+            self._db.close()
+
+    def __enter__(self) -> "VantaDBDocumentStore":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self.close()

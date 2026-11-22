@@ -217,3 +217,21 @@ class EmbeddingVectorStore:
             ``True`` if the operation completed.
         """
         return self.delete(ids, **kwargs)
+
+    # ── Lifecycle management ──────────────────────────────────
+
+    def flush(self) -> None:
+        """Flush pending writes to durable storage."""
+        if hasattr(self._db, "flush"):
+            self._db.flush()
+
+    def close(self) -> None:
+        """Close the underlying VantaDB client."""
+        if hasattr(self._db, "close"):
+            self._db.close()
+
+    def __enter__(self) -> "EmbeddingVectorStore":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self.close()

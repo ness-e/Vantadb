@@ -124,6 +124,50 @@ const STATUS_OVERRIDES = {
     "EXPERIMENTAL",
     "PyPI `vantadb-litellm` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity",
   ],
+  "integrations/langchain": [
+    "PUBLIC",
+    "PyPI `vantadb-langchain` adapter (`release-adapters.yml`, manual dispatch)",
+  ],
+  "integrations/llamaindex": [
+    "PUBLIC",
+    "PyPI `vantadb-llamaindex` adapter (`release-adapters.yml`, manual dispatch)",
+  ],
+  "integrations/mem0": [
+    "PUBLIC",
+    "PyPI `vantadb-mem0` adapter (`release-adapters.yml`, manual dispatch)",
+  ],
+  "integrations/crewai": [
+    "PUBLIC",
+    "PyPI `vantadb-crewai` adapter (`release-adapters.yml`, manual dispatch)",
+  ],
+  "integrations/dspy": [
+    "PUBLIC",
+    "PyPI `vantadb-dspy` adapter (`release-adapters.yml`, manual dispatch)",
+  ],
+  "integrations/haystack": [
+    "PUBLIC",
+    "PyPI `vantadb-haystack` adapter (`release-adapters.yml`, manual dispatch)",
+  ],
+  "integrations/letta": [
+    "PUBLIC",
+    "PyPI `vantadb-letta` adapter (`release-adapters.yml`, manual dispatch)",
+  ],
+  "integrations/openai": [
+    "RETIRED",
+    "FIND-273: retired from release-adapters.yml; superseded by Rust provider `providers/openai` (`vantadb-openai`)",
+  ],
+  "integrations/ollama": [
+    "RETIRED",
+    "FIND-273: retired from release-adapters.yml; superseded by Rust provider `providers/ollama` (`vantadb-ollama`)",
+  ],
+  "skills/vantadb": [
+    "PUBLIC",
+    "Agent skill bundle (`skills/vantadb/SKILL.md`, mirrored to `.opencode/skills/vantadb/`)",
+  ],
+  "skills/vantadb-mcp": [
+    "PUBLIC",
+    "MCP agent skill bundle (`skills/vantadb-mcp/SKILL.md`, mirrored to `.opencode/skills/vantadb-mcp/`)",
+  ],
   fuzz: ["INTERNAL", "cargo-fuzz harness; outside the workspace; never distributed"],
 };
 
@@ -142,6 +186,17 @@ const TAG_NS = {
   "providers/openai": "`providers-v*.*.*` (manual dispatch — `release-providers.yml`)",
   "providers/ollama": "`providers-v*.*.*` (manual dispatch — `release-providers.yml`)",
   "providers/litellm": "`providers-v*.*.*` (manual dispatch — `release-providers.yml`)",
+  "integrations/langchain": "manual dispatch (`release-adapters.yml`)",
+  "integrations/llamaindex": "manual dispatch (`release-adapters.yml`)",
+  "integrations/mem0": "manual dispatch (`release-adapters.yml`)",
+  "integrations/crewai": "manual dispatch (`release-adapters.yml`)",
+  "integrations/dspy": "manual dispatch (`release-adapters.yml`)",
+  "integrations/haystack": "manual dispatch (`release-adapters.yml`)",
+  "integrations/letta": "manual dispatch (`release-adapters.yml`)",
+  "integrations/openai": "none (retired — FIND-273)",
+  "integrations/ollama": "none (retired — FIND-273)",
+  "skills/vantadb": "distributed with repo / release checkout",
+  "skills/vantadb-mcp": "distributed with repo / release checkout",
   fuzz: "none (CI harness `fuzz.yml`)",
 };
 
@@ -331,6 +386,65 @@ function gather() {
       entry[1],
       manifest ? "`publish = false` (non-crates.io channel)" : "n/a",
       TAG_NS[extra] || "—",
+    );
+  }
+
+  // FIND-582 M-14: Python integration packages (7 active + 2 retired twins) and skills.
+  const adapters = [
+    "langchain",
+    "llamaindex",
+    "mem0",
+    "crewai",
+    "dspy",
+    "haystack",
+    "letta",
+    "openai",
+    "ollama",
+  ];
+  for (const adapter of adapters) {
+    const surface = `integrations/${adapter}`;
+    const pyText = readText(`${surface}/pyproject.toml`);
+    const entry = STATUS_OVERRIDES[surface];
+    if (!pyText) {
+      problems.push(`${surface}: missing pyproject.toml`);
+      continue;
+    }
+    const projLines = sectionLines(pyText, "[project]") || [];
+    const projBody = projLines.join("\n");
+    const pkgName = (projBody.match(/^name\s*=\s*"([^"]+)"/m) || [])[1] || `vantadb-${adapter}`;
+    const pkgVersion = (projBody.match(/^version\s*=\s*"([^"]+)"/m) || [])[1] || "unknown";
+    if (!entry) {
+      problems.push(`${surface}: NEEDS-TRIAGE — no STATUS_OVERRIDES entry`);
+      continue;
+    }
+    const channel =
+      entry[0] === "RETIRED"
+        ? "retired (see `providers/`)"
+        : "PyPI (`release-adapters.yml`)";
+    pushRow(surface, pkgName, pkgVersion, entry[0], entry[1], channel, TAG_NS[surface] || "—");
+  }
+
+  for (const skill of ["vantadb", "vantadb-mcp"]) {
+    const surface = `skills/${skill}`;
+    const skillMd = readText(`${surface}/SKILL.md`);
+    const entry = STATUS_OVERRIDES[surface];
+    if (!skillMd) {
+      problems.push(`${surface}: missing SKILL.md`);
+      continue;
+    }
+    const skillName = (skillMd.match(/^name:\s*([^\r\n]+)/m) || [])[1]?.trim() || skill;
+    if (!entry) {
+      problems.push(`${surface}: NEEDS-TRIAGE — no STATUS_OVERRIDES entry`);
+      continue;
+    }
+    pushRow(
+      surface,
+      skillName,
+      "n/a (skill bundle)",
+      entry[0],
+      entry[1],
+      "repository / skill mirror",
+      TAG_NS[surface] || "—",
     );
   }
 

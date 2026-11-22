@@ -168,6 +168,24 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             if cursor is None:
                 break
 
+    # ── Lifecycle management ─────────────────────────────────
+
+    def flush(self) -> None:
+        """Flush pending writes to durable storage."""
+        if hasattr(self._client, "flush"):
+            self._client.flush()
+
+    def close(self) -> None:
+        """Close the underlying VantaDB client."""
+        if hasattr(self._client, "close"):
+            self._client.close()
+
+    def __enter__(self) -> "VantaDBVectorStore":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self.close()
+
     def _hybrid_search(
         self,
         query_embedding: List[float],
@@ -398,7 +416,9 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             if not hasattr(f, "key") or not hasattr(f, "value") or not hasattr(f, "operator"):
                 continue
             if f.operator == FilterOperator.EQ:
-                vanta_filters[f.key] = str(f.value)
+                vanta_filters[f.key] = (
+                    f.value if isinstance(f.value, (str, int, float, bool)) else str(f.value)
+                )
             else:
                 # ponytail: only EQ sent to VantaDB; NE, GT, LT, GTE, LTE, IN post-filtered
                 complex_filters.append(f)
@@ -494,3 +514,21 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             cursor = page.next_cursor
             if cursor is None:
                 break
+
+    # ── Lifecycle management ─────────────────────────────────
+
+    def flush(self) -> None:
+        """Flush pending writes to durable storage."""
+        if hasattr(self._client, "flush"):
+            self._client.flush()
+
+    def close(self) -> None:
+        """Close the underlying VantaDB client."""
+        if hasattr(self._client, "close"):
+            self._client.close()
+
+    def __enter__(self) -> "VantaDBVectorStore":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self.close()

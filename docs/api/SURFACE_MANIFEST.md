@@ -33,6 +33,17 @@ tags: [vantadb, surface, release]
 | `providers/ollama` | `vantadb-ollama` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (manual dispatch — `release-providers.yml`) | PyPI `vantadb-ollama` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity |
 | `providers/litellm` | `vantadb-litellm` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (manual dispatch — `release-providers.yml`) | PyPI `vantadb-litellm` published at 0.9.0 (`release-providers.yml`, 2026-10-20); EXPERIMENTAL maturity |
 | `fuzz` | `vantadb-fuzz` | see manifest | **INTERNAL** | `publish = false` (non-crates.io channel) | none (CI harness `fuzz.yml`) | cargo-fuzz harness; outside the workspace; never distributed |
+| `integrations/langchain` | `vantadb-langchain` | 0.9.0 | **PUBLIC** | PyPI (`release-adapters.yml`) | manual dispatch (`release-adapters.yml`) | PyPI `vantadb-langchain` adapter (`release-adapters.yml`, manual dispatch) |
+| `integrations/llamaindex` | `vantadb-llamaindex` | 0.9.0 | **PUBLIC** | PyPI (`release-adapters.yml`) | manual dispatch (`release-adapters.yml`) | PyPI `vantadb-llamaindex` adapter (`release-adapters.yml`, manual dispatch) |
+| `integrations/mem0` | `vantadb-mem0` | 0.9.0 | **PUBLIC** | PyPI (`release-adapters.yml`) | manual dispatch (`release-adapters.yml`) | PyPI `vantadb-mem0` adapter (`release-adapters.yml`, manual dispatch) |
+| `integrations/crewai` | `vantadb-crewai` | 0.9.0 | **PUBLIC** | PyPI (`release-adapters.yml`) | manual dispatch (`release-adapters.yml`) | PyPI `vantadb-crewai` adapter (`release-adapters.yml`, manual dispatch) |
+| `integrations/dspy` | `vantadb-dspy` | 0.9.0 | **PUBLIC** | PyPI (`release-adapters.yml`) | manual dispatch (`release-adapters.yml`) | PyPI `vantadb-dspy` adapter (`release-adapters.yml`, manual dispatch) |
+| `integrations/haystack` | `vantadb-haystack` | 0.9.0 | **PUBLIC** | PyPI (`release-adapters.yml`) | manual dispatch (`release-adapters.yml`) | PyPI `vantadb-haystack` adapter (`release-adapters.yml`, manual dispatch) |
+| `integrations/letta` | `vantadb-letta` | 0.9.0 | **PUBLIC** | PyPI (`release-adapters.yml`) | manual dispatch (`release-adapters.yml`) | PyPI `vantadb-letta` adapter (`release-adapters.yml`, manual dispatch) |
+| `integrations/openai` | `vantadb-openai` | 0.9.0 | **RETIRED** | retired (see `providers/`) | none (retired — FIND-273) | FIND-273: retired from release-adapters.yml; superseded by Rust provider `providers/openai` (`vantadb-openai`) |
+| `integrations/ollama` | `vantadb-ollama` | 0.9.0 | **RETIRED** | retired (see `providers/`) | none (retired — FIND-273) | FIND-273: retired from release-adapters.yml; superseded by Rust provider `providers/ollama` (`vantadb-ollama`) |
+| `skills/vantadb` | `vantadb` | n/a (skill bundle) | **PUBLIC** | repository / skill mirror | distributed with repo / release checkout | Agent skill bundle (`skills/vantadb/SKILL.md`, mirrored to `.opencode/skills/vantadb/`) |
+| `skills/vantadb-mcp` | `vantadb-mcp` | n/a (skill bundle) | **PUBLIC** | repository / skill mirror | distributed with repo / release checkout | MCP agent skill bundle (`skills/vantadb-mcp/SKILL.md`, mirrored to `.opencode/skills/vantadb-mcp/`) |
 
 ## Versions (REL-03 — generated, not manual)
 

@@ -9,14 +9,15 @@ LlamaIndex `BasePydanticVectorStore` adapter for [VantaDB](https://github.com/ne
 > the repo-checkout path.
 
 ```bash
-# From a repo checkout (current tree)
-cd integrations/llamaindex && pip install .
+# From a repo checkout (current tree; include [openai] for the Quickstart below)
+cd integrations/llamaindex && pip install ".[openai]"
 ```
 
 ### Install from PyPI
 
 ```bash
-pip install vantadb-llamaindex
+pip install "vantadb-llamaindex[openai]"
+# Or core adapter only (BYO embeddings): pip install vantadb-llamaindex
 ```
 
 ## Quickstart
