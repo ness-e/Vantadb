@@ -147,13 +147,13 @@ This is validated by `test_wal_replay_idempotence` in
 | **No partial writes** | Every WAL record has CRC32C. Incomplete trailing records are truncated on next open. | `src/wal.rs` scan-forward |
 | **Crash consistency** | After any number of crashes (including SIGKILL), the database opens without corruption and contains all committed data. | 200+ crash injection iterations |
 | **Idempotent recovery** | Reopening the same database multiple times produces identical state. | `test_wal_replay_idempotence` |
-| **Atomic checkpoint** | `checkpoint_seq` is persisted after data. If crash occurs mid-flush, WAL replay covers the gap. | `src/storage.rs:1721-1749` |
+| **Atomic checkpoint** | `checkpoint_seq` is persisted after data. If crash occurs mid-flush, WAL replay covers the gap. | `src/storage/engine/maintenance.rs` (`flush`) |
 | **Graceful shutdown** | SIGTERM and Ctrl+C flush all pending data before exit. | `src/cli_server.rs` |
-| **Multi-process isolation** | Exclusive `.vanta.lock` prevents concurrent write access. | `src/storage.rs:622-690` |
+| **Multi-process isolation** | Exclusive `.vanta.lock` prevents concurrent write access. | `src/storage/engine/init.rs:262-305` (`acquire_db_lock` / `.vanta.lock`) |
 | **Middle corruption recovery** | If WAL is partially corrupt, Scan-Forward skips corrupt bytes and recovers subsequent records. | `test_wal_middle_corruption_auto_healing` |
 | **CRC corruption detection** | Selective CRC corruption discards only the corrupt record; adjacent records survive. | `test_wal_selective_crc_corruption_recovery` |
 | **WAL compaction safety** | `compact_wal()` flushes all data before rotating WAL shard files. | `src/wal_sharded.rs` |
-| **HNSW index recovery** | If `vector_index.bin` is missing or corrupt, HNSW is rebuilt from `vector_store.vanta`. | `src/storage.rs:745-768` |
+| **HNSW index recovery** | If `vector_index.bin` is missing or corrupt, HNSW is rebuilt from `vector_store.vanta`. | `src/storage/engine/init.rs` (rebuild HNSW from `vector_store.vanta`) |
 
 ### ❌ What VantaDB Does NOT Guarantee
 

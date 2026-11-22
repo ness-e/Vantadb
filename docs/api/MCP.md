@@ -95,10 +95,16 @@ You should see a JSON response listing the available tools. Namespaces are creat
 |---------|-----|
 | Client shows no tools | Run the First test above; if it fails, check that `vanta-cli` is on PATH (`vanta-cli --version`). |
 | `Server closed stdout` / immediate exit | The database path must be writable and not locked by another VantaDB process. |
+| `VANTADB_BUSY` / `DatabaseBusy` when running a local script alongside the IDE | VantaDB holds an exclusive OS lock on `<db_path>/.vanta.lock` (`src/storage/engine/init.rs:262-305`). If your IDE's MCP server owns `--db <path>`, a concurrent writable Python/Node/CLI script on the same path fails with `VANTADB_BUSY`. Use a separate `--db` path for local scripts, pause the MCP server, or call the MCP tools directly. |
 | Tools error at call time | Check disk space and permissions on the `--db` directory; use `capabilities` to introspect the engine state. |
 | Text search fails with `text_index not found` | Restarting the server reconciles indexes automatically at startup (`ensure_indexes_current`). |
 
 For the full behavioral contract (error channels, response envelope, edge cases), see the VantaDB MCP Skill.
+
+### Programmatic Tool Calling & Cloudflare Code Mode
+
+- **Anthropic Programmatic Tool Calling (PTC):** Anthropic's PTC specification excludes tools provided via MCP connectors, and `allowed_callers` is a Messages API field rather than part of the MCP tool JSON schema. Consequently, `vantadb-mcp` does **not** emit `allowed_callers`.
+- **Cloudflare Code Mode (`@cloudflare/codemode`):** Code Mode derives typed TypeScript wrappers directly from `tools/list` JSON Schemas and works with `vantadb-mcp` out of the box when started with **`VANTADB_MCP_PROFILE=full`** (or `dev` / `memory`). Do **not** use the default `brain` profile with Code Mode: `brain` collapses the extended tool catalog behind the generic `vanta_dispatch` meta-tool, hiding per-tool schemas from Code Mode's type generator.
 
 ## Error Handling & JSON-RPC Codes
 
