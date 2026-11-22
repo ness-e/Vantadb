@@ -1298,18 +1298,9 @@ is a reproducibility smoke, not a measurement sample.
 †† single smoke run (machine under load): latency here varies run to run; the full-split
 row above is the reference measurement.
 
-### ACT-02 — dense-embeddings certification (v0.10.0 candidate): **NOT MEASURED at n=500**
+### ACT-02 — dense-embeddings certification (v0.10.0 candidate): **GATE FAIL MEDIDO a n=500 (re-corrida con harness corregido en curso — ver §23.3)**
 
-> **The `recall_all@5 >= 0.85` certification was not produced.** The dense path was
-> built from `HEAD`, wired end-to-end and run on the real corpus, but the official
-> 500-question run is **not feasible within this task's budget on this hardware**: the harness
-> re-ingests each question's haystack into its own namespace (embeddings are cached per
-> chunk-text, so the cost is the deduplicated count, not the worst case), and the measured
-> ingest rate puts the full split at **~42–55 hours of continuous CPU** (arithmetic below).
-> **No 500-question number is claimed anywhere in this document.** §23.3 previously
-> carried a projected `hybrid_graphrag = 0.8745` for exactly this gate; those
-> projections were retracted on 2026-11-20 rather than left standing next to a
-> certification.
+> **Estado actualizado (ver [§23.3](#233-resultados-certificación-longmemeval-s-500q-y-estudio-de-ablación)):** La primera corrida oficial a `n=500` con embeddings locales reales (`BAAI/bge-small-en-v1.5`, `--strict-embeddings`, 23 867 sesiones) **se completó** con `recall_all@5 = 0.1383` (**FAIL** contra el umbral `>= 0.85`), mientras la ablación `bm25_only` alcanzó `0.8000` (`recall_any@5 = 0.9596`). El diagnóstico identificó 3 defectos en `evals/eval_longmemeval.py` (grafo-clique de la entidad `Session` con boosts 15×, `candidate_k = 30` insuficiente tras dedup multi-sesión, y queries sin `query_embed()`), ya corregidos en `HEAD`; la re-corrida completa de ablación `n=500` está en ejecución. Se conserva debajo el registro histórico del smoke `n=5`.
 
 **What is measured — n=5 plumbing smoke (NOT a measurement sample):**
 
@@ -2445,16 +2436,16 @@ decision** (bandas) se aplico sobre el set publicado, sin excluir ninguna corrid
 
 ---
 
-## 23. LongMemEval-S (500q) — gate pendiente — y Benchmark LOCOMO vs Mem0 (MEM0-05 / ACT-02 / D2)
+## 23. LongMemEval-S (500q) y Benchmark LOCOMO vs Mem0 (MEM0-05 / ACT-02 / D2)
 
 > **Source of truth:** `evals/eval_longmemeval.py` (ACT-02 / D2) y `evals/eval_locomo.py` (MEM0-05).
-> Esta sección documenta **metodología, comandos y el benchmark LoCoMo**. El gate ACT-02
-> **no está medido**: la corrida oficial de 500 preguntas no se completó (estado en §23.3 y
-> tasa de ingesta medida en §19 → "ACT-02 — dense-embeddings certification"). Nada de esta
-> sección sustituye ese número por una proyección.
+> Esta sección documenta **metodología, comandos y el benchmark LoCoMo**. En `ACT-02` (500 preguntas),
+> la primera corrida oficial completada falló el gate (`recall_all@5 = 0.1383` vs `>= 0.85`; ver diagnóstico
+> y ablación `bm25_only = 0.8000` en §23.3), mientras la re-corrida con el harness corregido está en curso.
+> Nada de esta sección sustituye ese número por una proyección.
 > 1. **Gate bloqueante de release (ACT-02):** `recall_all@5 >= 0.85` sobre las 500 preguntas
->    completas de LongMemEval-S (`xiaowu0162/longmemeval-cleaned`, MIT, sha256 `d6f21ea9…`) — **pendiente**.
-> 2. **Estudio sistemático de ablación:** `vector_only` vs `bm25_only` vs `hybrid_rrf` vs `hybrid_graphrag` — **pendiente**.
+>    completas de LongMemEval-S (`xiaowu0162/longmemeval-cleaned`, MIT, sha256 `d6f21ea9…`) — **gate fail medido en 1.ª corrida (0.1383); re-corrida en curso**.
+> 2. **Estudio sistemático de ablación:** `vector_only` vs `bm25_only` (`0.8000`) vs `hybrid_rrf` vs `hybrid_graphrag` — **en curso**.
 > 3. **Validación estricta de embeddings:** `--strict-embeddings` impone el modelo denso
 >    `BAAI/bge-small-en-v1.5` (384d, fastembed ONNX local); aborta si no está disponible.
 > 4. **Benchmark LOCOMO (MEM0-05):** arnés reproducible sobre las 4 categorías canónicas
