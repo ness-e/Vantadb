@@ -102,14 +102,20 @@ class VantaDBTool(CrewAIBaseTool):
             if hasattr(self, "top_k")
             else kwargs.get("k", DEFAULT_TOP_K)
         )
+        text_query = kwargs.get("text_query")
 
         if self.embedding:
             embedding = self.embedding(query)
+            search_kwargs = {
+                "top_k": k,
+                "distance_metric": "cosine",
+            }
+            if text_query:
+                search_kwargs["text_query"] = text_query
             results = self._db.memory.search(
                 self.namespace,
                 embedding,
-                top_k=k,
-                distance_metric="cosine",
+                **search_kwargs,
             )
             passages = (
                 [hit.payload for hit in results]
@@ -117,16 +123,16 @@ class VantaDBTool(CrewAIBaseTool):
                 else []
             )
         else:
-            # Fallback: list all
-            results = self._db.memory.list(namespace=self.namespace, limit=k)
-            records = (
-                results.records
-                if hasattr(results, "records")
-                else list(results)
+            # Fallback without embeddings: run core BM25 lexical search (FIND-581).
+            results = self._db.memory.search(
+                self.namespace,
+                None,
+                text_query=text_query or query,
+                top_k=k,
             )
             passages = [
-                getattr(r, "payload", None) or str(r)
-                for r in records
+                hit.payload for hit in results
+                if getattr(hit, "payload", None)
             ]
 
         return "\n".join(passages) if passages else "No results found."

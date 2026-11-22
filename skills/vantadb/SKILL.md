@@ -479,15 +479,15 @@ score = sum(1.0 / (k + rank_i) for rank_i in rankings)  # k = 60 (ADR-0005)
 
 ### Benchmarks (10K vectors, 128d)
 
-Source: `docs/user/operations/BENCHMARKS.md` — SDK operations (§2, `benchmarks/vantadb_local_bench.py`), engine certification (§1, `tests/certification/stress_protocol.rs`), batch search (§6).
+Source: `docs/user/operations/BENCHMARKS.md` — Python SDK end-to-end operations (§2, `benchmarks/vantadb_local_bench.py`, covering Put..Hybrid Search below) vs. raw in-process Rust HNSW engine certification (§1, `tests/certification/stress_protocol.rs`, `1.2ms` p50 quoted above), and batch search (§6, `2.43ms/query`).
 
 | Operation | Latency p50 | Latency p99 | Throughput |
 |-----------|-------------|-------------|------------|
-| Put | 10.7ms | 19.0ms | 95 ops/sec |
-| Vector Search | 62ms | 72ms | 16 qps |
-| Text Search (BM25) | 115ms | 138ms | 9 qps |
-| Hybrid Search | 180ms | 211ms | 6 qps |
-| Batch Query (100) | 2.43ms/query | - | 4x speedup |
+| Put (Python SDK §2) | 10.7ms | 19.0ms | 95 ops/sec |
+| Vector Search (Python SDK §2) | 62ms | 72ms | 16 qps |
+| Text Search (BM25, Python SDK §2) | 115ms | 138ms | 9 qps |
+| Hybrid Search (Python SDK §2) | 180ms | 211ms | 6 qps |
+| Batch Query (100, Python SDK §6) | 2.43ms/query | - | 4x speedup |
 
 ### Scalability
 

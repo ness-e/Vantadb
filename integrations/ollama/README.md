@@ -77,8 +77,9 @@ for doc in results:
 - **Embedded & local-first:** the storage engine is a Rust library embedded
   in your process — no server to deploy, no network hop; data lives in your
   filesystem.
-- **Persistent hybrid search:** vectors + BM25 text search out of the box,
-  on top of Ollama's local embeddings — fully offline.
+- **Persistent vector & opt-in hybrid search:** persisted HNSW vector search
+  by default on top of Ollama's local embeddings — fully offline, with optional
+  hybrid RRF fusion via `text_query=`.
 - **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
   or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
   library you import.

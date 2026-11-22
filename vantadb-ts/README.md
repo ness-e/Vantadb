@@ -182,7 +182,7 @@ Two npm packages exist; they are **not** the same thing:
 
 | Package | What it is | Published | API |
 |---------|------------|-----------|-----|
-| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.9.0 | Synchronous, ESM-only |
+| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.9.0 | Synchronous, ESM (CommonJS via Node ≥ 22.19 `require(esm)`) |
 | **`vantadb-node`** | Native Node.js bindings (napi-rs) — real filesystem persistence (fjall/WAL/fsync), async API, platform-specific `.node` binaries | ✅ 0.9.0 | Async, ESM + CommonJS |
 
 `vantadb-node` is the **native backend** you reach via

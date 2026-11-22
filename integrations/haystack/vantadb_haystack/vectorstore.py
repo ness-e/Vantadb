@@ -467,30 +467,53 @@ class VantaDBDocumentStore:
 
     # ── Vector search (extra — not in protocol) ───────────
 
-    def search(self, query: str, k: int = DEFAULT_TOP_K) -> List[Document]:
-        """Perform a vector or keyword search over stored documents.
+    def search(
+        self,
+        query: str,
+        k: int = DEFAULT_TOP_K,
+        *,
+        text_query: Optional[str] = None,
+    ) -> List[Document]:
+        """Perform a vector, hybrid RRF, or BM25 keyword search over stored documents.
 
         Extra method not part of the core Haystack ``DocumentStore``
         protocol. When an embedding function is configured, results are
-        ranked by cosine similarity; otherwise all documents are listed
-        and the first ``k`` are returned.
+        ranked by cosine similarity (or hybrid RRF when ``text_query`` is
+        given); otherwise non-empty queries execute BM25 lexical search
+        via the core engine.
 
         Args:
             query: The search query string.
             k: Number of results to return. Defaults to 4.
+            text_query: Optional lexical query string for hybrid RRF or BM25.
 
         Returns:
             A list of ``Document`` objects matching the query.
         """
         if self.embedding is None:
-            results = self._db.memory.list(
-                self.namespace, filters={}, limit=k,
+            lexical = text_query or (query.strip() if query else "")
+            if not lexical:
+                results = self._db.memory.list(
+                    self.namespace, filters={}, limit=k,
+                )
+                return [self._record_to_document(r) for r in results.records]
+            results = self._db.memory.search(
+                self.namespace,
+                None,
+                text_query=lexical,
+                top_k=k,
             )
-            return [self._record_to_document(r) for r in results.records]
+            return [self._hit_to_document(hit) for hit in results]
         vector = self.embedding(query)
+        search_kwargs: Dict[str, Any] = {
+            "top_k": k,
+            "distance_metric": "cosine",
+        }
+        if text_query:
+            search_kwargs["text_query"] = text_query
         results = self._db.memory.search(
             self.namespace, vector,
-            top_k=k, distance_metric="cosine",
+            **search_kwargs,
         )
         return [self._hit_to_document(hit) for hit in results]
 

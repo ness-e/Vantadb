@@ -45,14 +45,25 @@ class VantaDBOllama(EmbeddingVectorStore):
             read_only=read_only,
         )
 
+    @staticmethod
+    def _extract_embeddings(resp: Any, *, plural: bool) -> Any:
+        attr = "embeddings" if plural else "embedding"
+        if hasattr(resp, attr):
+            return getattr(resp, attr)
+        return resp[attr]
+
     def _embed(self, text: str) -> List[float]:
         if not text:
             raise ValueError("text must be a non-empty string")
-        resp = ollama.embeddings(model=self.model, prompt=text)
-        return list(resp["embedding"])
+        return self._embed_many([text])[0]
 
     def _embed_many(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
-        resp = ollama.embed(model=self.model, input=texts)
-        return [list(e) for e in resp["embeddings"]]
+        if hasattr(ollama, "embed"):
+            resp = ollama.embed(model=self.model, input=texts)
+            return [list(e) for e in self._extract_embeddings(resp, plural=True)]
+        return [
+            list(self._extract_embeddings(ollama.embeddings(model=self.model, prompt=t), plural=False))
+            for t in texts
+        ]

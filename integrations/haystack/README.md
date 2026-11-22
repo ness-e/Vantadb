@@ -50,9 +50,10 @@ for doc in results:
 - **Embedded & local-first:** the storage engine is a Rust library embedded
   in your process — no server to deploy, no network hop; data lives in your
   filesystem.
-- **Persistent hybrid search:** vectors + BM25 text search out of the box,
-  where Haystack's `InMemoryDocumentStore` covers only small single-process
-  cases.
+- **Persistent vector, BM25 & hybrid search:** HNSW vector search with
+  embeddings, BM25 lexical search when `embedding=None`, and optional hybrid
+  RRF fusion via `text_query=`, where Haystack's `InMemoryDocumentStore`
+  covers only small single-process cases.
 - **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
   or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
   library you import.

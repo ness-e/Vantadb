@@ -114,19 +114,43 @@ class VantaDBRetriever(DSPyRetrieve):
             return dspy.Prediction(passages=[])
 
         k = kwargs.get("k", self.k)
+        text_query = kwargs.get("text_query")
         if self.embedding is not None:
             vector = self.embedding(query)
-            results = self._db.memory.search(
-                self.namespace, vector, top_k=k, distance_metric="cosine"
-            )
+            search_kwargs: dict[str, Any] = {
+                "top_k": k,
+                "distance_metric": "cosine",
+            }
+            if text_query:
+                search_kwargs["text_query"] = text_query
+            results = self._db.memory.search(self.namespace, vector, **search_kwargs)
             passages = [hit.payload for hit in results]
         else:
-            # fallback: text-based filter over all records
-            results = self._db.memory.list(self.namespace, limit=k)
-            passages = [
-                r.payload for r in results.records
-                if r.payload and query.lower() in r.payload.lower()
-            ]
+            # Lexical BM25 search via core (FIND-581); if BM25 yields no token match
+            # (e.g. substring/prefix query), scan pages via cursor without truncating.
+            results = self._db.memory.search(
+                self.namespace,
+                None,
+                text_query=text_query or query,
+                top_k=k,
+            )
+            passages = [hit.payload for hit in results if getattr(hit, "payload", None)]
+            if not passages:
+                q_lower = query.lower()
+                cursor = None
+                while len(passages) < k:
+                    page = self._db.memory.list(self.namespace, limit=1000, cursor=cursor)
+                    records = getattr(page, "records", None) or []
+                    if not records:
+                        break
+                    for r in records:
+                        if r.payload and q_lower in r.payload.lower():
+                            passages.append(r.payload)
+                            if len(passages) >= k:
+                                break
+                    cursor = getattr(page, "next_cursor", None)
+                    if cursor is None:
+                        break
         return dspy.Prediction(passages=passages)
 
     def __call__(self, query: str, **kwargs: Any) -> Any:

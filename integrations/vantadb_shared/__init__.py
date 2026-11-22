@@ -130,16 +130,25 @@ class EmbeddingVectorStore:
 
     # ── Search methods ───────────────────────────────────────
 
-    def similarity_search(self, query: str, k: int = DEFAULT_TOP_K) -> List[Any]:
+    def similarity_search(
+        self,
+        query: str,
+        k: int = DEFAULT_TOP_K,
+        *,
+        text_query: Optional[str] = None,
+    ) -> List[Any]:
         """Search for documents similar to the query text.
 
         Embeds the query via the provider API, then performs a vector
-        similarity search in VantaDB. Returns lightweight document-like
+        similarity search in VantaDB (or hybrid vector + BM25 search when
+        ``text_query`` is provided). Returns lightweight document-like
         objects with ``page_content`` and ``metadata`` attributes.
 
         Args:
             query: The search query string. Must be non-empty.
             k: Number of results to return. Defaults to 4.
+            text_query: Optional lexical query string to fuse with vector
+                similarity via server-side hybrid RRF search.
 
         Returns:
             A list of document-like objects, each with ``page_content``
@@ -153,7 +162,13 @@ class EmbeddingVectorStore:
         if k <= 0:
             return []
         vector = self._embed(query)
-        results = self._db.memory.search(self.namespace, vector, top_k=k, distance_metric="cosine")
+        search_kwargs: Dict[str, Any] = {
+            "top_k": k,
+            "distance_metric": "cosine",
+        }
+        if text_query:
+            search_kwargs["text_query"] = text_query
+        results = self._db.memory.search(self.namespace, vector, **search_kwargs)
         hits = []
         for hit in results:
             hits.append(Document(
@@ -180,7 +195,7 @@ class EmbeddingVectorStore:
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None, functools.partial(self.similarity_search, query, k=k)
+            None, functools.partial(self.similarity_search, query, k=k, **kwargs)
         )
 
     # ── Delete methods ───────────────────────────────────────

@@ -342,14 +342,18 @@ class VantaDBVectorStore(VectorStoreBase):
     def search(
         self,
         query: str,
-        vectors: List[float],
+        vectors: Optional[List[float]] = None,
         top_k: int = DEFAULT_TOP_K,
         filters: Optional[Dict[str, Any]] = None,
+        *,
+        text_query: Optional[str] = None,
     ) -> List[OutputData]:
-        """Search by pre-computed vector.
+        """Search by pre-computed vector, embedded query, or BM25 text.
 
-        ``vectors`` is a single dense vector (list of floats).  Mem0 handles
-        embeddings externally and passes the result here.
+        ``vectors`` is a dense query vector (or ``None`` when relying on
+        ``self.embedding`` or BM25 lexical search). Mem0 normally supplies
+        ``vectors`` externally; omitting it triggers ``self.embedding(query)``
+        when configured, or falls back to core BM25 search via ``text_query``.
 
         ``filters`` (FIND-579): flat ``{field: value}`` pairs and ``$eq``
         specs are pushed down to the engine's metadata filter; any other
@@ -363,13 +367,33 @@ class VantaDBVectorStore(VectorStoreBase):
         fetch_k = top_k
         if residual:
             fetch_k = max(top_k * _POST_FILTER_OVERFETCH, _POST_FILTER_MIN_CANDIDATES)
-        results = self._db.memory.search(
-            self.namespace,
-            vectors,
-            top_k=fetch_k,
-            distance_metric="cosine",
-            filters=native_eq or None,
-        )
+        query_vec = vectors
+        if (query_vec is None or len(query_vec) == 0) and self.embedding is not None and query:
+            query_vec = self.embedding(query)
+        if query_vec is None or len(query_vec) == 0:
+            lexical = text_query or (query.strip() if query else "")
+            if not lexical:
+                return []
+            results = self._db.memory.search(
+                self.namespace,
+                None,
+                top_k=fetch_k,
+                text_query=lexical,
+                filters=native_eq or None,
+            )
+        else:
+            search_kwargs: Dict[str, Any] = {
+                "top_k": fetch_k,
+                "distance_metric": "cosine",
+                "filters": native_eq or None,
+            }
+            if text_query:
+                search_kwargs["text_query"] = text_query
+            results = self._db.memory.search(
+                self.namespace,
+                query_vec,
+                **search_kwargs,
+            )
         out: List[OutputData] = []
         for hit in results:
             payload = _build_payload(hit.metadata, hit.payload)
@@ -407,9 +431,16 @@ class VantaDBVectorStore(VectorStoreBase):
         cur = dict(existing.payload)
         if payload:
             cur.update(payload)
-        text = cur.get("data") or cur.get("text") or cur.get("content") or ""
-        old_vector: Optional[List[float]] = None
         rec = self._db.memory.get(self.namespace, vector_id)
+        text = (
+            cur.get("data")
+            or cur.get("text")
+            or cur.get("content")
+            or cur.get("payload")
+            or getattr(rec, "payload", "")
+            or ""
+        )
+        old_vector: Optional[List[float]] = None
         if rec is not None and getattr(rec, "vector", None) is not None:
             try:
                 old_vector = list(rec.vector)

@@ -105,10 +105,13 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         text = record.get("payload", "")
         embedding = record.get("vector")
 
-        node = metadata_dict_to_node(metadata, text=text) if metadata else TextNode(
-            text=text,
-            id_=node_id,
-        )
+        if "_node_content" in metadata:
+            try:
+                node = metadata_dict_to_node(metadata, text=text)
+            except (ValueError, KeyError, TypeError):
+                node = TextNode(text=text, id_=node_id, metadata=metadata)
+        else:
+            node = TextNode(text=text, id_=node_id, metadata=metadata)
         if embedding:
             node.embedding = embedding
         return node
@@ -210,13 +213,13 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             filters=filters,
         )
 
-        # Text search — oversample 2x, vector is required positional but text_query does the work
+        # Text search — oversample 2x using pure BM25 (query_vector=None) so
+        # RRF fuses independent dense and lexical rankings (FIND-584 S-3).
         text_results = self._client.memory.search(
             self._namespace,
-            query_embedding,
+            None,
             top_k=k * 2,
             text_query=query_str,
-            distance_metric="cosine",
             filters=filters,
         )
 

@@ -31,10 +31,12 @@ store = VantaDBVectorStore(
 
 store.add("VantaDB is an embedded vector database written in Rust.", user_id="alice")
 
-# mem0 owns the embedding layer: it computes the dense vector for the query
-# and passes it in — this adapter does not embed. `query_vector` below is the
-# vector mem0 already computed for "vector database".
-query_vector = mem0_embeddings["vector database"]
+# Option A: BM25 lexical search directly (no external embedding required)
+bm25_results = store.search("vector database", top_k=5)
+
+# Option B: vector similarity search when mem0 provides pre-computed vectors
+query_vector = [0.1] * 384
+store.insert([query_vector], payloads=[{"data": "VantaDB vector memory", "user_id": "alice"}], ids=["k1"])
 results = store.search("vector database", query_vector, top_k=5)
 for r in results:
     print(r.payload, r.score)   # OutputData exposes .id / .score / .payload
@@ -44,13 +46,16 @@ for r in results:
 
 - `add(text, user_id=None, metadata=None)` — store a memory (embeds internally
   when an embedding callable is set)
-- `search(query, vectors, top_k=5, filters=None)` — search by a pre-computed
-  dense vector (mem0 supplies the embedding); returns `OutputData` objects
-  (`.id`, `.score`, `.payload`). `filters` scopes results exactly: flat
-  `{"field": value}` / `{"$eq": v}` is pushed down to the engine; `$neq`/`$ne`,
-  `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin` are evaluated as a Python
-  post-filter; unknown operators fail closed (never broaden the result set) —
-  this is what enforces mem0's `user_id`/`agent_id` isolation
+- `search(query, vectors=None, top_k=5, filters=None, text_query=None)` —
+  search by a pre-computed dense vector (mem0 supplies the embedding), via
+  `self.embedding(query)` when configured, or via BM25 lexical search when
+  no vector is passed (pass `text_query=` alongside `vectors` for hybrid RRF);
+  returns `OutputData` objects (`.id`, `.score`, `.payload`). `filters` scopes
+  results exactly: flat `{"field": value}` / `{"$eq": v}` is pushed down to
+  the engine; `$neq`/`$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin` are
+  evaluated as a Python post-filter; unknown operators fail closed (never
+  broaden the result set) — this is what enforces mem0's `user_id`/`agent_id`
+  isolation
 - `delete(key)` — delete a memory by key
 - `list(filters=None, top_k=100)` — list memories
 
@@ -59,9 +64,11 @@ for r in results:
 - **Embedded & local-first:** the storage engine is a Rust library embedded
   in your process — no server to deploy, no network hop; data lives in your
   filesystem.
-- **Persistent hybrid search:** vectors + BM25 text search out of the box as
-  the vector backend for mem0's memory layer, where mem0's default storage
-  targets its hosted platform.
+- **Persistent vector, BM25 & hybrid search:** HNSW vector search with
+  pre-computed embeddings, BM25 lexical search when querying without vectors,
+  and optional hybrid RRF fusion (`text_query=`) as the vector backend for
+  mem0's memory layer, where mem0's default storage targets its hosted
+  platform.
 - **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
   or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
   library you import.

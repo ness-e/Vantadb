@@ -83,17 +83,25 @@ class VantaDBVectorStore:
         self._db.put(self.namespace, key, text, **kwargs)
         return key
 
-    def search(self, query: str, k: int = DEFAULT_TOP_K) -> List[dict]:
-        """Search the store by vector similarity or listing.
+    def search(
+        self,
+        query: str,
+        k: int = DEFAULT_TOP_K,
+        *,
+        text_query: Optional[str] = None,
+    ) -> List[dict]:
+        """Search the store by vector similarity, hybrid RRF, or BM25 text.
 
-        When an embedding function is configured, performs a vector
-        similarity search; otherwise returns the first ``k`` records.
+        When an embedding function is configured, performs a vector similarity
+        search (and fuses with BM25 when ``text_query`` is provided); otherwise
+        executes BM25 lexical search for non-empty queries via the core engine.
 
         Args:
-            query: The search query string (used for embedding if
-                available).
+            query: The search query string.
             k: Number of results to return. Must be positive.
                 Defaults to 4.
+            text_query: Optional lexical query string for hybrid RRF or BM25
+                override.
 
         Returns:
             A list of dictionaries with ``"key"``, ``"text"``,
@@ -105,13 +113,31 @@ class VantaDBVectorStore:
         if k <= 0:
             raise ValueError("k must be > 0")
         if self.embedding is None:
-            results = self._db.memory.list(self.namespace, limit=k)
+            lexical = text_query or (query.strip() if query else "")
+            if not lexical:
+                results = self._db.memory.list(self.namespace, limit=k)
+                return [
+                    {"key": rec.key, "text": rec.payload, "metadata": dict(rec.metadata), "score": 1.0}
+                    for rec in results.records
+                ]
+            results = self._db.memory.search(
+                self.namespace,
+                None,
+                text_query=lexical,
+                top_k=k,
+            )
             return [
-                {"key": rec.key, "text": rec.payload, "metadata": dict(rec.metadata), "score": 1.0}
-                for rec in results.records
+                {"key": hit.key, "text": hit.payload, "metadata": dict(hit.metadata), "score": hit.score}
+                for hit in results
             ]
         vector = self.embedding(query)
-        results = self._db.memory.search(self.namespace, vector, top_k=k, distance_metric="cosine")
+        search_kwargs: Dict[str, Any] = {
+            "top_k": k,
+            "distance_metric": "cosine",
+        }
+        if text_query:
+            search_kwargs["text_query"] = text_query
+        results = self._db.memory.search(self.namespace, vector, **search_kwargs)
         return [
             {"key": hit.key, "text": hit.payload, "metadata": dict(hit.metadata), "score": hit.score}
             for hit in results
