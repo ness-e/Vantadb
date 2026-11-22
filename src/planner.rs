@@ -395,6 +395,11 @@ fn optimize_and_compile_with<'a>(
     // Determine the base operator (scan or join) and apply sorted_filters
     let mut rrf_fused = false;
     let mut current_operator: Box<dyn crate::query::PhysicalOperator + 'a> = if has_join {
+        if !vector_searches.is_empty() {
+            return Err(crate::error::Error::Iql(crate::error::ChainedError::msg(
+                "vector similarity (~) predicates cannot be combined with JOIN at the top level",
+            )));
+        }
         // INVARIANT (B2b): `has_join` is set true only in the `Join` arm above,
         // which always sets `join_spec` in the same statement — `None` here is
         // unreachable via the public API. `ok_or_else` keeps E1 green and turns
@@ -1728,5 +1733,64 @@ mod wire08_rrf_tests {
         let rows = drain(op.as_mut());
         op.close().unwrap();
         assert_eq!(rows, vec![1], "keyword mode keeps the text filter path");
+    }
+
+    #[test]
+    fn join_combined_with_vector_search_returns_explicit_error() {
+        use crate::config::Config;
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = Config {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let plan = LogicalPlan {
+            operators: vec![
+                LogicalOperator::Join {
+                    left_plan: Box::new(LogicalPlan {
+                        operators: vec![LogicalOperator::Scan {
+                            entity: "Person".into(),
+                        }],
+                        temperature: 0.0,
+                        enforce_role: None,
+                        search_profile: None,
+                    }),
+                    right_plan: Box::new(LogicalPlan {
+                        operators: vec![LogicalOperator::Scan {
+                            entity: "Address".into(),
+                        }],
+                        temperature: 0.0,
+                        enforce_role: None,
+                        search_profile: None,
+                    }),
+                    left_field: "p.addr_id".into(),
+                    right_field: "a.id".into(),
+                },
+                LogicalOperator::VectorSearch {
+                    field: "bio".into(),
+                    query_vec: "engineer".into(),
+                    min_score: 0.5,
+                },
+            ],
+            temperature: 0.0,
+            enforce_role: None,
+            search_profile: None,
+        };
+
+        let err = match optimize_and_compile(&plan, &storage) {
+            Err(e) => e,
+            Ok(_) => {
+                panic!("JOIN + VectorSearch must fail loudly rather than dropping vector search")
+            }
+        };
+        assert!(
+            matches!(err, crate::error::Error::Iql(_)),
+            "expected Error::Iql, got {err:?}"
+        );
     }
 }

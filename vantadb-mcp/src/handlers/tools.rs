@@ -1103,7 +1103,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "namespace": { "type": "string", "description": "Target namespace" },
+                    "namespace": { "type": "string", "description": "Target namespace (default: \"default\")" },
                     "mode": {
                         "type": "string",
                         "enum": ["soft", "hard", "certified"],
@@ -1114,7 +1114,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                         "description": "Target: {\"key\": \"...\"}, or {\"filters\": {...}}, or {\"query\": {\"text\": \"...\", \"top_k\": 10, \"min_score\": 0.7}}"
                     }
                 },
-                "required": ["namespace", "target"],
+                "required": ["target"],
                 "additionalProperties": false
             }
         },
@@ -3769,9 +3769,10 @@ pub fn handle_tools_call(
             }
         }
         "memory_forget" => {
-            let namespace = args["namespace"]
-                .as_str()
-                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let namespace = args
+                .get("namespace")
+                .and_then(|v| v.as_str())
+                .unwrap_or("default");
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
 
@@ -5321,5 +5322,51 @@ mod tests {
         assert!(!profile_allows_call(McpProfile::Agent, "vanta_dispatch"));
         assert!(!profile_allows_call(McpProfile::Dev, "vanta_dispatch"));
         assert!(!profile_allows_call(McpProfile::Memory, "vanta_dispatch"));
+    }
+
+    #[test]
+    fn memory_forget_schema_and_handler_default_namespace() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = Arc::new(
+            StorageEngine::open(dir.path().to_str().unwrap()).unwrap(),
+        );
+        let cfg = McpConfig {
+            profile: McpProfile::Brain,
+            ..Default::default()
+        };
+
+        let listed = handle_tools_list(&cfg).expect("tools/list");
+        let forget_tool = listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == "memory_forget")
+            .expect("memory_forget in Brain profile");
+        assert_eq!(forget_tool["inputSchema"]["required"], json!(["target"]));
+
+        // Put a record into the "default" namespace, then forget without passing `namespace`.
+        let embedded = vantadb::Embedded::from_engine(engine.clone());
+        embedded
+            .put(vantadb::sdk::MemoryInput {
+                namespace: "default".into(),
+                key: "k1".into(),
+                payload: "to forget".into(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        let executor = Executor::new(&engine);
+        let res = handle_tools_call(
+            &Some(json!({
+                "name": "memory_forget",
+                "arguments": { "target": { "key": "k1" }, "mode": "hard" }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        )
+        .expect("memory_forget without namespace must default to 'default'");
+        assert_ne!(res.get("isError"), Some(&json!(true)), "unexpected error: {res}");
+        assert!(embedded.get("default", "k1").unwrap().is_none());
     }
 }

@@ -1279,9 +1279,8 @@ impl Embedded {
         }
 
         // Best-effort JSON shredding — only when enable_json_shredding is configured.
-        // AUD-CORE-03: also invoke ShreddedRowStore::put when replacing a record that
-        // previously had metadata with an empty-metadata record, so stale shredded rows
-        // are purged.
+        // AUD-CORE-03: purge stale shredded rows when replacing a record that
+        // previously had metadata with an empty-metadata record.
         if engine.config.enable_json_shredding
             && (!record.metadata.is_empty()
                 || existing.as_ref().is_some_and(|e| !e.metadata.is_empty()))
@@ -1289,11 +1288,9 @@ impl Embedded {
             // FIND-651: route the write through `write_backend_batch`, which
             // holds `insert_lock` — a direct `backend.put` could land in the
             // LSM while `create_snapshot` mirrors it.
-            if let Some(op) =
-                crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
-            {
-                let _ = engine.write_backend_batch(vec![op]);
-            }
+            let op = crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
+                .unwrap_or_else(|| crate::shred::ShreddedRowStore::delete_op(record.node_id));
+            let _ = engine.write_backend_batch(vec![op]);
         }
 
         // Best-effort version-history snapshot (VS-CORE-07): 1 write extra,
@@ -1735,13 +1732,31 @@ impl Embedded {
             // (single insert_lock acquisition + single atomic write)
             // instead of per-record direct `backend.put`s that could land
             // while `create_snapshot` mirrors the backend.
-            let shred_ops: Vec<BackendWriteOp> = records
-                .iter()
-                .filter(|record| !record.metadata.is_empty())
-                .filter_map(|record| {
-                    crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
-                })
-                .collect();
+            // Pre-batch disk state determines whether a final empty-metadata
+            // record in this batch needs a `delete_op` to purge stale rows.
+            let mut pre_batch_had_meta: HashMap<u128, bool> =
+                HashMap::with_capacity(records.len());
+            for (record, prev) in records.iter().zip(previous.iter()) {
+                pre_batch_had_meta
+                    .entry(record.node_id)
+                    .or_insert_with(|| prev.as_ref().is_some_and(|p| !p.metadata.is_empty()));
+            }
+            let mut seen_shred: HashSet<u128> = HashSet::with_capacity(records.len());
+            let mut shred_ops: Vec<BackendWriteOp> = Vec::with_capacity(records.len());
+            for record in records.iter().rev() {
+                if !seen_shred.insert(record.node_id) {
+                    continue;
+                }
+                if !record.metadata.is_empty() {
+                    if let Some(op) =
+                        crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
+                    {
+                        shred_ops.push(op);
+                    }
+                } else if pre_batch_had_meta.get(&record.node_id).copied().unwrap_or(false) {
+                    shred_ops.push(crate::shred::ShreddedRowStore::delete_op(record.node_id));
+                }
+            }
             if !shred_ops.is_empty() {
                 let _ = engine.write_backend_batch(shred_ops);
             }
@@ -3921,6 +3936,90 @@ mod tests {
                 .iter()
                 .any(|ns| ns == "atomic_ns"),
             "the staged namespace must leave no derived-index trace"
+        );
+    }
+
+    #[test]
+    fn put_and_put_batch_empty_metadata_upsert_purges_shredded_row() {
+        let mut cfg = Config::in_memory();
+        cfg.enable_json_shredding = true;
+        let db = Embedded::open_with_config(cfg).expect("open embedded with shredding");
+        let engine = db.engine_handle().expect("engine handle");
+
+        let mut meta = MemoryMetadata::new();
+        meta.insert("env".into(), Value::String("prod".into()));
+
+        // 1. Seed two records with metadata -> both must have shredded rows.
+        db.put(MemoryInput {
+            namespace: "shred_ns".into(),
+            key: "one".into(),
+            payload: "v1".into(),
+            metadata: meta.clone(),
+            ..Default::default()
+        })
+        .expect("put one");
+        db.put_batch(vec![MemoryInput {
+            namespace: "shred_ns".into(),
+            key: "batch".into(),
+            payload: "v1".into(),
+            metadata: meta.clone(),
+            ..Default::default()
+        }])
+        .expect("put_batch seed");
+
+        let id_one = memory_node_id("shred_ns", "one");
+        let id_batch = memory_node_id("shred_ns", "batch");
+        assert!(
+            crate::shred::ShreddedRowStore::get(id_one, &*engine.backend)
+                .unwrap()
+                .is_some(),
+            "put must populate shredded row"
+        );
+        assert!(
+            crate::shred::ShreddedRowStore::get(id_batch, &*engine.backend)
+                .unwrap()
+                .is_some(),
+            "put_batch must populate shredded row"
+        );
+
+        // 2. Upsert both with empty metadata -> stale shredded rows must be purged.
+        db.put(MemoryInput {
+            namespace: "shred_ns".into(),
+            key: "one".into(),
+            payload: "v2".into(),
+            metadata: MemoryMetadata::new(),
+            ..Default::default()
+        })
+        .expect("upsert one empty meta");
+        db.put_batch(vec![
+            MemoryInput {
+                namespace: "shred_ns".into(),
+                key: "batch".into(),
+                payload: "v2_mid".into(),
+                metadata: meta,
+                ..Default::default()
+            },
+            MemoryInput {
+                namespace: "shred_ns".into(),
+                key: "batch".into(),
+                payload: "v3_empty".into(),
+                metadata: MemoryMetadata::new(),
+                ..Default::default()
+            },
+        ])
+        .expect("upsert batch empty meta");
+
+        assert!(
+            crate::shred::ShreddedRowStore::get(id_one, &*engine.backend)
+                .unwrap()
+                .is_none(),
+            "put with empty metadata must purge stale shredded row"
+        );
+        assert!(
+            crate::shred::ShreddedRowStore::get(id_batch, &*engine.backend)
+                .unwrap()
+                .is_none(),
+            "put_batch with empty metadata must purge stale shredded row"
         );
     }
 }

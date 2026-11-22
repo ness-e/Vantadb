@@ -486,10 +486,8 @@ fn code_search_seeds_from_indexed_namespace() {
         "graphrag must seed from the indexed symbol record: {text}"
     );
     assert_eq!(search["stats"]["seeds_found"], 1, "one seed: {text}");
-    // The `defines` edge expands the search to the file node (traversal works).
-    // NOTE: graphrag's `content` stays empty for memory records (it reads
-    // `content|payload|text|description`, not the reserved `__vanta_payload`);
-    // the payload is read via `code_node` (pre-existing gap → FIND-300).
+    // The `defines` edge expands the search to the file node (traversal works),
+    // and `extract_content` resolves `__vanta_payload` (`FIELD_PAYLOAD`, FIND-300).
     let file = embedded(&storage)
         .get("codeidx", "file:src/zoo.rs")
         .expect("get file")

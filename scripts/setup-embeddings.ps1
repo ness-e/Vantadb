@@ -48,7 +48,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:onnxOverride = $null
 
-function Get-RepoRoot { $PSScriptRoot }
+function Get-RepoRoot { (Resolve-Path (Join-Path $PSScriptRoot '..')).Path }
 
 function Get-Manifest {
   $path = Join-Path (Get-RepoRoot) 'embeddings/manifest.json'
@@ -320,6 +320,9 @@ function Get-LauncherPath {
   }
   $dest = Join-Path $vantaBin 'vanta-mcp-local.ps1'
   $src = Join-Path (Get-RepoRoot) 'vanta-mcp-local.ps1'
+  if (-not (Test-Path $src)) {
+    $src = Join-Path $PSScriptRoot 'vanta-mcp-local.ps1'
+  }
   if (Test-Path $src) {
     Copy-Item -Path $src -Destination $dest -Force -ErrorAction SilentlyContinue
   }

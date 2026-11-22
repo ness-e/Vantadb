@@ -319,10 +319,11 @@ impl Embedded {
             // Cardinality guard: every ANN hit already belongs to the
             // filtered candidate space (same namespace + filter predicates),
             // so the exact scan is a deterministic superset of `hits`. When
-            // `records.len() <= hits.len()` the candidate space cannot top
-            // the window up — skip the scan and the fallback telemetry: the
-            // short page is exhausted, not approximate.
-            if records.len() > hits.len() {
+            // vector-bearing candidates <= `hits.len()`, text-only records
+            // cannot top the ANN window up — skip the scan and the fallback
+            // telemetry: the short page is exhausted, not approximate.
+            let vector_candidates = records.iter().filter(|r| r.vector.is_some()).count();
+            if vector_candidates > hits.len() {
                 BRUTE_FALLBACK_SEARCHES.fetch_add(1, Ordering::Relaxed);
                 if !filters.is_empty() {
                     crate::metrics::record_brute_fallback_query();

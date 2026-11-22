@@ -436,6 +436,7 @@ impl<'a> Executor<'a> {
 
     /// INSERT path: builds a Hot node from fields + vector/embed logic, then stores it.
     fn execute_insert(&self, insert: InsertStatement) -> Result<ExecutionResult> {
+        StorageEngine::guard_write_allowed(&self.storage.config)?;
         let InsertStatement {
             node_id,
             node_type,
@@ -555,6 +556,7 @@ impl<'a> Executor<'a> {
 
     /// UPDATE path: merges fields (+ optional vector) into the stored node.
     fn execute_update(&self, update: UpdateStatement) -> Result<ExecutionResult> {
+        StorageEngine::guard_write_allowed(&self.storage.config)?;
         let mut node = match self.storage.get(update.node_id)? {
             Some(n) => n,
             None => {
@@ -579,6 +581,7 @@ impl<'a> Executor<'a> {
 
     /// DELETE path: tombstones the node with an audit reason.
     fn execute_delete(&self, delete: DeleteStatement) -> Result<ExecutionResult> {
+        StorageEngine::guard_write_allowed(&self.storage.config)?;
         self.storage.delete(delete.node_id, "IQL Manual Deletion")?;
         Ok(ExecutionResult::Write {
             affected_nodes: 1,
@@ -589,6 +592,7 @@ impl<'a> Executor<'a> {
 
     /// RELATE path: attaches a (weighted) edge after topological-consistency checks.
     fn execute_relate(&self, relate: RelateStatement) -> Result<ExecutionResult> {
+        StorageEngine::guard_write_allowed(&self.storage.config)?;
         let mut node = match self.storage.get(relate.source_id)? {
             Some(n) => n,
             None => {
@@ -633,6 +637,7 @@ impl<'a> Executor<'a> {
 
     /// INSERT-MESSAGE path: syntactic sugar for chat threads (message node + belongs_to edge).
     fn execute_insert_message(&self, msg: InsertMessageStatement) -> Result<ExecutionResult> {
+        StorageEngine::guard_write_allowed(&self.storage.config)?;
         // Normally we'd use a UUID generator, but for MVP we use a timestamp-based ID or random
         let msg_id = web_time::SystemTime::now()
             .duration_since(web_time::UNIX_EPOCH)
@@ -2417,5 +2422,66 @@ mod tests {
             }
             other => panic!("expected IqlParse, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn read_only_write_statements_fail_before_in_memory_mutations() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+        {
+            let writable = StorageEngine::open_with_config(
+                path,
+                Some(Config {
+                    backend_kind: BackendKind::InMemory,
+                    ..Default::default()
+                }),
+            )
+            .expect("open writable");
+            let mut n1 = UnifiedNode::new(1);
+            n1.set_field("type", FieldValue::String("Doc".into()));
+            let mut n2 = UnifiedNode::new(2);
+            n2.set_field("type", FieldValue::String("Doc".into()));
+            writable.insert(&n1).unwrap();
+            writable.insert(&n2).unwrap();
+        }
+
+        let ro_storage = StorageEngine::open_with_config(
+            path,
+            Some(Config {
+                backend_kind: BackendKind::InMemory,
+                read_only: true,
+                ..Default::default()
+            }),
+        )
+        .expect("open read-only");
+        let ex = Executor::new(&ro_storage);
+
+        let before_labels = ro_storage.label_intern.lock().len();
+
+        let err_insert = ex
+            .execute_statement(Statement::Insert(InsertStatement {
+                node_id: 3,
+                node_type: "Doc".into(),
+                fields: BTreeMap::new(),
+                vector: None,
+            }))
+            .expect_err("INSERT must fail in read-only mode");
+        assert!(matches!(err_insert, Error::Validation { .. }), "{err_insert:?}");
+
+        let err_relate = ex
+            .execute_statement(Statement::Relate(RelateStatement {
+                source_id: 1,
+                target_id: 2,
+                label: "SHOULD_NOT_INTERN".into(),
+                weight: None,
+            }))
+            .expect_err("RELATE must fail before interning labels");
+        assert!(matches!(err_relate, Error::Validation { .. }), "{err_relate:?}");
+
+        assert_eq!(
+            ro_storage.label_intern.lock().len(),
+            before_labels,
+            "read-only RELATE must not mutate label_intern in memory"
+        );
     }
 }

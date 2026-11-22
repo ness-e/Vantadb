@@ -147,6 +147,8 @@ impl Embedded {
         &self,
         request: MemorySearchRequest,
     ) -> crate::Result<Vec<crate::sdk::types::MemorySearchHit>> {
+        super::page::validate_search_options(&request)?;
+
         let namespaces = self.list_namespaces()?;
         if namespaces.is_empty() {
             return Ok(Vec::new());
@@ -253,5 +255,21 @@ mod tests {
         let mut keys: Vec<String> = hits.iter().map(|h| h.record.key.clone()).collect();
         keys.sort();
         assert_eq!(keys, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn search_all_validates_request_even_when_empty_db() {
+        let db = setup();
+        let err = db
+            .search_all(MemorySearchRequest {
+                query_vector: vec![f32::NAN, 0.0],
+                top_k: 5,
+                ..Default::default()
+            })
+            .expect_err("non-finite query_vector must fail even with zero namespaces");
+        assert!(
+            err.to_string().contains("finite") || err.to_string().contains("NaN"),
+            "unexpected error: {err}"
+        );
     }
 }
