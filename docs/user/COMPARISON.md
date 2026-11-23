@@ -69,18 +69,18 @@ From [BENCHMARKS.md §1](operations/BENCHMARKS.md#-1-core-engine-certification-r
 | Search p50 latency | 50K vectors, 128d | 6.1 ms | ✅ Certified |
 | Latency growth 10K → 50K | — | 4.88x (sub-linear) | ✅ Certified |
 
-### 2.2 Index rebuild via the Python SDK (PyO3 + GIL overhead included)
+### 2.2 Python SDK operations (PyO3 + GIL overhead included)
 
-From [BENCHMARKS.md §2](operations/BENCHMARKS.md#-2-sdk-operations-performance-python-wrapper) — the only currently-published Python-SDK row; the table is **FROZEN pre-SIMD (CI run 2026-08-12), regen pending**:
+From [BENCHMARKS.md §2](operations/BENCHMARKS.md#-2-sdk-operations-performance-python-wrapper) — regenerated single local run (`2026-09-30`, Windows 11, Intel i5-1235U, `vantadb-py` 0.7.0, synthetic 10,000 × 128d unit vectors, `top_k=10`):
 
 | Operation | Dataset / Configuration | p50 | p95 | p99 | Throughput |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| Index rebuild | Hybrid rebuild (HNSW + BM25) | 93.51s | *N/A (single batch)* | *N/A (single batch)* | 107 ops/s |
+| Ingestion (`PUT`) | 10,000 records, 128d | 13.510 ms | 18.153 ms | 19.454 ms | 75 ops/s |
+| Index rebuild | Hybrid rebuild (HNSW + BM25) | 6.00 s | *N/A (single batch)* | *N/A (single batch)* | 1,667 ops/s |
+| Vector search (HNSW) | 10,000 records, `top_k=10`, 128d | 2.372 ms | 3.016 ms | 3.329 ms | 422 qps (derived) |
+| Hybrid search (RRF) | 10,000 records, `top_k=10`, RRF | 5.593 ms | 6.931 ms | 12.025 ms | 179 qps (derived) |
 
-> Do not subtract or divide across scopes (Regla 11). BENCHMARKS.md explicitly
-> forbids comparing this table with §1 (raw Rust core, no FFI boundary) or with
-> the unversioned `canonical_p99` report. The regeneration command is in
-> [BENCHMARKS.md §3](operations/BENCHMARKS.md#️-3-reproducing-the-benchmark-locally):
+> Lexical (BM25) latency is excluded from §2 because the suite's synthetic queries (`token_N keyword_N`) match 0 records on that corpus. Do not subtract or divide across scopes (Regla 11): §2 includes PyO3 + GIL single-threaded overhead and is not comparable with §1 (raw Rust core). Regeneration command in [BENCHMARKS.md §3](operations/BENCHMARKS.md#️-3-reproducing-the-benchmark-locally):
 
 ```bash
 maturin develop --manifest-path vantadb-python/Cargo.toml --release
@@ -98,15 +98,15 @@ From [BENCHMARKS.md §6](operations/BENCHMARKS.md#-6-batch-search-performance-se
 
 Command: `python benchmarks/batch_vs_sequential_bench.py`.
 
-### 2.4 Head-to-head we ran ourselves: VantaDB vs LanceDB vs Chroma
+### 2.4 Head-to-head we ran ourselves: VantaDB vs LanceDB vs ChromaDB vs Qdrant
 
-One dataset (`glove-100-angular`), one machine, one execution (2026-06-06), 10K vectors × 100d, 100 queries, top_k=10 — full table and provenance in [BENCHMARKS.md §7](operations/BENCHMARKS.md#-7-competitive-benchmark-vs-lancedb--chroma), generated with:
+One dataset (`glove-100-angular`), one machine, embedded/in-process (no Docker), `2026-10-30`, 10K vectors × 100d, 100 queries, `top_k=10`, cosine — full table, provenance, and LanceDB `IVF_HNSW_FLAT` note in [BENCHMARKS.md §7](operations/BENCHMARKS.md#-7-competitive-benchmark-vs-lancedb--chroma), generated with:
 
 ```powershell
-python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100 --top-k 10 --yes
+python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100 --engines vanta,lance,chroma,qdrant --yes
 ```
 
-Read the caveats before quoting it: it is a **single local run** on synthetic ann-benchmarks data; LanceDB/Chroma ran through their native Python wrappers while VantaDB ran through PyO3 + mmap; recall@10 was low for **every** engine on that configuration (24.5% / 13.9% / 24.1%). We therefore treat it as directional only — a longer narrative write-up lives in `blog/benchmarks_vs_lancedb_chroma.md`. Run the script yourself rather than citing either source as truth.
+Read the caveats before quoting it: VantaDB matched Qdrant on Recall@10 (`100.00%` vs ChromaDB `95.20%`, LanceDB `83.60%`) at `3.375 ms` p50 (`288.6 QPS`), while ChromaDB achieved higher query throughput (`525.7 QPS`, `1.83 ms` p50) and LanceDB/ChromaDB achieved faster ingestion (`114,956` bulk / `1,971` incremental ops/s vs VantaDB `449.5` ops/s + `6.52 s` index build). On the separate historical synthetic-euclidean 2K run ([BENCHMARKS.md §18](operations/BENCHMARKS.md#18-competitive-synthetic-2k--run-2026-08-12-gov-tk8-historical)), VantaDB's Recall@10 was `59.20%` vs ChromaDB `97.60%` / Qdrant `100.00%` due to a cosine/L2 wrapper mismatch. Run the script yourself rather than citing a single headline number.
 
 ### 2.5 LongMemEval-S evidence-retrieval ablation (500 questions, zero LLM calls)
 

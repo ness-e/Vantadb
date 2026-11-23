@@ -11,11 +11,11 @@ Responsabilidad: medición de calidad/rendimiento y ejercicio de fallos. **Nada 
 
 ## evals/
 
-`[HECHO]` Contenido: `eval_locomo.py`, `eval_longmemeval.py` (+`data/fetch_longmemeval_subset.py`, `longmemeval_s_subset.json`), `memory_bench.py`, `memory_harness.py`, `calibration.py`, `agent/{golden_cases.json,run_eval.py}`, `runners/{adapters.py,head_to_head.py}` y READMEs por carpeta. `[INFERENCIA]` Son harnesses de evaluación de memoria de agente (locomo/longmemeval/head-to-head); esta página no evalúa procedencia de datasets, leakage ni ground truth — eso requiere lectura de cada harness.
+`[HECHO]` Contenido: `eval_locomo.py`, `eval_longmemeval.py` (+`data/fetch_longmemeval_subset.py`, `data/precompute_embeddings.py`, `longmemeval_s_subset.json`), `bench_sequential_niah.py`, `soak_test.py`, `memory_bench.py`, `memory_harness.py`, `calibration.py`, `agent/{golden_cases.json,run_eval.py}`, `runners/{adapters.py,head_to_head.py}` y READMEs por carpeta. `[INFERENCIA]` Son harnesses de evaluación de memoria de agente y resistencia operacional (locomo/longmemeval/sequential-niah/soak/head-to-head); esta página no evalúa procedencia de datasets, leakage ni ground truth — eso requiere lectura de cada harness.
 
 ## Benches y benchmarks
 
-`[HECHO]` [`Cargo.toml`](../../../Cargo.toml) registra los benches con `harness = false` (criterion): `tokenizer_bench`, `hybrid_queries`, `hnsw_pure`, `hnsw_recall_ef`, `acorn_filtered_search`, `canonical_p99`, `encrypted_p99`, `purge_expired`, `memory_budget`, `wal_throughput`, `crash_recovery`, `scores_semantics`, `param_sweep`, `ivf_bench`, `sparse_hot_path`, `backend_compare`, `vfile_search`, `incremental_bench`, `batch_existing_check`, `ingestion_concurrent`, `high_density`, `stress_test`, `bench_concurrent`. `benches/` y `benchmarks/` existen como directorios; los claims publicados se limitan a `docs/user/operations/BENCHMARKS.md` con entorno declarado.
+`[HECHO]` [`Cargo.toml`](../../../Cargo.toml) registra los 24 benches con `harness = false` (criterion): `tokenizer_bench`, `hybrid_queries`, `high_density`, `stress_test`, `hnsw_pure`, `bench_concurrent`, `ingestion_concurrent`, `backend_compare`, `hnsw_recall_ef`, `vfile_search`, `incremental_bench`, `batch_existing_check`, `batch_txn_overhead`, `param_sweep`, `acorn_filtered_search`, `sparse_hot_path`, `ivf_bench`, `canonical_p99`, `encrypted_p99`, `purge_expired`, `memory_budget`, `wal_throughput`, `crash_recovery`, `scores_semantics`. `benches/` y `benchmarks/` existen como directorios; los claims publicados se limitan a `docs/user/operations/BENCHMARKS.md` con entorno declarado.
 
 ## Fuzz y tests
 

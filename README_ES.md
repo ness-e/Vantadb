@@ -478,11 +478,11 @@ Las líneas base medidas se publican en [docs/user/operations/BENCHMARKS.md](doc
 | :--- | :--- |
 | **Búsqueda (HNSW vectorial)** | p50 1,2 ms |
 | **Escalado** (10K → 50K) | 4,88x sub-lineal (p50 6,1 ms @50K) |
-| **Recall@10** | 0,9560 @10K (Bloque 1) / 0,9980 @100K (escalado) |
+| **Recall@10** | 0,9560 @50K (Bloque 1) / 0,9980 @10K y @100K (escalado) |
 
 *Fuente: [BENCHMARKS.md §1](docs/user/operations/BENCHMARKS.md) — Stress Protocol en hardware CI con AVX2 (Regla 11: bench + entorno versionados en el repo).* Las latencias de alcance SDK (`put` p50 13,5 ms · HNSW p50 2,4 ms · híbrido RRF p50 5,6 ms — PyO3/GIL, un solo hilo) están publicadas en [§2](docs/user/operations/BENCHMARKS.md), regenerada 2026-09-30 con su entorno documentado; nunca comparar ni restar entre los alcances §1/§2. Regenera localmente con `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (la salida `metricas/benchmarks/vanta_benchmark_report.json` es gitignored — local a la máquina; los números publicados viven en §2 con su entorno). La latencia léxica BM25 no se reclama aquí: en este corpus sintético las consultas de la suite no matchean registros (ver la nota de §2).
 
-### Benchmarks competitivos SIFT-1M (escala 100K) — Fase 2
+### Benchmarks competitivos SIFT-1M (subconjunto 100K) — Fase 2
 
 El motor HNSW de VantaDB se optimizó en la Fase 2 mediante prefetch estático, eliminación del cálculo de raíz cuadrada euclidiana en el recorrido caliente del grafo, cálculo SIMD puro para la similitud del coseno y la **optimización `select_neighbors` O(M²)** (que guarda referencias en caché para eliminar consultas a HashMap durante el bucle de diversidad).
 

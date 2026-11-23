@@ -45,12 +45,12 @@ the Ingest timer (BENCH-01; see the script header for the full methodology).
 > [!IMPORTANT]
 > **Honesty contract.** This harness produces an *honest* table, not a
 > marketing one. The measured results (including runs where VantaDB is **not**
-> the winner) live in [`docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md`](../docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md).
-> On the euclidean-synthetic 2K / top-10 configuration VantaDB query QPS is
-> competitive, but its **Recall@10 (≈59%) is lower than ChromaDB (≈98%) and
-> Qdrant (≈100%)** — do **not** claim recall superiority over either without
-> citing that table. Milvus **is measured** in PERF-03 (see
-> `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md`); enable it with
+> the winner) live in [`docs/user/operations/BENCHMARKS.md`](../docs/user/operations/BENCHMARKS.md)
+> (§7 for the real `glove-100-angular` 10K comparison, and §18 for the historical
+> euclidean-synthetic 2K run). On the euclidean-synthetic 2K / top-10 configuration
+> VantaDB query QPS is competitive, but its **Recall@10 (59.20%) is lower than
+> ChromaDB (97.60%) and Qdrant (100.00%)** — do **not** claim recall superiority
+> over either without citing that table. Milvus **is measured** in §18; enable it with
 > `pip install "pymilvus==2.5.18" "milvus-lite==3.2.0"` (the harness needs the
 > `pymilvus>=2.5` `IndexParams` API; `milvus-lite` provides the embedded server).
 
@@ -89,6 +89,9 @@ use `cargo bench -p vantadb --bench canonical_p99` vs §11.
 | `batch_vs_sequential_bench.py` | `search_batch()` vs sequential `search()` FFI amortization |
 | `prefetch_comparison.py` | Predictive kernel prefetch impact (SCALE-01) |
 | `beir_recall_bench.py` | BEIR-SciFact recall@k + nDCG vs sqlite-vec (real dataset + qrels) |
-| `embed_bench.py` | EMB-07: embedding model comparison (9 models + dummy check-only) |
-| `wasm_bench.mjs` | WASM build benchmark |
-| `../evals/memory_bench.py` | MEM-70: harness sintético estilo LongMemEval-S/LoCoMo (recall@k + p50/p99, offline con `--no-vantadb`) |
+| `embed_bench.py` | EMB-07: embedding model comparison (9 models + Qwen3 exception; dummy check-only mode available — §8) |
+| `agent_memory_vs_sqlite_lancedb.py` | Embedded agent-memory workload & concurrent-write probe vs `sqlite-vec` and LanceDB (§24) |
+| `wasm_bench.mjs` | WASM vector search comparison vs EdgeVec and minimemory (§28) |
+| `wasm_threads_bench.mjs` | Lock-free `SharedArrayBuffer` multi-worker WASM cosine scoring up to 400K vectors (§28) |
+| `graphrag_bench.rs` | Cargo example (`--example graphrag_bench`): native `GraphRagPipeline` hop latency & context-token delta (§29) |
+| `../evals/memory_bench.py` | MEM-70: harness sintético estilo LongMemEval-S/LoCoMo (recall@k + p50/p99, offline con `--no-vantadb` — §17) |

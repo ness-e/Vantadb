@@ -45,7 +45,7 @@ los comandos de arriba; la fuente citable es BENCHMARKS §19 + comando + sha256)
 
 | Sistema | Pin | Config corrida | LLM | Write-quality | Estado |
 |---|---|---|---|---|---|
-| vantadb | 0.7.0 (PyO3, memory backend) | `text_query` híbrido BM25+HNSW | — | sí | corre |
+| vantadb | 0.7.0 (corrida publicada 2026-09-30; código actual de `VantaAdapter` en `adapters.py` ya soporta `bge-small-en-v1.5` 384d + chunking + RRF híbrido, pendiente de re-ejecución `v0.10.x`) | `text_query` en corrida 0.7.0 · híbrido denso+BM25 en código actual | — | sí | corre |
 | mem0 OSS | `mem0ai==2.2.1` | **raw** (`infer=False`) + `fastembed==0.8.1` (`BAAI/bge-small-en-v1.5`, 384d) + `qdrant-client==1.19.1` embebido in-memory (`path: ":memory:"`); search `top_k`, threshold default 0.1; spaCy ausente (BM25 sin lemma, warning declarado) | **ninguno** (0 llamadas) | sí | corre |
 | mem0 OSS | `mem0ai==2.2.1` | native (extracción `gpt-4o-mini`) | OpenAI key | sí | **pending** (owner: keys + budget) |
 | Zep | `zep-cloud==3.30.0` | `thread.create` + `add_messages` (chunked ≤4000 chars/msg, ≤30/call, metadata `session_id`) → `graph.search(scope="episodes", limit=k)` | Zep Cloud (créditos) | N/A (sin get exacto) | **skip** (sin `ZEP_API_KEY`) |
@@ -61,9 +61,7 @@ los comandos de arriba; la fuente citable es BENCHMARKS §19 + comando + sha256)
 1. **mem0 raw ≠ mem0 de fábrica**: la extracción LLM está deshabilitada
    (`infer=False`) — se compara la capa de almacenamiento/recuperación, no el
    pipeline de extracción. Los números native quedarán en su propia fila.
-2. **Stacks de recuperación distintos y declarados**: vantadb corre text-only
-   (BM25+HNSW vía `text_query`) vs mem0-raw semántico+BM25 (fastembed). No se
-   "igualan" embeddings — cada sistema corre su mejor config local declarada.
+2. **Stacks de recuperación en la corrida publicada (2026-09-30)**: aquella tabla midió vantadb 0.7.0 en modo text-only (`vector=None` + `text_query`) frente a mem0-raw semántico+BM25 (`fastembed`). El adaptador actual `VantaAdapter` (`evals/runners/adapters.py`) ya implementa embeddings densos `bge-small-en-v1.5` + chunking; regenerar la comparativa *apples-to-apples* con el comando de arriba antes de citar una comparación densa.
 3. **Zep/Letta no corridos** (sin key / contrato no mapea). Presentes solo en la
    tabla con su disposición.
 4. **Unidades de ingesta**: Zep recibe chunks (límite duro de API); mem0/vantadb

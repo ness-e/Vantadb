@@ -1,5 +1,7 @@
 # WASM Vector DB Benchmark Report (MCP-03)
 
+> **Canonical source of truth:** [`docs/user/operations/BENCHMARKS.md`](../docs/user/operations/BENCHMARKS.md) (§15, §16, and §28). Always cite `BENCHMARKS.md` as the primary benchmark record; this file preserves the standalone harness notes for `benchmarks/wasm_bench.mjs`.
+>
 > Measured 2026-10-30 (`node benchmarks/wasm_bench.mjs`, seed 42):
 > 1000 vectors × 128d, 100 queries, top-10, exact brute-force ground truth.
 > Machine-readable: `metricas/benchmarks/wasm_benchmark_results.json`.
@@ -48,7 +50,7 @@
 
 | Engine | Raw | Gzipped |
 |---|---|---|
-| **VantaDB** | 1,101 KB | ~404 KB |
+| **VantaDB** (measured 2026-10-04, see `vantadb-wasm/README.md`) | 1.77 MB (`.wasm`) / 1.83 MB total | 728 KB (`.wasm`) / ~739 KB total |
 | **EdgeVec** | ~300 KB | ~100 KB |
 | **minimemory** | 493 KB | ~200 KB |
 | **altor-vec** | 170 KB | ~54 KB |
@@ -98,7 +100,7 @@ VantaDB's bundle is larger because it includes: HNSW + BM25 (Tantivy) + Graph en
 
 ## Conclusion
 
-VantaDB leads in **feature completeness** — it's the only WASM vector DB with HNSW + BM25 + Hybrid + WAL + MCP + IQL + Graph. The tradeoff is a larger WASM bundle (404KB gzipped vs 54KB for altor-vec).
+VantaDB leads in **feature completeness** — it's the only WASM vector DB with HNSW + BM25 + Hybrid + WAL + MCP + IQL + Graph. The tradeoff is a larger WASM bundle (~739 KB gzipped total vs 54 KB for altor-vec).
 
 > Note 2026-10-30: the three paragraphs below predate measured runs and
 > cite altor-vec, which is not in the harness — read them as historical

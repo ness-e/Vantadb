@@ -11,6 +11,8 @@ tags: [vantadb, benchmark, graphrag]
 > **Honest status of this post:** the **indexing-phase numbers below are real** — measured in a run of `benchmarks/graphrag_bench.rs` on the development machine described in §Hardware. The **query-latency and Token Reduction numbers at benchmark scale (3,000 nodes) are still PENDING**: in that environment (Windows x86_64, `--release`), the GraphRAG search phase ended in a reproducible stack overflow (`0xC00000FD`, `STATUS_STACK_OVERFLOW`) on the large corpus. No figure was invented: cells that could not be measured are marked PENDING, not filled with claims.
 >
 > **Environment note (2026-08-05 re-run):** after a build fix in `src/storage/vfile.rs` the script compiles and **small corpora (20–100 nodes) complete the full query phase** (real latency and tokens, section below). The canonical 3,000-node corpus still overflowed during query in that run — which is why the production-scale numbers stay PENDING and are not asserted as current engine behavior.
+>
+> **Engine fix update (2026-10-29):** the recursion/stack-overflow bug at 3,000 nodes was resolved in the Rust engine (see `benchmarks/graphrag_bench.rs` header). A fresh 3,000-node measurement run and canonical table in [`BENCHMARKS.md §29`](../operations/BENCHMARKS.md) remain scheduled; the historical 2026-08-05 logs below are preserved unaltered.
 
 ## Purpose
 

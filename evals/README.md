@@ -5,7 +5,9 @@
 | `memory_bench.py` | Harness sintético estilo LongMemEval/LoCoMo (MEM-70), seed 42 | ✅ (BENCHMARKS.md §17) |
 | `memory_harness.py` | **Harness real (VER-08)**: schema LongMemEval-S contra bindings `vantadb` — recall_all@k + recall_any@k (session-level), p50/p99, ingest QPS, write-quality, abstención, token-economy, aislamiento per-user | ✅ |
 | `eval_longmemeval.py` | **Certificación LongMemEval-S (ACT-02 / D2)**: gate bloqueante `recall_all@5 >= 0.85` sobre 500 preguntas certificado en `hybrid_rrf` (`0.8872`, PASS), validación `--strict-embeddings`, estudio de ablación (`vector_only`, `bm25_only`, `hybrid_rrf`, y `hybrid_graphrag` como heurística experimental del harness) | ✅ (BENCHMARKS.md §23) |
-| `eval_locomo.py` | **Arnés LoCoMo Benchmark (MEM0-05)**: 4 categorías (`single_hop`, `multi_hop`, `temporal_reasoning`, `open_domain`) contra cifras publicadas de Mem0 (arXiv:2504.19413), búsqueda híbrida + filtro bitemporal + deduplicación FastGate (0 tokens LLM) | ✅ (BENCHMARKS.md §23) |
+| `eval_locomo.py` | **Arnés LoCoMo Benchmark (MEM0-05)**: 4 categorías (`single_hop`, `multi_hop`, `temporal_reasoning`, `open_domain`) contra cifras publicadas de Mem0 (arXiv:2504.19413), búsqueda híbrida + filtro bitemporal + deduplicación FastGate (0 tokens LLM; corpus oficial pendiente de adaptador de schema) | 🟡 Smoke activo (BENCHMARKS.md §23.4) |
+| `bench_sequential_niah.py` | **Database Sequential-NIAH (BNCH-01)**: recuperación de 5 cadenas causales de 8 pasos intercaladas en 10 000 distractores con pseudo-embeddings deterministas 64d | ✅ (BENCHMARKS.md §25) |
+| `soak_test.py` | **Soak Test 1 000 turnos (PRD-04)**: resistencia multi-sesión con `supersede`, `forget(mode="certified")` y verificación anti-fuga de contexto (`soak_test_1000t.json`) | ✅ (BENCHMARKS.md §27) |
 | `calibration.py` | **ECE + temperature scaling** (spec MGR-12 §5.2): ECE antes/después, T*, reliability data | ✅ |
 | `data/` | Sub-muestra LongMemEval-S commiteada (MIT) + procedencia/licencias | ✅ |
 | `runners/` | **Head-to-head (VER-09)**: capa de runners Mem0/Zep/Letta sobre el MISMO harness — adapters + driver + protocolo/skips (ver `runners/README.md`) | ✅ |

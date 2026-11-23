@@ -141,22 +141,23 @@ This benchmark compares query latency on a persisted dataset under `VantaFile` w
 | **Throughput (QPS)** | 180.3 qps | 261.6 qps | **+45.1%** |
 <!-- PREFETCH_BENCHMARK_END -->
 
-> Re-measured 2026-10-29 (Windows dev): 5k vectors × 128d, 100 queries, seed 42.
+> Re-measured 2026-10-29 (Windows 11 dev, Intel Core i5-1235U 12t, 31.78 GB RAM): 5k vectors × 128d, 100 queries, seed 42 (`python benchmarks/prefetch_comparison.py --size 5000 --queries 100`; Rust unit probe in `tests/prefetch_benchmark.rs`).
 > The previous table (≈1% deltas, p99 −1.3%) was two identical runs — the harness
 > set `VANTA_DISABLE_PREFETCH`, which the engine never read (renamed
 > `VANTADB_DISABLE_PREFETCH` in F3C); fixed + re-measured. Past numbers retracted.
+> **Caveat (v0.10.0):** since `PrefetchMode` defaulted to `Disabled` (`src/config.rs`), explicitly pass `VANTADB_PREFETCH=enabled` for the active arm when reproducing.
 
 ---
 
 ## 🚀 5. Impact of Loop and HNSW Distance Optimization (Phase 2)
 
-This benchmark documents performance and build times on the standard **SIFT1M** dataset (10K and 100K scales) after applying Phase 2 improvements:
+This benchmark documents performance and build times on the standard **SIFT1M** dataset (10K and 100K scales, harness `tests/certification/competitive_bench.rs`; dataset shape verified by `tests/certification/sift_validation.rs`) after applying Phase 2 improvements:
 
 1. **O(M²) Stack Cache in select_neighbors:** Complete elimination of redundant `HashMap` lookups (`self.nodes.get`) in the diversity loop.
 2. **Squared Euclidean in Traversal:** Removal of `.sqrt()` from the hot path.
 3. **SIMD vmovups Load:** Contiguous aligned/unaligned vector load via `try_from` into `f32x8` registers.
 
-### Comparative Build and Search Results (SIFT1M)
+### Comparative Build and Search Results (SIFT1M — 100K Subset)
 
 | Scale | Configuration | Metric | Build (Before) | Build (After) | Speedup | p99 Latency | Avg QPS |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -166,13 +167,13 @@ This benchmark documents performance and build times on the standard **SIFT1M** 
 | **100K** | High Recall L2 | Euclidean | 462.2s | **194.5s** | **2.37x** | 1,183.6 µs | 1,353 |
 | **100K** | High Recall L2 Mmap | Mmap Euclidean | 411.2s | **189.8s** | **2.16x** | 1,094.8 µs | 1,438 |
 
-*Certified on hardware: AMD Ryzen 12-Core @ 3.5GHz, built with `-C target-cpu=native`.*
+*Certified on hardware (2026-07-21): AMD Ryzen 12-Core @ 3.5GHz, built with `-C target-cpu=native`.*
 
 ---
 
 ## 🚀 6. Batch Search Performance (`search_batch`) in Python SDK
 
-Batch search (`search_batch()`) in the SDK amortizes PyO3 FFI boundary costs by performing the transfer in a single call from the Python environment, eagerly releasing the **GIL** and executing the HNSW index traversal in parallel across multiple cores with **Rayon**.
+Batch search (`search_batch()`) in the SDK (`benchmarks/batch_vs_sequential_bench.py`, which also verifies `search_batch_requests` parity under `INV-008-B`) amortizes PyO3 FFI boundary costs by performing the transfer in a single call from the Python environment, eagerly releasing the **GIL** and executing the HNSW index traversal in parallel across multiple cores with **Rayon**.
 
 ### Comparative Micro-Benchmark Results (5,000 records, 128d, Batch Size: 100)
 
@@ -181,7 +182,7 @@ Batch search (`search_batch()`) in the SDK amortizes PyO3 FFI boundary costs by 
 | **Sequential (`db.search()`)** | 973.68 ms | 9.73 ms | *Baseline* | *N/A* |
 | **Batch (`db.search_batch()`)** | **243.01 ms** | **2.43 ms** | **4.01x faster** | **75.0%** |
 
-*Note: These results demonstrate parity with multi-core scaling on standard development CPUs, allowing RAG or LLM applications with high concurrent query volume to avoid GIL blocking.*
+*Note (Regla 11 scope): single-iteration micro-benchmark on synthetic 128d vectors (`seed=42`, `python benchmarks/batch_vs_sequential_bench.py`) recorded on the historical pre-SIMD Python-SDK baseline without a separate hardware table — read the **4.01x relative FFI/GIL amortization ratio**, not the absolute millisecond figures.*
 
 ---
 
@@ -351,6 +352,8 @@ Micro-bench puro `f32` — sin alloc, inline O(1). Mide overhead de helpers cent
 
 ## 📦 10. Node.js Bindings: vantadb-node (napi) vs vantadb-ts (WASM) — PERF-BENCH-01
 
+> **Superseded for side-by-side comparison by [§16](#16-ab-vantadb-node-native-napi-vs-vantadb-ts-wasm--perf-bench-01):** this initial `2026-08-30` sandbox run ran under `bun 1.3.14` (where the WASM side could not initialize) at `10k × 1536d`. For the complete paired Node ≥22 A/B run across both `vantadb-node` and `vantadb-ts` (`search_hybrid` improved from `1869 ms` to `115.07 ms` native / `290.98 ms` WASM at `2k × 384d`), see **§16** below.
+>
 > **Source of truth:** `vantadb-node/bench/bench-abi.mjs` (extended 2026-08-30 with per-op p50/p95/p99 percentiles).
 >
 > **Reproduce (Regla 11 — medición antes de decidir):**
@@ -1166,12 +1169,8 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 > For the current real-dataset comparison (glove-100-angular 10K, 2026-10-30,
 > fair HNSW cells) see **§7**.
 
-> **Source of truth (triple evidencia):** raw `docs/user/benchmarks/_run_stdout.md`
-> (121L, log íntegro del harness) + machine-readable
-> `docs/user/benchmarks/competitive_sdk_bench.json` (schema_version 1, 5 motores)
-> + curado `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` (tabla + lectura honesta).
-> Harness: `benchmarks/competitive_bench.py`. Esta sección es el puntero
-> operativo al run; el análisis narrativo vive en el doc curado (no duplicado acá).
+> **Source of truth:** harness [`benchmarks/competitive_bench.py`](../../../benchmarks/competitive_bench.py).
+> The standalone `docs/user/benchmarks/` directory from the initial 2026-08-12 archive was consolidated into this canonical file (single-source-of-truth policy); all measured figures, methodology, and caveats from that run are preserved directly in the table and notes below.
 > >
 > > **Reproduce (Regla 11):**
 > >
@@ -2754,7 +2753,7 @@ Unlike standard single-needle benchmarks that evaluate isolated point lookups, S
 The harness generates a realistic multi-agent conversational corpus and injects independent causal chains across temporal checkpoints:
 
 1. **Haystack Generation:** 10,000 distractor records simulating multi-agent dialogue (code reviews, infrastructure changes, security alerts, and system architecture discussions) are batch-inserted via `put_batch` into an on-disk embedded database instance.
-2. **Causal Needle Injection:** 5 independent causal scenarios (distributed consensus failovers, security incident mitigations, auto-scaling events, compiler optimization pipelines, and database compaction sequences) of 8 sequential facts each (40 needles total) are interleaved at controlled depths (10% to 90%) throughout the haystack. Each needle records explicit causal lineage links (`prev_step_key`, `chain_id`), semantic vector embeddings, and strictly monotonically increasing timestamps.
+2. **Causal Needle Injection:** 5 independent causal scenarios (distributed consensus failovers, security incident mitigations, auto-scaling events, compiler optimization pipelines, and database compaction sequences) of 8 sequential facts each (40 needles total) are interleaved at controlled depths (10% to 90%) throughout the haystack. Each needle records explicit causal lineage links (`prev_step_key`, `chain_id`), **deterministic 64d unit-normalized Gaussian pseudo-embeddings** (`SHA-256` seeded via `make_deterministic_vector` + `blend_vectors` — synthetic index vectors, not neural LLM/ONNX embeddings), and strictly monotonically increasing timestamps.
 3. **Retrieval Evaluation:** Sequential retrieval queries are executed against each causal link in chronological sequence using high-resolution timers (`time.perf_counter()`), evaluating:
    - **`Sequential-Recall@5`:** The fraction of chain steps retrieved within the top 5 results.
    - **`Chain Completion Rate`:** The fraction of causal chains where 100% of the 8 constituent steps are recovered in order.
@@ -2769,7 +2768,7 @@ python evals/bench_sequential_niah.py --haystack-size 10000 --needles 8 --chains
 
 ### 25.2 Measured Results (10,040 Records on Disk)
 
-The published run below was executed on an Intel Core i5-1235U (10 cores, 12 threads) running Windows with Python 3.14 / `vantadb-py` 0.9.0 on local persistent storage.
+The published run below ([`evals/results/sequential_niah_v10.json`](../../../evals/results/sequential_niah_v10.json)) was executed on an Intel Core i5-1235U (10 cores, 12 threads) running Windows with Python 3.14 / `vantadb-py` 0.9.0 on local persistent storage (`search_method: "ivf"`, `vector_dims: 64`).
 
 | Metric | Target / Gate | Measured Result | Status |
 | :--- | :--- | :--- | :--- |
@@ -2806,7 +2805,7 @@ A common alternative architecture for agent memory is "context window stuffing":
 
 ### 25.4 Technical Considerations
 
-- **Linearity and Lineage:** Causal needles in this benchmark encode both semantic embeddings and explicit lineage references (`prev_step_key`), verifying that agent architectures can navigate associative multi-hop relationships without hallucinatory drift.
+- **Synthetic Vectors vs. Real Semantic Embeddings:** Needles and queries in this stress harness share deterministic SHA-256-seeded 64d Gaussian vectors (`evals/bench_sequential_niah.py`), so `Sequential-Recall@5 = 100%` certifies **index fidelity, metadata lineage (`prev_step_key`), and storage latency**, not neural semantic comprehension (for real `bge-small-en-v1.5` multi-session recall, see **§23.3**).
 - **Hardware Profile:** All figures represent local single-node execution on standard consumer/developer laptop hardware without dedicated GPU acceleration.
 
 ---
@@ -2815,25 +2814,19 @@ A common alternative architecture for agent memory is "context window stuffing":
 
 ## 26. Local-only Rust benches (no CI baseline)
 
-> Estos benches existen en `benches/` y compilan (`cargo check --benches`),
-> pero ningun job los corre y no emiten senal al tracker de regresiones.
-> Para promover uno a CI, cablearlo a `light-benchmarks`/`nightly` y darle
-> baseline en `benchmarks/criterion_baseline.json`.
+> Estos 7 benches existen en `benches/` y compilan (`cargo check --benches`),
+> pero ningún workflow de CI los ejecuta de forma programada (ver **§30** para los
+> 15 benches Criterion que sí corren en `nightly.yml` / `certification.yml`).
 
-| Bench | Que mide | Por que no esta en CI |
+| Bench (`benches/<name>.rs`) | Qué mide | Estado / Razón de ejecución solo-local |
 |---|---|---|
-| `purge_expired` | `purge_expired` full-scan vs indice TTL | Sin baseline; TTL basado en wall-clock (flaky potencial) |
-| `sparse_hot_path` | hot-path sparse + sorts + serde + codec | 4 concerns mezclados, denominadores incomparables |
-| `vfile_search` | search con vfile file-backed (tempdir real) vs in-memory vs compactado | Sin baseline; solo-local hasta cablearlo a CI |
-| `backend_compare` | Fjall vs RocksDB put/get | Sin vectores; no representa carga vectorial |
-| `crash_recovery` | latencia open+WAL replay | WAL diminuto sin vectores; mide reopen limpio, no crash |
-| `batch_existing_check` | probe ERR-037 (ver nota) | Criterio pesado para light; doc del fix unicamente |
-| `scores_semantics` | micro-helpers f32 O(1) | Dominado por ruido; no valida el motor |
-| `wal_throughput` | throughput WalWriter + SyncMode x batch | Sin baseline; payload 24 B (250x menor que nodo real) |
-
-> Nota: `batch_existing_check` y `wal_throughput` estan cableados a
-> `light-benchmarks` desde 2026-10-29 (Fase 2); `tokenizer_bench` corre con
-> `--features advanced-tokenizer`. El resto de esta tabla sigue solo-local.
+| `batch_txn_overhead` | Overhead del marco WAL transaccional implícito `Begin -> Prepare -> Commit` en `batch_insert` multi-chunk sobre disco Fjall (`SyncMode::Never`, [ADR-0061](../../dev/architecture/adr/ADR-0061-implicit-batch-transactions.md)) | **Medido 2026-11-21 (Win11 dev):** `n=3000` (3 chunks) pre-T54 `112.9 ms` vs post-T54 `113.1 ms` / `110.5 ms` (`p = 0.92`, **0% regresión**, gate `<10%` PASS); `n=1000` `27.8 ms` vs `37.0–42.8 ms` (`p = 0.11`, varianza de `tempdir`/Fjall en Windows) |
+| `purge_expired` | `Embedded::purge_expired()` sobre índice escalar `__vanta_expires_at_ms` (4K × 128d) | Sin baseline CI; TTL de 1 ms sensible a wall-clock |
+| `sparse_hot_path` | Descomposición hot-path sparse (índice invertido, sort completo vs parcial, serde, códec) | 4 concerns con denominadores distintos; gate de diseño local |
+| `vfile_search` | `search_nearest` en 3 brazos: `in-memory`, `with_vfile` (`mmap` real en disco) y `with_vfile_compacted` (reordenación BFS) | Sin baseline CI; validación local de localidad de páginas |
+| `backend_compare` | `StorageEngine` `put`/`get`/bulk entre Fjall y RocksDB (`--features rocksdb`) | Solo KV (`VectorRepresentations::None`), sin carga vectorial |
+| `crash_recovery` | Latencia de `open_with_config` + replay de WAL tras cierre limpio (`100`..`100k` nodos sin vectores) | Reapertura limpia con page-cache caliente; no mide `kill -9` ni undo-pass con vectores |
+| `scores_semantics` | Micro-helpers `f32` `O(1)` (`rrf_contribution`, conversiones coseno — detalle en **§9**) | ~2–15 ns/op, dominado por jitter de reloj en runners compartidos |
 
 ### Curva recall-QPS full-corpus (`hnsw_recall_ef`, glove-100-ann 1.18M)
 
@@ -2853,12 +2846,87 @@ Measured 2026-10-30 (Windows dev, `-j 1`, ~12h): 1.183.514 vectores × 100d,
 
 > Reproduce (Regla 11, solo-local por coste — no correr junto a otras cargas):
 > `RECALL_DATASET=glove-100-ann RECALL_N=1183514 RECALL_NQ=10000 cargo bench -p vantadb --bench hnsw_recall_ef -j 1`.
-> Para iterar: `RECALL_NQ=1000` (misma curva, 10x menos queries) o el subset
-> default 10k/200 (minutos).
-> El JSON lo escribio el bench; los valores de esta tabla se transcribieron
-> del stdout de la corrida porque el binario en curso era anterior al sink
-> (verificado celda por celda: QPS = 1e6/mean en las 6).
-> Criterion marco "+1948% regressed" contra el baseline viejo — esperado: ese
-> baseline era de corridas subset 10k/200, no del corpus completo. No pisar
-> `criterion_baseline.json` con numeros locales; el re-baseline lo hace
-> `analyze` en el nightly.
+> **Caveat de configuración:** esta curva fija `m=16, ef_construction=100` (perfil ligero de construcción), por lo que el techo de `Recall@10` a escala 1.18M (`0.5446` @ `ef=100`, `0.7107` @ `ef=400`) es inferior al alcanzable con `m=32, ef_construction=200..400` (`HighRecall`). No extrapolar como techo algorítmico de HNSW en VantaDB.
+
+---
+
+## 27. Multi-Session Soak Test & Certified Deletion Verification (1,000 Turns — PRD-04)
+
+> **Source of truth:** [`evals/soak_test.py`](../../../evals/soak_test.py) and committed artifact [`evals/results/soak_test_1000t.json`](../../../evals/results/soak_test_1000t.json) (`seed=42`, 5 concurrent logical sessions, 384d deterministic pseudo-embeddings on persistent storage, Windows 11 AMD64, Python 3.14.7, `vantadb` 0.9.0).
+
+```bash
+python evals/soak_test.py --turns 1000 --output evals/results/soak_test_1000t.json
+```
+
+Interleaves `1,000` episodic writes, `1,000` filtered hybrid searches (`exclude_superseded=True`), `48` supersession chains (every 20 turns), and `10` cryptographic `forget(mode="certified")` purges (every 100 turns), probing cross-session, superseded, and purged-key leakage on every turn:
+
+| Metric | Aggregate / Turn 100 → Turn 1,000 | Reading |
+| :--- | :--- | :--- |
+| **Context leakage incidents** | **0 / 1,000** (`0.0%` cross-session, superseded, or purged hits) | ✅ Zero-leakage invariant held |
+| **Certified forgets verified** | **10 / 10** cryptographic receipts verified | ✅ Passed |
+| **Write latency (overall)** | p50 **9.57 ms** · p95 **38.90 ms** · p99 **66.27 ms** | Turn 100 p50 `4.95 ms` → Turn 1,000 p50 `13.18 ms` |
+| **Hybrid search latency (overall)** | p50 **27.72 ms** · p95 **108.94 ms** · p99 **168.25 ms** | ⚠️ Linear drift: Turn 100 p50 `0.91 ms` → Turn 1,000 p50 `63.59 ms` (p95 `166.43 ms`) |
+| **Process RSS & Disk** | RSS `36.82 MiB` → **`126.53 MiB`** (`+89.71 MiB`) · Disk `71.71 MiB` | Tracked for incremental tombstone/segment compaction |
+
+---
+
+## 28. WASM Comparative & Lock-Free `SharedArrayBuffer` Multi-Worker Benchmarks
+
+### 28.1 Embedded WASM Engine Comparison (`benchmarks/wasm_bench.mjs` — MCP-03)
+
+Measured `2026-10-30` (`node benchmarks/wasm_bench.mjs`, `seed=42`, Node `v26.8.1` on Windows x86_64, `1,000` vectors × `128d`, `100` queries, `top_k=10`, exact brute-force ground truth; companion notes in [`benchmarks/WASM_BENCHMARK_REPORT.md`](../../../benchmarks/WASM_BENCHMARK_REPORT.md)):
+
+| Engine | Ingest (ms) | Search p50 (ms) | Search p95 (ms) | Search p99 (ms) | QPS | Recall@10 | Bundle (`.wasm` gzip) |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **VantaDB WASM** (incremental HNSW, no rebuild) | 1,154.0 | 1.720 | 2.386 | 2.081 | 581 | **1.000** | 728 KB (~739 KB total, [README](../../../vantadb-wasm/README.md)) |
+| EdgeVec | 396.5 | 0.209 | 0.608 | 0.850 | 3,782 | 0.597 | ~100 KB |
+| minimemory (`flat` exact scan) | 5.7 | 0.247 | 0.534 | 3.622 | 2,963 | 1.000 | ~200 KB |
+
+> **Caveats:** `wasm_bench.mjs` inserts VantaDB records via per-item `put()` + `Array.from()` (penalizing ingest vs batch APIs; for `putBatch` numbers see **§15/§16**), and `minimemory` runs in exact `flat` mode (`Recall@10 = 1.0` by construction). Browser persistence overhead (`IndexedDB` / `OPFS`) is not measured in Node V8.
+
+### 28.2 Lock-Free `SharedArrayBuffer` Multi-Worker Scaling (`benchmarks/wasm_threads_bench.mjs`)
+
+Artefact: [`benchmarks/wasm_threads_results_400k.json`](../../../benchmarks/wasm_threads_results_400k.json) (`2026-10-06`, Node `v26.8.1`, `win32-x64`, 12 logical cores, `400,000` vectors × `128d`, chunk `256`, `seed=42`, median of 5 repeats over a single shared `WebAssembly.Memory` with atomic chunk-cursor stealing):
+
+| Workers | Wall Median (ms) | Compute (ms) | Speedup vs 1w | Throughput (vectors/s) | Max Abs Error vs f64 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 45.44 | 45.07 | 1.00x | 8,803,631 | `3.93e-8` |
+| 2 | 28.39 | 28.13 | 1.60x | 14,088,079 | `3.93e-8` |
+| 4 | 15.29 | 15.05 | 2.97x | 26,155,073 | `3.93e-8` |
+| 8 | 9.35 | 9.09 | 4.86x | 42,781,664 | `3.93e-8` |
+| 12 | **8.91** | **8.74** | **5.10x** (5.16x compute) | **44,883,303** | `3.93e-8` |
+
+---
+
+## 29. Native `GraphRAG` Example & Axum HTTP Server Benchmark Harnesses
+
+- **Native `GraphRAG` Pipeline (`benchmarks/graphrag_bench.rs`, `cargo run --release -p vantadb --example graphrag_bench`):** Measures node+edge indexing, `GraphRagPipeline` query latency (`hops=0` RAG baseline vs `hops=1..3`), and whitespace context-token delta on deterministic 32d synthetic clusters (no LLM). Historical `2026-08-05` runs (detailed in [`docs/user/blog/graphrag-benchmark.md`](../blog/graphrag-benchmark.md)) measured `17.2 nodes/s` indexing at `3,000` nodes (`174.3 s`) and `p50 = 1.418 ms` (`hops=2`) vs `0.866 ms` (`hops=0`) at `100` nodes (`token_reduction = -649%` because 2-hop expansion on a dense 100-node graph reaches `82.5` nodes). The `3,000`-node query stack overflow was fixed in the engine on `2026-10-29`; productive-scale re-measurement on real multi-hop corpora remains scheduled.
+- **HTTP Server Loopback Benchmarks (`vantadb-server/tests/benchmarks.rs`, executed weekly in `.github/workflows/certification.yml`):** Exercises a live Axum server on `127.0.0.1` across 5 integration scenarios: serial `POST /api/v2/query` (`INSERT`, 1,000 requests with p50/p95/p99 printout), concurrent `POST /api/v2/query` (`32 tasks × 32 requests`), concurrent `GET /health` (`64 × 50`), serial `GET /health` (`2,000` requests), and `Authorization: Bearer` authenticated query overhead (`500` requests). Curated percentile tables under concurrent load + TLS remain pending dedicated publication.
+
+---
+
+## 30. Complete Registry of CI Criterion Benches, Certification Suites & Agent Evals
+
+Every remaining benchmark and certification binary in the repository is cataloged below so no executable exists outside `BENCHMARKS.md`:
+
+| Target / File | Category & Workflow | What It Validates / Current Status |
+| :--- | :--- | :--- |
+| `hnsw_pure` (`benches/hnsw_pure.rs`) | Criterion (`certification.yml` weekly + PR A/B) | Raw `CPIndex` 10K build + 100-query search on GloVe-100 (`criterion_baseline.json` seed pending nightly refresh) |
+| `param_sweep` (`benches/param_sweep.rs`) | Criterion (`nightly.yml`) | HNSW `M × ef_construction × ef_search` Recall@10–QPS grid over `sift-128` (requires `scripts/download_ground_truth.py`) |
+| `hybrid_queries` (`benches/hybrid_queries.rs`) | Criterion (`certification.yml` weekly) | Filtered BM25, vector, and hybrid RRF latency + lexical recall on 1,000-doc BEIR SciFact subset |
+| `stress_test` (`benches/stress_test.rs`) | Criterion (`certification.yml` weekly) | 100K-node point-lookup & Bloom-filter negative-lookup micro-bench |
+| `bench_concurrent` (`benches/bench_concurrent.rs`) | Custom Criterion (`certification.yml` weekly) | Read-only and `1-writer / T-readers` (`T ∈ {1,4,8,16}`) throughput & per-thread p50/p99 over 10K × 128d `StorageEngine` |
+| `incremental_bench` (`benches/incremental_bench.rs`) | Criterion (`certification.yml` weekly) | Batch insert latency across `InsertMode::{Rebuild, Auto, Incremental}` (`10..2,000` × 768d) |
+| `tokenizer_bench` (`benches/tokenizer_bench.rs`) | Criterion (`certification.yml` weekly, `advanced-tokenizer`) | Tantivy stemming/folding/Unicode & `batch_analyzer` reuse throughput |
+| `wal_throughput` (`benches/wal_throughput.rs`) | Criterion (`certification.yml` weekly; partial series in **§22.3.3**) | `WalWriter` ops/s & p50/p95/p99 across 3 `SyncMode`s × 4 batch sizes + realistic 100d vector cell |
+| `batch_existing_check` (`benches/batch_existing_check.rs`) | Criterion (`certification.yml` weekly) | Per-node existence-probe cost in `batch_insert` (`fresh`, `overwrite`, `skip_existing_check`, `100..10K` × 768d in-memory) |
+| `acorn_filtered_search` (`benches/acorn_filtered_search.rs`) | Criterion (`certification.yml` weekly) | ACORN predicate-filtered HNSW latency & exact brute-force Recall@10 across `1%, 5%, 10%, 50%, 100%` selectivities |
+| `high_density` (`benches/high_density.rs`) | Criterion (`certification.yml` weekly) | 250K (CI) / 1M (local) × 768d k-NN search + 50K monotonic bulk-mutation stress |
+| `hnsw_recall_certification` (`tests/certification/hnsw_recall.rs`) | Heavy test (`nightly.yml` + `certification.yml`) | Deterministic exact-kNN Recall@10 gate (`>= 0.90`) on 5K × 64d synthetic vectors |
+| `hnsw_validation` (`tests/certification/hnsw_validation.rs`) | Heavy test (`nightly.yml` + `certification.yml`) | Multi-scale HNSW invariants (1K/10K/50K recall gates, 768d, zero-vector rejection, graph link bounds) |
+| `glove_dimension_scale` (`tests/certification/glove_dimension_scale.rs`) | Heavy test source (pending `Cargo.toml` `[[test]]` wiring) | Dimensional scaling Recall@10 gates on real GloVe 100d (`>= 0.93`) and 300d (`>= 0.85`) |
+| `hardware_profiles` (`tests/certification/hardware_profiles.rs`) | Heavy test (`certification.yml` weekly) | `HardwareCapabilities` SIMD detection, scalar cosine fallback parity, and sustained RSS-drift guard |
+| `hybrid_retrieval_quality` & `hybrid_ranking_metrics` (`tests/certification/`) | Heavy tests (`certification.yml` weekly) | Deterministic functional assertions for BM25/vector/phrase/namespace isolation + `nDCG@10`/`MRR`/`Recall@10` sanity checks |
+| `benchmark_internal` & `benchmark_datasets` (`tests/`) | Heavy tests (`certification.yml` weekly) | 10K internal rebuild/search smoke and GloVe-100 dataset-loader gate (`TBH-01`) |
+| `snapshot_certification` (`tests/core/snapshot_certification.rs`) | Mandatory CI (`snapshot-certification.yml`, [CI_POLICY.md](../../dev/operations/CI_POLICY.md)) | ~50 durability/correctness tests across plain, AES-256-GCM encrypted, and RocksDB snapshots with failpoints (`< 5s` hardlink guard) |
+| `evals/agent/run_eval.py` (`evals/agent/golden_cases.json`) | PR & Nightly CI (`nightly.yml` `agent-eval`) | Deterministic zero-LLM format, citation (`file:line`), and URL-resolution gate for internal review/research agent outputs |

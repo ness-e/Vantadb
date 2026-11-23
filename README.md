@@ -476,11 +476,11 @@ Measured baselines are published in [docs/user/operations/BENCHMARKS.md](docs/us
 | :--- | :--- |
 | **Search (Vector HNSW)** | p50 1.2 ms |
 | **Scaling** (10K → 50K) | 4.88x sub-linear (p50 6.1 ms @50K) |
-| **Recall@10** | 0.9560 @10K (Bloque 1) / 0.9980 @100K (scaling) |
+| **Recall@10** | 0.9560 @50K (Bloque 1) / 0.9980 @10K & @100K (scaling) |
 
 *Source: [BENCHMARKS.md §1](docs/user/operations/BENCHMARKS.md) — Stress Protocol on AVX2 CI hardware (Regla 11: bench file + environment versioned in-repo).* SDK-scope latencies (`put` p50 13.5 ms · HNSW p50 2.4 ms · hybrid RRF p50 5.6 ms — PyO3/GIL, single-thread) are published in [§2](docs/user/operations/BENCHMARKS.md), regenerated 2026-09-30 with its environment documented; never compare or subtract across §1/§2 scopes. Regenerate locally with `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (output `metricas/benchmarks/vanta_benchmark_report.json` is gitignored — machine-local; published numbers live in §2 with their environment). BM25 lexical latency is not claimed here: on this synthetic corpus the suite's queries match no records (see the §2 note).
 
-### SIFT-1M Competitive Benchmarks (100K scale) — Phase 2
+### SIFT-1M Competitive Benchmarks (100K Subset Scale) — Phase 2
 
 VantaDB's HNSW engine was optimized in Phase 2 through static prefetch, elimination of Euclidean square-root computation in the hot graph walk, pure-SIMD cosine similarity, and the **`select_neighbors` O(M²) optimization** (which caches references to eliminate HashMap lookups during the diversity loop).
 
