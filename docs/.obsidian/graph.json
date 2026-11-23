@@ -1,0 +1,93 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": true,
+  "showAttachments": true,
+  "hideUnresolved": true,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "path:architecture",
+      "color": {
+        "a": 1,
+        "rgb": 4886745
+      }
+    },
+    {
+      "query": "path:api",
+      "color": {
+        "a": 1,
+        "rgb": 5294200
+      }
+    },
+    {
+      "query": "path:glosario",
+      "color": {
+        "a": 1,
+        "rgb": 10181046
+      }
+    },
+    {
+      "query": "path:operations",
+      "color": {
+        "a": 1,
+        "rgb": 15105570
+      }
+    },
+    {
+      "query": "path:strategy",
+      "color": {
+        "a": 1,
+        "rgb": 15158332
+      }
+    },
+    {
+      "query": "path:research",
+      "color": {
+        "a": 1,
+        "rgb": 1752220
+      }
+    },
+    {
+      "query": "path:reviews",
+      "color": {
+        "a": 1,
+        "rgb": 3066993
+      }
+    },
+    {
+      "query": "path:tutorials",
+      "color": {
+        "a": 1,
+        "rgb": 230
+      }
+    },
+    {
+      "query": "path:web",
+      "color": {
+        "a": 1,
+        "rgb": 16711680
+      }
+    },
+    {
+      "query": "path:avance",
+      "color": {
+        "a": 1,
+        "rgb": 65280
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": -0.3,
+  "nodeSizeMultiplier": 1.11441951219512,
+  "lineSizeMultiplier": 0.533112195121951,
+  "collapse-forces": false,
+  "centerStrength": 0.525463414634146,
+  "repelStrength": 20,
+  "linkStrength": 1,
+  "linkDistance": 500,
+  "scale": 0.0423159026897591,
+  "close": false
+}

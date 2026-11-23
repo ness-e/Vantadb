@@ -184,8 +184,6 @@ screenshots/
 /homepage.png
 
 # ── 8. Snapshots y artefactos de test ────────────────────────
-**/docs/snapshots/
-docs/user/book/book/
 /snapshots/
 ghost_out/
 Cargo_test.toml
@@ -199,7 +197,6 @@ Cargo_test.toml
 .DS_Store
 Thumbs.db
 .devin/
-.obsidian/
 # canvas de VS Code
 *.canvas
 # solo directorios (heredado)
@@ -262,27 +259,6 @@ notion_backup_batches/
 !.agents/agents/
 !.agents/references/
 .github/workflows-dl/
-docs/dev/plans/*.budget.json
-docs/dev/reviews/dsm-baseline.json
-# Scratch de docs/dev (trabajo local del agente): lista explicita
-# fragil — cada archivo nuevo exige editar esto. Considerar
-# `docs/dev/*` + allowlist de lo trackeado en su lugar.
-docs/dev/Backlog.md
-docs/dev/backlog-notion.md
-docs/dev/Backlog-negocio.md
-docs/dev/backlog-futuro.md
-docs/dev/FASE-A.md
-docs/dev/master-index.md
-docs/dev/tasks/
-docs/dev/reviews/*
-!docs/dev/reviews/2026-11-03-forensic-verification-external-claims.md
-docs/dev/research/
-docs/dev/reports/
-docs/dev/plans/
-docs/dev/avance/*
-!docs/dev/avance/investigaciones.md
-docs/dev/workflow/
-docs/dev/strategy/
 
 # ── 11. Miscelaneos con flag ────────────────────────────────
 # FLAG: sin / inicial, tambien ignora docs/user/discord/todo.md

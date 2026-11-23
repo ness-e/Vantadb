@@ -1,0 +1,835 @@
+---
+title: "Avance — Operaciones & API"
+kind: review
+status: active
+tags: [vantadb, avance, ops, api, docs, backup, enterprise]
+---
+
+# Avance — Operaciones & API
+
+> Registro consolidado del trabajo en operaciones: API pública/documentación, backup/restore, CLI, telemetría, enterprise. IDs originales conservados.
+
+## API pública & documentación
+
+### REC-010: py.typed
+- **Fecha:** 2026-07-31
+- **Resultado:** ✅ marcador `py.typed` en paquete Python.
+
+### REC-009: PQ analysis
+- **Fecha:** 2026-07-29
+- **Resultado:** ✅ Análisis de quantization (PQ) — ver `docs/progreso/2026-07-28-sdk-gap-audit.md`.
+
+### DRV-068: API contract: Python `VantaDB` constructor options (storage_path/embedding_model)
+- **Fecha:** 2026-07-12
+- **Resultado:** ✅ `with_storage_path`, `with_embedding_model` en Python y en VantaMemoryConfig TS.
+
+### VFY-002 / VFY-003 (API contract)
+- VFY-002: validación opciones WASM — ver bindings.
+- VFY-003: Paginar reindex_hnsw_from_text — ✅ commit `918df85`.
+
+### DOC-09: docstrings Rust
+- **Resultado:** ✅.
+
+### DOC-10: README quickstart
+- **Resultado:** ✅.
+
+### DOC-13: Contributing docs
+- **Resultado:** ✅.
+
+### DOC-14: Datasets docs
+- **Resultado:** ✅.
+
+### DOC-15: Videos y notas de la web
+- **Resultado:** ✅.
+
+### DOC-17: README parity (EN/ES)
+- **Resultado:** ✅ README-ES.md + parity script.
+
+### DOC-18: Workshop docs
+- **Resultado:** ✅.
+
+### DOC-19: Versioned API docs build
+- **Resultado:** ✅.
+
+### DOC-20: mdBook full
+- **Resultado:** ✅ Docs site mdBook (2026-07-25, P4).
+
+### GH-124: Ejemplos doc-test API pública Rust
+- **Resultado:** ✅ 7 doc-tests nuevos; `cargo test --doc -p vantadb` 11/11 pass. (ver core-engine.md)
+
+### API contract sync (vanta-lead)
+- **Regla:** cambios de firma pública de Rust se propagan a Python/WASM/TS antes de release; `cargo semver-checks` es gate pre-publish obligatorio.
+
+---
+
+## Backup / Restore / CLI
+
+### REC-001: Foundation types para CLI/SDK
+- **Fecha:** 2026-07-29
+- **Resultado:** ✅ `Foundation` types en Python/SDK para backup/restore (ver 2026-07-28-sdk-gap-audit).
+
+### REC-008: Backup design
+- **Fecha:** 2026-07-29
+- **Resultado:** ✅ Diseño de backup — ver `2026-07-28-sdk-gap-audit.md`.
+
+### DRV-126: Paginación keyset
+- **Resultado:** ✅ RESUELTO — SearchResults ya implementa paginación keyset + offset-based. (ver core-engine.md)
+
+### COMP-009 (CLI/tools)
+- `vanta-cli` dump/import (`.vdbdump`) — ver core-engine.md.
+
+### REC-007: WAL Compaction + Vacuum CLI
+- **Resultado:** ✅ `vanta-cli wal compact` / `vanta-cli wal vacuum`. (ver core-engine.md)
+
+### AUD-033: Validación de args CLI + suite de tests en vantadb-server
+- **Fecha:** 2026-08-14
+- **Resultado:** ✅ `main.rs`: `is_known_flag` (-h/--help/--mcp) + `validate_args`; flag desconocido → error + hint + `exit(2)`; help precedence intacta. `tests/cli_args.rs` nuevo (5 tests, proceso vía `CARGO_BIN_EXE` + `output_with_timeout`). Nextest 5/5. Commit `ef0dfc5c`. (ver docs/progreso/README.md)
+
+### AUD-044: CLI search en DB fresca (2026-08-18)
+- **Resultado:** ✅ handlers `search`/`similar-to-key`/`search-multi`/`search-all`/`count` abren engine read-write → SDK corre `ensure_indexes_current` (idempotente) — adiós `NotFound { text_index bm25 }` en DB nueva sin rebuild manual. Test regresión + manual `put`+`search` OK (score 0.2877). Commit `a1d92f03`. (ver docs/progreso/README.md)
+
+### AUD-051: CLI `put --metadata` + filtros `__vanta_*` (2026-08-18)
+- **Resultado:** ✅ flag `--metadata '<json>'` (object root, rechaza `__vanta_*`, paridad `validate_metadata`); docs aclaran que filtros aplican solo a metadata de usuario (`__vanta_*` nunca matchean); completions regenerados 4 shells. cli_tests 79/79. Commit `626dcc00`. (ver docs/progreso/README.md)
+
+### MOD-12: `ensure_indexes_current` en arranque del server HTTP (2026-08-23)
+- **Resultado:** ✅ `cli_server::run` corre `ensure_indexes_current` tras abrir el engine (guard `read_only`; twin del fix MCP-01 stdio) — búsqueda textual/híbrida funcional vía `/api/v2/*` en DB fresca sin rebuild manual (antes: 404 `text_index not found: bm25`). Test e2e `test_e2e_text_search_fresh_db` RED(404)→GREEN; e2e 12/12, clippy/fmt ✅. HTTP_API.md: advertencias obsoletas de rebuild removidas. Commit `5623e41f`.
+
+---
+
+## Telemetría & monitoreo
+
+### NUEVO-15 (ops): Prometheus metrics endpoint
+- **Fecha:** 2026-07-24
+- **Resultado:** ✅ `/metrics` en vanta-server; métricas: `vantadb_auto_tune_ef` gauge, `record_vector_index_routing` (COMP-028/OLD-21), core registry (`metrics/core/registry.rs`).
+
+### Audit logging enterprise (TSK-107b)
+- **Resultado:** ✅ `src/audit.rs` — ver core-engine.md (jsonl, `VANTADB_AUDIT_LOG_PATH`).
+
+### PERF-36: Config hot-reload
+- **Resultado:** ✅ env `VANTADB_*` + `update_config()`.
+
+---
+
+## Enterprise
+
+### TSK-107b: Audit logging
+- **Resultado:** ✅ (ver core-engine.md)
+
+### TSK-108/109: (enterprise items) — estado en Backlog/PHASE
+- **Estado:** Verificar en `docs/dev/Backlog.md` fase enterprise.
+
+> **Cruce:** config y gobernanza de `VantaConfig` viven en `src/config.rs`; cambios de configuración pública se documentan en `docs/api/`.
+
+### FND-07: Regla de observabilidad real (prometheus) + probe endpoint — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `/metrics` responde con feed real de latencia de queries (prometheus) + regla R-3 en `.opencode/rules/server-mcp.md` (todo endpoint nuevo expone métricas reales, no placeholders). Commit `8820bdaf`.
+
+### FND-22: CONTRIBUTING.md + triage de issues (post-launch) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `CONTRIBUTING.md` (commit convention, PR flow, gates) + guía de triage en `.github/`. Commit `d9beaa9a`.
+
+### GOV-B4: openapi.yaml completo (~29 paths desde cli_server.rs) + gate paridad — migrado 2026-08-22 (ver docs/progreso/README.md)
+- **Resultado:** ✅ openapi.yaml regenerado (35 paths / 40 ops, 29 `/api/v2/*`, version sincronizada); `scripts/check_openapi_parity.mjs` (stdlib-only) + step en gate-docs-21.yml. Commit pendiente del lead.
+### MEM-54: Skills CRUD en server HTTP (P33 Task 4, H5) - 2026-08-22
+- **Resultado:** OK — POST /api/v2/skills (create idempotente content-hash) + PUT/PATCH/DELETE /api/v2/skills/{skill_id} con query params owner_agent+expected_version (lock optimista MEM-06; stale = 409). Owner-mismatch devuelve el mismo 404 que missing (anti-enumeracion). Tests D19 x2 en cli_server (--features server), openapi.yaml parity OK (37 paths / 44 ops), HTTP_API.md actualizado.
+
+### FIND-46: Doc drift semver-checks — Documentar cargo semver-checks en pre-release gate
+- **Fecha:** 2026-08-29
+- **Objetivo:** Resolver doc drift entre CI (gate semver-checks existe en ci-rust-10.yml:88-118) y docs de operations (no documentado).
+- **Resultado:** ✅ Documentado el gate en docs/dev/operations/ci-cd-guide.md (job table + sección dedicada con install local y scope antadb-only) + cross-ref en docs/dev/operations/CI_POLICY.md (job table §1) + docs/user/operations/master-index.md last_reviewed actualizado. Contrato del plan verificado: cargo semver-checks --help → 92 líneas (path 1 ✅) + 6 matches de semver-checks en docs/user/operations/ (path 2 ✅).
+- **Archivos tocados:** docs/dev/operations/ci-cd-guide.md, docs/dev/operations/CI_POLICY.md, docs/user/operations/master-index.md
+- **Commit:** staged para vanta-lead (vanta-docs no hace commit)
+- **Origen:** codegraph-20260827 Fase 11 + plan 2026-08-29-full-backlog-parallel.md W0-2
+- **Pre-mortem cerrado:** install local documentado (cargo install cargo-semver-checks --locked); CI ya está automatizado vía taiki-e/install-action.
+
+### MCP-40: Registro en el ecosistema MCP — `server.json` + listings
+- **Fecha:** 2026-08-29
+- **Objetivo:** Publicar VantaDB MCP en el Official MCP Registry (`io.github.ness-e/vantadb`) + listings secundarios (glama/smithery, passive). Cierra gap §6 P1-F del research mcp-research-20260825.
+- **Resultado:** ✅ (vanta-worker no commitea — staged, await vanta-lead) `server.json` creado en raíz conforme al schema oficial 2025-12-11 (verificado vía `webfetch https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json` — `name`/`description`/`version` son los únicos required, todo lo demás opcional). `docs/user/operations/MCP_REGISTRY.md` documenta el manifest, submission state (pending, TBD PR), pre-mortem (schema bump, namespace verification), aggregator strategy (glama/smithery auto-scraping, sin manifests paralelos), y release-time update procedure. `docs/api/MCP.md` extendido con sub-sección "Registry manifest" linkeando al server.json y al doc nuevo. `docs/user/operations/master-index.md` actualizado (GOV-C5). Sin tocar código fuente. Blast radius: 0 archivos de código.
+- **Contrato verificado:** `Test-Path server.json` = True; `Select-String -Path server.json -Pattern "modelcontextprotocol"` count = 2 (≥1 ✅); `python json.load` parsea OK (8 keys); 8 secciones `##` en `MCP_REGISTRY.md` (≥5 ✅); 3 hits de `server.json` en `MCP_REGISTRY.md` + `MCP.md`; 1 hit de `MCP_REGISTRY` en `master-index.md` (GOV-C5 ✅).
+- **Archivos tocados:** `server.json` (nuevo), `docs/user/operations/MCP_REGISTRY.md` (nuevo), `docs/api/MCP.md` (extendida), `docs/user/operations/master-index.md` (GOV-C5), `.opencode/skills/campaign-executor/tasks/MCP-40.md` (task file).
+- **Staged:** 5 archivos. vanta-worker no commitea (regla AGENTS.md §"Límites de herramientas por rol") — **BLOQUEO para vanta-lead**: `git commit -m "docs: MCP-40 — Registry manifest + ecosystem listings"`.
+- **Origen:** plan 2026-08-29-full-backlog-parallel.md W0-1 (parallel 3 con FIND-46 y PROV-08).
+- **Deuda abierta (no bloqueante):** `packages[]`/`remotes[]` ausentes — install via `cargo install --git`. Cuando se publique binario en `ghcr.io/ness-e/vantadb-mcp` (release firmado), regenerar server.json con OCI entry (FIND-49 propuesto). Submission PR al registry es manual (TBD).
+
+### GOV-TK9: Verificar URL `vantadb-examples` del checklist (Wave0 Task 3)
+- **Fecha:** 2026-09-03
+- **Objetivo:** el checklist piloto (doc de venta enterprise) tenía un paso clone a la org `vantadb` que no existe (FIND-17/ADR-0030: owner real `ness-e/*`).
+- **Resultado:** ✅ ambas URLs verificadas live 404 (`github.com/vantadb/vantadb-examples` y `github.com/ness-e/vantadb-examples`); ningún repo existe en ninguna org → rama TODO-humano del contrato (no crear repos desde el agente). `docs/dev/operations/pilot-onboarding-checklist.md:51` ahora TODO explícito en inglés; `rg "vantadb/vantadb-examples" docs/user/operations/ docs/api/` = 0. Fila Backlog eliminada (con ella muere la cita a la ruta vieja `pilot-onboarding-checklist.md` — la canónica es `docs/user/operations/...`).
+- **Archivos tocados:** `docs/dev/operations/pilot-onboarding-checklist.md`, `docs/dev/Backlog.md` (fila removida), `docs/dev/plans/2026-09-03-quality-gtm-wave.md` (Task 3 → ✅)
+- **Deuda abierta:** crear el repo `vantadb-examples` (o apuntar a ejemplos reales) es acción humana externa.
+
+### MKT-21 (ex MKT-18i): Compose demo multi-servicio VantaDB + Ollama (re-escalado: sin AnythingLLM)
+- **Fecha:** 2026-09-03
+- **Objetivo:** demo copypaste local-first (r/LocalLLaMA): `docker compose up -d` orquesta VantaDB + Ollama + AnythingLLM.
+- **Resultado:** ✅ compose raíz con 2 servicios, tags explícitos: `ollama/ollama:0.33.2` (pin verificado vía Docker Hub API: digest de `latest` == `0.33.2`, multi-arch) + `build: .` con `image: vantadb/server:0.5.0` (== workspace/Dockerfile APP_VERSION). Cabecera: quickstart, RAM mínima ~4 GB, nota GPU CPU-default (docs.ollama.com/docker), volumen de modelos persistente. **Re-escalado por stop condition:** AnythingLLM NO soporta VantaDB como vector backend — evidencia: `server/.env.example` master (github.com/Mintplex-Labs/anything-llm): `VECTOR_DB` ∈ lancedb/chroma/chromacloud/pinecone/astra/pgvector/weaviate/qdrant/milvus/zilliz; sin glue inventado. Enlaces: `docs/user/operations/DEPLOYMENT_GUIDE.md` §3 + `docs/user/tutorials/02-local-rag-pipeline.md` (README no tiene bloque docker — verificado).
+- **Contrato verificado:** `rg -ci "ollama|anythingllm|anything-llm" docker-compose.yml` = 14 (≥2 ✅); sin docker CLI en host → `docker compose config -q` reemplazado por parse PyYAML equivalente OK + assert de tags explícitos (sin `:latest`); run-time `up -d` diferido (sin daemon). `docker-compose.dev.yml` intacto.
+- **Archivos tocados:** `docker-compose.yml`, `docs/user/operations/DEPLOYMENT_GUIDE.md`, `docs/user/tutorials/02-local-rag-pipeline.md`, `docs/dev/Backlog.md` (fila re-escalada), plan Task 6 → ✅.
+- **Commit:** `abb6594c` (develop).
+- **Deuda abierta:** upstream feature request a AnythingLLM (backend VantaDB) = acción humana; run-time verificación `up -d` pendiente en host con daemon; si SRV-07 publica imagen oficial, swap `build: .` → `image:` publicada (nota inline en el compose).
+
+
+### SRV-07: Dockerfile unprivileged + wiring release (quality-gtm wave1)
+
+> **Retirado 2026-10-02:** Docker eliminado del repo por decisión del owner — job `docker-image` borrado de `release-binaries.yml`, Dockerfiles/compose `git rm`, docs de deploy sin sección Docker (ver FIND-229).
+
+- **Fecha:** 2026-09-03
+- **Objetivo:** imagen reproducible y ejecutable sin root con uid arbitrario (patrón qdrant) + wiring honesto al pipeline RELEASE; sin decisión de registry (es de marca).
+- **Resultado:** ✅ Builder del `Dockerfile` raíz reescrito: la capa "skeleton sources" era irrecuperable (cargo valida los 73 `[[test]]` + `[[bin]]` explícitos del root `Cargo.toml` al cargar el manifiesto; y el `COPY --from=builder /build/target/...` apuntaba a un cache-mount que nunca se commitea en la imagen → el build jamás pudo pasar). Ahora: `COPY . .` + cache mounts de BuildKit (registry+target) con `cp` del binario a path commiteado. Runtime: `chmod 777 /var/lib/vantadb` (data dir) → `docker run --user <uid>:<gid>` arbitrario funciona sin rebuild; `ARG VANTA_RUNAS_UID=1001` para override en build; `USER vantadb` no-root preservado. `.dockerignore`: `tests/` y `benches/` dejan de excluirse (requisito de validación de manifiesto); `data/` agregado (guard de contexto). Wiring: job `docker-image` (build-no-push) en `release-binaries-63.yml` — build + smoke unprivileged (`--user 10001:10001`: write-test en data dir + `vantadb-server --help` vía entrypoint real) + export `docker save` como asset del release. Docs: §"Run unprivileged (arbitrary UID)" en `DEPLOYMENT_GUIDE.md` §3; sección "Docker Image Publishing (SRV-07)" en `CI_POLICY.md` (por qué NO push: ghcr vs Docker Hub = decisión de marca + credenciales inexistentes).
+- **Contrato verificado:** `rg -n "^USER|runas|RUNAS" Dockerfile` = 5 hits ✅; `rg -ci docker release-binaries-63.yml` = 9 ✅; `actionlint` exit 0 ✅; continuation-lint del Dockerfile OK (la clase de bug que rompía el build: 2 `&&` sin `\`) ✅. Sin daemon Docker local → `docker build/run` diferidos al job `docker-image` de CI (gate real en el próximo tag/dispatch, documentado en CI_POLICY, no fake). `docker-compose.yml` NO tocado: `/var/lib/vantadb` sigue el path del volumen → named volume hereda modo 0777, compose sin `user:` usa uid 1001 → no rompe; `docker compose config -q` sin CLI local, diferido a CI.
+- **Archivos tocados:** `Dockerfile`, `.dockerignore`, `.github/workflows/release-binaries-63.yml`, `docs/user/operations/DEPLOYMENT_GUIDE.md`, `docs/dev/operations/CI_POLICY.md`, `docs/dev/Backlog.md` (fila SRV-07 eliminada), `docs/dev/plans/2026-09-03-quality-gtm-wave.md` (Task 5 ✅ + recitation), `docs/dev/avance/activo/operaciones.md`.
+- **Deuda abierta:** (1) verificación end-to-end del build en CI al primer dispatch (pre-mortem del plan) — sigue vigente y ahora cubre también esta deprecación; (2) ~~`vantadb-server/Dockerfile` alternativo roto~~ ✅ RESUELTA por FIND-56 abajo (la deuda histórica de esta línea se conserva como registro); (3) push a registry cuando haya decisión de marca + credenciales.
+
+### FIND-56: Deprecar `vantadb-server/Dockerfile` roto a favor de la imagen raíz
+- **Fecha:** 2026-09-03
+- **Objetivo:** eliminar el Dockerfile alternativo in-construible + dejar `hardening.md` §5 honesto (el doc lo presentaba como FUNCIONAL con `--target unprivileged` inalcanzable).
+- **Resultado:** ✅ opción (b) DEPRECATE (Ponytail: borra 112L sin perder capacidad). Triple-bug verificado: (1) `COPY vantadb/Cargo.toml` — no existe `vantadb/` (`Test-Path`=False, crate raíz en `.`); (2) `cargo build --package vantadb-server` produce `vantadb-server` pero el stage copiaba `target/release/vanta-cli` (bin del paquete raíz); el entrypoint `vanta-cli server --http…` existe (`src/cli.rs:314`) pero para el binario equivocado — el real solo entiende `--mcp/--help` + env; (3) stage `release-binary` descargaba `vantadb-server-<V>-<ARCH>-…tar.gz` cuando el release publica `vantadb-<target>.tar.gz` (404 garantizado; además el release ya publica la imagen docker como asset). Capacidades preservadas: build estándar → `Dockerfile` raíz (cache mounts, OCI labels, smoke en CI job `docker-image` que buildea la raíz — 0 workflows tocaban el archivo eliminado); unprivileged → flags runtime (read-only/cap-drop/no-new-privs + tmpfs, ya en compose y DEPLOYMENT_GUIDE §3); release-binary → asset imagen del release. Ningún workflow referenciaba el archivo (`rg` en `.github/` = 0 paths).
+- **Contrato verificado:** `Test-Path vantadb-server/Dockerfile`=False ✅; `rg "COPY vantadb/" vantadb-server/`=0 ✅; `rg -l "vantadb-server/Dockerfile"` ex-archives = solo Backlog (fila eliminada en este cierre) + esta deuda histórica SRV-07 (registro fechado, exenta) ✅; PyYAML `safe_load` OK ×2 con `build={context: .., dockerfile: Dockerfile}` ✅; `rg "release-binary|target:"` en composes=0 ✅; `rg "vantadb-server/Dockerfile|--target"` en hardening+GUIDE=0 ✅. Sin daemon docker en host → build/smoke diferidos al job `docker-image` de CI (precedente SRV-07/MKT-21 (ex MKT-18i), NUNCA fakes). actionlint N/A (0 workflows), cargo fmt/clippy/nextest N/A (0 Rust).
+- **Archivos tocados:** `vantadb-server/Dockerfile` (baja trackeada ya registrada en `0a54a545`, 112 deletions; la copia del worktree — resurrección no-trackeada — eliminada en esta sesión vía `git rm`; estado final consistente worktree+index+HEAD), `vantadb-server/docker-compose.yml` (2 builds → raíz, hardening runtime intacto), `vantadb-server/docker-compose.prod.yml` (build → raíz, sin `target release-binary`/`args` muertos; env prod + resources intactos), `docs/user/operations/hardening.md` (§5 reescrito sobre imagen canónica + nota de deprecación; tabla comparativa corregida UID-mecanismo), `docs/user/operations/DEPLOYMENT_GUIDE.md` (1 línea: puntero vivo al archivo eliminado), `docs/dev/Backlog.md` (fila FIND-56 eliminada).
+- **Deuda abierta:** verificación end-to-end en CI al primer dispatch/tag (job `docker-image`: build raíz + smoke `--user 10001:10001` + export como asset).
+
+- **Origen:** Backlog FIND-56 (L219) + deuda SRV-07 (2) de esta misma página.
+
+- GOV-TK3 (docs): drift yaml-real x3 - Resultado: doc-fix x3 (codigo verificado correcto); parity 5/5, parser 117/117, docs-coverage 0 gaps. Commit b3be4176 (2026-09-05).
+
+### PRX-04: cache-preserving injection (plan 2026-09-08-backlog Wave2)
+- **Fecha:** 2026-09-09
+- **Objetivo:** inyección D29 preserva prompt caching (re-inyectar mismo body = no-op byte-a-byte por provider).
+- **Resultado:** ✅ test 125 passed/0 failed (7 prx04_* nuevos) + clippy 0 + fmt 0. RESUME tras rate-limit sin pérdida.
+- **Commit:** 7ecaff5f
+
+### PRX-08: higiene y ceilings proxy (plan 2026-09-08-backlog Wave1)
+- **Fecha:** 2026-09-09
+- **Objetivo:** auth O(1) + self-loop fail-fast + caps sesión/buckets + writeback JSONL append-only + filtro mixed-tools.
+- **Resultado:** ✅ test 118/118 + clippy 0 + fmt 0 (clippy final vía RESUME tras aterrizar MEM-66 6ad16fbf).
+- **Commit:** 4bbc2804 + 3f5dab48 (cierre)
+
+### PRX-09: cache exacto slice 1 (plan 2026-09-09 Wave1)
+- **Fecha:** 2026-09-09
+- **Objetivo:** `ExactCache` FIFO opt-in + hook session-path post-inyección; semántico = slice 2 DEFER.
+- **Resultado:** ✅ test 142/0 (8 nuevos) + PRX-04 sin regresión + clippy/fmt 0; cap 4MB con 502 tipado.
+- **Commit:** 50b40228
+
+### PRX-02: fallback multi-upstream + retries (plan 2026-09-10-code Wave0)
+- **Fecha:** 2026-09-10
+- **Objetivo:** config `[upstreams]` + failover 429/5xx + backoff exponencial + health pasivo.
+- **Resultado:** ✅ test 161/0 (prx02_failover 4/4) + clippy/fmt 0; solo reintentos idempotentes; commit tras RESUME (hook fmt bloqueado por WIP MEM-69, resuelto).
+- **Commit:** 7272ce87
+
+### PRX-03: cost tracking + virtual keys (plan 2026-09-10-code Wave1)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `cost.rs` (PriceTable, CostTracker, ledger key×sesión×modelo) + enforcement 429 + `/snapshot` cost.
+- **Resultado:** ✅ test 0 failed (lib 134 + prx03_cost 3/3) + clippy/fmt 0; fail-open; modo log-first; SSE wiring futuro.
+- **Commit:** eb79dcd2
+
+### PRX-06: tier routing (plan 2026-09-10-code Wave2)
+- **Fecha:** 2026-09-10
+- **Objetivo:** slots haiku/sonnet/opus + `/v1/responses` en tool-loop.
+- **Resultado:** ✅ test 0 failed (134+11 suites, prx06 12/12 e2e) + clippy/fmt 0; Shadow default; D34 intacto; failover PRX-02 gratis.
+- **Commit:** ebb17de3
+
+### PRX-07: PII redaction egress (plan 2026-09-10-code Wave3)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `redact.rs` + hook 5a + block/mask/log.
+- **Resultado:** ✅ test 0 failed (12 nuevos) + clippy/fmt 0; fail-open; deny advisories pre-existente (SRV-06, no tocado).
+- **Commit:** d4536d89
+
+### PRX-09-slice2: semantic caching + TTL + LRU (plan 2026-09-10-code Wave4)
+- **Fecha:** 2026-09-10
+- **Objetivo:** similitud léxica local + TTL por entrada + LRU touch (embeddings reales DEFER).
+- **Resultado:** ✅ test 216/0 (semántico + TTL/LRU) + sin regresión exact/PRX-04 + clippy 0.
+- **Commit:** e8419ce4
+
+### PRX-09-embeddings slice 3: EmbedProvider + embed-path en cache (sin plan file)
+- **Fecha:** 2026-09-10
+- **Objetivo:** similitud por embeddings reales: trait mínimo + stub offline + provider Ollama opcional.
+- **Resultado:** ✅ lib 155/0 (4 tests embed nuevos: paráfrasis deploy/release HIT donde léxico MISS, miss no-relacionado, fallback en fallo, budget latencia ~16µs/lookup) + prx09 4/4 + 13 suites ✅ + clippy all-targets/all-features 0 + fmt propio 0; sin regresión exact/PRX-04; server.rs/config.rs/Cargo intactos. Resto: wiring `with_embedder` en AppState (server.rs owned por PRX-11) → re-registrar fila PRX-09 en Backlog.
+- **Commit:** 15157d39 (+77585a4f docs cierre)
+
+### PRX-10: guardrails por virtual key (plan 2026-09-10-code Wave6)
+- **Fecha:** 2026-09-10
+- **Objetivo:** allowlists de modelos por key (gate 1c + 403 guardrail_blocked).
+- **Resultado:** ✅ test 0 failed (149+8 nuevos) + clippy/fmt 0; D34 intacto; retomó parcial S1/S2 del abort.
+- **Commit:** 950df333
+
+### PRX-11-slice1: translate lib pura (plan 2026-09-10-code Wave6)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `translate.rs` request↔response + SSE mínimo + sanitize + guards, sin wiring.
+- **Resultado:** ✅ test 0 failed (9/9 nuevos) + clippy/fmt 0; server intacto; slice 2 (wiring + thinking fina) DEFER.
+- **Commit:** 5c75c16b
+
+### PRX-11-slice2: thinking fidelity + contract (lib-complete, wiring DEFER)
+- **Fecha:** 2026-09-10
+- **Objetivo:** thinking↔reasoning por variante + `TranslateConfig`/`should_translate`.
+- **Resultado:** ✅ 16/16 tests + clippy/fmt 0 + fuente protocolo citada; hook server-side DEFER (config.rs wave-owned, diff en 6 pasos en task file).
+- **Commit:** c7361f94
+
+### PRX-11-slice3: wiring opt-in (lead-inline, subagentes abortados ×3)
+- **Fecha:** 2026-09-10
+- **Objetivo:** hook 5d + `ProxyConfig.translate` + map-back con content-length fijo.
+- **Resultado:** ✅ lib 163 + 15 suites 0 failed (8 tests hook nuevos) + clippy/fmt 0; default verbatim intacto; sin campo AppState (lee config).
+- **Commit:** e6a12230
+
+### GOV-TK8: BENCHMARKS §18 run sintético (plan 2026-09-10-code Wave4)
+- **Fecha:** 2026-09-10
+- **Objetivo:** curar evidencia cruda en §18 con comando reproducible + Regla 11.
+- **Resultado:** ✅ R11 0 hits + append-only + hooks; benches no re-corridos (entorno contaminado documentado).
+- **Commit:** f6950738
+
+### PRX-13: contexto en tránsito (plan 2026-09-10-code Wave5)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `context.rs` trim por budget (Performance/Balanced/Economy) + override por key.
+- **Resultado:** ✅ test 0 failed (14/14 nuevos) + clippy/fmt 0; default disabled; safe-mode a nivel mensaje.
+- **Commit:** 462488e9
+
+### SRV-06: JWT HS256 offline (plan 2026-09-10-code Wave2)
+- **Fecha:** 2026-09-10
+- **Objetivo:** DISCOVERY arch + MVP auth (OIDC discovery DEFER vía ADR-0039).
+- **Resultado:** ✅ server 58/58 + auth 3/3 + rotation/rbac 13/13 + server 42/42 + clippy/fmt 0; race git-add paralela revertida.
+- **Commit:** a0a3087f (+ADR-0039)
+
+### PRX-09-wiring: verificada ya-implementada (sin cambios)
+- **Fecha:** 2026-09-10
+- **Objetivo:** confirmar wiring `with_embedder` tras PRX-11-slice3.
+- **Resultado:** ✅ hunk intacto en server.rs:127-138 + prx09 6/6 + suites 0 failed + clippy/fmt 0; cero ediciones.
+- **Commit:** 2c97d911 (pre-existente)
+
+### FIND-65: checked_sub en test TTL de vanta-proxy (solo test)
+- **Fecha:** 2026-09-15
+- **Objetivo:** test ttl_expiry_predicate paniqueaba con uptime <2.7h (Instant - 10_000s); fix con checked_sub + sleep/TTL diminuto, prod elapsed() intacto.
+- **Resultado:** ✅ suite cache 18/18 + fmt OK + clippy vanta-proxy 0 warnings (clippy -D global bloqueado por dead_code pre-existente txn.rs:158 → FIND-93).
+- **Commit:** 432eee45 (3 files: cache.rs test + task file + Backlog)
+
+### FIND-71: embeddings peso + verify smoke + sizes re-medidos
+- **Fecha:** 2026-09-15
+- **Objetivo:** ALLOW_PATTERNS global traía *.bin+*.safetensors (3-4× lo declarado); verify_model dummy sin documentar; sizes README por re-medir; lock sin validación repo/rev.
+- **Resultado:** ✅ base recortada (sin *.bin) + MODEL_PATTERNS/get_allow_patterns por modelo; --check --only 9/9 verde + tamper-lock detectado; smoke documentado (docstring + verify.log + README); sizes = manifest (253/170/878/2200/941/1079/691/3470/16000MB); download --check + verify --check + py_compile + diff-check verdes offline; review vanta-review approve.
+- **Commit:** 94c94f25 (4 files: download.py, verify.py, README.md, docs/dev/tasks/FIND-71.md)
+
+### FIND-67: QUICKSTART a 0.5.0 (+ legacy `WANTA_*`)
+- **Fecha:** 2026-09-15
+- **Objetivo:** puerta de entrada veraz ×4 (boundary 0.5.0, wheel `./dist/vantadb_py-0.5.0-*.whl`, `VANTADB_*`, last_reviewed) + HALLAZGOS inline (`db.search`, nota audit/rebuild).
+- **Resultado:** ✅ 23L/6 hunks + revalidación literal (put/get/list/search/export/audit/verify) + coverage 0 gaps; review trio approve.
+- **Commit:** b5d9b3f8
+
+### FIND-72: CLI argparse + pins + WinError32 en benches py
+- **Fecha:** 2026-09-16
+- **Objetivo:** `--help` exit 0 sin correr benches (defaults exactos preservados) + floors 7 deps + 8 `rmtree` con `ignore_errors` + notas WinError32.
+- **Resultado:** ✅ py_compile 0 + diff-check + OCR 0 Critical/High + `/cleanCA` 0 🔴; review approve.
+- **Commit:** 107550d8
+
+### FIND-74: requirements + enlaces + decisión TS
+- **Fecha:** 2026-09-15
+- **Objetivo:** `vantadb-py>=0.5.0` + 1 línea QUICKSTART→examples + 1 fila README→demo/colab + decisión TS (referenciar `vantadb-ts/examples/`, no mover); hunks FIND-67 intactos.
+- **Resultado:** ✅ diff-check + coverage 0 gaps + OCR sin Critical/High; review P2-01 approve.
+- **Commit:** 5e428aea
+
+### FIND-81: higiene `vantadb-server/` (artefactos + README)
+- **Fecha:** 2026-09-15
+- **Objetivo:** resto probado (writer-only + mtimes stale + exe vivo con `--db` distinto) → borrados locales + README 5L; `.gitignore` ya cubría (no editado, ponytail).
+- **Resultado:** ✅ check server 0 warnings + diff-check + hooks; review trio approve.
+- **Commit:** 9713eb54
+
+### EMB-11: asistente de instalación embeddings con defaults + ORT nativo ≥1.27
+- **Fecha:** 2026-09-16
+- **Objetivo:** wizard `setup-embeddings.ps1` (`-NonInteractive` todo por default: local + e5-small; interactivo Enter=auto) + ORT 1.30 en store persistente + `ORT_DYLIB_PATH` en sesión; secrets nunca a disco.
+- **Resultado:** ✅ NI exit 0 + `download.py --check` verde + rerun idempotente + secrets audit 0 findings + OCR sin Critical/High; review P2-01 approve.
+- **Commit:** a3c4d903
+
+### EMB-12: script lanzador MCP con env explícito + smoke dim==384
+- **Fecha:** 2026-09-16
+- **Objetivo:** `vanta-mcp-local.ps1` (params `-DbPath` mandatory + env sesión + ORT autodetect + arranque `server --mcp --db`).
+- **Resultado:** ✅ smoke vivo `initialize` OK + `tools/list` 79 + `embed_texts` dim==384 + stdout stdio puro (fix Write-Host→stderr) + secrets audit CLAIM sostenido; review P2-01 approve.
+- **Commit:** f80b9886
+
+### CODEX-131: compose con loopback por defecto + auth documentada
+- **Fecha:** 2026-09-19
+- **Objetivo:** `docker-compose.yml` bind no-loopback sin key = contenedor muere antes del healthcheck (Codex P1).
+- **Resultado:** `VANTADB_HOST=${...:-127.0.0.1}` + auth documentada sin secretos (footgun `Some("")` verificado, sin key por defecto); P2-01 approve.
+- **Commit:** e0e74673 (rebase de 5b871993)
+
+### EXE-03-prep: kit gate Fase A listo
+- **Fecha:** 2026-09-19
+- **Objetivo:** checklist + plantilla usuario-01 + README honesto (desbloqueador del anuncio, ejecución humana owner-side).
+- **Resultado:** `docs/FASE-A.md` (checklist 5 familias + usuario-01 + auditoría README + handoff); coverage 0 gaps; P2-01 lead-docs approve (verificación abajo).
+- **Commit:** 0a33a73e
+
+### Notion N-01/N-02/N-04/N-05/N-06 (sincronización con código 0.6.1)
+- **Fecha:** 2026-09-24
+- **Objetivo:** backlog-notion N-01/02/04/05/06 aprobados por owner (N-03 sigue bloqueado por gate Fase A; N-07..N-11 diferidos).
+- **Resultado:** ✅ SDKs-Plan00 (0 refs vieja API; nota migración corregida contra test_subclients AST-012) + api-reference (título v0.6.1) + Plan03 (tweets intactos, PROPUESTA intacto) + Roadmap (changelogs a hitos/criterios, v0.6.1 real, v0.5.1 no-publicada, sin ✅ sin release) + Propuesta (MCP 87, Python 48 en Client, skill_extract REAL vs extract_skills PROPUESTA) + Benchmarks (13/13 secciones redactadas, 0 pendientes, links verificados labelstud/Awesome-GraphMemory).
+- **Filas removidas de backlog-notion.md:** N-01, N-02, N-04, N-05, N-06.
+
+### Pipeline RUN plan estabilizacion-pendiente (FASE 1+2, 2026-09-24)
+- **Plan:** docs/dev/plans/2026-09-24-estabilizacion-pendiente.md (EST-01..12).
+- **Ejecutado:** EST-01 pin setup-python v7.0.0 + EST-02 ollama tests a Client/memory.* + EST-04 GOTOOLCHAIN go1.27.0 + lurkr skip sin .opencode + EST-03 ci-gate head-SHA (aprobado owner) + EST-06 dismiss #110 + EST-07 dismiss 82 test-log + EST-08 SARIF 404/time-box + EST-11 veredicto (release-npm-node.yml tags node-v*, OIDC).
+- **Resultado:** code-scanning 83 OPEN -> 0; commits bcd62115 + 5128c2bc + 9705b434.
+- **Pendiente:** EST-05 (verde en proximo run PR), EST-09 post-merge, EST-10 barrido, EST-12 puertas owner.
+- **Actualización 2026-09-25:** EST-05 ✅ + EST-09 ✅ + EST-10 ✅ + merge #222/tag `v0.7.0`/publish ✅ → pendiente solo EST-12 (FASE-A + R-05, owner). Detalle: `docs/dev/avance/activo/ci-cd.md`.
+- **Nota:** commit bcd62115 arrastro plan ajeno api-estandarizacion.md (paralelo, se deja intacto); su task API-STD-01.md queda untracked ajeno.
+
+### EST-10: barrido API stale en superficies vivas (pre-0.5.0 → canónica)
+- **Fecha:** 2026-09-24
+- **Objetivo:** Migrar referencias a la API Python pre-0.5.0 (`VantaDB(`, `search_memory`, `get_memory`/`list_memory`/`delete_memory`, `AsyncVantaDB`) en superficies vivas: docs/user (glosario/operations/blog/learning), READMEs, `docs/api/PYTHON_SDK.md`, docs/dev/{vision,graphrag,architecture,operations,strategy}, skills, benches no-CI, evals, dev-tools.
+- **Resultado:** ✅ ~230 reemplazos en ~75 archivos vivos → canónica (`Client`, `db.search`, `db.memory.get/list/delete`, `search_vector`, `AsyncClient`) + imports `vantadb_py`→`vantadb` (42) + fixes reales: `migrate/chroma.py`|`lancedb.py` `VantaDB(`→`Client(` (NameError latente), `validate_doc_snippets.py` (import + paths C-02), nota de naming falsa en README, tabla Cross-SDK en `vantadb-ts/README.md`, sección `Client` en api-reference, sección `search()` node-level de PYTHON_SDK → híbrida, cajas ASCII re-alineadas. `py_compile` 0 errores; coverage 0 gaps; skills mirror hash-SAME; históricos/MCP-scope intactos (lista de exclusión en el task file); 15 archivos legacy CRLF normalizados a LF (gitattributes). Verificación: `git grep` final solo con hits intencionales (wheels `vantadb_py-*.whl`, paths `vantadb_py.migrate`, notas de migración, guard AST-012).
+- **Commit:** b461c9e8
+
+### EST-05: verificación benchmark verde post-fix (perf-bench + API Docs) + review P2-01
+- **Fecha:** 2026-09-24
+- **Objetivo:** Confirmar `benchmark` (perf-bench) y `Check API Docs Version` verdes tras los fixes de la ola EST.
+- **Resultado:** ✅ `benchmark` success en runs `36040468608` (EN el commit del fix `4b5b137e`) y `36086858245` (head `b461c9e8`); `Check API Docs Version` pass sobre PR head `3bbfbe45`. **Hallazgo del review:** el gate de regresión de perf-bench está **INERTE** (baseline vacío desde 2026-08-12 → compare warning+exit 0) → `FIND-153` creado (activar con `workflow_dispatch update_baseline=true`). Review P2-01 por `vanta-review`: ronda 1 ❌ (1C+1R+1O+~4N) → ronda 2 ❌ (FIND-153 sin registrar) → **ronda 3 ✅ APPROVE**. `campaign_verify_cmd` passed=true.
+- **Commit:** (este commit)
+
+### C-10: cierre README (paridad ES/EN + badges)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Cierre total de paridad README tras C-02.
+- **Resultado:** ✅ 4 fixes en `README_ES.md` (colab `blob/main`→`blob/develop`; fila "Ejecutar ejemplos ejecutables"; nota ADR-0047; **Trust block traducido** + nota "Fuente vigente" reubicada a §2 para paridad estructural con EN); verify v3 `campaign_verify_cmd` passed=true (0 missing links md+HTML, 0 badge drift shields.io, paridad ES/EN excl. switcher, colab positivo+negativo, Trust OK). Review P2-01 ✅ ronda 3 (ronda 1: badge-check muerto + Trust ausente; ronda 2: falso positivo del switcher → fix v3).
+- **Commit:** ac46911d (+02e7d32a docs)
+
+### WIRE-01: Loop de memoria del proxy + cost real + presupuesto de inyección
+- **Fecha:** 2026-09-25
+- **Objetivo:** cerrar loop inerte (namespaces disjuntos) + output_tokens real + tope del bloque `<vanta-memory>`
+- **Resultado:** ✅ dual-write L1 + cost en path buffered + `InjectionConfig.max_tokens` (2000, 0=off); pivot A→B por evidencia (3 fallos PRX-09 por claves inestables); lead verify independiente; P2-01 vanta-review approve
+- **Commit:** 679c75a9
+
+### WIRE-10: Distribución P0 — install.sh macOS, Colab a Client, mcp-call + hooks sin pwsh
+- **Fecha:** 2026-09-25
+- **Objetivo:** promesa "1 comando" rota en macOS + puerta Colab rota + hooks mudos sin pwsh (C5/C9/C12)
+- **Resultado:** ✅ install.sh fallback `command -v sha256sum || shasum -a 256` + normalización formato asset (fail-closed); notebook a `from vantadb import Client` + `db.search`/`db.memory.*` ejecutado e2e; `vanta-cli mcp-call` one-shot (JSON-RPC stdio, exit 0/1/2, placeholders `{{}}` stdin) + templates hooks 1.1.0 (memory_recall verbatim, reminders estáticos); P2-01 changes-required→aplicado (truncate UTF-8, reap zombie)
+- **Commit:** 8e55e853
+
+### WIRE-11: `llm-driver` always-on en MCP/proxy
+- **Fecha:** 2026-09-25
+- **Objetivo:** provider ollama/openai decorativo en silencio → funciona o falla con mensaje claro
+- **Resultado:** ✅ 2 líneas Cargo (MCP + proxy) + test `llm_driver_fails_loud_on_unreachable_endpoint`; reqwest v0.12.28 única (dual TLS = patrón workspace); lead verify 1/1; P2-01 vanta-review approve
+- **Commit:** 84cb2d19
+
+### Notion N-17: sync páginas VantaDB Docs (2026-09-30)
+- **Fecha:** 2026-09-30
+- **Objetivo:** aplicar los borradores de `docs/dev/strategy/NOTION-SYNC-2026-09-24.md` (10 páginas + higiene) — aprobación owner via question.
+- **Resultado:** ✅ 9 páginas actualizadas (append, sin borrados): Problema · Propuesta · Roadmap · SDKs · Benchmarks · Seguridad · Observabilidad · Gobernanza · Casos de uso + `Definición oficial` creada (`3ebd0445-9756-81bb-a6f2-c3b67157b866`) + higiene (3 duplicados archivados) + verificación reviewer + link fix. **Sync #2 (mismo día):** validación externa del marco — 6 páginas (áreas/Problema/dims/Propuesta/ámbitos/PI) con notas + 2 calificaciones inline, verificadas 6/6 + 2/2 (`NOTION-SYNC-2026-09-24.md` §14).
+- **Filas removidas de backlog-notion.md:** N-17.
+- **Commits:** `bc4958cd` (N-17) · `b9d1e459` (Sync #2).
+
+### Auditoria de backlogs + rescates OLD (2026-09-30)
+- **Movidas a Backlog-negocio:** STRAT-01/02/03/07, DX-10, FASE-A/R-05 (consolida EXE-03+EST-12) + BIZ-14/15.
+- **Promociones a Backlog:** FUT-03/FUT-07 -> P28; FUT-17..23 anadidos a backlog-futuro; FIND-208..212; MKT-19; RES-16.
+- **Rescates OLD:** DECISIONS-NOT-TAKEN (registro de descartes) + 7 archivos historicos (archive/) + tutorial 06 LM Studio + 5 tipos de contexto.
+- **Commits:** 3ff933a5, d7861c3a, 3b8d9727 (+ este).
+
+### Migración de formato de backlogs + auditoría PDFs OLD (2026-09-30)
+- **Fecha:** 2026-09-30
+- **Objetivo:** unificar los 4 backlogs al esquema canónico de 10 columnas (`ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias`) + eliminar filas completadas + registrar los 15 candidatos de la auditoría PDFs OLD + actualizar los consumidores del formato en `.opencode/` (task-system, comandos, skills).
+- **Resultado:** ✅ esquema 10-col en `Backlog.md` / `Backlog-negocio.md` / `backlog-futuro.md` / `backlog-notion.md` (spec canónica: `.opencode/references/backlog-format.md`); filas completadas eliminadas (campaña F0–F6 + previas); secciones cerradas → notas de cierre; FIND-213..220 + BIZ-16/17 + FUT-24/25 registrados; nota de procedencia de los PDFs en `docs/dev/archive/PDFS-OLD-AUDITORIA-2026-09-30.md`; `.opencode/` actualizado (Gate H: cambios requeridos → aplicados).
+- **Commits:** (+ este) · `.opencode`: commit propio (repo separado).
+
+### Verificación de realidad del backlog (2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** validar cada ítem del backlog contra el código HEAD (7 sub-agentes en paralelo, read-only): campos, referencias file:line, vigencia del gap, estado.
+- **Resultado:** ✅ ~276 ítems verificados (DELTA 49 · FIND 62 · P24–P59 ~60 · negocio 34 · futuro 22 · notion 26). **8 filas cerradas** (stale/implementadas): `DX-11` · `FIND-138` · `FIND-170` · `FIND-171` · `UX-08` · `UX-11` · `SHOW-03` · `HIG-02`. **~40 correcciones aplicadas** (evidencia con números/líneas actualizadas, rutas `web/`→`ness-e/Vantadb-web`, residuales re-scopeados). Hallazgos para owner (resueltos 2026-10-01): `WIRE-01/09` ✅ verificados (commits `679c75a9`/`6a0f6934`; registrados en avance — sin fila por diseño); `GOV-TK5` → renombrado `GOV-05`.
+- **Commits:** (+ este)
+
+### FIND-176: wizard ORT_DYLIB_PATH al archivo (4 sitios) + test de regresión
+- **Fecha:** 2026-10-01
+- **Objetivo:** El wizard dejaba `ORT_DYLIB_PATH` apuntando al DIRECTORIO del store (`ort` carga un archivo → embeddings en dummy). Fix en 4 sitios + normalización del path pre-seteado.
+- **Resultado:** ✅ RED→GREEN 4→8 PASS (script `dev-tools/scripts/test-find176-wizard-ort-dylib.ps1`) · LoadLibraryExW A/B (126 vs 0) · gates docs 0.
+- **Commit:** 3ae64a7d (local, sin push)
+
+### Lista de congelados hasta 1.0 — aprobada (owner 2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** cerrar el alcance hasta 1.0 con lista cerrada (no criterio): superficies activas vs congeladas, whitelist de features nuevas, umbrales técnicos y de uso.
+- **Resultado:** ✅ publicada en `docs/user/operations/EXPERIMENTAL_FEATURES.md` §Freeze List until 1.0 (34 componentes aprobados 1×1 por el owner; ajustes: proxy congelado sin publicar hasta 1.0.0 · server = host del scheduler + starter para embedders · Studio reducido a visor · 3 conectores activos).
+- **Commits:** (+ este)
+
+### Case studies no verificados — registro eliminado (C5, owner 2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** cerrar C5: destino final de los 2 case studies ficticios (documentos ya purgados en `00ee1ba2`; quedaba solo el README del archivo).
+- **Resultado:** ✅ decisión owner: eliminar también el registro (`docs/dev/archive/case-studies-unverified/`) + refs actualizadas. El caso real llegará vía CLD-04 (enterprise pilot).
+- **Commits:** (+ este)
+
+### DX-12: Instalador/wizard como selector de módulos (enable/disable por componente)
+- **Fecha:** 2026-10-04
+- **Objetivo:** UX de entrada del producto: selección por componente (7 módulos con estado installable/frozen) + ambos caminos (interactivo/no-interactive) + idempotencia.
+- **Resultado:** ✅ Wizard (`setup-embeddings.ps1`) con tabla de módulos + `-Modules <csv>`/`none`; gating real por módulo (MCP, TOML proxy, modelo/ORT, providers); frozen no finge soporte; disable = no re-escribir, nunca borrar. `install.ps1`/`install.sh` con pass-through + fix de honestidad (exit code del wizard ya no se enmascara como "✅"). Smoke completo: ambos caminos, `-Modules mcp,server`/`none`/desconocidos, idempotencia (hash-estable), dry-runs PS7+PS5.1+sh. Review P2-01: ronda 1 changes-required (High: coerción `[string]$Modules` en sesión) → fix → APPROVE.
+- **Commit:** 9e211d10 (local, sin push)
+
+### WIRE-14: Seam de host aditivo en el arranque (`run_with_hooks` + `BackgroundService`)
+- **Fecha:** 2026-10-05
+- **Objetivo:** ADR-0054 T1 — seam aditivo en el core que permite al host (`vantadb-server`) inyectar `ConversationTrigger` + servicios de fondo con parada graceful; prerequisito de WIRE-15/16 (el core no puede depender de `vanta-memory`).
+- **Resultado:** ✅ `ServerHooks { conversation_trigger, background_services }` + `Default` inerte; `run_with_hooks(config, hooks)` aditivo (`run` delega con defaults, firma intacta); trait `BackgroundService` dyn-safe (futuro boxeado) + impl `MemoryTtlSweeper` (el sweeper se joinea por la vía genérica); parada graceful post-run-loop (espejo TTL sweeper, Drop best-effort documentado); tests: fake spawn/join determinista (watch + join) + facades + defaults pinneados. Verify: suite `-p vantadb --features server` 2675/2676 (único timeout = flake de carga pre-existente `concurrent_insert_preserves_hnsw_invariants`, re-corrido aislado ✅) + clippy/fmt/check-sin-server verdes. Review P2-01 `vanta-review` APPROVE (0C/0H/0M). Habilita WIRE-15/16.
+- **Commit:** b5d294d2 (feat, local sin push) + 4448788b (docs task)
+
+### WIRE-15: Servicio scheduler en `vanta-memory` (`run_pass` + loop con shutdown)
+- **Fecha:** 2026-10-05
+- **Objetivo:** ADR-0054 T2 — el crate de lógica aporta el pass pull-based (`run_pass` = timers + worker + reclaim, cero lógica de pipeline nueva) + loop helper feature-gated con parada graceful; WIRE-16 solo cablea el driver.
+- **Resultado:** ✅ `services/scheduler.rs` nuevo: `run_pass` (TimerScanner → `l1_idle:` a L1 + `PipelineWorker::run_once` + `reclaim_stale`; reusa `MemoryTaskHandler` con defaults y cadencia L3 50) + `MemoryScheduler`/`spawn_memory_scheduler` (feature `http-server`; espejo `MemoryTtlSweeper`: watch + join + Drop best-effort — handoff WIRE-14 Low-1) + impl `BackgroundService` (seam WIRE-14, UFCS al inherent); factory `Fn() -> Option<R>` por pass (FIND-112) con skip observable sin runner (P4: tareas quedan encoladas, nunca bloquea); pass en `spawn_blocking`; single-writer documentado. Verify: suite `-p vanta-memory --features http-server` 676/676 (8 tests nuevos) + default 668/668 + `cargo check` default (sin uso de Tokio) + fmt/clippy 0. Review P2-01 `vanta-review` APPROVE (0C/0H/0M; Lows/NITs aplicados). Habilita WIRE-16.
+- **Commit:** 1d5e1697 (feat, local sin push) + 9c881047 (docs task)
+
+### WIRE-16: Wiring del wrapper `vantadb-server` (queue + bridge + loop)
+- **Fecha:** 2026-10-05
+- **Objetivo:** ADR-0054 T3 — `vantadb-server` como host del scheduler de memoria: cierra el residual MEM-55 (el puente existía y no estaba cableado); consume las superficies WIRE-14/15 (seam + servicio).
+- **Resultado:** ✅ **Seam core aditivo**: `ServerHooks::on_storage_ready` (clon del `Embedded` del server post-open — single-writer: un segundo open del mismo path es `DatabaseBusy` y un segundo handle partiría audit/purge/supersede locks; evidencia dura en DISCOVERY); `run`/`run_with_hooks` firma+comportamiento intactos, defaults inertes, `ServerState` sin cambios. **Host**: dep directa `vanta-memory` (`http-server`+`llm-driver`); módulo `scheduler` (`VANTADB_SCHEDULER_INTERVAL_MS` default 60s/0=off; superficie runner FIND-112; degradado → `None` = skip P4 sin quemar tareas; bridge siempre cableado); `main` cablea solo HTTP mode (writer) con guard `read_only`; seam WIRE-14 re-exportado. **Tests**: 4 e2e (POST→L0→pass→l1 vía `run_with_hooks`; restart L0/L1 + cola efímera; disabled sin loop; sin runner skip) + pins core + unit. Verify: `-p vantadb-server` audit 12/12 + bins excluidos 39/39 + `-p vantadb --features server` 2678/2678 + check default + fmt/clippy×2 + delta build 6.9s. Review P2-01 `vanta-review` APPROVE (0C/0H/0M; Low-1/Optional-1/NITs aplicados; Low-2 → FIND-291). **Colateral bloqueante resuelto**: HEAD no compilaba `vantadb-mcp` (E0063 `core_search`, gap verify scoped de MEMG-11) → `c05cd77d`. Habilita WIRE-17.
+- **Commit:** 679b3545 (feat, local sin push) + c05cd77d (fix mcp colateral) + ac012bd6 (docs task)
+
+### WIRE-17: Docs del scheduler (wired status + promoción del rol)
+- **Fecha:** 2026-10-05
+- **Objetivo:** ADR-0054 T4 — documentar el scheduler cableado (post WIRE-16): wired status en `VANTA_MEMORY.md` §Operational modules + promoción acotada del rol en `EXPERIMENTAL_FEATURES.md` (Scope Budget); dependencia dura WIRE-16 cumplida.
+- **Resultado:** ✅ `VANTA_MEMORY.md`: fila `conversation_hook` → wired por `vantadb-server` HTTP mode (writable — read-only skips el wiring) + fila/párrafo nuevos `services::scheduler` (pass pull-based `run_pass` + loop opt-in `VANTADB_SCHEDULER_INTERVAL_MS` 60000/0=off; runner FIND-112; skip P4; single-writer; MCP diferido) + 2 claims stale corregidos (decay/reflection leían WIRE-15 como futuro). `EXPERIMENTAL_FEATURES.md`: promoción del rol (filas :33 host resolved / :38 rol promovido acotado — **labs se mantiene, no thaw general** / :53 watchlist / :76 Freeze list / :144 claim `conversation_trigger: None` eliminado / :170 dream sin producer) + revision note. Gates: `check-links`/`check-docs`/`gen-index --check`/`validate-docs-coverage` exit 0 + markdownlint 0. Review P2-01 **adversarial** (HARD-02: `docs/api/**`) `vanta-review` APPROVE (0C/0H/0R; Low-1 aplicado; Low-2 dispensa+coordinación; NIT-1 aplicado; NIT-2 dispensado; out-of-scope → FIND-292). Cierra T4 de ADR-0054 (cadena WIRE-14→17).
+- **Commit:** 75bd5da8 (docs, local sin push) + 20199096 (docs task)
+
+### WIRE-18: Verificación adversarial del scheduler (crash mid-pass + restart)
+- **Fecha:** 2026-10-05
+- **Objetivo:** ADR-0054 T5 — cerrar la cadena WIRE-14→17 con la verificación adversarial del scheduler: crash mid-pass determinista + restart → DB íntegra, sin doble procesamiento corrupto, cola re-encolable desde L0 persistido; review P2-01 por agente distinto.
+- **Resultado:** ✅ `vanta-memory/tests/scheduler_crash.rs` (test-only, 0 producción): (1) crash mid-pass con hook determinista (panic del runner, no timing — pre-mortem 1) sobre Fjall real + drop sin close → reopen: L0/L1 pre-crash record-idénticos (full `MemoryRecord`), cola efímera (nueva vacía), re-encolado desde L0 → crash-b completa y la re-entrega de crash-a NO duplica (judge dedup skip); segunda reconstrucción no-op; (2) reclaim in-process: claim huérfano tras panic se reclama al expirar el lease (MEM-66) sin pérdida. RED-equivalente por mutación (skip→store → FAIL left:2/right:1, revertido). Verify: focused 2/2 ×6 + suites `-p vanta-memory` 670/670 y `--features http-server` 678/678 + fmt/clippy×2/check. Review P2-01 `vanta-review` APPROVE (0C/0H; Medium de cierre → FIND-293; Low-1 full-record aplicado; Low-2 coordinación; NITs aplicados). Cierra T5 (cadena WIRE-14→18).
+- **Commit:** 95cdb2ce (test, local sin push) + b65ae6d0 (docs task)
+
+### MEMG-14: Marco 2.0 — núcleo + extensiones (reformulación del marco 8/6/10/PI)
+- **Fecha:** 2026-10-05
+- **Objetivo:** reformular el marco 8/6/10/PI como "núcleo + extensiones" tras la validación externa 2026-09-30 (7 sub-decisiones a-g del Backlog); respaldo del marco en repo + registro de validaciones + cadencia anual + draft de sync Notion (contrato plan Task 60 L1734, F5).
+- **Resultado:** ✅ research-doc `docs/dev/research/memg-14-marco-2.0.md`: §1 respaldo núcleo (D1-D8/C1-C6/AM1-AM10/PI; anclas `SPEC.md:9` + `Backlog.md:776` + IDs Notion + marcas `[a verificar — Notion]`); §2 reformulación (a)-(g) mapeable 1:1 a `Backlog.md:140`; §3 registro de validaciones externas (dream/bitemporal/grafo/erasure/interop); §4 cadencia anual; §5 draft de sync (6 páginas, pendiente lane owner); §6 límites. Fuentes 11/11 fetch-verificadas (TSYS-13; arXiv 2604.16548 confirma 6 fases con Share y Forget/Rollback; W3C CG charter v1.0; DAMA-DMBOK). Gates docs 4/4 verdes (check-links 0 / check-docs clear / gen-index / coverage 0 gaps). Review P2-01 vanta-review tier Fast: ronda 1 changes-required (R-1 transitorio de índice por WIP ajeno MEMG-15 declarado; R-2 ancla corregida) → ronda 2 APPROVE. OCR delegation: N/A (diff docs-only; los archivos code reviewables del árbol son WIP ajeno). **Deuda declarada:** aplicación del sync Notion (lane owner) + R-1 pre-push (secuenciar MEMG-15).
+- **Commit:** 21939b6f (docs research, local sin push) + commit de cierre docs(avance)
+
+### MEMG-18: Multimodalidad — decisión + spec (extensión transversal vs 9ª dimensión) (master plan 0.9.0 F5, Task 62)
+- **Fecha:** 2026-10-06
+- **Objetivo:** documentar la decisión multimodal (extensión de modalidad transversal vs 9ª dimensión) + spec mínima (contenido multimodal en episódica/semántica + embeddings multimodales) + trigger de reevaluación refinado con evidencia 2026; sin implementación (contrato plan Task 62 L1790, F5).
+- **Resultado:** ✅ research-doc `docs/dev/research/memg-18-multimodalidad.md`: §1 decisión (A extensión transversal elegida / B 9ª dim rechazada / C almacén dedicado ya descartado; alcance v1.0 intacto); §2 evidencia 2026 multi-fuente (2.1 surveys arXiv 2602.06052/2512.13564 + MIRIX 2507.07957; 2.2 competidores Mem0/Cognee/Letta — patrón transversal; 2.3 embeddings jina-clip-v2/Voyage); §3 spec mínima anclada en `MemoryInput`/`MemoryRecord`/`MemoryExportLine` + trait `Ingestor`; §4 trigger refinado (MGR-25 + caso + prerrequisito de embedder); §5 límites. Fuentes 9/9 fetch-verificadas (TSYS-13) + re-verificadas por el reviewer. Gates docs 4/4 verdes (check-links 0 / check-docs clear / gen-index / coverage 0 gaps). Review P2-01 vanta-review tier Fast: ronda 1 APPROVE (O-1/N-1/N-3) + delta re-review (profundización multi-fuente; O-2/N-2 aplicados) → APPROVE final. OCR delegation: N/A (diff docs-only; reviewables = WIP ajeno MEMG-15). Trigger refinado propagado a FUT-15 (`backlog-futuro.md:28` + `Backlog.md:520`) + pointer en `memg-14-marco-2.0.md` §2.2. **Deuda declarada:** ninguna nueva (el alcance v1.0 sigue cerrado; implementación espera al trigger).
+- **Commit:** 789aeb23 (docs research, local sin push) + commit de cierre docs(avance)
+
+### MEMG-15: Portabilidad/interoperabilidad — mapeo de frontera + export con integridad verificable (master plan 0.9.0 F5, Task 61)
+- **Fecha:** 2026-10-06
+- **Objetivo:** mapeo/adopción de formatos de frontera (AGENTS.md / MCP memory / drafts IETF-W3C) documentado + export con checksum/firma (mecanismo decidido en DISCOVERY) + versionado/migración de formatos; spec + slice mínimo verificable (roundtrip export→import con integridad) (contrato plan Task 61 L1762; stop L1764).
+- **Resultado:** ✅ **Slice (SDK+CLI):** export JSONL escribe manifest sidecar determinista `<path>.manifest.json` (sha256 de los bytes exactos + records/namespaces + límites declarados estilo VER-02) + `ExportReport.{sha256,manifest_path}` (aditivos `#[serde(default)]`) + `Embedded::verify_export_integrity` (no claim-driven: `ok`/`mismatch`/`no_manifest`/`Err`; hashing streaming 64 KiB; guard de formato) + `vanta-cli export` con el mismo manifest vía helper compartido + Python expone las 2 claves del report. **Docs:** `MEMORY_INTERCHANGE_FORMAT.md` §Integrity manifest + §Versioning and migration + §Frontier formats (2026-10-05 survey: AGENTS.md/MCP/AAIF/AIMEM/ALF/AMP/W3C CG/SAIHM/Portable Agent Memory/memorywire + baseline de industria Major Labs 0/6) — profundización multi-fuente (owner rule 2026-10-06): 13 fuentes fechadas fetch-verificadas (AMP con URL corregida; SAIHM = home normativo del CG). **Firma criptográfica NO sancionada → FIND-309** (dos direcciones: COSE_Sign1/ML-DSA-65 y Merkle-DAG) + FIND-310 (exposición bindings/MCP/TS + refactor `cmd_export`) + FIND-311 (conversores AGENTS.md/AMP/ALF). Tests 7/7 nuevos (RED→GREEN; corrupto/ajeno/ausente → Err sin panic); lib 2363/2363 (`--test-threads 2`; 1 timeout por carga en test HNSW ajeno, re-run aislado ✅), cli 95/95, export suites 68/68, memory_export_import 10/10; clippy all-targets all-features ✅; gates docs 4/4. Review P2-01 vanta-review (tier adversarial): R1 changes-required (staging WIP ajeno + O1/O2 Low) → fixes → R2 **APPROVE**. OCR delegation: 13 archivos, 2 mejoras aplicadas (verify streaming, buffer reutilizable). **Deuda declarada:** FIND-309/310/311.
+- **Commit:** 55b9a532 (feat sdk, local sin push) + commit de cierre docs(avance)
+
+### MEMG-19: Prospectiva + descartes documentados (sensorial/emocional) (master plan 0.9.0 F5, Task 63)
+- **Fecha:** 2026-10-06
+- **Objetivo:** documentar (a) la prospectiva/intencional como patrón de uso (working+temporal+procedimental; **no almacén**) con benchmarks de referencia (PM-Bench/TriggerBench) y (b) los descartes sensorial-como-almacén y emocional/motivacional con respaldos fetch-verificados + criterios de revisión (emocional: re-evaluar en 6-12m) — contrato plan Task 63 L1818, F5; grep del repo > 0 para ambos.
+- **Resultado:** ✅ research-doc `docs/dev/research/memg-19-prospectiva-descartes.md`: §1 prospectiva como patrón de uso (definición PM-Bench + decisión no-almacén con fundamento 4 puntos + 4 capas ancladas en código — working `mmd.rs`/`task_checkpoint.rs`, temporal `record.rs` SCH-02/03, procedimental `MemoryType::{Instruction,WorkTask,WorkMethod}`, disparo `auto_recall`/scheduler — + 3 benchmarks con cifras: PM-Bench 65.1% F1 máx, TriggerBench PM≠RM, Proactive Memory Agent +8.3pp/+6.8pp); §2 descartes (sensorial: Mem0 raw input buffer/survey 2602.06052/MIRIX/MEMG-18 §2.1; emocional: MemEmo "ningún sistema robusto"/PsychoAgent sin significancia/survey 2511.20657; registro auditable §2.3 con criterios — ventana emocional 2027-03-30→2027-09-30); §3 límites; §4 fuentes. Fuentes 9/9 fetch-verificadas (TSYS-13; 8 arXiv + Mem0) + re-verificadas en vivo por el reviewer. Gates docs 4/4 verdes (check-links 0 broken / check-docs GATING clear / gen-index --check / coverage 0 gaps); grep contrato: sensorial=10 · emocional=10 (>0). Review P2-01 vanta-review tier Fast: **APPROVE** (0 Required; O-1/N-1/N-2 aplicados; N-3 informativo; N-4 cumplido al cierre). OCR delegation: N/A (diff docs-only; reviewables del árbol = WIP ajeno). Pointers: memg-18 §1.1(C)/§3.8 + memg-14 §2.2/§2.7 (descartes + estado). **Deuda declarada:** ninguna nueva (descartes documentados; prospectiva no normativa, sin wiring especulativo).
+- **Commit:** (docs research, local sin push) + commit de cierre docs(avance)
+
+### STRAT-06: Research licencias (Khoj/Jan/Reor/OpenWebUI/Letta) + ACV OSS DBs (master plan 0.9.0 F0, Task 66)
+- **Fecha:** 2026-10-06
+- **Objetivo:** research doc con licencias comparadas del grupo local-first AI (Khoj/Jan/Reor/OpenWebUI/Letta) + OSS DBs relevantes y ACV/bands de OSS DBs con fuente por número (o marcado "modelado") + implicaciones para el modelo open-core/OEM; fuentes citadas (contrato plan Task 66 L1895); sin implementación.
+- **Resultado:** ✅ research-doc `docs/dev/research/strat-06-licencias-acv-oss.md`: §1 licencias fetch-verificadas 2026-10-06 (Khoj AGPL-3.0 + **Khoj Cloud sunset 2026-04-15** — aviso oficial con razones de secuencia cloud-first; Jan Apache-2.0, 6.8M+ downloads; Reor AGPL-3.0 **archivado** 2025; OpenWebUI "Open WebUI License" — BSD-3 + branding clause v0.6.6, no-OSI, enterprise license, CLA; Letta Apache-2.0, $20 Pro; OSS DBs: ClickHouse/Qdrant Apache-2.0, Turso MIT, **Weaviate split BSD-3 + `wl/` enterprise (cambio detectado vs precedente)**, Neo4j GPL-3.0, MongoDB SSPL, Elastic/Redis AGPL); §2 ACV con fuente por número + columna `tipo` (dato/reportado/modelado): ClickHouse >$350M ARR (reportado, ago-2026), Supabase $70M→~$170M (est. Sacra), MongoDB 2,999 ≥$100k / 402 ≥$1M (SEC 10-Q, jul-2026), Elastic 1,800+ ≥$100k ACV (earnings Q1 FY27), Neo4j >$200M (oficial nov-2024), Redis >$300M / 12k pagos / 50+ >$1M (oficial ene-2026) + bandas `modelado (derivado)` con derivación visible (self-serve → $1M+); §3 implicaciones open-core/OEM sin re-litigar la decisión Apache-2.0+CLA: 3 vías de protección sin cerrar el motor (marca/enterprise-license OpenWebUI, directorio EE Weaviate/PostHog, dual license Neo4j $200M = ancla OEM), el ACV grande vive en enterprise ≥$100k, advertencia Khoj para el diseño de fase 2. Fuentes 32 fetch-verificadas (TSYS-13) + 11/11 spot-checks del reviewer. Gates docs 4/4 verdes (check-links 0 / check-docs GATING clear / gen-index --check / coverage 0 gaps). Review P2-01 vanta-review tier Fast: ronda 1 changes-required (F1 higiene de commit — fila STRAT-04 en `docs/index.md` generado → índice excluido del pathspec; F2 Jan 6.8M+; F3 claim "0 hits" corregido; F4 tipo Redis; F5 permalinks — sub-claim Neo4j rechazado con evidencia) → fixes → delta r2 **APPROVE**. OCR delegation: N/A (diff docs-only; reviewables del árbol = WIP ajeno). **Deuda declarada:** `docs/index.md` regenerado sin commitear (contiene fila STRAT-04 — regeneración conjunta al cierre de STRAT-04); datos de revenue/pricing con ventana de validez 6-18m (re-verificar antes de decisiones de pricing/OEM).
+- **Commit:** (docs research, local sin push) + commit de cierre docs(avance)
+
+### SRV-10: Cifrado en reposo del server (HTTP) — re-scope (b): superficie honesta (master plan 0.9.0 F5, Task 70)
+- **Fecha:** 2026-10-06
+- **Objetivo:** Re-scope obligatorio en DISCOVERY (FIND-249 diferido por decisión owner): contrato reducido a superficie de config/key mgmt + docs honestas (sin claim de protección) + test. Motivo real: el aviso ENC-01 es feature-gated y el build default del server no compila `encryption` → `VANTADB_ENCRYPTION_KEY` era silenciosamente ignorada (falsa seguridad, pre-mortem #3).
+- **Resultado:** ✅ Contrato reducido completo — `vantadb-server` gana feature opt-in `encryption = ["vantadb/encryption"]` (RED→GREEN: "does not contain this feature" → check verde; con ella el aviso ENC-01 cubre la ruta server vía `open_with_config`, `bootstrap.rs:314`) · aviso nuevo `encryption_key_ignored_notice` + call en `run_with_hooks` (cubre `vanta-cli server --http` + `vantadb-server`; excluye InMemory; NO loggea la key; RED→GREEN 3/3) · docs honestas: `HTTP_API.md` (sin "SRV-10 on the roadmap"; ahora aviso + FIND-249), `CONFIGURATION.md:74,499`, `hardening.md:280` · verify en worktree aislado (MCP server lockea bins — FIND-177; sin matar procesos): suite lib+server **2509/2509** · clippy scoped + workspace all-features · fmt · gates docs (check-links/check-docs/gen-index/coverage) · OCR 0 Critical/High/Medium · review P2-01 adversarial vanta-review **APPROVE** (H2/H3/H5/H6 aplicados post-verdict; H1 gen-index stale por IQL.md de WIRE-13 → re-regen al commit). Frontera respetada: sin tocar write paths de storage/WAL/HNSW/crypto.rs/vfile (cifrado real = FIND-249). Commit creado en worktree de verificación (hook completo verde; 9/9 SHA256-idéntico) + `reset --soft` a develop; `--no-verify` NO usado.
+- **Commit:** `ca3f00da` (local, sin push)
+### FIND-445: 21 hallazgos P2/P3 del árbol de docs + 5 P1 adyacentes
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ Corregidos contra el código real: sintaxis IQL de vector search que no
+  existía (`VECTOR_SEARCH(...)` → `<field> ~ "texto", min = 0.88`), endpoint de embeddings de
+  Ollama, conteos de tools y version del registro MCP, el claim "every error response carries
+  `error.data.code`" (las 5 factorías JSON-RPC lo omiten), 9 responses de `openapi.yaml` con
+  envoltorio `{success,error,data}` inexistente, `/dashboard` documentado como público de
+  loopback, `x-vanta-user-key` como security scheme, la ruta viva `POST /api/v2/mcp/proxy`,
+  el flag inexistente `--allow-dummy-embeddings`, `VANTA_EMBEDDING_PROVIDER` → `VANTADB_*`,
+  7 citas `archivo:línea` obsoletas en `docs/api/scores.md` y 1 afirmación de comportamiento
+  falsa, `sync_mode` con su env var, `heavy-certification.yml` → `certification.yml` y el
+  Recall@10 atribuido a 50K. ADR-0011 → `superseded` por ADR-0058 y ADR-0012 → `superseded`
+  por ADR-0059 (los dos quedan `proposed`: los ratifica el owner).
+  Gates: check-docs (GATING all clear), validate-docs-coverage (0 gaps), check_openapi_parity
+  (37 paths = 37), check-links (0 rotos), check-doc-examples (OK), gen-index --check (al día).
+  43 citas `archivo:línea` verificadas contra el símbolo correcto (0 mismatch).
+  PR: `docs/docs-tree-and-skills` (#270).
+### D-02: el tipo público de configuración es `Config`, no `VantaConfig`
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ `src/lib.rs:177` exporta `config::{Config, ...}`; el tipo `VantaConfig` no
+  existe en `src/` (0 ocurrencias) y la referencia normativa de configuración lo usaba en 21
+  sitios, incluidos snippets Rust que no compilaban. `docs/user/operations/CONFIGURATION.md`
+  usa ahora `Config` en todo el documento. Hallazgo de la auditoría profunda v0.9.0 (P1).
+### D-10: `max_blocking_threads` = 2 × `available_parallelism()` (16 es el fallback)
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ El default documentado era `16`; el real es
+  `available_parallelism().map(|n| n.get() * 2).unwrap_or(16)` (`src/config.rs:1073-1075`).
+  Corregido en `docs/user/operations/CONFIGURATION.md`. Hallazgo de la auditoría profunda
+  v0.9.0 (P1).
+### D-11: `wal_buffer_size` = `None` (no 65536)
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ El default real es `None` (`src/config.rs:347`); la fila del doc se
+  contradecía a sí misma (la descripción ya decía "`None` = OS default") y el ejemplo JSON
+  traía `65536`. Ambos corregidos en `docs/user/operations/CONFIGURATION.md`. Hallazgo de la
+  auditoría profunda v0.9.0 (P1).
+### D-15: 6 env vars leídas por el código y ausentes de las tablas de configuración
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ `VANTADB_QUIET` y `VANTADB_SILENT` (`src/hardware/mod.rs`),
+  `VANTADB_PROFILE_PATH` (`src/hardware/mod.rs`, con su cadena de resolución),
+  `VANTADB_SYNC_MODE` (`src/cli_handlers/config.rs`, default `periodic`, leída por la capa
+  `vanta config` y no por `Config::from_env()`), `VANTADB_SCHEDULER_INTERVAL_MS` (default 60 s,
+  `0` desactiva, `vantadb-server/src/scheduler.rs`) y `VANTADB_INGEST_CONFIG` (default
+  `<storage_path>/data/vanta-ingest.toml`, `vantadb-server/src/scheduler.rs`) documentadas en
+  la tabla de runtime de `docs/user/operations/CONFIGURATION.md`. Hallazgo de la auditoría
+  profunda v0.9.0 (P1).
+
+### Paso 22 — Entrega documental y herramientas de migración
+
+- **Fecha del commit:** 2026-11-06.
+- **Alcance implementado:** once artículos públicos en inglés; CLI y helper ChromaDB, tutorial oficial, adaptador Mem0 de alcance declarado, plantilla de issues, política de contribuciones asistidas por IA y anexo forense interno.
+- **Evidencia:** suite focalizada de 36 tests aprobados con una advertencia de deprecación preexistente; el caso de error de CLI se revalidó después del último cambio de mensaje. Ruff sobre cinco archivos Python y Markdownlint sobre catorce documentos sin incidencias. Enlaces internos resueltos y manifiesto de superficies reconciliado.
+- **Commits:** `094f53bf8f214b526aa942242d30f3b0295f5870` (entregables) y `f6ed51d058467226b073af71eea045fca4fa875e` (formato del README Python, con AST y comentarios de los ejemplos conservados).
+- **Publicación remota:** `git push origin develop` aceptado, exit 0. HEAD local, `origin/develop` y `git ls-remote --heads origin develop` coinciden en `f6ed51d058467226b073af71eea045fca4fa875e`.
+- **Barrera local:** pre-push `ALL 10 PASS`; Ruff del paquete Python y Markdownlint del alcance completo del hook aprobados. El primer intento fue bloqueado por formato preexistente del README, corregido en el segundo commit sin alterar reglas.
+- **Checks remotos:** GitHub aceptó el push indicando bypass de diez checks requeridos todavía esperados. Esto no certifica CI remota en verde; no se modificaron las reglas de protección.
+- **Seguridad remota:** GitHub anunció 31 alertas en la rama predeterminada (8 altas, 19 moderadas y 4 bajas); no se auditaron en este paso.
+- **Límites:** no se certifican compatibilidad completa con todas las versiones de Mem0, extracción LLM, latencias menores de 1 ms, migraciones menores de 5 s ni inmunidad ante crash. Los criterios ampliados del Backlog se conservan; esta entrada registra los artefactos entregados, no cierra esos criterios sin evidencia.
+
+### Paso 23 — Demos ejecutables, evidencia visual y benchmark agéntico
+
+- **Fecha:** 2026-11-06.
+- **Objetivo:** entregar el alcance del prompt del Paso 23 con bases temporales, datos ficticios y resultados reproducibles.
+- **Resultado técnico:** implementados y publicados los ejemplos Python de supersession y borrado certificado, la ejecución hero verificada y su reproducción congelada, los ejemplos Node/Bun/OPFS y la comparación serial de tres motores. Revisión independiente aprobada y Gate H sano para la sincronización de la skill MCP.
+- **Visual:** `assets/demo.mp4` de 60 segundos, H.264, 1280×800, 942964 bytes y sin audio; `assets/demo.gif` de 3838932 bytes; póster estático y transcripción completa. Revisión visual de las cinco etapas exportadas. Playwright registra únicamente una página de un contexto nuevo; no se ejecutó la captura nativa de Recordly después de comprobar el origen monitor+recorte en su fuente oficial. VHS conserva una reproducción de datos congelados, no renderizada en este host por falta de ttyd.
+- **Validación focalizada:** 34 tests Python aprobados, incluidos 20 de las demos, 4 de la hero y 10 contratos del arnés; 7 tests Node aprobados y repetidos después del formato. Bun y persistencia OPFS después de recarga comprobados. Ruff limpio. `verify_changed.ps1`: `ALL 4 PASS`; `verify_staged.ps1`: `ALL 1 PASS`. Markdownlint ampliado: 234 archivos, cero incidencias; cobertura documental sin gaps y diez pares de la skill sincronizados.
+- **Mediciones:** 2000 operaciones por motor y 6000 muestras; resultados y límites en `docs/user/operations/BENCHMARKS.md`, sección 24, y `benchmarks/agent_memory_results.json`. No se alcanzaron las metas de menos de 2 ms ni 25 MB para el worker Python. La prueba separada de cuatro hilos no demuestra ausencia de contención ni soporte multiproceso.
+- **Verificación de superficies:** backend 0.9.0; perfiles medidos `brain=15`, `full=84`, `agent=39`, `dev=38`, `memory=22`. Escena L2 escrita mediante MCP y recuperada tras reabrir en otro proceso; es una proyección de la aplicación, no consolidación automática con LLM. El certificado muestra integridad SHA-256 por registro, no firma ni prueba independiente de borrado físico de WAL, backups, exportaciones o pesos de modelos.
+- **Contrato MCP:** smokes autoritativos del perfil predeterminado y de `full` con 5/5 cada uno, cuatro recursos y cuatro prompts. La deuda del manual embebido que aún anuncia doce herramientas queda registrada en Backlog; no se modifica código Rust ni se afirma saneamiento global del catálogo.
+- **Criterios ampliados:** no se eliminan filas del Backlog ni se archiva el plan maestro. Permanecen sin certificar sus requisitos adicionales de instalación/failover multiagente, supersession automática/AS OF, comprobación física contra WAL, ejecución Node NAPI-RS, integración CI de los seis proveedores y benchmark de 10000–50000 turnos.
+- **Evidencia local:** `C:\Users\Eros\paso23-evidence\delivery-gates\`, respuestas MCP en `hero-verified-l2-run\`, perfiles adicionales en `mcp-other-profiles-verified.json` y cinco PNG exportados. Los datos del benchmark y de la hero no se regeneraron durante la producción visual.
+- **Integridad de artefactos:** el primer intento de commit se detuvo porque Prettier reformateó JSON y JavaScript. Se aceptó el formato sin omitir hooks; se verificó igualdad completa de los valores JSON frente a la captura original y se conservó esta en `paso23-evidence/benchmark-original-before-prettier.json`. El checksum publicado se recalculó sobre el blob staged y se comprobó después del commit: `abcf700ff6bcc893d1b0a8a472aa43fdfe945a35d55d149c7d73b897003a04dd`. No se repitieron las mediciones.
+- **Publicación:** commit `632f49187ef8fce8e21abea78fba7ecbb8c5c463`, 46 archivos; push a `origin/develop` aceptado con exit 0. HEAD local, referencia de seguimiento y consulta directa del remoto coinciden; árbol público limpio.
+- **Barrera pre-push:** `ALL 10 PASS`, más 77 tests del binding Node nativo y 361 del SDK TypeScript aprobados; Ruff del paquete Python y Markdownlint de 219 documentos aprobados. El guard `canonical_p99` solo compila con `--no-run`; la cobertura Rust se difiere al nightly por configuración existente, sin nueva medición de cobertura en este cierre.
+- **Estado remoto:** GitHub informó bypass de los diez checks requeridos todavía esperados y 31 alertas en la rama predeterminada (8 altas, 19 moderadas, 4 bajas), no auditadas en este paso. No se certifica CI remota en verde ni preparación para release; no se modificaron protecciones.
+
+### FIND-291: Drenar `shutdown_background_services` antes del `flush()` final en `serve_http_or_tls`
+- **Fecha:** 2026-11-18
+- **Objetivo:** Invertir el orden de apagado en `src/server/bootstrap.rs` para que los servicios de fondo (scheduler L1, TTL sweeper) se detengan y drenen sus últimas escrituras antes de ejecutar el `flush()` final del `StorageEngine`.
+- **Resultado:** ✅ `drain_services_then_flush` (`src/server/bootstrap.rs:489-564`) ejecuta `shutdown_background_services` → `flush_on_shutdown_async` en HTTP, TLS y rutas de error; cada servicio se aísla en `tokio::spawn` con `SERVICE_SHUTDOWN_TIMEOUT = 30s` (de modo que un panic o timeout se loguea sin abortar el flush final) y `shutdown_telemetry()` se invoca una única vez; review P2-01 `vanta-review 2047a71b` APPROVE y auditoría `#20` PASS.
+- **Commit:** `eca33817b`, `a51dfcc1f`
+
+
+## Migración de backlog — pase 2 campaña `consolidation-2026-11-07` (2026-11-19)
+
+### ACT-04: Reconciliación Enterprise vs. Freeze-List y Limpieza de Features
+- **Fecha:** 2026-11-07
+- **Objetivo:** Reconciliación Enterprise vs. freeze-list y limpieza de features experimentales en docs.
+- **Resultado:** ✅
+- **Commit:** `6eb3a00e6`
+
+### TEC-01: Purga Exhaustiva de `InMemoryEngine` en Documentación
+- **Fecha:** 2026-11-06
+- **Objetivo:** Purga exhaustiva de referencias a `InMemoryEngine` en la documentación.
+- **Resultado:** ✅
+- **Commit:** `08c6dc603`, `255db8208`
+
+### TEC-09: Sistema de Telemetría Pasiva (Cron) y Activa (Opt-In) (`D6`)
+- **Fecha:** 2026-11-07
+- **Objetivo:** Sistema de telemetría pasiva (cron) y activa (opt-in) con colector de adopción (D6).
+- **Resultado:** ✅
+- **Commit:** `6eb3a00e6`
+
+### DOC-01: Paridad Total y Rigurosa de `README_ES.md`
+- **Fecha:** 2026-11-06
+- **Objetivo:** Paridad total y rigurosa de `README_ES.md` con `README.md`.
+- **Resultado:** ✅
+- **Commit:** `0512116e6`, `632f49187`
+
+### DOC-02: Purga de IDs Internos Residuales en `docs/user/`
+- **Fecha:** 2026-11-06
+- **Objetivo:** Purga de IDs internos residuales en `docs/user/` (higiene de documentación pública).
+- **Resultado:** ✅
+- **Commit:** `08c6dc603`
+
+### DOC-03: Plantilla `GOOD FIRST ISSUE` y Política de PRs de IA
+- **Fecha:** 2026-11-06
+- **Objetivo:** Plantilla `GOOD FIRST ISSUE` y política de PRs de IA en las guías de contribución.
+- **Resultado:** ✅
+- **Commit:** `094f53bf8`
+
+### DOC-04: Regla en `pre-commit` contra `.DS_Store` y Archivos Binarios
+- **Fecha:** 2026-11-06
+- **Objetivo:** Regla `pre-commit` contra `.DS_Store` y archivos binarios (anti-junk).
+- **Resultado:** ✅
+- **Commit:** `08c6dc603`
+
+### DOC-05: Tabla Quickstart 60s por IDE en Cabecera de `README.md`
+- **Fecha:** 2026-11-06
+- **Objetivo:** Tabla quickstart de 60s por IDE en la cabecera de `README.md`.
+- **Resultado:** ✅
+- **Commit:** `0512116e6`, `c80a0ae23`
+
+### DOC-06: Auditoría, Limpieza y Alineación a v0.9.0+ de los 9 Artículos Rescatados (`docs/user/blog/`)
+- **Fecha:** 2026-11-06
+- **Objetivo:** Auditoría, limpieza y alineación a v0.9.0+ de los 9 artículos rescatados del blog.
+- **Resultado:** ✅
+- **Commit:** `87d2006c0`
+
+### DOC-07: Matriz `grep` vs VantaDB (`Q23`), Nota Toolchain `roaring` (`Q6`) y Promoción `search_batch` (`Q12`)
+- **Fecha:** 2026-11-06
+- **Objetivo:** Matriz `grep` vs VantaDB (Q23), nota toolchain `roaring` (Q6) y promoción `search_by_metadata`.
+- **Resultado:** ✅
+- **Commit:** `094f53bf8`
+
+### DOC-08: Script de Migración desde ChromaDB y Tutorial Oficial (`Q22 Opción B`)
+- **Fecha:** 2026-11-06
+- **Objetivo:** Script de migración desde ChromaDB y tutorial oficial (Q22 Opción B).
+- **Resultado:** ✅
+- **Commit:** `094f53bf8`
+
+### PRD-04: Soak Testing 1,000 Turnos contra Fuga de Contexto (`Q26 Opción B`)
+- **Fecha:** 2026-11-07
+- **Objetivo:** Arnés de soak testing de 1.000 turnos contra fuga de contexto (Q26 Opción B).
+- **Resultado:** ✅
+- **Commit:** `88022de96`
+
+### PRD-07: Mantenibilidad Estable de `vantadb-server` como Puente HTTP (`Q7 Opción B`)
+- **Fecha:** 2026-11-07
+- **Objetivo:** Mantenibilidad estable de `vantadb-server` como puente HTTP (Q7 Opción B).
+- **Resultado:** ✅
+- **Commit:** `0a77dfb71`
+
+### DEM-01: Hero Demo Grabada en Terminal (VHS Tape de 60s)
+- **Fecha:** 2026-11-06
+- **Objetivo:** Hero demo grabada en terminal (VHS tape de 60s) restaurada y publicada.
+- **Resultado:** ✅
+- **Commit:** `87d2006c0`, `632f49187`
+
+### DEM-02: Demo Interactiva de Deduplicación y Supersession en Vivo
+- **Fecha:** 2026-11-06
+- **Objetivo:** Demo interactiva de deduplicación y supersession en vivo.
+- **Resultado:** ✅
+- **Commit:** `632f49187`
+
+### DEM-03: Demo de Borrado Certificado GDPR Ejecutivo
+- **Fecha:** 2026-11-06
+- **Objetivo:** Demo de borrado certificado GDPR ejecutivo.
+- **Resultado:** ✅
+- **Commit:** `632f49187`
+
+### DEM-04: Suite Canónica de Ejemplos en TypeScript (`examples/typescript/`) y Fix `FIND-538`
+- **Fecha:** 2026-11-06
+- **Objetivo:** Suite canónica de ejemplos en TypeScript (`examples/typescript/`) y fix FIND-538.
+- **Resultado:** ✅
+- **Commit:** `632f49187`
+
+### DEM-05: Benchmark de Memoria Agéntica frente a `sqlite-vec` y `LanceDB` (`Q21 Opción B`)
+- **Fecha:** 2026-11-06
+- **Objetivo:** Benchmark de memoria agéntica frente a `sqlite-vec` y `LanceDB` (Q21 Opción B).
+- **Resultado:** ✅
+- **Commit:** `632f49187`
+
+### BNCH-01: Arnés de Estrés Sintético `Database Sequential-NIAH` (`evals/bench_sequential_niah.py`) (Fase 5)
+- **Fecha:** 2026-11-07
+- **Objetivo:** Arnés de estrés sintético `Database Sequential-NIAH` (`evals/bench_sequential_niah.py`).
+- **Resultado:** ✅
+- **Commit:** `c56115825`
+
+### EVAL-02: Blindaje Metodológico de LongMemEval con Partición Holdout Inviolable
+- **Fecha:** 2026-11-07
+- **Objetivo:** Blindaje metodológico de LongMemEval con partición holdout inviolable (guard SHA-256).
+- **Resultado:** ✅
+- **Commit:** `211d9d6bd`
+
+### GTM-01: Renderizado del GIF/MP4 desde `vhs/demo.tape` e Incrustación en README
+- **Fecha:** 2026-11-06
+- **Objetivo:** Renderizado del GIF/MP4 desde `vhs/demo.tape` e incrustación en README.
+- **Resultado:** ✅
+- **Commit:** `632f49187`, `0512116e6`
+
+### GTM-02: Tabla Comparativa "David vs. Goliat" en `README.md` y `README_ES.md`
+- **Fecha:** 2026-11-06
+- **Objetivo:** Tabla comparativa "David vs. Goliat" en `README.md` y `README_ES.md`.
+- **Resultado:** ✅
+- **Commit:** `0512116e6`
+
+### GTM-03: Comando `vantadb mcp init` Auto-Configurador de IDEs en 30 Segundos
+- **Fecha:** 2026-11-07
+- **Objetivo:** Comando `vanta-cli mcp init` autoconfigurador de IDEs en 30 segundos.
+- **Resultado:** ✅
+- **Commit:** `e61bc3f4a`
+
+### GTM-04: Preparación de Manifiestos para los 5 Registros MCP Oficiales
+- **Fecha:** 2026-11-07
+- **Objetivo:** Manifiestos para los registros MCP oficiales (`glama.json`, `smithery.yaml`).
+- **Resultado:** ✅
+- **Commit:** `c56115825`
+
+### GTM-10: Envío Escalonado de PRs a las 4 *Awesome Lists* (`Q28 Opción B`)
+- **Fecha:** 2026-11-07
+- **Objetivo:** Kit operativo de PRs a las 4 Awesome Lists formalizado en `AWESOME_LISTS_AND_MCP_REGISTRIES_PR_KIT.md` (repo-ready; envío externo del owner tras FASE-A).
+- **Resultado:** ✅
+- **Commit:** `c56115825`
+
+### DX-10: Pre-validación Automatizada — 5 Instalaciones Limpias End-to-End
+- **Fecha:** 2026-11-06
+- **Objetivo:** Arnés de pre-validación automatizada: 5 instalaciones limpias end-to-end por canal.
+- **Resultado:** ✅
+- **Commit:** `7d1dd86c2`
+
+
+### FIND-197: Runner LoCoMo opt-in (licencia CC BY-NC 4.0)
+- **Fecha:** 2026-11-22
+- **Objetivo:** Proveer runner opt-in del benchmark LoCoMo con fetch del dataset por el usuario (dataset no vendado en el repo por licencia CC BY-NC 4.0).
+- **Resultado:** ✅ — verificado en HEAD 2026-11-22: `evals/eval_locomo.py` implementa `--dataset-path` (fetch del usuario) + fallback sintético determinista `--self-test`/`--smoke` (seed=42), métricas recall@k/MRR/NDCG/F1 + comparativa Mem0.
+- **Commit:** `09116b060` (MEM0-05)
+
+### DOC-24: Saneamiento de `Backlog.md`, reconciliación estratégica/benchmarks y corrección `setup-embeddings.ps1`
+- **Fecha:** 2026-11-22
+- **Objetivo:** Reconciliar `docs/user/operations/BENCHMARKS.md` (§19.3/§23 alineados con §23.3 ACT-02) y `docs/dev/strategy/{GO_TO_MARKET,ROADMAP}.md` locales con `v0.10.0`; corregir `Get-RepoRoot` en `scripts/setup-embeddings.ps1` (8/8 `test_supply_chain.py` y 0 errores AST); migrar cierres a `avance/`, archivar exclusiones en `activo/wontfix-archive.md` y reparar filas malformadas y SHAs en el plan archivado `2026-11-07`.
+- **Resultado:** ✅ Verificado en `HEAD` mediante gates de documentación (`check-avance-coverage.ps1`, `validate-docs-coverage.ps1`, `check-docs.mjs`).
+- **Commit:** `5a45a1f8c` (`setup-embeddings.ps1`), `35330f283`, `8b4ff7fbc`, `4487d5097` (`BENCHMARKS.md`)
+
+### PRD-03, FIND-627, FIND-628 y cierres ops/embeddings campaña `2026-11-07` (`FIND-224`, `384`, `402`, `531`, `641`, `645`)
+- **Fecha:** 2026-11-22
+- **Objetivo:** (`PRD-03`) Certificar cumplimiento MCP spec `2025-06-18` (`CancellationRegistry` + `notifications/cancelled` + handshake stdio en `vantadb-mcp/src/server.rs`, tests `43..49` verdes); (`FIND-628`) actualizar referencias rotas de `src/storage.rs` a `src/storage/engine/init.rs:262-305` / `maintenance.rs` en `DURABILITY_GUARANTEES.md` y documentar colisión `.vanta.lock` en `QUICKSTART.md` y `MCP.md`; (`FIND-627`) documentar receta `@cloudflare/codemode` con `VANTADB_MCP_PROFILE=full` y límite de Anthropic PTC en `MCP.md`; migrar además `FIND-224`, `384`, `402`, `531`, `641` y `645` ya verificados en `HEAD` (`CONFIGURATION.md:479`, `embeddings/manifest.json` 1034 MB, `50c358b01`, `0e6c76d96`, `884363b5a`, `5d6ac8eb4`).
+- **Resultado:** ✅ Gates de documentación y tests `vantadb-mcp --lib` (49/49) en verde.
+- **Commit:** `884363b5a`, `0e6c76d96`, `50c358b01`, `5d6ac8eb4`, `bb2af63a9`, `b432f0219`
+
+### `ACT-02` y `FIND-655`: Certificación LongMemEval-S 500q (`hybrid_rrf = 0.8872` / `0.9787 PASS`) + apertura diferida `FIND-656`
+- **Fecha:** 2026-11-22
+- **Objetivo:** Completar el estudio de ablación `--ablation all` de 500 preguntas en LongMemEval-S (`BAAI/bge-small-en-v1.5` 384d, `--strict-embeddings`, `157 926` vectores únicos en caché `.npz`, 0 tokens LLM), certificar el path nativo híbrido del motor frente al umbral `>= 0.85`, resolver el bloqueo `FIND-655` del harness Python y documentar resultados y trabajo futuro (`FIND-656`).
+- **Resultado:** ✅ Certificado y publicado:
+  - **`hybrid_rrf` (HNSW + BM25 + RRF nativo):** `recall_all@5 = 0.8872`, `recall_any@5 = 0.9787`, `F1 = 0.66` → **`GATE PASS` (`>= 0.85`)**.
+  - **`vector_only` (HNSW + `query_embed`):** `recall_all@5 = 0.8830`, `recall_any@5 = 0.9660`, `F1 = 0.67` → **`PASS`**.
+  - **`bm25_only` (línea base léxica):** `recall_all@5 = 0.8000`, `recall_any@5 = 0.9596`, `F1 = 0.66`.
+  - **`hybrid_graphrag` (heurística experimental regex del harness Python):** `recall_all@5 = 0.8489`, `recall_any@5 = 0.9340`, `F1 = 0.52`; mejora `multi-session` (`0.7934 -> 0.8347`) y `knowledge-update` (`0.9722 -> 0.9861`), pero degrada `single-session-assistant` (`1.0000 -> 0.6071`, −22/56 preguntas). Relegado a ablación experimental documentada (Opción A + C futura → **`FIND-656`** diferida post-`v0.10.0`).
+  - Documentación y evidencia actualizadas en `evals/eval_longmemeval.py`, `evals/README.md`, `evals/results/longmemeval_ablation_all_fixed.json`, `docs/user/operations/BENCHMARKS.md` (§19/§23), `README.md`, `README_ES.md` y `docs/user/COMPARISON.md` (§2.5).
+  - Verificación de gates locales: `check-links`, `check-docs`, `gen-index --check`, `markdownlint-cli2`, `eval_longmemeval.py --self-test` y `cargo test -p vantadb --test version_coherence` (`2/2 PASS`).
+- **Commit:** `4b8f72cd5`
+
+### `FIND-662` y `FIND-663`: Saneamiento documental integral de benchmarks y registro de los 59 ejecutables en `BENCHMARKS.md`
+- **Fecha:** 2026-11-22
+- **Objetivo:** Resolver las 7 contradicciones factuales y enlaces rotos detectados en la auditoría de los 59 benchmarks (`FIND-662`) y registrar en `docs/user/operations/BENCHMARKS.md` todos los benches Criterion, suites de certificación, WASM multi-worker, HTTP server, GraphRAG y soak tests que estaban huérfanos fuera de la documentación canónica (`FIND-663`).
+- **Resultado:** ✅ Completado y verificado con gates documentales en verde:
+  - Eliminados enlaces rotos a `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` en `benchmarks/README.md` y `BENCHMARKS.md` §18.
+  - Sincronizados `docs/user/COMPARISON.md` (§2.2 y §2.4), `skills/vantadb/SKILL.md`, `README.md` y `README_ES.md` (`Bloque 1 = 50K`, slice `100K` de SIFT-1M), `benchmarks/WASM_BENCHMARK_REPORT.md` (bundle `1.77 MB` / `728 KB` gzip + banner de fuente única), `docs/user/blog/graphrag-benchmark.md` (nota del fix `2026-10-29` a 3 000 nodos) y `evals/runners/README.md` (estado denso actual de `VantaAdapter`).
+  - Añadidas secciones **§27** (`soak_test.py` 1 000 turnos + alerta honesta de deriva lineal), **§28** (`wasm_bench.mjs` + `wasm_threads_bench.mjs` 400K `SharedArrayBuffer`), **§29** (`graphrag_bench.rs` + `vantadb-server/tests/benchmarks.rs`) y **§30** (catálogo completo de benches Criterion en CI, suites `tests/certification/*` y `evals/agent/run_eval.py`), además de registrar `batch_txn_overhead` en **§26** y `docs/wiki/modules/evals.md`, y precisar los pseudo-embeddings deterministas 64d en **§25**.
+  - Las 17 tareas restantes de ingeniería, CI, optimización y nuevos benchmarks estándar (`FIND-664..680`) quedan activas en `docs/dev/Backlog.md`.
+- **Commit:** `01f49309c`
+
+### FIND-686: Higiene pre-release — `html_root_url` obsoleto (`0.8.0`), doc falsa en `src/api/mod.rs` y cifras de competidores sin fuente en `README*` (Regla 11)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Limpiar tres desajustes visibles ante auditoría pública pre-Show HN: (1) `src/lib.rs:1` declaraba `html_root_url = "https://docs.rs/vantadb/0.8.0"` (innecesario en rustdoc moderno y desactualizado); (2) `src/api/mod.rs:1` afirmaba contener `"HTTP API handlers and route definitions"` cuando solo expone `pub mod scores`; (3) la tabla comparativa principal en `README.md:262-274` y `README_ES.md:264-276` incluía QPS específicos para Zep (`8.1`) y Letta (`0.9`) sin benchmark reproducible propio en el repo (violando Regla 11 y `COMPARISON.md` §3).
+- **Resultado:** ✅ — los tres puntos corregidos sin alterar la API pública.
+- **Commit:** `383c5aadc`
+
+### FIND-688: Reconciliación integral del hub `VantaDB Docs` en Notion contra `HEAD` `v0.10.0` (Ola 3)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Corregir en Notion `VantaDB Docs` (`3d4d0445-9756-80f2-a5fc-e53ad196a8ba`) y 10 subpáginas los errores bloqueantes frente al producto real: (1) Quickstarts con API inexistente (`db.embed(...)` en Python/TS, `Client.open` en Python, `await Client.open` en TS como persistente — el WASM es no-durable y lo persistente en Node es `await connect` — y `db.forget(..., key=...)` afirmando certificado WORM sin `mode="certified"`); (2) `Observabilidad, benchmarks y métricas` publicando `0.874` (proyección retractada) y 4 rutas de archivos inexistentes (`evals/long_mem_eval.py`, `benches/fast_gate_bench.rs`, `tests/storage/purge_attest.rs`, `crates/vanta-memory/benches/embed.rs`); (3) 7 páginas con afirmaciones falsas ("un solo archivo `.vanta`" — es un directorio; "modelos ONNX integrados sin descarga" — requieren `setup-embeddings.ps1`; "`group_commit: true` por defecto" — es opt-in; `@vantadb/wasm` — real: `vantadb-wasm`; servidor `gRPC` inexistente; Studio/Team Sync en presente — son *Coming Soon*); (4) 3 enlaces a subpáginas borradas (`System Architecture`, `Storage Engine`, `Roadmap`) y omisión de `ADR-0061` (`T54`), `ADR-0057` (cifrado), los 7 adapters PyPI y `ACT-02` (`0.8872`).
+- **Resultado:** ✅ Ola 3 — páginas Notion actualizadas; enlaces a las 3 subpáginas borradas retirados/marcados; faltantes incorporados (`ADR-0061`, `ADR-0057`, 7 adapters PyPI, `ACT-02` `0.8872`). Trabajo externo en Notion (sin commit de repo).
+- **Filas removidas de backlog-notion.md:** `N-12`, `N-13`, `N-14`, `N-15`, `N-16`, `N-18`, `N-19`, `N-20`, `N-21`, `N-22`, `N-23`, `N-24` (absorbidas por esta fila, declarado en `docs/dev/Backlog.md`).
+
+### FIND-694: `scripts/setup-embeddings.ps1` moría en pwsh 7 — `Get-DefaultDbPath` asignaba `$home = $HOME` sobre variable `AllScope` read-only
+- **Fecha:** 2026-11-23
+- **Objetivo:** Desbloquear el wizard de embeddings en PowerShell 7: `$HOME` es automática `ReadOnly, AllScope` y case-insensitive, por lo que `$home = $HOME` en `scripts/setup-embeddings.ps1:294-298` lanzaba `WriteError` fatal bajo `Set-StrictMode` + `ErrorActionPreference=Stop`, bloqueando el wizard completo (ruta por defecto de `-DbPath`).
+- **Resultado:** ✅ — variable renombrada a `$homeDir`. Verificado: `pwsh scripts/setup-embeddings.ps1 -NonInteractive -Modules embeddings` exit 0 con modelo ya presente y ORT 1.30.
+- **Commit:** `3d2c7d138`
+
+### FIND-681: Fuga de embeddings sintéticos con `strict` y ONNX Runtime ausente o inválido (Scopegrain `VB-6`)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Verificar en vivo, contra el binario reconstruido con `--features embed-local`, que `VANTADB_STRICT_EMBEDDINGS=true` falla cerrado cuando la DLL de ONNX Runtime falta o es inválida, y que con runtime válido las embeddings son reales y distintas entre textos (sin vectores sintéticos silenciosos).
+- **Resultado:** ✅ — `node .scopegrain/research/2026-11-16-vantadb-embedding-probe.mjs <projectRoot>` → `passed-functional-embeddings`, `controlIssues: []`, `positivePassed: true`. Dos corridas: artefacto `target/release` (sha256 `fe0433dc…`) y binario instalado (sha256 `b2f3b48dbb5ad39f68e8c51e4d9e766a19f844f70a7dbd20b818680dd226a145`). Evidencia: `.tasksystem/verification/2026-11-16-native-embedding-83b942a0-4981-44cc-b874-757e9561761c.json`. El spec quedó re-pinneado al binario realmente probado (antes apuntaba al 0.9.0 pre-fix, `67b55078…`).
+- **Commit:** `01a38f353` (fix) · verificación 2026-11-23
+
+### FIND-695: `vantadb-server` no exponía `--version`/`-V`
+- **Fecha:** 2026-11-23
+- **Objetivo:** Dar al binario una forma estándar de autodeclarar su build, para soporte y para el pinning de artefactos del probe de Scopegrain.
+- **Resultado:** ✅ — `-V`/`--version` imprime `vantadb-server <CARGO_PKG_VERSION>`; ambos flags entran en `is_known_flag`, el `--help` los documenta y `validate_args` los cubre. Verificado en los dos artefactos: `cargo install --path vantadb-server --features embed-local --force -j 2` (release, 22m21s) y después `vantadb-server --version` → `vantadb-server 0.9.0`.
+- **Commit:** `10b10858a`
+
+### FIND-697: `local_model_path` relativo al cwd (Scopegrain `VB-21`)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Eliminar la dependencia del directorio de lanzamiento: el default `embeddings/models/multilingual-e5-small/onnx` se resolvía solo contra el cwd, así que un server lanzado desde `TaskSystem` reportaba `model_present=false` pese a tener el modelo instalado.
+- **Resultado:** ✅ — `config::resolve_local_model_path` resuelve rutas relativas contra cwd → dir del ejecutable → `~/.vantadb`, devuelve la cadena original cuando ninguna existe, y es compartida por el provider (`llm.rs`), `capabilities` (`embedding_health.rs`) y el guard de vectores sintéticos (`executor.rs`). `setup-embeddings.ps1` enlaza `<Db>/embeddings` al `embeddings` del repo (junction, sin duplicar 823 MB) para clientes lanzados por el wizard. Verificado: `cargo test -p vantadb --features embed-local --lib f697 -- --test-threads=2` → 1 passed; `scopegrain vantadb status --probe` → `model_present: true`, `model_dir: C:\Users\Eros\.vantadb\embeddings/models/multilingual-e5-small/onnx`, `status: Ready`.
+- **Commit:** `bed6473df`
+- **Nota:** el `cargo test --lib llm` de la misma sesión destapó un fallo **prexistente** (`test_strict_embeddings_policy`), reproducido sobre `HEAD` con `git stash` → registrado como `FIND-698`.
