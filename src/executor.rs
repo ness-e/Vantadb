@@ -479,19 +479,22 @@ impl<'a> Executor<'a> {
             if let Some(crate::node::FieldValue::String(text)) = fields.get("text") {
                 if !text.trim().is_empty() {
                     let provider = crate::llm::get_embedding_provider();
+                    let provider_is_synthetic = provider.is_synthetic();
                     match provider.embed(text) {
                         Ok(vec) => {
                             let cfg = crate::config::Config::default().llm_cfg();
-                            if Self::is_synthetic_local_fallback(
-                                &cfg.embedding_provider,
-                                &cfg.local_model_path,
-                            ) {
-                                // Fallback avisado, nunca silencioso (FIND-485):
+                            if provider_is_synthetic
+                                || Self::is_synthetic_local_fallback(
+                                    &cfg.embedding_provider,
+                                    &cfg.local_model_path,
+                                )
+                            {
+                                // Fallback avisado, nunca silencioso (FIND-485 / FIND-681):
                                 // un vector sintético persistido ensucia el índice
                                 // con vecinos falsos — peor que un nodo sin vector.
                                 tracing::warn!(
                                     "Auto-embedding for INSERT node {node_id} produced a synthetic \
-                                     vector (local model files missing under '{}'): the node is \
+                                     vector (local ONNX session unavailable under '{}'): the node is \
                                      stored WITHOUT a vector — a synthetic vector would pollute \
                                      the index with false neighbours",
                                     cfg.local_model_path

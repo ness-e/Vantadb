@@ -57,6 +57,35 @@ pub trait EmbeddingProvider: Send + Sync {
         }
         Ok(out)
     }
+
+    /// Returns `true` when this provider has no real inference session and
+    /// produces synthetic fallback vectors (or fails closed under strict mode).
+    ///
+    /// FIND-681 (VB-6): callers must inspect the live provider instance rather
+    /// than guessing from model-file presence on disk, because files can exist
+    /// while the ONNX Runtime shared library (`ORT_DYLIB_PATH`) is missing.
+    fn is_synthetic(&self) -> bool {
+        false
+    }
+}
+
+#[cfg(all(feature = "remote-inference", not(feature = "embed-local")))]
+struct UnconfiguredLocalProvider {
+    provider_name: String,
+}
+
+#[cfg(all(feature = "remote-inference", not(feature = "embed-local")))]
+impl EmbeddingProvider for UnconfiguredLocalProvider {
+    fn embed(&self, _text: &str) -> Result<Vec<f32>> {
+        Err(Error::Embedding(format!(
+            "embedding provider '{}' requires the `embed-local` feature, which is not compiled in this build",
+            self.provider_name
+        )))
+    }
+
+    fn is_synthetic(&self) -> bool {
+        true
+    }
 }
 
 // ── Factory ───────────────────────────────────────────────────────────
@@ -87,13 +116,19 @@ pub(crate) fn try_embedding_provider() -> Result<Box<dyn EmbeddingProvider>> {
 }
 
 /// Resolve the effective embedding provider WITHOUT the synthetic fallback.
+///
+/// FIND-682 (VB-4): never route an explicit local provider (`"local"` or a
+/// local model id) to HTTP `OllamaProvider` when `embed-local` is absent.
 #[cfg(all(feature = "remote-inference", not(feature = "embed-local")))]
 pub(crate) fn try_embedding_provider() -> Result<Box<dyn EmbeddingProvider>> {
     let cfg = Config::default().llm_cfg();
-    Ok(match cfg.embedding_provider.as_str() {
-        "openai" => Box::new(OpenAIProvider::new(&cfg)) as Box<dyn EmbeddingProvider>,
-        _ => Box::new(OllamaProvider::new(&cfg)),
-    })
+    match cfg.embedding_provider.as_str() {
+        "openai" => Ok(Box::new(OpenAIProvider::new(&cfg)) as Box<dyn EmbeddingProvider>),
+        "ollama" => Ok(Box::new(OllamaProvider::new(&cfg))),
+        other => Err(Error::Embedding(format!(
+            "embedding provider '{other}' requires the `embed-local` feature, which is not compiled in this build"
+        ))),
+    }
 }
 
 /// Resolve the effective embedding provider WITHOUT the synthetic fallback.
@@ -127,10 +162,12 @@ pub(crate) fn embed_query(text: &str) -> Result<Vec<f32>> {
 /// | `ollama`| [`OllamaProvider`]                                |
 /// | `local` | [`LocalOnnxProvider`] — requires `embed-local` feature |
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    // ponytail: legacy never-fail contract — the callers that cannot surface
-    // an error keep a synthetic provider instead of a hard failure. The strict
-    // path is `try_embedding_provider` (used by the vector search operators).
-    try_embedding_provider().unwrap_or_else(|_| Box::new(LocalOnnxProvider::new_dummy(384)))
+    // FIND-681 (VB-6): preserve `strict_embeddings` on fallback so a broken
+    // ONNX Runtime dylib never silently emits deterministic dummy vectors.
+    try_embedding_provider().unwrap_or_else(|_| {
+        let strict = Config::default().llm_cfg().strict_embeddings;
+        Box::new(LocalOnnxProvider::new_dummy_with_policy(384, !strict))
+    })
 }
 
 #[cfg(all(feature = "remote-inference", not(feature = "embed-local")))]
@@ -139,17 +176,25 @@ pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
 /// | Value   | Provider                                          |
 /// |---------|---------------------------------------------------|
 /// | `openai`| [`OpenAIProvider`] — requires `VANTADB_OPENAI_API_KEY` |
-/// | _any_   | [`OllamaProvider`] (default)                      |
+/// | `ollama`| [`OllamaProvider`] (default)                      |
+/// | _other_ | Fail-closed [`UnconfiguredLocalProvider`] (no implicit HTTP egress) |
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    try_embedding_provider()
-        .unwrap_or_else(|_| Box::new(OllamaProvider::new(&Config::default().llm_cfg())))
+    try_embedding_provider().unwrap_or_else(|_| {
+        let cfg = Config::default().llm_cfg();
+        Box::new(UnconfiguredLocalProvider {
+            provider_name: cfg.embedding_provider,
+        })
+    })
 }
 
 #[cfg(all(not(feature = "remote-inference"), feature = "embed-local"))]
 /// Return the embedding provider — only `LocalOnnxProvider` available without `remote-inference`.
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    // ponytail: legacy never-fail contract (see the `remote-inference` variant).
-    try_embedding_provider().unwrap_or_else(|_| Box::new(LocalOnnxProvider::new_dummy(384)))
+    // FIND-681 (VB-6): preserve `strict_embeddings` on fallback.
+    try_embedding_provider().unwrap_or_else(|_| {
+        let strict = Config::default().llm_cfg().strict_embeddings;
+        Box::new(LocalOnnxProvider::new_dummy_with_policy(384, !strict))
+    })
 }
 
 // ── LocalOnnxProvider (embed-local) ───────────────────────────────────
@@ -357,13 +402,17 @@ impl LocalOnnxProvider {
 
     /// Create a dummy provider with fixed dim (used as fallback).
     pub fn new_dummy(dim: usize) -> Self {
+        Self::new_dummy_with_policy(dim, true)
+    }
+
+    pub(crate) fn new_dummy_with_policy(dim: usize, allow_dummy: bool) -> Self {
         Self {
             session: None,
             tokenizer: None,
             dim,
             family: EmbedFamily::Other,
             model_dir: "__dummy__".to_string(),
-            allow_dummy: true,
+            allow_dummy,
             reserved_bytes: 0,
         }
     }
@@ -994,6 +1043,10 @@ impl EmbeddingProvider for LocalOnnxProvider {
             out.push(self.embed(t)?);
         }
         Ok(out)
+    }
+
+    fn is_synthetic(&self) -> bool {
+        !self.is_real()
     }
 }
 

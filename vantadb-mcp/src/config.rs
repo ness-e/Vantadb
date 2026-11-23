@@ -135,6 +135,15 @@ pub struct McpConfig {
     /// VER-04: injection-audit sink (append-only JSONL + rotation). `None`
     /// (default) disables audit. Set via `VANTADB_MCP_AUDIT_LOG`.
     pub audit: Option<std::sync::Arc<vantadb::audit::AuditLogger>>,
+    /// FIND-684 (VB-3/VB-22): opt-in strict enforcement for `Brain` so
+    /// `tools/call` only dispatches the 16 listed tools instead of all ~90.
+    /// Set via `VANTADB_MCP_STRICT_PROFILE` (`1`/`true`/`yes`). Default `false`.
+    pub strict_profile: bool,
+    /// FIND-684 (VB-3/VB-22): optional explicit tool allowlist (comma-separated
+    /// tool names via `VANTADB_MCP_ALLOW_TOOLS`). Empty = no extra allowlist;
+    /// non-empty = both `tools/list` and `tools/call` reject any tool outside
+    /// this set before side effects run.
+    pub allow_tools: std::collections::HashSet<String>,
 }
 
 impl Default for McpConfig {
@@ -165,6 +174,8 @@ impl Default for McpConfig {
             injection_tainted: Vec::new(),
             injection_include_tainted: false,
             audit: None,
+            strict_profile: false,
+            allow_tools: std::collections::HashSet::new(),
         }
     }
 }
@@ -214,6 +225,19 @@ impl McpConfig {
         // VER-04: opt-in injection audit (failed open → warn + disabled).
         if let Ok(path) = std::env::var("VANTADB_MCP_AUDIT_LOG") {
             config.audit = crate::governance::open_audit(&path);
+        }
+        if let Ok(raw) = std::env::var("VANTADB_MCP_STRICT_PROFILE") {
+            config.strict_profile = matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes"
+            );
+        }
+        if let Ok(raw) = std::env::var("VANTADB_MCP_ALLOW_TOOLS") {
+            config.allow_tools = raw
+                .split(',')
+                .map(|t| t.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect();
         }
         config
     }

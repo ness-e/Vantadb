@@ -110,7 +110,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "quarantine": { "type": "boolean", "description": "Mark the record as quarantined (untrusted content; excluded from default search/list/recall until explicitly promoted). Default false (SCH-05)." },
                     "confidence": { "type": "number", "description": "Optional declared confidence score in [0, 1] for asserted records (default 1.0). Forbidden when confidence_class is 'derived' — a derived score is computed from parents (FIND-278)." },
                     "confidence_class": { "type": "string", "enum": ["asserted", "derived"], "description": "Optional provenance class: 'asserted' (default, direct claim from a writer) or 'derived' (computed from 'derived_from' parents). Case-insensitive (FIND-278)." },
-                    "derived_from": { "type": "array", "items": {"type": "string"}, "description": "Optional same-namespace parent keys. Required non-empty when confidence_class is 'derived'; forbidden when asserted (FIND-278)." }
+                    "derived_from": { "type": "array", "items": {"type": "string"}, "description": "Optional same-namespace parent keys. Required non-empty when confidence_class is 'derived'; forbidden when asserted (FIND-278)." },
+                    "dedup_policy": { "type": "string", "enum": ["off", "exact", "semantic"], "description": "Optional deduplication policy override for this write ('off', 'exact', or 'semantic'). Defaults to VANTADB_DEDUP_POLICY env var when set (FIND-683)." }
                 },
                 "required": ["namespace", "key", "payload"]
             },
@@ -147,7 +148,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                                 "quarantine": { "type": "boolean", "description": "Mark this record as quarantined (SCH-05). Default false." },
                                 "confidence": { "type": "number", "description": "Optional declared confidence in [0, 1] for asserted records (default 1.0). Forbidden when confidence_class is 'derived' (FIND-278)." },
                                 "confidence_class": { "type": "string", "enum": ["asserted", "derived"], "description": "Optional provenance class: 'asserted' (default) or 'derived' — requires 'derived_from' (FIND-278)." },
-                                "derived_from": { "type": "array", "items": {"type": "string"}, "description": "Optional same-namespace parent keys; required when 'derived', forbidden when asserted (FIND-278)." }
+                                "derived_from": { "type": "array", "items": {"type": "string"}, "description": "Optional same-namespace parent keys; required when 'derived', forbidden when asserted (FIND-278)." },
+                                "dedup_policy": { "type": "string", "enum": ["off", "exact", "semantic"], "description": "Optional deduplication policy override ('off', 'exact', or 'semantic' — FIND-683)." }
                             },
                             "required": ["namespace", "key", "payload"],
                             "additionalProperties": false
@@ -1239,13 +1241,17 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         tools.extend(crate::threads::thread_tool_definitions());
     }
 
-    // MCP-37: Filter tools by profile (VANTADB_MCP_PROFILE env var)
+    // MCP-37 + FIND-684: Filter tools by profile (VANTADB_MCP_PROFILE) and
+    // optional explicit allowlist (VANTADB_MCP_ALLOW_TOOLS).
     if let Some(tools) = result["tools"].as_array_mut() {
         let allowed = profile_allowed_tools(config.profile);
         tools.retain(|t| {
             t["name"]
                 .as_str()
-                .map(|n| allowed.contains(n))
+                .map(|n| {
+                    allowed.contains(n)
+                        && (config.allow_tools.is_empty() || config.allow_tools.contains(n))
+                })
                 .unwrap_or(false)
         });
     }
@@ -1535,6 +1541,36 @@ fn profile_allows_call(profile: McpProfile, name: &str) -> bool {
     allowed.contains(name) || absorbed_canonical(name).is_some_and(|c| allowed.contains(c))
 }
 
+/// FIND-684 (VB-3/VB-22): full dispatch gate combining the profile check with
+/// optional `strict_profile` (disables `Brain`'s ~90-tool bypass) and explicit
+/// `allow_tools` (`VANTADB_MCP_ALLOW_TOOLS` CSV). Rejects before side effects.
+fn config_allows_call(config: &McpConfig, name: &str) -> Result<(), String> {
+    if !config.allow_tools.is_empty() && !config.allow_tools.contains(name) {
+        return Err(format!(
+            "Tool not found: {name} (not in VANTADB_MCP_ALLOW_TOOLS allowlist)"
+        ));
+    }
+    if config.profile == McpProfile::Brain && config.strict_profile {
+        let allowed = profile_allowed_tools(McpProfile::Brain);
+        let ok =
+            allowed.contains(name) || absorbed_canonical(name).is_some_and(|c| allowed.contains(c));
+        if !ok {
+            return Err(format!(
+                "Tool not found: {name} (not in strict profile {})",
+                config.profile.as_str()
+            ));
+        }
+        return Ok(());
+    }
+    if !profile_allows_call(config.profile, name) {
+        return Err(format!(
+            "Tool not found: {name} (not in profile {})",
+            config.profile.as_str()
+        ));
+    }
+    Ok(())
+}
+
 /// A name known to exist in the broadest surface (listed in `full`, listed in `brain`, or absorbed
 /// dispatch-only). Unknown names keep the plain `Tool not found: {name}`
 /// fall-through; known-out-of-profile names get the `(not in profile ...)`
@@ -1560,15 +1596,15 @@ pub fn handle_tools_call(
         .ok_or_else(|| McpError::invalid_params("Missing 'name' in tool call").to_json())?;
     let args = &p["arguments"];
 
-    // WIRE-02: enforce the active profile on dispatch, mirroring `tools/list`.
-    // Known tools outside the profile fail with the documented
-    // method-not-found message; absorbed dispatch-only names (API-04 aliases +
-    // the WIRE-02 code_* projections) resolve to their canonical tool and
-    // remain callable when the canonical is listed.
-    if tool_is_known(name) && !profile_allows_call(config.profile, name) {
+    // WIRE-02 + FIND-684: enforce the active profile and optional strict/allowlist
+    // gates on dispatch before any side effects run.
+    if tool_is_known(name) {
+        if let Err(msg) = config_allows_call(config, name) {
+            return McpError::method_not_found(msg).into_err();
+        }
+    } else if !config.allow_tools.is_empty() && !config.allow_tools.contains(name) {
         return McpError::method_not_found(format!(
-            "Tool not found: {name} (not in profile {})",
-            config.profile.as_str()
+            "Tool not found: {name} (not in VANTADB_MCP_ALLOW_TOOLS allowlist)"
         ))
         .into_err();
     }
@@ -1819,25 +1855,7 @@ pub fn handle_tools_call(
                 }
             }
 
-            let dedup_policy = if let Some(p) = args.get("dedup_policy").and_then(|v| v.as_str()) {
-                match p {
-                    "exact" => Some(vantadb::sdk::DedupPolicy::Exact),
-                    "semantic" => Some(vantadb::sdk::DedupPolicy::Semantic),
-                    "off" => Some(vantadb::sdk::DedupPolicy::Off),
-                    _ => None,
-                }
-            } else if config.profile == crate::config::McpProfile::Brain {
-                match std::env::var("VANTADB_DEDUP_POLICY")
-                    .as_deref()
-                    .unwrap_or("semantic")
-                {
-                    "off" | "false" | "0" => Some(vantadb::sdk::DedupPolicy::Off),
-                    "exact" => Some(vantadb::sdk::DedupPolicy::Exact),
-                    _ => Some(vantadb::sdk::DedupPolicy::Semantic),
-                }
-            } else {
-                None
-            };
+            let dedup_policy = parse_dedup_policy(args, config)?;
 
             // FIND-278 (SCH-02/04): optional provenance fields — shape/range
             // validated at the boundary; cross-field rules stay in the core.
@@ -3116,13 +3134,45 @@ pub fn handle_tools_call(
         "capabilities" => {
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             let caps = embedded.capabilities();
-            // DEF-08 (visible fallback): the embedding probe rides on
-            // `capabilities` so an agent can see when local embeddings degraded
-            // to deterministic dummies — both triggers (ORT unusable / model
-            // missing). Same core probe the CLI `status` surface reports.
+            // DEF-08 + FIND-682 (VB-4): surface compiled embedding features and
+            // effective provider alongside the core health probe so callers can
+            // detect uncompiled `local` requests without triggering HTTP egress.
             let mut out = json!(&caps);
-            out["embedding"] = serde_json::to_value(vantadb::embedding_health::embedding_health())
-                .unwrap_or(serde_json::Value::Null);
+            let mut emb = serde_json::to_value(vantadb::embedding_health::embedding_health())
+                .unwrap_or_else(|_| json!({}));
+            let llm_cfg = vantadb::config::Config::default().llm_cfg();
+            let compiled_embed_local = cfg!(feature = "embed-local");
+            let compiled_remote = cfg!(feature = "remote-inference");
+            let requested = llm_cfg.embedding_provider.as_str();
+            let effective_provider = match requested {
+                "openai" if compiled_remote => "openai",
+                "ollama" if compiled_remote => "ollama",
+                _ if compiled_embed_local => "local_onnx",
+                _ => "none",
+            };
+            if let Some(obj) = emb.as_object_mut() {
+                obj.insert(
+                    "compiled_features".to_string(),
+                    json!({
+                        "embed_local": compiled_embed_local,
+                        "remote_inference": compiled_remote,
+                    }),
+                );
+                obj.insert("effective_provider".to_string(), json!(effective_provider));
+                if effective_provider == "none" && !matches!(requested, "openai" | "ollama") {
+                    obj.insert("fallback".to_string(), json!(true));
+                    obj.insert("reason".to_string(), json!("feature_disabled"));
+                    obj.insert(
+                        "status".to_string(),
+                        json!(if llm_cfg.strict_embeddings {
+                            "StrictUnavailable"
+                        } else {
+                            "DegradedDummy"
+                        }),
+                    );
+                }
+            }
+            out["embedding"] = emb;
             Ok(text_content(serialize_content(&out)))
         }
 
@@ -4003,6 +4053,51 @@ fn index_vector_dim(storage: &Arc<StorageEngine>) -> Option<usize> {
     storage.vec_index().vector_dimension()
 }
 
+/// FIND-683 (VB-5): parse and validate optional `dedup_policy` from tool
+/// arguments, falling back to `VANTADB_DEDUP_POLICY` across ALL profiles before
+/// applying the profile/SDK default.
+fn parse_dedup_policy(
+    obj: &Value,
+    config: &McpConfig,
+) -> Result<Option<vantadb::sdk::DedupPolicy>, Value> {
+    match obj.get("dedup_policy") {
+        Some(Value::Null) | None => {}
+        Some(v) => {
+            let raw = v.as_str().ok_or_else(|| {
+                McpError::invalid_params(
+                    "'dedup_policy' must be a string: 'off', 'exact', or 'semantic'",
+                )
+                .to_json()
+            })?;
+            return match raw.trim().to_ascii_lowercase().as_str() {
+                "off" => Ok(Some(vantadb::sdk::DedupPolicy::Off)),
+                "exact" => Ok(Some(vantadb::sdk::DedupPolicy::Exact)),
+                "semantic" => Ok(Some(vantadb::sdk::DedupPolicy::Semantic)),
+                other => Err(McpError::invalid_params(format!(
+                    "Invalid 'dedup_policy': '{other}'. Expected 'off', 'exact', or 'semantic'"
+                ))
+                .to_json()),
+            };
+        }
+    }
+    if let Ok(env_val) = std::env::var("VANTADB_DEDUP_POLICY") {
+        return Ok(match env_val.trim().to_ascii_lowercase().as_str() {
+            "off" | "false" | "0" => Some(vantadb::sdk::DedupPolicy::Off),
+            "exact" => Some(vantadb::sdk::DedupPolicy::Exact),
+            "semantic" => Some(vantadb::sdk::DedupPolicy::Semantic),
+            _ if config.profile == crate::config::McpProfile::Brain => {
+                Some(vantadb::sdk::DedupPolicy::Semantic)
+            }
+            _ => None,
+        });
+    }
+    if config.profile == crate::config::McpProfile::Brain {
+        Ok(Some(vantadb::sdk::DedupPolicy::Semantic))
+    } else {
+        Ok(None)
+    }
+}
+
 /// MCP-19: parse one JSON object into a `MemoryInput`, applying the same
 /// validation and wire semantics as `memory_put` (identifier/payload limits,
 /// sparse vector object, absolute expires_at_ms → relative ttl_ms).
@@ -4065,6 +4160,7 @@ fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::M
     // FIND-278 (SCH-02/04): per-record provenance fields — same boundary
     // semantics as `memory_put` (malformed → -32602, all-or-nothing batch).
     let provenance = parse_provenance_fields(obj)?;
+    let dedup_policy = parse_dedup_policy(obj, config)?;
 
     Ok(vantadb::sdk::MemoryInput {
         key: key.to_string(),
@@ -4079,6 +4175,7 @@ fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::M
         confidence: provenance.confidence,
         confidence_class: provenance.confidence_class,
         derived_from: provenance.derived_from,
+        dedup_policy,
         ..Default::default()
     })
 }
@@ -4720,13 +4817,6 @@ fn local_model_files_present(dir: &str) -> bool {
     has_onnx && has_tok
 }
 
-#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
-fn is_local_model_available() -> bool {
-    let path = std::env::var("VANTADB_LOCAL_MODEL")
-        .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
-    local_model_files_present(&path)
-}
-
 fn fallback_warning(provider: &str, detail: &str) -> String {
     format!(
         "Embedding model unavailable (provider='{provider}'); using deterministic fallback vectors (no semantic signal). {detail} Set VANTADB_EMBEDDING_PROVIDER=local with model files present, or start the configured remote provider. [EMB-13 Q5]"
@@ -4916,6 +5006,9 @@ fn embed_texts_via_provider(
     texts: &[String],
     model: Option<&str>,
 ) -> Result<(Vec<Vec<f32>>, bool, Option<String>), String> {
+    let strict = vantadb::config::Config::default()
+        .llm_cfg()
+        .strict_embeddings;
     #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
     {
         if let Some(id) = model {
@@ -4925,12 +5018,15 @@ fn embed_texts_via_provider(
             }
             #[cfg(not(feature = "embed-local"))]
             {
-                // Sin engine ONNX: conocido → fallback avisado (decisión 5);
-                // desconocido ya fue rechazado en el handler, doble-guard aquí.
                 if resolve_manifest_model(id).is_none() {
                     return Err(format!(
                         "unknown embedding model: {id:?}; valid models: {}",
                         manifest_model_ids().join(", ")
+                    ));
+                }
+                if strict {
+                    return Err(format!(
+                        "strict embeddings mode: binary compiled without `embed-local` feature for model {id:?}"
                     ));
                 }
                 let vectors = embed_texts_fallback(texts, model)?;
@@ -4946,35 +5042,37 @@ fn embed_texts_via_provider(
         }
         let provider_name =
             std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-        #[cfg(feature = "remote-inference")]
-        let is_remote = provider_name == "ollama" || provider_name == "openai";
-        #[cfg(not(feature = "remote-inference"))]
-        let is_remote = false;
-        match vantadb::llm::get_embedding_provider().embed_batch(texts) {
+        let provider = vantadb::llm::get_embedding_provider();
+        let is_synthetic = provider.is_synthetic();
+        match provider.embed_batch(texts) {
             Ok(vectors) => {
-                // EMB-14 (colateral rápido, pre-existente EMB-13): colapsar
-                // ramas idénticas que clippy `if_same_then_else` rechaza bajo
-                // `--features` (semántica intacta, mismo `Ok` en ambas).
-                if is_remote || is_local_model_available() {
+                if !is_synthetic {
                     Ok((vectors, false, None))
+                } else if strict {
+                    Err(format!(
+                        "strict embeddings mode: local ONNX session unavailable for provider '{provider_name}'"
+                    ))
                 } else {
-                    // `Ok` pero sin archivos → son dummies silenciosos: avisar.
                     warn!(
                         provider = %provider_name,
-                        "embed_texts: local model files missing — serving fallback vectors"
+                        "embed_texts: local ONNX session unavailable — serving fallback vectors"
                     );
                     Ok((
                         vectors,
                         true,
                         Some(fallback_warning(
                             &provider_name,
-                            "Local model files (model.onnx + tokenizer.json) not found.",
+                            "Local ONNX session unavailable (missing model files or ONNX Runtime dylib).",
                         )),
                     ))
                 }
             }
             Err(e) => {
-                // Q5: nunca error duro sin modelo → dummy avisado.
+                if strict {
+                    return Err(format!(
+                        "strict embeddings mode: provider '{provider_name}' failed: {e}"
+                    ));
+                }
                 warn!(provider = %provider_name, error = %e, "embed_texts: provider failed — serving fallback vectors");
                 let vectors = embed_texts_fallback(texts, model)?;
                 Ok((
@@ -4990,7 +5088,12 @@ fn embed_texts_via_provider(
     }
     #[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
     {
-        // Compilado sin `vantadb::llm`: dummy avisado directo (CI sin modelo).
+        if strict {
+            return Err(
+                "strict embeddings mode: binary compiled without embedding features (embed-local/remote-inference)"
+                    .to_string(),
+            );
+        }
         let vectors = embed_texts_fallback(texts, model)?;
         Ok((
             vectors,
@@ -5003,12 +5106,10 @@ fn embed_texts_via_provider(
     }
 }
 
-// ── EMB-14: auto-embed en put/put_batch (cierra FIND-99 con EMB-13) ───────
-// Rellena vectores ausentes con el proveedor activo. Difiere de
-// `embed_texts_via_provider` en un punto crítico: aquí NUNCA se usan vectores
-// dummy — sin proveedor se guarda sin vector + aviso (un hash persistido
-// contaminaría el índice con vecinos falsos, peor que null). Reusa
-// `is_local_model_available` + `fallback_warning` de EMB-13 verbatim.
+// ── EMB-14 + FIND-681 (VB-6): auto-embed en put/put_batch ──────────────────
+// Rellena vectores ausentes con el proveedor activo. Aquí NUNCA se persisten
+// vectores sintéticos — si `provider.is_synthetic()` es true (faltan archivos
+// o falló la DLL ONNX), se guarda sin vector + `fallback: true` + `warning`.
 
 /// Resultado del auto-embed: qué posiciones se rellenaron + si hubo fallback.
 struct AutoEmbedOutcome {
@@ -5017,33 +5118,29 @@ struct AutoEmbedOutcome {
     warning: Option<String>,
 }
 
-/// Intenta UN `embed_batch` del proveedor activo. `Ok` = vectores reales (con
-/// check de archivos locales para no tragar dummies silenciosos);
-/// `Err(warning)` = sin vectores + motivo (nunca dummies, nunca pánico).
+/// Intenta UN `embed_batch` del proveedor activo. `Ok` = vectores reales
+/// (`!provider.is_synthetic()`); `Err(warning)` = sin vectores + motivo.
 fn try_provider_embed(texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
     #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
     {
         let provider_name =
             std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-        #[cfg(feature = "remote-inference")]
-        let is_remote = provider_name == "ollama" || provider_name == "openai";
-        #[cfg(not(feature = "remote-inference"))]
-        let is_remote = false;
-        match vantadb::llm::get_embedding_provider().embed_batch(texts) {
+        let provider = vantadb::llm::get_embedding_provider();
+        if provider.is_synthetic() {
+            return Err(fallback_warning(
+                &provider_name,
+                "Local ONNX session unavailable (missing model files, missing ONNX Runtime dylib, or `embed-local` feature disabled).",
+            ));
+        }
+        match provider.embed_batch(texts) {
             Ok(vectors) => {
                 if vectors.len() != texts.len() {
                     Err(fallback_warning(
                         &provider_name,
                         "Provider returned a mismatched batch size.",
                     ))
-                } else if is_remote || is_local_model_available() {
-                    Ok(vectors)
                 } else {
-                    // `Ok` local sin archivos → dummies silenciosos: descartar.
-                    Err(fallback_warning(
-                        &provider_name,
-                        "Local model files (model.onnx + tokenizer.json) not found.",
-                    ))
+                    Ok(vectors)
                 }
             }
             Err(e) => Err(fallback_warning(
@@ -5128,33 +5225,27 @@ fn auto_embed_missing(inputs: &mut [vantadb::sdk::MemoryInput]) -> AutoEmbedOutc
     }
 }
 
-// ── EMB-15: embed de query con el MISMO proveedor ────────────────────────
-// Difiere de `try_provider_embed` en un punto: usa `embed_query` (semántica
-// query, prefijo `query:` en e5 vía EMB-16 — paridad con `vector.rs` IQL).
-// La query es UN texto: 1 inferencia, no hay batch que aplicar (pre-mortem
-// "donde aplique" = no aplica aquí). Filtra dummies igual que EMB-14: un
-// vector sin señal a la búsqueda es peor que keyword honesto. Reusa
-// `is_local_model_available` + `fallback_warning` verbatim.
+// ── EMB-15 + FIND-681: embed de query con verificación de sesión real ──────
 #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
 fn try_embed_query(text: &str) -> Result<Vec<f32>, String> {
     let provider_name =
         std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-    let is_remote = provider_name == "ollama" || provider_name == "openai";
-    match vantadb::llm::get_embedding_provider().embed_query(text) {
+    let provider = vantadb::llm::get_embedding_provider();
+    if provider.is_synthetic() {
+        return Err(fallback_warning(
+            &provider_name,
+            "Local ONNX session unavailable (missing model files, missing ONNX Runtime dylib, or `embed-local` feature disabled).",
+        ));
+    }
+    match provider.embed_query(text) {
         Ok(q) => {
             if q.is_empty() || q.iter().all(|&x| x == 0.0) {
                 Err(fallback_warning(
                     &provider_name,
                     "Provider returned an empty/zero query vector.",
                 ))
-            } else if is_remote || is_local_model_available() {
-                Ok(q)
             } else {
-                // `Ok` local sin archivos → dummies silenciosos: descartar.
-                Err(fallback_warning(
-                    &provider_name,
-                    "Local model files (model.onnx + tokenizer.json) not found.",
-                ))
+                Ok(q)
             }
         }
         Err(e) => Err(fallback_warning(
@@ -5173,46 +5264,19 @@ fn try_embed_query(text: &str) -> Result<Vec<f32>, String> {
     ))
 }
 
-// ── EMB-15: hook de query para `memory_recall` ───────────────────────────
-// `EmbedFn = Arc<dyn Fn(&str) -> Option<Vec<f32>>>`: el hook embebe la QUERY
-// (no el documento) con el MISMO proveedor que EMB-14 usó al guardar.
-// `None` = sin proveedor → keyword honesto con `effective_mode: "keyword"`
-// (aviso existente). NO se usa `core/local_embedding_hook` de vanta-memory:
-// embeben con `embed` (doc-semántica `passage:`) y leen otro env (`VANTA_*`)
-// — peras con manzanas otra vez (decisión 5 del task file).
-// ponytail: 1 provider por recall (igual costo que 1 put EMB-14); sin caché nueva.
+// ── EMB-15 + FIND-681: hook de query para `memory_recall` ──────────────────
 #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
 fn query_embed_hook() -> Option<vanta_memory::core::record::EmbedFn> {
-    #[cfg(feature = "remote-inference")]
-    let is_remote = {
-        let provider_name =
-            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-        provider_name == "ollama" || provider_name == "openai"
-    };
-    #[cfg(not(feature = "remote-inference"))]
-    let is_remote = false;
-    if !is_remote && !is_local_model_available() {
-        // Sin archivos locales el provider daría dummies: mejor `None`
-        // (keyword) que semántica falsa.
+    if vantadb::llm::get_embedding_provider().is_synthetic() {
         return None;
     }
     Some(std::sync::Arc::new(move |q: &str| {
-        #[cfg(feature = "remote-inference")]
-        let remote = {
-            let name = std::env::var("VANTADB_EMBEDDING_PROVIDER")
-                .unwrap_or_else(|_| "ollama".to_string());
-            name == "ollama" || name == "openai"
-        };
-        #[cfg(not(feature = "remote-inference"))]
-        let remote = false;
-        match vantadb::llm::get_embedding_provider().embed_query(q) {
-            Ok(v)
-                if !v.is_empty()
-                    && v.iter().any(|&x| x != 0.0)
-                    && (remote || is_local_model_available()) =>
-            {
-                Some(v)
-            }
+        let provider = vantadb::llm::get_embedding_provider();
+        if provider.is_synthetic() {
+            return None;
+        }
+        match provider.embed_query(q) {
+            Ok(v) if !v.is_empty() && v.iter().any(|&x| x != 0.0) => Some(v),
             _ => None,
         }
     }))
@@ -5370,5 +5434,238 @@ mod tests {
             "unexpected error: {res}"
         );
         assert!(embedded.get("default", "k1").unwrap().is_none());
+    }
+
+    #[test]
+    fn vb5_memory_put_schema_publishes_and_validates_dedup_policy() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+        let cfg = McpConfig {
+            profile: McpProfile::Memory,
+            ..Default::default()
+        };
+
+        let listed = handle_tools_list(&cfg).expect("tools/list");
+        let put_tool = listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == "memory_put")
+            .expect("memory_put in Memory profile");
+        assert_eq!(
+            put_tool["inputSchema"]["properties"]["dedup_policy"]["enum"],
+            json!(["off", "exact", "semantic"])
+        );
+
+        let executor = Executor::new(&engine);
+        let bad = handle_tools_call(
+            &Some(json!({
+                "name": "memory_put",
+                "arguments": {
+                    "namespace": "sg-formal-v1-test",
+                    "key": "ev-1",
+                    "payload": "formal journal event",
+                    "dedup_policy": "invalid_mode"
+                }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        );
+        assert!(bad.is_err(), "invalid dedup_policy must fail with -32602");
+
+        // Two identical payloads under different keys with dedup_policy="off" must
+        // both persist verbatim without reinforce/supersede side effects.
+        for k in ["ev-1", "ev-2"] {
+            let ok = handle_tools_call(
+                &Some(json!({
+                    "name": "memory_put",
+                    "arguments": {
+                        "namespace": "sg-formal-v1-test",
+                        "key": k,
+                        "payload": "identical formal journal event",
+                        "dedup_policy": "off"
+                    }
+                })),
+                &executor,
+                &engine,
+                &cfg,
+            )
+            .expect("valid memory_put with dedup_policy=off");
+            assert_ne!(ok.get("isError"), Some(&json!(true)));
+        }
+        let embedded = vantadb::Embedded::from_engine(engine.clone());
+        let r1 = embedded.get("sg-formal-v1-test", "ev-1").unwrap().unwrap();
+        let r2 = embedded.get("sg-formal-v1-test", "ev-2").unwrap().unwrap();
+        assert!(r1.superseded_by.is_none());
+        assert!(r2.superseded_by.is_none());
+    }
+
+    #[test]
+    fn vb3_allow_tools_and_strict_profile_gate_before_side_effects() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+        let executor = Executor::new(&engine);
+
+        let scopegrain_tools: std::collections::HashSet<String> = [
+            "memory_put",
+            "memory_get",
+            "memory_list",
+            "memory_list_namespaces",
+            "memory_search",
+            "memory_recall",
+            "memory_reinforce",
+            "capabilities",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+
+        // Memory profile lists all 8 Scopegrain tools; intersecting with allow_tools yields exact 8.
+        let cfg = McpConfig {
+            profile: McpProfile::Memory,
+            allow_tools: scopegrain_tools.clone(),
+            ..Default::default()
+        };
+        let listed = handle_tools_list(&cfg).expect("tools/list");
+        let names: std::collections::HashSet<String> = listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|t| t["name"].as_str().map(String::from))
+            .collect();
+        assert_eq!(names, scopegrain_tools);
+
+        // Calling memory_delete (in Memory profile, but outside allow_tools) must fail before effects.
+        let denied = handle_tools_call(
+            &Some(json!({
+                "name": "memory_delete",
+                "arguments": { "namespace": "ns", "key": "k" }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        );
+        assert!(denied.is_err());
+
+        // Strict Brain rejects unlisted tools like memory_reinforce that non-strict Brain would allow.
+        let strict_brain = McpConfig {
+            profile: McpProfile::Brain,
+            strict_profile: true,
+            ..Default::default()
+        };
+        let denied_brain = handle_tools_call(
+            &Some(json!({
+                "name": "memory_reinforce",
+                "arguments": { "namespace": "ns", "key": "k" }
+            })),
+            &executor,
+            &engine,
+            &strict_brain,
+        );
+        assert!(denied_brain.is_err());
+    }
+
+    #[test]
+    fn vb4_and_vb16_capabilities_recall_acl_and_not_found_contract() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+        let executor = Executor::new(&engine);
+        let cfg = McpConfig {
+            profile: McpProfile::Brain,
+            injection_namespaces: vec!["l1/".to_string()],
+            ..Default::default()
+        };
+
+        // 1. capabilities exposes compiled_features & effective_provider (VB-4).
+        let caps_res = handle_tools_call(
+            &Some(json!({ "name": "capabilities", "arguments": {} })),
+            &executor,
+            &engine,
+            &cfg,
+        )
+        .expect("capabilities call");
+        let caps_json: Value =
+            serde_json::from_str(caps_res["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert!(caps_json["embedding"]["compiled_features"].is_object());
+        assert!(caps_json["embedding"]["effective_provider"].is_string());
+
+        // 2. Write Scopegrain L1 record in l1/sg-abc and formal record in sg-formal-v1-abc (VB-16).
+        let l1_payload = serde_json::to_string(&json!({
+            "content": "Architecture decision: use deterministic recall boundaries",
+            "session_key": "scopegrain",
+            "agent_id": "default",
+            "team_id": "default",
+            "category": "decision"
+        }))
+        .unwrap();
+        let _ = handle_tools_call(
+            &Some(json!({
+                "name": "memory_put",
+                "arguments": {
+                    "namespace": "l1/sg-abc123",
+                    "key": "sg-worklog-1",
+                    "payload": l1_payload,
+                    "dedup_policy": "off"
+                }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        )
+        .unwrap();
+        let _ = handle_tools_call(
+            &Some(json!({
+                "name": "memory_put",
+                "arguments": {
+                    "namespace": "sg-formal-v1-abc123",
+                    "key": "sg-event-1",
+                    "payload": "Architecture decision: secret formal journal entry",
+                    "dedup_policy": "off"
+                }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        )
+        .unwrap();
+
+        let recall_res = handle_tools_call(
+            &Some(json!({
+                "name": "memory_recall",
+                "arguments": {
+                    "query": "deterministic recall boundaries",
+                    "scope": "agent",
+                    "top_k": 5
+                }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        )
+        .expect("memory_recall");
+        let recall_txt = recall_res["content"][0]["text"].as_str().unwrap();
+        assert!(
+            !recall_txt.contains("sg-formal-v1-abc123"),
+            "formal journal namespace must never be injected under l1/ ACL: {recall_txt}"
+        );
+
+        // 3. Not-found contract on memory_get (-32004, VANTADB_NOT_FOUND, retriable: false).
+        let miss = handle_tools_call(
+            &Some(json!({
+                "name": "memory_get",
+                "arguments": { "namespace": "l1/sg-abc123", "key": "nonexistent" }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        )
+        .expect("soft isError envelope");
+        assert_eq!(miss["isError"], json!(true));
+        let err_payload: Value =
+            serde_json::from_str(miss["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert_eq!(err_payload["code"], json!(-32004));
+        assert_eq!(err_payload["data"]["code"], json!("VANTADB_NOT_FOUND"));
+        assert_eq!(err_payload["data"]["retriable"], json!(false));
     }
 }
