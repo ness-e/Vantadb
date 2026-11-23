@@ -618,6 +618,12 @@ fn local_model_bases() -> Vec<PathBuf> {
 /// candidate contains: the error message must keep naming what the user
 /// configured instead of a path this function invented.
 pub fn resolve_local_model_path(raw: &str) -> PathBuf {
+    // FIND-703: an unset path must stay unset. `Path::new("").join("..")`
+    // resolves to the cwd, which made every "is it empty?" discovery branch
+    // unreachable and silently pointed the loader at the launch directory.
+    if raw.trim().is_empty() {
+        return PathBuf::new();
+    }
     let configured = Path::new(raw);
     if configured.is_absolute() {
         return configured.to_path_buf();
@@ -628,6 +634,10 @@ pub fn resolve_local_model_path(raw: &str) -> PathBuf {
             return candidate;
         }
     }
+    debug!(
+        model_path = raw,
+        "local model path not found under cwd, exe dir or data dir; keeping the configured value"
+    );
     configured.to_path_buf()
 }
 
@@ -3238,5 +3248,8 @@ mod tests {
         // Absolute paths are taken as-is.
         let abs = std::env::temp_dir();
         assert_eq!(resolve_local_model_path(&abs.to_string_lossy()), abs);
+        // FIND-703: unset stays unset (an empty join would resolve to the cwd).
+        assert_eq!(resolve_local_model_path(""), PathBuf::new());
+        assert_eq!(resolve_local_model_path("   "), PathBuf::new());
     }
 }

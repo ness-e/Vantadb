@@ -480,20 +480,9 @@ impl LocalOnnxProvider {
     }
 
     fn try_load_tokenizer(model_dir: &str) -> Option<tokenizers::Tokenizer> {
-        let candidates = [
-            std::path::Path::new(model_dir)
-                .join("tokenizer.json")
-                .to_path_buf(),
-            std::path::Path::new(model_dir)
-                .join("../tokenizer.json")
-                .to_path_buf(),
-            std::path::Path::new(model_dir)
-                .join("../../tokenizer.json")
-                .to_path_buf(),
-            std::path::PathBuf::from("embeddings/models/multilingual-e5-small/tokenizer.json"),
-            std::path::PathBuf::from("embeddings/models/embeddinggemma-2/tokenizer.json"),
-            std::path::PathBuf::from("embeddings/models/embeddinggemma-300m/tokenizer.json"),
-        ];
+        // FIND-703: one candidate list for both the session and the tokenizer,
+        // so a partial install can never pair model A with model B's tokenizer.
+        let candidates = Self::tokenizer_candidates(model_dir);
         for p in candidates {
             if p.exists() {
                 if let Ok(tok) = tokenizers::Tokenizer::from_file(p) {
@@ -665,7 +654,7 @@ impl LocalOnnxProvider {
     /// Candidate ONNX weights paths in commit order — shared by
     /// `load_session_inner` and the FIND-642 budget estimator so the estimate
     /// always prices the file that actually loads.
-    fn model_path_candidates(model_dir: &str) -> Vec<std::path::PathBuf> {
+    pub(crate) fn model_path_candidates(model_dir: &str) -> Vec<std::path::PathBuf> {
         let mut candidates = vec![
             std::path::Path::new(model_dir)
                 .join("model.onnx")
@@ -691,6 +680,36 @@ impl LocalOnnxProvider {
             ));
             candidates.push(std::path::PathBuf::from(
                 "embeddings/models/embeddinggemma-300m/onnx/model.onnx",
+            ));
+        }
+        candidates
+    }
+
+    /// Tokenizer candidates that mirror [`Self::model_path_candidates`]
+    /// (FIND-703): same three roots, same discovery gate. Keeping both lists in
+    /// one place is what stops a partial install from pairing one model's
+    /// weights with another model's tokenizer.
+    pub(crate) fn tokenizer_candidates(model_dir: &str) -> Vec<std::path::PathBuf> {
+        let mut candidates = vec![
+            std::path::Path::new(model_dir)
+                .join("tokenizer.json")
+                .to_path_buf(),
+            std::path::Path::new(model_dir)
+                .join("../tokenizer.json")
+                .to_path_buf(),
+            std::path::Path::new(model_dir)
+                .join("../../tokenizer.json")
+                .to_path_buf(),
+        ];
+        if model_dir.trim().is_empty() {
+            candidates.push(std::path::PathBuf::from(
+                "embeddings/models/multilingual-e5-small/tokenizer.json",
+            ));
+            candidates.push(std::path::PathBuf::from(
+                "embeddings/models/embeddinggemma-2/tokenizer.json",
+            ));
+            candidates.push(std::path::PathBuf::from(
+                "embeddings/models/embeddinggemma-300m/tokenizer.json",
             ));
         }
         candidates
@@ -1812,6 +1831,40 @@ mod tests {
     // ── FIND-642: ONNX session accounted against the RAM budget ────────
     // Dylib-free: `onnx_budget_decision` is pure and
     // `onnx_model_weights_bytes` works on a fake model.onnx.
+
+    // FIND-703: the hardcoded defaults are discovery for an UNSET model dir
+    // only; a non-empty (even invalid) dir must resolve to nothing so strict
+    // mode fails closed instead of loading an unrelated model — the exact
+    // regression FIND-698 fixed in the loader but left alive in the health probe.
+    #[test]
+    fn model_path_candidates_gate_the_hardcoded_defaults() {
+        let unset = LocalOnnxProvider::model_path_candidates("");
+        assert_eq!(
+            unset.len(),
+            6,
+            "unset dir must keep the 3 discovery fallbacks: {unset:?}"
+        );
+        let configured = LocalOnnxProvider::model_path_candidates("no/such/model-dir-xyz");
+        assert_eq!(
+            configured.len(),
+            3,
+            "a configured dir must not fall back: {configured:?}"
+        );
+        assert!(
+            configured
+                .iter()
+                .all(|p| !p.to_string_lossy().contains("embeddings/models")),
+            "configured dir leaked a hardcoded default: {configured:?}"
+        );
+        let tokens = LocalOnnxProvider::tokenizer_candidates("no/such/model-dir-xyz");
+        assert!(
+            tokens
+                .iter()
+                .all(|p| !p.to_string_lossy().contains("embeddings/models")),
+            "tokenizer candidates leaked a hardcoded default: {tokens:?}"
+        );
+        assert_eq!(LocalOnnxProvider::tokenizer_candidates("").len(), 6);
+    }
 
     #[test]
     fn onnx_budget_decision_within_limit_loads() {

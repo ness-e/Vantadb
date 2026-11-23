@@ -257,25 +257,14 @@ fn not_applicable(provider: &str, detail: &str) -> EmbeddingHealth {
 /// decide whether a provider vector is real or synthetic (FIND-485).
 #[cfg(feature = "embed-local")]
 pub(crate) fn model_files_present(dir: &str) -> bool {
-    use std::path::{Path, PathBuf};
-
-    let base = Path::new(dir);
-    let onnx_candidates = [
-        base.join("model.onnx"),
-        base.join("onnx/model.onnx"),
-        base.join("model_int8.onnx"),
-        PathBuf::from("embeddings/models/multilingual-e5-small/onnx/model.onnx"),
-        PathBuf::from("embeddings/models/embeddinggemma-2/onnx/model.onnx"),
-        PathBuf::from("embeddings/models/embeddinggemma-300m/onnx/model.onnx"),
-    ];
-    let tokenizer_candidates = [
-        base.join("tokenizer.json"),
-        base.join("../tokenizer.json"),
-        base.join("../../tokenizer.json"),
-        PathBuf::from("embeddings/models/multilingual-e5-small/tokenizer.json"),
-        PathBuf::from("embeddings/models/embeddinggemma-2/tokenizer.json"),
-        PathBuf::from("embeddings/models/embeddinggemma-300m/tokenizer.json"),
-    ];
+    // FIND-703: reuse the provider's own candidate lists instead of keeping a
+    // second copy with a different policy. A health probe that disagrees with
+    // the loader is worse than no probe (it reported Ready while strict mode
+    // failed closed).
+    let onnx_candidates =
+        crate::llm::LocalOnnxProvider::model_path_candidates(dir);
+    let tokenizer_candidates =
+        crate::llm::LocalOnnxProvider::tokenizer_candidates(dir);
     let entries = entries_one_level(dir);
     let has_onnx = onnx_candidates.iter().any(|p| p.exists())
         || entries.iter().any(|p| {
