@@ -363,7 +363,13 @@ impl LocalOnnxProvider {
 
     /// Create a new provider from [`LlmCfg`] (uses `local_model_path`).
     pub fn from_llm_cfg(cfg: &crate::config::LlmCfg) -> Result<Self> {
-        let model_dir = &cfg.local_model_path;
+        // FIND-697: resolve a relative `local_model_path` against the cwd, the
+        // executable dir and the data dir — the provider must find an installed
+        // model no matter which directory launched the process.
+        let model_dir = crate::config::resolve_local_model_path(&cfg.local_model_path)
+            .to_string_lossy()
+            .into_owned();
+        let model_dir = model_dir.as_str();
         let dim = Self::detect_dim(model_dir);
         let family = family_of(model_dir);
         // try to load tokenizer

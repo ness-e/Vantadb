@@ -586,6 +586,26 @@ if (-not (Test-Path $DbPath)) {
   New-Item -ItemType Directory -Force $DbPath | Out-Null
   Write-Host "[setup] DB creada: $DbPath"
 } else { Write-Host "[setup] DB existente (re-ejecutable, sin romper): $DbPath" }
+
+# --- S1b (FIND-697): modelo alcanzable desde el data dir ---
+# El binario resuelve un `local_model_path` relativo contra el cwd, el dir del
+# ejecutable y el data dir ($HOME/.vantadb). Sin esto, un cliente lanzado desde
+# otro directorio —o Scopegrain, que solo conoce `storagePath`— reporta el modelo
+# como ausente aunque esté instalado. Junction y no copia: mismos bytes, cero
+# duplicación (823 MB).
+if ($env:VANTADB_EMBEDDING_PROVIDER -eq 'local') {
+  $repoEmbeddings = Join-Path (Get-RepoRoot) 'embeddings'
+  $modelLink = Join-Path $DbPath 'embeddings'
+  if (-not (Test-Path $modelLink) -and (Test-Path $repoEmbeddings)) {
+    try {
+      New-Item -ItemType Junction -Path $modelLink -Target $repoEmbeddings -ErrorAction Stop | Out-Null
+      Write-Host "[setup] modelo enlazado: $modelLink -> $repoEmbeddings (junction, sin duplicar bytes)"
+    } catch {
+      Write-Host "[setup] AVISO: no se pudo enlazar $modelLink ($($_.Exception.Message)). Exporta VANTADB_LOCAL_MODEL=$($env:VANTADB_LOCAL_MODEL) en tu cliente MCP."
+    }
+  }
+}
+
 if ($mcpOn) {
   Install-McpBlocks $DbPath
   if ($NonInteractive) {

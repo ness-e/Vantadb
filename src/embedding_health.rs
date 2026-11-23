@@ -89,9 +89,12 @@ pub fn embedding_health() -> EmbeddingHealth {
     let cfg = Config::default().llm_cfg();
     #[cfg(feature = "embed-local")]
     {
+        // FIND-697: same resolution the provider uses, so `capabilities`
+        // reports the model the session would actually load.
+        let model_dir = crate::config::resolve_local_model_path(&cfg.local_model_path);
         health_for(
             &cfg.embedding_provider,
-            &cfg.local_model_path,
+            &model_dir.to_string_lossy(),
             cfg.strict_embeddings,
         )
     }

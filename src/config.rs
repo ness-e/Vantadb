@@ -16,6 +16,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 #[cfg(feature = "hot-reload")]
 use std::sync::{Arc, RwLock};
@@ -585,6 +586,49 @@ impl LlmCfg {
         }
         cfg
     }
+}
+
+/// Base directories tried for a relative `local_model_path`, in order.
+///
+/// The default (`embeddings/models/...`) used to be resolved against the
+/// process cwd only, so a server launched from any other directory reported the
+/// model as missing even when it was installed (FIND-697). Candidates: the cwd
+/// (repository checkouts), the executable's directory (models shipped next to
+/// the binary) and the VantaDB data dir (`~/.vantadb`, where
+/// `scripts/setup-embeddings.ps1` installs the model).
+fn local_model_bases() -> Vec<PathBuf> {
+    let mut bases = Vec::with_capacity(3);
+    if let Ok(cwd) = env::current_dir() {
+        bases.push(cwd);
+    }
+    if let Ok(exe) = env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            bases.push(dir.to_path_buf());
+        }
+    }
+    if let Some(home) = env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")) {
+        bases.push(PathBuf::from(home).join(".vantadb"));
+    }
+    bases
+}
+
+/// Resolve `local_model_path` against [`local_model_bases`].
+///
+/// Absolute paths are returned untouched, and so is a relative path that no
+/// candidate contains: the error message must keep naming what the user
+/// configured instead of a path this function invented.
+pub fn resolve_local_model_path(raw: &str) -> PathBuf {
+    let configured = Path::new(raw);
+    if configured.is_absolute() {
+        return configured.to_path_buf();
+    }
+    for base in local_model_bases() {
+        let candidate = base.join(configured);
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+    configured.to_path_buf()
 }
 
 impl Default for EvictionCfg {
@@ -3175,5 +3219,24 @@ mod tests {
             cfg.local_model_path, "embeddings/models/multilingual-e5-small/onnx",
             "without env and without an explicit dir the documented default applies"
         );
+    }
+
+    // FIND-697: a relative `local_model_path` resolves against the cwd, the
+    // executable dir and the data dir instead of the cwd alone.
+    #[test]
+    fn f697_relative_local_model_path_resolves_against_known_bases() {
+        let resolved = resolve_local_model_path("src");
+        assert!(
+            resolved.is_absolute() && resolved.exists() && resolved.ends_with("src"),
+            "a relative dir present in the checkout must resolve to an existing absolute path: {resolved:?}"
+        );
+        // Nothing matches: the configured string survives so the error names it.
+        assert_eq!(
+            resolve_local_model_path("no/such/model-dir-xyz"),
+            PathBuf::from("no/such/model-dir-xyz")
+        );
+        // Absolute paths are taken as-is.
+        let abs = std::env::temp_dir();
+        assert_eq!(resolve_local_model_path(&abs.to_string_lossy()), abs);
     }
 }

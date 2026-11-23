@@ -483,10 +483,16 @@ impl<'a> Executor<'a> {
                     match provider.embed(text) {
                         Ok(vec) => {
                             let cfg = crate::config::Config::default().llm_cfg();
+                            // FIND-697: probe the SAME path the provider loaded,
+                            // otherwise a model found from another cwd is
+                            // reported as synthetic and the vector is dropped.
+                            let model_dir =
+                                crate::config::resolve_local_model_path(&cfg.local_model_path);
+                            let model_dir = model_dir.to_string_lossy();
                             if provider_is_synthetic
                                 || Self::is_synthetic_local_fallback(
                                     &cfg.embedding_provider,
-                                    &cfg.local_model_path,
+                                    &model_dir,
                                 )
                             {
                                 // Fallback avisado, nunca silencioso (FIND-485 / FIND-681):
@@ -497,7 +503,7 @@ impl<'a> Executor<'a> {
                                      vector (local ONNX session unavailable under '{}'): the node is \
                                      stored WITHOUT a vector — a synthetic vector would pollute \
                                      the index with false neighbours",
-                                    cfg.local_model_path
+                                    model_dir
                                 );
                             } else {
                                 node.vector = VectorRepresentations::Full(vec);
