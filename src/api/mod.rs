@@ -1,6 +1,6 @@
-//! HTTP API handlers and route definitions for the VantaDB server.
+//! Shared deterministic scoring and rank-fusion helpers (`scores`).
 //!
-//! Mounts REST endpoints for node CRUD, vector search, and collection
-//! management, delegating to the core engine and storage layers.
+//! HTTP server routes and handlers live under `crate::server` (behind the
+//! `server` feature); this module exposes pure score-normalization utilities.
 
 pub mod scores;

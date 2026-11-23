@@ -260,19 +260,18 @@ No se requiere clúster, daemon ni servicio externo. VantaDB se ejecuta en-proce
 
 Cómo se compara VantaDB frente a bases de datos vectoriales tradicionales y frameworks pesados de memoria para agentes:
 
-| Característica / Métrica | VantaDB (v0.9.0+) | Mem0 (Mem0AI) | Zep / Graphiti | Letta (MemGPT) | ChromaDB / sqlite-vec |
+| Característica / Métrica | VantaDB (v0.9.0+) | Mem0 OSS (`raw` local, §19) | Zep / Graphiti | Letta (MemGPT) | ChromaDB / sqlite-vec |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Arquitectura de Ejecución** | **In-process embebido en Rust (0 dependencias)** | Servicio externo Python / SaaS | Docker / Neo4j / Postgres | Docker / Postgres / Python | Python / Extensión de SQLite |
-| **Latencia de Ingesta (p50)** | **0.65 ms** (FastGate pre-LLM) | ~550 ms (Llamada LLM obligatoria) | ~120 ms | >800 ms (Bucle de agente) | 1.2 ms (Solo vector) |
-| **Rendimiento de Escritura (QPS)** | **243.9 QPS** | 1.3 QPS | 8.1 QPS | 0.9 QPS | 180 QPS |
-| **Consumo de RAM en Idle** | **< 25 MB** | 350 MB – 1.2 GB | ~800 MB | > 1.5 GB | ~40 MB |
-| **Llamadas LLM Obligatorias en Ingesta** | **0 (Cero)** — Compuerta determinista pura | 1–3 llamadas LLM ($$$ + latencia) | 1–2 llamadas LLM | Razonamiento LLM multi-turno | 0 (Sin deduplicación semántica) |
-| **Búsqueda Híbrida Nativa** | **BM25 + HNSW vía RRF** in-process | Solo vector o pgvector externo | Grafo + Vector vía Neo4j | Búsqueda texto o pgvector | Vector o SQLite FTS5 (sin fusionar) |
-| **Durabilidad del Almacenamiento** | **WAL v4 + CRC32C** recuperación ante crash | Dependiente de nube / Postgres | WAL de Postgres | WAL de Postgres | SQLite WAL / Archivos Parquet |
-| **Gobernanza / GDPR (Derecho al Olvido)** | **Recibo de Purga Criptográfica** (`forget(Certified)`) | Borrado lógico (`DELETE FROM`) | Soft-delete lógico | Borrado en cascada (sin atestación) | Borrado manual (sin rastro de auditoría) |
-| **Licencia y Precios** | **Apache-2.0** (Autoalojado y Local) | Nube comercial / Híbrido BSL | Nube comercial / AGPL | Nube comercial / Apache-2.0 | Apache-2.0 / Mozilla |
+| **Arquitectura de Ejecución** | **In-process embebido en Rust (0 dependencias)** | SDK Python + Qdrant embebido / SaaS | Servicio externo + Neo4j / Postgres | Servidor Python de agentes stateful | Python embebido / Extensión C SQLite |
+| **Latencia y QPS de Ingesta (§19 h2h)** | **0,65 ms p50 · 243,9 docs/s** (text-only) / **35,7 docs/s** (BGE en caché §23.3) | **550,0 ms p50 · 1,3 docs/s** (embed ONNX local + híbrido) | *No corrido en repo (API key / stack Neo4j — ver §19)* | *No corrido en repo (contrato de loop de agente — ver §19)* | Ver corridas embebidas en [§7 y §24](docs/user/operations/BENCHMARKS.md) |
+| **Recall de Evidencia (`recall_all@5`)** | **0,8872** (500q `hybrid_rrf`, §23.3) · 0,7167 (60q text-only, §19) | **0,9333** (60q `raw` local, §19 — *supera a VantaDB 0.7.0 text-only*) | *No corrido en repo* | *No corrido en repo* | Primitivas vector/FTS (sin ciclo de vida de sesión) |
+| **Llamadas LLM Obligatorias en Ingesta** | **0 (Cero)** — Compuerta determinista FastGate | 0 en modo `raw` (`infer=False`) · 1+ en modo LLM por defecto | Extracción de grafo con LLM | Razonamiento LLM multi-turno | 0 (Sin deduplicación semántica) |
+| **Búsqueda Híbrida Nativa** | **BM25 + HNSW vía RRF** in-process | Semántico + BM25 vía Qdrant | Grafo + Vector vía Neo4j | Búsqueda texto o pgvector | Chroma vector/FTS o SQLite FTS5 (fusión manual) |
+| **Durabilidad del Almacenamiento** | **WAL v4 + CRC32C** + txns batch atómicas (ADR-0061) | Qdrant local / Postgres Cloud | WAL de Postgres / Neo4j | Postgres / SQLite | SQLite WAL / Lance / Parquet |
+| **Gobernanza / GDPR (Derecho al Olvido)** | **Recibo de Purga Criptográfica** (`forget(mode="certified")`) | Borrado lógico/store | Borrado lógico/grafo | Borrado en cascada (sin atestación) | Borrado manual (sin recibo criptográfico) |
+| **Licencia** | **Apache-2.0** (Autoalojado y Local) | Apache-2.0 OSS + Nube gestionada | Apache-2.0 Graphiti + Nube comercial | Apache-2.0 + Nube gestionada | Apache-2.0 / MIT-MPL |
 
-*Benchmarks medidos en AMD Ryzen 9 7950X / Ubuntu 24.04 LTS con embeddings locales deterministas (`multilingual-e5-small`). Ver metodología completa en [BENCHMARKS.md](docs/user/operations/BENCHMARKS.md).*
+*Cada cifra anterior proviene de arneses reproducibles del propio repositorio sobre hardware declarado (Windows 11, Intel i5-1235U, 32 GB RAM): [`evals/runners/head_to_head.py`](evals/runners/README.md) (§19), [`evals/eval_longmemeval.py`](evals/eval_longmemeval.py) (§23.3) y [`benchmarks/competitive_bench.py`](benchmarks/competitive_bench.py) (§7). Conforme a la Regla 11, los competidores no ejecutados localmente registran su motivo de omisión en lugar de cifras externas no verificadas — ver [BENCHMARKS.md](docs/user/operations/BENCHMARKS.md) y [COMPARISON.md](docs/user/COMPARISON.md).*
 
 ### Cuándo Usar VantaDB (y Cuándo No)
 

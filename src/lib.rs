@@ -1,4 +1,3 @@
-#![doc(html_root_url = "https://docs.rs/vantadb/0.8.0/vantadb/")]
 #![deny(unsafe_op_in_unsafe_fn)]
 // Tests use `unwrap`/`expect` freely for invariants that would panic anyway in
 // production. Keep deny on prod code, allow inside `#[cfg(test)]` only.

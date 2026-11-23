@@ -259,19 +259,18 @@ No separate cluster, daemon, or external service is required. VantaDB runs in-pr
 
 How VantaDB compares to legacy vector databases and heavy agent-memory frameworks:
 
-| Feature / Metric | VantaDB (v0.9.0+) | Mem0 (Mem0AI) | Zep / Graphiti | Letta (MemGPT) | ChromaDB / sqlite-vec |
+| Feature / Metric | VantaDB (v0.9.0+) | Mem0 OSS (`raw` local, §19) | Zep / Graphiti | Letta (MemGPT) | ChromaDB / sqlite-vec |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Execution Architecture** | **In-process embedded Rust (0 deps)** | External Python service / SaaS | Docker / Neo4j / Postgres | Docker / Postgres / Python | Python / SQLite extension |
-| **Write Ingestion Latency (p50)** | **0.65 ms** (FastGate pre-LLM) | ~550 ms (Mandatory LLM call) | ~120 ms | >800 ms (Agent loop) | 1.2 ms (Vector-only) |
-| **Write Throughput (QPS)** | **243.9 QPS** | 1.3 QPS | 8.1 QPS | 0.9 QPS | 180 QPS |
-| **Idle RAM Footprint** | **< 25 MB** | 350 MB – 1.2 GB | ~800 MB | > 1.5 GB | ~40 MB |
-| **Mandatory LLM Calls on Put** | **0 (Zero)** — Pure deterministic gate | 1–3 LLM calls ($$$ + latency) | 1–2 LLM calls | Multi-turn LLM reasoning | 0 (No semantic dedup) |
-| **Native Hybrid Search** | **BM25 + HNSW via RRF** in-process | Vector-only or external pgvector | Graph + Vector via Neo4j | Text search or pgvector | Vector or SQLite FTS5 (unfused) |
-| **Storage Durability** | **WAL v4 + CRC32C** crash recovery | Cloud-dependent / Postgres | Postgres WAL | Postgres WAL | SQLite WAL / Parquet files |
-| **GDPR Compliance / Right to be Forgotten** | **Cryptographic Purge Receipt** (`forget(Certified)`) | Logical delete (`DELETE FROM`) | Logical soft-delete | Cascade delete (unattested) | Manual delete (no audit trail) |
-| **License & Pricing** | **Apache-2.0** (Self-hosted & Local) | Commercial cloud / BSL hybrid | Commercial cloud / AGPL | Commercial cloud / Apache-2.0 | Apache-2.0 / Mozilla |
+| **Execution Architecture** | **In-process embedded Rust (0 deps)** | Python SDK + embedded Qdrant / SaaS | External service + Neo4j / Postgres | Stateful Python agent server | Embedded Python / SQLite C extension |
+| **Write Ingestion Latency & QPS (§19 h2h)** | **0.65 ms p50 · 243.9 docs/s** (text-only) / **35.7 docs/s** (cached BGE §23.3) | **550.0 ms p50 · 1.3 docs/s** (local ONNX embed + hybrid) | *Not run in-repo (API key / Neo4j stack — see §19)* | *Not run in-repo (agent-loop contract — see §19)* | See embedded runs in [§7 & §24](docs/user/operations/BENCHMARKS.md) |
+| **Evidence Recall (`recall_all@5`)** | **0.8872** (500q `hybrid_rrf`, §23.3) · 0.7167 (60q text-only, §19) | **0.9333** (60q `raw` local, §19 — *beats VantaDB 0.7.0 text-only*) | *Not run in-repo* | *Not run in-repo* | Vector/FTS primitives (no built-in session lifecycle) |
+| **Mandatory LLM Calls on Put** | **0 (Zero)** — Deterministic FastGate | 0 in `raw` (`infer=False`) · 1+ in default LLM mode | LLM graph extraction | Multi-turn LLM reasoning | 0 (No semantic dedup) |
+| **Native Hybrid Search** | **BM25 + HNSW via RRF** in-process | Semantic + BM25 via Qdrant | Graph + Vector via Neo4j | Text search or pgvector | Chroma vector/FTS or SQLite FTS5 (manual fusion) |
+| **Storage Durability** | **WAL v4 + CRC32C** + atomic batch txns (ADR-0061) | Qdrant local / Cloud Postgres | Postgres / Neo4j WAL | Postgres / SQLite | SQLite WAL / Lance / Parquet |
+| **GDPR / Right to be Forgotten** | **Cryptographic Purge Receipt** (`forget(mode="certified")`) | Logical/store delete | Logical/graph delete | Cascade delete (unattested) | Manual delete (no cryptographic receipt) |
+| **License** | **Apache-2.0** (Self-hosted & Local) | Apache-2.0 OSS + Managed Cloud | Apache-2.0 Graphiti + Commercial Cloud | Apache-2.0 + Managed Cloud | Apache-2.0 / MIT-MPL |
 
-*Benchmarks measured on AMD Ryzen 9 7950X / Ubuntu 24.04 LTS with local deterministic embeddings (`multilingual-e5-small`). See full methodology in [BENCHMARKS.md](docs/user/operations/BENCHMARKS.md).*
+*Every figure above comes from reproducible in-repo harnesses on declared hardware (Windows 11, Intel i5-1235U, 32 GB RAM): [`evals/runners/head_to_head.py`](evals/runners/README.md) (§19), [`evals/eval_longmemeval.py`](evals/eval_longmemeval.py) (§23.3), and [`benchmarks/competitive_bench.py`](benchmarks/competitive_bench.py) (§7). Per Regla 11, competitors not executed in-repo carry documented skip dispositions rather than unverified third-party numbers — see [BENCHMARKS.md](docs/user/operations/BENCHMARKS.md) and [COMPARISON.md](docs/user/COMPARISON.md).*
 
 ### When to Use VantaDB (and When Not To)
 
