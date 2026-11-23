@@ -12,19 +12,23 @@ Features:
   - Systematic ablation study via `--ablation`:
       * `vector_only`: Dense HNSW vector search only.
       * `bm25_only`: Sparse lexical BM25 search only.
-      * `hybrid_rrf`: Default hybrid search fusing HNSW + BM25 via Reciprocal Rank Fusion.
-      * `hybrid_graphrag`: Enhanced hybrid search with associative graph-RAG expansion
-        across multi-session conversational entities and temporal links.
-      * `all`: Runs all 4 ablations in comparative sequence.
+      * `hybrid_rrf` (default / certification target): Native VantaDB hybrid search
+        fusing HNSW + BM25 via Reciprocal Rank Fusion (`RRF_K=60`).
+      * `hybrid_graphrag` (documented experimental ablation): Harness-side Python
+        associative entity-overlap expansion layered on top of `hybrid_rrf` (not the
+        engine's native `graphrag_search`; retained for ablation comparison — see
+        `BENCHMARKS.md` §23.3).
+      * `all`: Runs all 4 ablations in comparative sequence; evaluates the release
+        gate against `hybrid_rrf`.
   - Gate verification:
-      Prints `GATE PASS: recall_all@5 = ... >= 0.85` or `GATE FAIL: recall_all@5 = ... < 0.85`.
+      Prints `GATE PASS [mode=...]: recall_all@5 = ... >= 0.85` or `GATE FAIL`.
       Exits with returncode 0 on PASS, 1 on FAIL (override with `--no-fail-gate`).
   - Exports full JSON report to `--output` (default: evals/results/longmemeval_v091.json).
 
 Commands (Regla 11):
   python evals/eval_longmemeval.py --self-test
-  python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings --ablation hybrid_graphrag
-  python evals/eval_longmemeval.py --ablation all --questions 500 --output evals/results/longmemeval_ablation.json
+  python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings --ablation hybrid_rrf
+  python evals/eval_longmemeval.py --ablation all --questions 500 --strict-embeddings --output evals/results/longmemeval_ablation.json
 """
 from __future__ import annotations
 
@@ -372,7 +376,7 @@ class VantaAblationStore:
 
     name = "vantadb"
 
-    def __init__(self, backend: str = "memory", ablation: str = "hybrid_graphrag") -> None:
+    def __init__(self, backend: str = "memory", ablation: str = "hybrid_rrf") -> None:
         import vantadb
         self.backend = backend
         self.ablation = ablation  # 'vector_only' | 'bm25_only' | 'hybrid_rrf' | 'hybrid_graphrag'
@@ -562,7 +566,7 @@ class FakeAblationStore:
 
     name = "fake-ablation-store"
 
-    def __init__(self, ablation: str = "hybrid_graphrag") -> None:
+    def __init__(self, ablation: str = "hybrid_rrf") -> None:
         self.ablation = ablation
         self.docs: Dict[Tuple[str, str], str] = {}
         self.entities: Dict[Tuple[str, str], Set[str]] = {}
@@ -848,7 +852,12 @@ def main() -> int:
     parser.add_argument("--gate-threshold", type=float, default=GATE_THRESHOLD, help="Umbral del gate para recall_all@k (default: 0.85).")
     parser.add_argument("--strict-embeddings", action="store_true", help="Falla si fastembed con BAAI/bge-small-en-v1.5 no está disponible.")
     parser.add_argument("--embed-cache", default=None, metavar="PATH", help="Caché en disco (.npz) de sha256(texto)->vector: precarga al arrancar, persiste al terminar y reporta los misses (un miss = embedding calculado en esta máquina).")
-    parser.add_argument("--ablation", choices=["vector_only", "bm25_only", "hybrid_rrf", "hybrid_graphrag", "all"], default="hybrid_graphrag")
+    parser.add_argument(
+        "--ablation",
+        choices=["vector_only", "bm25_only", "hybrid_rrf", "hybrid_graphrag", "all"],
+        default="hybrid_rrf",
+        help="Modo de ablación (default: hybrid_rrf, path híbrido nativo certificado; hybrid_graphrag es heurística experimental del harness).",
+    )
     parser.add_argument("--data", default="", help="Ruta a dataset JSON de LongMemEval.")
     parser.add_argument("--backend", default="memory", help="Backend de VantaDB.")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Ruta para exportar el reporte JSON.")
@@ -906,6 +915,7 @@ def main() -> int:
 
     all_reports: Dict[str, Any] = {}
     primary_report = None
+    primary_mode = "hybrid_rrf" if args.ablation == "all" else args.ablation
 
     for mode in modes_to_run:
         print(f"\n--- Ejecutando ablación: [{mode}] ---")
@@ -928,7 +938,7 @@ def main() -> int:
         store.close()
         all_reports[mode] = rep
 
-        if primary_report is None or mode == args.ablation or mode == "hybrid_graphrag":
+        if primary_report is None or mode == primary_mode:
             primary_report = rep
 
     # Persist the cache at the end of the ablation loop (a partial cache is still progress:
@@ -983,10 +993,10 @@ def main() -> int:
 
     print("=" * 95)
     if gate_passed:
-        print(f"\n>>> GATE PASS: recall_all@{args.top_k} = {primary_recall_all:.4f} >= {args.gate_threshold:.2f} <<<")
+        print(f"\n>>> GATE PASS [{primary_mode}]: recall_all@{args.top_k} = {primary_recall_all:.4f} >= {args.gate_threshold:.2f} <<<")
         return 0
     else:
-        print(f"\n>>> GATE FAIL: recall_all@{args.top_k} = {primary_recall_all:.4f} < {args.gate_threshold:.2f} <<<")
+        print(f"\n>>> GATE FAIL [{primary_mode}]: recall_all@{args.top_k} = {primary_recall_all:.4f} < {args.gate_threshold:.2f} <<<")
         return 0 if args.no_fail_gate else 1
 
 

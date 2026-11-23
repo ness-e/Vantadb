@@ -108,6 +108,19 @@ python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 
 
 Read the caveats before quoting it: it is a **single local run** on synthetic ann-benchmarks data; LanceDB/Chroma ran through their native Python wrappers while VantaDB ran through PyO3 + mmap; recall@10 was low for **every** engine on that configuration (24.5% / 13.9% / 24.1%). We therefore treat it as directional only — a longer narrative write-up lives in `blog/benchmarks_vs_lancedb_chroma.md`. Run the script yourself rather than citing either source as truth.
 
+### 2.5 LongMemEval-S evidence-retrieval ablation (500 questions, zero LLM calls)
+
+From [BENCHMARKS.md §23.3](operations/BENCHMARKS.md#233-resultados-certificación-longmemeval-s-500q-y-estudio-de-ablación) (`xiaowu0162/longmemeval-cleaned`, 500 questions = 470 non-abstention + 30 abstention, 23,867 sessions ingested, local `BAAI/bge-small-en-v1.5` 384d embeddings via FastEmbed ONNX, `llm_tokens_consumed = 0`):
+
+| Ablation mode | Role | `recall_all@5` | `recall_any@5` | Search p50 | Gate (`>= 0.85`) |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| `hybrid_rrf` | Certified native hybrid (`HNSW + BM25 + RRF`) | **0.8872** | **0.9787** | 33.79 ms | PASS |
+| `vector_only` | Dense HNSW leg (`query_embed` BGE) | **0.8830** | 0.9660 | 37.00 ms | PASS |
+| `bm25_only` | Lexical BM25 leg (no embeddings) | 0.8000 | 0.9596 | 5.73 ms | Baseline |
+| `hybrid_graphrag` | Harness Python entity-expansion experiment | 0.8489 | 0.9340 | 38.18 ms | Experimental |
+
+> Deterministic session-level evidence recall (`answer_session_ids` inside top-5, zero LLM calls) — not comparable to QA-level leaderboards scored by an LLM judge. Artifact: [`evals/results/longmemeval_ablation_all_fixed.json`](../../evals/results/longmemeval_ablation_all_fixed.json).
+
 ---
 
 ## 3. Their Numbers (links, not figures)

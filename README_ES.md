@@ -504,6 +504,19 @@ Los resultados de rendimiento certificados en el dataset estándar de SIFT en mo
   <img src="assets/benchmark-sift1m.svg" alt="Aceleración de construcción HNSW SIFT1M — Fase 1 vs Fase 2 (2,14×–2,80×)" width="760">
 </p>
 
+### Certificación de Recuperación de Evidencia en LongMemEval-S (500 preguntas, 0 llamadas LLM)
+
+Medido sobre el split completo `xiaowu0162/longmemeval-cleaned` (500 preguntas = 470 no-abstención + 30 abstención, 23 867 sesiones ingeridas, embeddings locales `BAAI/bge-small-en-v1.5` 384d vía FastEmbed ONNX, `llm_tokens_consumed = 0`):
+
+| Modo de ablación | Rol | `recall_all@5` | `recall_any@5` | Latencia de búsqueda (p50) | Gate (`>= 0.85`) |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **`hybrid_rrf`** | **Híbrido nativo certificado (`HNSW + BM25 + RRF`)** | **0,8872** | **0,9787** | 33,79 ms | **PASS** |
+| `vector_only` | Brazo denso HNSW (`query_embed` BGE) | **0,8830** | 0,9660 | 37,00 ms | **PASS** |
+| `bm25_only` | Brazo léxico BM25 (sin embeddings) | 0,8000 | 0,9596 | 5,73 ms | Línea base (`< 0.85`) |
+| `hybrid_graphrag` | Experimento de expansión Python en el arnés | 0,8489 | 0,9340 | 38,18 ms | Experimental |
+
+*Fuente y reproducción: [docs/user/operations/BENCHMARKS.md §23.3](docs/user/operations/BENCHMARKS.md) y [`evals/results/longmemeval_ablation_all_fixed.json`](evals/results/longmemeval_ablation_all_fixed.json) (`python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings --ablation hybrid_rrf`). Nota de alcance: mide recuperación determinista de evidencia a nivel de sesión (`answer_session_ids` en top-5, 0 tokens LLM) — no es directamente comparable con leaderboards QA end-to-end evaluados con juez LLM.*
+
 ### Ejecutar la suite de benchmarks local
 
 Para medir la línea base de rendimiento en tu hardware local:

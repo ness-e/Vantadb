@@ -4,7 +4,7 @@
 |---|---|---|
 | `memory_bench.py` | Harness sintético estilo LongMemEval/LoCoMo (MEM-70), seed 42 | ✅ (BENCHMARKS.md §17) |
 | `memory_harness.py` | **Harness real (VER-08)**: schema LongMemEval-S contra bindings `vantadb` — recall_all@k + recall_any@k (session-level), p50/p99, ingest QPS, write-quality, abstención, token-economy, aislamiento per-user | ✅ |
-| `eval_longmemeval.py` | **Certificación LongMemEval-S (ACT-02 / D2)**: gate bloqueante `recall_all@5 >= 0.85` sobre 500 preguntas, validación `--strict-embeddings`, estudio de ablación (`vector_only`, `bm25_only`, `hybrid_rrf`, `hybrid_graphrag`) | ✅ (BENCHMARKS.md §23) |
+| `eval_longmemeval.py` | **Certificación LongMemEval-S (ACT-02 / D2)**: gate bloqueante `recall_all@5 >= 0.85` sobre 500 preguntas certificado en `hybrid_rrf` (`0.8872`, PASS), validación `--strict-embeddings`, estudio de ablación (`vector_only`, `bm25_only`, `hybrid_rrf`, y `hybrid_graphrag` como heurística experimental del harness) | ✅ (BENCHMARKS.md §23) |
 | `eval_locomo.py` | **Arnés LoCoMo Benchmark (MEM0-05)**: 4 categorías (`single_hop`, `multi_hop`, `temporal_reasoning`, `open_domain`) contra cifras publicadas de Mem0 (arXiv:2504.19413), búsqueda híbrida + filtro bitemporal + deduplicación FastGate (0 tokens LLM) | ✅ (BENCHMARKS.md §23) |
 | `calibration.py` | **ECE + temperature scaling** (spec MGR-12 §5.2): ECE antes/después, T*, reliability data | ✅ |
 | `data/` | Sub-muestra LongMemEval-S commiteada (MIT) + procedencia/licencias | ✅ |
@@ -27,10 +27,10 @@ python evals/memory_harness.py --label subset-5q
 python evals/data/fetch_longmemeval_subset.py            # verifica sha256 del cache
 python evals/memory_harness.py --data datasets/longmemeval/longmemeval_s_cleaned.json --label s-full-500q
 
-# Certificación de Gate LongMemEval-S (recall_all@5 >= 0.85 sobre 500 preguntas — ACT-02 / D2)
-python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings --ablation hybrid_graphrag
-# Estudio de ablación completo (vector_only, bm25_only, hybrid_rrf, hybrid_graphrag)
-python evals/eval_longmemeval.py --ablation all --questions 500 --output evals/results/longmemeval_ablation.json
+# Certificación de Gate LongMemEval-S (recall_all@5 >= 0.85 sobre 500 preguntas — ACT-02 / D2, path híbrido nativo)
+python evals/eval_longmemeval.py --questions 500 --top-k 5 --strict-embeddings --ablation hybrid_rrf
+# Estudio de ablación completo (vector_only, bm25_only, hybrid_rrf, y hybrid_graphrag experimental)
+python evals/eval_longmemeval.py --ablation all --questions 500 --strict-embeddings --embed-cache evals/results/lme_bge_cache.npz --output evals/results/longmemeval_ablation_all_fixed.json
 
 # LoCoMo Benchmark completo (MEM0-05 — arXiv:2504.19413 vs Mem0)
 python evals/eval_locomo.py --smoke --output evals/results/locomo_v091.json
