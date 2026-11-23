@@ -5,12 +5,13 @@
 # Config applies to the colocated ./Cargo.lock (does not propagate to
 # feature-freez/desktop/src-tauri, fuzz/, providers/*, vantadb-node/ — separate lockfiles).
 
-# RUSTSEC-2023-0089: atomic-polyfill unmaintained (transitive postcard->heapless).
-# Owner: vanta-lead | Tracked: postcard 2.0 -> heapless 0.9 + portable-atomic.
-[[IgnoredVulns]]
-id = "RUSTSEC-2023-0089"
-ignoreUntil = "2027-01-01T00:00:00Z"
-reason = "Mirror of deny.toml triage: transitive only, no own-code use; tracked postcard 2.0 migration. Owner: vanta-lead."
+# RUSTSEC-2023-0089 (atomic-polyfill unmaintained) - REMOVED 2026-11-23: the
+# advisory no longer matches ./Cargo.lock. postcard is 1.1.3 and the lock has
+# neither `heapless` nor `atomic-polyfill` (postcard 1.1.3 does not pull the
+# heapless -> atomic-polyfill chain); `portable-atomic` is 1.15.0. OSV-Scanner
+# flagged this entry as an unused ignore, which is exactly the stale-ignore
+# signal this file's header warns about. Re-add only if the advisory matches
+# the lock again.
 
 # RUSTSEC-2024-0436: paste unmaintained (transitive tikv-jemalloc-ctl, build-time
 # proc macro only). Mirror of .cargo/audit.toml triage. Owner: vanta-lead.
