@@ -128,3 +128,11 @@ tags: [extraccion, backlog, crewai]
 - **Criterio negativo:** un texto «Saved» exige estado aplicado acreditado; `Pending` es resultado operativo — nunca rechazo ni confirmación durable.
 - **Independencia:** rollback = retirar la exposición de la herramienta conservando las operaciones ya admitidas; alternativa mínima del informe: documentar `Pending` en las tools actuales antes que añadir API pública.
 - **No objetivos:** aprobación genérica de pagos, nuevo scheduler, extracción LLM obligatoria ni cambio de prompts del agente.
+
+[CV1]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L176-L459
+[CV2]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/services/pipeline_worker.rs#L213-L353
+[CV3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/hooks/auto_recall.rs#L123-L435
+[CV4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L197-L349
+[CV6]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/crewai/vantadb_crewai/memory.py#L91-L245
+
+<!-- audit: 2026-11-23 añadidas definiciones de referencia [CV1]-[CV4],[CV6] omitidas del informe -->

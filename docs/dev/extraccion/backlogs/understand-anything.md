@@ -95,7 +95,7 @@ tags: [extraccion, backlog, understand-anything]
   2. Verificar dependencias.
   3. Proyectar layers/tour.
   4. Aplicar el budget global.
-  5. Renderizar refs/estado. Alternativa mínima: guía efímera; persistencia sólo si el lifecycle B está acordado.
+  5. Renderizar refs/estado. Alternativa mínima: guía efímera; persistencia sólo si el lifecycle X-UND-02 está acordado.
 - **Dependencias:** X-UND-01/X-UND-02/X-UND-05; writer de derivados existente; invalidar antes de declarar vigente; la cancelación no publica una guía parcial como completa; el rollback elimina la proyección propia, no las fuentes.
 - **FMEA:** un ID borrado queda en el tour → detectar la referencia ausente y advertirla; renumerar una layer parece identidad estable → digest de miembros; una explicación hostil instruye al agente → contenido citado, nunca autoridad de herramientas; materializar con clase/linaje inválidos no se subsana inventando un enum o confidence.
 - **Criterios de aceptación propuestos:** delete/rename/body-change invalida la guía; faltantes visibles; ciclos de derivación rechazados; observar conteos/estado sin resúmenes; el rechazo de padres/clase no se presenta como guía vacía ni publicación completa.
@@ -138,5 +138,7 @@ tags: [extraccion, backlog, understand-anything]
 - **FMEA:** la raíz principal confunde repo común con revisión → detectar fuente/commit discrepante; symlink escapa → autorización física.
 - **Criterios de aceptación propuestos:** branch-only+dirty+dos worktrees conserva diferencias; observar el mismatch sin publicar roots secretos; un cambio de rama durante la lectura produce conflicto/unknown.
 - **Criterio negativo:** el destino de staging nunca cambia los bytes analizados; una fuente discrepante nunca se sirve como evidencia fresh.
-- **Independencia:** X-UND-01/X-UND-02/X-UND-06 antes de la importación persistente; depende de A/B, no de instalar hooks.
+- **Independencia:** X-UND-01/X-UND-02/X-UND-06 antes de la importación persistente; depende de X-UND-01/X-UND-02, no de instalar hooks.
 - **No objetivos:** no crear ni destruir worktrees desde el adaptador; no generalizar el fallo de una instrucción a todas las APIs.
+
+<!-- audit: 2026-11-23 normalizadas referencias residuales A/B -> X-UND-01/X-UND-02 en fichas X-UND-04 y X-UND-06 -->

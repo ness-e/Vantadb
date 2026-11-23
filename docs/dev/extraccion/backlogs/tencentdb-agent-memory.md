@@ -72,7 +72,7 @@ tags: [extraccion, backlog, tencentdb-agent-memory]
 - **Problema:** dos capturas de la misma sesión pueden leer el mismo cursor y publicar un avance obsoleto o regresivo; no se declara carrera Vanta reproducida ni cursor global — es una frontera read-modify-write por recurso.
 - **Contrato hipotético:** `advance_capture(expected: CursorRevision, next: ConfirmedCursor) -> Result<CursorRevision, CursorError>`; errores `Stale | Storage | Cancelled`. Invariante: `next` no retrocede ni refiere evidencia no confirmada.
 - **Fuente de evidencia (clone):** `MemoryCore/src/utils/checkpoint.ts:150-375` (`mutate`: lock local por archivo, lock externo opcional, read→callback→write; tmp+rename no es transacción multirrecurso).
-- **Seam VantaDB:** `vanta-memory/src/core/conversation/l0_recorder.rs` (`record_turn` → `read_cursor`, `write_cursor`); callers `core/hooks/auto_capture.rs` y `services/conversation_hook.rs`. `TaskCheckpointManager::advance` es otro recurso; el helper global `utils/checkpoint.rs` tampoco es este cursor.
+- **Seam VantaDB:** `vanta-memory/src/core/conversation/l0_recorder.rs` (`record_turn` → `read_cursor`, `write_cursor`); callers `vanta-memory/src/core/hooks/auto_capture.rs` y `vanta-memory/src/services/conversation_hook.rs`. `TaskCheckpointManager::advance` es otro recurso; el helper global `vanta-memory/src/utils/checkpoint.rs` tampoco es este cursor.
 - **Acciones:**
   1. Delimitar la exclusión por sesión en el caller/recorder existente.
   2. Confirmar X-TAM-01 antes de publicar.
@@ -177,3 +177,5 @@ tags: [extraccion, backlog, tencentdb-agent-memory]
 - **Criterio negativo:** nunca vector cero ni correspondencia inferida por orden sin comprobar unicidad; vectores de espacios distintos nunca se mezclan.
 - **Independencia:** validación mínima del adapter; no modelo nuevo ni reindexación automática; abierto contrato de versiones y permisos del proveedor.
 - **No objetivos:** no autodetectar dimensión por truncar/pad ni convertir fallo a vector cero; no otro motor de embeddings.
+
+<!-- audit: 2026-11-23 completadas rutas repo-relativas bajo vanta-memory/src/ en ficha X-TAM-03 -->

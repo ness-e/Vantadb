@@ -71,3 +71,4 @@ Tabla con las **10 columnas canónicas**, en este orden:
    ni inventar candidatas nuevas.
 4. Nada de promesas runtime: todo es propuesta sujeta a validación contra HEAD.
 5. Marcar `—` en campos no aplicables; no dejar celdas vacías.
+6. **Gate legal obligatorio ([LICENSES.md](LICENSES.md))**: antes de especificar o implementar cualquier fila `X-*`, consultar [LICENSES.md](LICENSES.md) para verificar si el proyecto origen es permisivo (`MIT`/`Apache-2.0`/`BSD`/`PostgreSQL`) o exige rediseño *clean-room* estricto sin abrir el clon (`AGPL-3.0`, `BSL-1.1`, `SSPL`/`RSALv2` o licencias modificadas).

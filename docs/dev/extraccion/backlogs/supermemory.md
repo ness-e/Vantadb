@@ -90,7 +90,7 @@ tags: [extraccion, backlog, supermemory]
 
 - **Problema:** consultar tras agregar una conversación antes de que exista memoria/perfil produce falsos vacíos; un documento aceptado no equivale a derivado listo.
 - **Contrato hipotético:** `IngestReceipt {source_id, revision, accepted, durable_evidence, projections}` y `status(receipt, auth) -> ReceiptSnapshot`; cada proyección `Pending | Ready | Stale | Failed | Unsupported`; la durabilidad desconocida se declara.
-- **Fuente de evidencia (clone):** `apps/mcp/src/server/tools/output-schemas.ts:10-21` (`status` vs `dreamingStatus`: «done» no equivale a memorias buscables); `apps/mcp/src/server/client/index.ts:40-56,113-129`; `apps/mcp/src/server/tools/list-documents.ts:33-61`; `packages/tools/src/conversations-client.ts:119-139` (`add` devuelve `{id, status:"queued"}`; `dreaming:"instant"`); degradación ante 402 (`packages/livekit-sdk-python/.../memory.py:485-497`).
+- **Fuente de evidencia (clone):** `apps/mcp/src/server/tools/output-schemas.ts:10-21` (`status` vs `dreamingStatus`: «done» no equivale a memorias buscables); `apps/mcp/src/server/client/index.ts:40-56,113-129`; `apps/mcp/src/server/tools/list-documents.ts:33-61`; `packages/tools/src/conversations-client.ts:119-139` (`add` devuelve `{id, status:"queued"}`; `dreaming:"instant"`); degradación ante 402 (`packages/livekit-sdk-python/src/supermemory_livekit/memory.py:485-497`).
 - **Seam VantaDB:** `vanta-memory/src/services/pipeline_worker.rs` y `vanta-memory/src/core/conversation/l0_recorder.rs` (V4/V5); exposición SDK/MCP y DTO Studio; `WriteReceipt`/`ErasureReceipt` existentes.
 - **Acciones:**
   1. Correlacionar `WriteReceipt` con eventos del worker por fuente/revisión.
@@ -124,7 +124,7 @@ tags: [extraccion, backlog, supermemory]
 
 - **Problema:** una llamada de voz o tool loop termina correctamente y el usuario cree que la preferencia quedó recordada aunque el guardado sigue pendiente o falló; ninguno de los wrappers observados devuelve un recibo al host.
 - **Contrato hipotético:** `capture_response(auth, HostEventId, session_revision, ResponseOutcome) -> Result<CaptureHandle, CaptureError>` y `wait(handle, cancel) -> Captured | Deferred | Failed | CancelledWait`; errores `SourceInterrupted | QueueFull | Denied | RevisionConflict` no son éxito; no mantener mutex durante red/LLM.
-- **Fuente de evidencia (clone):** `packages/tools/src/vercel/index.ts:182-204,246-284` (`saveMemoryAfterResponse` sin await); `packages/tools/src/vercel/middleware.ts:151-188`; `packages/livekit-sdk-python/.../memory.py:399-454,512-527` (cola con requeue + drain); `packages/pipecat-sdk-python/.../service.py:278-325,499-502`; `packages/cartesia-sdk-python/.../agent.py:239-240,486-494` (task sin drain); `packages/tools/src/conversations-client.ts:119-139` (conversation-id→document id, `dreaming:"instant"`, retries 0).
+- **Fuente de evidencia (clone):** `packages/tools/src/vercel/index.ts:182-204,246-284` (`saveMemoryAfterResponse` sin await); `packages/tools/src/vercel/middleware.ts:151-188`; `packages/livekit-sdk-python/src/supermemory_livekit/memory.py:399-454,512-527` (cola con requeue + drain); `packages/pipecat-sdk-python/src/supermemory_pipecat/service.py:278-325,499-502`; `packages/cartesia-sdk-python/src/supermemory_cartesia/agent.py:239-240,486-494` (task sin drain); `packages/tools/src/conversations-client.ts:119-139` (conversation-id→document id, `dreaming:"instant"`, retries 0).
 - **Seam VantaDB:** `vanta-memory/src/core/conversation/l0_recorder.rs` (`L0Recorder::record_turn` con cursor/replay, V4); `vanta-memory/src/services/pipeline_worker.rs` publica el recibo (V5).
 - **Acciones:**
   1. Acordar ID estable con el adapter.
@@ -194,3 +194,5 @@ tags: [extraccion, backlog, supermemory]
 - Prefijo `X-SUP` reservado a Supermemory. Estados `⬜ Candidata` por definición:
   nada de esta campaña entra al triage sin fila propia conforme a la taxonomía
   oficial de `docs/dev/Backlog.md`.
+
+<!-- audit: 2026-11-23 expandidas rutas truncadas con elipsis (...) en fichas X-SUP-04 y X-SUP-06 -->

@@ -28,7 +28,7 @@ tags: [extraccion, backlog, pageindex]
 - **Problema:** una jerarquía puede perder el texto entre el comienzo de una sección y su primer hijo, y una cita no debe cambiar al reindexar. Página física, etiqueta impresa y offsets de texto no son intercambiables.
 - **Contrato hipotético (tipos propuestos):** `resolve_span(source_id, expected_revision, span, RecallScope) -> Result<ResolvedSpan, SpanError>` con salida texto autorizado + intervalo + revisión; `SourceSpan { source_revision, start, end, unit }` y `SectionRef { stable_source_id, span, parent }`. Errores propuestos: `Denied`, `InvalidInterval`, `MissingSource`, `StaleRevision`, `ReadFailed`. Una cita no acredita entailment.
 - **Fuente de evidencia:** `pageindex/tree_optimize.py:172-266` (P3: semántica unión/intro/renumeración; el `id_map` de optimización no convierte ordinal en identidad durable) · `pageindex/local_api.py:219-286` (P2: chequeo de límites cuando hay start/end — no establece por sí solo orden ni validez de todos los nodos). Issue #648 como contexto de cache permutada/duplicada leída por posición.
-- **Seam VantaDB:** `vanta-memory/src/ingest/merge.rs::{CandidatePage,commit}:18-30,239-289`, `src/wiki/ingestors.rs::Ingestor:45-89`, `context_engine/engine.rs::assemble_with_recall` (V1-V2).
+- **Seam VantaDB:** `vanta-memory/src/ingest/merge.rs::{CandidatePage,commit}:18-30,239-289`, `src/wiki/ingestors.rs::Ingestor:45-89`, `vanta-memory/src/context_engine/engine.rs::assemble_with_recall` (V1-V2).
 - **Acciones:**
   1. Inventariar spans/referencias ya persistidos por ingestors.
   2. Distinguir página física, etiqueta impresa y offsets de texto; conversión explícita al adaptar formatos, no números ambiguos.
@@ -94,3 +94,5 @@ tags: [extraccion, backlog, pageindex]
 - **Criterio negativo:** el agotamiento impide llamadas nuevas pero no promete cancelar el pago del proveedor; un stream abandonado no se reporta como run concluido.
 - **Independencia:** adapter opt-in sobre un protocolo; el baseline híbrido sigue utilizable al desactivar.
 - **No objetivos:** no copiar Agents, nuevo runtime (Tokio paralelo), prompts ni políticas de precios. Abierto: límite de cancelación del proveedor y contrato de uso parcial deben explicitarse antes de implementar.
+
+<!-- audit: 2026-11-23 completada ruta repo-relativa vanta-memory/src/context_engine/engine.rs en ficha X-PGI-01 -->

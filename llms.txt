@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-340 documentation pages; it deliberately omits the 0 task files,
+343 documentation pages; it deliberately omits the 0 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -222,6 +222,8 @@ is in docs/index.md in the repository.
 
 - [Agentmemory: recibos de captura y coordinación por leases](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/agentmemory.md): Lectura estática de captura recuperable, leases y runners de agentmemory para unidades independientes en Rust
 - [Agno: memoria extraida, aprendizaje y sesiones](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/agno.md): Contraste de MemoryManager, LearningStore, scopes y consolidacion con la memoria y el contexto existentes en VantaDB
+- [Auditoría Integral Consolidada — Campaña de Extracción (Ola 4)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/AUDIT-REPORT.md): Resumen consolidado de los cinco ejes de cierre: licencias, integridad del repo, trazabilidad de los 43 backlogs, cobertura 42/42 y estado de la ola de correcciones
+- [Auditoría de Repositorio e Integridad — Campaña de Extracción](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/AUDIT-REPO.md): Estado de commits, índices generados, reglas de gitignore y enlaces del árbol docs/dev/extraccion
 - [AutoGen: interfaz de memoria y persistencia de estado separadas](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/autogen.md): Lectura del AutoGen historico, Memory/ListMemory/RAG, contexto y AgBench sin confundirlo con Microsoft Agent Framework
 - [Backlog de extracción — Agentmemory](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/backlogs/agentmemory.md): Candidatas del informe agentmemory: recibo idempotente de captura, ownership de trabajos con fencing, invalidación de proyecciones y redacción previa a truncamiento
 - [Backlog de extracción — Agno](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/backlogs/agno.md): Candidatas del informe agno: consolidación versionada, scope tipado, aprobaciones verificables, directorio de entidades y capacidades negociadas con recibo
@@ -289,6 +291,7 @@ is in docs/index.md in the repository.
 - [LangGraph: persistencia de ejecucion y memoria separadas](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/langgraph.md): Contratos de checkpoint, replay, interrupcion y store contrastados con las integraciones existentes de VantaDB
 - [Langflow: capacidades de backend e inspección de recuperación](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/langflow.md): Lectura estática acotada del Knowledge actual, filtros, backends, trazas y runner SQLite de Langflow para VantaDB
 - [Letta: memoria versionada, publicación de contexto y límites del clon](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/letta.md): Clon landing de Letta y lectura complementaria fijada de Letta Code; contratos Rust sin usar el servidor V1 retirado
+- [Licencias del Corpus de Extracción (43 Proyectos)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/backlogs/LICENSES.md): Clasificación legal verificada de los 43 proyectos analizados y gate previo para candidatas X-*
 - [LightRAG: recuperación por entidades y relaciones con linaje reconstruible](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/light-rag.md): Lectura estática de LightRAG y candidatos acotados de enriquecimiento, trazabilidad y reconstrucción para VantaDB
 - [LlamaIndex: caché de transformación y expansión jerárquica verificable](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/llama-index.md): Análisis estático de ingesta, memoria y retrieval de LlamaIndex con extracciones acotadas para VantaDB
 - [Meilisearch: tareas visibles, filtros y explicación híbrida](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/meilisearch.md): Contraste estático de contratos de ingesta y ranking sin proponer cambios al repositorio upstream

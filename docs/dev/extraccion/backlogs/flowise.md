@@ -84,7 +84,7 @@ tags: [extraccion, backlog, flowise]
   4. Mostrar referencias sin contenido en Activity.
   5. Habilitar solo transport autorizado; si no hay flujo reanudable, solo inspección.
 - **Dependencias:** aislamiento/IDs actuales y escritor único por task ya documentado; X-FLW-04 cuando hay mutación externa; X-FLW-01 para evidencias de consulta; X-FLW-02 solo diagnóstico. CAS solo con soporte acreditado. Registro legacy sin revisión no es resumible por inferencia; migración lazy del vínculo, sin reindex de recuerdos.
-- **FMEA (tabla del informe):** dos resumes → RMW pierde avance → doble herramienta → conflicto de revisión/owner → escritor único; editar definición → mismo run/otro grafo → paso erróneo → revision mismatch → reconciliar, no replay ciego; reset de sesión → checkpoint confundido con recuerdo → IDs/tipos separados → no borrar uno al limpiar otro; timeout después de efecto → retry → duplicado → D incierto → consultar/reconciliar antes de repetir.
+- **FMEA (tabla del informe):** dos resumes → RMW pierde avance → doble herramienta → conflicto de revisión/owner → escritor único; editar definición → mismo run/otro grafo → paso erróneo → revision mismatch → reconciliar, no replay ciego; reset de sesión → checkpoint confundido con recuerdo → IDs/tipos separados → no borrar uno al limpiar otro; timeout después de efecto → retry → duplicado → X-FLW-04 incierto → consultar/reconciliar antes de repetir.
 - **Criterios de aceptación propuestos (manuales):** mismo task no se inicia dos veces; vínculo de otra scope se deniega; legacy sin definición no se reanuda silenciosamente; STOPPED/resumible se distingue de Failed; borrar conversación no afirma cancelación ni purga de efectos. Observabilidad por IDs/estados, sin prompts.
 - **Criterio negativo:** una pausa humana no marca `Failed`; cancelar el await no elimina checkpoint ni revierte efectos; nunca reanudar automáticamente desde una cadena de error que contenga «Aborted».
 - **Independencia:** desactivación vuelve al camino actual — no borra checkpoints ni habilita repetir side effects; no reanudar automáticamente.
@@ -128,3 +128,5 @@ tags: [extraccion, backlog, flowise]
 - **Criterio negativo:** un `sessionId` del JSON o del LLM nunca crea permiso; un legado sin owner nunca migra a público por inferencia.
 - **Independencia:** desactivar un transporte revoca el acceso sin borrar el primario; alternativas evaluadas y descartadas: DB por tenant (multiplica gestión), filtro por session sin actor (insuficiente) — se prefiere la política externa existente.
 - **No objetivos:** IAM, runtime ni scheduler nuevos; copiar RBAC comercial ni routing Express.
+
+<!-- audit: 2026-11-23 normalizada referencia residual D -> X-FLW-04 en FMEA de X-FLW-03 -->

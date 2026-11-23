@@ -15,10 +15,10 @@ anteriores quedan reclasificadas como **históricas** debajo — no prevalecen.
 Transcripción de autoridad del lead, sin re-derivar veredictos ni declarar
 cumplimiento exhaustivo. Los IDs históricos no acreditan runtime vigente.
 
-- **42 informes** con autoría y revisión independiente: el lead acepta
-  documentalmente **41 con límites** y **1 limitado** — Meilisearch, E3
-  incidencias **no acreditado** por prohibición de forge del usuario (sin
-  lectura de cuerpos ni fallbacks; no equivale a cumplimiento de diez ejes).
+- **42 informes** con autoría y revisión independiente: tras el cierre de E3
+  sobre Meilisearch el `2026-11-20` (`0405f4aa7` / `b76bd1a1e`), el lead acepta
+  documentalmente **42/42 con límites** (ver detalle por proyecto en
+  [REVIEW-COVERAGE](REVIEW-COVERAGE.md); no equivale a spec de implementación).
 - Closures aplicadas: `reviews/corrections-memory-closure.md` (11),
   `corrections-engines-closure.md` (8), `corrections-platforms-closure.md`
   (11) más las reviews/closure previas; enlazadas por proyecto en

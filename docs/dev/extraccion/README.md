@@ -15,9 +15,10 @@ comparados) vive en esta carpeta.
 
 | Documento / carpeta | Qué contiene |
 |---|---|
+| [AUDIT-REPORT.md](AUDIT-REPORT.md) | Auditoría integral consolidada de los 5 ejes (licencias, estado del repo, trazabilidad de los 43 backlogs Lotes A/B/C y cruce contra `HEAD`) |
 | [Backlog-OpenViking-VantaDB.md](Backlog-OpenViking-VantaDB.md) | Informe central de OpenViking: los diez ejes en profundidad, fichas F1–F10, benchmarks, escritorio |
-| [agent-memory-2026-11-07/](agent-memory-2026-11-07/) | 42 informes de proyectos + documentos de control (CONSOLIDATED, REVIEW-COVERAGE, METHOD, BENCHMARK-NOTES, VANTA-REFERENCE, manifiestos, revisiones) |
-| [backlogs/](backlogs/) | Un backlog por proyecto en el formato canónico de `docs/dev/Backlog.md` (10 columnas), en voz VantaDB y con trazabilidad a evidencia `archivo:líneas` del clone |
+| [agent-memory-2026-11-07/](agent-memory-2026-11-07/) | 42 informes de proyectos + documentos de control (CONSOLIDATED, REVIEW-COVERAGE, METHOD, BENCHMARK-NOTES, VANTA-REFERENCE, AUDIT-REPO, manifiestos, revisiones) |
+| [backlogs/](backlogs/) | Un backlog por proyecto en el formato canónico de `docs/dev/Backlog.md` (10 columnas), matriz legal [LICENSES.md](backlogs/LICENSES.md) y trazabilidad `archivo:líneas` |
 
 ## Lectura recomendada
 

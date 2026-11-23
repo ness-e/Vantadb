@@ -77,7 +77,7 @@ tags: [extraccion, backlog, faiss]
 - **Seam VantaDB:** `src/index/mod.rs:49-61` (`VecIndex::add` devuelve error de capacidad; IVF construido es read-only en ese contrato). VantaDB ya usa `u128` y `(namespace,key)`: no introducir IDMap ni reducir IDs a `i64`.
 - **Acciones:**
   1. Auditar remove/update/bulk/rebuild y sus adapters.
-  2. Extender el port existente si falta información de capacidad.
+  2. Extender el puerto existente si falta información de capacidad.
   3. Preservar el mapping original en compactación.
   4. Exigir guard de ID/revisión antes de mutar.
   5. Publicar el índice tras validar referencias.
@@ -86,7 +86,7 @@ tags: [extraccion, backlog, faiss]
 - **Criterios de aceptación propuestos:** borrar primer/medio/último, repetir borrado, actualizar superviviente, reabrir y reconstruir preservan identidad. Observabilidad: contadores de rechazadas/obsoletas/reconciliadas sin IDs sensibles por defecto. Discriminación futura del informe: comparar IDs canónicos supervivientes antes/después de borrar — no aceptar solo ausencia de crash o cardinalidad correcta.
 - **Criterio negativo:** `unsupported` se decide antes de mutar; un resultado parcial es «incierto + reconciliación», nunca éxito; perder el waiter no es undo.
 - **Independencia:** sin migración de IDs; cambios de layout solo con rebuild desde registros y publicación compatible. Rollback = generación anterior + replay canónico según garantías reales — no «deshacer» deletes ya confirmados.
-- **No objetivos:** imponer el delete+add de Faiss al store de memoria ni prometer compare-and-swap donde el port actual no lo ofrece.
+- **No objetivos:** imponer el delete+add de Faiss al store de memoria ni prometer compare-and-swap donde el puerto actual no lo ofrece.
 
 ### X-FAI-04 — Admisión y compatibilidad de representación antes de publicar
 
@@ -125,3 +125,5 @@ tags: [extraccion, backlog, faiss]
 - **Criterio negativo:** la exhaustividad nunca se deduce de `len<k` ni de resultados truncados; el reporte no prolonga la búsqueda ni relaja filtros al cancelar.
 - **Independencia:** diagnóstico sin cambiar la búsqueda primero; campos opcionales sin reindexación y rollback que ignora el diagnóstico. Ampliar cursor/resume solo si existe necesidad demostrada.
 - **No objetivos:** cambiar ANN por principio, ni exponer `SearchCompletion` como promesa de recall.
+
+<!-- audit: 2026-11-23 voz VantaDB: desambiguado puerto frente a port en X-FAI-03 -->

@@ -86,7 +86,7 @@ tags: [extraccion, backlog, codegraph]
 - **FMEA:** homónimos tras delete → rebind equivocado → detectar candidatos múltiples y retener la ambigüedad; retry infinito → jobs repetidos → estado observable y retry gobernado; otro productor borra el endpoint → ownership estricto.
 - **Criterios de aceptación propuestos:** delete/reintroducción, overloads y line shift mantienen identidad/evidencia o explican `unknown`; retry idempotente; logs solo con conteos por estado/generación.
 - **Criterio negativo:** los errores de reconcile (`WrongRevision`, `MissingSource`, `IncompleteManifest`, `Conflict`) nunca se traducen a «cero callers»; un candidato ambiguo nunca se promociona a edge confirmado.
-- **Independencia:** no exige un segundo resolver ni portar parsers; depende de B/C12 y de la cobertura del productor.
+- **Independencia:** no exige un segundo resolver ni portar parsers; depende de X-CGR-02/C12 y de la cobertura del productor.
 - **No objetivos:** inferir dispatch en runtime; recuperar información que el export nunca conservó.
 
 ### X-CGR-04 — Límite dinámico declarado como resultado, no arista inventada
@@ -127,3 +127,5 @@ tags: [extraccion, backlog, codegraph]
 - **Criterio negativo:** una selección de generación anterior nunca sobrescribe la vista de la selección vigente; desactivar el panel no toca la evidencia persistida.
 - **Independencia:** requiere X-CGR-01/X-CGR-02 para la semántica de revisión; la variante mínima (enlaces a fuente) no requiere el adapter visual completo.
 - **No objetivos:** importar Svelte, otro servidor loopback o el producto Pro; declarar un endpoint de Studio ya disponible; acreditar app desktop nativa, a11y o seguridad frontend.
+
+<!-- audit: 2026-11-23 normalizada referencia residual B -> X-CGR-02 en X-CGR-03 -->
