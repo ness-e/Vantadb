@@ -833,3 +833,71 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Resultado:** ✅ — `config::resolve_local_model_path` resuelve rutas relativas contra cwd → dir del ejecutable → `~/.vantadb`, devuelve la cadena original cuando ninguna existe, y es compartida por el provider (`llm.rs`), `capabilities` (`embedding_health.rs`) y el guard de vectores sintéticos (`executor.rs`). `setup-embeddings.ps1` enlaza `<Db>/embeddings` al `embeddings` del repo (junction, sin duplicar 823 MB) para clientes lanzados por el wizard. Verificado: `cargo test -p vantadb --features embed-local --lib f697 -- --test-threads=2` → 1 passed; `scopegrain vantadb status --probe` → `model_present: true`, `model_dir: C:\Users\Eros\.vantadb\embeddings/models/multilingual-e5-small/onnx`, `status: Ready`.
 - **Commit:** `bed6473df`
 - **Nota:** el `cargo test --lib llm` de la misma sesión destapó un fallo **prexistente** (`test_strict_embeddings_policy`), reproducido sobre `HEAD` con `git stash` → registrado como `FIND-698`.
+
+### FIND-696: Host de desarrollo al límite de commit (pagefile 8 GB) — `os error 1455` y `rustc-LLVM ERROR: out of memory` en el link release
+- **Fecha:** 2026-11-23
+- **Objetivo:** Desbloquear el re-link de `vantadb-server` con `embed-local`, que murió por falta de commit virtual (~200 MB libres con pagefile de 8 GB).
+- **Resultado:** ✅ — el entorno ya no es bloqueante: `Win32_OperatingSystem` → 11.4 GB físicos / 14 GB commit libres, pagefile **12.7 GB** asignados (uso actual 1.6 GB), sin procesos cargo/rustc. Cuatro builds en serie completaron sin OOM ni `os error 1455`: `cargo install --features embed-local` (release 22m21s), re-install tras liberar el lock del MCP vivo (7m31s con `-j 2`) y dos `cargo test --features embed-local`. El bloqueo residual es de **archivo bloqueado** (FIND-177), no de memoria.
+- **Commit:** mitigación `-j 2` en `3d2c7d138` · verificación 2026-11-23
+
+### Probe MCP de perfiles (Scopegrain `VB-3`/`VB-5`/`VB-1`/`VB-8`)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Certificar en vivo, contra el binario instalado, la allowlist estricta de tools, el schema de `dedup_policy`, el recall `scope:"agent"` y la ausencia de efectos con `VANTADB_DEDUP_POLICY=off`.
+- **Resultado:** ✅ 15/15 checks verdes (`.scopegrain/research/2026-11-23-vantadb-profile-probe.mjs`, DB aislada bajo `tests/.tmp`, binario `b2f3b48d…`):
+  - `dedup_policy` publicado con enum `off, exact, semantic`; valor inválido → `-32602` en perfil `memory` (no solo `brain`).
+  - `VANTADB_MCP_STRICT_PROFILE=true` + `VANTADB_MCP_ALLOW_TOOLS=memory_get,memory_recall` → `memory_put` rechazado con `-32601` y **sin efecto** (`memory_get` → `VANTADB_NOT_FOUND`).
+  - `VANTADB_DEDUP_POLICY=off` no rompe escrituras.
+  - VB-1 `memory_recall{scope:"agent"}` recupera el registro (`count: 1`, `mode: hybrid`) **cuando el payload de `l1/*` es el envelope `MemoryRecord` completo**; con payload de texto el pool queda vacío → contrato implícito registrado como `FIND-699`.
+  - VB-22/VB-16 `sg-formal-v1-*` nunca entra al pool de L1.
+- **Evidencia:** `.tasksystem/verification/2026-11-23-mcp-profile-17638652-f9dd-47ce-8355-becd3e0cc182.json` (binario `b2f3b48d…`) y `.tasksystem/verification/2026-11-23-mcp-profile-7cb95250-238e-4211-8c85-1ae538879928.json` (**17/17**, binario final `0dce814c…`).
+
+### FIND-683: `memory_put` omitía `dedup_policy` del `inputSchema` e ignoraba `VANTADB_DEDUP_POLICY` fuera de `brain` (Scopegrain `VB-5`)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Certificar en vivo que el parámetro está publicado con su enum, que un valor inválido se rechaza en cualquier perfil, y que la variable de entorno **se aplica** (no solo se tolera) fuera del perfil `brain`.
+- **Resultado:** ✅ — 4 checks en `.scopegrain/research/2026-11-23-vantadb-profile-probe.mjs` con perfil `memory`: (1) `inputSchema.properties.dedup_policy.enum == ["off","exact","semantic"]`; (2) `dedup_policy:"nonsense"` → `-32602` (no hay bypass por perfil); (3) `VANTADB_DEDUP_POLICY=off` no rompe escrituras; (4) `VANTADB_DEDUP_POLICY=exact` deduplica de verdad: la segunda escritura con payload idéntico devuelve la clave existente (`dup-1`) y `dup-2` no existe (`memory_get` → `-32004 VANTADB_NOT_FOUND`).
+- **Evidencia:** `.tasksystem/verification/2026-11-23-mcp-profile-7cb95250-238e-4211-8c85-1ae538879928.json` (17/17 checks, binario `0dce814c…`).
+- **Commit:** `01a38f353` (fix) · verificación 2026-11-23
+
+### FIND-698: `test_strict_embeddings_policy` fallaba en `HEAD`: los fallbacks hardcodeados cargaban un modelo real con un `local_model_path` inválido
+- **Fecha:** 2026-11-23
+- **Objetivo:** Restaurar el contrato de "strict falla cerrado" cuando el path configurado no existe, y quitar el leak de env que hacía fallar el mismo test por otra razón.
+- **Resultado:** ✅ — `model_path_candidates` solo añade los tres modelos hardcodeados cuando `local_model_path` está **vacío** (descubrimiento de un config sin definir); con un path no vacío pero inválido no resuelve nada y strict devuelve `Error::Embedding`. Como el estimador (`resolve_model_path`) y el loader (`load_session_inner`) comparten esa función, la estimación de presupuesto y la sesión cargada siguen de acuerdo. El test queda `#[serial_test::serial]` y limpia `VANTADB_MEMORY_LIMIT`/`VANTADB_LOCAL_MODEL` con un nuevo `EnvGuard::unset`.
+- **Verificación:** `cargo test -p vantadb --features embed-local --lib llm -- --test-threads=2` → **30 passed, 0 failed** (en `HEAD` era 29/1).
+- **Commit:** `afb8cc83f`
+
+### Cierre de cabos del hub `VantaDB Docs` (Studio/Team Sync + 3 páginas restauradas + 10 enlaces)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Quitar la contradicción hub↔PDR en la tabla de precios y devolver al hub sus enlaces de arquitectura/almacenamiento/reviews.
+- **Resultado:** ✅ — (1) `Studio Pro` → etiqueta `roadmap post-v0.10.0` y `Team Sync Cloud` → `roadmap post-1.0`, con nota de estado que cita `docs/dev/Backlog-negocio.md:113` (Studio vive en el worktree `develop-desktop`) y `GTM-05` (solo waitlist); precios intactos. (2) Las 3 páginas borradas (`System Architecture & Internals`, `Storage Engine, Data Model & Guarantees`, `Research & Design Reviews DB`) se **restauraron** (no recrearon) conservando los IDs que el hub ya enlazaba, y se les añadió al final un «Índice a las fuentes del repo» (`docs/dev/architecture/ARCHITECTURE.md` + 62 ADRs, `docs/api/STORAGE_FORMATS.md`, `docs/dev/reviews/` con 38 ficheros). Edición **aditiva**: `replace_content` falló con `validation_error: would delete 5 child page(s)` y no se usó `allow_deleting_content`, así que el contenido original y las 9 subpáginas hijas siguen ahí. (3) Las 10 celdas «Documento en Notion» mal formadas pasaron a `<mention>` limpios (`malformed_left: 0`, `mention_count: 10`).
+- **Evidencia:** hub `page_last_edited_at 2026-11-23T18:03:27.685Z`; páginas restauradas `18:02:22.993Z`, `18:02:24.026Z`, `18:02:24.897Z`.
+- **Correcciones al brief (verificadas):** son **62** ADRs, no 54; `STORAGE_FORMATS.md` describe el storage root como directorio pero **no lo nombra `.vanta`** (`.vanta` es config global del usuario y extensión de ficheros), así que la página lo dice con ese matiz; `docs/dev/Backlog.md` está en `.gitignore:270` (verificado con `git check-ignore`), pero no se afirmó en la página.
+
+### FIND-703: `capabilities` podía decir `Ready` con el provider fallando cerrado (una sola lista de candidatos para pesos y tokenizer)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Cerrar la regresión de coherencia que introdujo FIND-698 (hallazgo crítico H06-ARCH-001 de L6): `model_files_present` conservaba los fallbacks hardcodeados incondicionales mientras el loader ya los limitaba, así que el probe de salud y el provider podían discrepar.
+- **Resultado:** ✅ — (1) `model_path_candidates` y `tokenizer_candidates` viven en `llm.rs` con la misma puerta (hardcodeados solo si el dir está vacío) y `embedding_health::model_files_present` + `try_load_tokenizer` las **consumen**, así que pesos y tokenizer no pueden venir de modelos distintos (antes un dir con `model.onnx` sin `tokenizer.json` cargaba el tokenizer de otro modelo → vectores basura silenciosos); (2) `executor` usa `provider.is_synthetic()` y se elimina `is_synthetic_local_fallback`, que re-derivaba el veredicto desde otro `Config::default()` por nodo en el hot path de INSERT; (3) `resolve_local_model_path("")` deja de resolver al cwd (era lo que hacía inalcanzable toda rama de descubrimiento).
+- **Verificación:** `cargo test -p vantadb --features embed-local --lib llm -- --test-threads=2` → **31 passed** (nuevo `model_path_candidates_gate_the_hardcoded_defaults`); `cargo clippy -p vantadb --features embed-local --all-targets -j 2 -- -D warnings` limpio. Binario reinstalado (release offline, 21m29s, `sha256 2d1d2e87e84928b6405ec11b2e036fe08e8c6bea306c10fdb98b037a6b0c5a2b`): probe de embeddings `passed-functional-embeddings`, probe de perfiles **17/17**, `scopegrain vantadb status --probe` → `model_present: true`, `status: Ready`.
+- **Commit:** `3b6f389a3`
+- **Nota:** la deuda estructural de fondo (5 funciones de descubrimiento, 3 raíces, 2 políticas) queda en `FIND-704`, igual que **dos residuos que NO cubre este fix**: (a) `detect_dim` sigue leyendo `embeddings/manifest.json` **relativo al cwd** (`src/llm.rs:440`), así que la dimensión (384 e5 / 768 gemma) depende del directorio de lanzamiento; (b) `vantadb-mcp/src/handlers/tools.rs:4810-4827` conserva una tercera copia de la lista de candidatos en producción.
+
+### Verificación final de la cadena de embeddings (estado certificado)
+- **Fecha:** 2026-11-23
+- **Resultado:** binario con `embed-local` reinstalado y **pinned** en los tres sitios que lo referencian (`TaskSystem/.tasksystem/research/…inputs.json`, `TaskSystem/.scopegrain/research/…inputs.json`, `TaskSystem/.scopegrain/vantadb.json` → `binarySha256`): `sha256 54e6e2cb33acfd9dd5dbbb31881175f835e0a73f9eb82ed540dae2b0f4b3a393` (incluye FIND-695, FIND-697 y FIND-698), `vantadb-server --version` → `vantadb-server 0.9.0`. Probe de embeddings → `passed-functional-embeddings` (`.tasksystem/verification/2026-11-16-native-embedding-b8298a71-…json`); probe de perfiles → **17/17** (`…/2026-11-23-mcp-profile-b5432803-…json`); `scopegrain vantadb status --probe` → `model_present: true`, `status: Ready`.
+- **Nota:** el sha **no es reproducible entre builds** (cargo re-linkea el binario; `target/release` y el instalado difieren). El pin debe apuntar siempre al artefacto realmente probado.
+
+### FIND-684: Allowlist estricta de tools MCP, recall `scope:"agent"` sobre `l1/sg-*` e instalación del modelo ONNX local (Scopegrain `VB-3`/`VB-1`/`VB-16`/`VB-21`/`VB-22`)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Certificar en vivo, con el binario reconstruido, los tres cierres operativos que pide Scopegrain `v0.1.1`: allowlist estricta que rechace antes de efectos, recall de L1 con `scope:"agent"` sobre `l1/sg-*` excluyendo `sg-formal-v1-*`, y modelo ONNX local alcanzable desde cualquier cwd.
+- **Resultado:** ✅ — (1) `VANTADB_MCP_STRICT_PROFILE=true` + `VANTADB_MCP_ALLOW_TOOLS=memory_get,memory_recall` → `memory_put` rechazado con `-32601` **sin** registrar nada (`memory_get` → `VANTADB_NOT_FOUND`); (2) `memory_recall{scope:"agent"}` recupera el registro de `l1/sg-probe` (`count: 1`, `mode: hybrid`) y el namespace `sg-formal-v1-*` nunca entra al pool; (3) `model_dir` resuelto contra el data dir (`scopegrain vantadb status --probe` → `model_present: true`, `status: Ready`). Probe: `.scopegrain/research/2026-11-23-vantadb-profile-probe.mjs`, **15/15 checks**; evidencia `.tasksystem/verification/2026-11-23-mcp-profile-17638652-f9dd-47ce-8355-becd3e0cc182.json`. Residuo documentado: el recall exige que el payload de `l1/*` sea el envelope `MemoryRecord` completo (`FIND-699`).
+- **Commit:** `01a38f353` (fix) + `bed6473df` (model_dir) · verificación 2026-11-23
+
+### FIND-682: Egress HTTP implícito a Ollama con `VANTADB_EMBEDDING_PROVIDER=local` en un binario sin features de embeddings (Scopegrain `VB-4`)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Certificar con un binario **compilado sin** `embed-local`/`remote-inference` que `provider=local` no dispara tráfico HTTP a Ollama y que la degradación es explícita, no silenciosa.
+- **Resultado:** ✅ — binario sin features (`sha256 a470d1a3…`, `cargo install --path vantadb-server --force -j 2`, 8m14s) + probe con tripwire HTTP (`2026-11-23-vantadb-no-egress-probe.mjs`), **5/5 checks**:
+  - `capabilities` → `effective_provider: "none"`, `compiled_features: {embed_local: false, remote_inference: false}` (no enruta a `ollama`).
+  - `embed_texts` → `-32603 "strict embeddings mode: binary compiled without embedding features"` (falla cerrado).
+  - **0 requests** al endpoint HTTP en las dos llamadas.
+  - `memory_put` → `fallback: true` + `warning` explícito y `vector: null` (no persiste vector sintético).
+- **Evidencia:** `.tasksystem/verification/2026-11-23-no-egress-901e16fe-7508-4457-8418-6c5a4e8a3a31.json`. El binario con `embed-local` se reinstaló después para dejar la máquina en estado certificado.
+- **Commit:** `01a38f353` (fix) · verificación 2026-11-23
