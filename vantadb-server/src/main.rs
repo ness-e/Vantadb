@@ -21,7 +21,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 /// Application entrypoint. Starts either the MCP stdio server (`--mcp`) or the
 /// HTTP CLI server.
-/// The single CLI flag this binary understands (alongside `-h`/`--help`).
+/// The server-mode flag (the binary also understands `-h`/`--help` and
+/// `-V`/`--version`).
 const MCP_FLAG: &str = "--mcp";
 
 #[tokio::main]
@@ -39,6 +40,11 @@ async fn main() -> anyhow::Result<()> {
 
     if args.iter().any(|a| a == "-h" || a == "--help") {
         print_help();
+        return Ok(());
+    }
+
+    if args.iter().any(|a| a == "-V" || a == "--version") {
+        print_version();
         return Ok(());
     }
 
@@ -106,7 +112,7 @@ fn validate_args(args: &[String]) -> Result<(), String> {
 
 /// Whether `arg` is a flag this binary understands.
 fn is_known_flag(arg: &str) -> bool {
-    matches!(arg, "-h" | "--help" | "--mcp")
+    matches!(arg, "-h" | "--help" | "-V" | "--version" | "--mcp")
 }
 
 /// Prints the usage message and exits (called on `-h`/`--help`).
@@ -117,8 +123,14 @@ fn print_help() {
          vantadb-server [OPTIONS]\n\n\
          OPTIONS:\n    \
          {MCP_FLAG}    Run as an MCP stdio server instead of the HTTP CLI server\n    \
-         -h, --help    Print help information"
+         -h, --help    Print help information\n    \
+         -V, --version    Print version"
     );
+}
+
+/// Prints the crate version (called on `-V`/`--version`).
+fn print_version() {
+    println!("vantadb-server {}", env!("CARGO_PKG_VERSION"));
 }
 
 #[cfg(test)]
@@ -131,6 +143,8 @@ mod tests {
         assert_eq!(validate_args(&["--mcp".to_string()]), Ok(()));
         assert_eq!(validate_args(&["-h".to_string()]), Ok(()));
         assert_eq!(validate_args(&["--help".to_string()]), Ok(()));
+        assert_eq!(validate_args(&["-V".to_string()]), Ok(()));
+        assert_eq!(validate_args(&["--version".to_string()]), Ok(()));
         assert_eq!(
             validate_args(&["--mcp".to_string(), "-h".to_string()]),
             Ok(())
