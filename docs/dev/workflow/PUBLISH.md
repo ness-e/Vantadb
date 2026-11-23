@@ -358,8 +358,9 @@ Publishable crates for context (they complete the release-plz invariant):
 
 | Crate | Manifest | Channel | Produced by | Why |
 |-------|----------|---------|-------------|-----|
-| `vantadb` (core + `vanta-cli`) | publishable | crates.io + GitHub Release binaries | `release.yml` (release-plz) + `release-binaries.yml` | The only crates.io-published crate today (0.8.0 live) |
-| `vantadb-wasm` | publishable | npm `vantadb-wasm` (wasm-pack) | `release-npm-wasm.yml` (`v*.*.*`) | WASM bindings ship via npm — `release = false` in `release-plz.toml` |
+| `vantadb` (core + `vanta-cli`) | publishable | crates.io + GitHub Release binaries | `release.yml` (release-plz) + `release-binaries.yml` | The only crates.io-published crate today (0.9.0 live) |
+| `vantadb-wasm` | `publish = false` | npm `vantadb-wasm` (wasm-pack) | `release-npm-wasm.yml` (`v*.*.*`) | WASM bindings ship via npm only — `release = false` in `release-plz.toml`, and the manifest blocks `cargo publish` (H04-03: this row used to claim "publishable") |
+| `vantadb-wasm/threads-kernel` | `publish = false` | None — compiled into the wasm threads build | `release-npm-wasm.yml` (transitive) | STRAT-04 spike (`WASM_THREADS.md`); sub-crate of the wasm build, not a workspace member, never distributed |
 
 ### Invariant — `release-plz.toml` consistency
 
@@ -383,7 +384,9 @@ Publishable crates for context (they complete the release-plz invariant):
 Re-verify by command — both must match this page:
 
 ```powershell
-# (a) manifest scan → exactly the 10 `publish = false` crates above
+# (a) manifest scan → exactly the 12 `publish = false` crates (10 in the decision
+#     table above + vantadb-wasm + vantadb-wasm/threads-kernel, documented in the
+#     "publishable crates for context" table as explicit opt-outs)
 rg -n "^\s*publish = false" --glob "**/Cargo.toml" -g "!target/**" -g "!node_modules/**"
 
 # (b) release-plz overrides → subset of {vantadb, vantadb-wasm, vanta-memory}

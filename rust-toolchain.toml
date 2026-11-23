@@ -7,7 +7,7 @@ components = ["rustfmt", "clippy", "rust-src"]
 # DEUDA (FIND-52, 2026-09-02): `wasm-pack build --release` aborta con STATUS_STACK_BUFFER_OVERRUN
 # (0xc0000409) SOLO en host Windows/MSVC con este pin 1.95.0 — es __fastfail mal-reportado
 # (rust#141757, rust#120955); los fixes LLVM wasm-ld landed en 1.97 y el estable actual es 1.98.
-# NO bloquea release: release-npm-61.yml corre ubuntu-latest. Bump de canal = tarea separada
+# NO bloquea release: release-npm-wasm.yml corre ubuntu-latest. Bump de canal = tarea separada
 # (verificar toolchains locales + re-certificar benches antes de subir).
 targets = [
     "x86_64-pc-windows-msvc",

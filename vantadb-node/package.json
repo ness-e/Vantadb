@@ -1,7 +1,12 @@
 {
   "name": "vantadb-node",
   "version": "0.9.0",
-  "description": "VantaDB native Node.js bindings via napi-rs — persistent embedded memory & vector search (additional backend to WASM)",
+  "description": "VantaDB native Node.js bindings via napi-rs - persistent embedded memory & vector search (additional backend to WASM)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ness-e/Vantadb.git",
+    "directory": "vantadb-node"
+  },
   "type": "module",
   "main": "./index.cjs",
   "module": "./index.js",
