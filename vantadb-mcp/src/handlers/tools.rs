@@ -5327,9 +5327,7 @@ mod tests {
     #[test]
     fn memory_forget_schema_and_handler_default_namespace() {
         let dir = tempfile::tempdir().unwrap();
-        let engine = Arc::new(
-            StorageEngine::open(dir.path().to_str().unwrap()).unwrap(),
-        );
+        let engine = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
         let cfg = McpConfig {
             profile: McpProfile::Brain,
             ..Default::default()
@@ -5366,7 +5364,11 @@ mod tests {
             &cfg,
         )
         .expect("memory_forget without namespace must default to 'default'");
-        assert_ne!(res.get("isError"), Some(&json!(true)), "unexpected error: {res}");
+        assert_ne!(
+            res.get("isError"),
+            Some(&json!(true)),
+            "unexpected error: {res}"
+        );
         assert!(embedded.get("default", "k1").unwrap().is_none());
     }
 }

@@ -2466,7 +2466,10 @@ mod tests {
                 vector: None,
             }))
             .expect_err("INSERT must fail in read-only mode");
-        assert!(matches!(err_insert, Error::Validation { .. }), "{err_insert:?}");
+        assert!(
+            matches!(err_insert, Error::Validation { .. }),
+            "{err_insert:?}"
+        );
 
         let err_relate = ex
             .execute_statement(Statement::Relate(RelateStatement {
@@ -2476,7 +2479,10 @@ mod tests {
                 weight: None,
             }))
             .expect_err("RELATE must fail before interning labels");
-        assert!(matches!(err_relate, Error::Validation { .. }), "{err_relate:?}");
+        assert!(
+            matches!(err_relate, Error::Validation { .. }),
+            "{err_relate:?}"
+        );
 
         assert_eq!(
             ro_storage.label_intern.lock().len(),

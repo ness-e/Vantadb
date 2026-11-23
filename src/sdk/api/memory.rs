@@ -1734,8 +1734,7 @@ impl Embedded {
             // while `create_snapshot` mirrors the backend.
             // Pre-batch disk state determines whether a final empty-metadata
             // record in this batch needs a `delete_op` to purge stale rows.
-            let mut pre_batch_had_meta: HashMap<u128, bool> =
-                HashMap::with_capacity(records.len());
+            let mut pre_batch_had_meta: HashMap<u128, bool> = HashMap::with_capacity(records.len());
             for (record, prev) in records.iter().zip(previous.iter()) {
                 pre_batch_had_meta
                     .entry(record.node_id)
@@ -1753,7 +1752,11 @@ impl Embedded {
                     {
                         shred_ops.push(op);
                     }
-                } else if pre_batch_had_meta.get(&record.node_id).copied().unwrap_or(false) {
+                } else if pre_batch_had_meta
+                    .get(&record.node_id)
+                    .copied()
+                    .unwrap_or(false)
+                {
                     shred_ops.push(crate::shred::ShreddedRowStore::delete_op(record.node_id));
                 }
             }
