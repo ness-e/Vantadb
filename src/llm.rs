@@ -665,8 +665,8 @@ impl LocalOnnxProvider {
     /// Candidate ONNX weights paths in commit order — shared by
     /// `load_session_inner` and the FIND-642 budget estimator so the estimate
     /// always prices the file that actually loads.
-    fn model_path_candidates(model_dir: &str) -> [std::path::PathBuf; 6] {
-        [
+    fn model_path_candidates(model_dir: &str) -> Vec<std::path::PathBuf> {
+        let mut candidates = vec![
             std::path::Path::new(model_dir)
                 .join("model.onnx")
                 .to_path_buf(),
@@ -676,10 +676,24 @@ impl LocalOnnxProvider {
             std::path::Path::new(model_dir)
                 .join("model_int8.onnx")
                 .to_path_buf(),
-            std::path::PathBuf::from("embeddings/models/multilingual-e5-small/onnx/model.onnx"),
-            std::path::PathBuf::from("embeddings/models/embeddinggemma-2/onnx/model.onnx"),
-            std::path::PathBuf::from("embeddings/models/embeddinggemma-300m/onnx/model.onnx"),
-        ]
+        ];
+        // FIND-698: the hardcoded model dirs are a DISCOVERY fallback for an
+        // unset `local_model_path`, never a repair for a wrong one. Applied to a
+        // non-empty but invalid path, strict mode loaded an unrelated model and
+        // returned real vectors instead of failing closed — the opposite of the
+        // contract certified by the Scopegrain VB-6 probe.
+        if model_dir.trim().is_empty() {
+            candidates.push(std::path::PathBuf::from(
+                "embeddings/models/multilingual-e5-small/onnx/model.onnx",
+            ));
+            candidates.push(std::path::PathBuf::from(
+                "embeddings/models/embeddinggemma-2/onnx/model.onnx",
+            ));
+            candidates.push(std::path::PathBuf::from(
+                "embeddings/models/embeddinggemma-300m/onnx/model.onnx",
+            ));
+        }
+        candidates
     }
 
     /// Resolve the ONNX weights file a session would commit, using the same
@@ -1622,7 +1636,13 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_strict_embeddings_policy() {
+        // FIND-698: the environment is process-wide, so another (non-serial)
+        // test that sets VANTADB_MEMORY_LIMIT could make the provider build
+        // fail before the strict-mode assertion is reached.
+        let _limit = EnvGuard::unset("VANTADB_MEMORY_LIMIT");
+        let _local_model = EnvGuard::unset("VANTADB_LOCAL_MODEL");
         let mut cfg = crate::config::LlmCfg {
             local_model_path: "nonexistent_dir_for_test".to_string(),
             strict_embeddings: true,
@@ -1656,6 +1676,14 @@ mod tests {
         fn set(key: &'static str, value: &str) -> Self {
             let saved = std::env::var(key).ok();
             std::env::set_var(key, value);
+            Self { key, saved }
+        }
+
+        /// FIND-698: clear a variable for the duration of the test and restore
+        /// it on drop (an unset variable is process-wide state too).
+        fn unset(key: &'static str) -> Self {
+            let saved = std::env::var(key).ok();
+            std::env::remove_var(key);
             Self { key, saved }
         }
     }
