@@ -1,9 +1,9 @@
 ---
-title: "Reviews y auditorias - indice"
+title: Reviews y auditorias - indice
 kind: index
 status: active
 description: "Mapa de los informes de revision y auditoria del proyecto. La campana del 2026-10-20 (auditoria exhaustiva del arbol v0.9.0) tiene 24 ficheros: este indice dice cual es cual."
-tags: [vantadb, reviews, index, audit, reviews]
+tags: [vantadb, reviews, index, audit]
 ---
 
 # Reviews y auditorías — índice

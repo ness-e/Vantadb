@@ -1,3 +1,9 @@
+---
+title: "ACT-02: Certificación LongMemEval 500q Oficial v0.10.0 (embeddings densos)"
+kind: task
+description: "Completado = los 5 comandos pasan y BENCHMARKS.md §19 contiene una fila v0.10.0 con el número medido, comando exacto, hardware y fecha (Regla 11).\""
+---
+
 # ACT-02: Certificación LongMemEval 500q Oficial v0.10.0 (embeddings densos)
 
 ## Metadata

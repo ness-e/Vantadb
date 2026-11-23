@@ -2,10 +2,11 @@
 title: "Plan de cableado de la feature `encryption`: cifrado en reposo en los 4 artefactos on-disk"
 kind: plan
 status: completed
+description: Cerrar FIND-249 (0/6 superficies on-disk cifradas) dejando el producto con una capability
 date: "2026-10-20"
-owners: ["vanta-arch (diseÃ±o)", "vanta-worker (implementaciÃ³n)", "vanta-audit (unsafe/FFI)", "vanta-chaos (recuperaciÃ³n)"]
-tasks: ["FIND-249", "FIND-407", "FIND-194", "FIND-302"]
-adr: "docs/dev/architecture/adr/ADR-0057-encryption-at-rest.md"
+owners: [vanta-arch (diseÃ±o), vanta-worker (implementaciÃ³n), vanta-audit (unsafe/FFI), vanta-chaos (recuperaciÃ³n)]
+tasks: [FIND-249, FIND-407, FIND-194, FIND-302]
+adr: docs/dev/architecture/adr/ADR-0057-encryption-at-rest.md
 ---
 
 > **Estado (completed â€” 2026-10-23):** W0â€“W6 completas. Los 4 artefactos on-disk cifran (WAL v4, VantaFile v3, backend-KV, imagen HNSW v9). FIND-249 y FIND-407 cerradas. W7 medida y publicada en BENCHMARKS.md Â§22/Â§22.4: gate del 15% SUPERADO (+43,2% en p99 post-Paso 0) â€” seÃ±al de diseÃ±o declarada (causa: granularidad del envelope del VantaFile por nodo; fix: envelope por pÃ¡gina + LRU, implica breaking change de `VectorStoreRef`, va en plan separado). Plan archivado por decisiÃ³n del owner. Tasks derivadas abiertas (FIND-496, FIND-499, FIND-513, FIND-587 ðŸ”´; FIND-497, FIND-498, FIND-500, FIND-509, FIND-515, FIND-302 ðŸŸ¡) van al plan DELTA.

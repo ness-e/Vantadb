@@ -1,7 +1,8 @@
 ---
-status: completed
-title: "VER-09 — Head-to-head Mem0/Zep/Letta con protocolo publicado (absorbe EXE-02)"
+title: VER-09 — Head-to-head Mem0/Zep/Letta con protocolo publicado (absorbe EXE-02)
 kind: task
+status: completed
+description: "head-to-head publicado: Mem0/Zep/Letta corridos con el MISMO harness VER-08 (mismo dataset/topk/hardware fijado; 0 forks del harness) Y protocolo completo publicado (versiones pineadas por sistema + stack LLM/embedding/reranking + juez..."
 ---
 
 # VER-09: Head-to-head Mem0/Zep/Letta con protocolo publicado (absorbe EXE-02)

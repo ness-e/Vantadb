@@ -1,3 +1,9 @@
+---
+title: "FIND-649: Reparar la matriz semanal de compatibilidad de adaptadores (`ci-fleet.yml` `compat-matrix`)"
+kind: task
+description: "actionlint .github/workflows/ci-fleet.yml limpio + las 18 filas de compat-matrix declaran package: explícito coincidente con los pyproject.toml de integrations/ (langchain-core>=0.3.81), con instalación fail-closed y verificación..."
+---
+
 # FIND-649: Reparar la matriz semanal de compatibilidad de adaptadores (`ci-fleet.yml` `compat-matrix`): versiones fijadas que nunca se instalan y langchain 0.3 incompatible
 
 ## Metadata

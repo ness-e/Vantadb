@@ -1,3 +1,9 @@
+---
+title: "FIND-585 — Unificar predicado \"base recién creada\" + fail-closed ante modo mixto o pérdida de `encryption.registry`"
+kind: task
+description: "Vulnerabilidad P0 de integridad/confidencialidad en cifrado at-rest (ADR-0057, feature v0.10.0)"
+---
+
 # FIND-585 — Unificar predicado "base recién creada" + fail-closed ante modo mixto o pérdida de `encryption.registry`
 
 - **Plan:** docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md

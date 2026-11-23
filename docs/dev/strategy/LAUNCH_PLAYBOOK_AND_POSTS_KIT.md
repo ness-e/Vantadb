@@ -1,6 +1,6 @@
 ---
 title: "VantaDB Launch Playbook & Posts Kit"
-kind: strategy
+kind: concept
 status: active
 description: "Kit maestro de lanzamiento público (Semana 8 / Post-Gate P0): posts listos para publicar en Reddit, Hacker News, X, LinkedIn, PRs en registros MCP y backlog GTM-01 a GTM-15"
 tags: [vantadb, launch, gtm, playbook, social-media, reddit, hacker-news, mcp]

@@ -38,8 +38,8 @@ pip install vantadb-py
 **Features:**
 - Precompiled wheels for Linux, macOS, Windows
 - Python 3.11+ support
-- Automatic publishing via GitHub Actions + [OIDC](../../user/glosario/oidc.md)
-- Signed with [Sigstore](../../user/glosario/sigstore.md)
+- Automatic publishing via GitHub Actions + OIDC
+- Signed with Sigstore
 
 **Target Metrics:**
 - 10,000+ downloads/month (6 months)
@@ -59,7 +59,7 @@ vantadb = "0.9"
 - Core crate + optional features
 - docs.rs documentation
 - MSRV 1.94.1
-- [SLSA](../../user/glosario/slsa.md) audit
+- SLSA audit
 
 #### 3. GitHub Releases
 
@@ -163,12 +163,12 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 |--------|-------------|
 | **ICP** | Developers and AI enthusiasts running LLMs locally |
 | **Typical Stack** | Ollama (inference) + AnythingLLM (frontend) + vector database (memory) |
-| **Current Pain** | AnythingLLM defaults to LanceDB. LanceDB lacks [bm25](../../user/glosario/bm25.md) and graphs. No native hybrid search. |
-| **VantaDB Value Prop** | Drop-in LanceDB replacement with hybrid search ([hnsw](../../user/glosario/hnsw.md) + [bm25](../../user/glosario/bm25.md) + RRF) — no architecture changes |
+| **Current Pain** | AnythingLLM defaults to LanceDB. LanceDB lacks bm25 and graphs. No native hybrid search. |
+| **VantaDB Value Prop** | Drop-in LanceDB replacement with hybrid search (hnsw + bm25 + RRF) — no architecture changes |
 | **Immediate Action** | LanceDB → VantaDB migration guide (stack local, sin containers). |
 | **Priority** | 🟠 HIGH |
 
-**Research Finding:** AnythingLLM uses LanceDB for vector ingestion with minimal VRAM overhead. LanceDB has no [BM25](../../user/glosario/bm25.md) or graph. VantaDB provides a drop-in replacement with superior capabilities.
+**Research Finding:** AnythingLLM uses LanceDB for vector ingestion with minimal VRAM overhead. LanceDB has no BM25 or graph. VantaDB provides a drop-in replacement with superior capabilities.
 
 ### Vertical 2: The Agentic Frameworks 🤖
 
@@ -194,7 +194,7 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 | **ICP** | Developers using AI IDEs who lose context between sessions |
 | **Typical Stack** | CLAUDE.md (plain text) + claude-mem (SQLite, 89K★ on GitHub) |
 | **Current Pain** | Claude Code has no persistent memory between sessions. CLAUDE.md helps but doesn't solve history, search, or isolation. |
-| **VantaDB Value Prop** | Semantic upgrade to claude-mem: hybrid search, [graphrag](../../user/glosario/graphrag.md), per-project isolation. |
+| **VantaDB Value Prop** | Semantic upgrade to claude-mem: hybrid search, graphrag, per-project isolation. |
 | **Immediate Action** | MCP server already implemented. Setup docs for each IDE. Blog post: "VantaDB as Claude Code memory." |
 | **Priority** | 🟠 HIGH |
 
@@ -230,8 +230,8 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 
 **Paid Offering (Enterprise):**
 - VantaDB Cloud (managed service)
-- [Multi-tenancy](../../user/glosario/multi-tenancy.md)
-- [RBAC](../../user/glosario/rbac.md) + audit logs
+- Multi-tenancy
+- RBAC + audit logs
 - Replication + backups
 - Priority support (SLA)
 - Consulting
@@ -339,10 +339,10 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 
 **Frequency:** 2 posts/month
 **Topics:**
-- "How we implemented [HNSW](../../user/glosario/hnsw.md) in Rust"
-- "[GraphRAG](../../user/glosario/graphrag.md): Reducing tokens by 60%"
+- "How we implemented HNSW in Rust"
+- "GraphRAG: Reducing tokens by 60%"
 - "Benchmarking VantaDB vs Pinecone vs ChromaDB"
-- "[WAL](../../user/glosario/wal.md) and durability: Lessons learned"
+- "WAL and durability: Lessons learned"
 
 **Channels:** vantadb.dev/blog, Dev.to, Medium (Towards Data Science), Hacker News (Show HN)
 
@@ -381,7 +381,7 @@ docs/
 - [ ] langchain-vantadb on PyPI *(código existe en `integrations/langchain/`, NO publicado → MKT-20 (ex MKT-18f))*
 - [ ] llama-index-vector-stores-vantadb on PyPI *(código existe, NO publicado → MKT-20 (ex MKT-18f))*
 - [ ] Mem0 integration (VantaDB as VectorStoreBackend) *(código existe en `integrations/mem0/`, NO publicado → MKT-20 (ex MKT-18f))*
-- [ ] Blog: "[GraphRAG](../../user/glosario/graphrag.md) with VantaDB — Reducing tokens 40-60%"
+- [ ] Blog: "GraphRAG with VantaDB — Reducing tokens 40-60%"
 
 **AI-IDE Tooling:**
 - [x] MCP server docs for Cursor, Claude Code, Windsurf *(✅ existe: `docs/api/MCP.md:129-215` — Cursor/Claude Code/Windsurf/OpenCode/Cline)*
@@ -411,14 +411,14 @@ docs/
 ### Q1 2027: Scale + Pre-Seed Prep
 
 **Objectives:**
-- 🔄 Enterprise readiness (encryption, audit logs, [WAL](../../user/glosario/wal.md) shipping)
+- 🔄 Enterprise readiness (encryption, audit logs, WAL shipping)
 - 🔄 First enterprise pilots
 - 🔄 Complete pitch deck
 
 **Deliverables:**
 - [x] AES-256 at-rest encryption (TSK-72) *(✅ shipped in repo for `v0.10.0` — `TEC-05` + campaña de cifrado en reposo; pendiente solo el publish del release)*
 - [x] Audit logging (TSK-107b) *(✅ `audit.jsonl` con Merkle trail SHA-256 implementado — `TEC-13`, 2026-11-07)*
-- [ ] Async [WAL](../../user/glosario/wal.md) shipping (BIZ-02)
+- [ ] Async WAL shipping (BIZ-02)
 - [ ] Pitch deck + one-pager (CLD-02 → `docs/dev/Backlog-negocio.md`)
 - [ ] Case study #1 (CLD-04 → `docs/dev/Backlog-negocio.md`)
 - [ ] Enterprise pilot #1
@@ -472,6 +472,6 @@ docs/
 ## See Also
 
 - [Master Index](../master-index.md) — Parent document
-- [VISION.md](../vision/VISION.md) — ICP and UVP
+- VISION.md — ICP and UVP
 - [ROADMAP.md](ROADMAP.md) — Technical timeline
 - [Backlog](../Backlog.md) — Detailed tasks (INT-01, INT-02, INT-03, TSK-90, etc.)

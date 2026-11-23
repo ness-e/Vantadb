@@ -1,4 +1,4 @@
-﻿---
+---
 title: "FIND-384 â€” Setup Wizard Permanente & Demonio de Self-Healing en Background"
 kind: task
 description: "Persistir variables de entorno en el perfil del usuario (~/.bashrc, ~/.zshrc o Registro de Windows) e incorporar tarea cron interna de self-healing (vacuum + rebuild-index en reposo)"

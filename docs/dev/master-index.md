@@ -146,7 +146,7 @@ Key documents:
 | [GO_TO_MARKET.md](strategy/GO_TO_MARKET.md) | Go-to-market and ecosystem strategy |
 | [VANTADB-PRO-FEATURES.md](strategy/VANTADB-PRO-FEATURES.md) | Open Core boundary — features Pro vs community |
 | [VANTADB-PRO-DELIVERY.md](strategy/VANTADB-PRO-DELIVERY.md) | Delivery and distribution of VantaDB Pro |
-| [VISION.md](vision/VISION.md) | Product vision and strategic positioning |
+| VISION.md | Product vision and strategic positioning |
 | [SHOW_HN_PREP.md](strategy/SHOW_HN_PREP.md) | Hacker News launch preparation |
 
 ---
@@ -177,8 +177,8 @@ The glossary lives in two complementary locations:
 
 | Location | Description |
 |----------|-------------|
-| [glosario/](../user/glosario) | 57 individual term files with detailed definitions (English) |
-| [glosario/README.md](../user/glosario/README.md) | Categorized index with quick descriptions |
+| glosario/ | 57 individual term files with detailed definitions (English) |
+| glosario/README.md | Categorized index with quick descriptions |
 
 ---
 
@@ -226,7 +226,7 @@ Structured reports produced by pipelines and evals live in `docs/dev/reports/`.
 |----------|-------------|
 | [INDEX.md](reports/INDEX.md) | Index of all pipeline reports |
 | [dora.md](reports/dora.md) | DORA metrics report |
-| [pipeline-evals.md](reports/pipeline-evals.md) | Pipeline evaluation report |
+| pipeline-evals.md | Pipeline evaluation report |
 
 ---
 
@@ -250,7 +250,7 @@ Spanish-language planning material (allowed exception to the English docs rule).
 | [avance/README.md](avance/README.md) | Unified progress log and development history |
 | [Backlog.md](Backlog.md) | Full project backlog and feature tracking |
 | [backlog-futuro.md](backlog-futuro.md) | Deferred / future backlog items |
-| [CHANGELOG.md](../CHANGELOG.md) | Release history and version changelog |
+| [CHANGELOG.md](../../CHANGELOG.md) | Release history and version changelog |
 | [avance/](avance/README.md) | Progress tracking workspace (activo, auditoría, decisiones, historial) |
 
 ---
@@ -260,8 +260,8 @@ Spanish-language planning material (allowed exception to the English docs rule).
 | Document | Description |
 |----------|-------------|
 | [Investigaciones → research/](research) | Spanish-language research notes: FND-*, INV-*, TIR-*, competitive analyses (see folder README per series) |
-| [research/human-facing-db-ui/](research/human-facing-db-ui) | Research on human-facing DB UI concepts |
-| [research/tdam/](research/tdam) | TDAM (Tiered Document Attention Model) research |
+| research/human-facing-db-ui/ | Research on human-facing DB UI concepts |
+| research/tdam/ | TDAM (Tiered Document Attention Model) research |
 | [wasm/CRASH_MODEL.md](wasm/CRASH_MODEL.md) | WASM crash model research |
 
 ---
@@ -297,7 +297,7 @@ Documentation for the Next.js web frontend lives in the [`ness-e/Vantadb-web`](h
 | Document | Description |
 |----------|-------------|
 | [web/README.md](https://github.com/ness-e/Vantadb-web/blob/main/docs/user/web/README.md) | Web docs landing page |
-| [design-rules-es-tutorial.md](archive/design-rules-es-tutorial.md) | Tutorial ES de diseño (ARCHIVADO — ver banner) |
+| design-rules-es-tutorial.md | Tutorial ES de diseño (ARCHIVADO — ver banner) |
 | [QA.md](https://github.com/ness-e/Vantadb-web/blob/main/docs/user/web/QA.md) | Web QA checklist |
 | Sub-folders: [`audit/`](https://github.com/ness-e/Vantadb-web/tree/main/docs/user/web/audit), [`guides/`](https://github.com/ness-e/Vantadb-web/tree/main/docs/user/web/guides), [`reference/`](https://github.com/ness-e/Vantadb-web/tree/main/docs/user/web/reference), [`standards/`](https://github.com/ness-e/Vantadb-web/tree/main/docs/user/web/standards) |
 
@@ -309,9 +309,9 @@ Raw benchmark artifacts and analyses live in `docs/user/benchmarks/`. Canonical 
 
 | Document | Description |
 |----------|-------------|
-| [COMPETITIVE_ANALYSIS.md](../user/benchmarks/COMPETITIVE_ANALYSIS.md) | Competitive analysis narrative |
-| [COMPETITIVE_SDK_BENCH.md](../user/benchmarks/COMPETITIVE_SDK_BENCH.md) | SDK benchmark vs competitors |
-| [ivf_bench.md](../user/benchmarks/ivf_bench.md) | IVF index benchmark notes |
+| COMPETITIVE_ANALYSIS.md | Competitive analysis narrative |
+| COMPETITIVE_SDK_BENCH.md | SDK benchmark vs competitors |
+| ivf_bench.md | IVF index benchmark notes |
 
 ---
 
@@ -319,7 +319,7 @@ Raw benchmark artifacts and analyses live in `docs/user/benchmarks/`. Canonical 
 
 | Document | Description |
 |----------|-------------|
-| [book/](../user/book/book.toml) | mdBook project (`mdbook build` from `docs/user/book/`) — narrative book on VantaDB internals |
+| book/ | mdBook project (`mdbook build` from `docs/user/book/`) — narrative book on VantaDB internals |
 
 ---
 
@@ -327,14 +327,14 @@ Raw benchmark artifacts and analyses live in `docs/user/benchmarks/`. Canonical 
 
 | Document | Description |
 |----------|-------------|
-| [discord/README.md](../user/discord/README.md) | Discord community workspace (server config, bilingual strategy) |
+| discord/README.md | Discord community workspace (server config, bilingual strategy) |
 | [examples/](../../examples/) | Runnable code samples referenced by tutorials |
 
 Assets (images used by docs): [`assets/`](../../assets)
 
-Agent-facing reference files (bug workflow, troubleshooting, nextest output): [`references/`](references).
+Agent-facing reference files (bug workflow, troubleshooting, nextest output): `references/`.
 
-Historical material moved out of the main tree: [`archive/`](archive) (incl. archived case studies and legacy docs inventories).
+Historical material moved out of the main tree: `archive/` (incl. archived case studies and legacy docs inventories).
 
 ---
 
@@ -345,9 +345,9 @@ Historical material moved out of the main tree: [`archive/`](archive) (incl. arc
 | [QUICKSTART.md](../user/QUICKSTART.md) | Quickstart guide for new users |
 | [FAQ.md](../user/FAQ.md) | Frequently asked questions |
 | [COMPARISON.md](../user/COMPARISON.md) | Honest comparison vs sqlite-vec / LanceDB / Qdrant / Chroma — qualitative table, benchmark provenance per Regla 11, practical limits |
-| [ci-cd-guide.md](operations/ci-cd-guide.md) | CI/CD setup and operations guide |
+| ci-cd-guide.md | CI/CD setup and operations guide |
 | [README.md](../README.md) | Documentation landing page and reading guide |
-| [../desktop/DESIGN_DECISIONS.md](../../feature-freez/desktop/DESIGN_DECISIONS.md) | Studio design decisions: token decoupling, light-only web, WCAG palette |
+| ../desktop/DESIGN_DECISIONS.md | Studio design decisions: token decoupling, light-only web, WCAG palette |
 
 ---
 
@@ -356,7 +356,7 @@ Historical material moved out of the main tree: [`archive/`](archive) (incl. arc
 - [Operations Master Index](../user/operations/master-index.md) — Detailed operations document listing
 - [Pipeline Reports Index](reports/INDEX.md) — Detailed pipeline report listing
 - [GitHub Repository](https://github.com/ness-e/Vantadb) — Source code and issues
-- [CHANGELOG](../CHANGELOG.md) — Version history
+- [CHANGELOG](../../CHANGELOG.md) — Version history
 
 ---
 

@@ -1,6 +1,8 @@
 ---
+title: Endurecer selector de rama release-plz y eliminar doble disparo TOCTOU en release-wheels.yml
+kind: task
+description: Dos defectos del post-mortem de v0.9.0 (docs/dev/reviews/2026-10-20-release-v0.9.0-postmortem.md)
 id: FIND-467
-title: "Endurecer selector de rama release-plz y eliminar doble disparo TOCTOU en release-wheels.yml"
 type: fix
 state: IN_PROGRESS
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md

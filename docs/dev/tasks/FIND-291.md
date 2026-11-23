@@ -1,7 +1,9 @@
 ---
-id: FIND-291
-title: "Ejecutar shutdown_background_services antes del flush() final en serve_http_or_tls"
+title: Ejecutar shutdown_background_services antes del flush() final en serve_http_or_tls
+kind: task
 status: completed
+description: "cargo nextest run --profile audit -p vantadb --features server -E \"test(shutdown) or test(bootstrap) or test(server)\" --locked --build-jobs 2"
+id: FIND-291
 type: fix
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 19)
 ---

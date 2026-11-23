@@ -1,4 +1,4 @@
-﻿---
+---
 title: "FIND-242 â€” OpfsStorage::delete_file_unlocked removeEntry async sin await (Web Lock prematuro)"
 kind: task
 description: "Esperar la promesa de removeEntry en OPFS mediante JsFuture::from(promise).await y normalizar NotFoundError para evitar desincronizaciÃ³n de Web Locks"

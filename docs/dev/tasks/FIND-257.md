@@ -1,6 +1,8 @@
 ---
+title: Sanitizar saltos CRLF en scripts/docs/check-api-docs.mjs
+kind: task
+description: "extractRust itera lineas con text.split(\"\n\") y ancla el header de bloque"
 id: FIND-257
-title: "Sanitizar saltos CRLF en scripts/docs/check-api-docs.mjs"
 type: fix
 state: IN_PROGRESS
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md

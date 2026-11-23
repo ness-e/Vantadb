@@ -1,4 +1,4 @@
-﻿---
+---
 title: "FIND-382 â€” Auto-RecuperaciÃ³n de Locks HuÃ©rfanos con Sonda de PID Vivo"
 kind: task
 description: "Implementar recuperaciÃ³n automÃ¡tica de .vanta.lock cuando el proceso anterior ya no existe en el sistema operativo (OpenProcess en Windows / kill(pid, 0) en Unix) y corregir diagnÃ³sticos"

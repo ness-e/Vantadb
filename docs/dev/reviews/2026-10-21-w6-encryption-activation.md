@@ -10,7 +10,7 @@ created: "2026-10-21"
 # W6 — Activacion del cifrado en reposo (ADR-0057)
 
 > **Wave:** W6 del plan
-> [`2026-10-20-wiring-encryption-feature.md`](../plans/2026-10-20-wiring-encryption-feature.md).
+> [`2026-10-20-wiring-encryption-feature.md`](../plans/archive/2026-10-20-wiring-encryption-feature.md).
 > **Design:** [`ADR-0057`](../architecture/adr/ADR-0057-encryption-at-rest.md).
 > **Estado:** implementada y verificada (2026-10-21).
 

@@ -1,4 +1,4 @@
-﻿---
+---
 title: "AUDIT-05: Perfil Cognitivo McpProfile::Brain y Reparación de Instaladores"
 kind: task
 status: completed

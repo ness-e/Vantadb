@@ -1,4 +1,4 @@
-﻿---
+---
 title: "AUDIT-03: API Unificada Embedded::forget() (Soft, Hard, Certified)"
 kind: task
 status: completed

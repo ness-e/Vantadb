@@ -1,7 +1,8 @@
 ---
-status: completed
 title: "VER-08 — Harness propio: canonical_p99 + LoCoMo/LongMemEval-S/BEAM-subset + p99-CI"
 kind: task
+status: completed
+description: "harness publicado con dataset commiteado y comandos de reproducción (Regla 11): canonicalp99 (ya) + LongMemEval-S con submuestra versionada (licencia MIT verificada) + LoCoMo smoke y BEAM-subset SOLO con licencia verificada o..."
 ---
 
 # VER-08: Harness propio: canonical_p99 + LoCoMo/LongMemEval-S/BEAM-subset + p99-CI

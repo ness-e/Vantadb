@@ -1,4 +1,9 @@
-﻿--
+---
+title: "AUDREP-03: Errores de tombstone tragados â€” registros fantasma"
+kind: task
+---
+
+--
 status: completed
 title: "AUDREP-03: Errores de tombstone tragados â€” registros fantasma"
 kind: task

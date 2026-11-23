@@ -2,6 +2,7 @@
 title: "Avance — Operaciones & API"
 kind: review
 status: active
+description: "existía (VECTORSEARCH(...) → <field> ~ \"texto\", min = 0.88), endpoint de embeddings de"
 tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 ---
 

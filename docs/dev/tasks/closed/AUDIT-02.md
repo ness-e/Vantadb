@@ -1,4 +1,4 @@
-﻿---
+---
 title: "AUDIT-02: Corrección InFilter bitset, caché BM25 y desacople ShreddedRowStore"
 kind: task
 status: completed

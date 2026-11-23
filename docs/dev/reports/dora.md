@@ -1,3 +1,9 @@
+---
+title: DORA Flow Metrics Report
+kind: report
+description: "Δt promedio (solo fallos reales, exit ≠ -1): 0.1h sobre 31 pares (58 espurios excluidos del promedio)"
+---
+
 # DORA Flow Metrics Report
 
 > Generado por `dev-tools/dora.mjs` (P3-07) — 2026-10-30T21:11:37.073Z

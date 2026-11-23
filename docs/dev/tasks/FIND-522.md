@@ -1,3 +1,9 @@
+---
+title: "FIND-522: Endurecer parser, lexer y errores de IQL ante `NaN`/`Inf`, recursión profunda y rangos inválidos"
+kind: task
+description: "cargo nextest run --profile audit -p vantadb -E \"test(parser) or test(lexer) or test(iql) or test(scan)\" --locked --build-jobs 2 pasa con los 6 sub-hallazgos (FIND-522, FIND-523, FIND-524, FIND-525, FIND-526, FIND-528) cubiertos por..."
+---
+
 # FIND-522: Endurecer parser, lexer y errores de IQL ante `NaN`/`Inf`, recursión profunda y rangos inválidos (absorbe FIND-523, FIND-524, FIND-525, FIND-526, FIND-528)
 
 ## Metadata

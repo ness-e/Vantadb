@@ -1,0 +1,21 @@
+{
+  "plan": "docs/dev/plans/2026-11-23-release-v0.10.0-gates.md",
+  "totalCompleted": 0,
+  "totalFailed": 0,
+  "total": 4,
+  "consecutiveFails": 0,
+  "failMode": "parallel",
+  "inProgress": null,
+  "paused": {
+    "reason": "WIP ajeno: sesion externa (Devin PID 34752) escribiendo el alcance de FIND-700 (frontmatter de ~90 task files + scripts/docs/secrets-allowlist.json). Probe 4d (git status limpio) no se cumple.",
+    "detectedAt": "2026-11-23T21:20:00Z",
+    "resumeWhen": "git status sin cambios ajenos durante >=10 min y sin proceso Devin activo"
+  },
+  "tasks": {
+    "FIND-700": "blocked-foreign-wip",
+    "FIND-699": "pending",
+    "FIND-485": "pending",
+    "FIND-701": "blocked-owner-push"
+  },
+  "lastSync": "2026-11-23T21:20:00Z"
+}

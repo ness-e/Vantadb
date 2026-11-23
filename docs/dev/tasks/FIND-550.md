@@ -1,3 +1,9 @@
+---
+title: "FIND-550 — Re-inyectar `vantadb-node` en `optionalDependencies` en `release-npm-wasm.yml`"
+kind: task
+description: "El step \"Rewrite dependency for publish\" del job publish-ts elimina vantadb-node"
+---
+
 # FIND-550 — Re-inyectar `vantadb-node` en `optionalDependencies` en `release-npm-wasm.yml`
 
 - **Estado:** ✅ COMPLETED

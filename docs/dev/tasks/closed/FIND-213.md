@@ -1,4 +1,4 @@
-﻿---
+---
 title: "FIND-213 â€” NL_POOL sin cap ni take_nl en search_layer (Write-Only Memory Leak)"
 kind: task
 description: "Eliminar el memory leak en NL_POOL limitando la capacidad del thread_local a 8 buffers e implementando take_nl con reciclaje acotado"

@@ -1,7 +1,9 @@
 ---
-id: FIND-246
-title: "Forzar file.sync_all() en persistencia HNSW antes de avanzar checkpoint_seq en Fjall (DUR-01)"
+title: Forzar file.sync_all() en persistencia HNSW antes de avanzar checkpoint_seq en Fjall (DUR-01)
+kind: task
 status: completed
+description: "cargo nextest run --profile audit -p vantadb --features failpoints -E \"test(checkpoint) or test(persist) or test(indexreconstruction)\" --locked --build-jobs 2"
+id: FIND-246
 type: fix
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 16)
 ---

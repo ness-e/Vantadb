@@ -1,6 +1,8 @@
 ---
+title: Preservar confidence del motor al re-persistir registros L1 contradichos en l1_writer.rs
+kind: task
+description: "Un registro L1 contradicho no debe \"resucitar\" con defaultconfidence() (1.0) al"
 id: FIND-281
-title: "Preservar confidence del motor al re-persistir registros L1 contradichos en l1_writer.rs"
 state: in-progress
 route: vanta-worker
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 22)

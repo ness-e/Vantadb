@@ -1,7 +1,8 @@
 ---
-status: completed
 title: "TASK MEMG-11: Adopción del motor core en vanta-memory (recall híbrido + escritura batch)"
 kind: task
+status: completed
+description: cargo nextest run --profile audit -p vanta-memory --build-jobs 2 verde + cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings 0 + cargo fmt -p vanta-memory -- --check 0 + core scoped cargo nextest run -p vantadb...
 ---
 
 # TASK MEMG-11: Adopción del motor core en `vanta-memory` (recall híbrido + escritura batch)

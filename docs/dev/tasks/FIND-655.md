@@ -1,7 +1,9 @@
 ---
-id: FIND-655
-title: "ACT-02 gate fail medido (recall_all@5=0.1383): causa raíz en el harness de evaluación, certificado tras corrección (hybrid_rrf=0.8872)"
+title: "FIND-655: ACT-02 gate fail medido (recall_all@5=0.1383) — causa raíz en el harness de evaluación"
+kind: task
 status: completed
+description: "El gate recallall@5 >= 0.85 falló medido (0.1383) en la primera corrida oficial de 500"
+id: FIND-655
 type: bug
 plan: docs/dev/tasks/ACT-02.md
 ---

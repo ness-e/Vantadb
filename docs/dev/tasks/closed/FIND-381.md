@@ -1,4 +1,4 @@
-﻿---
+---
 title: "FIND-381 â€” Modo Estricto de Embeddings en ProducciÃ³n (Fail-Closed en vez de Dummy)"
 kind: task
 description: "Implementar strict_embeddings fail-closed por defecto en producciÃ³n, impidiendo inserciÃ³n silente de vectores dummy cuando ONNX o los modelos locales no estÃ¡n disponibles"

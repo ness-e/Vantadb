@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Plan de EjecuciÃ³n: Pre-mercado VantaDB â€” orden, estabilizaciÃ³n y salida"
 kind: plan
 status: completed

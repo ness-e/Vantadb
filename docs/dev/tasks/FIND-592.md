@@ -1,3 +1,8 @@
+---
+title: "FIND-592 — Vector canary: bytes IEEE-754 cifrados en vstore_L*.vanta y vector_index.bin"
+kind: task
+---
+
 # FIND-592 — Vector canary: bytes IEEE-754 cifrados en vstore_L*.vanta y vector_index.bin
 
 - Origen: plan 2026-11-07-consolidacion-tecnica-pre-v0100.md · Task 15

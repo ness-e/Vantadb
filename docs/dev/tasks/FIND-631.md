@@ -1,7 +1,9 @@
 ---
-id: FIND-631
-title: "Redactar ADR-0060 (migración on-disk v0.9.0 → v0.10.0) y probar compatibilidad contra una base creada por v0.9.0"
+title: Redactar ADR-0060 (migración on-disk v0.9.0 → v0.10.0) y probar compatibilidad contra una base creada por v0.9.0
+kind: task
 status: completed
+description: "python -c \"import pathlib; p=sorted(pathlib.Path('docs/dev/architecture/adr').glob('ADR-0060-.md')); assert p, 'falta ADR-0060'; t=p[0].readtext(encoding='utf-8').lower(); faltan=[k for k in..."
+id: FIND-631
 type: feat
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 47)
 ---

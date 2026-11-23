@@ -1,3 +1,9 @@
+---
+title: "MEMG-28: Serializar `CheckpointStore::mutate` para eliminar carreras lost-update sobre `checkpoint.json`"
+kind: task
+description: "cargo nextest run --profile audit -p vanta-memory -E \"test(checkpoint)\" --locked --build-jobs 2 pasa con 0 pérdidas de actualización bajo mutaciones concurrentes"
+---
+
 # MEMG-28: Serializar `CheckpointStore::mutate` para eliminar carreras lost-update sobre `checkpoint.json`
 
 ## Metadata

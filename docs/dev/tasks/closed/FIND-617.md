@@ -1,12 +1,13 @@
 ---
-title: "FIND-617 — Ratificación excepción INV-012 para DecryptCache"
+title: FIND-617 — Ratificación excepción INV-012 para DecryptCache
 kind: task
 status: completed
+description: "INV-012 (.opencode/rules/durability.md:10-17) prohíbe reintroducir un buffer cache complejo"
+tags: [vantadb, task, security, encryption, durability, adr]
 severity: media
-effort: 1d
+effort: "1d"
 created: "2026-10-21"
 closed: "2026-10-23"
-tags: [vantadb, task, security, encryption, durability, adr]
 ---
 
 # FIND-617 — Ratificación excepción INV-012 para `DecryptCache`

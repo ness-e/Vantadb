@@ -1,7 +1,9 @@
 ---
-id: FIND-466
 title: "Blindar filtros paths: en workflows de CI para evitar checks colgados"
+kind: task
 status: completed
+description: "Tres workflows tienen filtros pullrequest.paths incompletos: PRs que solo tocan"
+id: FIND-466
 type: fix
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md
 absorbe: FIND-582 (M-13)

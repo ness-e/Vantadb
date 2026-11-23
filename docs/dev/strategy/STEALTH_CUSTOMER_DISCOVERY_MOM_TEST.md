@@ -1,8 +1,8 @@
 ---
 title: "Stealth Customer Discovery & The Mom Test Playbook"
-kind: strategy
+kind: concept
 status: active
-description: "Protocolo encubierto de validación de hipótesis de dolor de memoria para agentes AI en comunidades técnicas basado en The Mom Test"
+description: Protocolo encubierto de validación de hipótesis de dolor de memoria para agentes AI en comunidades técnicas basado en The Mom Test
 tags: [vantadb, gtm, customer-discovery, mom-test, validation, reddit, sales]
 ---
 

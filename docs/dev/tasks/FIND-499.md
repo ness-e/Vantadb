@@ -1,7 +1,9 @@
 ---
-id: FIND-499
 title: "migration.rs reconoce formatos actuales (plano y cifrado) de VantaFile, WAL e índice"
+kind: task
 status: completed
+description: checkintegrity y la detección de migración deben aceptar las versiones
+id: FIND-499
 type: fix
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 13)
 ---

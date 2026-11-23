@@ -1,6 +1,6 @@
 ---
 title: "Kit Operativo de Pull Requests: 4 Awesome Lists y 5 Registros MCP (GTM-04 + GTM-10)"
-kind: strategy
+kind: concept
 status: active
 description: "Guía operativa paso a paso con los bloques exactos de Markdown, JSON y metadatos listos para copiar y pegar al enviar PRs a las 4 Awesome Lists y publicar en los 5 Registros MCP oficiales tras la certificación de FASE-A."
 tags: [vantadb, gtm, mcp, awesome-lists, pull-requests, registries, marketing, distribution]

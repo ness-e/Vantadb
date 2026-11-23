@@ -1,6 +1,8 @@
 ---
+title: Fallar cerrado (exit 1) en sync-workspace-version.mjs y cablear --check en docs-gates.yml
+kind: task
+description: Dos defectos
 id: FIND-468
-title: "Fallar cerrado (exit 1) en sync-workspace-version.mjs y cablear --check en docs-gates.yml"
 type: fix
 state: IN_PROGRESS
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md

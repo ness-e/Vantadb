@@ -1,7 +1,9 @@
 ---
-id: FIND-473
-title: "Declarar publish = false en vantadb-wasm/Cargo.toml"
+title: Declarar publish = false en vantadb-wasm/Cargo.toml
+kind: task
 status: completed
+description: "vantadb-wasm se distribuye exclusivamente por wasm-pack/npm, nunca por crates.io"
+id: FIND-473
 type: chore
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md
 ---

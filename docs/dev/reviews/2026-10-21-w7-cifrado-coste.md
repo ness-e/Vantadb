@@ -10,7 +10,7 @@ created: "2026-10-21"
 # W7 — El coste del cifrado en reposo, medido (ADR-0057)
 
 > **Wave:** W7 del plan
-> [`2026-10-20-wiring-encryption-feature.md`](../plans/2026-10-20-wiring-encryption-feature.md).
+> [`2026-10-20-wiring-encryption-feature.md`](../plans/archive/2026-10-20-wiring-encryption-feature.md).
 > **Design:** [`ADR-0057`](../architecture/adr/ADR-0057-encryption-at-rest.md).
 > **Estado:** medida y **certificada** (2026-10-21, segunda medicion) y **re-medida
 > post-Paso 0** (2026-10-21/22, §6). Los numeros publicados viven en

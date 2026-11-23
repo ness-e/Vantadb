@@ -55,7 +55,7 @@ tags: [vantadb, avance, wontfix, decisiones, yagni]
 ### Desktop — auto-update diferido (DESKTOP-43, 2026-10-04)
 | Item | Razón |
 |------|-------|
-| `DESKTOP-43` — Auto-update vía `tauri-plugin-updater` | DIFERIDO (stop condition del plan 0.9.0): la firma del updater es obligatoria e indeshabilitable (docs Tauri v2) y la firma de instaladores ya está diferida (H-08 / `DEVOPS-10`); sin decisión de distribución pública no hay canal que actualizar. **Trigger de reapertura:** decisión de distribución pública del desktop (canal + firma). **Checklist de habilitación:** [UPDATER_ENABLEMENT.md](../../desktop/UPDATER_ENABLEMENT.md). |
+| `DESKTOP-43` — Auto-update vía `tauri-plugin-updater` | DIFERIDO (stop condition del plan 0.9.0): la firma del updater es obligatoria e indeshabilitable (docs Tauri v2) y la firma de instaladores ya está diferida (H-08 / `DEVOPS-10`); sin decisión de distribución pública no hay canal que actualizar. **Trigger de reapertura:** decisión de distribución pública del desktop (canal + firma). **Checklist de habilitación:** UPDATER_ENABLEMENT.md. |
 
 ### Web — densidad del home diferida (WEB-09, 2026-10-05)
 | Item | Razón |

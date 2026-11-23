@@ -1,6 +1,8 @@
 ---
-id: FIND-455
 title: Gate mecanico de ancestro origin/main en PRs hacia main
+kind: task
+description: Ningun job verifica que origin/main sea ancestro de HEAD cuando un PR apunta a
+id: FIND-455
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md
 state: in-progress
 type: ci-gate

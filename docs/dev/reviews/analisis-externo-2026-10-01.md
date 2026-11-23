@@ -14,7 +14,7 @@ tags: [vantadb, reviews, audit, backlog, scope]
 
 - El catálogo de 42 ítems es **mayormente correcto**: 28 ya estaban trackeados en los backlogs, 7 no tenían fila, 3 filas eran stale (A1/D2/D9) y 4 parciales (B7/F1/E2/D7).
 - La meta-revisión (segundo documento) fue la más rigurosa; la verificación independiente de vanta-lead la confirmó salvo dos cifras: **ADRs = 54 numerados** (su "56" = archivos totales en `adr/` = 54 + `README.md` + `DECISIONS-NOT-TAKEN.md`) y **npm = 3** ✓.
-- Números canónicos verificados → [`verified-numbers.md`](../references/verified-numbers.md) (registro con comando de verificación por cifra).
+- Números canónicos verificados → `verified-numbers.md` (registro con comando de verificación por cifra).
 
 ## 2. Estado por ítem del catálogo (42)
 
@@ -58,6 +58,6 @@ tags: [vantadb, reviews, audit, backlog, scope]
 
 ## 5. Referencias
 
-- Registro de números: [`verified-numbers.md`](../references/verified-numbers.md)
+- Registro de números: `verified-numbers.md`
 - Filas creadas: [`Backlog.md`](../Backlog.md) §Alta 2026-10-01 + §Derivadas de ADR-0054
 - Cierres: [`backlog-history.md`](../avance/historial/backlog-history.md) §Cierres pre-release 0.8.0

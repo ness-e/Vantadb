@@ -1,6 +1,8 @@
 ---
-id: FIND-392
 title: "Imponer -p <crate> y --locked en los 5 pasos Cargo sin candado de ci-rust.yml"
+kind: task
+description: Cinco invocaciones cargo check / cargo nextest run en .github/workflows/ci-rust.yml
+id: FIND-392
 type: fix
 state: IN_PROGRESS
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md

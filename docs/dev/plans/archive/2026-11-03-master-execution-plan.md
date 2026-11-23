@@ -1,3 +1,10 @@
+---
+title: Plan de Ejecución Maestro Secuencial (De Principio a Fin) — VantaDB v0.9.1 → v1.0 GA → v1.2
+kind: plan
+status: archived
+description: "Todas las tareas de Phase 62 (ACT-01..04, TEC-01..16, DOC-01..09, PRD-01..07, DEM-01..05, NOT-01..06, MEM0-01..06, GTM-01..10), las decisiones Q1–Q28 y las tareas heredadas (EGO-14..16, FIND-221, FIND-303, BIZ-10/18/19/23/24, BND-07..."
+---
+
 # Plan de Ejecución Maestro Secuencial (De Principio a Fin) — VantaDB v0.9.1 → v1.0 GA → v1.2
 
 > **Autor:** Ingeniero de Sistemas Principal & Analista Crítico  

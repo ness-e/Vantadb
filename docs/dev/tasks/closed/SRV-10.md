@@ -2,7 +2,8 @@
 title: Task SRV-10 — Cifrado server honesto + CI-08/FIND-321
 kind: task
 status: completed
-wave: 0
+description: "(a) SRV-10: cifrado en reposo del server HTTP — el core tiene feature"
+wave: "0"
 ---
 
 # SRV-10 + CI-08 / FIND-321 — Task file (plan Task 11)

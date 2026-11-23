@@ -1,3 +1,9 @@
+---
+title: "FIND-277: Filtrar registros con `superseded_by` activo en lecturas de recall de `l1_reader.rs`"
+kind: task
+description: "cargo nextest run --profile audit -p vanta-memory -E \"test(supersed) or test(l1reader) or test(recall)\" --locked --build-jobs 2 pasa filtrando todo registro con supersededby no vacío en las rutas de recall y L2"
+---
+
 # FIND-277: Filtrar registros con `superseded_by` activo en lecturas de recall de `l1_reader.rs`
 
 ## Metadata

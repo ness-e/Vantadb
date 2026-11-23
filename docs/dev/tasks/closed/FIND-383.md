@@ -1,4 +1,4 @@
-﻿---
+---
 title: "FIND-383 â€” UnificaciÃ³n In-Process vanta-cli y vantadb-server (EliminaciÃ³n de Subproceso Externo)"
 kind: task
 description: "Eliminar Command::new('vantadb-server') en el CLI y cablear el servidor HTTP y MCP directamente in-process, garantizando sincronizaciÃ³n total y distribuciÃ³n de binario Ãºnico"

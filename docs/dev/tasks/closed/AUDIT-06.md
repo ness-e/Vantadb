@@ -1,4 +1,4 @@
-﻿---
+---
 title: "AUDIT-06: Gobernabilidad .opencode, Posicionamiento STRAT-01 y Rieles Negocio VE"
 kind: task
 status: completed

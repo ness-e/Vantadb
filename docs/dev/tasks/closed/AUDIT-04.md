@@ -1,4 +1,4 @@
-﻿---
+---
 title: "AUDIT-04: Unificación de Motores y Reducción de Default Features en Cargo"
 kind: task
 status: completed

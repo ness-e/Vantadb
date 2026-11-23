@@ -1,7 +1,9 @@
 ---
-id: FIND-594
-title: "Detectar truncamiento de 1 registro en verify_shard_counts (src/wal_sharded.rs)"
+title: Detectar truncamiento de 1 registro en verify_shard_counts (src/wal_sharded.rs)
+kind: task
 status: completed
+description: "cargo nextest run --profile audit -p vantadb -E \"test(walsharded) or test(shard)\" --locked --build-jobs 2"
+id: FIND-594
 type: test
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 17)
 ---

@@ -1,4 +1,4 @@
-﻿---
+---
 title: "FIND-214 â€” ScannIndex 5 mutexes independientes sin orden documentado (Deadlock Risk)"
 kind: task
 description: "Consolidar los 5 mutexes de ScannIndex en un Ãºnico struct ScannInner protegido por Mutex para eliminar riesgo de inversiÃ³n de locks"

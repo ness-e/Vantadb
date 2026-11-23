@@ -1,4 +1,9 @@
-﻿--
+---
+title: "D1b â€” Partir `vector_search` (~133) y `run_pipeline` (~132) en helpers SLAP â‰¤20"
+kind: task
+---
+
+--
 status: completed
 title: "D1b â€” Partir `vector_search` (~133) y `run_pipeline` (~132) en helpers SLAP â‰¤20"
 kind: task

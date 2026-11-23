@@ -1,3 +1,9 @@
+---
+title: "FIND-587 — Lock `.vanta.lock`, fsync del `.bak` y retiro de `--new-key <hex>` en `encryption rotate` (absorbe FIND-589)"
+kind: task
+description: Tres defectos en vanta-cli encryption rotate (src/clihandlers/encryption.rs)
+---
+
 # FIND-587 — Lock `.vanta.lock`, fsync del `.bak` y retiro de `--new-key <hex>` en `encryption rotate` (absorbe FIND-589)
 
 - **Plan:** docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 10)

@@ -1,7 +1,9 @@
 ---
-id: FIND-640
 title: "Atomicidad batch-wide de put_batch entre chunks: transacción WAL implícita (Begin/Prepare/Commit)"
+kind: task
 status: in_progress
+description: IMPLEMENTABLE en appetite 2 semanas. SIN cambio de formato on-disk. Compatible con ADR-0060
+id: FIND-640
 type: feat
 plan: docs/dev/plans/archive/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 54)
 ---

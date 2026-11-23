@@ -1,9 +1,10 @@
 ---
 title: "VantaDB OEM & Enterprise One-Pager"
-kind: one-pager
+kind: concept
 status: active
-last_reviewed: "2026-11-07"
+description: "Modern multi-agent systems and LLM workflows face critical bottlenecks: Docker infrastructure bloat, escalating vector database cloud costs, high latency on memory read/write cycles, and acute compliance liability under GDPR Article 17..."
 tags: [vantadb, oem, enterprise, gtm, compliance, gdpr, architecture]
+last_reviewed: "2026-11-07"
 ---
 
 # VantaDB: Embedded AI Agent Memory Engine

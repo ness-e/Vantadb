@@ -1,6 +1,7 @@
 ---
 title: "Análisis Integral de Sistemas, Experiencia de Usuario y Ciclo de Vida: VantaDB"
 kind: report
+description: "Autor: Principal Systems Engineer & Critical Architecture Review"
 ---
 
 # Análisis Integral de Sistemas, Experiencia de Usuario y Ciclo de Vida: VantaDB (v0.8.0 / v0.9.0)

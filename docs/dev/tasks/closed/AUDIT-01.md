@@ -1,4 +1,4 @@
-﻿---
+---
 title: "AUDIT-01: Reparación de Calidad de Recuperación en LongMemEval"
 kind: task
 status: completed

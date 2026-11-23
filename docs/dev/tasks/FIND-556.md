@@ -1,3 +1,9 @@
+---
+title: "FIND-556: Corregir filtros con alias, coerción numérica `Int`/`Float` y subqueries escalares en Physical Plan"
+kind: task
+description: "cargo nextest run --profile audit -p vantadb -E \"test(filter) or test(join) or test(subquery) or test(iql)\" --locked --build-jobs 2 pasa con tests unitarios para alias en WHERE, coerción exacta Int/Float, subquery escalar vacía y..."
+---
+
 # FIND-556: Corregir filtros con alias, coerción numérica `Int`/`Float` y subqueries escalares en Physical Plan (absorbe FIND-157, FIND-557, FIND-558)
 
 ## Metadata

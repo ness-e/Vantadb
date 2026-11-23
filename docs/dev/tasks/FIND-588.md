@@ -1,3 +1,9 @@
+---
+title: "FIND-588 — Redactar secretos en las implementaciones `Debug` de `src/config.rs`"
+kind: task
+description: "Config y sus vistas de dominio (RbacCfg, StorageCfg, ServerCfg, LlmCfg)"
+---
+
 # FIND-588 — Redactar secretos en las implementaciones `Debug` de `src/config.rs`
 
 - **Plan:** docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 11)

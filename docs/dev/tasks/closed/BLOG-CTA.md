@@ -1,4 +1,9 @@
-﻿--
+---
+title: BLOG-CTA â€” CTAs + metadata serie blogs + posts 6-7
+kind: task
+---
+
+--
 status: completed
 title: BLOG-CTA â€” CTAs + metadata serie blogs + posts 6-7
 kind: task

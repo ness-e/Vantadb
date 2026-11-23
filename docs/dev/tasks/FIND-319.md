@@ -1,7 +1,9 @@
 ---
-id: FIND-319
-title: "Espejar recursivamente keyspaces/ de Fjall en create_snapshot y restaurar backend/ en snapshot_restore (absorbe FIND-287)"
+title: Espejar recursivamente keyspaces/ de Fjall en create_snapshot y restaurar backend/ en snapshot_restore
+kind: task
 status: completed
+description: "cargo nextest run --profile audit -p vantadb --features failpoints -E \"test(snapshot)\" --locked --build-jobs 2 (+ suite de certificación snapshotcertification en Windows y Linux)"
+id: FIND-319
 type: fix
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 18)
 ---

@@ -1,9 +1,10 @@
 ---
 title: "vantadb.dev Landing Page & /enterprise Technical Specification"
-kind: spec
+kind: concept
 status: active
-last_reviewed: "2026-11-07"
+description: "The public web surface at https://vantadb.dev is the primary entry point for AI engineers, autonomous agent developers, and enterprise buyers evaluating VantaDB"
 tags: [vantadb, landing, vercel, cloudflare, waitlist, enterprise, gtm, bnd-07]
+last_reviewed: "2026-11-07"
 ---
 
 # `vantadb.dev` Landing Page & `/enterprise` Route Specification

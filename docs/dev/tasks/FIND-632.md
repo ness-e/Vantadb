@@ -1,3 +1,8 @@
+---
+title: "FIND-632 — Honrar `read_only` en el backend Fjall (ADR-0001)"
+kind: task
+---
+
 # FIND-632 — Honrar `read_only` en el backend Fjall (ADR-0001)
 
 - **Estado:** ✅ COMPLETED

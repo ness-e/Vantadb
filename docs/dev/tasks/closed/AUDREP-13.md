@@ -1,4 +1,9 @@
-﻿--
+---
+title: "AUDREP-13: Dev mode bypassa toda autenticaciÃ³n silenciosamente"
+kind: task
+---
+
+--
 status: completed
 title: "AUDREP-13: Dev mode bypassa toda autenticaciÃ³n silenciosamente"
 kind: task

@@ -1,4 +1,9 @@
-﻿# FIND-591 — Eliminar casts desalineados en decodificación de vectores + Miri con `encryption`
+---
+title: "FIND-591 — Eliminar casts desalineados en decodificación de vectores + Miri con `encryption`"
+kind: task
+---
+
+# FIND-591 — Eliminar casts desalineados en decodificación de vectores + Miri con `encryption`
 
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-11-18

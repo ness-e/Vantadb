@@ -1,4 +1,4 @@
-﻿---
+---
 title: "FIND-385 â€” ConfiguraciÃ³n Unificada 5-Capas (vanta.toml) & CLI Interactivo 'vanta config'"
 kind: task
 description: "Implementar cargador unificado de configuraciÃ³n de 5 capas (CLI > Envs > vanta.toml local > ~/.vanta/config.toml global > Defaults) y comandos CLI vanta config show/set/init/doctor"

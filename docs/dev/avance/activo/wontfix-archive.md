@@ -1,7 +1,8 @@
 ---
-title: "Avance — Archivo de Exclusiones Verificadas (SKIP)"
+title: Avance — Archivo de Exclusiones Verificadas (SKIP)
 kind: review
 status: active
+description: Los siguientes identificadores constan igualmente cerrados o absorbidos en HEAD y ya habían sido retirados de Backlog.md antes del saneamiento del 2026-11-22
 tags: [review, audit, governance]
 ---
 

@@ -1,6 +1,8 @@
 ---
+title: Impedir la escritura de encryption.registry en aperturas read_only (ADR-0001 Read-Only Barrier)
+kind: task
+description: "Una apertura readonly NUNCA crea ni modifica encryption.registry. Si existe, lo lee"
 id: FIND-508
-title: "Impedir la escritura de encryption.registry en aperturas read_only (ADR-0001 Read-Only Barrier)"
 state: completed
 plan: docs/dev/plans/2026-11-07-consolidacion-tecnica-pre-v0100.md (Task 12)
 depends: [FIND-585]

@@ -1,3 +1,9 @@
+---
+title: MEMG-27 — L1Writer flush write-first (eliminar ventana de pérdida)
+kind: task
+description: applydedupbatch (vanta-memory/src/core/record/l1writer.rs) borra las claves
+---
+
 # MEMG-27 — L1Writer flush write-first (eliminar ventana de pérdida)
 
 - **Estado:** IN PROGRESS

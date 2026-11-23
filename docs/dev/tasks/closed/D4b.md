@@ -1,4 +1,9 @@
-﻿--
+---
+title: "D4b â€” Enum `Error`: `IoErrorâ†’Io`, `BackendErrorâ†’Backend`, â€¦ (DISEÃ‘O, cero cÃ³digo)"
+kind: task
+---
+
+--
 status: completed
 title: "D4b â€” Enum `Error`: `IoErrorâ†’Io`, `BackendErrorâ†’Backend`, â€¦ (DISEÃ‘O, cero cÃ³digo)"
 kind: task
