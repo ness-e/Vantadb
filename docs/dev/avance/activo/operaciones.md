@@ -902,3 +902,16 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
   - `memory_put` → `fallback: true` + `warning` explícito y `vector: null` (no persiste vector sintético).
 - **Evidencia:** `.tasksystem/verification/2026-11-23-no-egress-901e16fe-7508-4457-8418-6c5a4e8a3a31.json`. El binario con `embed-local` se reinstaló después para dejar la máquina en estado certificado.
 - **Commit:** `01a38f353` (fix) · verificación 2026-11-23
+
+### FIND-699: `memory_put` no documentaba ni validaba el contrato del envelope L1 (fallo silencioso de datos)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Cerrar el fallo silencioso detectado en la certificación VB-1: un `memory_put` con payload de texto plano se guardaba, era buscable y **nunca** aparecía en `memory_recall` con `scope:"agent"`/`"team"`, porque `sdk_to_memory_record` fijaba `agent_id`/`team_id` a `None`.
+- **Resultado:** ✅ — (1) `l1_reader.rs` lee `agent_id`/`team_id`/`user_id` del metadata del registro en el fallback (trim, vacío → `None`), resolviéndolos antes del literal del struct porque `meta_map` se mueve a `metadata`; (2) el `inputSchema` de `memory_put` documenta el contrato del envelope L1 para namespaces `l1/*` y el fallback por metadata; (3) el test de regresión dejó de ser vacuo: su fixture era un envelope **incompleto** (sin `id`/`type`/`priority`/`scene_name`/`created_at`/`updated_at`), el parseo fallaba y recall devolvía vacío — por eso el assert negativo "pasaba". Ahora usa un envelope completo y asserta el lado positivo: el envelope se recuerda **y** un payload plano con `metadata.agent_id` también.
+- **Verificación:** `cargo test -p vantadb-mcp -- --test-threads=2` → todos los targets ok, 0 fallos (lib 52/52, incluido el `vb4_and_vb16` antes vacuo).
+- **Commit:** `61c2be235`
+
+### FIND-706: latencia de tools MCP creciente bajo escritura sostenida (y el `exit 255` de `MCP-42`)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Reproducir el `exit 255` del writer directo registrado en `MCP-42` (36 m 37 s) antes de declararlo conocido o bloqueante.
+- **Resultado:** 🟡 — **no se reproduce como crash**. Repro de 15 min con 3 tool calls por ronda cada 60 s (DB aislada, binario `2d1d2e87…`): rondas 1-9 OK con latencias 17 / 28 / 28 / 23 / 27 / 48 / 24 / 30 / 63 s; ronda 10 → `MCP error -32001: Request timed out` a los 79 s. El stderr del server muestra **cierre limpio** (`MCP stdio server shut down total=32 errors=0`, `cleaned discovery file on Drop`, `HNSW index persisted`, `Storage flushed`), sin panic ni OOM. Conclusión: la latencia crece bajo escritura sostenida y cruza el timeout del cliente (60 s por defecto); un cliente que mata el hijo al expirar la petición produce el 255 observado. Acción: perfilar el coste por `memory_put` (embedding ONNX + insert HNSW + flush) y/o ajustar el timeout del cliente. Repro reutilizable: `mcp42-repro.mjs`.
+- **Registro:** `FIND-706` (abierta)
