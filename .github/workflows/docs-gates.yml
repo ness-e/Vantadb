@@ -528,7 +528,7 @@ jobs:
       # libclang: system deps ARE required for the doc build itself.
       - uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
+          toolchain: 1.95.0
           components: ''
           install-nextest: false
           install-llvm-cov: false
@@ -596,7 +596,7 @@ jobs:
       # Mismo composite que el job rustdoc: toolchain stable + sccache + cache.
       - uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
+          toolchain: 1.95.0
           components: ''
           install-nextest: false
           install-llvm-cov: false

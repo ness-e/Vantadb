@@ -76,6 +76,16 @@ runs:
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
 
+    # FIND-701: rustup resolves the channel from the environment before the
+    # repository's `rust-toolchain.toml`, and the file before the global default.
+    # Without this export the `toolchain:` input is decorative: every job ran the
+    # 1.95.0 pin, so the MSRV gate measured 1.95.0 while claiming 1.94.1
+    # (verified locally: file pin 1.94.1 wins over a 1.95.0 default, and
+    # RUSTUP_TOOLCHAIN=stable wins over the file -> 1.97.1).
+    - name: Pin the requested toolchain for every later step
+      shell: bash
+      run: echo "RUSTUP_TOOLCHAIN=${{ inputs.toolchain }}" >> "$GITHUB_ENV"
+
     - name: Rust cache
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       with:

@@ -38,7 +38,7 @@ jobs:
       - name: Install Rust toolchain + system deps (libclang for release-plz semver-checks)
         uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
+          toolchain: 1.95.0
           install-nextest: false
           install-llvm-cov: false
           install-system-deps: true
@@ -100,7 +100,7 @@ jobs:
       - name: Install Rust toolchain + system deps (libclang for release-plz semver-checks)
         uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
+          toolchain: 1.95.0
           install-nextest: false
           install-llvm-cov: false
           install-system-deps: true

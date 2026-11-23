@@ -346,7 +346,7 @@ jobs:
 
       - uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
+          toolchain: 1.95.0
           components: clippy
           install-nextest: true
           shared-key: windows-stable
