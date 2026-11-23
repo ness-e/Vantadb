@@ -234,3 +234,10 @@ tags: [vantadb, avance, investigacion, research]
 - **Límites:** integración E de codebase-memory-mcp (caller code-index/ACK/recovery) y hydrate principal→policy→resolver de Quivr siguen no acreditados; los jobs de Studio no comparten el pin citado. Sin ejecución de aplicaciones, tests, builds, benchmarks, instalaciones ni servicios; sin certificación de seguridad, crash, rendimiento o comportamiento visual. Las restricciones de licencia requieren revisión propia; reimplementar no concede una exención legal.
 - **Validación documental:** auditorías acotadas sin hallazgos y checks documentales conformes; resultados y límites en [README](../extraccion/agent-memory-2026-11-07/README.md#notas-de-integridad). Entrega incorporada mediante commits locales selectivos en `develop`, sin push; sin tests, apps, builds ni benchmarks.
 - **Dominio:** investigaciones
+
+### FIND-690: Auditoría W1–W5 del corpus `docs/dev/extraccion/` (`LICENSES.md`, `AUDIT-REPO.md`, trazabilidad 43 backlogs y `AUDIT-REPORT.md`)
+- **Fecha:** 2026-11-23
+- **Objetivo:** Dotar a los 43 backlogs (`265` filas `X-*`) de `docs/dev/extraccion/` de (1) matriz legal consolidada `backlogs/LICENSES.md` que aísle las fuentes copyleft/source-available confirmadas en disco (`OpenViking` AGPL-3.0, `Khoj` AGPL-3.0, `SurrealDB` BSL-1.1, `Redis` RSALv2/SSPL/AGPLv3 y `NOASSERTION` en Dify/Flowise/Weaviate/TencentDB), (2) `AUDIT-REPO.md`, (3) verificación de citas `archivo:línea` contra clones y (4) `AUDIT-REPORT.md` + sincronización `42/42` en `README.md`/`EXPANSION-STATUS.md`.
+- **Resultado:** ✅ — `LICENSES.md`, `AUDIT-REPO.md` y `AUDIT-REPORT.md` generados; 0 links rotos; índices regenerados. La matriz legal es el gate previo declarado para las épicas diferidas `FIND-691` (`v0.11.0+`).
+- **Commit:** `600650381`
+- **Dominio:** investigaciones
