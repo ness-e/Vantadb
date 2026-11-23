@@ -84,7 +84,12 @@ runs:
     # RUSTUP_TOOLCHAIN=stable wins over the file -> 1.97.1).
     - name: Pin the requested toolchain for every later step
       shell: bash
-      run: echo "RUSTUP_TOOLCHAIN=${{ inputs.toolchain }}" >> "$GITHUB_ENV"
+      # Empty input = keep rust-toolchain.toml as the single source of truth
+      # (H06-ARCH-008: exporting an empty RUSTUP_TOOLCHAIN breaks rustup).
+      run: |
+        if [ -n "${{ inputs.toolchain }}" ]; then
+          echo "RUSTUP_TOOLCHAIN=${{ inputs.toolchain }}" >> "$GITHUB_ENV"
+        fi
 
     - name: Rust cache
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
