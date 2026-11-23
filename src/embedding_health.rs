@@ -261,10 +261,8 @@ pub(crate) fn model_files_present(dir: &str) -> bool {
     // second copy with a different policy. A health probe that disagrees with
     // the loader is worse than no probe (it reported Ready while strict mode
     // failed closed).
-    let onnx_candidates =
-        crate::llm::LocalOnnxProvider::model_path_candidates(dir);
-    let tokenizer_candidates =
-        crate::llm::LocalOnnxProvider::tokenizer_candidates(dir);
+    let onnx_candidates = crate::llm::LocalOnnxProvider::model_path_candidates(dir);
+    let tokenizer_candidates = crate::llm::LocalOnnxProvider::tokenizer_candidates(dir);
     let entries = entries_one_level(dir);
     let has_onnx = onnx_candidates.iter().any(|p| p.exists())
         || entries.iter().any(|p| {

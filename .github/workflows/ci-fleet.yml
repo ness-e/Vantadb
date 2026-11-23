@@ -413,6 +413,7 @@ jobs:
       - name: Install Rust toolchain
         uses: ./.github/actions/rust-setup
         with:
+          components: clippy
           shared-key: fleet-compat
           workspaces: |
             . -> target
@@ -489,6 +490,10 @@ jobs:
       - name: Install Rust toolchain
         uses: ./.github/actions/rust-setup
         with:
+          # FIND-701: with RUSTUP_TOOLCHAIN exported the repository
+          # rust-toolchain.toml no longer supplies its component list, so the
+          # clippy call below needs it requested explicitly.
+          components: clippy
           shared-key: fleet-providers
           workspaces: |
             . -> target
