@@ -465,7 +465,7 @@ jobs:
           "cli,arrow,tls,opentelemetry,${{ matrix.features }}" --locked
 
   msrv:
-    name: MSRV Check (1.94.1)
+    name: MSRV Check (1.95.0)
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -474,7 +474,7 @@ jobs:
 
       - uses: ./.github/actions/rust-setup
         with:
-          toolchain: 1.94.1
+          toolchain: 1.95.0
           install-nextest: false
           install-llvm-cov: false
 

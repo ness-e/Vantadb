@@ -39,7 +39,7 @@ jobs:
             "Tests (Linux)"
             "Tests (Windows)"
             "Tests (macOS)"
-            "MSRV Check (1.94.1)"
+            "MSRV Check (1.95.0)"
             "Experimental Crates Check"
             "Security Audit"
             "OSV-Scanner"
