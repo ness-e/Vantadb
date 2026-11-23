@@ -629,6 +629,26 @@ jobs:
         run: |
           /tmp/actionlint -color
 
+      # FIND-702: actionlint only lints .github/workflows — a composite action
+      # `run:` step without `shell:` is invalid (GitHub refuses to load the
+      # action) and sails through every gate. Caught in review on 2026-11-23
+      # (H04-01) after a one-line step was added without it.
+      # ponytail: count-based check (shell: >= run: per file); a per-step map
+      # would be stricter — upgrade if a false negative ever appears.
+      - name: Composite actions declare a shell for every run step
+        run: |
+          status=0
+          for f in .github/actions/*/action.yml; do
+            runs=$(grep -cE '^[[:space:]]*run:' "$f" || true)
+            shells=$(grep -cE '^[[:space:]]*shell:' "$f" || true)
+            echo "$f: run=$runs shell=$shells"
+            if [ "$shells" -lt "$runs" ]; then
+              echo "::error file=$f::a run: step is missing its required shell: key"
+              status=1
+            fi
+          done
+          exit $status
+
       - name: Workflow inventory gate (count vs CI_POLICY.md)
         run: |
           expected=$(grep -oP '\*\*\K[0-9]+(?= active workflow files)' docs/dev/operations/CI_POLICY.md)
