@@ -7,6 +7,12 @@ use vantadb::storage::StorageEngine;
 use vantadb_mcp::*;
 
 fn setup() -> (tempfile::TempDir, Arc<StorageEngine>) {
+    // FIND-692: `strict_embeddings` defaults to true and, in a binary compiled
+    // without `embed-local`/`remote-inference`, `embed_texts` fails closed
+    // (FIND-681 contract). These tests exercise the lenient fallback contract
+    // instead, so strict mode is disabled once for the whole test binary.
+    static LENIENT_ENV: std::sync::Once = std::sync::Once::new();
+    LENIENT_ENV.call_once(|| std::env::set_var("VANTADB_STRICT_EMBEDDINGS", "false"));
     let dir = tempdir().unwrap();
     let storage = StorageEngine::open(dir.path().to_str().unwrap()).unwrap();
     (dir, Arc::new(storage))

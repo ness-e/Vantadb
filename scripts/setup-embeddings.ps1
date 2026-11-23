@@ -292,9 +292,9 @@ function Ensure-OrtNative($AutoDownload) {
 }
 
 function Get-DefaultDbPath {
-  $home = $HOME
-  if ([string]::IsNullOrEmpty($home)) { $home = $env:USERPROFILE }
-  Join-Path $home '.vantadb'
+  $homeDir = $HOME
+  if ([string]::IsNullOrEmpty($homeDir)) { $homeDir = $env:USERPROFILE }
+  Join-Path $homeDir '.vantadb'
 }
 
 function Write-TextIfChanged($Path, $Content) {

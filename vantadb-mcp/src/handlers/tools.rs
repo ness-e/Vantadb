@@ -2972,9 +2972,14 @@ pub fn handle_tools_call(
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
 
-            let txn_id = storage.begin_transaction().map_err(|e| {
-                McpError::internal_error(format!("Failed to begin transaction: {}", e)).to_json()
-            })?;
+            let txn_id = match storage.begin_transaction() {
+                Ok(id) => id,
+                Err(e) => {
+                    return Ok(error_content_mcp(McpError::internal_error(format!(
+                        "Failed to begin transaction: {e}"
+                    ))));
+                }
+            };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             // Stream only keys — never materialize the full record set. Deletes
@@ -3017,9 +3022,14 @@ pub fn handle_tools_call(
                 ))));
             }
 
-            storage.commit_transaction(txn_id).map_err(|e| {
-                McpError::internal_error(format!("Failed to commit transaction: {}", e)).to_json()
-            })?;
+            if let Err(e) = storage.commit_transaction(txn_id) {
+                if let Err(abort_err) = storage.abort_transaction(txn_id) {
+                    warn!(error = %abort_err, "Failed to abort transaction after commit failure");
+                }
+                return Ok(error_content_mcp(McpError::internal_error(format!(
+                    "Failed to commit transaction: {e}"
+                ))));
+            }
 
             let result = json!({
                 "deleted": true,
