@@ -102,7 +102,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                 "properties": {
                     "namespace": { "type": "string", "description": "Target namespace" },
                     "key": { "type": "string", "description": "Unique key for the record" },
-                    "payload": { "type": "string", "description": "Text content of the memory" },
+                    "payload": { "type": "string", "description": "Text content of the memory. For L1 recall (`memory_recall`, `context_assemble`) the payload of an `l1/*` namespace must be the serialized L1 envelope `{\"id\",\"content\",\"type\",\"priority\",\"scene_name\",\"created_at\",\"updated_at\",\"session_key\",\"agent_id\"?,\"team_id\"?}`: recall decodes that envelope, and scoping for scope=\"agent\"|\"team\" comes from it (FIND-699). A plain-text payload is stored and searchable via memory_search but will NOT be recalled; its metadata.agent_id/team_id are honoured as a fallback." },
                     "vector": { "type": "array", "items": {"type": "number"}, "description": "Optional embedding vector" },
                     "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"}, "description": "Optional sparse term-weight vector, e.g. {\"0\": 0.5, \"7\": 1.25} (dimension id -> weight)" },
                     "metadata": { "type": "object", "description": "Optional metadata key-value pairs" },
@@ -5601,12 +5601,27 @@ mod tests {
         assert!(caps_json["embedding"]["effective_provider"].is_string());
 
         // 2. Write Scopegrain L1 record in l1/sg-abc and formal record in sg-formal-v1-abc (VB-16).
+        // FIND-699: a COMPLETE L1 envelope. The old fixture omitted id/type/
+        // priority/scene_name/created_at/updated_at, so the reader's
+        // serde_json::from_str::<MemoryRecord> failed, fell back to
+        // sdk_to_memory_record (agent_id = None) and the negative assertion
+        // passed only because recall returned nothing at all.
         let l1_payload = serde_json::to_string(&json!({
+            "id": "sg-worklog-1",
             "content": "Architecture decision: use deterministic recall boundaries",
+            "type": "episodic",
+            "priority": 50,
+            "scene_name": "scopegrain",
+            "source_message_ids": [],
+            "created_at": "2026-11-23T00:00:00Z",
+            "updated_at": "2026-11-23T00:00:00Z",
+            "version": 1,
             "session_key": "scopegrain",
+            "session_id": "sg-abc123",
             "agent_id": "default",
             "team_id": "default",
-            "category": "decision"
+            "heat": 0,
+            "metadata": { "category": "decision" }
         }))
         .unwrap();
         let _ = handle_tools_call(
@@ -5658,6 +5673,48 @@ mod tests {
         assert!(
             !recall_txt.contains("sg-formal-v1-abc123"),
             "formal journal namespace must never be injected under l1/ ACL: {recall_txt}"
+        );
+        // FIND-699 (positive half): the L1 envelope IS recalled under scope=agent.
+        // The test used to assert only the negative, which is how the silent
+        // invisibility of MCP-written records went unnoticed.
+        assert!(
+            recall_txt.contains("deterministic recall boundaries"),
+            "the l1 envelope must be recalled under scope=agent: {recall_txt}"
+        );
+
+        // FIND-699: a PLAIN payload whose scoping lives in metadata must also be
+        // recalled — sdk_to_memory_record used to drop metadata.agent_id/team_id,
+        // so this record was stored and searchable but never recalled.
+        let _ = handle_tools_call(
+            &Some(json!({
+                "name": "memory_put",
+                "arguments": {
+                    "namespace": "l1/sg-plain",
+                    "key": "sg-plain-1",
+                    "payload": "plain payload recalled through metadata scoping",
+                    "metadata": { "agent_id": "default", "team_id": "default" },
+                    "dedup_policy": "off"
+                }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        )
+        .expect("memory_put plain");
+        let recall_plain = handle_tools_call(
+            &Some(json!({
+                "name": "memory_recall",
+                "arguments": { "query": "plain payload metadata scoping", "scope": "agent", "top_k": 5 }
+            })),
+            &executor,
+            &engine,
+            &cfg,
+        )
+        .expect("memory_recall plain");
+        let recall_plain_txt = recall_plain["content"][0]["text"].as_str().unwrap();
+        assert!(
+            recall_plain_txt.contains("plain payload recalled through metadata scoping"),
+            "metadata.agent_id must make a plain payload recallable (FIND-699): {recall_plain_txt}"
         );
 
         // 3. Not-found contract on memory_get (-32004, VANTADB_NOT_FOUND, retriable: false).

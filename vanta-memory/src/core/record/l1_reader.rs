@@ -158,6 +158,24 @@ pub fn sdk_to_memory_record(rec: vantadb::sdk::MemoryRecord) -> MemoryRecord {
             Some(vantadb::sdk::Value::String(s)) if !s.is_empty() => Some(s.clone()),
             _ => None,
         });
+    // FIND-699: a plain (non-envelope) payload still carries its scoping in
+    // metadata. Without this, a record written by any MCP client through
+    // `memory_put` was invisible to `memory_recall{scope:"agent"|"team"}` — the
+    // silent-data-loss mode that motivated the finding.
+    //
+    // Resolve the three values BEFORE the struct literal: `meta_map` is moved
+    // into `metadata` there, so a closure borrowing it cannot be called later.
+    let scoping = |key: &str| {
+        meta_map
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    let team_id = scoping("team_id");
+    let user_id = scoping("user_id");
+    let agent_id = scoping("agent_id");
     MemoryRecord {
         id: rec.key.clone(),
         content: rec.payload,
@@ -173,9 +191,9 @@ pub fn sdk_to_memory_record(rec: vantadb::sdk::MemoryRecord) -> MemoryRecord {
         session_key: rec.namespace.clone(),
         session_id: String::new(),
         task_id: None,
-        team_id: None,
-        user_id: None,
-        agent_id: None,
+        team_id,
+        user_id,
+        agent_id,
         vector: usable_vector_filter(rec.vector.as_deref()),
         heat: 0,
         superseded_by,
