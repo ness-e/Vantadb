@@ -99,3 +99,16 @@ tags: [vantadb, avance, dependencies, deny, dependabot, advisories, cargo]
   - GitHub Actions (SHA-pinned): sin forma de enumerar las alertas exactas sin API; hay ramas dependabot de versiones pendientes (download-artifact 8.0.2, setup-node 7.1.0, upload-artifact 7.0.2, dtolnay) que cubren los bumps rutinarios.
 
 - **Verificación:** `npm audit` vantadb-ts 0 vulns (de 13); vitest 380/380; pytest mem0 33/33, langchain 47/47, test_pins 19/19; `cargo audit` 0 vulnerabilidades en root + vantadb-node + providers/{ollama,openai,litellm} (9 warnings permitidos — heapless unsound + preexistentes); `cargo check -p vantadb --all-targets -j 2` ✅ (6m07s).
+
+### FIND-708: monitor del residuo `chrono` vía `arrow` (medición 2026-11-24)
+
+- **Qué se mide:** el último crate sin maintainer del grafo. `RUSTSEC-2026-0543` (`chrono`, INFO/Unmaintained, emitido 2026-11-17, **sin versión parcheada**) sigue en el grafo **solo** como transitiva de la feature **opcional** `arrow`.
+- **Estado medido** (ver task [FIND-708](../../tasks/FIND-708.md)):
+  - `cargo tree -i chrono` → `did not match any packages`: chrono **no** está en el build por defecto (`Cargo.toml:156` = `cli,fjall,memmap2,fs2,roaring`; `arrow` es opt-in).
+  - `cargo tree -i chrono --features arrow` → `arrow 59.3.0 → arrow-arith 59.3.0 → chrono 0.4.45`; la feature `clock` de chrono la enciende `arrow-arith` (que declara chrono `^0.4.40` **no opcional**, igual que `arrow` declara `arrow-arith`). `default-features = false` en `Cargo.toml:87` no protege: cualquier consumidor que encienda `arrow` paga chrono.
+  - `cargo deny check advisories` → **exit 0**; el ignore `RUSTSEC-2026-0543` sale como `advisory-not-detected` (warning) porque en el grafo por defecto chrono no existe.
+- **Waiver:** fecha **2027-03-22** en los tres espejos, renovada 2026-11-24 con el mismo owner: `deny.toml:9-21`, `osv-scanner.toml:31-34` (`ignoreUntil`), `docs/specs/CONSTRAINTS.md:96` (W3). Único punto de waiver relevante: ningún workflow menciona chrono (`rg` sobre `.github/workflows` → 0 hits de advisory).
+- **¿Ruta de salida upstream?** **No al 2026-11-24.** `arrow-arith` **60.2.0** (última publicada, 2026-11-21) sigue exigiendo `chrono ^0.4.40` normal y no opcional — igual que 59.3.3. Bumpear `arrow` no rompe la cadena; queda cerrada la pregunta abierta de `osv-scanner.toml:29` ("¿arrow 60 suelta chrono?" → **no**).
+- **Decisión que toca al owner al vencer (2027-03-22 o en cuanto arrow-arith suelte chrono):** (A) retirar la feature `arrow` — borra `src/columnar.rs` (182 L, 1 `pub fn`), su test, el `required-features` y los dos ignores; coste **~2 h**, breaking de API pre-1.0; (B) renovar el waiver asumiendo el riesgo documentado — **~15 min/mes**, justificable mientras `arrow` siga fuera de los defaults, porque el binario publicado no contiene chrono.
+- **Invariante a vigilar:** si alguien mete `arrow` en `default`, el waiver pasa de "residuo inalcanzable" a riesgo de release. El monitor debe verificar el set de features, no solo la versión de `arrow`.
+- **Sin cambios respecto del estado previo** (2026-11-17, renovación de `FIND-652`): mismo crate, misma cadena, misma versión de chrono, mismo advisory. Lo único nuevo es la **fecha de revisión** (2027-03-22) y la respuesta medida a la pregunta de arrow 60.
