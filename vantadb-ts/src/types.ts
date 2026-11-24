@@ -38,6 +38,23 @@ export type UntrustedInput = FlatValue | Value | Date;
 export type NodeId = number | bigint;
 
 /**
+ * Canonical AST JSON for an IQL statement — the projection the Rust core
+ * produces from `vantadb::parser::parse_statement` (`docs/api/IQL.md` §AST
+ * JSON, pinned by `src/parser/mod.rs::tests::test_ast_json_projection_shape`).
+ *
+ * Declared once (`vantadb-wasm`) and re-exported here so the two packages
+ * cannot drift.
+ *
+ * **Numeric caveat (JS only):** the WASM layer parses the core's JSON text with
+ * `JSON.parse`, so every number is an IEEE-754 double. `u128` node ids and
+ * `Int` literals above 2^53 (`9_007_199_254_740_991`) lose precision through
+ * this surface — the same limitation `PYTHON_SDK.md` documents for any
+ * double-decoding tool. Python is unaffected (`json.loads` keeps arbitrary
+ * precision). Keep large ids as strings when re-emitting an AST.
+ */
+export type { AstJson } from "vantadb-wasm";
+
+/**
  * Metadata/filters as provided by callers: plain JS values (preferred,
  * e.g. `{ lang: "en" }`), `Date` instances (normalized to `DateTime`), or the
  * tagged wire form (backward compat, e.g. `{ lang: { String: "en" } }`).

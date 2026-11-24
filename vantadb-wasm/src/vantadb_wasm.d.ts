@@ -135,6 +135,18 @@ export interface MemoryRecordInput {
 /** Sparse term-weight vector: dimension id → weight. */
 export type SparseVector = Record<string, number>;
 
+/**
+ * Canonical AST JSON of an IQL statement — the projection the Rust core
+ * produces from `vantadb::parser::parse_statement` (`docs/api/IQL.md` §AST
+ * JSON). Untyped in depth on purpose: the variants are the core's serde
+ * representation, so mirroring them here would create a second source of truth.
+ *
+ * **Numeric caveat:** values cross into JS through `JSON.parse`, so every
+ * number is an IEEE-754 double. `u128` node ids and `Int` literals above 2^53
+ * lose precision here (Python, which decodes with `json.loads`, does not).
+ */
+export type AstJson = Record<string, unknown>;
+
 /** AND-combined metadata filter. Mirrors `MemoryFilterItem` from the core. */
 export type MetadataFilter = MetadataFilterItem[];
 
@@ -843,6 +855,16 @@ export class Client {
 
   /** Execute a raw IQL query string and return the result. */
   query(query: string): IqlResult;
+
+  /**
+   * Parse an IQL statement into its canonical AST JSON, without executing it.
+   *
+   * Same projection the Rust core produces (docs/api/IQL.md §AST JSON, pinned
+   * by `test_ast_json_projection_shape`). Deliberately `AstJson` rather than a
+   * mirrored interface: the variants are the core's serde representation, so a
+   * hand-written mirror would drift on every grammar addition.
+   */
+  parse(query: string): AstJson;
 
   /**
    * Generate a text snippet with optional highlighting for a given query.

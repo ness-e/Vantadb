@@ -1848,6 +1848,31 @@ impl Client {
         to_js(&result)
     }
 
+    /// Parse an IQL statement into its canonical AST JSON, without executing it.
+    ///
+    /// Same projection the Rust core produces (`docs/api/IQL.md` §AST JSON,
+    /// pinned by `src/parser/mod.rs::tests::test_ast_json_projection_shape`).
+    /// The JS object is built by parsing the core's own JSON text, so the
+    /// *shape* matches exactly — enum tagging (`{"Query": {...}}`), tuple
+    /// variants as arrays and the additive `null` fields — with no hand-written
+    /// projection here.
+    ///
+    /// **Not exact for numbers:** `JSON.parse` yields IEEE-754 doubles, so
+    /// `u128` node ids and `Int` literals above 2^53 lose precision
+    /// (`AstJson` in `vantadb_wasm.d.ts`).
+    ///
+    /// Pure: never touches the engine, so it works on a closed client.
+    pub fn parse(&self, query: &str) -> Result<JsValue, JsValue> {
+        let (_, statement) = vantadb::parser::parse_statement(query.trim_start())
+            .map_err(|e| to_js_err(Error::InvalidInput(format!("IQL parse error: {e}"))))?;
+        let json = serde_json::to_string(&statement).map_err(|e| {
+            to_js_err(Error::InvalidInput(format!(
+                "AST JSON serialization failed: {e}"
+            )))
+        })?;
+        js_sys::JSON::parse(&json)
+    }
+
     /// Insert a graph node with optional content, vector, and fields.
     pub fn insert_node(
         &self,

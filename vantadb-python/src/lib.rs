@@ -2228,6 +2228,62 @@ impl Client {
         query_result_to_pydict(py, &result)
     }
 
+    /// Parse an IQL statement into its canonical AST JSON, without executing it.
+    ///
+    /// The projection is the core's own: ``serde_json`` over the ``Statement``
+    /// returned by ``vantadb::parser::parse_statement`` — the shape documented
+    /// in ``docs/api/IQL.md`` §AST JSON and pinned by
+    /// ``src/parser/mod.rs::tests::test_ast_json_projection_shape``. Externally
+    /// tagged enums (``{"Query": {...}}`` / ``{"Insert": {...}}``), tuple
+    /// variants as arrays (``{"Relational": ["edad", "Eq", {"Int": 28}]}``).
+    ///
+    /// The method is pure: it never touches the engine, the graph or the WAL,
+    /// so it is safe to call on a client whose database is already closed.
+    ///
+    /// Unlike the JS bindings, Python decodes with :mod:`json`, so ``u128`` node
+    /// ids and ``Int`` literals keep arbitrary precision — the projection is
+    /// exact on this platform.
+    ///
+    /// GIL Policy: HELD — parsing is a microsecond-scale in-memory computation
+    /// and the result is built with CPython's own ``json`` (no I/O, no engine).
+    ///
+    /// Args:
+    ///     query: IQL statement to parse.
+    ///
+    /// Returns:
+    ///     dict: the AST as JSON-compatible data.
+    ///
+    /// Raises:
+    ///     ValidationError: If ``query`` is not a valid IQL statement
+    ///         (unexpected token, or trailing input after the statement).
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.parse("FROM Person p FETCH name")["Query"]["from_entity"]
+    ///     'Person'
+    ///     ```
+    fn parse(&self, py: Python<'_>, query: &str) -> PyResult<Py<PyAny>> {
+        // Binding glue (api-contract R-8): the AST types and their
+        // serialization live in the core — this only translates the projection
+        // to Python. Parse positions are not re-derived here: the private
+        // helpers `iql_error_position`/`iql_parse_error_message` live in
+        // `src/executor.rs` and duplicating them per binding would create a
+        // second source of truth.
+        let (_, statement) = vantadb::parser::parse_statement(query.trim_start()).map_err(|e| {
+            map_vanta_error(vantadb::Error::InvalidInput(format!(
+                "IQL parse error: {e}"
+            )))
+        })?;
+        let json = serde_json::to_string(&statement).map_err(|e| {
+            map_vanta_error(vantadb::Error::InvalidInput(format!(
+                "AST JSON serialization failed: {e}"
+            )))
+        })?;
+        Ok(py.import("json")?.call_method1("loads", (json,))?.unbind())
+    }
+
     /// Flush WAL and HNSW index to disk for durability.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during disk sync.

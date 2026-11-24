@@ -529,6 +529,38 @@ query(query: string): QueryResult
 
 Execute an IQL query string against the graph. Returns `QueryResult` which can be a `Read` (nodes), `Write` (affected count), or `StaleContext`.
 
+#### `parse()`
+
+```ts
+parse(query: string): AstJson
+```
+
+Parse an IQL statement into its **canonical AST JSON** without executing it. The
+projection is the core's own (`vantadb::parser::parse_statement` + `serde_json`),
+so it matches the shape documented in [IQL.md § AST JSON](./IQL.md#ast-json) and
+pinned by `test_ast_json_projection_shape`: externally tagged enums
+(`{ Query: {...} }`), tuple variants as arrays
+(`{ Relational: ["edad", "Eq", { Int: 28 }] }`), and the additive `null` fields
+(`limit`, `offset`, `as_of_ms`, …) when absent. `AstJson` is
+`Record<string, unknown>` on purpose — mirroring the AST in TS would drift on
+every grammar addition.
+
+Parsing never touches the engine, so it cannot write and it is the one method
+that keeps working after `close()`.
+
+**Numeric caveat:** the value crosses into JS through `JSON.parse`, so every
+number is an IEEE-754 double. `u128` node ids and `Int` literals above `2^53`
+lose precision through this surface (the same limitation `PYTHON_SDK.md`
+documents for any double-decoding tool; Python itself is exact). Keep large ids
+as strings when re-emitting an AST. Parse failures throw `DbError` with
+`code: "VANTADB_VALIDATION_ERROR"`; the message is the parser's own text and
+does **not** carry `line`/`col` (see [IQL.md § Error Handling](./IQL.md#error-handling)).
+
+```ts
+const ast = db.parse("FROM Person p WHERE edad == 28 FETCH name");
+console.log((ast.Query as Record<string, unknown>).from_entity); // "Person"
+```
+
 ## Types
 
 ### `Value`
@@ -761,7 +793,7 @@ try {
 
 ### Lifecycle errors (closed handle)
 
-Calling any method after `close()` throws a `DbError` with `code: "VANTADB_CLOSED"`.
+Calling any method that touches the engine after `close()` throws a `DbError` with `code: "VANTADB_CLOSED"`. The pure `parse()` is the exception (`docs/api/BINDINGS_NAMESPACES.md`).
 This is safer than relying on WASM GC/finalization to prevent use-after-free:
 
 ```ts

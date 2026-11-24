@@ -205,7 +205,7 @@ memory-record ops (namespace+key) in WASM/TS/Node; Python node ops are now
 `insert_node`/`get_node`/`delete_node` (matching the other three bindings),
 so the bare `get`/`delete` collision is gone.
 
-## WASM (`vantadb-wasm/src/lib.rs`) — 53 pub fns
+## WASM (`vantadb-wasm/src/lib.rs`) — 54 pub fns
 
 | Method | Domain | Notes |
 |---|---|---|
@@ -224,6 +224,7 @@ so the bare `get`/`delete` collision is gone.
 | `search_multi` | memory | cross-namespace hybrid search |
 | `graphrag_search` | memory | graph-RAG pipeline (seed→expand→retrieve→context) — DIST-15 |
 | `similar_to_key` | memory | vector search from existing key |
+| `forget` | memory | scope purge with certificate (WIRE-style forget) |
 | `count` | memory | optional operator filter |
 | `supersede` | memory | mark record as superseded |
 | `explain_memory_search` | memory | explain plan |
@@ -244,6 +245,7 @@ so the bare `get`/`delete` collision is gone.
 | `capabilities` | system | |
 | `operational_metrics` | system | |
 | `query` | system | IQL engine |
+| `parse` | system | AST JSON of an IQL statement, no execution; pure (works closed) — FIND-156 |
 | `flush` | system | durability flush |
 | `compact_wal` | system | WAL maintenance |
 | `compact_layout` | system | storage layout |
@@ -260,9 +262,9 @@ so the bare `get`/`delete` collision is gone.
 | `bulk_import` | system | portability |
 | `bulk_import_bytes` | system | portability |
 
-**Totals:** memory 17 · graph 11 · wiki 1 · system 21 = 50 listed (+3 auto-save helpers not listed) — 53 `pub fn` total ✔
+**Totals:** memory 18 · graph 11 · wiki 1 · system 22 = 52 listed (+3 auto-save helpers not listed) = 55 ✔ (matches the 55 `pub fn` in `impl Client`)
 
-## TypeScript (`vantadb-ts/src/vantadb.ts`) — 45 public methods (verificado 2026-09-15: +`count`/`supersede`/`similarToKey`/`searchMulti`/`removeEdge`; +`graphragSearch` DIST-15 2026-10-04; +`recoverArchivedNodes` TS-11 2026-10-04)
+## TypeScript (`vantadb-ts/src/vantadb.ts`) — 46 public methods (verificado 2026-09-15: +`count`/`supersede`/`similarToKey`/`searchMulti`/`removeEdge`; +`graphragSearch` DIST-15 2026-10-04; +`recoverArchivedNodes` TS-11 2026-10-04; +`parse` FIND-156 2026-11-24)
 
 (`native.ts` implements the `vantadb-node` backend — `capabilities`, `close`, `reopen`, `flush`, `put`, `putBatch`, `get`, `delete`, `forget`, `list`, `scan`, `listNamespaces`, `search`, `query` (FIND-268, optional `AbortHandle`), `explainSearch`, `similarToKey`, `searchMulti`, `searchWithMethod`, `graphragSearch`, `versions`/`listRecordVersions`, `getVersion`/`getRecordAtVersion`, `supersede`, `count`, `deleteByFilter`, `compactLayout`, `compactWal`, `purgeExpired`, `rebuildIndex`, `vacuum`, `insertNode`, `getNode`, `deleteNode`, `addEdge`, `removeEdge`, `getEdges`, `graphBfs`, `graphDfs`, `graphTopologicalSort`, `graphIsDag`, `graphFilteredTraversal`, `graphDegree`. `findNodesByLabel`, `graphShortestPath` and `metricsPrometheus` have no primitive in `vantadb-node` and throw `VANTADB_NOT_SUPPORTED` (FIND-536) instead of fabricating a result.)
 
@@ -301,6 +303,7 @@ so the bare `get`/`delete` collision is gone.
 | `capabilities` | system | ✅ | |
 | `operationalMetrics` | system | ✅ | |
 | `query` | system | ✅ | IQL |
+| `parse` | system | ✅ | AST JSON of an IQL statement, no execution; pure (works closed), **flat only** (not `db.system`) — FIND-156 |
 | `flush` | system | ✅ | |
 | `compactWal` | system | ✅ | |
 | `compactLayout` | system | ✅ | |
@@ -314,11 +317,11 @@ so the bare `get`/`delete` collision is gone.
 | `importRecords` | system | ✅ | |
 | `importFile` | system | ✅ | |
 
-**Totals:** memory 17 · graph 11 · wiki 1 · system 16 = 45 ✔
+**Totals:** memory 17 · graph 11 · wiki 1 · system 17 = 46 ✔
 
 **Not exposed in TS (wasm-only or Python-only), deferred per D43/D42:** `graph_page_rank`/`graph_degree_centrality` (Python-only), `bulk_import`/`bulk_import_bytes` (wasm/Python-only), `hardware_profile` (Python-only). `recover_archived_nodes` was deferred by SDKB-02 ("Do NOT add wrappers — v1 is grouping only") and **exposed in TS-11 slice 1 (2026-10-04)**; the remaining wiki/pages + conversation/skills surfaces follow §Sub-Client Roadmap.
 
-## Python (`vantadb-python/src/lib.rs`) — 49 pyclass methods (+ module-level `connect()`)
+## Python (`vantadb-python/src/lib.rs`) — 50 pyclass methods (+ module-level `connect()`)
 
 | Method | Domain | Exposed today | Notes |
 |---|---|---|---|
@@ -358,6 +361,7 @@ so the bare `get`/`delete` collision is gone.
 | `hardware_profile` | system | ✅ | Python-only |
 | `operational_metrics` | system | ✅ | |
 | `query` | system | ✅ | IQL |
+| `parse` | system | ✅ | AST JSON of an IQL statement, no execution; pure (works closed), **flat only** (not `db.system`) — FIND-156 |
 | `flush` | system | ✅ | |
 | `compact_wal` | system | ✅ | |
 | `compact_layout` | system | ✅ | |
@@ -373,7 +377,7 @@ so the bare `get`/`delete` collision is gone.
 | `recover_archived_nodes` | wiki | ✅ | summary-node shadow archive recovery |
 | `close` | system | ✅ | lifecycle |
 
-**Totals:** memory 19 · graph 11 · wiki 1 · system 18 = 49 pyclass methods ✔ (+ module-level `connect()` → system, 50 total surface)
+**Totals:** memory 19 · graph 11 · wiki 1 · system 19 = 50 pyclass methods ✔ (+ module-level `connect()` → system, 51 total surface)
 
 > **AST-012 (anti-stutter, TS `MemoryClient` parity):** flat `get_memory` /
 > `list_memory` / `delete_memory` were REMOVED (direct rename, no aliases).
@@ -474,7 +478,8 @@ path (`NativeVantaDB` → `vantadb-node`) does not forward the facade methods.
 **Status note (reconciled by DIST-04, 2026-10-04):** the Python minimal surface
 (DIST-02) has **landed**; this matrix and `VANTA_MEMORY.md` reflect the landed
 surface. The Python section counts above include `memory_capture`/`memory_recall`
-(46 → 48 pyclass methods; + `graphrag_search` from DIST-15 → 49). Since
+(46 → 48 pyclass methods; + `graphrag_search` from DIST-15 → 49; + `parse` from
+FIND-156 → 50). Since
 DIST-19 S3, `vantadb-node` also carries the `VantaCognitiveAPI` facade —
 `vantadb-node` is deliberately **out** of the invariant below.
 

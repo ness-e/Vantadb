@@ -940,6 +940,33 @@ print(result["nodes"])  # [{"id": "...", "tier": "...", "confidence": 0.5, "hits
 
 > **Note:** `query_structured()` is additive — the legacy `query()` (which returns a formatted `str`) is unchanged.
 
+#### `parse()`
+
+```python
+db.parse(query: str) -> Dict[str, Any]
+```
+
+Parse an IQL statement into its **canonical AST JSON** without executing it. The
+projection is the core's own (`vantadb::parser::parse_statement` +
+`serde_json`), so it matches the shape documented in
+[IQL.md § AST JSON](./IQL.md#ast-json) and pinned by
+`test_ast_json_projection_shape`: externally tagged enums
+(`{"Query": {...}}`), tuple variants as arrays
+(`{"Relational": ["edad", "Eq", {"Int": 28}]}`), and the additive `null`
+fields (`limit`, `offset`, `as_of_ms`, …) when absent.
+
+Parsing never touches the engine, so it is safe to call on a closed client and
+it can never write. Invalid statements (unexpected token, or trailing input
+after the statement) raise `ValidationError`. Python decodes the core's JSON with
+:mod:`json`, so `u128` node ids and `Int` literals keep arbitrary precision —
+this surface is exact (the JS bindings are limited to IEEE-754 doubles).
+
+```python
+ast = db.parse("FROM Person p WHERE edad == 28 FETCH name")
+ast["Query"]["from_entity"]   # "Person"
+ast["Query"]["where_clause"]  # [{"Relational": ["edad", "Eq", {"Int": 28}]}]
+```
+
 #### `bulk_import()`
 
 ```python

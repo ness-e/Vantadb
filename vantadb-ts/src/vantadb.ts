@@ -7,6 +7,7 @@ import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 import { normalizeMetadata, normalizeValue, toFilterItems } from "./metadata.js";
 
 import type {
+  AstJson,
   BatchSearchRequest,
   Capabilities,
   Config,
@@ -410,7 +411,9 @@ export class Client {
   /**
    * Close the database and release underlying WASM engine resources.
    *
-   * After close(), all public methods throw DbError with code "VANTADB_CLOSED".
+   * After close(), every method that touches the engine throws DbError with code
+   * "VANTADB_CLOSED". The pure `parse()` is the exception: it never touches the
+   * engine, so it keeps working on a closed handle.
    * Calling close() multiple times is safe (no-op on subsequent calls).
    *
    * @throws {DbError} If the WASM engine fails during close.
@@ -1388,6 +1391,33 @@ export class Client {
   }
 
   /**
+   * Parse an IQL statement into its canonical AST JSON, without executing it.
+   *
+   * The projection is the Rust core's own (docs/api/IQL.md §AST JSON, pinned
+   * by `test_ast_json_projection_shape`): externally tagged enums
+   * (`{ Query: { ... } }`), tuple variants as arrays
+   * (`{ Relational: ["edad", "Eq", { Int: 28 }] }`), and additive `null`
+   * fields (`limit`, `offset`, `as_of_ms`, ...) when absent.
+   *
+   * Parsing never touches the engine or the graph, so it cannot consume a
+   * write or affect durability, and it is safe on a closed client (it does not
+   * go through the WASM op-gate, unlike `query()`).
+   *
+   * @param query - IQL statement to parse.
+   * @returns The AST as JSON-compatible data.
+   * @throws {DbError} If the statement is invalid.
+   *
+   * @example
+   * ```ts
+   * const ast = db.parse("FROM Person p WHERE edad == 28 FETCH name");
+   * console.log((ast.Query as Record<string, unknown>).from_entity); // "Person"
+   * ```
+   */
+  parse(query: string): AstJson {
+    return this._wasm("parse", () => this.inner.parse(toWireString(query, "parse: iql")));
+  }
+
+  /**
    * Insert a graph node.
    *
    * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
@@ -1848,6 +1878,7 @@ export {
   validateVector,
 } from "./guards.js";
 export type {
+  AstJson,
   ForgetMode,
   ForgetOptions,
   PurgeCertificate,

@@ -557,6 +557,14 @@ Parse errors return an IQL-specific error format:
 IQL parse error at line <line>, col <col>: <message>
 ```
 
+This positioned form comes from the execution path (`query()` in every binding).
+The bindings' pure `parse()` method, which only projects the AST and never
+executes, reports parse failures as the parser's own text
+(`IQL parse error: <message>`) **without** `line`/`col`: the helpers that derive
+the position and the curated message are private to the execution path, and
+duplicating them per binding would create a second source of truth. Sharing them
+from the core is pending.
+
 Execution errors during query processing return:
 
 ```
