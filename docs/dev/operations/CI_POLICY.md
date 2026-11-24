@@ -578,6 +578,72 @@ vive en `fuzz/` y su lock sigue gitignored (FIND-404).
 (job `bench-informational`). El gate `perf-bench.yml` se retiró el 2026-10-29 (ver
 `docs/user/operations/BENCHMARKS.md` §20).
 
+#### FIND-317 — `bench-canonical-p99-informational.yml` retirado; presupuesto del sucesor
+
+**Decisión: el archivo standalone queda retirado y no se resucita. La capacidad vive en
+`nightly.yml` como dos jobs —`toolchain-check` en la lane de PR y `bench-informational`
+en la lane programada— con presupuesto medido y `CATEGORY: INFORMATIONAL`.**
+
+Por qué el archivo no puede volver: la fila original decía "30+ corridas canceladas, check
+rojo permanente" y el comando de triage que traía **no podía encontrar nada**, porque el
+workflow ya no existe. `gh run list --workflow bench-canonical-p99-informational.yml`
+devuelve `HTTP 404: workflow … not found on the default branch`; el archivo se borró en
+`2ba62d46f` (2026-10-15) al absorberlo CI-08/SRV-10 en `nightly.yml` (`nightly.yml:29-33`).
+Es la misma clase de fallo que `FIND-328`: una fila que nombra un archivo inexistente deja
+el rojo invisible. Un nombre de workflow que apunta al vacío no puede ser un check.
+
+Evidencia de que el sucesor **sí** completa y **sí** publica (corridas 44228761011 y
+44228771621, 2026-11-18, leídas con `gh run view <id> --json jobs`):
+
+| Job | Duración medida | Conclusión |
+|---|---|---|
+| `Toolchain compiles bench (release, no run)` | 9m42s / 9m06s | success |
+| `Run canonical_p99 vs baseline (informational)` | **159m39s / 145m02s** | success |
+
+La hipótesis "hang vs lentitud extrema" queda resuelta del lado de **lentitud**, con el
+número del propio runner: `insert_100k_1536d` tarda `698.16 s` por iteración y Criterion
+necesita 10 muestras ⇒ `7030 s` estructurales (117 min), más 86 s de compilación y 40 s de
+search. El step no se cuelga: recolecta sus muestras y termina.
+
+**Presupuesto declarado** (Regla 9: medido, no estimado):
+
+| Gate | Timeout | Máximo medido | Margen |
+|---|---|---|---|
+| `bench-informational` | 240 min | 159m39s | 1.5× |
+| `toolchain-check` | 30 min | 9m42s | 3.0× |
+
+Reglas que se derivan:
+
+- **Must:** `bench-informational` corre en `schedule`/`workflow_dispatch`, nunca en la lane
+  de PR (`if: github.event_name != 'pull_request'`). Un gate de 2h30 no es una señal de PR,
+  y en PR publicaba `stable_count: 0` — sin baseline comparable, la maquinaria de regresión
+  no podía disparar nunca.
+- **Must:** el job lleva `concurrency` propio con `cancel-in-progress: false`
+  (misma forma que `failpoint-tests`), para que un merge a `main` no mate un bench de 2h30
+  a mitad de vuelo. **Must not:** reutilizar el grupo de concurrencia del workflow — esa
+  colisión es la causa raíz de `FIND-716`.
+- **Must:** `toolchain-check` (compile-gate `--no-run`, 9 min) se queda en la lane de PR:
+  es el `consumo guard` de `BENCHMARKS.md` §11 y es barato.
+- **Must not:** subir el `timeout-minutes: 240` sin una medición nueva que lo justifique.
+  El margen actual es 1.5×; se subió 90 → 240 en 2026-10-07 (`93b201a76`) y esa fue la
+  última vez que se tocó sin medición.
+- **Must not:** recrear `bench-canonical-p99-informational.yml`. Si hace falta un check
+  nuevo de bench, se añade como job de `nightly.yml` o de `certification.yml`, que es donde
+  el inventario y esta política lo esperan.
+- **Categoría:** `INFORMATIONAL` (Regla 2 de `AGENTS.md`). Todos los `continue-on-error`
+  del job llevan su `# CATEGORY: INFORMATIONAL`; esta decisión **no añade ninguna exención
+  nueva**.
+
+**Dos deudas vivas que esta decisión no paga** (fuera del alcance de `FIND-317`):
+
+1. `docs/user/operations/BENCHMARKS.md:454` todavía cita el archivo retirado como el lugar
+   donde se evalúa el `>10%`; el destino real es el job `bench-informational`.
+2. `main` sigue sirviendo el bench `1536d` (`const DIM: usize = 1536;`) mientras `develop`
+   ya tiene GloVe-100d (`2b821184a`). Mientras no se sincronicen, la serie programada mide
+   el corpus que `BENCHMARKS.md` §11 declara superseded y el comparador seguirá reportando
+   `stable_count: 0` (sin baseline ⇒ nunca hay regresión que reportar). Owner: `vanta-tuner`.
+
+
 ### 7. Release verification (`release-verify.yml`)
 
 Verificación post-release de assets y registries; renderiza su lista esperada desde

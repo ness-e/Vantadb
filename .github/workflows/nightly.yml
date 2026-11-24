@@ -37,6 +37,13 @@
 #   matches the informational paths must NOT trigger 120-min HNSW runs.
 # - Informational jobs run ONLY on `pull_request`/`workflow_dispatch`
 #   (their original triggers) — they never run on the daily schedule.
+#   EXCEPTION (FIND-317, 2026-11-24): `bench-informational` now runs on
+#   `schedule`/`workflow_dispatch` ONLY. It measured 145-160 min per run on a
+#   4-core runner (insert 698 s/iter x 10 Criterion samples) and its published
+#   numbers are not comparable at PR time (`stable_count: 0` - see
+#   CI_POLICY.md §6 "FIND-317"), so it is a slow gate, not a PR signal. It is
+#   not lost: `workflow_dispatch` covers on-demand PR triage, and its
+#   compile-gate half (`toolchain-check`, 9 min) stays on the PR lane.
 # - `notify-failure` intentionally does NOT list informational jobs in `needs`:
 #   informational findings open their own issues; they never page nightly.
 # Trigger narrowing (documented, accepted): `ocr-delegate.yml` used to run on
@@ -424,15 +431,16 @@ jobs:
           path: toolchain-check.log
           retention-days: 14
 
-  # Origin: bench-canonical-p99-informational.yml (job 2 of 2). Runs ONLY
-  # canonical_p99 (perf-source paths src/index + src/storage; bench-file PRs
-  # stay owned by heavy-bench-nightly — strictly disjoint triggers, see
-  # original header). Regression policy (>10% p99 vs baseline needs
-  # ADR-or-revert) is EVALUATED here but never enforced: regressions open an
-  # issue, the PR stays green (Q5 informativo primero).
+  # NOTE (FIND-317): this block documents `bench-informational` (origin: job 2
+  # of 2 of the retired bench-canonical-p99-informational.yml) and is kept next
+  # to its sibling `toolchain-check` for history; it is not the description of
+  # the next job. Regression policy (>10% p99 vs baseline needs ADR-or-revert)
+  # is EVALUATED in `bench-informational` but never enforced: regressions open
+  # an issue, the run stays green (Q5 informativo primero).
   completions-freshness:
     name: "Nightly: completions snapshot freshness"
-    # Same lane as bench-informational: PR/dispatch only, never the daily schedule.
+    # PR/dispatch only, never the daily schedule (FIND-317 moved only
+    # bench-informational to the scheduled lane; this one stays on PR).
     # Runs dev-tools/check_completions.ps1: rebuilds vanta-cli and fails closed if
     # completions/ drifts from src/cli.rs (no --no-verify escape: CI re-checks).
     if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
@@ -449,14 +457,26 @@ jobs:
 
   bench-informational:
     name: Run canonical_p99 vs baseline (informational)
-    # CI-08: PR/dispatch only — never on the daily schedule (see header).
-    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
-    # Sin needs: toolchain-check (corre en paralelo; ambos son informativos
-    # con issue propia y el bench recompila de todos modos para correr).
+    # FIND-317 (2026-11-24): schedule/dispatch only. This job was on the PR lane
+    # (inherited trigger from the retired bench-canonical-p99-informational.yml)
+    # and measured 159m39s (run 44228761011) and 145m02s (run 44228771621) on a
+    # 4-core runner for a run that publishes `stable_count: 0` - no comparable
+    # baseline at PR time, so no PR-time signal. A slow gate belongs in this
+    # lane (CI_POLICY.md §2b reception point >5min); dispatch keeps on-demand
+    # triage available on a perf PR.
+    if: github.event_name != 'pull_request'
+    # Run-only concurrency (same form as failpoint-tests / hnsw-validation):
+    # a merge to main must not kill a 2h30 bench mid-flight. Distinct group,
+    # never the workflow-level group (that collision is FIND-716).
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
-    # FIND-317 (2026-10-07): 90 -> 240 min (criterion estimate ~128 min for the
-    # insert bench alone on the runner). If this still times out, next step:
-    # split insert/search into parallel jobs.
+    # FIND-317 budget (measured, not estimated): max observed 159m39s
+    # (2026-11-18, run 44228761011; main's 1536d bench: insert 698.16 s/iter x
+    # 10 samples = 7030 s structural + 86 s compile + 40 s search). 240 min
+    # keeps 1.5x headroom. Do NOT raise this without a new measurement; on
+    # develop the GloVe-100d bench needs ~29 min of sampling.
     timeout-minutes: 240
     permissions:
       contents: read
@@ -472,28 +492,18 @@ jobs:
           swap-mb: 6144
           free-disk: true
 
-      - name: Perf-path gate (skip unless perf sources changed)
-        id: perf
-        if: github.event_name == 'pull_request'
-        run: |
-          git fetch origin "${{ github.base_ref }}" --depth=1 2>/dev/null || true
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -Eq '^(src/index/|src/storage/|benches/canonical_p99|benchmarks/)'; then
-            echo "hit=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Perf sources untouched — skipping 2h bench, keeping fast signals."
-            echo "hit=false" >> "$GITHUB_OUTPUT"
-          fi
-
+      # FIND-317: the perf-path gate (skip unless src/index|src/storage|benches
+      # changed) was removed with the PR trigger it guarded - it is unreachable
+      # on schedule/dispatch and would silently lie about what runs. A dispatch
+      # on a perf PR means the author wants the number: run it.
       - name: Run canonical_p99
         id: bench
-        if: steps.perf.outputs.hit != 'false'
         continue-on-error: true # CATEGORY: INFORMATIONAL
         run: |
           mkdir -p metricas/benchmarks
           cargo bench -p vantadb --bench canonical_p99 -- --nocapture 2>&1 | tee metricas/benchmarks/canonical_p99_results.txt
 
       - name: Run param_sweep (sift-128 recall-QPS curve)
-        if: steps.perf.outputs.hit != 'false'
         continue-on-error: true # CATEGORY: INFORMATIONAL
         run: cargo bench -p vantadb --bench param_sweep -- --nocapture 2>&1 | tee -a metricas/benchmarks/canonical_p99_results.txt
 
