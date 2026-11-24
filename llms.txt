@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-532 documentation pages; it deliberately omits the 202 task files,
+535 documentation pages; it deliberately omits the 204 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -146,6 +146,7 @@ is in docs/index.md in the repository.
 - [Verificación y pruebas](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/developer/verification.md): Cómo se verifica el repo: suites de test registradas, snapshots, paridad, fuzz y gates de CI — inventario, no ejecución.
 - [WASM Storage Review](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/WASM_STORAGE_REVIEW.md): Review of all storage backends used when VantaDB runs in a browser WASM environment
 - [WASM threads: lock-free multi-thread design (STRAT-04)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/WASM_THREADS.md): Design and measured first slice for lock-free multi-threaded WASM (SharedArrayBuffer + atomics), with COOP/COEP requirements and single-thread fallback
+- [What VantaDB is — and what it is not](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/concepts/what-is-vantadb.md): The product in one page: an embedded memory and retrieval engine that runs inside your process, plus the closed list of things it deliberately is not, each with the document that owns the boundary
 - [Workflow local de desarrollo](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/developer/local-workflow.md): Herramientas del flujo diario: Justfile, verify scripts, perfiles de build y comandos de documentación.
 - [vantadb.dev Landing Page & /enterprise Technical Specification](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/VANTADB_DEV_LANDING_AND_ENTERPRISE_SPEC.md): The public web surface at https://vantadb.dev is the primary entry point for AI engineers, autonomous agent developers, and enterprise buyers evaluating VantaDB
 - [🏛️ VantaDB — Arquitectura, Modelo de Datos, Competencia y Oportunidades de Producto](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/VantaDB-Analisis-Arquitectura-Producto-Competencia.md): Intentaste entregarme tu investigación de Notion (VantaDB-Docs-Unificado.md, el ZIP de export y los 5 análisis .md) 5 veces. Verifiqué con monitoreo en vivo, búsqueda en todo el filesystem y diagnóstico de los montajes FUSE/ossfs del...
@@ -158,12 +159,14 @@ is in docs/index.md in the repository.
 
 - [AI Agent Memory — Durable Memory for Local Agents](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/campaign-ai-agent-memory.md): Why agent memory should be a durable embedded database, not a re-ingest of full context on every turn.
 - [Búsqueda híbrida (vector + BM25 + RRF)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/user/hybrid-search.md): Cómo funciona la búsqueda híbrida: entradas, fusión RRF, score vs distance, filtros y parámetros verificados.
+- [Choose a runtime](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/WHICH_RUNTIME.md): Rust embedded, Python, Node native, TypeScript/WASM, raw WASM, MCP, HTTP or CLI — the criterion for each surface, what it can and cannot do, and the link to its reference
 - [Frequently Asked Questions](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/FAQ.md): VantaDB is an embedded persistent memory engine for local-first AI applications. It combines vector similarity search (HNSW), full-text lexical search (BM25), hybrid search fusion, and structured metadata filtering in a single...
 - [Getting Started with VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/guide/getting-started.md): Quick start guide for embedding VantaDB as the local-first cognitive memory engine for AI agents
 - [GraphRAG Benchmark Methodology and Measured Results](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/graphrag-benchmark.md): Reproducible GraphRAG benchmark methodology, real indexing numbers, and an honest account of what remains unmeasured.
 - [Head-to-Head: VantaDB vs Mem0 OSS](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/head_to_head_mem0_vantadb.md): An honest head-to-head of VantaDB vs Mem0 OSS on LongMemEval-S with the same harness, judge, and slice.
 - [How Hybrid Search Actually Works](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/how_hybrid_search_works.md): How lexical and vector candidates contribute to native rank fusion, without confusing embeddings with index algorithms
 - [Introducing VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/introducing_vantadb.md): An introduction to VantaDB 0.9.0, its embedded memory workflow, and the limits of its guarantees
+- [Is VantaDB for your use case?](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/IS_IT_FOR_ME.md): A use-case decision matrix: which shapes of problem VantaDB is built for, which it can serve with a declared limit, and which it is the wrong tool for — each verdict with its source
 - [Local Agent Memory with Ollama + VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/ollama_vantadb_local_memory.md): Fully local agent memory — Ollama produces embeddings on localhost, VantaDB stores them in-process.
 - [Operación y mantenimiento](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/user/operations.md): Tareas operativas verificadas: métricas, mantenimiento de índices/WAL, TTL/GC, observabilidad y configuración.
 - [Pending Tasks — VantaDB Discord](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/discord/todo.md): URL: https://dash.carl.gg/
