@@ -17,11 +17,11 @@
     "FIND-701": "CI real rojo: MSRV 1.94.1 vs deps 1.95.0; decision owner tomada (bump 1.95.0), requiere push",
     "FIND-702": "espera pasada real de CI verde (requiere push del owner)"
   },
-  "findings_pendientes_de_fila": [
-    "politica de vector sintetico no unificada: INSERT lo descarta, INSERT MESSAGE lo conserva y marca",
-    "apply_explicit_vector no borra FIELD_EMBED_STATUS: un UPDATE ... SET VECTOR deja la marca obsoleta",
-    "opcional: exponer degraded: bool en ExecutionResult::Write",
-    "segment() de stamp-frontmatter sigue BOM-ciego y --self-test no esta cableado en docs-gates.yml"
-  ],
-  "lastSync": "2026-11-24T11:40:00Z"
+  "findings_registrados": {
+    "FIND-710": "politica de vector sintetico no unificada: INSERT lo descarta, INSERT MESSAGE lo conserva y marca",
+    "FIND-711": "apply_explicit_vector no borra __vanta_embed_status: UPDATE ... SET VECTOR deja la marca obsoleta",
+    "FIND-712": "opcional: exponer degraded: bool en ExecutionResult::Write",
+    "FIND-713": "segment() de stamp-frontmatter BOM-ciego y --self-test sin cablear en docs-gates.yml"
+  },
+  "lastSync": "2026-11-24T12:05:00Z"
 }
