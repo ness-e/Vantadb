@@ -9,8 +9,11 @@ ignore = [
     # RUSTSEC-2026-0543: chrono is unmaintained (informational; no patched version).
     # Explicit owner approval: 2026-11-17, limited to continuing push/CI.
     # Owner: @ness-e (vanta-lead)
-    # Expires / mandatory review: 2026-11-24 and before any public release.
-    # Tracked: FIND-652; docs/specs/CONSTRAINTS.md exception W3.
+    # Expires / mandatory review: 2027-03-22 (renewed 2026-11-24) and before any
+    # public release. Renewal rationale: direct deps already migrated to jiff 0.2
+    # (FIND-652); the only chrono left is transitive via the OPTIONAL arrow feature
+    # (arrow-* 59.x), unreachable in the default build, with no patched chrono
+    # release in existence. Tracked: FIND-652 + FIND-708; CONSTRAINTS.md W3.
     # Update 2026 (FIND-652 done): all DIRECT chrono deps migrated to jiff 0.2;
     # chrono remains only as a transitive dep of the optional `arrow` feature
     # (arrow-* 59.x), unreachable in the default build.

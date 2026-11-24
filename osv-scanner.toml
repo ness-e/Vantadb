@@ -25,12 +25,13 @@ reason = "Mirror of audit.toml triage: build-time only, no runtime impact. Track
 # transitively via the optional `arrow` feature (arrow-* 59.x), unreachable in
 # the default build. Mirror of the owner-approved deny.toml waiver (2026-11-17):
 # risk acceptance, not a remediation or release authorization.
-# Owner: @ness-e (vanta-lead) | Mandatory review: 2026-11-24 and before any
-# public release | Tracked: FIND-652; docs/specs/CONSTRAINTS.md exception W3.
+# Owner: @ness-e (vanta-lead) | Mandatory review: 2027-03-22 and before any
+# public release | Tracked: FIND-652 + FIND-708 (arrow 60 drops chrono?)
+# docs/specs/CONSTRAINTS.md exception W3.
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0543"
-ignoreUntil = "2026-11-24T00:00:00Z"
-reason = "Mirror of deny.toml waiver W3: chrono unmaintained, no patched version; migration tracked under FIND-652 with manual review on 2026-11-24 and before release. Owner: @ness-e (vanta-lead). Risk acceptance, not remediation."
+ignoreUntil = "2027-03-22T00:00:00Z"
+reason = "Renewed 2026-11-24: the direct-dependency migration already landed (FIND-652, jiff 0.2), so no code can be migrated further; the only remaining chrono is transitive via the OPTIONAL arrow feature (arrow-* 59.x), unreachable in the default build, and no patched chrono release exists because the crate is unmaintained. Renewal is risk acceptance with the same owner, not a new exemption; review on 2027-03-22 or as soon as arrow stops depending on chrono (FIND-708). Owner: @ness-e (vanta-lead)."
 
 # RUSTSEC-2026-0253: lru (transitive via tantivy; direct dep is already 0.18.5
 # >= patched 0.18.2). REMOVED 2026-10-30: tantivy is now 0.27 and the lock only
