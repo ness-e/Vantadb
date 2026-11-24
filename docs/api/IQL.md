@@ -338,6 +338,43 @@ INSERT NODE#<id> TYPE <type> { <field>: <value>, ... } [VECTOR [x, y, z, ...]]
 
 Creates a new node with the given type, fields, and optional embedding vector.
 
+**Auto-embedding.** Without `VECTOR`, a non-empty `text` field is embedded with
+the provider selected by `VANTADB_EMBEDDING_PROVIDER` (requires the
+`remote-inference` feature). The insert **never fails** because of the provider:
+it degrades. A degraded node is stored *without* a vector and carries the
+relational field `__vanta_embed_status`:
+
+| Value | Meaning |
+|-------|---------|
+| `failed` | the provider returned an error (unreachable, missing key, strict mode) |
+| `synthetic` | the provider has no real model session, so the synthetic vector was dropped instead of polluting the index with false neighbours |
+| `unavailable` | the build has no `remote-inference` feature: there is no provider at all |
+
+The field is **absent** when auto-embedding did not run (explicit `VECTOR`, no
+`text`, empty `text`, or a build where the provider was never consulted for a
+blank field) or when it succeeded. Any surface that returns **raw relational
+fields** shows it: `vanta-cli query … --json` prints all of them:
+
+```json
+{"id":"1","fields":{"__vanta_embed_status":"failed","text":"hola mundo","type":"Note"}}
+```
+
+The key and its three values are `FIELD_EMBED_STATUS` / `EMBED_STATUS_FAILED` /
+`EMBED_STATUS_SYNTHETIC` / `EMBED_STATUS_UNAVAILABLE` in
+`src/sdk/serialization/mod.rs`; the write paths that set them are
+`auto_embed_insert` and `auto_embed_message` in `src/executor.rs`. The provider's
+error text goes to the log (`tracing::warn!`), not to the record.
+
+Two limits, by design: the key is `__vanta_`-prefixed, so it is **not** accepted
+as a filter key by the SDK search/page filters (`src/sdk/search/page.rs`) —
+enumerate degraded nodes by reading the field (full scan) rather than filtering;
+and it is listed in `RESERVED_FIELDS`, so the SDK memory API keeps it out of
+`MemoryRecord.metadata`.
+
+`INSERT MESSAGE` follows the same rule for the message node it creates. One
+difference: on that path a **synthetic** vector is stored (not dropped) and
+marked `synthetic`, so a non-semantic vector is never mistaken for a real one.
+
 ### UPDATE
 
 ```
@@ -374,6 +411,10 @@ INSERT MESSAGE <SYSTEM|USER|ASSISTANT> "<content>" TO THREAD#<id>
 ```
 
 Inserts a message into a conversation thread. Roles: `SYSTEM`, `USER`, `ASSISTANT`.
+The message node is auto-embedded; if that fails it is stored without a vector and
+marked with `__vanta_embed_status`, and a synthetic (non-semantic) vector is kept
+but marked `synthetic`. See §INSERT for the values and for the one divergence
+from the `INSERT` path.
 
 ---
 

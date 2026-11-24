@@ -53,6 +53,33 @@ pub const FIELD_QUARANTINE_REVIEW_DUE_MS: &str = "__vanta_quarantine_review_due_
 /// node as interleaved `ListFloat` pairs (ADR-019). Kept out of the
 /// bincode-graph so old databases read missing keys as `None`.
 pub const SPARSE_VECTOR_EXT_KEY: &str = "__vanta_sparse_vector";
+/// FIND-485: why an `INSERT` with an auto-embedded `text` field ended up
+/// **without** a vector. Present only on degraded writes; **absent** means the
+/// auto-embedding never ran (explicit `VECTOR`, no `text`, or empty text).
+///
+/// Values: `failed` (provider errored — e.g. no provider reachable),
+/// `synthetic` (provider has no real model session, so the vector is not
+/// semantic) and `unavailable` (build without the `remote-inference` feature,
+/// so there is no provider at all).
+///
+/// A plain relational key so it round-trips through storage and every read
+/// surface that returns raw fields shows it (`vanta-cli query … --json` lists
+/// all of them); the error detail stays in the adjacent `tracing::warn!`.
+/// It is listed in `RESERVED_FIELDS`, so the SDK memory API keeps it out of
+/// `MemoryRecord.metadata`.
+pub const FIELD_EMBED_STATUS: &str = "__vanta_embed_status";
+/// FIND-485: [`FIELD_EMBED_STATUS`] value — the provider returned an error.
+#[cfg(feature = "remote-inference")]
+pub const EMBED_STATUS_FAILED: &str = "failed";
+/// FIND-485: [`FIELD_EMBED_STATUS`] value — the provider has no real model
+/// session, so the vector it produced is not semantic. `INSERT` drops it;
+/// `INSERT MESSAGE` keeps it (see `auto_embed_message`) and marks it.
+#[cfg(feature = "remote-inference")]
+pub const EMBED_STATUS_SYNTHETIC: &str = "synthetic";
+/// FIND-485: [`FIELD_EMBED_STATUS`] value — the build has no `remote-inference`
+/// feature, so there is no provider at all.
+#[cfg(not(feature = "remote-inference"))]
+pub const EMBED_STATUS_UNAVAILABLE: &str = "unavailable";
 pub(crate) const EXPORT_SCHEMA_VERSION: u32 = 2;
 pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
@@ -510,6 +537,7 @@ fn memory_record_from_node_inner(node: &UnifiedNode, apply_lazy_ttl: bool) -> Op
         FIELD_QUARANTINED_BY,
         FIELD_QUARANTINE_REVIEW_DUE_MS,
         SPARSE_VECTOR_EXT_KEY,
+        FIELD_EMBED_STATUS,
     ];
 
     let namespace = get_string_field(&fields, FIELD_NAMESPACE)?;

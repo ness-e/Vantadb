@@ -13,6 +13,11 @@ use crate::query::{
 use crate::storage::StorageEngine;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+#[cfg(feature = "remote-inference")]
+use crate::sdk::serialization::{EMBED_STATUS_FAILED, EMBED_STATUS_SYNTHETIC, FIELD_EMBED_STATUS};
+#[cfg(not(feature = "remote-inference"))]
+use crate::sdk::serialization::{EMBED_STATUS_UNAVAILABLE, FIELD_EMBED_STATUS};
+
 const GIB: usize = 1024 * 1024 * 1024;
 
 /// Result of executing a statement against the storage engine.
@@ -498,13 +503,18 @@ impl<'a> Executor<'a> {
                                      WITHOUT a vector — a synthetic vector would pollute the index \
                                      with false neighbours"
                                 );
+                                Self::mark_embed_status(node, EMBED_STATUS_SYNTHETIC);
                             } else {
                                 node.vector = VectorRepresentations::Full(vec);
                                 node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                             }
                         }
                         Err(e) => {
-                            tracing::warn!("Auto-embedding failed for INSERT node {node_id}: {e}")
+                            tracing::warn!(
+                                "Auto-embedding failed for INSERT node {node_id}: {e} — the node is \
+                                 stored WITHOUT a vector ({FIELD_EMBED_STATUS} is set)"
+                            );
+                            Self::mark_embed_status(node, EMBED_STATUS_FAILED);
                         }
                     }
                 }
@@ -516,14 +526,36 @@ impl<'a> Executor<'a> {
     #[cfg(not(feature = "remote-inference"))]
     fn auto_embed_insert(
         &self,
-        _node: &mut UnifiedNode,
+        node: &mut UnifiedNode,
         vector: &Option<Vec<f32>>,
         fields: &std::collections::BTreeMap<String, crate::node::FieldValue>,
         _node_id: u128,
     ) {
-        if vector.is_none() && fields.contains_key("text") {
-            tracing::warn!("LLM feature disabled: skipping automatic embedding generation");
+        if vector.is_none() {
+            // Same "is there text at all" predicate as the provider variant: an
+            // empty/blank `text` never triggers auto-embedding, so it must not be
+            // marked either (FIND-485 review #2).
+            if let Some(crate::node::FieldValue::String(text)) = fields.get("text") {
+                if !text.trim().is_empty() {
+                    tracing::warn!(
+                        "LLM feature disabled: skipping automatic embedding generation \
+                         ({FIELD_EMBED_STATUS}={EMBED_STATUS_UNAVAILABLE} is set)"
+                    );
+                    Self::mark_embed_status(node, EMBED_STATUS_UNAVAILABLE);
+                }
+            }
         }
+    }
+
+    /// FIND-485: record on the node itself why it was stored **without** a
+    /// vector. The `warn!` alone is invisible from the data: the caller cannot
+    /// tell "explicit vector", "no text" and "provider failed" apart. Absent
+    /// field = auto-embedding never ran or succeeded.
+    fn mark_embed_status(node: &mut UnifiedNode, status: &str) {
+        node.set_field(
+            crate::sdk::serialization::FIELD_EMBED_STATUS,
+            crate::node::FieldValue::String(status.to_string()),
+        );
     }
 
     /// Applies an explicit VECTOR when present (shared by INSERT/UPDATE paths).
@@ -661,19 +693,44 @@ impl<'a> Executor<'a> {
     fn auto_embed_message(&self, node: &mut UnifiedNode, content: &str, node_id: u128) {
         if !content.trim().is_empty() {
             let provider = crate::llm::get_embedding_provider();
+            let provider_is_synthetic = provider.is_synthetic();
             match provider.embed(content) {
                 Ok(vec) => {
                     node.vector = VectorRepresentations::Full(vec);
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                    if provider_is_synthetic {
+                        // FIND-485 (review #1): this path **keeps** the synthetic
+                        // vector, unlike `auto_embed_insert`, which drops it
+                        // (FIND-681/FIND-703). Marking it is the honest minimum:
+                        // without it the reader cannot tell a semantic vector from
+                        // a deterministic placeholder. Aligning the two paths is a
+                        // separate change (vector policy, not the mark).
+                        tracing::warn!(
+                            "Auto-embedding for InsertMessage {node_id} produced a synthetic \
+                             vector (local ONNX session unavailable): the message is stored with a \
+                             NON-semantic vector ({FIELD_EMBED_STATUS}={EMBED_STATUS_SYNTHETIC})"
+                        );
+                        Self::mark_embed_status(node, EMBED_STATUS_SYNTHETIC);
+                    }
                 }
-                Err(e) => tracing::warn!("Auto-embedding failed for InsertMessage {node_id}: {e}"),
+                Err(e) => {
+                    tracing::warn!(
+                        "Auto-embedding failed for InsertMessage {node_id}: {e} — the message is \
+                         stored WITHOUT a vector ({FIELD_EMBED_STATUS} is set)"
+                    );
+                    Self::mark_embed_status(node, EMBED_STATUS_FAILED);
+                }
             }
         }
     }
 
     /// Without `remote-inference` there is no provider: insert the message without a vector.
     #[cfg(not(feature = "remote-inference"))]
-    fn auto_embed_message(&self, _node: &mut UnifiedNode, _content: &str, _node_id: u128) {}
+    fn auto_embed_message(&self, node: &mut UnifiedNode, content: &str, _node_id: u128) {
+        if !content.trim().is_empty() {
+            Self::mark_embed_status(node, EMBED_STATUS_UNAVAILABLE);
+        }
+    }
 
     /// Evaluates the Logical Plan over the underlying storage engine
     #[tracing::instrument(skip(self), err)]
@@ -1573,6 +1630,202 @@ mod tests {
         assert!(node.vector.is_none());
     }
 
+    // ── FIND-485: la degradación del auto-embedding deja una marca consultable ──
+
+    /// FIND-485: guarda/restaura env vars del provider (el entorno es global;
+    /// mismo patrón que `src/llm.rs:1689`).
+    #[cfg(feature = "remote-inference")]
+    struct ProviderEnvGuard {
+        key: &'static str,
+        saved: Option<String>,
+    }
+
+    #[cfg(feature = "remote-inference")]
+    impl ProviderEnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let saved = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, saved }
+        }
+    }
+
+    #[cfg(feature = "remote-inference")]
+    impl Drop for ProviderEnvGuard {
+        fn drop(&mut self) {
+            match &self.saved {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    /// FIND-485: un INSERT con `text` cuyo provider falla persiste el nodo SIN
+    /// vector, pero **nunca en silencio**: queda
+    /// `__vanta_embed_status = "failed"` y sobrevive el round-trip por storage.
+    #[test]
+    #[cfg(feature = "remote-inference")]
+    #[serial_test::serial]
+    fn auto_embed_insert_marks_node_when_provider_fails() {
+        // Arrange: provider que falla por construcción, sin red y sin depender
+        // de que Ollama esté (o no) escuchando en localhost.
+        let dir = tempdir().unwrap();
+        let no_model = dir.path().join("no-such-model");
+        let no_model = no_model.to_str().expect("temp dir path is utf-8");
+        let _p = ProviderEnvGuard::set("VANTADB_EMBEDDING_PROVIDER", "bogus-find485");
+        let _m = ProviderEnvGuard::set("VANTADB_LOCAL_MODEL", no_model);
+        let _o = ProviderEnvGuard::set("ORT_DYLIB_PATH", no_model);
+        let _s = ProviderEnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "1");
+
+        // Backend de disco (default): el round-trip pasa por serialización.
+        let storage =
+            StorageEngine::open(dir.path().join("db").to_str().unwrap()).expect("open storage");
+        let ex = Executor::new(&storage);
+
+        let mut fields = BTreeMap::new();
+        fields.insert("text".into(), FieldValue::String("hola mundo".into()));
+        let stmt = Statement::Insert(InsertStatement {
+            node_id: 485,
+            node_type: "Note".into(),
+            fields,
+            vector: None,
+        });
+
+        // Act: el INSERT degrada, no falla (FIND-485: disponibilidad > vector).
+        ex.execute_statement(stmt)
+            .expect("INSERT must degrade, not fail, when the provider is down");
+
+        // Assert: sin vector + con marca, ambos leídos de storage.
+        let node = storage.get(485).unwrap().expect("node persisted");
+        assert!(
+            !node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR),
+            "no vector was produced, so HAS_VECTOR must stay clear"
+        );
+        assert!(node.vector.is_none(), "a failed provider invents no vector");
+        assert_eq!(
+            node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS),
+            Some(&FieldValue::String("failed".into())),
+            "the degraded write must be marked, not just logged"
+        );
+    }
+
+    /// FIND-485: sin `remote-inference` no hay provider — el INSERT también
+    /// deja marca (`unavailable`), no solo un log.
+    #[test]
+    #[cfg(not(feature = "remote-inference"))]
+    fn auto_embed_insert_marks_unavailable_without_provider() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        let mut fields = BTreeMap::new();
+        fields.insert("text".into(), FieldValue::String("hola mundo".into()));
+        ex.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 486,
+            node_type: "Note".into(),
+            fields,
+            vector: None,
+        }))
+        .expect("INSERT must not fail when no provider is compiled in");
+
+        let node = storage.get(486).unwrap().expect("node persisted");
+        assert!(!node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR));
+        assert_eq!(
+            node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS),
+            Some(&FieldValue::String("unavailable".into())),
+            "a build without a provider must still say so on the record"
+        );
+    }
+
+    /// FIND-485 (review #4): the `INSERT MESSAGE` failure arm must mark the
+    /// message node too — same silence, same owner.
+    #[test]
+    #[cfg(feature = "remote-inference")]
+    #[serial_test::serial]
+    fn auto_embed_message_marks_failed_when_provider_fails() {
+        let dir = tempdir().unwrap();
+        let no_model = dir.path().join("no-such-model");
+        let no_model = no_model.to_str().expect("temp dir path is utf-8");
+        let _p = ProviderEnvGuard::set("VANTADB_EMBEDDING_PROVIDER", "bogus-find485");
+        let _m = ProviderEnvGuard::set("VANTADB_LOCAL_MODEL", no_model);
+        let _o = ProviderEnvGuard::set("ORT_DYLIB_PATH", no_model);
+        let _s = ProviderEnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "1");
+
+        let storage =
+            StorageEngine::open(dir.path().join("db").to_str().unwrap()).expect("open storage");
+        let ex = Executor::new(&storage);
+
+        let result = ex
+            .execute_statement(Statement::InsertMessage(InsertMessageStatement {
+                thread_id: 485,
+                msg_role: "user".into(),
+                content: "hola mundo".into(),
+            }))
+            .expect("INSERT MESSAGE must degrade, not fail, when the provider is down");
+        // `INSERT MESSAGE` assigns the id itself (timestamp-based), so read it
+        // back from the result rather than assuming the thread id.
+        let ExecutionResult::Write {
+            node_id: Some(msg_id),
+            ..
+        } = result
+        else {
+            panic!("expected a Write result with the message id");
+        };
+
+        let node = storage.get(msg_id).unwrap().expect("message persisted");
+        assert!(!node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR));
+        assert_eq!(
+            node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS),
+            Some(&FieldValue::String("failed".into())),
+            "the message must say it was stored without a vector"
+        );
+    }
+
+    /// FIND-485 (review #4): on `INSERT MESSAGE` a **synthetic** vector is kept
+    /// (unlike `INSERT`, which drops it) — the mark is what keeps it honest.
+    #[test]
+    #[cfg(all(feature = "remote-inference", feature = "embed-local"))]
+    #[serial_test::serial]
+    fn auto_embed_message_marks_synthetic_vector() {
+        let dir = tempdir().unwrap();
+        let no_model = dir.path().join("no-such-model");
+        let no_model = no_model.to_str().expect("temp dir path is utf-8");
+        let _p = ProviderEnvGuard::set("VANTADB_EMBEDDING_PROVIDER", "local");
+        let _m = ProviderEnvGuard::set("VANTADB_LOCAL_MODEL", no_model);
+        let _o = ProviderEnvGuard::set("ORT_DYLIB_PATH", no_model);
+        // strict OFF → the fallback provider is allowed to answer with the
+        // deterministic (non-semantic) vector, which is the case under test.
+        let _s = ProviderEnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "0");
+
+        let storage =
+            StorageEngine::open(dir.path().join("db").to_str().unwrap()).expect("open storage");
+        let ex = Executor::new(&storage);
+
+        let result = ex
+            .execute_statement(Statement::InsertMessage(InsertMessageStatement {
+                thread_id: 486,
+                msg_role: "user".into(),
+                content: "hola mundo".into(),
+            }))
+            .expect("INSERT MESSAGE must not fail when a dummy provider is allowed");
+        let ExecutionResult::Write {
+            node_id: Some(msg_id),
+            ..
+        } = result
+        else {
+            panic!("expected a Write result with the message id");
+        };
+
+        let node = storage.get(msg_id).unwrap().expect("message persisted");
+        assert!(
+            node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR),
+            "this path keeps the vector (documented divergence from INSERT)"
+        );
+        assert_eq!(
+            node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS),
+            Some(&FieldValue::String("synthetic".into())),
+            "a kept non-semantic vector must be labelled as such"
+        );
+    }
+
     // ── execute_statement: Update ──
 
     #[test]
@@ -1834,6 +2087,13 @@ mod tests {
         let node = storage.get(101).unwrap().unwrap();
         assert!(!node.vector.is_none());
         assert!(node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR));
+        // FIND-485 (review #5): an explicit VECTOR must never carry the
+        // degraded-write mark — absence is the documented "auto-embed skipped".
+        assert!(
+            node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS)
+                .is_none(),
+            "explicit-VECTOR inserts must not be marked"
+        );
     }
 
     #[cfg(feature = "remote-inference")]
