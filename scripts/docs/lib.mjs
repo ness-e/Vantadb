@@ -133,20 +133,38 @@ export function buildTargetSet() {
 /**
  * Parse the leading YAML frontmatter block without a YAML dependency.
  * Handles the subset that is legal in this vault: scalars, inline arrays,
- * block arrays of scalars. Returns { raw, data, body, hadFrontmatter }.
+ * block arrays of scalars. Returns { raw, data, body, hadFrontmatter, end, nl }.
+ *
+ * A UTF-8 BOM is stripped before anything else. Without that, `/^---\r?\n/`
+ * fails on `\uFEFF---` and the file is reported as having no frontmatter — on
+ * 2026-11-23 that made stamp-frontmatter.mjs inject a SECOND block into 15
+ * documents, and hid the H1 (`\uFEFF# Title` never matches `^#`) so the title
+ * fell back to the filename in 16 more. Every caller wants the document, not
+ * its encoding artifact, so the BOM is dropped once here.
+ *
+ * `end` is an index into the ORIGINAL text (BOM included) because callers slice
+ * the original to count lines; `body` is the BOM-free remainder.
  */
 export function parseFrontmatter(text) {
-  if (!/^---\r?\n/.test(text)) {
-    return { raw: null, data: {}, body: text, hadFrontmatter: false, end: 0 };
+  const bom = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  const src = bom ? text.slice(1) : text;
+  if (!/^---\r?\n/.test(src)) {
+    return { raw: null, data: {}, body: src, hadFrontmatter: false, end: 0 };
   }
-  const nl = text[3] === "\r" ? "\r\n" : "\n";
-  const close = text.indexOf(nl + "---" + nl, 3);
-  if (close === -1) {
-    return { raw: null, data: {}, body: text, hadFrontmatter: false, end: 0 };
+  const nl = src[3] === "\r" ? "\r\n" : "\n";
+  let close = src.indexOf(nl + "---" + nl, 3);
+  let end = close === -1 ? -1 : close + (nl + "---" + nl).length;
+  if (close === -1 && src.endsWith(nl + "---")) {
+    // The closing delimiter is the last thing in the file. That is still a block;
+    // reporting "no frontmatter" makes the caller stack a second one on top.
+    close = src.length - 3 - nl.length;
+    end = src.length;
   }
-  const raw = text.slice(text.indexOf(nl) + nl.length, close);
-  const end = close + (nl + "---" + nl).length;
-  return { raw, data: parseYaml(raw), body: text.slice(end), hadFrontmatter: true, end, nl };
+  if (end === -1) {
+    return { raw: null, data: {}, body: src, hadFrontmatter: false, end: 0 };
+  }
+  const raw = src.slice(src.indexOf(nl) + nl.length, close);
+  return { raw, data: parseYaml(raw), body: src.slice(end), hadFrontmatter: true, end: end + bom, nl };
 }
 
 /** Minimal YAML subset parser: `key: value`, `key: [a, b]`, `- item` blocks. */
