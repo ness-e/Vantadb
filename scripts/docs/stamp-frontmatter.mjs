@@ -39,6 +39,8 @@ import {
   readDoc,
   writeDoc,
   isArchive,
+  segment,
+  segmentsRoundTrip,
 } from "./lib.mjs";
 
 const WRITE = process.argv.includes("--write");
@@ -273,6 +275,15 @@ if (process.argv.includes("--self-test")) {
       doc: "---\ntitle: Real title\n---",
       want: { title: "Real title", blankAfterFm: 0 },
     },
+    {
+      // segment() is the OTHER reader of the same file, and the only one whose
+      // output a writer consumes: wikilinks-to-md.mjs writes segments back.
+      // While it looked for `---` at offset 0, a BOM made the whole frontmatter
+      // block "prose" (safe: true) and handed it to the link rewriter.
+      name: "segment(): BOM + frontmatter is a protected block and round-trips",
+      doc: "\uFEFF---\ntitle: Real title\n---\n# Real title\n\nBody.\n",
+      want: { title: "Real title", blankAfterFm: 1, segmentProtectsFrontmatter: true },
+    },
   ];
 
   let bad = 0;
@@ -298,6 +309,14 @@ if (process.argv.includes("--self-test")) {
     if (got.blockEol !== (c.want.blockEol ?? "\n"))
       problems.push(`block newline ${JSON.stringify(got.blockEol)} != ${JSON.stringify(c.want.blockEol ?? "\n")}`);
     if (second.changed || second.text !== first.text) problems.push("second pass is not a no-op");
+    if (c.want.segmentProtectsFrontmatter) {
+      // Segment the INPUT, not the output: the writer drops the BOM, and a reader
+      // only has to be BOM-safe for a file that still carries one.
+      const seg = segment(c.doc).find((s) => s.why === "frontmatter");
+      if (!seg) problems.push("segment() did not protect the frontmatter block");
+      else if (!seg.text.includes("title: Real title")) problems.push("segment() protected the wrong slice");
+      if (!segmentsRoundTrip(c.doc)) problems.push("segment() does not round-trip a BOM document");
+    }
     if (problems.length) bad++;
     console.log(
       `  ${problems.length ? "FAIL" : "ok  "}  ${c.name}${problems.length ? ` — ${problems.join("; ")}` : ""}`,

@@ -226,6 +226,15 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
+      # 2026-11-23: a UTF-8 BOM made parseFrontmatter report "no frontmatter" and
+      # stamp-frontmatter injected a SECOND block — 33 documents damaged and
+      # repaired by hand. The writer's assertions existed but only ran when
+      # someone remembered to invoke them, so the next regression would have
+      # shipped the same way. The self-test covers every reader of the same file:
+      # parseFrontmatter, the compose/recompose path, and segment() (whose output
+      # wikilinks-to-md.mjs writes back).
+      - name: Self-test — stamp-frontmatter (frontmatter reader, writer, segmenter)
+        run: node scripts/docs/stamp-frontmatter.mjs --self-test
       - name: Validate frontmatter against docs/_schema/frontmatter.schema.json
         run: node scripts/docs/check-docs.mjs
       - name: Reduction hints

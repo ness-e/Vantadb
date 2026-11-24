@@ -131,6 +131,21 @@ export function buildTargetSet() {
 // --------------------------------------------------------------- frontmatter
 
 /**
+ * The one BOM normaliser for this module.
+ *
+ * A UTF-8 BOM is an encoding artifact, never document content. Two readers share
+ * this file and both must agree on that: `parseFrontmatter()` learned it on
+ * 2026-11-23 (the day it injected a second block into 15 documents), while
+ * `segment()` stayed blind until FIND-713 — so `\uFEFF---` was a frontmatter
+ * block to one reader and ordinary prose to the other, and the prose one feeds a
+ * writer (`wikilinks-to-md.mjs`). Two copies of `charCodeAt(0) === 0xfeff` is how
+ * the two drift apart again.
+ *
+ * @returns {number} 1 when `text` starts with U+FEFF, else 0.
+ */
+const bomLength = (text) => (text.charCodeAt(0) === 0xfeff ? 1 : 0);
+
+/**
  * Parse the leading YAML frontmatter block without a YAML dependency.
  * Handles the subset that is legal in this vault: scalars, inline arrays,
  * block arrays of scalars. Returns { raw, data, body, hadFrontmatter, end, nl }.
@@ -146,7 +161,7 @@ export function buildTargetSet() {
  * the original to count lines; `body` is the BOM-free remainder.
  */
 export function parseFrontmatter(text) {
-  const bom = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  const bom = bomLength(text);
   const src = bom ? text.slice(1) : text;
   if (!/^---\r?\n/.test(src)) {
     return { raw: null, data: {}, body: src, hadFrontmatter: false, end: 0 };
@@ -471,16 +486,23 @@ export const MD_LINK = /!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
  */
 export function segment(src) {
   const segs = [];
-  let i = 0;
+  // A UTF-8 BOM is emitted as its own protected segment rather than dropped: the
+  // round-trip invariant below must hold for the ORIGINAL bytes, because
+  // wikilinks-to-md.mjs writes the concatenation of segments back to disk. The
+  // walker then starts after it — otherwise `\uFEFF---` never matches `---` and
+  // the whole frontmatter block is handed to that writer as prose.
+  const bom = bomLength(src);
+  if (bom) segs.push({ text: src.slice(0, bom), safe: false, why: "bom" });
+  let i = bom;
   const n = src.length;
 
   // 1. front matter
-  if (src.startsWith("---\n") || src.startsWith("---\r\n")) {
-    const nl = src[3] === "\r" ? "\r\n" : "\n";
-    const end = src.indexOf(nl + "---" + nl, 3);
+  if (src.startsWith("---\n", i) || src.startsWith("---\r\n", i)) {
+    const nl = src[i + 3] === "\r" ? "\r\n" : "\n";
+    const end = src.indexOf(nl + "---" + nl, i + 3);
     const stop = end === -1 ? -1 : end + (nl + "---" + nl).length;
     if (stop !== -1) {
-      segs.push({ text: src.slice(0, stop), safe: false, why: "frontmatter" });
+      segs.push({ text: src.slice(i, stop), safe: false, why: "frontmatter" });
       i = stop;
     }
   }
