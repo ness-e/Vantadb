@@ -910,6 +910,15 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Verificación:** `cargo test -p vantadb-mcp -- --test-threads=2` → todos los targets ok, 0 fallos (lib 52/52, incluido el `vb4_and_vb16` antes vacuo).
 - **Commit:** `61c2be235`
 
+### FIND-700: los 4 jobs de `docs-gates` en rojo al trackearse `docs/`
+- **Fecha:** 2026-11-24 (cierre; medido el 2026-11-23)
+- **Objetivo:** Devolver a verde `Internal links resolve`, `Frontmatter schema` + `kind agreement`, `No credential in published docs` y `Generated indexes are current`, rojos desde que `b0d740e32` empezó a trackear `docs/` (465 ficheros).
+- **Resultado:** ✅ — 42 enlaces rotos → **0** (4 repuntados a la ruta real; 38 retirados porque apuntaban a ficheros que `255db8208` borró a propósito: glosario, `VISION.md`, `verified-numbers.md`, etc., dejando el término como texto); frontmatter 47+24+5 → **0** con `stamp-frontmatter.mjs --fix-kind` (cuerpos intactos, paridad verificada contra `HEAD`); índices regenerados (343→723 entradas, 0 docs perdidos); el único `aws-secret-access-key` era un falso positivo dentro de una URL `file://` (ventana de 40 chars sobre `%20Proyect/…SHOW`), declarado en `scripts/docs/secrets-allowlist.json` con patrón y razón en vez de mutilar la URL.
+- **Corrección de premisa:** la fila afirmaba que `check-links.mjs` no estaba cableado en CI. **Es falso**: el job `docs-links` / `Internal links resolve` existe y es **required** (`.github/workflows/docs-gates.yml:196`). El rojo no era un gate ausente sino deuda heredada que quedó visible al trackear `docs/`.
+- **Verificación:** los cuatro gates ejecutados por mí el 2026-11-24: `check-links` 0 broken, `check-docs` all clear, `check-secrets` 0 errores (4 warnings informativos, presupuesto 28), `gen-index --check` sin stale.
+- **Commit:** `c54165cff`
+- **Derivada:** `FIND-707` (3 bugs de `stamp-frontmatter.mjs` con BOM/CRLF que hubo que reparar a mano en 33 docs).
+
 ### FIND-706: latencia de tools MCP creciente bajo escritura sostenida (y el `exit 255` de `MCP-42`)
 - **Fecha:** 2026-11-23
 - **Objetivo:** Reproducir el `exit 255` del writer directo registrado en `MCP-42` (36 m 37 s) antes de declararlo conocido o bloqueante.
