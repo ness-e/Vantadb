@@ -397,3 +397,11 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 - **Resultado:** ✅
 - **Commit:** `647f4f27c`
 
+
+### Diagnóstico de payloads L1 y enumeración de `MemoryType` (`FIND-259`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** Un registro L1 con `type` inválido quedaba **invisible sin diagnóstico**: el reader lo salteaba con solo `tracing::debug!`, y los 7 valores válidos no estaban enumerados en los docs de API.
+- **Resultado:** ✅ Contador **aditivo** `L1DecodeStats { invalid_type, unparseable }` con `decode_stats()` / `reset_decode_stats()` (dos `AtomicU64`), alimentado desde el brazo `Err(_)` **antes** del fallback `sdk_to_memory_record`, así que la salida del reader es idéntica byte a byte. Distingue `type` inválido (bug de escritura) de payload no parseable (ADR/doc, `FIND-699`). Los 7 valores (`persona | episodic | instruction | work_fact | work_task | work_method | work_artifact`) quedan en `docs/api/VANTA_MEMORY.md` §L1 payload type and decode diagnostics, con un test que cierra con `match` exhaustivo sobre `MemoryType`: un 8.º valor rompe la compilación en vez de separarse del doc.
+- **Verificación:** contrato `-p vantadb --lib -E 'test(l1)'` ✅ · `vanta-memory` 144/144 ✅ · regresión de `FIND-699` (`-p vantadb-mcp -E 'test(memory_put)'`) ✅ · clippy/fmt/docs gates ✅ · review P2-01 `APPROVE` (contexto fresco). Medido y no cambiado: `type:"fact"` vuelve como `episodic` con `content` = payload crudo (invisible para una query sin solape), que es el modo de fallo de la fila.
+- **Commit:** `1f1095769`
+- **Techo documentado:** la ruta opt-in `core_search` (`auto_recall.rs`) no alimenta los contadores; la atribución por namespace tampoco se implementó.
