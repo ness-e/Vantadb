@@ -105,6 +105,10 @@ SDP: `documentation-skill` (mandatory, docs touched), `documentation-and-adrs`,
    To close it: register the domain and point it at the docs, or change
    `vantadb-ts/package.json` `homepage` to `https://github.com/ness-e/Vantadb#readme`.
    Unblock command: `curl -sS -I https://vantadb.dev` returning HTTP 200.
+   **Resolved by the orchestrator (commit `29cbcbcf1`)**: `vantadb-ts/package.json:46`
+   now declares `homepage: "https://github.com/ness-e/Vantadb#readme"` — the same
+   criterion applied here. Only the domain itself and the `security@` alias
+   remain open (see item 2).
 2. **No `security@` alias exists.** The email channel was dropped in favour of
    the GitHub Security Advisories route already declared in both `SECURITY.md`
    files. Creating `security@vantadb.dev` is **pending on the owner** and blocked
@@ -117,6 +121,14 @@ SDP: `documentation-skill` (mandatory, docs touched), `documentation-and-adrs`,
    This is the owner's task per the plan.
 
 ## Deuda
+
+**Rule learned (skills mirror, `FIND-83`):** every edit to
+`skills/vantadb/SKILL.md` must be copied verbatim to
+`.opencode/skills/vantadb/SKILL.md` **in the same commit**, and
+`scripts/validate-docs-coverage.ps1` must run before closing. The `1.94.1` →
+`1.95.0` fix left the mirror hash divergent and the gate at **1 gap**
+("skills mirror 1/10 drift"); the orchestrator resynced the mirror and the gate
+is back to **0 gaps**. Same rule applies to any other mirrored skill file.
 
 `check-msrv-claim.mjs` (proposed, not implemented — out of scope): a docs gate
 that reads `rust-version` from `Cargo.toml` and fails when any tracked `.md`

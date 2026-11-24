@@ -6,9 +6,12 @@
   "total": 46,
   "consecutiveFails": 0,
   "failMode": "parallel",
-  "inProgress": null,
+  "inProgress": "F0.2",
   "phase": "F0",
-  "running": {},
+  "running": {
+    "F0.1": "ses_df10ad82affeak3bq7JYKL4yY1 (vanta-lead) - CI Rust verdict + TSan diagnosis + close FIND-701/702",
+    "F0.3": "ses_df10ad829ffe9fX79MX9qhoxGr (vanta-docs) - npm metadata, personal email, MSRV claims, vantadb.dev"
+  },
   "completed": {
     "FIND-700": "c54165cff - 4 docs gates green",
     "FIND-699": "61c2be235 - L1 envelope contract",
@@ -17,11 +20,16 @@
     "FIND-705": "5a669a186 + 11abb6e54 - MSRV 1.95.0",
     "FIND-709": "9dab5093b - release matrix 5 targets"
   },
+  "ciSnapshot": {
+    "sha": "8d355e2df",
+    "run": 45456649424,
+    "green": ["MSRV Check (1.95.0)", "Clippy", "Format", "Security Audit", "OSV", "Tests Linux", "Tests macOS", "ASan", "Miri", "Coverage", "embed-local", "remote-inference", "Experimental Crates", "Release Combo", "GATES: Docs", "CI: Fleet", "CERT", "OPS", "Demo"],
+    "red": ["TSan 4/4 partitions"],
+    "inProgress": ["Tests (Windows)"]
+  },
   "next": {
-    "F0.1": "CI: Rust verdict on 8d355e2df closes FIND-701/702 (vanta-lead, passive)",
-    "F0.2": "rebuild vantadb-server embed-local + re-pin sha (vanta-worker)",
-    "F0.3": "publication hygiene: node metadata, personal email, rustls, Notion claim, vantadb.dev (vanta-docs + vanta-lead)",
-    "F0.4": "bump Formula + release-manifest to 0.10.0 (vanta-lead, local only)",
+    "F0.2": "rebuild vantadb-server embed-local + re-pin sha (vanta-worker, after F0.3)",
+    "F0.4": "bump Formula + release-manifest to 0.10.0 (vanta-lead, after F0.3)",
     "F0.5": "BLOCKED ON OWNER OK - dispatch release-binaries 5 targets + 4 sha256",
     "F0.6": "BLOCKED ON OWNER OK - release-plz PR, verify-release -Smoke, sync develop<-main"
   },
@@ -35,5 +43,5 @@
     "mergeToMain": false,
     "destructive": false
   },
-  "lastSync": "2026-11-24T13:10:00Z"
+  "lastSync": "2026-11-24T18:45:00Z"
 }
