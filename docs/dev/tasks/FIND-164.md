@@ -41,7 +41,7 @@ tags: [harness, gates, nextest, docs]
 
 ```
 rg -n 'cargo (nextest|test)' .opencode/agents .opencode/task-system .opencode/skills "$HOME/.agents/skills/unified-review" \
-  --glob '!task-system/memory/**' \
+  --glob '!**/task-system/memory/**' \
   | rg -v -- '-p |--workspace|# tier|cierre'
 ```
 → **0 líneas**.
@@ -95,7 +95,7 @@ Comando del gate (idéntico al contrato de este task, con la exclusión de `memo
 
 ```powershell
 $hits = rg -n 'cargo (nextest|test)' .opencode/agents .opencode/task-system .opencode/skills `
-  --glob '!task-system/memory/**' | rg -v -- '-p |--workspace|# tier|cierre'
+  --glob '!**/task-system/memory/**' | rg -v -- '-p |--workspace|# tier|cierre'
 if ($hits) { $hits; exit 1 }
 ```
 
