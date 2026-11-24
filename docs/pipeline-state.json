@@ -1,23 +1,27 @@
 {
   "plan": "docs/dev/plans/2026-11-23-release-v0.10.0-gates.md",
-  "totalCompleted": 3,
+  "totalCompleted": 4,
   "totalFailed": 0,
-  "total": 4,
+  "total": 5,
   "consecutiveFails": 0,
   "failMode": "parallel",
   "inProgress": null,
-  "paused": null,
-  "tasks": {
-    "FIND-485": "pending",
-    "FIND-701": "blocked-owner-push",
-    "FIND-709": "pending-release-dispatch"
-  },
+  "running": {},
   "completed": {
-    "FIND-700": "c54165cff",
-    "FIND-699": "61c2be235",
-    "FIND-702": "a78e36ed2",
-    "FIND-705": "5a669a186"
+    "FIND-700": "4 gates exit 0 (2026-11-24); fila ya no estaba en el Backlog (retirada en f93426479)",
+    "FIND-699": "61c2be235 + cierre en 056e78052",
+    "FIND-707": "51c038efd — stamper BOM/CRLF-safe; self-test 6/6, 4 gates exit 0",
+    "FIND-485": "d0df55c2b — marca __vanta_embed_status; contrato 9/9 verificado por el orquestador"
   },
-  "lastSync": "2026-11-24T01:45:00Z",
-  "reconciledBy": "orchestrator (unificación de planes 2026-11-24)"
+  "blocked": {
+    "FIND-701": "CI real rojo: MSRV 1.94.1 vs deps 1.95.0; decision owner tomada (bump 1.95.0), requiere push",
+    "FIND-702": "espera pasada real de CI verde (requiere push del owner)"
+  },
+  "findings_pendientes_de_fila": [
+    "politica de vector sintetico no unificada: INSERT lo descarta, INSERT MESSAGE lo conserva y marca",
+    "apply_explicit_vector no borra FIELD_EMBED_STATUS: un UPDATE ... SET VECTOR deja la marca obsoleta",
+    "opcional: exponer degraded: bool en ExecutionResult::Write",
+    "segment() de stamp-frontmatter sigue BOM-ciego y --self-test no esta cableado en docs-gates.yml"
+  ],
+  "lastSync": "2026-11-24T11:40:00Z"
 }

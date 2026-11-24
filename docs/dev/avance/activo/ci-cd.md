@@ -834,3 +834,9 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Objetivo:** Suprimir el trigger `push.tags: ["v*.*.*"]` en `.github/workflows/release-npm-wasm.yml` para evitar carrera TOCTOU con el fan-out de `release.yml`; completar `--locked` en `release-binaries.yml` y `ci-fleet.yml`; añadir exclusiones de artefactos temporales en `.gitignore`.
 - **Resultado:** ✅ `RELEASE_PLZ_TOKEN` y retira de guards confirmados en `release.yml`, trigger duplicado retirado en `release-npm-wasm.yml`, y `--locked` aplicado en steps Cargo restantes. Adicionalmente verificado `FIND-489` (`test-embedding-features` activo en `ci-rust.yml:433`).
 - **Commit:** `799f4a187`
+
+### Cierre stamper de frontmatter BOM/CRLF (FIND-707)
+- **Fecha:** 2026-11-24
+- **Objetivo:** Que volver a correr `scripts/docs/stamp-frontmatter.mjs` nunca inyecte un segundo bloque de frontmatter, ni deje una linea en blanco antes del H1, ni derive el `title` del nombre de fichero. Causa raiz doble en el punto compartido: `parseFrontmatter` (`scripts/docs/lib.mjs`) no toleraba BOM (`hadFrontmatter:false` falso) ni un bloque cerrado al final sin salto, y el escritor recomponia con `/^\n+/` dejando el `\r` atras. Un solo fix en el parser cura a los 5 consumidores (`check-docs`, `check-links`, `gen-index`, `check-doc-examples`, `stamp-frontmatter`).
+- **Resultado:** ✅ Verificado: `--self-test` 6/6 con 3 casos de dano; 3 mutantes (sin strip de BOM, `/^\n+/` restaurado, LF sobre CRLF) devuelven exit 1; idempotencia `--write` -> 777 unchanged con SHA256 identicos; `check-links`/`check-docs`/`check-secrets`/`check-doc-examples` en 0. Corpus reparado a mano (33 ficheros) sin reescritura masiva.
+- **Commit:** `51c038efd`

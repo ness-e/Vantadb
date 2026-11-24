@@ -1629,3 +1629,9 @@ el propio SDK ya usa— los arregla a los tres.
 - **Objetivo:** Retirar de `docs/dev/Backlog.md` las filas ya entregadas en `HEAD` (`FIND-597`/`606` presupuesto RAM/RocksDB en `204e94217`; `FIND-603`/`484` TUI `Option<usize>` + notices en `975d3b648`; `FIND-635..637` purga tablas/rotate/enmienda ADR-0057 en `f6e429db3` + `292b27d25`; `FIND-642`/`643` ONNX RAM governor e ISA/SIGILL gate en `0e6c76d96`; `FIND-520` en `884363b5a`), manteniendo **`FIND-607`** como **`🟡 Parcial`** verificada.
 - **Resultado:** ✅ Símbolos y contratos verificados en `HEAD` y registrados en `2026-11-07-consolidacion-tecnica-pre-v0100.md`.
 - **Commit:** `204e94217`, `975d3b648`, `f6e429db3`, `292b27d25`, `0e6c76d96`, `884363b5a`
+
+### Cierre INSERT sin vector silencioso (FIND-485)
+- **Fecha:** 2026-11-24
+- **Objetivo:** Que un `INSERT` con `text` y provider de embeddings caido, sintetico o ausente no degrade en silencio: el nodo se persiste sin vector y con el campo relacional `__vanta_embed_status` (`failed` / `synthetic` / `unavailable`), legible con `vanta-cli query ... --json`. Mismo tratamiento en `INSERT MESSAGE`; el `VECTOR` explicito queda intacto.
+- **Resultado:** ✅ Verificado: contrato `--profile audit -p vantadb --features remote-inference -E 'test(auto_embed)'` 9/9; default features 2/2 (brazo `unavailable`); `remote-inference,embed-local` 1/1 (sintetico); regresion `test(serialization|export|import|message)` 324/324; clippy `-D warnings` limpio en 3 configs; fmt limpio. Review P2-01 adversarial (`vanta-review`, contexto distinto): 2 pasadas `changes-required` (cazo un critico real: el crate no compilaba sin `remote-inference`, E0425) y la 3a `approve`. Sin `VantaError` nuevo ni firmas cambiadas.
+- **Commit:** `d0df55c2b`
