@@ -241,7 +241,7 @@ No es feature-add: no agrega símbolos públicos, endpoints, tools ni bindings (
 - El binario declara `vantadb-server 0.9.0` (la versión del workspace la sube release‑plz en F0.4/PR; no se toca `Cargo.toml`).
 - `--locked` se mantiene: el lock actual resuelve; no hizo falta el fallback sin `--locked`.
 - `ponytail:` no se dejó ninguna simplificación con techo conocido; el cambio es de 4 citas + 1 entrada.
-- **Corrección de la premisa del plan (para el orquestador):** la fila F0.2 de `docs/dev/plans/2026-11-23-release-v0.10.0-gates.md:145` afirma que `2d1d2e87` es anterior a `FIND-699`/`703`/`485`; `FIND-703` (`3b6f389a3`, 15:17) ya estaba incluido en el binario. El plan lo posee el orquestador y no se tocó acá.
+- **Corrección de la premisa del plan:** la fila F0.2 de `docs/dev/plans/2026-11-23-release-v0.10.0-gates.md:145` afirmaba que `2d1d2e87` era anterior a `FIND-699`/`703`/`485`; `FIND-703` (`3b6f389a3`, 15:17) ya estaba incluido en el binario. **Ya corregido por el orquestador en `aebc68dab`**, que además registró el pin nuevo en esa fila.
 
 ## Context Save Point (2026-11-24T18:20)
 
