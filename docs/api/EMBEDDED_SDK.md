@@ -777,6 +777,7 @@ pub enum QueryResult {
         affected_nodes: u64,
         message: String,
         node_id: Option<u128>,
+        degraded: bool,
     },
     StaleContext {
         node_id: u128,

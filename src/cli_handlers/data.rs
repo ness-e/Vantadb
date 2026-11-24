@@ -392,6 +392,7 @@ pub fn cmd_query(
             affected_nodes,
             message,
             node_id,
+            degraded,
         } => {
             if json_output {
                 return print_json(&serde_json::json!({
@@ -399,6 +400,7 @@ pub fn cmd_query(
                     "message": message,
                     "affected_nodes": affected_nodes,
                     "node_id": node_id.map(|id| id.to_string()),
+                    "degraded": degraded,
                 }));
             }
             print_success(&format!("{} ({} nodes affected)", message, affected_nodes));

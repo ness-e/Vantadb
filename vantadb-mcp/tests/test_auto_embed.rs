@@ -60,6 +60,18 @@ fn put_sin_vector_lleva_flag_y_nunca_error_duro() {
         let w = val["warning"].as_str().unwrap_or("");
         assert!(!w.is_empty(), "fallback:true exige 'warning', got: {text}");
     }
+    // FIND-712 (review M-04): `degraded` es el vocabulario compartido con
+    // `ExecutionResult::Write`; `fallback` se conserva por compatibilidad y
+    // ambos deben decir lo mismo en toda configuracion.
+    let degraded = val
+        .get("degraded")
+        .and_then(Value::as_bool)
+        .unwrap_or_else(|| panic!("put debe incluir 'degraded' bool, got: {text}"));
+    assert_eq!(
+        degraded,
+        val["fallback"].as_bool().unwrap_or(false),
+        "degraded y fallback son el mismo hecho, got: {text}"
+    );
     // El record existe vía get en ambos caminos.
     let executor = vantadb::executor::Executor::new(&storage);
     let get = Some(json!({
@@ -105,6 +117,11 @@ fn put_vector_provisto_se_respeta_byte_exact() {
     assert!(
         val.get("warning").is_none() || val["warning"].is_null(),
         "fallback:false no trae warning, got: {text}"
+    );
+    // FIND-712: con vector provisto no hay degradacion que reportar.
+    assert_eq!(
+        val["degraded"], false,
+        "vector provisto => degraded:false, got: {text}"
     );
     // Get devuelve EXACTAMENTE lo provisto: prueba de no-re-embed.
     let stored = get_vector(&storage, "emb14_keep", "mine");

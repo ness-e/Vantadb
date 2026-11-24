@@ -67,13 +67,17 @@ pub const SPARSE_VECTOR_EXT_KEY: &str = "__vanta_sparse_vector";
 /// all of them); the error detail stays in the adjacent `tracing::warn!`.
 /// It is listed in `RESERVED_FIELDS`, so the SDK memory API keeps it out of
 /// `MemoryRecord.metadata`.
+///
+/// Applying an explicit `VECTOR` clears it (FIND-711): a node that now has a
+/// valid vector must not keep a stale degradation mark.
 pub const FIELD_EMBED_STATUS: &str = "__vanta_embed_status";
 /// FIND-485: [`FIELD_EMBED_STATUS`] value — the provider returned an error.
 #[cfg(feature = "remote-inference")]
 pub const EMBED_STATUS_FAILED: &str = "failed";
-/// FIND-485: [`FIELD_EMBED_STATUS`] value — the provider has no real model
-/// session, so the vector it produced is not semantic. `INSERT` drops it;
-/// `INSERT MESSAGE` keeps it (see `auto_embed_message`) and marks it.
+/// FIND-485: [`FIELD_EMBED_STATUS`] value - the provider has no real model
+/// session, so the vector it produced is not semantic. Both write paths
+/// (`INSERT` and `INSERT MESSAGE`) **drop** it and mark the record
+/// (FIND-710: one policy, not two).
 #[cfg(feature = "remote-inference")]
 pub const EMBED_STATUS_SYNTHETIC: &str = "synthetic";
 /// FIND-485: [`FIELD_EMBED_STATUS`] value — the build has no `remote-inference`

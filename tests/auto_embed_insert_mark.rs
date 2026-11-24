@@ -57,6 +57,9 @@ fn auto_embed_insert_mark_visible_via_cli() {
     );
     assert_eq!(write["mode"], serde_json::json!("write"), "{write}");
     assert_eq!(write["node_id"], serde_json::json!("1"), "{write}");
+    // FIND-712: the degradation is reported by the write itself, not only by
+    // the record someone has to read back afterwards.
+    assert_eq!(write["degraded"], serde_json::json!(true), "{write}");
 
     // Act 2: read it back through the CLI's JSON surface.
     let read = query(dir.path(), &db, "FROM Note", &no_model);

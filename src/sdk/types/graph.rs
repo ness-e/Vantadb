@@ -32,6 +32,13 @@ pub enum QueryResult {
             deserialize_with = "u128_serde::deserialize_opt"
         )]
         node_id: Option<u128>,
+        /// `true` when the write succeeded but the automatic embedding
+        /// degraded (the record was stored without a semantic vector).
+        ///
+        /// `default` keeps older payloads readable (FIND-712: additive field,
+        /// not a breaking change for the bindings).
+        #[serde(default)]
+        degraded: bool,
     },
     /// Query detected stale context for the given node.
     StaleContext {
@@ -63,12 +70,14 @@ mod tests {
             affected_nodes: 1,
             message: "created".into(),
             node_id: Some(42),
+            degraded: false,
         };
         match result {
             QueryResult::Write {
                 affected_nodes,
                 message,
                 node_id,
+                ..
             } => {
                 assert_eq!(affected_nodes, 1);
                 assert_eq!(message, "created");
@@ -104,6 +113,7 @@ mod tests {
             affected_nodes: 3,
             message: "done".into(),
             node_id: None,
+            degraded: false,
         };
         let cloned = r.clone();
         assert_eq!(r, cloned);
@@ -115,6 +125,7 @@ mod tests {
             affected_nodes: 1,
             message: "ok".into(),
             node_id: Some(7),
+            degraded: false,
         };
         let dbg = format!("{:?}", r);
         assert!(dbg.contains("Write") || dbg.contains("affected_nodes"));

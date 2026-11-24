@@ -33,6 +33,11 @@ pub enum ExecutionResult {
         message: String,
         /// Optional primary node ID involved.
         node_id: Option<u128>,
+        /// FIND-712: `true` when the write succeeded but the automatic
+        /// embedding degraded, so the record was stored without a semantic
+        /// vector (the record itself carries `__vanta_embed_status` saying
+        /// why). `false` for explicit `VECTOR`, no `text`, or a real embed.
+        degraded: bool,
     },
     /// Signal that a context requires rehydration (low confidence score).
     StaleContext(u128),
@@ -454,19 +459,28 @@ impl<'a> Executor<'a> {
         node.tier = crate::node::NodeTier::Hot;
         node.set_field("type", crate::node::FieldValue::String(node_type));
 
-        // Copy all provided fields
+        // Copy all provided fields. `__vanta_embed_status` is executor-owned:
+        // a caller that supplies it (an export→re-INSERT replay, say) must not
+        // be able to manufacture — or erase — a degradation (FIND-710 M-06).
         for (k, v) in fields.clone() {
+            if k == FIELD_EMBED_STATUS {
+                continue;
+            }
             node.set_field(&k, v);
         }
 
         self.auto_embed_insert(&mut node, &vector, &fields, node_id);
         Self::apply_explicit_vector(&mut node, vector);
+        // FIND-712: the mark is the single source of truth for "this write
+        // degraded" — absent means a vector was produced (or never attempted).
+        let degraded = node.get_field(FIELD_EMBED_STATUS).is_some();
 
         self.storage.insert(&node)?;
         Ok(ExecutionResult::Write {
             affected_nodes: 1,
             message: format!("Node {node_id} inserted."),
             node_id: Some(node_id),
+            degraded,
         })
     }
 
@@ -563,6 +577,10 @@ impl<'a> Executor<'a> {
         if let Some(vec) = vector {
             node.vector = VectorRepresentations::Full(vec);
             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+            // FIND-711: a valid explicit vector supersedes an earlier
+            // degradation. Keeping `failed`/`synthetic` on a node that now has
+            // a vector makes the diagnosis lie about the data.
+            node.relational.remove(FIELD_EMBED_STATUS);
         }
     }
 
@@ -579,6 +597,11 @@ impl<'a> Executor<'a> {
             }
         };
         for (k, v) in update.fields {
+            // Same ownership rule as INSERT: the degradation mark describes
+            // what the executor did, never what the caller claims.
+            if k == FIELD_EMBED_STATUS {
+                continue;
+            }
             node.set_field(k, v);
         }
         Self::apply_explicit_vector(&mut node, update.vector);
@@ -588,6 +611,7 @@ impl<'a> Executor<'a> {
             affected_nodes: 1,
             message: format!("Node {} updated.", node.id),
             node_id: Some(node.id),
+            degraded: false,
         })
     }
 
@@ -599,6 +623,7 @@ impl<'a> Executor<'a> {
             affected_nodes: 1,
             message: format!("Node {} deleted.", delete.node_id),
             node_id: Some(delete.node_id),
+            degraded: false,
         })
     }
 
@@ -644,6 +669,7 @@ impl<'a> Executor<'a> {
                 relate.source_id, relate.target_id
             ),
             node_id: Some(relate.source_id),
+            degraded: false,
         })
     }
 
@@ -685,6 +711,7 @@ impl<'a> Executor<'a> {
                 msg.thread_id
             ),
             node_id: Some(msg_id),
+            degraded: node.get_field(FIELD_EMBED_STATUS).is_some(),
         })
     }
 
@@ -696,21 +723,22 @@ impl<'a> Executor<'a> {
             let provider_is_synthetic = provider.is_synthetic();
             match provider.embed(content) {
                 Ok(vec) => {
-                    node.vector = VectorRepresentations::Full(vec);
-                    node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                     if provider_is_synthetic {
-                        // FIND-485 (review #1): this path **keeps** the synthetic
-                        // vector, unlike `auto_embed_insert`, which drops it
-                        // (FIND-681/FIND-703). Marking it is the honest minimum:
-                        // without it the reader cannot tell a semantic vector from
-                        // a deterministic placeholder. Aligning the two paths is a
-                        // separate change (vector policy, not the mark).
+                        // FIND-710: one policy for both write paths — a synthetic
+                        // vector would pollute the index with false neighbours, so
+                        // it is DROPPED (as `auto_embed_insert` does) and the record
+                        // says why. The previous divergence (keep + mark) gave the
+                        // same event two different answers depending on the syntax.
                         tracing::warn!(
                             "Auto-embedding for InsertMessage {node_id} produced a synthetic \
-                             vector (local ONNX session unavailable): the message is stored with a \
-                             NON-semantic vector ({FIELD_EMBED_STATUS}={EMBED_STATUS_SYNTHETIC})"
+                             vector (local ONNX session unavailable): the message is stored \
+                             WITHOUT a vector ({FIELD_EMBED_STATUS}={EMBED_STATUS_SYNTHETIC}) — \
+                             a synthetic vector would pollute the index with false neighbours"
                         );
                         Self::mark_embed_status(node, EMBED_STATUS_SYNTHETIC);
+                    } else {
+                        node.vector = VectorRepresentations::Full(vec);
+                        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                     }
                 }
                 Err(e) => {
@@ -1587,6 +1615,7 @@ mod tests {
                 affected_nodes,
                 message,
                 node_id,
+                ..
             } => {
                 assert_eq!(affected_nodes, 1);
                 assert_eq!(node_id, Some(10));
@@ -1779,50 +1808,233 @@ mod tests {
         );
     }
 
-    /// FIND-485 (review #4): on `INSERT MESSAGE` a **synthetic** vector is kept
-    /// (unlike `INSERT`, which drops it) — the mark is what keeps it honest.
+    /// FIND-710: **one** policy for both write paths. Under the same synthetic
+    /// provider, `INSERT` and `INSERT MESSAGE` must agree on both halves of the
+    /// event: no vector (`HAS_VECTOR` clear) and the same mark (`synthetic`).
+    /// The previous split (INSERT drops / INSERT MESSAGE keeps) answered the
+    /// same question two ways depending on the syntax, and the kept vector sat
+    /// in the index as a false neighbour.
     #[test]
     #[cfg(all(feature = "remote-inference", feature = "embed-local"))]
     #[serial_test::serial]
-    fn auto_embed_message_marks_synthetic_vector() {
+    fn synthetic_vector_policy_is_uniform_across_write_paths() {
         let dir = tempdir().unwrap();
         let no_model = dir.path().join("no-such-model");
         let no_model = no_model.to_str().expect("temp dir path is utf-8");
         let _p = ProviderEnvGuard::set("VANTADB_EMBEDDING_PROVIDER", "local");
         let _m = ProviderEnvGuard::set("VANTADB_LOCAL_MODEL", no_model);
         let _o = ProviderEnvGuard::set("ORT_DYLIB_PATH", no_model);
-        // strict OFF → the fallback provider is allowed to answer with the
-        // deterministic (non-semantic) vector, which is the case under test.
+        // strict OFF: the fallback provider may answer with the deterministic
+        // (non-semantic) vector - the case under test.
         let _s = ProviderEnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "0");
 
         let storage =
             StorageEngine::open(dir.path().join("db").to_str().unwrap()).expect("open storage");
         let ex = Executor::new(&storage);
 
-        let result = ex
+        // Act 1: INSERT with `text` and no VECTOR.
+        let mut fields = BTreeMap::new();
+        fields.insert("text".into(), FieldValue::String("hola mundo".into()));
+        let insert = ex
+            .execute_statement(Statement::Insert(InsertStatement {
+                node_id: 710,
+                node_type: "Note".into(),
+                fields,
+                vector: None,
+            }))
+            .expect("INSERT must not fail when a synthetic provider answers");
+
+        // Act 2: INSERT MESSAGE, same provider, same sentence.
+        let message = ex
             .execute_statement(Statement::InsertMessage(InsertMessageStatement {
-                thread_id: 486,
+                thread_id: 710,
                 msg_role: "user".into(),
                 content: "hola mundo".into(),
             }))
-            .expect("INSERT MESSAGE must not fail when a dummy provider is allowed");
+            .expect("INSERT MESSAGE must not fail when a synthetic provider answers");
+
+        let ExecutionResult::Write {
+            degraded: insert_degraded,
+            ..
+        } = insert
+        else {
+            panic!("expected a Write result from INSERT");
+        };
         let ExecutionResult::Write {
             node_id: Some(msg_id),
+            degraded: message_degraded,
             ..
-        } = result
+        } = message
         else {
             panic!("expected a Write result with the message id");
         };
 
-        let node = storage.get(msg_id).unwrap().expect("message persisted");
-        assert!(
-            node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR),
-            "this path keeps the vector (documented divergence from INSERT)"
-        );
+        let inserted = storage.get(710).unwrap().expect("insert persisted");
+        let msg_node = storage.get(msg_id).unwrap().expect("message persisted");
+
+        for (label, node, degraded) in [
+            ("INSERT", &inserted, insert_degraded),
+            ("INSERT MESSAGE", &msg_node, message_degraded),
+        ] {
+            assert!(
+                !node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR),
+                "{label}: a synthetic vector must not enter the index"
+            );
+            assert!(
+                node.vector.is_none(),
+                "{label}: no vector may be stored for a synthetic embed"
+            );
+            assert_eq!(
+                node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS),
+                Some(&FieldValue::String("synthetic".into())),
+                "{label}: the record must say why it has no vector"
+            );
+            assert!(degraded, "{label}: the write must report degraded");
+        }
+    }
+
+    /// FIND-711: a node stored with `__vanta_embed_status = "failed"` that later
+    /// receives an explicit vector must lose the mark. Keeping it would make the
+    /// record claim "no vector" while a valid one is stored.
+    #[test]
+    #[cfg(feature = "remote-inference")]
+    #[serial_test::serial]
+    fn explicit_vector_clears_stale_embed_status() {
+        // Arrange: a provider that fails by construction, so the first write
+        // degrades and gets marked `failed`.
+        let dir = tempdir().unwrap();
+        let no_model = dir.path().join("no-such-model");
+        let no_model = no_model.to_str().expect("temp dir path is utf-8");
+        let _p = ProviderEnvGuard::set("VANTADB_EMBEDDING_PROVIDER", "bogus-find485");
+        let _m = ProviderEnvGuard::set("VANTADB_LOCAL_MODEL", no_model);
+        let _o = ProviderEnvGuard::set("ORT_DYLIB_PATH", no_model);
+        let _s = ProviderEnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "1");
+
+        let storage =
+            StorageEngine::open(dir.path().join("db").to_str().unwrap()).expect("open storage");
+        let ex = Executor::new(&storage);
+
+        let mut fields = BTreeMap::new();
+        fields.insert("text".into(), FieldValue::String("hola mundo".into()));
+        ex.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 711,
+            node_type: "Note".into(),
+            fields,
+            vector: None,
+        }))
+        .expect("INSERT must degrade, not fail");
         assert_eq!(
-            node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS),
-            Some(&FieldValue::String("synthetic".into())),
-            "a kept non-semantic vector must be labelled as such"
+            storage
+                .get(711)
+                .unwrap()
+                .expect("node persisted")
+                .get_field(crate::sdk::serialization::FIELD_EMBED_STATUS),
+            Some(&FieldValue::String("failed".into())),
+            "precondition: the degraded write is marked"
+        );
+
+        // Act: give it a real vector.
+        ex.execute_statement(Statement::Update(UpdateStatement {
+            node_id: 711,
+            fields: BTreeMap::new(),
+            vector: Some(vec![0.5, 0.25, 0.125]),
+        }))
+        .expect("UPDATE SET VECTOR must succeed");
+
+        // Assert: vector present, mark gone.
+        let node = storage.get(711).unwrap().expect("node persisted");
+        assert!(node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR));
+        assert_eq!(node.vector.dimensions(), 3);
+        assert!(
+            node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS)
+                .is_none(),
+            "a valid vector invalidates a stale degradation mark"
+        );
+    }
+
+    /// FIND-712: `Write.degraded` is the machine-readable surface of the same
+    /// fact the field records - `true` when auto-embedding degraded, `false`
+    /// when a vector was produced (here: provided explicitly).
+    #[test]
+    #[cfg(feature = "remote-inference")]
+    #[serial_test::serial]
+    fn write_result_reports_degraded() {
+        let dir = tempdir().unwrap();
+        let no_model = dir.path().join("no-such-model");
+        let no_model = no_model.to_str().expect("temp dir path is utf-8");
+        let _p = ProviderEnvGuard::set("VANTADB_EMBEDDING_PROVIDER", "bogus-find485");
+        let _m = ProviderEnvGuard::set("VANTADB_LOCAL_MODEL", no_model);
+        let _o = ProviderEnvGuard::set("ORT_DYLIB_PATH", no_model);
+        let _s = ProviderEnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "1");
+
+        let storage =
+            StorageEngine::open(dir.path().join("db").to_str().unwrap()).expect("open storage");
+        let ex = Executor::new(&storage);
+
+        // Degraded: `text`, no vector, provider down.
+        let mut fields = BTreeMap::new();
+        fields.insert("text".into(), FieldValue::String("hola mundo".into()));
+        let degraded = ex
+            .execute_statement(Statement::Insert(InsertStatement {
+                node_id: 712,
+                node_type: "Note".into(),
+                fields,
+                vector: None,
+            }))
+            .expect("INSERT must degrade, not fail");
+        let ExecutionResult::Write { degraded: d, .. } = degraded else {
+            panic!("expected Write");
+        };
+        assert!(d, "a degraded embed must be reported as degraded");
+
+        // Not degraded: explicit vector, provider never consulted.
+        let mut fields = BTreeMap::new();
+        fields.insert("text".into(), FieldValue::String("hola mundo".into()));
+        let explicit = ex
+            .execute_statement(Statement::Insert(InsertStatement {
+                node_id: 713,
+                node_type: "Note".into(),
+                fields,
+                vector: Some(vec![0.1, 0.2]),
+            }))
+            .expect("explicit-vector INSERT");
+        let ExecutionResult::Write { degraded: d, .. } = explicit else {
+            panic!("expected Write");
+        };
+        assert!(!d, "an explicit vector is not a degradation");
+    }
+
+    /// FIND-710 (review M-06): the reserved key is executor-owned. A caller
+    /// that replays an exported record (`__vanta_embed_status: "failed"`) must
+    /// not be able to manufacture a degradation the executor never hit.
+    #[test]
+    fn caller_supplied_embed_status_is_ignored() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        let mut fields = BTreeMap::new();
+        fields.insert(
+            crate::sdk::serialization::FIELD_EMBED_STATUS.into(),
+            FieldValue::String("failed".into()),
+        );
+        let result = ex
+            .execute_statement(Statement::Insert(InsertStatement {
+                node_id: 714,
+                node_type: "Note".into(),
+                fields,
+                vector: None,
+            }))
+            .expect("INSERT");
+        let ExecutionResult::Write { degraded, .. } = result else {
+            panic!("expected Write");
+        };
+        assert!(!degraded, "a caller-supplied mark is not a degradation");
+
+        let node = storage.get(714).unwrap().expect("node persisted");
+        assert!(
+            node.get_field(crate::sdk::serialization::FIELD_EMBED_STATUS)
+                .is_none(),
+            "the reserved mark must never come from caller fields"
         );
     }
 
@@ -2280,6 +2492,7 @@ mod tests {
                 affected_nodes,
                 message,
                 node_id,
+                ..
             } => {
                 assert_eq!(affected_nodes, 2);
                 assert!(message.contains("inserted"));

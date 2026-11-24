@@ -2076,6 +2076,7 @@ pub const vantadb::config::MAX_F32_VEC_LEN: usize
 pub const vantadb::config::MAX_K: usize
 pub const vantadb::config::MAX_VEC_DIM: usize
 pub fn vantadb::config::parse_memory_limit(&str) -> core::result::Result<u64, alloc::string::String>
+pub fn vantadb::config::resolve_local_model_path(&str) -> std::path::PathBuf
 pub type vantadb::config::GroupCommitConfig = vantadb::config::InsertBatchConfig
 pub type vantadb::config::RbacConfig = vantadb::config::RbacCfg
 pub type vantadb::config::StorageConfig = vantadb::config::StorageCfg
@@ -2937,6 +2938,7 @@ pub vantadb::executor::ExecutionResult::Read(alloc::vec::Vec<vantadb::UnifiedNod
 pub vantadb::executor::ExecutionResult::StaleContext(u128)
 pub vantadb::executor::ExecutionResult::Write
 pub vantadb::executor::ExecutionResult::Write::affected_nodes: usize
+pub vantadb::executor::ExecutionResult::Write::degraded: bool
 pub vantadb::executor::ExecutionResult::Write::message: alloc::string::String
 pub vantadb::executor::ExecutionResult::Write::node_id: core::option::Option<u128>
 impl core::convert::From<vantadb::executor::ExecutionResult> for vantadb::QueryResult
@@ -5772,6 +5774,7 @@ pub vantadb::sdk::QueryResult::StaleContext
 pub vantadb::sdk::QueryResult::StaleContext::node_id: u128
 pub vantadb::sdk::QueryResult::Write
 pub vantadb::sdk::QueryResult::Write::affected_nodes: usize
+pub vantadb::sdk::QueryResult::Write::degraded: bool
 pub vantadb::sdk::QueryResult::Write::message: alloc::string::String
 pub vantadb::sdk::QueryResult::Write::node_id: core::option::Option<u128>
 impl core::clone::Clone for vantadb::QueryResult
@@ -9266,6 +9269,7 @@ pub vantadb::QueryResult::StaleContext
 pub vantadb::QueryResult::StaleContext::node_id: u128
 pub vantadb::QueryResult::Write
 pub vantadb::QueryResult::Write::affected_nodes: usize
+pub vantadb::QueryResult::Write::degraded: bool
 pub vantadb::QueryResult::Write::message: alloc::string::String
 pub vantadb::QueryResult::Write::node_id: core::option::Option<u128>
 impl core::clone::Clone for vantadb::QueryResult

@@ -8,4 +8,5 @@ Write {
     node_id: Some(
         1005,
     ),
+    degraded: false,
 }

@@ -2210,7 +2210,8 @@ impl Client {
     /// - ``{"kind": "read", "nodes": [{"id": str, "tier": str,
     ///   "confidence": float, "hits": int}, ...]}`` for ``SELECT``-style reads.
     /// - ``{"kind": "write", "affected_nodes": int, "message": str,
-    ///   "node_id": str | None}`` for writes.
+    ///   "node_id": str | None, "degraded": bool}`` for writes (``degraded``
+    ///   is ``true`` when auto-embedding degraded, FIND-712).
     /// - ``{"kind": "stale_context", "node_id": str}`` when rehydration is needed.
     ///
     /// ``u128`` node ids are returned as strings to avoid precision loss.

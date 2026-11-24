@@ -371,9 +371,14 @@ enumerate degraded nodes by reading the field (full scan) rather than filtering;
 and it is listed in `RESERVED_FIELDS`, so the SDK memory API keeps it out of
 `MemoryRecord.metadata`.
 
-`INSERT MESSAGE` follows the same rule for the message node it creates. One
-difference: on that path a **synthetic** vector is stored (not dropped) and
-marked `synthetic`, so a non-semantic vector is never mistaken for a real one.
+`INSERT MESSAGE` follows the same rule for the message node it creates — same
+values, same policy, no divergence: a synthetic vector is dropped there too
+(FIND-710), because one event must not get two answers depending on the syntax.
+
+Every write result also reports the outcome mechanically: `ExecutionResult::Write`
+(and the SDK's `QueryResult::Write`, the CLI's `query --json`, the MCP write
+tools) carries `degraded: bool` — `true` exactly when a mark was written,
+`false` when a vector was produced (FIND-712).
 
 ### UPDATE
 
@@ -383,6 +388,10 @@ UPDATE NODE#<id> SET VECTOR [x, y, z, ...]
 ```
 
 Updates fields or the embedding vector of an existing node.
+
+Applying an explicit vector **clears** `__vanta_embed_status` (FIND-711): the
+node now has a real vector, so a stale `failed`/`synthetic` mark would make the
+record lie about its own data.
 
 ### DELETE
 
@@ -412,9 +421,9 @@ INSERT MESSAGE <SYSTEM|USER|ASSISTANT> "<content>" TO THREAD#<id>
 
 Inserts a message into a conversation thread. Roles: `SYSTEM`, `USER`, `ASSISTANT`.
 The message node is auto-embedded; if that fails it is stored without a vector and
-marked with `__vanta_embed_status`, and a synthetic (non-semantic) vector is kept
-but marked `synthetic`. See §INSERT for the values and for the one divergence
-from the `INSERT` path.
+marked with `__vanta_embed_status`, and a synthetic (non-semantic) vector is also
+dropped and marked `synthetic` — the same policy as `INSERT` (FIND-710). See
+§INSERT for the values.
 
 ---
 

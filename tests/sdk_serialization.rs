@@ -524,6 +524,7 @@ fn test_query_result_serialize() {
         affected_nodes: 1,
         message: "ok".into(),
         node_id: Some(42),
+        degraded: false,
     };
     let json = serde_json::to_string(&write).unwrap();
     let back: QueryResult = serde_json::from_str(&json).unwrap();
@@ -532,10 +533,12 @@ fn test_query_result_serialize() {
             affected_nodes,
             message,
             node_id,
+            degraded,
         } => {
             assert_eq!(affected_nodes, 1);
             assert_eq!(message, "ok");
             assert_eq!(node_id, Some(42));
+            assert!(!degraded);
         }
         _ => panic!("expected Write variant"),
     }
@@ -556,10 +559,14 @@ fn test_query_result_write_missing_node_id_defaults_none() {
             affected_nodes,
             message,
             node_id,
+            degraded,
         } => {
             assert_eq!(affected_nodes, 1);
             assert_eq!(message, "old");
             assert_eq!(node_id, None);
+            // FIND-712: `degraded` is additive — payloads that predate it must
+            // read as "not degraded", never fail to deserialize.
+            assert!(!degraded);
         }
         other => panic!("expected Write variant, got {other:?}"),
     }
@@ -745,6 +752,7 @@ fn test_query_result_write_node_id_u128_wire_string() {
         affected_nodes: 1,
         message: "created".into(),
         node_id: Some(big),
+        degraded: false,
     };
     let json = serde_json::to_string(&write).unwrap();
     assert!(
@@ -766,6 +774,7 @@ fn test_query_result_write_node_id_u128_wire_string() {
         affected_nodes: 0,
         message: "noop".into(),
         node_id: None,
+        degraded: false,
     };
     let json_none = serde_json::to_string(&none).unwrap();
     let back_none: QueryResult = serde_json::from_str(&json_none).unwrap();

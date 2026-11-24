@@ -336,10 +336,12 @@ impl Embedded {
                 affected_nodes,
                 message,
                 node_id,
+                degraded,
             } => QueryResult::Write {
                 affected_nodes,
                 message,
                 node_id,
+                degraded,
             },
             crate::executor::ExecutionResult::StaleContext(node_id) => {
                 QueryResult::StaleContext { node_id }

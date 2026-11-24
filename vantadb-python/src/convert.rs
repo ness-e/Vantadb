@@ -392,10 +392,11 @@ pub(crate) fn format_query_result(result: &QueryResult) -> String {
             affected_nodes,
             message,
             node_id,
+            degraded,
         } => {
             format!(
-                "{{affected: {}, message: \"{}\", node_id: {:?}}}",
-                affected_nodes, message, node_id
+                "{{affected: {}, message: \"{}\", node_id: {:?}, degraded: {}}}",
+                affected_nodes, message, node_id, degraded
             )
         }
         QueryResult::StaleContext { node_id } => {
@@ -433,11 +434,13 @@ pub(crate) fn query_result_to_pydict(py: Python, result: &QueryResult) -> PyResu
             affected_nodes,
             message,
             node_id,
+            degraded,
         } => {
             dict.set_item("kind", "write")?;
             dict.set_item("affected_nodes", affected_nodes)?;
             dict.set_item("message", message)?;
             dict.set_item("node_id", node_id.map(|id| id.to_string()))?;
+            dict.set_item("degraded", degraded)?;
         }
         QueryResult::StaleContext { node_id } => {
             dict.set_item("kind", "stale_context")?;

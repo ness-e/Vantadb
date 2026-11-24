@@ -150,6 +150,7 @@ pub async fn execute_query(
             affected_nodes,
             message,
             node_id,
+            ..
         }) => Json(QueryResponse {
             success: true,
             data: format!("Mutated {} nodes: {}", affected_nodes, message),

@@ -530,13 +530,17 @@ fn arb_query_result_json() -> impl Strategy<Value = QueryResult> {
         (
             any::<usize>(),
             any::<String>(),
-            prop::option::of(arb_u128())
+            prop::option::of(arb_u128()),
+            any::<bool>()
         )
-            .prop_map(|(affected_nodes, message, node_id)| QueryResult::Write {
-                affected_nodes,
-                message,
-                node_id,
-            }),
+            .prop_map(
+                |(affected_nodes, message, node_id, degraded)| QueryResult::Write {
+                    affected_nodes,
+                    message,
+                    node_id,
+                    degraded,
+                }
+            ),
         arb_u128().prop_map(|node_id| QueryResult::StaleContext { node_id }),
     ]
 }
@@ -624,13 +628,17 @@ fn arb_query_result_full() -> impl Strategy<Value = QueryResult> {
         (
             any::<usize>(),
             any::<String>(),
-            prop::option::of(arb_u128())
+            prop::option::of(arb_u128()),
+            any::<bool>()
         )
-            .prop_map(|(affected_nodes, message, node_id)| QueryResult::Write {
-                affected_nodes,
-                message,
-                node_id,
-            }),
+            .prop_map(
+                |(affected_nodes, message, node_id, degraded)| QueryResult::Write {
+                    affected_nodes,
+                    message,
+                    node_id,
+                    degraded,
+                }
+            ),
         arb_u128().prop_map(|node_id| QueryResult::StaleContext { node_id }),
     ]
 }

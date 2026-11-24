@@ -357,6 +357,7 @@ fn query_result_write_variant_snapshot() {
         affected_nodes: 5,
         message: "batch insert completed".into(),
         node_id: Some(1005),
+        degraded: false,
     };
     assert_debug_snapshot!("query_result_write_variant", result);
 }

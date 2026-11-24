@@ -1888,6 +1888,9 @@ pub fn handle_tools_call(
                         .unwrap_or(json!({"error": "Serialization failed"}));
                     if let Some(obj) = v.as_object_mut() {
                         obj.insert("fallback".to_string(), json!(fallback));
+                        // FIND-712: same vocabulary as `ExecutionResult::Write`
+                        // (`degraded`) — `fallback` is kept for compatibility.
+                        obj.insert("degraded".to_string(), json!(fallback));
                         if let Some(w) = warning {
                             obj.insert("warning".to_string(), json!(w));
                         }
@@ -2313,10 +2316,12 @@ pub fn handle_tools_call(
                     affected_nodes,
                     message,
                     node_id,
+                    degraded,
                 }) => Ok(text_content(serialize_content(&json!({
                     "affected_nodes": affected_nodes,
                     "message": message,
-                    "node_id": node_id.map(|id| id.to_string())
+                    "node_id": node_id.map(|id| id.to_string()),
+                    "degraded": degraded
                 })))),
                 Ok(ExecutionResult::StaleContext(summary_id)) => {
                     Ok(text_content(serialize_content(&json!({
@@ -2742,6 +2747,7 @@ pub fn handle_tools_call(
                 Ok(ExecutionResult::Write {
                     affected_nodes,
                     message,
+                    degraded,
                     ..
                 }) => {
                     // VER-04: audited injection (metadata only — thread id +
@@ -2755,6 +2761,7 @@ pub fn handle_tools_call(
                     Ok(text_content_structured(&json!({
                         "affected_nodes": affected_nodes,
                         "message": message,
+                        "degraded": degraded,
                         "status": "Context Anchored",
                         "byte_count": content.len(),
                         "truncated": false

@@ -130,10 +130,12 @@ impl From<ExecutionResult> for QueryResult {
                 affected_nodes,
                 message,
                 node_id,
+                degraded,
             } => QueryResult::Write {
                 affected_nodes,
                 message,
                 node_id,
+                degraded,
             },
             ExecutionResult::StaleContext(node_id) => QueryResult::StaleContext { node_id },
         }
@@ -498,6 +500,7 @@ mod tests {
             affected_nodes: 3,
             message: "inserted 3 records".into(),
             node_id: Some(42),
+            degraded: true,
         };
         let vqr: QueryResult = result.into();
         match vqr {
@@ -505,10 +508,12 @@ mod tests {
                 affected_nodes,
                 message,
                 node_id,
+                degraded,
             } => {
                 assert_eq!(affected_nodes, 3);
                 assert_eq!(message, "inserted 3 records");
                 assert_eq!(node_id, Some(42));
+                assert!(degraded, "FIND-712: degradation must cross into the SDK");
             }
             _ => panic!("expected Write variant"),
         }
@@ -520,6 +525,7 @@ mod tests {
             affected_nodes: 1,
             message: "updated".into(),
             node_id: None,
+            degraded: false,
         };
         let vqr: QueryResult = result.into();
         match vqr {
