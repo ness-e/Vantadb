@@ -123,7 +123,6 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `FIND-323` | 🟢 Baja | **Capa docs product-first: decisión de adopción (qué es / me sirve / qué runtime)** | `docs/` (2-3 páginas nuevas + índice) | 🟢 1-2d | 🟢 Nice-to-have | 🟡 Parcial | Curaduría sobre páginas existentes (`PYTHON_SDK.md`, `TS_SDK.md`, `NODE_SDK.md`, `BINDINGS_NAMESPACES.md`, `ARCHITECTURE.md`): qué es VantaDB, si sirve para mi caso, qué runtime elegir + links. Sin duplicar contenido (una verdad, un archivo). — marcado por sweep sin evidencia, requiere verificación | Origen: análisis repo-health 2026-10-08 §14 | — |
 | `FIND-324` | — | **Poda documental: eras históricas y retención en `docs/` (~1900 archivos)** | `docs/` | 🟡 3-5d | 🔵 Futuro | 🔮 Futuro: post-1.0 (ventana de consolidación) | `docs/` (25 MiB vs 4.3 MiB de `src/`) acumula planes archivados, research, snapshots y auditorías sin regla de retención. Acción cuando dispare el trigger: regla de retención por tipo + poda/archivo mecánico. No ejecutar antes del release (riesgo sin retorno inmediato). | Origen: análisis repo-health 2026-10-08 §11 | — |
 
 ---
