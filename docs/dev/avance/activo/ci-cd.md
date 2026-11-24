@@ -867,3 +867,10 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Nota operativa:** `Tests (Windows)` cerró **✅ success** (56 min de 90, job `138675656820`), con lo que el run completo quedó `completed / success`: 19 success, 4 skipped, 4 failure (TSan no bloqueante).
 
 
+
+### Cierre recitations MD007 y exclusión del gate (`FIND-264`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** El formato de recitation rompía MD007 y el plan maestro estaba excluido del conteo de `docs-lint-regression` con una excepción permanente. La premisa de la fila (template + plan maestro) resultó **stale**: el plan se archivó en `4e831d3e1` y el corpus ya estaba en 0 (`a5da35529`, MD007 50→0); el `  - claim:` lo producía el **emisor**, `updateRecitation` (`parsers.mjs:158`), pegando `Contrato: ${data.contract}` en crudo.
+- **Resultado:** ✅ El bloque se emite fenceado (`~~~text` … `~~~`), así MD007 es inexpresable en ese punto y la evidencia sale de `proseOf()` (cierra OBS-1: links vivos en recitations). Los marcadores `=== RECITATION [ID] ===` no cambian, así que `parseRecitation` y el aislamiento por tarea siguen iguales. Retirada la exclusión (`grep -v 'master-plan-0.9.0.md'`, 2 sitios) y el comentario que la justificaba; el conteo `N` es ahora el árbol controlado completo, con `test -s /tmp/lint.txt` para que un log no escrito no reporte verde. Verificado: markdownlint `docs/**` 342 ficheros / 0 issues · `check-links` 0 rotos (3239 links) · `check-docs` all clear · plan sintético con el emisor → MD007 0 · harness 35/35 y 20/20 · `actionlint` 0.
+- **Commit:** `1a6df66b6` (VantaDB) · emisor + test + template + lesson en `.opencode/` (repo separado, sin commitear)
+- **Deuda:** `gen-index --check` estaba rojo en HEAD por índices generados desactualizados; se regenera en el cierre de wave.
