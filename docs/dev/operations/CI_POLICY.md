@@ -338,11 +338,53 @@ scale capabilities without bottlenecking daily development.
 | `text-index` | Text index recovery (`text_index_recovery`) |
 | `memory-concurrency` | Memory & concurrency heavy tests (concurrency, memory brutality, fuzz proptest) |
 | `other-heavy` | Remaining heavy tests: CLI, benchmarks, hybrid ranking, MCP (`vantadb-mcp`), columnar, `concurrent_insert_preserves_hnsw_invariants` |
+| `mutation-test` | **INFORMATIONAL** — `cargo mutants --list --json` mutant inventory only (see §"FIND-328 triage"). Not a gate: the real mutation gate needs a scoped design (FIND-717) |
+| `light-benchmarks` | Bench series, daily 02:00 cron (`hnsw_pure`, `hybrid_queries`, `canonical_p99`, `ingestion_concurrent`, …). Currently red: FIND-716 |
+| `high-density` | `high_density` bench at the highest density profile, daily 02:00 cron. Currently red: FIND-716 |
+| `analyze` | Merges the bench result dirs and publishes the comparison (`always()`, tolerates missing dirs) |
+| `critcmp-regression` | Opt-in critcmp comparison against a previous `critcmp-baseline` artifact (`enable_critcmp` input) |
 
 **Why are these tests separated?** Running `stress_protocol` can take close to 2 hours on hosted
 runners and requires significant system resources (AVX2 plus heavy swap). It runs in its own
 scheduled/manual job with a 150 minute step timeout so it can complete without blocking the other
 certification checks. Running this on every PR would paralyze development velocity.
+
+#### FIND-328 triage — the three red jobs (2026-11-24)
+
+The backlog row named `heavy-certification.yml`, a file that no longer exists (the tier is
+`certification.yml` since `a4c290914`, 2026-10-15). The triage command from the row returned
+`HTTP 404: workflow heavy-certification.yml not found`, which is why a 9-day red stayed
+invisible: nobody was looking at the file that actually runs. Use
+`gh run list --workflow certification.yml` and `gh run view <id> --log-failed`.
+
+Verdicts, evidenced on 25 consecutive scheduled runs (2026-11-06 → 2026-11-24, per-job conclusions
+read from `gh api .../runs/<id>/jobs`):
+
+| Job | Verdict | Evidence |
+|-----|---------|----------|
+| `memory_concurrency` | **Already green — no change.** Not retired: it is the concurrency gate Regla 8 requires. | `success` on all 25 scheduled runs since 2026-11-06 (e.g. run 45388973797, 11:57:56 → 12:06:32). Job body is identical to the pre-consolidation `heavy-certification.yml` (only `timeout-minutes` 120→180 differs), so the fix landed in code/tests, not CI (candidates in the original red window: `6b8002c1c`, `23c594f4f`, `8aad0cac1` on `tests/edge_cases.rs` — batch 1 of this job). Exact commit not isolable: the deleted workflow's runs are no longer enumerable. |
+| `other_heavy` | **Fixed (CI).** TBH-01 gate scoped to the dataset this job consumes and moved after the download. | Failure was `=== verify_datasets: 5 missing / 5 expected ===` + exit 1 at 11:59:58, i.e. before the step that provides GloVe-100. The 5-dataset gate was unsatisfiable on a hosted runner (SIFT-1M / GloVe-300 / ground-truth subsets belong to the opt-in `sift-validation` / `competitive-bench` jobs). `scripts/verify_datasets.sh` keeps its exit 0/1 contract for local and opt-in use. |
+| `mutation_test` | **Fixed (CI) + re-categorized `INFORMATIONAL`.** Invalid action pin replaced; the step now produces an inventory instead of a fake "score". | It died in "Set up job" every run: `Unable to resolve action actions/upload-artifact@4e7e4d1bb8e5ae8b5b8e6dad68a47e8afbd4d76a` — that SHA does not exist (v4.5.0 is `6f51ac03…`; the repo-wide valid pin is `cf430e03…` = v7.0.2). Second defect: `--check` only cargo-checks mutants ("don't actually run the tests") and `--output-json` is not a flag, so even with a valid pin the step would have exited non-zero (cargo-mutants maps a clap usage error to `ExitCode::Usage` = 1) and the trailing `|| true` would have turned the job **green with no artifact**. |
+
+**Category rule for this job (`mutation-test`):** `INFORMATIONAL` — it reports a mutant
+inventory; it does not gate the release. It carries no `continue-on-error`; the previous
+`|| true` is removed and `if-no-files-found: error` makes an empty artifact fail the job, so the
+"green but did nothing" mode cannot come back. A real mutation gate is FIND-717 (needs
+scoped/incremental mutant selection and a budget, per the cargo-mutants CI guide).
+
+**Residual red in the same workflow (FIND-716, not fixed here):** `Light benchmarks` and
+`High density` fail on **every** run with **zero steps** (`log not found`), including runs where
+their cron `if:` gates them out. Four jobs in this file declare a job-level `concurrency:` block
+that **reuses the workflow-level group** `${{ github.workflow }}-${{ github.ref }}`
+(`light-benchmarks` L416, `high-density` L489, `analyze` L524, `critcmp-regression` L697). GitHub
+keeps at most one running job or workflow per concurrency group, so a job in that group waits for
+a slot its own run holds until the run ends; `queue: single` then cancels the older pending entry,
+which is why two of them die before step 1 and the other two only surface when their `if:` is true
+(`analyze` on dispatch, `critcmp-regression` with its input enabled). The other two
+`concurrency:` blocks in the file are fine (`failpoint-tests` uses `failpoints-${{ github.ref }}`,
+`fuzz-pr` appends `${{ github.job }}`). The four colliding blocks are also redundant (the
+workflow-level block already sets `cancel-in-progress: false`). Fix is deleting three lines in each
+of the four — held for an owner decision because it re-enables a 2 h and a 6 h bench lane.
 
 ### 2a. Linux Snapshot Certification (`snapshot-certification.yml`)
 

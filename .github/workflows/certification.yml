@@ -297,12 +297,6 @@ jobs:
         with:
           swap-mb: 4096
           free-disk: true
-      # TBH-01: pre-test gate — fail fast if expected datasets are missing.
-      # Without this, certification tests silently skip and Recall@10 can
-      # regress without CI noticing. Runs before the download step so a
-      # missing dataset surfaces the diagnostic table immediately.
-      - name: Verify required benchmark datasets (TBH-01)
-        run: bash scripts/verify_datasets.sh
       - name: Cache benchmark dataset (GloVe 100d)
         id: cache-benchmark
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -312,6 +306,27 @@ jobs:
       - name: Download benchmark datasets
         if: steps.cache-benchmark.outputs.cache-hit != 'true'
         run: bash scripts/download_benchmark_datasets.sh
+      # TBH-01 pre-test gate — fail fast if the dataset THIS job consumes is
+      # missing, so benchmark_datasets.rs cannot silently skip.
+      # FIND-328: scoped to GloVe-100 and moved AFTER the download. This job
+      # downloads only GloVe-100 (scripts/download_benchmark_datasets.sh);
+      # SIFT-1M, GloVe-300 and the ground-truth subsets belong to the opt-in
+      # jobs (sift-validation / competitive-bench). The full 5-dataset check
+      # (scripts/verify_datasets.sh) used to run here BEFORE any download, so
+      # the job could never go green — a permanent red that looked like
+      # protection. verify_datasets.sh keeps its exit 0/1 contract for local
+      # and opt-in use; it is not the CI gate of this job.
+      - name: Verify required benchmark dataset (TBH-01, GloVe-100)
+        run: |
+          if [ ! -s data/benchmark/glove.6B.100d.txt ]; then
+            echo "::error::GloVe-100 missing — benchmark_datasets.rs would silently skip (TBH-01, FIND-328)"
+            exit 1
+          fi
+          VEC_COUNT=$(wc -l < data/benchmark/glove.6B.100d.txt)
+          if [ "$VEC_COUNT" -lt 1000 ]; then
+            echo "::error::GloVe-100 truncated: $VEC_COUNT lines (expected 400000) — same guard as scripts/download_benchmark_datasets.sh"
+            exit 1
+          fi
       - name: Run remaining heavy tests
         # ponytail: 45 min fit cached runs; bump to 60 so a cold release
         # compile (~40 min) + tests (~18 min) fits within the job window.
@@ -359,9 +374,9 @@ jobs:
     needs: ci-gate
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    # Mutation testing is slow per design (one mutant = full cargo test cycle).
     # Scope to root crate only (-p vantadb) per plan file D5/risk table.
-    # --check: only run mutants; --timeout 120: per-mutant cap (contract).
+    # (FIND-328 removed the old comment claiming "--check: only run mutants" —
+    # it means the opposite, see the step below.)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
@@ -369,22 +384,32 @@ jobs:
         uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
         with:
           tool: cargo-mutants
-      - name: Run cargo mutants (TBH-07)
-        timeout-minutes: 100
+      # CATEGORY: INFORMATIONAL — mutant INVENTORY, not a gate. The decision is
+      # recorded in docs/dev/operations/CI_POLICY.md §"FIND-328 triage".
+      # FIND-328: the previous command was wrong twice over — `--check` only
+      # cargo-checks each mutant ("…but don't actually run the tests",
+      # mutants.rs manual) and `--output-json` is not a flag, so the step
+      # exited 2 and the trailing `|| true` turned the job green with no
+      # artifact. `--list --json` is what this job can honestly do inside its
+      # budget; a real mutation gate needs a scoped/incremental design
+      # (FIND-717) and must not resurrect a green no-op.
+      - name: Mutant inventory (TBH-07 / FIND-328)
+        timeout-minutes: 20
         run: |
           mkdir -p benchmarks
-          cargo mutants --check -p vantadb --timeout 120 \
-            --output-json benchmarks/mutation_score.json || true
-          # NB: cargo-mutants exits non-zero when mutants SURVIVE (which is
-          # expected and useful — we want a score, not a binary pass/fail).
-          # The artifact is the signal; gate enforcement lives in code review.
-      - name: Upload mutation score report
+          cargo mutants --list --json -p vantadb > benchmarks/mutation_inventory.json
+          test -s benchmarks/mutation_inventory.json || {
+            echo "::error::empty mutant inventory — cargo-mutants produced no output (FIND-328)"
+            exit 1
+          }
+          wc -c benchmarks/mutation_inventory.json
+      - name: Upload mutation inventory
         if: always()
-        uses: actions/upload-artifact@4e7e4d1bb8e5ae8b5b8e6dad68a47e8afbd4d76a # v4.5.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutation-score
-          path: benchmarks/mutation_score.json
-          if-no-files-found: warn
+          name: mutation-inventory
+          path: benchmarks/mutation_inventory.json
+          if-no-files-found: error
   light-benchmarks:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *')
     permissions:
