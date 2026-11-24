@@ -172,7 +172,7 @@ No es feature-add: no agrega símbolos públicos, endpoints, tools ni bindings (
 ### Step 6: Verify del contrato + OCR + review P2-01 + commit de cierre
 - **Archivos:** los de los steps 4‑5 + este task file
 - **Acción:** correr el contrato mecánico completo, `pwsh dev-tools/ocr-review.ps1`, review P2‑01 por agente distinto y commit local.
-- **Verify:** contrato §Contrato en verde + `dev-tools/verify.ps1` ALL 8 PASS (`%TEMP%\opencode\f02-verify.log`: fmt/check/clippy/audit/deny/nextest/docs-coverage/cli-probes ok) + OCR sin ficheros code-reviewables (5/5 `unsupported_ext`: el diff es `.md`) + review P2‑01 en **tres rondas** (❌ → ❌ → ✅ approve). El trabajo viaja en `664ef4d67`; este task file y el cierre del review, en el commit de seguimiento.
+- **Verify:** contrato §Contrato en verde + `dev-tools/verify.ps1` **ALL 10 PASS**, EXIT=0 (`%TEMP%\opencode\f02-verify.log`: fmt, check, clippy, audit, deny, nextest, docs-coverage, cli-probes, consumo guard, daily backup verification) + OCR sin ficheros code-reviewables (5/5 `unsupported_ext`: el diff es `.md`) + review P2‑01 en **tres rondas** (❌ → ❌ → ✅ approve). El trabajo viaja en `664ef4d67`; este task file y el cierre del review, en el commit de seguimiento.
 - **Estado:** ✅ DONE
 
 ## Dependencias
@@ -192,7 +192,7 @@ No es feature-add: no agrega símbolos públicos, endpoints, tools ni bindings (
   - Código de los probes: el de embeddings hace `verifyFile(spec.executable)` (assert del digest) antes de cada sesión y al final → falla cerrado; el de perfiles calcula el sha con `createHash` sobre el exe, no lo lee de un pin. El sha sale del artefacto que corrió.
   - `scopegrain vantadb status --probe --project .` (vía `node .\bin\scopegrain.mjs`) → `model_present: true`, `Ready`, `vector_search/persistence/iql_queries: true`, `Performance`.
   - Logs: `f02-install3.log` → `Finished … in 23m 47s` + `Replaced package`; `f02-install.log` → `Finished … 22m 59s` + `Acceso denegado (os error 5)`.
-  - `dev-tools/verify.ps1` (tras los arreglos de la ronda 2): **8/8 ok** — fmt, check, clippy, audit, deny, nextest, docs-coverage, cli-probes (`%TEMP%\opencode\f02-verify.log`).
+  - `dev-tools/verify.ps1` (tras los arreglos de la ronda 2): **ALL 10 PASS**, EXIT=0 — fmt, check, clippy, audit, deny, nextest, docs-coverage, cli-probes, consumo guard, daily backup verification (`%TEMP%\opencode\f02-verify.log`).
   - `git log -1` + `git merge-base --is-ancestor` → `61c2be235`, `3b6f389a3`, `d0df55c2b` están en `develop`; el árbol solo tiene cambios de docs, así que el binario se construyó desde `HEAD` que los incluye.
 - **Checklist anti-hábitos tóxicos:** ✅ no inventó salidas (logs y JSON existen y coinciden); ✅ reportó el fallo del primer install en vez de "todo OK"; ✅ steps ligados al contrato; ⚠️ `failed: []` y `positivePassed` no son campos del JSON (provienen del stdout del probe, no persistido).
 - **Hallazgos:** **R1** la premisa «el artefacto era anterior a `FIND-703`» no se sostiene (ver `operaciones.md:932`, `review-certify:80`, `:13/:115` acá) — `review-certify:43,45,77-78` y `operaciones.md:880` registran que `2d1d2e87` fue el rebuild **post-fix** del propio `3b6f389a3`; **R2** `operaciones.md:886` sigue presentando `54e6e2cb…` como «pinned» sin puntero (el Step 4 pedía anotar esa entrada; `:940` la declara «corregida» sin corregirla); **R3** el contrato `rg -n '2d1d2e87' docs/ | wc -l` no es falsable como está escrito (devuelve 12, no 0). Opcionales: base SDP incompleta (`writing-guidelines`, `writing-plans`), steps 1‑5 en PENDING con la salida ya escrita.
