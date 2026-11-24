@@ -20,6 +20,15 @@ use serde_json::Value;
 /// L1 memory types: chat-mode legacy types + code/work-mode team types.
 ///
 /// Source: Vanta memory engine `l1-writer.ts:31-38` (7 types).
+///
+/// **Wire contract (FIND-259):** the serialized value is `snake_case` and the
+/// valid set is exactly `persona | episodic | instruction | work_fact |
+/// work_task | work_method | work_artifact`. Any other value fails
+/// `MemoryRecord` deserialization; the L1 reader then takes the
+/// `sdk_to_memory_record` fallback, which loses the declared `type` (the record
+/// reads back as episodic, content = raw payload) — so it never returns from
+/// `memory_recall` as written. `l1_reader::decode_stats()` counts those
+/// failures, split into invalid `type` vs non-envelope payload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryType {
@@ -301,6 +310,40 @@ pub enum PersonaTriggerPriority {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn memory_type_wire_values_are_the_documented_seven() {
+        // FIND-259: this list is the contract quoted in `docs/api/VANTA_MEMORY.md`
+        // and `L1DecodeStats::invalid_type` counts everything outside it.
+        let documented = [
+            ("persona", MemoryType::Persona),
+            ("episodic", MemoryType::Episodic),
+            ("instruction", MemoryType::Instruction),
+            ("work_fact", MemoryType::WorkFact),
+            ("work_task", MemoryType::WorkTask),
+            ("work_method", MemoryType::WorkMethod),
+            ("work_artifact", MemoryType::WorkArtifact),
+        ];
+        for (wire, expected) in documented {
+            let parsed: MemoryType = serde_json::from_value(serde_json::json!(wire)).unwrap();
+            assert_eq!(parsed, expected, "`{wire}` must be a valid wire value");
+            // Exhaustive on purpose: an eighth `MemoryType` variant breaks this
+            // match, which forces the documented list (and this test) to grow
+            // with the enum instead of drifting.
+            let name = match expected {
+                MemoryType::Persona => "persona",
+                MemoryType::Episodic => "episodic",
+                MemoryType::Instruction => "instruction",
+                MemoryType::WorkFact => "work_fact",
+                MemoryType::WorkTask => "work_task",
+                MemoryType::WorkMethod => "work_method",
+                MemoryType::WorkArtifact => "work_artifact",
+            };
+            assert_eq!(name, wire, "the documented wire list matches the enum");
+        }
+        // The probe from the finding: `type:"fact"` is not a memory type.
+        assert!(serde_json::from_value::<MemoryType>(serde_json::json!("fact")).is_err());
+    }
 
     #[test]
     fn memory_record_roundtrip_snake_case() {

@@ -692,6 +692,53 @@ ContextAssemblyConfig { spill_enabled: bool /* default false */, .. }
   definition).
 - Default `false`: no extra writes, byte-identical assembly semantics.
 
+### L1 payload `type` and decode diagnostics (FIND-259)
+
+The L1 wire contract (`MemoryRecord`, `vanta-memory/src/core/abstractions/types.rs`) requires a
+`type` field whose value is exactly one of **seven**:
+
+| `type` | Meaning |
+|---|---|
+| `persona` | stable traits / preferences of the user |
+| `episodic` | one-off event the user lived through |
+| `instruction` | instruction to follow (global when `priority = -1`) |
+| `work_fact` | fact about the user's work / team |
+| `work_task` | open or completed work task |
+| `work_method` | method or procedure used at work |
+| `work_artifact` | work artifact (file, doc, code) |
+
+Anything else (`fact`, `Persona`, `work-fact`, `preference`, …) is not a memory type: the record
+fails `MemoryRecord` deserialization and the reader falls back to `sdk_to_memory_record`. The
+record survives the read, but as an episodic record whose `content` is the **raw payload**, so
+`memory_recall` never returns it as written — the silent-data-loss shape of FIND-699. The
+fallback is unchanged by design; what changed is that the failure is countable:
+
+```rust
+use vanta_memory::core::record::l1_reader::{decode_stats, reset_decode_stats, L1DecodeStats};
+
+let stats: L1DecodeStats = decode_stats(); // { invalid_type, unparseable }
+reset_decode_stats();                      // tests / per-window numbers
+```
+
+- `invalid_type` — the payload is a JSON object that declares a `type` outside the seven above
+  (`"fact"`, but also a present-but-wrong `null`, `""` or `5`). This is a **write** bug: fix the
+  writer, the stored record is already degraded.
+- `unparseable` — everything else the `MemoryRecord` decode rejected: plain text, a document
+  with no `type` (the documented ADR/wiki fallback), truncated JSON, or an envelope missing a
+  required field. Expected traffic on namespaces that mix envelopes and plain payloads.
+
+Counting is **additive**: the reader returns exactly the records it returned before. The
+counters are process-wide (`AtomicU64` pair) and count **decode attempts**, not records — one
+namespace read re-classifies its payloads, so the numbers measure traffic, not distinct broken
+rows. They cover every reader path (recall *and* the raw reads used by dedup, dream
+consolidation, decay and cascade-forget), and say *how many* payloads degraded, not *which
+namespace*; per-namespace attribution is not tracked. Verified by
+`vanta-memory/tests/l1_type_diagnostics.rs`.
+
+Ceiling: the opt-in `core_search: true` route (`auto_recall::search_records_core`) decodes its
+hits directly and does not feed these counters — it drops undecodable hits with `tracing::debug!`
+only. It is off by default and no MCP tool adopts it.
+
 ### Recall
 
 ```rust

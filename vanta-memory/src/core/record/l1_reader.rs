@@ -12,6 +12,7 @@
 //! serialized [`MemoryRecord`].
 
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
@@ -89,6 +90,84 @@ pub fn is_active_record(record: &MemoryRecord) -> bool {
         .is_none_or(|s| s.trim().is_empty())
 }
 
+/// Why an L1 payload could not be decoded as a [`MemoryRecord`] (FIND-259).
+///
+/// The reader has two silent layers: the `serde_json` decode and the
+/// [`sdk_to_memory_record`] fallback that reinterprets whatever did not decode.
+/// A payload whose `type` is outside [`MemoryType`] is a **write** bug (the
+/// record's declared content and type are lost: the fallback reports it as an
+/// episodic record whose content is the raw payload); a payload with no `type`
+/// at all is the documented plain-payload case (ADRs / documents, FIND-699).
+/// The two are counted separately because they have different owners.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum L1DecodeFailure {
+    /// The payload is a JSON object that declares a `type`, and that `type` is
+    /// not one of the seven [`MemoryType`] values.
+    InvalidType,
+    /// Not an L1 envelope: not JSON, not an object, or no `type` field.
+    Unparseable,
+}
+
+/// Process-wide decode-failure counters of the L1 reader (FIND-259).
+///
+/// Monotonic since process start; [`reset_decode_stats`] exists for tests and
+/// for a host that wants per-window numbers. **Additive surface:** counting
+/// never changes what the reader returns — the fallback still yields a record
+/// for every payload it yielded before.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct L1DecodeStats {
+    /// Payloads skipped by the `MemoryRecord` decode because their `type` is
+    /// outside the valid set.
+    pub invalid_type: u64,
+    /// Payloads skipped by the `MemoryRecord` decode for any other reason
+    /// (plain payload, truncated JSON, missing required field).
+    pub unparseable: u64,
+}
+
+static INVALID_TYPE_FAILURES: AtomicU64 = AtomicU64::new(0);
+static UNPARSEABLE_FAILURES: AtomicU64 = AtomicU64::new(0);
+
+/// Decode-failure counters since process start (FIND-259). Read them to tell
+/// "an L1 write used an invalid `type`" apart from "this namespace holds plain
+/// payloads" — the two look identical from `memory_recall` (nothing comes back).
+pub fn decode_stats() -> L1DecodeStats {
+    L1DecodeStats {
+        invalid_type: INVALID_TYPE_FAILURES.load(Ordering::Relaxed),
+        unparseable: UNPARSEABLE_FAILURES.load(Ordering::Relaxed),
+    }
+}
+
+/// Zero the counters returned by [`decode_stats`].
+pub fn reset_decode_stats() {
+    INVALID_TYPE_FAILURES.store(0, Ordering::Relaxed);
+    UNPARSEABLE_FAILURES.store(0, Ordering::Relaxed);
+}
+
+/// Classify a payload that failed `serde_json::from_str::<MemoryRecord>`.
+/// A `type` that is present but not a [`MemoryType`] is a type bug; everything
+/// else (plain text, document, incomplete envelope) is generic.
+fn classify_decode_failure(payload: &str) -> L1DecodeFailure {
+    match serde_json::from_str::<serde_json::Value>(payload) {
+        Ok(serde_json::Value::Object(map)) => match map.get("type") {
+            // `&Value` is its own Deserializer: classify without cloning.
+            Some(declared) if MemoryType::deserialize(declared).is_err() => {
+                L1DecodeFailure::InvalidType
+            }
+            _ => L1DecodeFailure::Unparseable,
+        },
+        _ => L1DecodeFailure::Unparseable,
+    }
+}
+
+/// Count one decode failure (see [`L1DecodeFailure`] for the split).
+fn note_decode_failure(payload: &str) {
+    let counter = match classify_decode_failure(payload) {
+        L1DecodeFailure::InvalidType => &INVALID_TYPE_FAILURES,
+        L1DecodeFailure::Unparseable => &UNPARSEABLE_FAILURES,
+    };
+    counter.fetch_add(1, Ordering::Relaxed);
+}
+
 /// Shared paged read behind [`read_namespace_records`] (raw) and
 /// [`read_active_namespace_records`] (current-only). `active_only` adds the
 /// engine-level `exclude_superseded` filter plus the post-deserialization
@@ -128,6 +207,10 @@ fn read_namespace_records_impl(
                     }
                 }
                 Err(_) => {
+                    // FIND-259: the fallback below keeps the record, but the
+                    // declared `type` is gone — count the cause so an invalid
+                    // L1 write is visible instead of just absent from recall.
+                    note_decode_failure(&record.payload);
                     // Fallback: construct MemoryRecord from raw SDK record (e.g. ADRs or documents)
                     let mem = sdk_to_memory_record(record);
                     if !active_only || is_active_record(&mem) {
