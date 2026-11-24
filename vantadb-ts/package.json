@@ -43,7 +43,7 @@
     "type": "git",
     "url": "git+https://github.com/ness-e/Vantadb.git"
   },
-  "homepage": "https://vantadb.dev",
+  "homepage": "https://github.com/ness-e/Vantadb#readme",
   "bugs": "https://github.com/ness-e/Vantadb/issues",
   "keywords": [
     "vector-database",
