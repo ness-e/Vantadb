@@ -23,3 +23,11 @@ tags: [vantadb, avance, docs]
 - **Verificación:** `check-docs` 0 · `check-links` 0 · `gen-index --check` 0 · markdownlint 0 issues en las 3 páginas · orphans 0/720 · las 3 aparecen en `docs/index.md`, `docs/user/index.md` y `llms.txt`.
 - **Commit:** `0b99ae80b`
 - **Notas:** los gates cazaron 5 enlaces rotos (rutas `../` escritas como si el fichero estuviera en `concepts/`) y 3 afirmaciones sin fuente que se borraron antes del commit. **Incógnita para el owner:** el repo no declara un runtime oficialmente recomendado para un proyecto nuevo; la jerarquía de `WHICH_RUNTIME.md` se deriva de las tablas de los SDKs, y declarar un default es decisión de producto.
+
+### `segment()` BOM-safe + self-test del stamper en CI (`FIND-713`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** Cerrar el segundo lector del mismo fichero que `FIND-707` dejó pendiente: `segment()` probaba `src.startsWith("---\n")` sobre el texto crudo, así que un BOM convertía el bloque de frontmatter en `prose` (`safe:true`) y lo entregaba al único escritor de segmentos (`wikilinks-to-md.mjs`). Y cablear el `--self-test` del stamper, que solo corría a mano.
+- **Resultado:** ✅ Un solo normalizador (`bomLength`, `lib.mjs:146`) usado por `parseFrontmatter` y `segment()`; el BOM se emite como segmento propio para no romper `segmentsRoundTrip`. 7.º caso del self-test (RED contra `HEAD` real → exit 1; GREEN 7/7) con 3 mutantes muertos. Step en el job `docs-schema` de `docs-gates.yml` (sin `if:`, required en `main`: bloquea `develop → main`). Gates: `check-links`/`check-docs`/`check-secrets`/`wikilinks-to-md --self-test` en 0, `--write` idempotente (794 unchanged), `actionlint` 0.
+- **Commit:** `b319de9fb`
+- **Hallazgo derivado (fila `FIND-719`):** **ningún job de `docs-gates` es required en `develop`** (los 10 contexts requeridos son de Rust), así que el gate de docs solo muerde en el PR de release.
+- **Deuda:** `segment()` sigue sin la rama "bloque cerrado en EOF sin salto final" que `parseFrontmatter` ganó en `FIND-707` (0/795 exposición; 3 docs con `[[` en frontmatter) · `check-structure.findOrphanProse` es un 7.º lector BOM-ciego.

@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-536 documentation pages; it deliberately omits the 204 task files,
+536 documentation pages; it deliberately omits the 207 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -325,7 +325,7 @@ is in docs/index.md in the repository.
 - [Backlog de extracción — codebase-memory-mcp](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/backlogs/codebase-memory-mcp.md): Candidatas del informe codebase-memory-mcp: evidencia de resolución importable, respuesta por snapshot, impacto asesor, reconciliación por ownership, baseline tras publicación y overlay de procedencia en Studio
 - [Backlog de extracción — pgvector](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/backlogs/pgvector.md): Cinco fichas del informe pgvector (C7, C15, C9, C16 y C13 condicionado): cobertura de filtro, dominio vectorial por colección, ciclo de rebuild reportado, auditoría de retención y evidencia de proyección
 - [Backlog de investigación — OpenViking → VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/Backlog-OpenViking-VantaDB.md): Registro archivístico de la evaluación estática de OpenViking (b8e8895) y propuestas de reimplementación para VantaDB
-- [Build troubleshooting (Windows dev)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/references/troubleshooting.md): Acceso denegado (os error 5) / LNK1104 when relinking target/debug/*.exe while a VantaDB MCP server is alive
+- [Build troubleshooting (Windows dev)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/references/troubleshooting.md): Acceso denegado (os error 5) / LNK1104 when relinking target/debug/*.exe with a live MCP server, and LNK1140 when target/ has filled the drive
 - [CONSOLIDATED — Investigación comparativa agent-memory (2026-11-07)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md): Síntesis documental de 42 informes de memoria/contexto para agentes, con límites explícitos y OpenViking como referencia
 - [Cobertura de revision de los 42 informes ampliados](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/REVIEW-COVERAGE.md): Registro por proyecto de autoria, revision independiente, correcciones y aceptacion documental de la ampliacion
 - [CodeGraph: evidencia revisionada y actualización de grafos por archivo](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agent-memory-2026-11-07/codegraph.md): Lectura estática de persistencia, frescura, contexto y viewer de CodeGraph para ideas independientes en Rust
