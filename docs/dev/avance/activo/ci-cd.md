@@ -874,3 +874,14 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Resultado:** ✅ El bloque se emite fenceado (`~~~text` … `~~~`), así MD007 es inexpresable en ese punto y la evidencia sale de `proseOf()` (cierra OBS-1: links vivos en recitations). Los marcadores `=== RECITATION [ID] ===` no cambian, así que `parseRecitation` y el aislamiento por tarea siguen iguales. Retirada la exclusión (`grep -v 'master-plan-0.9.0.md'`, 2 sitios) y el comentario que la justificaba; el conteo `N` es ahora el árbol controlado completo, con `test -s /tmp/lint.txt` para que un log no escrito no reporte verde. Verificado: markdownlint `docs/**` 342 ficheros / 0 issues · `check-links` 0 rotos (3239 links) · `check-docs` all clear · plan sintético con el emisor → MD007 0 · harness 35/35 y 20/20 · `actionlint` 0.
 - **Commit:** `1a6df66b6` (VantaDB) · emisor + test + template + lesson en `.opencode/` (repo separado, sin commitear)
 - **Deuda:** `gen-index --check` estaba rojo en HEAD por índices generados desactualizados; se regenera en el cierre de wave.
+
+### Cierre triage heavy cert (`FIND-328`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** Dar veredicto por job a los rojos de la certificación pesada (`other_heavy`, `memory_concurrency`, `mutation_test`) que llevaban sin triage desde el 4-oct.
+- **Resultado:** ✅ Tres veredictos con evidencia de 25 runs programadas (11-06 → 11-24):
+  - `memory_concurrency`: **arreglado, no se toca** — `success` 25/25; el fix fue de código/tests, no de CI. Es el gate de concurrencia de la Regla 8 y no se retira. Atribución del commit exacta no aislable (el workflow viejo se borró en `a4c290914`): candidatos `6b8002c1c`/`23c594f4f`/`8aad0cac1`, confianza media declarada.
+  - `other_heavy`: **defecto de CI** — el gate TBH-01 corría `verify_datasets.sh` (5 datasets) **antes** de la descarga y el job solo baja GloVe-100 → `5 missing / 5 expected`, exit 1 en 12/12 runs. Reacotado a GloVe-100, movido después del download, con la misma guarda de truncado.
+  - `mutation_test`: **dos defectos** — (a) moría en "Set up job" por un pin inexistente de `actions/upload-artifact` (`4e7e4d1…` → 422); (b) aun con pin válido no medía nada: `--check` significa *"cargo check a cada mutante, sin correr los tests"* y `--output-json` no es un flag, con el exit≠0 tragado por `|| true` → verde sin artefacto. Quedó INFORMATIONAL con pin válido, inventario `--list --json`, `if-no-files-found: error` y `test -s`.
+  - **Causa del rojo invisible:** la fila apuntaba a `heavy-certification.yml`, renombrado a `certification.yml` en `a4c290914`; el comando de triage devolvía 404 y nadie inspeccionaba el workflow real.
+- **Commit:** `3f7fdd3fa` · filas derivadas: `FIND-716` (colisión de `concurrency` job-level en 4 jobs) y `FIND-717` (la cobertura de mutación no existe).
+- **Deuda:** atribución exacta del fix de `memory_concurrency` (workflow borrado) y falta un run verde de `certification.yml` (semanal/dispatch: un dispatch corre ~21 jobs, 2 h+).
