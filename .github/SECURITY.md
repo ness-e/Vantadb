@@ -11,9 +11,8 @@
 
 Do not open public GitHub issues for security vulnerabilities.
 
-Please report vulnerabilities through either channel:
+Please report vulnerabilities through:
 - **GitHub Security Advisories:** https://github.com/ness-e/VantaDB/security/advisories
-- **Email:** developererosnessy@gmail.com
 
 Please include reproduction steps, affected components, and potential impact. We will review reports promptly and publish patches with appropriate security advisories.
 

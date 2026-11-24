@@ -7,6 +7,23 @@
     "url": "git+https://github.com/ness-e/Vantadb.git",
     "directory": "vantadb-node"
   },
+  "homepage": "https://github.com/ness-e/Vantadb#readme",
+  "bugs": "https://github.com/ness-e/Vantadb/issues",
+  "keywords": [
+    "vector-database",
+    "memory",
+    "rag",
+    "embeddings",
+    "graph",
+    "ai",
+    "semantic-search",
+    "agent-memory",
+    "local-first",
+    "hybrid-search",
+    "nodejs",
+    "napi",
+    "native-addon"
+  ],
   "type": "module",
   "main": "./index.cjs",
   "module": "./index.js",

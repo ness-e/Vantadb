@@ -779,7 +779,7 @@ def cache_with_vantadb(db, key, compute_fn, embedding_fn, ttl_seconds=3600):
 ## Version Compatibility
 
 - **Current Version:** 0.9.0
-- **Rust Minimum:** 1.94.1
+- **Rust Minimum:** 1.95.0
 - **Python Minimum:** >=3.11
 - **Platforms:** Linux, macOS (Intel/ARM), Windows
 
