@@ -1,27 +1,39 @@
 {
   "plan": "docs/dev/plans/2026-11-23-release-v0.10.0-gates.md",
-  "totalCompleted": 4,
+  "planVersion": "2026-11-24 executable (5 phases, 36 partials + F0)",
+  "totalCompleted": 6,
   "totalFailed": 0,
-  "total": 5,
+  "total": 46,
   "consecutiveFails": 0,
   "failMode": "parallel",
   "inProgress": null,
+  "phase": "F0",
   "running": {},
   "completed": {
-    "FIND-700": "4 gates exit 0 (2026-11-24); fila ya no estaba en el Backlog (retirada en f93426479)",
-    "FIND-699": "61c2be235 + cierre en 056e78052",
-    "FIND-707": "51c038efd — stamper BOM/CRLF-safe; self-test 6/6, 4 gates exit 0",
-    "FIND-485": "d0df55c2b — marca __vanta_embed_status; contrato 9/9 verificado por el orquestador"
+    "FIND-700": "c54165cff - 4 docs gates green",
+    "FIND-699": "61c2be235 - L1 envelope contract",
+    "FIND-485": "d0df55c2b - __vanta_embed_status",
+    "FIND-707": "51c038efd - stamper BOM/CRLF-safe",
+    "FIND-705": "5a669a186 + 11abb6e54 - MSRV 1.95.0",
+    "FIND-709": "9dab5093b - release matrix 5 targets"
   },
-  "blocked": {
-    "FIND-701": "CI real rojo: MSRV 1.94.1 vs deps 1.95.0; decision owner tomada (bump 1.95.0), requiere push",
-    "FIND-702": "espera pasada real de CI verde (requiere push del owner)"
+  "next": {
+    "F0.1": "CI: Rust verdict on 8d355e2df closes FIND-701/702 (vanta-lead, passive)",
+    "F0.2": "rebuild vantadb-server embed-local + re-pin sha (vanta-worker)",
+    "F0.3": "publication hygiene: node metadata, personal email, rustls, Notion claim, vantadb.dev (vanta-docs + vanta-lead)",
+    "F0.4": "bump Formula + release-manifest to 0.10.0 (vanta-lead, local only)",
+    "F0.5": "BLOCKED ON OWNER OK - dispatch release-binaries 5 targets + 4 sha256",
+    "F0.6": "BLOCKED ON OWNER OK - release-plz PR, verify-release -Smoke, sync develop<-main"
   },
-  "findings_registrados": {
-    "FIND-710": "politica de vector sintetico no unificada: INSERT lo descarta, INSERT MESSAGE lo conserva y marca",
-    "FIND-711": "apply_explicit_vector no borra __vanta_embed_status: UPDATE ... SET VECTOR deja la marca obsoleta",
-    "FIND-712": "opcional: exponer degraded: bool en ExecutionResult::Write",
-    "FIND-713": "segment() de stamp-frontmatter BOM-ciego y --self-test sin cablear en docs-gates.yml"
+  "authorizations": {
+    "pushDevelop": true,
+    "commits": true,
+    "subagents": true,
+    "ciMonitoring": true,
+    "tags": false,
+    "publish": false,
+    "mergeToMain": false,
+    "destructive": false
   },
-  "lastSync": "2026-11-24T12:05:00Z"
+  "lastSync": "2026-11-24T13:10:00Z"
 }
