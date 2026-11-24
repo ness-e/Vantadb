@@ -840,3 +840,15 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Objetivo:** Que volver a correr `scripts/docs/stamp-frontmatter.mjs` nunca inyecte un segundo bloque de frontmatter, ni deje una linea en blanco antes del H1, ni derive el `title` del nombre de fichero. Causa raiz doble en el punto compartido: `parseFrontmatter` (`scripts/docs/lib.mjs`) no toleraba BOM (`hadFrontmatter:false` falso) ni un bloque cerrado al final sin salto, y el escritor recomponia con `/^\n+/` dejando el `\r` atras. Un solo fix en el parser cura a los 5 consumidores (`check-docs`, `check-links`, `gen-index`, `check-doc-examples`, `stamp-frontmatter`).
 - **Resultado:** ✅ Verificado: `--self-test` 6/6 con 3 casos de dano; 3 mutantes (sin strip de BOM, `/^\n+/` restaurado, LF sobre CRLF) devuelven exit 1; idempotencia `--write` -> 777 unchanged con SHA256 identicos; `check-links`/`check-docs`/`check-secrets`/`check-doc-examples` en 0. Corpus reparado a mano (33 ficheros) sin reescritura masiva.
 - **Commit:** `51c038efd`
+
+### Cierre MSRV declarado (FIND-705, absorbido en FIND-701)
+- **Fecha:** 2026-11-24
+- **Objetivo:** El MSRV declarado (`rust-version = "1.94.1"`) era falso: `croaring 2.8.0` y `sysinfo 0.39.6` exigen `rustc 1.95.0`, y nadie lo notó mientras el gate era decorativo (el pin de `rust-toolchain.toml` coincidía con el MSRV real). Declarar el MSRV verdadero y renombrar el check requerido.
+- **Resultado:** ✅ `Cargo.toml` declara `rust-version = "1.95.0"` y el job pasó a `MSRV Check (1.95.0)` (`ci-rust.yml:468`). Evidencia del fallo original: run `45253777361`, job `137970066687`. El fallout de `FIND-701` en los jobs fleet/health se cerró aparte. Queda pendiente **solo** la pasada verde de CI, que se verifica en `FIND-701`.
+- **Commit:** `5a669a186`, `11abb6e54`
+
+### Cierre matriz de binarios del release (FIND-709)
+- **Fecha:** 2026-11-24
+- **Objetivo:** La fórmula de Homebrew referencia 4 tarballs (`x86_64`/`aarch64` × `apple-darwin`/`linux-gnu`) mientras `release-binaries.yml` publicaba un solo target: el release saldría con la fórmula rota.
+- **Resultado:** ✅ Verificado en `release-binaries.yml:68-77`: la matriz declara 5 targets (`x86_64`/`aarch64-unknown-linux-gnu`, `x86_64`/`aarch64-apple-darwin`, `x86_64-pc-windows-msvc`), de los cuales los 4 de la fórmula existen. La validación real llega con `scripts/verify-release.ps1 -Tag v<version> -Smoke` en el release.
+- **Commit:** `9dab5093b`
