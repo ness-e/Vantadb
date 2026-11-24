@@ -16,8 +16,8 @@ tags: [release, artifact, sha256, certification]
 - **Tipo:** Docs + artefacto de build (0 líneas de código)
 - **Turns estimados:** 10
 - **Creado:** 2026-11-24T16:10
-- **last-synced:** 2026-11-24T17:05
-- **Estado:** ⏳ IN PROGRESS (steps 1‑5 ✅; cierre: verify + review + commit)
+- **last-synced:** 2026-11-24T17:22
+- **Estado:** ✅ COMPLETED (review P2-01: ✅ approve, 3 rondas — commit de cierre sobre `664ef4d67`)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps (1 step de cierre)
 
@@ -172,7 +172,7 @@ No es feature-add: no agrega símbolos públicos, endpoints, tools ni bindings (
 ### Step 6: Verify del contrato + OCR + review P2-01 + commit de cierre
 - **Archivos:** los de los steps 4‑5 + este task file
 - **Acción:** correr el contrato mecánico completo, `pwsh dev-tools/ocr-review.ps1`, review P2‑01 por agente distinto y commit local.
-- **Verify:** contrato §Contrato en verde + `dev-tools/verify.ps1` ALL 8 PASS (`%TEMP%\opencode\f02-verify.log`: fmt/check/clippy/audit/deny/nextest/docs-coverage/cli-probes ok) + OCR sin Critical/High (0 ficheros code-reviewables: el diff es `.md`) + review P2‑01 en dos rondas. El commit de cierre es el que contiene esta línea.
+- **Verify:** contrato §Contrato en verde + `dev-tools/verify.ps1` ALL 8 PASS (`%TEMP%\opencode\f02-verify.log`: fmt/check/clippy/audit/deny/nextest/docs-coverage/cli-probes ok) + OCR sin ficheros code-reviewables (5/5 `unsupported_ext`: el diff es `.md`) + review P2‑01 en **tres rondas** (❌ → ❌ → ✅ approve). El trabajo viaja en `664ef4d67`; este task file y el cierre del review, en el commit de seguimiento.
 - **Estado:** ✅ DONE
 
 ## Dependencias
@@ -222,6 +222,20 @@ No es feature-add: no agrega símbolos públicos, endpoints, tools ni bindings (
 
 - **Veredicto ronda 2:** ❌ **cambios requeridos** — R1/R2/R3/O1 cerrados y verificados; **no** se aprueba el estado declarado: el step 6 figura ✅ sin commit ni evidencia de OCR, los contadores se contradicen entre sí y la sección del revisor venía con un «✅ approve» escrito por el implementador (sustituido por este dictamen — eso es exactamente lo que P2-01 existe para impedir). Son tres ediciones de estado, ninguna toca el artefacto ni el sha.
   - **Evidencia de esta ronda:** `Get-FileHash` → `CC199689…E921E5` · contrato endurecido → 0 líneas (10 hits en scope, 0 sin `cc199689`) · `gen-index --check` exit 0 · `check-links` exit 0 (0 rotos markdown; 1 wikilink presupuestado) · `check-docs` exit 0 (4 wikilinks informativos) · mediciones intactas tras las anotaciones inline (`review-certify:21,77` y `operaciones.md:925`: latencias 17/28/28/23/27/48/24/30/63 s, 79 s, **31/31**, 21m29s, 17/17) · `git log -1 d0df55c2b` author `12:43:29` / commit `12:46:07` ✓ · `docs/index.md` delta = 1 fila ✓.
+
+#### Cierre del gate P2-01 (ronda 3, tier Fast)
+
+- **Veredicto:** ✅ **approve** — F0.2 aprobada; gate cerrado sobre el commit `664ef4d67`.
+- **Comprobado por el revisor (independiente, ronda 3):**
+  - `git log -1 --stat 664ef4d67` → 5 ficheros, **+259/−7**, mensaje `chore(release): … (F0.2)`; `git status --short` sin salida (árbol limpio, nada pusheado). El commit no contiene binarios ni código.
+  - `Get-FileHash …\vantadb-server.exe -Algorithm SHA256` → `CC199689F3623036C1C37A846B9CCE4D659C96E570471A615CFE54CE2FE921E5`.
+  - Contrato endurecido con exclusión por **nombre exacto** (`!docs/dev/tasks/F0-2-binary-repin.md`) → **0 líneas**; universo en scope = **9 hits**, los 9 con `cc199689` en la misma línea → el filtro sigue teniendo sentido (no está vaciado) y la exclusión ya no es un glob abierto.
+  - `node scripts/docs/gen-index.mjs --check` → 0 · `check-links.mjs` → 0 · `check-docs.mjs` → 0.
+  - OCR verificado de primera mano: `ocr delegate preview --commit 664ef4d67` → `total_files: 5`, **`reviewable_count: 0`**, los 5 con `exclude_reason: unsupported_ext` e insertions/deletions que cuadran con el stat del commit. «0 ficheros code-reviewables» es un hecho, no un «0 Critical/High» auto-reportado.
+  - Mediciones históricas **intactas token a token** (comparación de tokens numéricos contra `HEAD~1`): `operaciones.md:880` (digest de 64 hex **restaurado**, delta = solo los dígitos de la anotación `0.2`/`199689`), `operaciones.md:925`, `review-certify:21` y `:77` → ninguna cifra, latencia ni veredicto alterado.
+  - Contadores sincronizados (`:22` «0 steps; el commit de cierre es el acto final», `:132` ídem, `:133` «100%»); los 6 steps en `✅ DONE`; `:122` cita los shas de las líneas 853/898 (correcto), `:932` con las comillas cerradas, `:81`/`:107` usan el `rg` endurecido, `:145` del plan es la fila correcta.
+- **Residuales (no bloquean; deben entrar en el commit de cierre de la review):** `:20` sigue diciendo «steps 1‑5 ✅» con 6 ✅ · `last-synced: 2026-11-24T17:05` es posterior al mtime del fichero (16:52:58) y al commit (16:53:20) · step 6 dice «review P2‑01 en dos rondas» y ya son tres · «el commit de cierre es el que contiene esta línea» pasa a ser el commit que incluya **este cierre** (amend de `664ef4d67` o commit de seguimiento).
+- **Estado del artefacto que el release citará:** `cc199689…` es el binario que corrieron los 3 probes (`inputs.executable.sha256` / `executableSha256`), con `embed-local` real (fase sin ORT falla cerrada; fase positiva devuelve vectores reales), y `2d1d2e87…` sobrevive solo como texto histórico fechado con puntero al pin vigente en la misma línea.
 
 ## Notas
 - El binario declara `vantadb-server 0.9.0` (la versión del workspace la sube release‑plz en F0.4/PR; no se toca `Cargo.toml`).
