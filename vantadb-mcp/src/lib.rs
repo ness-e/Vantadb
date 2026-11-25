@@ -50,7 +50,10 @@ pub use handlers::tools::handle_tools_call;
 /// List available tools.
 pub use handlers::tools::handle_tools_list;
 /// MCP-35 proxy handle (for tests).
-pub use proxy::{cleanup_stale, try_proxy, ProxyHandle};
+pub use proxy::{cleanup_stale, is_pid_alive, try_proxy, ProxyHandle};
+/// MCP-48: proxy that re-elects its writer (reconnect or promote) instead of
+/// dying with it.
+pub use proxy::{ProxyOutcome, WriterProxy};
 /// MCP-35: run proxy-only stdio server (exposed for tests).
 pub use server::run_proxy_stdio_server;
 /// Run the MCP server over stdin/stdout (JSON-RPC 2.0).
@@ -60,7 +63,7 @@ pub use server::run_stdio_server_auto;
 /// Thread-safe registry for cancelled JSON-RPC request IDs (MCP-05 / PRD-03).
 pub use server::CancellationRegistry;
 /// MCP-35 discovery file shape.
-pub use server::{discovery_path, is_pid_alive, spawn_writer_http, ServerInfo, WriterGuard};
+pub use server::{discovery_path, spawn_writer_http, ServerInfo, WriterGuard};
 /// Deterministic ES/EN temporal-expression → inclusive Unix-ms range (FIND-103).
 pub use temporal::parse_temporal_expression;
 /// Policy default (days) for the unresolvable-expression fallback.

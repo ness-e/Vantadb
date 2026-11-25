@@ -35,27 +35,31 @@ pub struct ServerInfo {
     pub version: String,
 }
 
-/// Guard that removes `.vanta.server.json` on Drop iff `pid == self`.
+/// Guard that removes `.vanta.server.json` on Drop iff it still describes
+/// *this* listener (`pid` **and** `http_port` match).
 /// Holds the fs2 exclusive lock indirectly via the StorageEngine's `_lock_file`.
 pub struct WriterGuard {
     path: PathBuf,
     pid: u32,
+    http_port: u16,
 }
 
 impl Drop for WriterGuard {
     fn drop(&mut self) {
-        // Best-effort: only delete if the file still belongs to us (pid check
-        // protects against PID reuse / writer restart race).
+        // Best-effort: only delete if the file still belongs to us. The port is
+        // checked as well as the pid: a guard from a previous listener of the
+        // same process would otherwise delete the file its successor just
+        // wrote (MCP-48 promotion restarts a dead listener in-process).
         if let Ok(content) = std::fs::read_to_string(&self.path) {
             if let Ok(info) = serde_json::from_str::<ServerInfo>(&content) {
-                if info.pid == self.pid {
+                if info.pid == self.pid && info.http_port == self.http_port {
                     let _ = std::fs::remove_file(&self.path);
                     info!(pid = self.pid, path = %self.path.display(), "cleaned discovery file on Drop");
                 } else {
                     debug!(
                         self_pid = self.pid,
                         file_pid = info.pid,
-                        "skip Drop cleanup: pid mismatch (writer restarted)"
+                        "skip Drop cleanup: discovery file belongs to another writer"
                     );
                 }
             }
@@ -68,16 +72,11 @@ pub fn discovery_path(storage_path: &str) -> PathBuf {
     Path::new(storage_path).join(".vanta.server.json")
 }
 
-/// Check whether a PID is still alive (cross-platform via sysinfo).
-#[allow(dead_code)]
-pub fn is_pid_alive(pid: u32) -> bool {
-    let mut sys = sysinfo::System::new_all();
-    sys.refresh_all();
-    sys.process(sysinfo::Pid::from(pid as usize)).is_some()
-}
-
-/// Write `.vanta.server.json` atomically and return its guard.
+/// Write `.vanta.server.json` atomically (temp file + rename) and return its guard.
 /// Caller must already hold the fs2 exclusive lock (i.e. StorageEngine is open).
+///
+/// Atomicity is load-bearing for MCP-48: a concurrent reader must never see a
+/// truncated file (it would look like "no writer" while the writer is alive).
 fn write_discovery_file(storage_path: &str, http_port: u16) -> std::io::Result<WriterGuard> {
     let pid = std::process::id();
     let started_at = std::time::SystemTime::now()
@@ -91,19 +90,34 @@ fn write_discovery_file(storage_path: &str, http_port: u16) -> std::io::Result<W
         version: env!("CARGO_PKG_VERSION").to_string(),
     };
     let path = discovery_path(storage_path);
+    // Same directory ⇒ the rename is atomic on every platform we ship.
+    let tmp = path.with_file_name(".vanta.server.json.tmp");
     // ServerInfo is a plain Serialize struct (strings/ints) — serialization cannot fail.
     #[allow(clippy::expect_used)]
     let json = serde_json::to_string_pretty(&info).expect("ServerInfo serializes");
-    // Open with create+truncate, write, sync
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
-        .open(&path)?;
+        .open(&tmp)?;
     use std::io::Write;
-    file.write_all(json.as_bytes())?;
-    file.sync_all().ok(); // best-effort fsync
-    Ok(WriterGuard { path, pid })
+    let written = file
+        .write_all(json.as_bytes())
+        .and_then(|()| file.sync_all());
+    drop(file);
+    if let Err(e) = written {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+    if let Err(e) = std::fs::rename(&tmp, &path) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+    Ok(WriterGuard {
+        path,
+        pid,
+        http_port,
+    })
 }
 
 /// MCP-35 generic proxy endpoint: `POST /api/v2/mcp/proxy` forwards any MCP method
@@ -261,9 +275,11 @@ pub async fn spawn_writer_http(storage: Arc<StorageEngine>) -> std::io::Result<(
         }
     });
     info!(pid = guard.pid, port, path = %guard.path.display(), "VantaDB writer active");
-    // SIGTERM / Ctrl-C cleanup: remove file only if pid==self (guard's Drop already does, this is extra for signal)
+    // SIGTERM / Ctrl-C cleanup: remove file only if it still describes this
+    // listener (guard's Drop already does; this is extra for the signal path).
     let sig_path = guard.path.clone();
     let sig_pid = guard.pid;
+    let sig_port = guard.http_port;
     tokio::spawn(async move {
         #[cfg(unix)]
         {
@@ -284,9 +300,13 @@ pub async fn spawn_writer_http(storage: Arc<StorageEngine>) -> std::io::Result<(
         // Best-effort cleanup on signal — guard's Drop is primary
         if let Ok(content) = std::fs::read_to_string(&sig_path) {
             if let Ok(info) = serde_json::from_str::<ServerInfo>(&content) {
-                if info.pid == sig_pid {
+                if info.pid == sig_pid && info.http_port == sig_port {
                     let _ = std::fs::remove_file(&sig_path);
-                    info!(pid = sig_pid, "cleaned discovery file on signal");
+                    info!(
+                        pid = sig_pid,
+                        port = sig_port,
+                        "cleaned discovery file on signal"
+                    );
                 }
             }
         }
@@ -760,11 +780,12 @@ pub(crate) async fn dispatch_request(
 // ── MCP-35 proxy dispatch (second instance) ────────────────────────────────
 
 /// Dispatch via HTTP proxy (second N instance without lock).
-/// `proxy` is the live writer's handle; local methods (initialize, tools/list)
-/// are answered without HTTP for latency.
+/// The writer behind `proxy` is re-elected on transport failure (MCP-48), so a
+/// dead writer no longer costs the session its tools. Local methods
+/// (initialize, tools/list) are answered without HTTP for latency.
 pub(crate) async fn dispatch_request_proxy(
     req: &RpcRequest,
-    proxy: &crate::proxy::ProxyHandle,
+    proxy: &crate::proxy::WriterProxy,
     config: &McpConfig,
     semaphore: &Arc<tokio::sync::Semaphore>,
     metrics: &Arc<McpMetrics>,
@@ -793,14 +814,7 @@ pub(crate) async fn dispatch_request_proxy(
                 .await
                 .map_err(|_| McpError::internal_error("Semaphore closed").to_json())?;
             // Proxy path never takes fs2 lock — reqwest only, 60s timeout on writer side
-            match proxy.proxy_tools_call(&req.params).await {
-                Ok(v) => Ok(v),
-                Err(e) => Err(if e.get("code").is_some() {
-                    e
-                } else {
-                    McpError::internal_error(format!("proxy error: {}", e)).to_json()
-                }),
-            }
+            proxy.call("tools/call", &req.params).await
         }
         "resources/list" => handle_resources_list(),
         "resources/read" => {
@@ -809,14 +823,7 @@ pub(crate) async fn dispatch_request_proxy(
                 .acquire_owned()
                 .await
                 .map_err(|_| McpError::internal_error("Semaphore closed").to_json())?;
-            match proxy.proxy_mcp_call("resources/read", &req.params).await {
-                Ok(v) => Ok(v),
-                Err(e) => Err(if e.get("code").is_some() {
-                    e
-                } else {
-                    McpError::internal_error(format!("proxy error: {}", e)).to_json()
-                }),
-            }
+            proxy.call("resources/read", &req.params).await
         }
         "prompts/list" => handle_prompts_list(),
         "prompts/get" => handle_prompts_get(req.params.as_ref()),
@@ -855,7 +862,7 @@ pub(crate) async fn dispatch_request_proxy(
 
 /// Proxy variant of `serve_lines` — uses `dispatch_request_proxy` (HTTP) instead of local storage.
 async fn serve_lines_proxy<R, W>(
-    proxy: &crate::proxy::ProxyHandle,
+    proxy: &Arc<crate::proxy::WriterProxy>,
     config: &McpConfig,
     semaphore: &Arc<tokio::sync::Semaphore>,
     metrics: &Arc<McpMetrics>,
@@ -961,8 +968,10 @@ async fn serve_lines_proxy<R, W>(
     while inflight.join_next().await.is_some() {}
 }
 
-/// Run proxy stdio server (DatabaseBusy fallback).
-pub async fn run_proxy_stdio_server(proxy: crate::proxy::ProxyHandle, config: McpConfig) {
+/// Run proxy stdio server (DatabaseBusy fallback) with MCP-48 re-election:
+/// when the writer dies, the next call re-elects (reconnect or promote)
+/// instead of leaving the session without tools until a restart.
+pub async fn run_proxy_stdio_server(proxy: Arc<crate::proxy::WriterProxy>, config: McpConfig) {
     let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrency));
     let metrics = Arc::new(McpMetrics::default());
     let cancellations = Arc::new(CancellationRegistry::new());
@@ -973,7 +982,34 @@ pub async fn run_proxy_stdio_server(proxy: crate::proxy::ProxyHandle, config: Mc
             sig_running.store(false, Ordering::SeqCst);
         }
     });
-    info!(proxy = %proxy.base_url, "MCP proxy stdio server started");
+    // MCP-48: role + re-election counters are part of the observable state —
+    // the whole bug was that a dead writer left no trace beyond failing calls.
+    let obs = proxy.clone();
+    let obs_metrics = metrics.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            // Bound values before the macro: `tracing::Value` is not `Send`,
+            // and awaiting inside the macro would make the task non-Send.
+            let role = obs.role().await;
+            let writer = obs.base_url().await;
+            info!(
+                role,
+                writer = ?writer,
+                reconnects = obs.reconnects(),
+                resolve_failures = obs.resolve_failures(),
+                active = obs_metrics.active_requests.load(Ordering::Relaxed),
+                total = obs_metrics.requests_total.load(Ordering::Relaxed),
+                errors = obs_metrics.errors_total.load(Ordering::Relaxed),
+                "MCP proxy metrics",
+            );
+        }
+    });
+    info!(
+        writer = ?proxy.base_url().await,
+        "MCP proxy stdio server started"
+    );
     serve_lines_proxy(
         &proxy,
         &config,
@@ -985,7 +1021,13 @@ pub async fn run_proxy_stdio_server(proxy: crate::proxy::ProxyHandle, config: Mc
         tokio::io::stdout(),
     )
     .await;
-    info!("MCP proxy server shut down");
+    info!(
+        reconnects = proxy.reconnects(),
+        resolve_failures = proxy.resolve_failures(),
+        "MCP proxy server shut down"
+    );
+    // If we promoted ourselves, this process owns the storage now.
+    proxy.flush_if_promoted().await;
 }
 
 /// MCP-35 Step3: try to open writer, fallback to proxy on DatabaseBusy, stale cleanup + retry once.
@@ -1019,14 +1061,22 @@ pub async fn run_stdio_server_auto(
                 .api_key
                 .clone()
                 .or_else(|| std::env::var("VANTADB_API_KEY").ok());
-            // Try proxy (500ms health + PID alive)
-            if let Some((handle, _info)) = crate::proxy::try_proxy(&path, api_key.clone()).await {
+            // Try proxy (500ms health + PID alive). MCP-48: the handle carries
+            // the promote config so a later writer death can re-elect this
+            // process into the writer role instead of failing forever.
+            if let Some(proxy) = crate::proxy::WriterProxy::connect(
+                &path,
+                api_key.clone(),
+                Some(cfg_with_path.clone()),
+            )
+            .await
+            {
                 // Proxy mode — no lock, HTTP only
                 let mcp_cfg = McpConfig {
                     max_concurrency: cfg_with_path.max_blocking_threads,
                     ..Default::default()
                 };
-                run_proxy_stdio_server(handle, mcp_cfg).await;
+                run_proxy_stdio_server(std::sync::Arc::new(proxy), mcp_cfg).await;
                 Ok(())
             } else {
                 // Stale: cleanup + retry once (Step3)
@@ -1069,6 +1119,44 @@ pub async fn run_stdio_server_auto(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// MCP-48 N1: a guard from a superseded listener of the same process must
+    /// not delete the discovery file its successor just wrote (same pid,
+    /// different port). Without the port in the identity, restarting the
+    /// writer HTTP in-process left the promoted writer unadvertised forever.
+    #[test]
+    fn writer_guard_drop_respects_port() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+        let disc = discovery_path(path);
+
+        let old_guard = write_discovery_file(path, 1234).expect("write discovery");
+        assert_eq!(
+            serde_json::from_str::<ServerInfo>(&std::fs::read_to_string(&disc).unwrap())
+                .unwrap()
+                .http_port,
+            1234
+        );
+        // Successor listener rewrites the file on a new port.
+        let newer = ServerInfo {
+            pid: std::process::id(),
+            http_port: 4321,
+            started_at: 1,
+            version: "test".into(),
+        };
+        std::fs::write(&disc, serde_json::to_string(&newer).unwrap()).unwrap();
+
+        drop(old_guard);
+        assert!(
+            disc.exists(),
+            "a superseded guard must not delete the live winner's file"
+        );
+
+        // A guard that does match still cleans up.
+        let current = write_discovery_file(path, 4321).expect("write discovery");
+        drop(current);
+        assert!(!disc.exists(), "matching guard must clean up");
+    }
 
     /// Drive [`serve_lines`] with in-memory duplex pipes: write `input`,
     /// signal EOF, and return everything the server wrote back.

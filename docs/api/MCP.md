@@ -101,6 +101,32 @@ You should see a JSON response listing the available tools. Namespaces are creat
 
 For the full behavioral contract (error channels, response envelope, edge cases), see the VantaDB MCP Skill.
 
+### Writer discovery & re-election (MCP-48)
+
+When a second `vanta-cli server --mcp --db <path>` finds the database locked, it does not fail: it
+reads `<db_path>/.vanta.server.json`, validates the writer's PID and `GET /api/v2/health`, and forwards
+storage-backed methods over loopback HTTP to that writer (proxy mode). `initialize`, `tools/list`,
+`prompts/*` are answered locally, so the client's tool surface never depends on the writer.
+
+If the writer dies, the proxy **re-elects** instead of failing forever:
+
+| Step | Behavior |
+|---|---|
+| Writer unreachable (connect refused) | The handle is invalidated and the writer is re-resolved; the call is replayed only because it provably never reached the writer. |
+| Writer outcome unknown (timeout, 5xx, undecodable body) | The handle is invalidated, but the call is **not** replayed: the writer may already have executed it. The client gets `-32603` with `data.retriable: false` and a hint to verify state first. |
+| Writer answered `4xx` | A live writer refusing (auth, rate limit, payload). Passed through with `retriable: false`; no re-election, no extra round-trip. |
+| Re-resolve | Up to 3 probe passes with async backoff (50 ms, 150 ms total); a fresh `.vanta.server.json` is enough to reconnect. Concurrent requests single-flight through one election. |
+| No writer left | The stale discovery file is removed **only if its PID is provably dead** (a health timeout, a partial read or an unparseable file is never evidence of death), then this process promotes itself to writer by opening the storage. |
+| Promotion safety | The promotion takes the same fs2 exclusive lock as any writer. If another writer holds it, the open fails with `DatabaseBusy` and the proxy stays a proxy — two writers on one database are impossible by construction. |
+| Promotion limits | It needs the same write config as a first-time writer, including the encryption key; without it (or with a `read_only` config) the session stays proxy-only and answers `-32001`. |
+| Still no writer | The call returns `-32001` (`VANTADB_BUSY`) with `data.retriable: true`; nothing retries in a loop. |
+| Observable state | `tracing` events (`proxy reconnected to writer`, `proxy promoted itself to writer`) plus a 30 s `MCP proxy metrics` log line with `role`, `writer`, `reconnects`, `resolve_failures`. |
+
+A writer that is merely slow is **not** treated as dead: a live PID keeps its discovery entry, so the
+proxy cannot promote over it, and a timeout is reported as an unknown outcome rather than as damage.
+Domain errors from a live writer (`success: false`, e.g. `-32009`) pass through without any
+re-election attempt.
+
 ### Programmatic Tool Calling & Cloudflare Code Mode
 
 - **Anthropic Programmatic Tool Calling (PTC):** Anthropic's PTC specification excludes tools provided via MCP connectors, and `allowed_callers` is a Messages API field rather than part of the MCP tool JSON schema. Consequently, `vantadb-mcp` does **not** emit `allowed_callers`.
@@ -461,6 +487,7 @@ or a dropped handle), so it never claims a loop that is gone.
 The queue is the scheduler's in-process state (ADR-0054), so `ingest` describes
 **this** process only. An MCP session that proxies to another writer sees its
 own `queue` and `last_pass: null` — the writer's backlog is not visible here.
+
 
 ### Backup & Bulk Import (4)
 
