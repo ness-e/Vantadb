@@ -317,6 +317,80 @@ yaml gates still ran; `actionlint` missing → skipped by name. A hook that cann
 run exits non-zero with a pointer to this section. Never `--no-verify` past a
 red gate, and never install the alpha to "make it work".
 
+### The hook never stashes a shared tree (`FIND-726`)
+
+**Symptom.** Tracked files you are editing change under you while *someone else*
+commits: an edit reverts, a batch of files vanishes for a minute and comes back,
+or `git diff` is empty on files you know you changed. `git stash list` is empty -
+the stash was temporary and internal.
+
+**Root cause.** `pre-commit run` reverts every tracked file to its index content,
+runs the hooks, then replays the unstaged diff:
+
+```python
+# pre_commit/commands/run.py (v4.6.2 and main)
+stash = not args.all_files and not args.files
+```
+
+```python
+# pre_commit/staged_files_only.py::_unstaged_changes_cleared
+cmd_output_b(*_CHECKOUT_CMD, ...)   # git checkout -- .
+yield                               # hooks run on index content only
+_git_apply(patch_filename)          # replay of the diff captured before
+```
+
+This is deliberate upstream - see
+<https://pre-commit.com/#pre-commit>: *"pre-commit only runs on the staged
+contents of files by temporarily stashing the unstaged changes while running
+hooks"* - and it is correct for one developer with one checkout. It is wrong for
+one checkout shared by several agents: any write that lands inside the window is
+dropped by the replay (the log still says `Restored changes`), and a run killed
+mid-way leaves the tree reverted with no stash to recover from. It cost other
+agents' work three times before this was fixed (`FIND-720`, `FIND-721`,
+`FIND-723`).
+
+**Fix.** `.githooks/pre-commit` passes the staged list explicitly. That is the
+only documented lever over `stash` (`--no-stash` exists only on the `hook-impl`
+CLI, not on `pre-commit run`):
+
+```sh
+git diff --staged --name-only -z --diff-filter=ACMRTUXB \
+  | xargs -0 pre-commit run --config .githooks/pre-commit-config.yaml --files
+```
+
+`--files` receives exactly the file set `pre-commit` would have derived itself,
+so the verdict is unchanged. The hook prints the tracked files it is leaving
+alone and never writes into the working tree.
+
+**Verify the invariant** - in a throwaway clone, never in the shared checkout:
+
+```powershell
+git hash-object <tracked-file-with-unstaged-edits>   # before
+git commit -m "probe"
+git hash-object <tracked-file-with-unstaged-edits>   # must be identical
+```
+
+**Trade-off, measured.** Hooks now see the **working tree**, not the index. Hooks
+that pass filenames (`ruff`, `prettier`, `markdownlint`, junk guard) still
+receive only the staged names and are unaffected. Whole-tree hooks (`cargo fmt
+--check`, `cargo clippy`, the per-member clippy in `verify_staged`) can fail on a
+file another agent is mid-edit. That failure is loud and true - bypass it only
+for the file you know is foreign:
+
+```powershell
+$env:SKIP = "cargo-fmt,cargo-clippy"; git commit ...
+```
+
+Aborting whenever foreign WIP exists was rejected: on a shared checkout WIP is
+the normal state, so an abort would block every commit and push everyone to
+`--no-verify`, which is no gate at all.
+
+**Recovering a stash that never came back.** An interrupted run leaves the patch
+at `~/.cache/pre-commit/patch*`. Inspect it with `git apply --stat <patch>`, apply
+with `git apply <patch>`. Do not re-run the hook first - it would revert the tree
+again.
+
+
 [ne453]: https://github.com/ekalinin/nodeenv/issues/453
 [ne454]: https://github.com/ekalinin/nodeenv/pull/454
 

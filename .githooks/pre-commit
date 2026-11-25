@@ -5,6 +5,8 @@
 # Con `pre-commit` instalado delega todos los gates deterministas (fmt, clippy,
 # ruff, prettier, markdownlint). Sin él, fallback mínimo con cargo fmt.
 # actionlint corre solo si está instalado (chequeo condicional heredado).
+# STASH DESHABILITADO a propósito: este hook NUNCA escribe en el working tree
+# (dos o más agentes comparten este checkout — FIND-726).
 # Skips: SKIP=<hook-id> git commit  |  git commit --no-verify (solo emergencias)
 
 set -e
@@ -24,11 +26,64 @@ if [ -n "$JUNK_STAGED" ]; then
 fi
 
 if command -v pre-commit >/dev/null 2>&1; then
-    echo "pre-commit: running .githooks/pre-commit-config.yaml gates..."
-    if pre-commit run --config "$REPO_ROOT/.githooks/pre-commit-config.yaml" --show-diff-on-failure "$@"; then
-        echo "pre-commit: gates passed."
+    # ── FIND-726: `pre-commit run` must never touch the working tree ──────────
+    # Without --files/--all-files it REVERTS every tracked file to its index
+    # content and replays the unstaged diff afterwards:
+    #   pre_commit/commands/run.py -> stash = not args.all_files and not args.files
+    # https://pre-commit.com/#pre-commit ("pre-commit only runs on the staged
+    # contents of files by temporarily stashing the unstaged changes while
+    # running hooks"). In a tree shared by several agents that revert/replay
+    # destroyed other agents' work three times (FIND-720, FIND-721, FIND-723): a
+    # write landing inside the window is silently dropped by the replay, and an
+    # interrupted run leaves every tracked file reverted. Passing the staged list
+    # explicitly (`--files`) keeps the exact same file set and makes `stash`
+    # False, so this hook cannot write into the tree at all.
+    #
+    # TRADE-OFF (measured, not assumed): hooks now see the WORKING TREE, not the
+    # index. Hooks that pass filenames (ruff, prettier, markdownlint,
+    # forbid-junk) are unaffected — they still receive only the staged names.
+    # Whole-tree hooks (cargo fmt --check, cargo clippy, verify_staged clippy) can
+    # now fail on a file another agent is editing. That failure is loud and true
+    # and is never "fixed" by rewriting the tree. Bypass:
+    #   SKIP=cargo-fmt,cargo-clippy git commit ...
+    # REJECTED: aborting whenever foreign WIP exists. WIP is the normal state of
+    # this checkout (measured 2026-11-25: `M src/executor.rs` while FIND-722 ran),
+    # so an unconditional abort would block every commit and push everybody to
+    # --no-verify, which removes the gate entirely.
+
+    # pre-commit only enforces these two guards in stash mode; keep them here.
+    UNMERGED=$(git ls-files --unmerged)
+    if [ -n "$UNMERGED" ]; then
+        echo "ERROR [FIND-726]: unmerged paths present — resolve before committing:" >&2
+        echo "$UNMERGED" | sed 's/^/  /' >&2
+        exit 1
+    fi
+    if ! git diff --quiet --no-ext-diff -- .githooks/pre-commit-config.yaml; then
+        echo "ERROR: .githooks/pre-commit-config.yaml has unstaged changes — the gates" >&2
+        echo "       must run the staged config. Fix: git add .githooks/pre-commit-config.yaml" >&2
+        exit 1
+    fi
+
+    STAGED_LIST=$(git diff --staged --name-only --no-ext-diff)
+    if [ -z "$STAGED_LIST" ]; then
+        echo "pre-commit: nothing staged; yaml gates skipped."
     else
-        FAILED=1
+        WIP_LIST=$(git diff --name-only --no-ext-diff)
+        if [ -n "$WIP_LIST" ]; then
+            echo "pre-commit: [FIND-726] unstaged changes in tracked files — left untouched:"
+            echo "$WIP_LIST" | head -n 10 | sed 's/^/  /'
+            echo "pre-commit: whole-tree gates (cargo fmt --check, clippy) do see them."
+            echo "pre-commit: if one fails on a file you did not stage, use:"
+            echo "pre-commit:   SKIP=cargo-fmt,cargo-clippy git commit ..."
+        fi
+        echo "pre-commit: running .githooks/pre-commit-config.yaml gates (no stash)..."
+        # -0/xargs keeps paths with spaces intact; --files is what disables the stash.
+        if git diff --staged --name-only --no-ext-diff -z --diff-filter=ACMRTUXB \
+            | xargs -0 pre-commit run --config "$REPO_ROOT/.githooks/pre-commit-config.yaml" --show-diff-on-failure --files; then
+            echo "pre-commit: gates passed."
+        else
+            FAILED=1
+        fi
     fi
 else
     echo "pre-commit: binary not found (pipx install pre-commit). Minimal fallback:"
