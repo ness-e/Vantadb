@@ -1,0 +1,27 @@
+# ThreadSanitizer suppressions — `sanitizer-tsan` lane (.github/workflows/ci-rust.yml)
+#
+# Scope: the TEST HARNESS ONLY. TSan instruments the test binary (libtest + our
+# code) while `std` is NOT instrumented (there is no `-Zbuild-std`), so libtest's
+# own event channel is reported as racy on every run: the disputed Block is a
+# `std::sync::mpmc::list::Channel<test::event::CompletedTest>`, and the two
+# conflicting accesses are `Channel::read` (std/src/sync/mpmc/list.rs:381) and
+# `Channel::write` (list.rs:274), reached through
+# `core::profiling::compiler_copy`. Zero `vantadb` frames in any report.
+# Noise class: FIND-227. Why the lane needed it: FIND-714.
+#
+# Do NOT widen this file. A single `race:std` (or `race:core`) entry would also
+# silence a real race in any stack that merely passes through std — the gate
+# would go quiet and stay green, which is the failure mode FIND-227 rejected.
+# Both entries below are libtest-only:
+#   - `std::sync::mpmc` is not used by this crate (rg -n "mpmc" src/ tests/ -> 0);
+#   - `CompletedTest` is libtest's event type, absent from src/.
+# If a report ever carries a `vantadb` frame it does NOT match either entry and
+# fails the lane, which is the whole point.
+#
+# What applies is the UNION, so the effective scope is the wider of the two.
+# `CompletedTest` alone covers every frame observed so far (the channel's
+# read/write/send/recv/start_send and compiler_copy::<MaybeUninit<CompletedTest>>).
+# Both are kept on purpose: inlining can drop the channel frame and keep the
+# payload one, and the pair costs nothing while making each signature legible.
+race:std::sync::mpmc
+race:CompletedTest

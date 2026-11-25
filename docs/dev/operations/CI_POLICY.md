@@ -62,7 +62,7 @@ governance semantics are excluded from the default fast lane.
 | `deny` | Dependency Policy Check (`cargo deny`) |
 | `experimental-check` | Experimental Crates Check (continue-on-error, non-blocking) |
 | `sanitizer-asan` | AddressSanitizer (nightly, continue-on-error) |
-| `sanitizer-tsan` | ThreadSanitizer (nightly, continue-on-error) |
+| `sanitizer-tsan` | ThreadSanitizer (nightly, continue-on-error) — 4 hash partitions; contract and suppression scope in §"TSan lane (`sanitizer-tsan`) — contract and suppression scope (FIND-714)" |
 | `release-combo` | Release Combo Check — `cargo check --release` of `vanta-cli` (`server,jemalloc`) + `vantadb-server` (`jemalloc`) with `RUSTFLAGS=-D warnings`; the exact combo of `release-binaries.yml` (FIND-231) |
 
 > **Note (ERR-OBS-01):** the `test` job exercises error-observability behavior
@@ -79,6 +79,69 @@ governance semantics are excluded from the default fast lane.
   required).
 - **Fast:** Any test exceeding a few seconds must be moved to heavy certification or heavily
   optimized.
+
+#### TSan lane (`sanitizer-tsan`) — contract and suppression scope (FIND-714)
+
+The lane exists to answer one question: *does the engine race under concurrent access?* Until
+2026-11-24 it could not answer it. Measured on run `45486044760`, job `138775290328`
+(partition 1/4):
+
+```
+Summary [   0.801s] 4/821 tests run: 0 passed, 4 failed, 2322 skipped
+```
+
+4 of 821 tests in the partition, all four from the `--lib` binary, all four with the same
+signature and **zero `vantadb` frames**: libtest's own event channel
+(`<std::sync::mpmc::list::Channel<test::event::CompletedTest>>::read` / `::write`, reached via
+`core::profiling::compiler_copy`). TSan instruments the test binary but not `std` (no
+`-Zbuild-std`), so the harness channel is reported racy in every process; nextest's default
+profile is fail-fast, so the run stopped at the first four and the other 59 binaries never ran.
+Red said nothing about the engine, and a green would have said nothing either.
+
+**Contract (enforced in `.github/workflows/ci-rust.yml`):**
+
+| Element | Value |
+|---|---|
+| Suppression file | `dev-tools/tsan-suppressions.txt` — `race:std::sync::mpmc`, `race:CompletedTest` |
+| Wiring | `TSAN_OPTIONS=suppressions=<abs path>:halt_on_error=1:history_size=2:external_symbolizer_path=<llvm-symbolizer>`; a missing or empty file fails the step |
+| Fail-fast | `--no-fail-fast`, so one report cannot hide the rest of the partition |
+| Executed-count assertion | a **completed** run prints `N tests run: …`; an **aborted** run prints `X/Y tests run` and fails the step; a completed run of `0 tests` also fails |
+
+The assertion reads `Y` from nextest's own summary, so nothing is hardcoded. Be precise about
+what it proves: it detects **aborts** (`X ≠ Y`, the `4/821` shape) and an **empty selection**
+(`0 tests run`); it does *not* detect a corpus that shrinks legitimately — numerator and
+denominator shrink together. Who bounds the corpus: the `-E` filterset on the test step and the
+`[profile.default]` `default-filter` in `.config/nextest.toml`. If `Y` drops materially for a
+partition, look there first.
+
+The suppression is deliberately narrow: `std::sync::mpmc` and `CompletedTest` are both absent from
+`src/` and `tests/` (`rg -n "mpmc|CompletedTest" src/ tests/` → 0 hits). The effective scope is the
+*wider* of the two entries (they are a union), and both are libtest-only. A broader entry such as
+`race:std` would silence a real race in any stack that passes through `std`; that is the failure
+mode FIND-227 rejected, and it stays rejected.
+
+**Why `race:` is the right TSan mechanism here:** the suppression string is matched against
+function and file names of the main stack and of the previous-access stack
+([ThreadSanitizerSuppressions](https://github.com/google/sanitizers/wiki/ThreadSanitizerSuppressions)),
+so a `vantadb` frame in a future report does not match either entry and the lane turns red.
+`race_top` would only match the top frame (here `memcpy`) and is useless for this signature.
+
+**Status of `continue-on-error`:** still `true` (`CATEGORY: NON-CRITICAL`). Removing it is the
+last step of FIND-714 and requires a run where all four partitions log
+`partition <n>/4: <N> tests run (selected == executed)` with `N` in the order of the partition
+size (~785-821, never `0`), `race reports: 0`, `suppression hits: > 0` (proof the entries are live
+and not dead), and everything inside the 50-minute step budget. That run needs a push, so it is an
+owner action. If the next run still shows non-harness races (rayon fences, dependency teardown —
+the residual documented in FIND-227), the honest alternative is option (b) of the plan: **retire
+the job** with an explicit `CATEGORY` and a withdrawal note in this section — never a chronic red
+hidden behind `continue-on-error` (Regla 2).
+
+**Repro / triage:**
+
+```
+gh api repos/ness-e/VantaDB/actions/jobs/<job-id>/logs --allow-escape-sequences \
+  | rg 'Summary|WARNING: ThreadSanitizer'
+```
 
 ### Fast Gate Test Exclusions
 
