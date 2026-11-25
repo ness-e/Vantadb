@@ -6,13 +6,20 @@ import { Client, DbError } from "../vantadb.js";
 
 // FIND-79: portability safety net (export/import/reindex + strict importRecords).
 //
-// FS-backed portability (`exportAll`, `exportNamespace`, `importFile`) and
-// `reindexHnswFromText` are NOT supported on the WASM runtime: the core
-// returns `IO error: operation not supported on this platform`
-// (`src/sdk/serialization/impl_export.rs`, `src/sdk/api/admin.rs`). These
+// FS-backed portability (`exportAll`, `exportNamespace`, `importFile`) is NOT
+// supported on the WASM runtime: the core reaches `std::fs`, which returns
+// `IO error: operation not supported on this platform` on
+// `wasm32-unknown-unknown` (`src/sdk/serialization/impl_export.rs`). These
 // tests pin that honest failure with strong asserts and tmpdir-isolated
 // paths — no soft try/catch. A real file round-trip export→import is
-// DEFERRED to a native binding / future WASI-OPFS wiring (FIND-79 H2).
+// DEFERRED to a WASI-OPFS wiring (FIND-79 H2).
+//
+// `reindexHnswFromText` is NOT filesystem-bound and is NOT in that group
+// (FIND-728): the core implements it for every backend
+// (`src/sdk/api/admin.rs:45`) and the WASM binding forwards it
+// (`vantadb-wasm/src/lib.rs:1756`), so the old "rejects with platform IO error"
+// pin asserted a limitation that no longer exists. What is pinned below is the
+// real contract: it returns a rebuild report and leaves the records intact.
 
 function tmpPath(name: string): string {
   return join(mkdtempSync(join(tmpdir(), "find79-")), name);
@@ -146,13 +153,42 @@ describe("FIND-79: FS-backed portability pins platform error (DEFER e2e)", () =>
     expect(() => db.importFile(tmpPath("nope.jsonl"))).toThrow(DbError);
   });
 
-  it("reindexHnswFromText rejects with platform IO error", () => {
-    expect(() => db.reindexHnswFromText("f79_exp")).toThrow(/operation not supported/i);
+  it("reindexHnswFromText rebuilds the index instead of failing (FIND-728)", () => {
+    // Own client: `scanned_nodes` is engine-wide, so a shared DB would make the
+    // count depend on the tests above.
+    const local = Client.create();
+    try {
+      local.put({ namespace: "f79_re", key: "a", payload: "pa", vector: [0.1, 0.2] });
+      local.put({ namespace: "f79_re", key: "b", payload: "pb", vector: [0.3, 0.4] });
+
+      const report = local.reindexHnswFromText("f79_re") as {
+        scanned_nodes: number;
+        indexed_vectors: number;
+        success: boolean;
+      };
+      expect(report.success).toBe(true);
+      expect(report.scanned_nodes).toBe(2);
+      expect(report.indexed_vectors).toBe(2);
+
+      // A rebuild is not a wipe: the records are still there.
+      expect(local.get({ namespace: "f79_re", key: "a" })!.payload).toBe("pa");
+      expect(local.list({ namespace: "f79_re" }).records.length).toBe(2);
+    } finally {
+      local.close();
+    }
   });
 
-  it("system subclient delegates export/import/reindex identically", () => {
+  it("system subclient delegates export/import errors and reindex returns a report", () => {
     expect(() => db.system.exportAll(tmpPath("s.jsonl"))).toThrow(DbError);
     expect(() => db.system.importFile(tmpPath("s.jsonl"))).toThrow(DbError);
-    expect(() => db.system.reindexHnswFromText("f79_exp")).toThrow(DbError);
+    expect(() => db.system.reindexHnswFromText("")).toThrow(DbError);
+
+    db.put({ namespace: "f79_sysre", key: "k", payload: "v", vector: [0.5, 0.5] });
+    const report = db.system.reindexHnswFromText("f79_sysre") as {
+      scanned_nodes: number;
+      success: boolean;
+    };
+    expect(report.success).toBe(true);
+    expect(report.scanned_nodes).toBeGreaterThanOrEqual(1);
   });
 });

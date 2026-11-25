@@ -162,6 +162,12 @@ export const KNOWN_CODES: ReadonlySet<string> = new Set([
 interface WasmErrorLike extends Error {
   /** Structured code attached by `vantadb-wasm`'s `to_js_err` (FIND-10). */
   code?: unknown;
+  /**
+   * Canonical `Error::code()` value attached by `vantadb-wasm`'s `to_js_err`
+   * (FFI-02). It is the authoritative `VANTADB_*` code; `code` above is the
+   * coarse `VantaErrorCode` (`ERR_*`) alias.
+   */
+  raw_code?: unknown;
 }
 
 /** Map structured or raw code into canonical ERROR_CODES string. */
@@ -237,7 +243,7 @@ export function classifyWasmError(message: string): ErrorCode {
   ) {
     return ERROR_CODES.VALIDATION_ERROR;
   }
-  if (/incompatible binary format|wal version mismatch|schema error/i.test(message)) {
+  if (/incompatible binary format|wal version mismatch|schema error|corrupt/i.test(message)) {
     return ERROR_CODES.CORRUPT;
   }
   if (/resource limit/i.test(message)) return ERROR_CODES.RESOURCE_LIMIT;
@@ -264,13 +270,24 @@ export function fromNativeError(e: unknown, context: string = "native"): DbError
 
   let code: string | undefined;
 
-  // 1. Structured .code property
-  if (e instanceof Error && typeof (e as WasmErrorLike).code === "string") {
+  // 1. Canonical core code. `to_js_err` attaches `raw_code = Error::code()`
+  //    (FFI-02) — the value `docs/api/ERROR_HANDLING.md` §1.1 promises to
+  //    callers. The coarse `.code` below cannot express it: `VantaErrorCode`
+  //    folds `Validation`, `InvalidInput`, `Iql` and `IqlParse` into a single
+  //    `ERR_INVALID_INPUT` (`vantadb-ffi-core/src/lib.rs:257-260`), so
+  //    preferring it rewrote every engine validation error as
+  //    `VANTADB_INVALID_ARGUMENT` (FIND-728).
+  if (e instanceof Error && typeof (e as WasmErrorLike).raw_code === "string") {
+    code = mapCodeToCanonical((e as WasmErrorLike).raw_code as string);
+  }
+
+  // 2. Coarse structured .code property (older pkg builds without `raw_code`)
+  if (!code && e instanceof Error && typeof (e as WasmErrorLike).code === "string") {
     const rawCode = (e as WasmErrorLike).code as string;
     code = mapCodeToCanonical(rawCode);
   }
 
-  // 2. Structured prefix in message: [ERR_CODE:<code>] or VANTADB_<code>:
+  // 3. Structured prefix in message: [ERR_CODE:<code>] or VANTADB_<code>:
   let cleanMessage = rawMessage;
   const match = NATIVE_CODE_PREFIX.exec(rawMessage);
   if (match) {
@@ -285,7 +302,7 @@ export function fromNativeError(e: unknown, context: string = "native"): DbError
     }
   }
 
-  // 3. Fallback message classification
+  // 4. Fallback message classification
   if (!code || code === ERROR_CODES.WASM_ERROR) {
     const fallbackCode = classifyWasmError(cleanMessage);
     if (fallbackCode !== ERROR_CODES.WASM_ERROR || !code) {

@@ -494,7 +494,14 @@ Check whether the subgraph reachable from the given roots is a Directed Acyclic 
 | `compactWal()` | Archive and compact the WAL |
 | `purgeExpired()` | Remove all TTL-expired records. Returns `bigint` count |
 | `rebuildIndex()` | Rebuild ANN (HNSW), derived, and text indexes |
+| `reindexHnswFromText(namespace, pageSize?)` | Rebuild the HNSW index, paginating the namespace with `list()` (`pageSize` capped at 1000). Returns a report object (`scanned_nodes`, `indexed_vectors`, `success`) — the current typings declare it `unknown` |
 | `compactLayout()` | BFS-order physical compaction of vector store. Returns `bigint` |
+
+> **Maintenance is not filesystem-bound.** `rebuildIndex()` and
+> `reindexHnswFromText()` work on the WASM runtime (in-memory backend
+> included) because they rewrite the index in place — only the
+> `Export / Import` group below reaches `std::fs` and therefore fails on
+> `wasm32-unknown-unknown`.
 
 ### Export / Import
 
@@ -754,6 +761,22 @@ The WASM binding preserves the structured `code` (via `vantadb-wasm`'s
 `to_js_err`). When that is missing (older pkg builds), `wrapWasmError` falls
 back to `classifyWasmError`, which uses message-prefix regex mirroring the
 `Display` strings in `src/error.rs`.
+
+`to_js_err` also attaches `raw_code` — the canonical `Error::code()` value from
+the Rust core (FFI-02). `wrapWasmError` prefers it, because `code` is the
+*coarse* `VantaErrorCode`: it folds `Validation`, `InvalidInput`, `Iql` and
+`IqlParse` into one `ERR_INVALID_INPUT` (`vantadb-ffi-core/src/lib.rs:257-260`),
+which would rewrite every engine validation error as
+`VANTADB_INVALID_ARGUMENT`. The table above is the resolved contract.
+
+> **Surface change (FIND-728):** two codes now reach TS callers as the core
+> defines them instead of through the coarse alias —
+> `Error::InvalidInput` → `VANTADB_VALIDATION_ERROR` (was
+> `VANTADB_INVALID_ARGUMENT`) and `Error::ResourceLimit` / `QuotaExceeded` →
+> `VANTADB_RESOURCE_LIMIT` (was `VANTADB_QUOTA_EXCEEDED`). Both are
+> contract-correct per the table above; code that branches on the old values
+> must be updated. A pkg built before FFI-02 carries no `raw_code` and keeps
+> the previous behaviour.
 
 ```ts
 import { DbError, wrapWasmError } from "vantadb";

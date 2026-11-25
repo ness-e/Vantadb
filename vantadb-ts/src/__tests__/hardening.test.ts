@@ -65,6 +65,23 @@ describe("wrapWasmError", () => {
     const wrapped = wrapWasmError(null, "nullCase");
     expect(wrapped.message).toBe("nullCase: null");
   });
+
+  it("prefers the canonical raw_code over the coarse ERR_* code (FIND-728)", () => {
+    // Shape emitted by `vantadb-wasm`'s `to_js_err`: the coarse FFI alias folds
+    // Validation/InvalidInput/Iql/IqlParse into ERR_INVALID_INPUT, so `raw_code`
+    // (the core's `Error::code()`) must win. Pinned without the wasm binary.
+    const engineErr = Object.assign(new Error("[ERR_CODE:ERR_INVALID_INPUT] Invalid input: x"), {
+      code: "ERR_INVALID_INPUT",
+      raw_code: "VANTADB_VALIDATION_ERROR",
+    });
+    expect(wrapWasmError(engineErr, "search").code).toBe(ERROR_CODES.VALIDATION_ERROR);
+
+    // Older pkg builds without `raw_code` still classify from the coarse code.
+    const legacyErr = Object.assign(new Error("[ERR_CODE:ERR_NOT_FOUND] Node not found: 42"), {
+      code: "ERR_NOT_FOUND",
+    });
+    expect(wrapWasmError(legacyErr, "getNode").code).toBe(ERROR_CODES.NOT_FOUND);
+  });
 });
 
 describe("WASM error classification (FIND-10)", () => {
@@ -544,8 +561,31 @@ describe("Client maintenance edge cases", () => {
     db.close();
   });
 
-  it("rebuildIndex on empty DB throws IO error on non-persistent", () => {
-    expect(() => db.rebuildIndex()).toThrow(DbError);
+  it("rebuildIndex on a non-persistent DB returns a report instead of failing", () => {
+    // FIND-728: `rebuild_index` is implemented for every backend
+    // (`src/sdk/api/admin.rs:19`) — an in-memory (non-persistent) DB rebuilds in
+    // place. The old pin asserted the pre-migration "IO error on non-persistent".
+    const local = Client.create();
+    try {
+      const empty = local.rebuildIndex() as { scanned_nodes: number; success: boolean };
+      expect(empty.success).toBe(true);
+      expect(empty.scanned_nodes).toBe(0);
+
+      local.put({ namespace: "rb", key: "a", payload: "pa", vector: [0.1, 0.2] });
+      local.put({ namespace: "rb", key: "b", payload: "pb", vector: [0.3, 0.4] });
+      const report = local.rebuildIndex() as {
+        scanned_nodes: number;
+        indexed_vectors: number;
+        success: boolean;
+      };
+      expect(report.success).toBe(true);
+      expect(report.scanned_nodes).toBe(2);
+      expect(report.indexed_vectors).toBe(2);
+      // A rebuild is not a wipe.
+      expect(local.list({ namespace: "rb" }).records.length).toBe(2);
+    } finally {
+      local.close();
+    }
   });
 
   it("compactLayout on empty DB returns >= 0", () => {
