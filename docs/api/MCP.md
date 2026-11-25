@@ -635,6 +635,75 @@ Two semantics that are easy to misread:
   already captured stay in `l0/<thread_id>` and, once extracted, in
   `l1/<thread_id>`. A purge cascade into memory is not implemented.
 
+### OpenCode capture plugin (MCP-47)
+
+The OpenCode capture plugin
+(`.opencode/plugins/vanta-memory-capture.ts`, outside this repo — read it in the
+harness checkout) is the client-side half of this contract: it posts the turn so
+nothing has to call `memory_put` by hand, and it assembles recalled memory into
+the model context under the recall-first rule.
+
+| Hook (OpenCode v2) | What it does |
+|---|---|
+| `session.idle` event | Reads the closed exchange with `ctx.session.context()` and posts the `user` + `assistant` turns (text parts only) to `thread_send` on a stable per-session thread (`vanta-opencode-idle-<sessionID>`, resolved via `thread_list`, created once via `thread_create`). Deduped by the assistant message id (falling back to the user id, then to the turn text). |
+| `ctx.session.hook("context")` | Calls `memory_recall` with the **verbatim** user turn (`scope: "agent"`, `top_k: 5`) once per distinct turn, and injects `prepend_context` **verbatim** only when there are hits. |
+| `ctx.session.hook("context")` | Publishes `capabilities.ingest` once per session: when `is_broken()` (`runner: none` **and** `queue.depth > 0`) it emits one legible line saying the pipeline captures but does not consolidate. |
+
+Contract details that are easy to get wrong:
+
+- **Empty recall injects nothing.** `recalled: []` is an explicit "no hits"; the
+  plugin then adds no system text at all. Fabricated filler is worse than a gap,
+  because the model cannot tell it apart from real memory.
+- **Fail-open.** Every path is guarded, and the `vanta-cli mcp-call` transport is
+  bounded by a timeout (12 s for reads, 15 s for writes; override with
+  `VANTADB_MEMORY_TIMEOUT_MS` / `VANTADB_MEMORY_WRITE_TIMEOUT_MS`). Two
+  consecutive read failures turn recall off for the rest of the session: a dead
+  or slow library costs one timeout, not one per turn.
+- **The budgets are measured, not guessed.** Each `mcp-call` spawns a fresh
+  server (storage init + hardware profile + the query-embedding ONNX session), so
+  on the reference machine `capabilities` takes 1.6–2.5 s and `memory_recall`
+  7.0–8.5 s. A 5 s read budget made recall time out on every turn — a silently
+  dead feature. The write path runs on `session.idle` where nobody waits; the
+  read path runs inside a model request where everybody does.
+- **Turn text never travels through argv.** Both the turn (`thread_send`) and the
+  recall query (`memory_recall`) are passed on stdin through `vanta-cli mcp-call`'s
+  `{{placeholder}}` resolution, because argv is readable by other processes.
+  Credential-shaped strings (private keys — including an unterminated paste —,
+  `ghp_`/`sk-`/`AKIA` tokens, JWTs, `Bearer …`, and `password:`/`token:`/`secret:`
+  assignments, quoted or bare) are redacted before posting, and tool
+  calls/results are never posted at all.
+- **One slow send does not fork the history.** A failed `thread_send` drops the
+  cached thread id (so the next turn re-resolves or recreates it) instead of
+  re-posting into a brand-new thread — a new `thread_id` is a new server-side
+  `session_id`, which L0 cannot dedupe.
+- **One caveat on the semaphore.** `capabilities.ingest` describes *the process
+  that answers it*, and each `mcp-call` is a new process with an empty queue —
+  so with this transport the notice is correctly silent and can only fire when
+  the surface is read from a process that actually holds the backlog (a
+  long-lived MCP session, or `--mcp` once `MCP-43` gives it a scheduler). The
+  predicate and the wording are right; the transport decides whether it can see
+  the state.
+- **What it does not promise.** `thread_send` *enqueues*; it does not extract.
+  Until an in-process scheduler exists (`MCP-43`), a queued turn waits in L0 and
+  the queue does not drain. The notice says exactly that, and it does **not**
+  present `VANTADB_INGEST_PROVIDER` as the fix: setting a runner clears
+  `degraded` and silences the warning while the queue still drains nowhere.
+
+Configuration is environment-only (no secrets in files):
+
+```sh
+VANTADB_DB_PATH=/path/to/memory          # required; without it the plugin is an inert no-op
+VANTADB_CLI=/path/to/vanta-cli           # optional; default: <repo>/target/{debug,release}, then PATH
+VANTADB_REPO=/path/to/repo               # optional; locates the debug/release binary
+VANTADB_MEMORY_TIMEOUT_MS=12000          # optional; per read call (recall, capabilities)
+VANTADB_MEMORY_WRITE_TIMEOUT_MS=15000    # optional; per write call (thread_send, thread_create)
+```
+
+Mechanical gate: `node .opencode/plugins/vanta-memory-capture.selftest.mjs`
+(15 assertions over a mocked transport, including the three branches that must
+never invert — empty recall injects nothing, hits inject the block, a credential
+never reaches the wire).
+
 ## Prompts (4)
 
 `prompts/list` returns 4 workflow templates. **Prompts are a separate registry from tools** (API-04): no prompt name shadows a tool name, so clients can never confuse a workflow with a callable tool.
