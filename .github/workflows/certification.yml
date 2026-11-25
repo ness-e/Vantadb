@@ -382,10 +382,40 @@ jobs:
     name: "Certification: mutation_test (cargo-mutants)"
     needs: ci-gate
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    # Scope to root crate only (-p vantadb) per plan file D5/risk table.
-    # (FIND-328 removed the old comment claiming "--check: only run mutants" —
-    # it means the opposite, see the step below.)
+    # FIND-717 budget: 105 min for the job, 90 of them for the mutation run
+    # itself (the step below). Do not raise either number without a new
+    # measurement — docs/dev/tasks/FIND-717.md §Medición.
+    timeout-minutes: 105
+    env:
+      # FIND-717 — pinned mutation surface, one `--file` per entry.
+      # The scope IS the budget: `cargo mutants --list -p vantadb` finds
+      # 12,676 mutants (231 files) and the diff since v0.9.0 finds 3,741.
+      # Neither fits any CI budget, so this job measures a small, fixed,
+      # high-value surface instead of pretending to cover the crate.
+      # Growing the list needs a new `--list` count + cost measurement;
+      # sharding (`--shard k/n` + matrix) is the documented way to grow it
+      # without growing wall-time: https://mutants.rs/shards.html
+      MUTANTS_FILES: "src/physical_plan/dedup.rs src/index/search/pool.rs"
+      # Baseline of KNOWN survivors, measured on 2026-11-26 (FIND-717
+      # §Medición): 7 of the 9 mutants on the surface are killed, these two
+      # are genuinely untested behaviours, not noise:
+      #   * dedup.rs:63 `PhysicalDedup::close -> Ok(())` — no test asserts the
+      #     close propagates to the child operator (the mock's close is a no-op).
+      #   * pool.rs:16 `take_nl -> Default::default()` — the test only asserts
+      #     the recycled buffer is empty, which a fresh empty vec also satisfies.
+      # Excluding them keeps "0 survivors" meaning what it says: any NEW
+      # survivor turns the job red. Remove the matching entry in the same PR
+      # that adds the test — the two assertions are written out in
+      # docs/dev/tasks/FIND-717.md §Deuda.
+      MUTANTS_KNOWN_SURVIVORS: "src/physical_plan/dedup\\.rs:63:9|src/index/search/pool\\.rs:16:5"
+      # Two-sided mechanical guard on the budget. Measured cost is ~4.4
+      # min/mutant plus ~4 min of warm baseline (FIND-717 §Medición), so the
+      # ceiling is what fits 90 min including margin for new branches in the
+      # pinned files; the floor stops the surface from being trimmed down to
+      # a single file by a quiet edit. Both fail in seconds with the reason
+      # instead of timing out the step or shipping a near-empty gate.
+      MUTANTS_MIN_SURFACE: "6"
+      MUTANTS_MAX_SURFACE: "12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
@@ -393,31 +423,85 @@ jobs:
         uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
         with:
           tool: cargo-mutants
-      # CATEGORY: INFORMATIONAL — mutant INVENTORY, not a gate. The decision is
-      # recorded in docs/dev/operations/CI_POLICY.md §"FIND-328 triage".
-      # FIND-328: the previous command was wrong twice over — `--check` only
-      # cargo-checks each mutant ("…but don't actually run the tests",
-      # mutants.rs manual) and `--output-json` is not a flag, so the step
-      # exited 2 and the trailing `|| true` turned the job green with no
-      # artifact. `--list --json` is what this job can honestly do inside its
-      # budget; a real mutation gate needs a scoped/incremental design
-      # (FIND-717) and must not resurrect a green no-op.
-      - name: Mutant inventory (TBH-07 / FIND-328)
-        timeout-minutes: 20
+      # FIND-717: the crate-wide inventory is CONTEXT, not the gate — it is
+      # what tells a reader how small the tested surface is (the step below
+      # prints `surface` vs `crate`). Plain text, not `--json`: the json form
+      # embeds a full diff per mutant and nothing consumes it; the artifact
+      # only needs the count plus the mutant names.
+      - name: Mutant inventory (whole crate, `-p vantadb`)
+        timeout-minutes: 10
         run: |
+          set -euo pipefail
           mkdir -p benchmarks
-          cargo mutants --list --json -p vantadb > benchmarks/mutation_inventory.json
-          test -s benchmarks/mutation_inventory.json || {
+          cargo mutants --list -p vantadb > benchmarks/mutation_inventory.txt
+          test -s benchmarks/mutation_inventory.txt || {
             echo "::error::empty mutant inventory — cargo-mutants produced no output (FIND-328)"
             exit 1
           }
-          wc -c benchmarks/mutation_inventory.json
-      - name: Upload mutation inventory
+          wc -l benchmarks/mutation_inventory.txt
+      # FIND-717 replaced the two failure modes this job used to have:
+      #   * `--check` = "Cargo check generated mutants, but don't run tests"
+      #     (cargo-mutants --help), so it never measured test quality;
+      #   * a trailing `|| true` turned every outcome green.
+      # What runs now: for each mutant on MUTANTS_FILES, cargo-mutants
+      # recompiles and runs `cargo test --lib -p vantadb`; a survivor (exit 2)
+      # must turn this job red, so there is no `|| true` and no
+      # `continue-on-error` here (AGENTS.md Regla 2).
+      - name: Mutation gate — 0 survivors on the pinned surface
+        timeout-minutes: 90
+        run: |
+          set -euo pipefail
+          files=()
+          for f in $MUTANTS_FILES; do files+=(--file "$f"); done
+          surface=$(cargo mutants --list -p vantadb "${files[@]}" --exclude-re "$MUTANTS_KNOWN_SURVIVORS" | wc -l)
+          crate=$(wc -l < benchmarks/mutation_inventory.txt)
+          {
+            echo "### cargo-mutants — pinned surface (FIND-717)"
+            echo ""
+            echo "| scope | mutants |"
+            echo "|---|---|"
+            echo "| crate \`-p vantadb\` (inventory, **not** tested) | $crate |"
+            echo "| pinned surface (**tested**, threshold: 0 survivors) | $surface |"
+            echo "| known survivors excluded from the threshold | 2 (see FIND-717 §Deuda) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$surface" -eq 0 ]; then
+            echo "::error::the pinned mutation surface selected 0 mutants — a filter that matches nothing is not a gate (FIND-717)"
+            exit 1
+          fi
+          if [ "$surface" -lt "$MUTANTS_MIN_SURFACE" ] || [ "$surface" -gt "$MUTANTS_MAX_SURFACE" ]; then
+            echo "::error::surface=$surface is outside the declared budget [$MUTANTS_MIN_SURFACE..$MUTANTS_MAX_SURFACE] mutants. Either the pinned files were edited (mutant count changed), MUTANTS_FILES was trimmed/expanded, or the budget needs a new measurement: re-run 'cargo mutants --list -p vantadb <files>' and update MUTANTS_* in docs/dev/tasks/FIND-717.md + this workflow (or shard: https://mutants.rs/shards.html)."
+            exit 1
+          fi
+          # No --timeout and no --build-timeout value below the measured build:
+          #   * `--timeout` caps the TEST phase only, and the measured baseline
+          #     test is 63 s — a fixed 90 s cap classified a healthy mutant as
+          #     TIMEOUT (exit 3) on a loaded machine. The default is 5x the
+          #     baseline, which is the right number and adapts to the runner.
+          #   * with `--in-place` there is no build timeout at all, and
+          #     `--cap-lints=true` can make rustc hang; 900 s is ~4x the
+          #     measured per-mutant build (192-256 s).
+          set +e
+          cargo mutants -p vantadb "${files[@]}" \
+            --exclude-re "$MUTANTS_KNOWN_SURVIVORS" \
+            --in-place --cap-lints=true --build-timeout 900 -- --lib
+          rc=$?
+          set -e
+          case "$rc" in
+            0) echo "::notice::all $surface mutants on the pinned surface were caught by cargo test --lib" ;;
+            2) echo "::error::$surface mutants tested, at least one SURVIVED — a survivor is an untested behaviour (see mutants.out/missed.txt)" ;;
+            3) echo "::error::a mutant timed out (default 5x baseline test time) — inspect mutants.out/timeout/ before assuming a hang" ;;
+            4) echo "::error::baseline suite failed before mutating — cargo test --lib -p vantadb is not green on this commit" ;;
+            *) echo "::error::cargo-mutants failed with exit $rc (see mutants.out)" ;;
+          esac
+          exit "$rc"
+      - name: Upload mutation results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutation-inventory
-          path: benchmarks/mutation_inventory.json
+          name: mutation-results
+          path: |
+            benchmarks/mutation_inventory.txt
+            mutants.out/
           if-no-files-found: error
   light-benchmarks:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *')

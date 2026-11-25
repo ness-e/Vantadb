@@ -401,7 +401,7 @@ scale capabilities without bottlenecking daily development.
 | `text-index` | Text index recovery (`text_index_recovery`) |
 | `memory-concurrency` | Memory & concurrency heavy tests (concurrency, memory brutality, fuzz proptest) |
 | `other-heavy` | Remaining heavy tests: CLI, benchmarks, hybrid ranking, MCP (`vantadb-mcp`), columnar, `concurrent_insert_preserves_hnsw_invariants` |
-| `mutation-test` | **INFORMATIONAL** — `cargo mutants --list --json` mutant inventory only (see §"FIND-328 triage"). Not a gate: the real mutation gate needs a scoped design (FIND-717) |
+| `mutation-test` | **Gate on a pinned surface** (FIND-717) — `cargo mutants --file <pinned> -p vantadb` **runs `cargo test --lib` per mutant**; threshold is **0 survivors** (exit 2 = red), budget 90 min step / 105 min job. Measured on the pinned surface: 9 mutants, 7 caught, 2 missed (the two are named exclusions with a documented test to write). The crate-wide inventory (12,676 mutants) is published as context, never as coverage. See §"FIND-717 — the mutation gate, and what it does not cover" |
 | `light-benchmarks` | Bench series, daily 02:00 cron (`hnsw_pure`, `hybrid_queries`, `canonical_p99`, `ingestion_concurrent`, …). Recovered by FIND-716 (job-level `concurrency` collision removed); cap 240 min. FIND-716 |
 | `high-density` | `high_density` bench at the highest density profile, daily 02:00 cron. Recovered by FIND-716; cap 360 min |
 | `analyze` | Merges the bench result dirs and publishes the comparison (`always()`, tolerates missing dirs) |
@@ -427,13 +427,67 @@ read from `gh api .../runs/<id>/jobs`):
 |-----|---------|----------|
 | `memory_concurrency` | **Already green — no change.** Not retired: it is the concurrency gate Regla 8 requires. | `success` on all 25 scheduled runs since 2026-11-06 (e.g. run 45388973797, 11:57:56 → 12:06:32). Job body is identical to the pre-consolidation `heavy-certification.yml` (only `timeout-minutes` 120→180 differs), so the fix landed in code/tests, not CI (candidates in the original red window: `6b8002c1c`, `23c594f4f`, `8aad0cac1` on `tests/edge_cases.rs` — batch 1 of this job). Exact commit not isolable: the deleted workflow's runs are no longer enumerable. |
 | `other_heavy` | **Fixed (CI).** TBH-01 gate scoped to the dataset this job consumes and moved after the download. | Failure was `=== verify_datasets: 5 missing / 5 expected ===` + exit 1 at 11:59:58, i.e. before the step that provides GloVe-100. The 5-dataset gate was unsatisfiable on a hosted runner (SIFT-1M / GloVe-300 / ground-truth subsets belong to the opt-in `sift-validation` / `competitive-bench` jobs). `scripts/verify_datasets.sh` keeps its exit 0/1 contract for local and opt-in use. |
-| `mutation_test` | **Fixed (CI) + re-categorized `INFORMATIONAL`.** Invalid action pin replaced; the step now produces an inventory instead of a fake "score". | It died in "Set up job" every run: `Unable to resolve action actions/upload-artifact@4e7e4d1bb8e5ae8b5b8e6dad68a47e8afbd4d76a` — that SHA does not exist (v4.5.0 is `6f51ac03…`; the repo-wide valid pin is `cf430e03…` = v7.0.2). Second defect: `--check` only cargo-checks mutants ("don't actually run the tests") and `--output-json` is not a flag, so even with a valid pin the step would have exited non-zero (cargo-mutants maps a clap usage error to `ExitCode::Usage` = 1) and the trailing `|| true` would have turned the job **green with no artifact**. |
+| `mutation_test` | **Fixed (CI) + re-categorized `INFORMATIONAL`** *(superseded by FIND-717, which turned it into a gate on a pinned surface — see the row above and §"FIND-717")*. Invalid action pin replaced; the step now produces an inventory instead of a fake "score". | It died in "Set up job" every run: `Unable to resolve action actions/upload-artifact@4e7e4d1bb8e5ae8b5b8e6dad68a47e8afbd4d76a` — that SHA does not exist (v4.5.0 is `6f51ac03…`; the repo-wide valid pin is `cf430e03…` = v7.0.2). Second defect: `--check` only cargo-checks mutants ("don't actually run the tests") and `--output-json` is not a flag, so even with a valid pin the step would have exited non-zero (cargo-mutants maps a clap usage error to `ExitCode::Usage` = 1) and the trailing `|| true` would have turned the job **green with no artifact**. |
 
-**Category rule for this job (`mutation-test`):** `INFORMATIONAL` — it reports a mutant
-inventory; it does not gate the release. It carries no `continue-on-error`; the previous
-`|| true` is removed and `if-no-files-found: error` makes an empty artifact fail the job, so the
-"green but did nothing" mode cannot come back. A real mutation gate is FIND-717 (needs
-scoped/incremental mutant selection and a budget, per the cargo-mutants CI guide).
+**Category rule for this job (`mutation-test`):** it is a **gate** since FIND-717, so it carries
+no `continue-on-error` and no `|| true` (Regla 2); `if-no-files-found: error` keeps the "green but
+did nothing" mode closed. What changed is what it *measures*: `--check` never ran a test (it only
+cargo-checks each mutant), so the old job could not produce a mutation score even with a valid
+action pin. Contract and numbers: §"FIND-717 — the mutation gate, and what it does not cover".
+
+#### FIND-717 — the mutation gate, and what it does not cover (2026-11-26)
+
+`mutation-test` now measures. Selection is a **pinned surface** (`env.MUTANTS_FILES`), the run
+executes the tests **per mutant**, and the threshold is **0 survivors**.
+
+Why a pinned surface and not "mutation coverage" — measured in this repo with `cargo-mutants`
+27.1.0 (`--list` parses, it does not compile, so counting is cheap):
+
+| Scope | Mutants | Command |
+|---|---|---|
+| Crate `-p vantadb` | **12,676** (231 files) | `cargo mutants --list -p vantadb` |
+| Diff since `v0.9.0` | **3,741** (167 files, +37,520/−4,341) | `git diff v0.9.0..HEAD -- 'src/**'` → `--list --in-diff` |
+| Pinned surface (2 files) | **9** listed → **7 tested** | `--list -f src/physical_plan/dedup.rs -f src/index/search/pool.rs --exclude-re <known survivors>` |
+
+The cost per mutant is **not** the test suite (74 s for `cargo test --lib -p vantadb` warm): it is the
+recompile of the mutated crate — 183–443 s per mutant measured on Windows 12c/32 GB, plus the baseline
+build before the first mutant. A crate-wide score is weeks of CPU, and the diff since the last release is
+still ~3,700 mutants, so the budget fixes the **number of mutants**:
+
+| Knob | Value | Why |
+|---|---|---|
+| `MUTANTS_FILES` | `src/physical_plan/dedup.rs`, `src/index/search/pool.rs` | 9 mutants, high-value (query dedup, search pool), unit tests in the same modules |
+| `MUTANTS_KNOWN_SURVIVORS` | 2 named mutants | measured survivors (real test gaps) excluded so "0 survivors" keeps meaning "no NEW survivor"; each one is deleted in the PR that adds its test — see FIND-717 §Deuda |
+| `MUTANTS_MIN_SURFACE` / `MUTANTS_MAX_SURFACE` | `6` / `12` | two-sided guard: the floor stops the surface from being trimmed to a single file, the ceiling fails in seconds (with the reason) instead of timing out 90 min later; the margin above today's 7 absorbs a new branch in the pinned files |
+| step timeout | 90 min | 12 × 4.4 min + baseline ≈ 57 min worst case measured, and the exact command on today's 7 mutants took **35 min** (exit 0) |
+| job timeout | 105 min | step + checkout/install/inventory |
+| `--timeout` | **not set** | the flag caps the **test** phase only, and a fixed 90 s cap classified a healthy mutant as `TIMEOUT` on a loaded machine (measured: the same mutant took 42–64 s in one run and died at 90 s in another). The default — 5× the baseline test — adapts to the runner |
+| `--build-timeout` | 900 s | `--in-place` disables build timeouts entirely and `--cap-lints=true` can make rustc hang; 900 s is ~2× the slowest measured per-mutant build (443 s) |
+| threshold | **0 survivors** | a survivor is an untested behaviour; no invented percentage. Measured: 9 mutants → 7 caught + 2 missed (exit 2); with the 2 named exclusions, the shipped command runs 7 mutants → 7 caught, **35 min, exit 0** |
+
+**What it does not cover, said out loud:** 7 of 12,676 mutants under the threshold, and `cargo test --lib`
+only. It is a starter surface with a hard threshold, not crate coverage — the step summary prints `surface`
+and the excluded count next to `crate` so the green cannot be misread.
+
+Growth paths, cheapest first: add a file after measuring it (`--list` count × 4.7 min); shard
+(`--shard k/n` + matrix, [mutants.rs/shards](https://mutants.rs/shards.html)) to grow the surface
+without growing wall-time; `--iterate` to skip mutants caught in a previous run (needs
+`mutants.out` persisted between runs).
+
+Traps recorded for whoever touches this next:
+
+- **`--check` does not measure** ("Cargo check generated mutants, but don't run tests") — it is the
+  original TBH-07 command, and it is still the reason the old job could never produce a score.
+- **`--in-diff` needs a tree that matches the diff**: with uncommitted edits cargo-mutants aborts
+  with exit **5**, "the new side of the `--in-diff` diff doesn't match the text in the tree"
+  (reproduced against this repo's dirty `src/`).
+- **`--jobs` is incompatible with `--in-place`**: parallelism comes from shards, one process each.
+- **A fixed `--timeout` is a false-negative machine**: it bounds the test phase only, so the value
+  has to scale with the machine that runs it. Leave it on the default multiplier.
+- **A flaky test can fabricate a false `caught`** (measured: `dedup.rs:63` read as `caught` in one run and
+  `MISSED` in the next, because an unrelated `..._probe_timeout` test fell over under CPU load). `--baseline=run`
+  protects the baseline, not the individual mutants: the signal is only trustworthy when the suite is
+  deterministic.
 
 **Resolved (FIND-716, `9e4e04d70`):** `Light benchmarks` and
 `High density` used to fail on **every** run with **zero steps** and `runner_name: none` — they were
