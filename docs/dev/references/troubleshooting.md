@@ -2,7 +2,7 @@
 title: "Build troubleshooting (Windows dev)"
 kind: research
 status: active
-description: "Acceso denegado (os error 5) / LNK1104 when relinking target/debug/*.exe with a live MCP server, and LNK1140 when target/ has filled the drive"
+description: "Build-lock (os error 5 / LNK1104), disk exhaustion (LNK1140), and git hooks that never fire (empty core.hooksPath, nodeenv ValueError)"
 tags: [troubleshooting, windows]
 ---
 
@@ -20,6 +20,7 @@ tags: [troubleshooting, windows]
 |---|---|
 | [Build lock — running MCP holds `target/debug/*.exe`](#build-lock--a-running-mcp-server-holds-targetdebugexe) | `Acceso denegado (os error 5)` / `LNK1104` / `failed to remove file ...\target\debug\vantadb-server.exe` |
 | [Disk exhaustion — `target/` fills C: and the link fails](#disk-exhaustion--target-fills-c-and-the-link-fails-lnk1140) | `LNK1140` / `LNK1104` out of nowhere, drive at 0 bytes free, `target/` at tens of GB |
+| [git hooks](#git-hooks--commits-pass-with-no-gate-or-nodeenvvalueerror-traceback) | `git commit` passes in 1 s with no gate output; or every commit dies on `nodeenv ... ValueError: invalid literal for int() with base 10: '0-alpha'` |
 
 ---
 
@@ -224,6 +225,95 @@ every path in the real cleanup list starts with `target\` and is either
 ```powershell
 pwsh -NoProfile -File dev-tools/target-cleanup.ps1 -SelfCheck   # SELFCHECK: PASS (16/16 asserts)
 ```
+
+---
+
+## git hooks — commits pass with no gate, or `nodeenv` `ValueError` traceback
+
+**Symptom.** Two failures that look unrelated but hit the same stage — the
+commit gate of the gate pyramid (Regla 1 of `.opencode/AGENTS.md`):
+
+1. `git commit` finishes in about a second and prints **no gate output at all**:
+   `verify_staged`, `cargo fmt`/`clippy`, `ruff`, `prettier` and
+   `markdownlint` never ran. `git config --get core.hooksPath` prints nothing
+   and exits `1`, and `.git/hooks/` contains only `*.sample` files.
+2. Every commit aborts with a Python traceback ending in
+   `ValueError: invalid literal for int() with base 10: '0-alpha'`, preceded by
+   `CalledProcessError: command: ('...python.exe', '-mnodeenv', '--prebuilt',
+   '--clean-src', ...)` and a line `* Install prebuilt node (27.0.0-alpha...)`.
+
+**Root cause.** Two independent defects; fixing one leaves the other.
+
+1. **Wiring (per clone, never versioned).** The hooks live in `.githooks/`, not
+   `.git/hooks/`. Git only looks there when `core.hooksPath` says so, and that
+   key is **local clone config**. A fresh clone — or a clone made before the key
+   was ever set — runs with **zero hooks** and says nothing, because a commit
+   without hooks is a perfectly valid commit. This is the silent false-green:
+   it does not break, it just stops measuring.
+2. **`nodeenv` vs a prerelease Node (upstream).** On Windows, `pre-commit`
+   provisions its `language: node` hooks through `nodeenv` with no `-n` when
+   `language_version` is the default (`pre_commit/languages/node.py`,
+   `install_environment`: `version != C.DEFAULT` is what adds `-n <version>`).
+   Default means *latest*, and nodeenv resolves that to the **first entry of**
+   `nodejs.org/dist/index.json`. Since 2026-10-29 that entry is a prerelease
+   (`v27.0.0-alpha.0.1.1`); `nodeenv.parse_version()` splits on dots and calls
+   `int()` on the third segment (`0-alpha`) → `ValueError` before anything is
+   downloaded. Tracked upstream: [ekalinin/nodeenv#453][ne453], fixed by
+   [PR #454][ne454] (merged 2026-10-29; still broken in 1.11.0, fixed in
+   **1.12.0**). Nothing in VantaDB pinned a Node version, so the gate broke the
+   day the upstream index changed — not the day anything here changed.
+
+**Fix.** Both, in this order.
+
+1. Wire the clone (local config — **do not** commit it, and never run
+   `pre-commit install`: it writes to `.git/hooks/`, which `core.hooksPath`
+   makes dead):
+
+   ```powershell
+   git config --local core.hooksPath .githooks
+   git config --get core.hooksPath    # must print: .githooks
+   ```
+
+2. Pin pre-commit's Node to a **released LTS**, repo-level (versioned, so it
+   fixes every clone and survives the next index churn) in
+   `.githooks/pre-commit-config.yaml`:
+
+   ```yaml
+   default_language_version:
+     node: lts
+   ```
+
+   Then rebuild the cached environments — `lts` is a *new* env key, so the old
+   broken one is not reused:
+
+   ```powershell
+   pre-commit install-hooks --config .githooks/pre-commit-config.yaml
+   ```
+
+   `lts` resolves to a stable release (26.13.1 on 2026-11-24) instead of the
+   bleeding edge, so it cannot be poisoned by an alpha at the top of the index.
+
+**Verify the wiring actually fires.** Do it in a throwaway worktree: the hook
+runs `git diff --cached`, so a test commit on your working branch would drag
+along whatever else is staged — and on a shared checkout, someone else's files.
+
+```powershell
+git worktree add ..\hooktest -b test-hook develop
+# in ..\hooktest: create a file, git add <file>, git commit -m "test"
+#   -> "pre-commit: running .githooks/pre-commit-config.yaml gates..." + gate lines + "gates passed."
+git worktree remove --force ..\hooktest
+git branch -D test-hook
+```
+
+**Degraded mode is loud, never silent.** Each fallback names what it did **not**
+validate: no `pre-commit` binary → the shim runs only `cargo fmt --check` and
+says so; no PowerShell → the staged-area gate is skipped and the hook states the
+yaml gates still ran; `actionlint` missing → skipped by name. A hook that cannot
+run exits non-zero with a pointer to this section. Never `--no-verify` past a
+red gate, and never install the alpha to "make it work".
+
+[ne453]: https://github.com/ekalinin/nodeenv/issues/453
+[ne454]: https://github.com/ekalinin/nodeenv/pull/454
 
 ---
 

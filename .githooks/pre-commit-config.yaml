@@ -8,6 +8,18 @@
 # Sistema único: este archivo define TODOS los gates deterministas del stage
 # pre-commit. El stage pre-push sigue nativo en .githooks/pre-push (barrera SIPP).
 # CI-01: gate para formatters — cada hook está scoped a su lenguaje/directorio.
+
+# FIND-718: `node: lts`, NO el default. Sin esto pre-commit crea el nodeenv con
+# `nodeenv` sin `-n`, que resuelve la ÚLTIMA entrada de nodejs.org/dist/index.json
+# — hoy un prerelease (`v27.0.0-alpha.0.1.1`). `nodeenv.parse_version()` hace
+# `int()` sobre los 3 primeros segmentos y explota con
+# `ValueError: invalid literal for int() with base 10: '0-alpha'`, tumbando
+# todos los hooks `language: node` (prettier, markdownlint-cli2) y con ellos el
+# commit entero. `lts` resuelve siempre una release estable (26.13.1 al
+# 2026-11-24) e inmune a que el index publique un alpha nuevo cada semana.
+default_language_version:
+  node: lts
+
 repos:
   # ── Rust root (workspace) ────────────────────────────────────────────────
   - repo: local

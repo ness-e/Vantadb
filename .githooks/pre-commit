@@ -97,4 +97,8 @@ else
     echo "pre-commit: actionlint not found (winget install actionlint), skipped."
 fi
 
+if [ "$FAILED" -ne 0 ]; then
+    echo "pre-commit: gates FAILED — commit blocked. Triage: docs/dev/references/troubleshooting.md § git hooks" >&2
+fi
+
 exit $FAILED
