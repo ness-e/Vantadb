@@ -777,7 +777,6 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `FIND-736` | 🟡 Media | **El índice de API y el ADR Gate cuentan `impl` de tipos privados como superficie pública: 46 de 176 `impl` del crate** | `scripts/docs/check-api-docs.mjs:357-374` (`extractRust`) | 🟢 1-2h | 🟡 Media | 🟡 Pendiente (2026-11-25) | Detectado al cerrar `FIND-733`: el gate reportó `+ rust impl llm::EmbedCache` y `+ rust impl llm::WarmLocal` como superficie nueva cuando ambos son `struct` **sin `pub`** (`src/llm.rs:240,267`). El extractor emite `rust impl T` sin consultar si `T` es público, así que cualquier helper interno recién añadido aparece como item nuevo y **exige un ADR que no corresponde** — o, peor, se "documenta" como contrato algo que es implementación. Consecuencia medible: 46 entradas del conteo (26 %) son de tipos privados. Arreglar `extractRust` para emitir `rust impl T` solo si `T` fue declarado `pub` o re-exportado; el golden del compilador sigue siendo la fuente de verdad (`git diff <base>..HEAD -- tests/api/public-api.txt`). Contrato: un `impl` de un tipo privado recién añadido **no** cambia el conteo; los 46 se reclasifican con el delta documentado en el commit. | Origen: `FIND-733` (2026-11-25) | Ver: `FIND-733`, `FIND-731` |
 
 ## Alta 2026-11-25 - Devolver el detector de data races (derivada de FIND-734)
 
