@@ -26,6 +26,7 @@
 // ponytail: blanket allow — expects carry documented invariants at each call site.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
+use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
@@ -46,8 +47,20 @@ const HEADER: &str = "\
 // Lines starting with `//` are ignored by the snapshot comparison (see public_api.rs).
 ";
 
-/// Set to any value to rewrite the snapshot instead of comparing against it.
+/// Set to a non-empty value (e.g. `1`) to rewrite the snapshot instead of
+/// comparing against it. An empty variable is treated as "not set" (FIND-731).
 const UPDATE_ENV: &str = "VANTADB_PUBLIC_API_UPDATE";
+
+/// Whether the snapshot should be rewritten.
+///
+/// The flag is ON only when the variable exists **and is not empty**. `var_os`
+/// returns `Some("")` for a defined-but-empty variable, so a bare `is_some()`
+/// made `VANTADB_PUBLIC_API_UPDATE= cargo nextest run ...` rewrite the golden
+/// and report PASS — a false green that auto-accepted any contract delta
+/// (FIND-731).
+fn update_requested(value: Option<OsString>) -> bool {
+    value.is_some_and(|v| !v.is_empty())
+}
 
 fn generate_public_api() -> Result<String, String> {
     let target_dir = std::env::var("CARGO_TARGET_DIR")
@@ -120,7 +133,7 @@ fn public_api_snapshot_matches_committed_file() {
     let current =
         normalize(&generate_public_api().expect("could not generate the current public API"));
 
-    if std::env::var_os(UPDATE_ENV).is_some() {
+    if update_requested(std::env::var_os(UPDATE_ENV)) {
         fs::write(SNAPSHOT, format!("{HEADER}{current}")).expect("failed to write the snapshot");
         eprintln!("[public_api] snapshot updated ({UPDATE_ENV} set): {SNAPSHOT}");
         return;
@@ -140,4 +153,45 @@ fn public_api_snapshot_matches_committed_file() {
          Differences:\n{}",
         first_diff(&expected, &current)
     );
+}
+
+/// FIND-731: an empty variable must not enable the update path. Before the fix
+/// these assertions fail for the empty case, which is how a mis-written CI
+/// invocation (`VAR= cargo test`) silently rewrote the golden and returned PASS.
+#[cfg(test)]
+mod update_flag {
+    use super::update_requested;
+    use std::ffi::OsString;
+
+    #[test]
+    fn absent_variable_does_not_request_update() {
+        assert!(!update_requested(None));
+        // ... and the real lookup path: an env name no tool sets.
+        assert!(!update_requested(std::env::var_os(
+            "VANTADB_PUBLIC_API_UPDATE_FIND731_ABSENT"
+        )));
+    }
+
+    #[test]
+    fn empty_variable_does_not_request_update() {
+        // `var_os` yields Some("") for `VANTADB_PUBLIC_API_UPDATE=` — the false green.
+        assert!(!update_requested(Some(OsString::from(""))));
+    }
+
+    #[test]
+    fn non_empty_variable_requests_update() {
+        assert!(update_requested(Some(OsString::from("1"))));
+        assert!(update_requested(Some(OsString::from("true"))));
+    }
+
+    /// Pins the residual ceiling: only *emptiness* is rejected, so an explicit
+    /// `=0` or `= ` still rewrites the golden. Documented so a future reader can
+    /// tighten it deliberately (parse falsy values) instead of by accident.
+    #[test]
+    fn explicit_falsy_values_still_request_update() {
+        // ponytail: presence-with-content = ON. A CI writing `=0` to disable
+        // would still rewrite; upgrade path = parse {0,false,no,off}.
+        assert!(update_requested(Some(OsString::from("0"))));
+        assert!(update_requested(Some(OsString::from(" "))));
+    }
 }
