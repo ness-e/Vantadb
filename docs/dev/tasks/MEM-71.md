@@ -12,7 +12,7 @@ description: "El pass documentado para hosts del bridge (`conversation_hook`) fi
 - **Fuente:** Backlog `MEM-71` — `vanta-memory/src/services/conversation_hook.rs:122-128` · `services/scheduler.rs:58`
 - **Esfuerzo:** 🟡 2-4h
 - **Tipo:** Rust (bug-fix de wiring + fix de API pública de `vanta-memory`)
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 - **Creado:** 2026-11-25
 - **Dependencias:** `MEM-72` ✅ (superficie `ingest::observability`) · `FIND-290` abierta y **adyacente, no tocada aquí**
 - **SDP (v3, phase=BUILD):** `campaign-executor` · `progreso` · `ponytail` · `source-driven-development` · `doubt-driven-development` · `incremental-implementation` · `test-driven-development` · `context-engineering` · `documentation-skill` (Regla 3, doc tocada)
@@ -133,7 +133,7 @@ la desactivación.
 - **Resultado:** el pass del bridge **es** `scheduler::run_pass` (una implementación, un comportamiento): timers vencidos, una tanda del worker cuya cascada L1 → L2 → L3 se encola por la misma cola, y reclaim de claims vencidos; la persona L3 se regenera a `PERSONA_TRIGGER_EVERY_N = 50` (ahora `pub`, para que hosts y tests referencien el número en vez de duplicarlo). ¿Intencional? No como diseño: fue el alcance de `MEM-55` (solo L1) y quedó superado por `ADR-0054:92` ("`run_bridge_pass` se generaliza al pass del driver"), generalización que `WIRE-16` ya ejecutó en `vantadb-server` — `run_bridge_pass` tenía **cero** callers productivos.
 - **El bug era mayor que el `usize::MAX`:** sin `with_queue` el cascade L1→L2 no ocurría nunca, así que habilitar persona no habría bastado. El test lo prueba de punta a punta: turno capturado por el bridge → **un** `run_bridge_pass` → 5 memorias (cruzan el umbral L2 = 5) → escena → persona, `stats.worker.processed == 3`, cola drenada. La cadencia se fija en dos capas: la función pura (`N-1` no dispara, `N` dispara con `P4MemoryCount`) y el **cableado** — el checkpoint sembrado en 49 memorias no regenera con `run_pass`, y a 50 resetea el contador; con `usize::MAX` ese segundo test falla (probado por mutación).
 - **Verificación:** `nextest --profile audit -p vanta-memory -E 'test(bridge) or test(persona) or test(pass)'` **61/61** · ídem con `--features http-server` **64/64** (los tests del bridge viven tras ese feature) · `clippy -p vanta-memory --all-targets --features http-server -- -D warnings` limpio · `cargo fmt -p vanta-memory -- --check` limpio · `check-links`/`check-docs` exit 0 · markdownlint (config CI) 0 issues · OCR review aplicado · review P2-01 adversarial `vanta-review` (changes-required → corregido → **approve**).
-- **Commits:** `<hash>` (código + tests + docs + task file)
+- **Commits:** `3f20a1798` (código + tests + docs + task file)
 - **Techo documentado:** `run_bridge_pass` queda como alias de una línea (borrarlo dejaría el párrafo de `VANTA_MEMORY.md` y `ADR-0054:31` sin sujeto); un host que quiera un pass "solo worker" se construye con `PipelineWorker` + `MemoryTaskHandler`, no reintroduciendo un segundo pass público. No se añade campo a `ingest::observability`: con el pass unificado la persona ya no está desactivada, así que `persona_disabled_by_design` sería siempre `false`.
 ```
 
