@@ -912,3 +912,13 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Commit:** `4ca972ddb`
 - **Pendiente (owner):** el run verde de las 4 particiones. Si sale verde con `suppression hits: > 0` y `race reports: 0`, se retira `continue-on-error`; si quedan races no-harness, la salida es retirar el job con `CATEGORY` explícito en `CI_POLICY.md`.
 - **Residuales detectados y no tocados:** `docs/dev/workflow/ci-rust-10.md:43` describe la lane como `cargo test` 30m (obsoleto) · `.lsan_suppressions` (ASan) tampoco está en `paths:`.
+
+### Gate de WASM por rango de push (`FIND-725`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** El job `WASM (wasm-pack browser tests)` decidía con `contains(github.event.head_commit.modified, 'vantadb-wasm/')`, y `head_commit` es **solo el commit final** del push. En un push multi-commit, los tests de WASM no corrían aunque un commit intermedio tocara `vantadb-wasm/`.
+- **Resultado:** ✅ Job liviano `wasm-scope` que difea el rango `before..after` (`git fetch --depth 1` + `git diff --name-only --no-renames -z`) y publica `outputs.wasm`; `wasm-test` lo consume vía `needs` con `!cancelled() && actor != 'dependabot[bot]' && (needs.wasm-scope.outputs.wasm == 'true' || needs.wasm-scope.result != 'success')`. **Fail-open en 4 bordes**: primer push de rama (`before` = ceros), fetch fallido, `pull_request`, y path no-ASCII.
+  - Bug reproducido con la historia real: `a46689786..ec1bf9d58` contiene wasm (nuevo=true / viejo=false) y `20c164970..ec1bf9d58` no — exactamente el caso que dejó el job `skipped` en el run `45510840907`.
+- **Verificación:** `actionlint` exit 0 (y controles negativos que fallan) · **8/8 escenarios** del predicado probados sobre el bloque `run:` extraído del `.yml`, con clones shallow y remoto `file://` (wasm intermedio, sin wasm, primer push, tip, fetch-fail, pull_request, rename-out, path no-ASCII) · `git show` del blob `89dc913`: **0 líneas de TSan** (`FIND-714` no contaminado).
+- **Commit:** `fd52e68a4` (código, 2 archivos) + `e3c2ee81e` (cierre documental, 1 archivo). El cierre fue un commit normal y no un `--amend` porque `FIND-714`/`FIND-718` ya habían commiteado encima: amendar habría reescrito historia ajena.
+- **Rollback:** `git revert fd52e68a4` (vuelve al `if:` viejo; el trigger nunca se tocó).
+- **Pendiente (owner, post-push):** verificar el primer run real de `WASM Scope (push range)` con `gh api repos/ness-e/Vantadb/actions/runs/<id>/jobs --jq '.jobs[]|select(.name|test("WASM"))|"\(.name) => \(.conclusion)"'`.
