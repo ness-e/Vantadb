@@ -1,7 +1,7 @@
 ---
 title: "MCP-48 - El proxy MCP re-elige writer en vez de morir con él"
 kind: task
-status: in-progress
+status: completed
 description: "Si el writer HTTP cae, el proxy stdio se queda sin tools hasta reiniciar. Re-elección acotada (backoff) con promoción a writer bajo el lock fs2 y cleanup de discovery sólo por PID demostrablemente muerto."
 ---
 

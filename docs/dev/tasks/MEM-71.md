@@ -1,7 +1,7 @@
 ---
 title: "MEM-71: `run_bridge_pass` deja de anular el ciclo L3"
 kind: task
-status: in-progress
+status: completed
 description: "El pass documentado para hosts del bridge (`conversation_hook`) fijaba `trigger_every_n = usize::MAX` y no cableaba la cola: un host que siguiera el patrón nunca llegaba a L2/L3. Decisión: el pass del bridge ES `scheduler::run_pass` (una sola implementación, persona a `PERSONA_TRIGGER_EVERY_N`), con la cadencia expuesta y fijada por test"
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "FIND-735 — aislar los tests que escribían en un path fijo bajo %TEMP%"
 kind: task
-status: in-progress
+status: completed
 description: "Los tests de schema/WAL/serialize derivaban su path de %TEMP% con nombre literal o PID, no de un directorio único por ejecución: colisionan entre corridas concurrentes y dejan el residuo de cuarentena de WAL fuera del árbol que el test borra"
 tags: [vantadb, tests, isolation, temp]
 ---

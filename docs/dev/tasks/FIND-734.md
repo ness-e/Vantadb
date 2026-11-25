@@ -1,7 +1,7 @@
 ---
 title: "FIND-734: la clase de ruido TSan cambió de firma y el suppression file no la cubre"
 kind: task
-status: active
+status: completed
 description: "Run 45668284667: 822 tests medidos, 243 reportes de una sola clase (std sin instrumentar). Ninguna suppression es efectiva y estrecha → se retira la lane TSan con CATEGORY y receta de retorno"
 tags: [ci, tsan, gates]
 ---
