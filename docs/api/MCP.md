@@ -479,14 +479,32 @@ Read `runner` **with** `queue.depth`: `none` + `0` is an idle pipeline, `none` +
 `> 0` is a broken one — the pass is skipped and the queue will never drain. In
 that case the process logs a single `warn!` per degraded episode (not one per
 pass) and `degraded_warnings` counts it. `last_pass: null` means no pass ran in
-this process at all — the process does not host the scheduler (today the MCP
-mode does not; MCP-43 changes that), which is different from a skipped pass.
+this process at all, which is different from a skipped pass.
 `scheduler_running` goes back to `false` when the loop stops (graceful shutdown
 or a dropped handle), so it never claims a loop that is gone.
 
+**Who runs the loop (MCP-43).** The `--mcp` writer hosts the `vanta-memory`
+scheduler over the thread capture queue — the same queue `thread_send` fills
+(MCP-44), so a captured turn becomes memory with no other host alive. The loop
+starts when the process opens the storage as the writer, and again if it is
+later promoted into that role by writer re-election (MCP-48); a read-only
+writer starts none (it never captures a turn, and reports
+`scheduler_running:false`). The loop is stopped and joined **before** the
+storage flush on shutdown, and before the writer's discovery file is dropped, so
+no pass outlives the engine and no second instance is told "no writer here"
+while one is still draining.
+Interval: `VANTADB_SCHEDULER_INTERVAL_MS` (default `5000` in `--mcp` — an agent
+needs the previous turn recallable on the next one — versus `60000` in `--http`;
+`0` disables the loop). A plain **proxy starts no loop**: the queue belongs to
+the writer, so a local consumer would drain someone else's queue. It says so in
+its startup log (`scheduler_running=false`, reason `proxy mode`), and
+`capabilities` still tells the truth there because `tools/call` is forwarded
+whole to the writer — the answer comes from the process that owns the queue.
+
 The queue is the scheduler's in-process state (ADR-0054), so `ingest` describes
-**this** process only. An MCP session that proxies to another writer sees its
-own `queue` and `last_pass: null` — the writer's backlog is not visible here.
+**one** process: whichever process answered the call. A proxy reports the
+writer's numbers (never a merged view), and two processes never drain the same
+queue.
 
 
 ### Backup & Bulk Import (4)
@@ -601,8 +619,9 @@ memory only if it enters the pipeline. Each `user`/`assistant` turn is
 
 `memory:{captured,queued}` reports what actually happened. `queued:true` means
 the task is waiting for the writer's scheduler, not that memory already exists:
-one scheduler pass (`run_pass`, MCP-43 in `--mcp`) turns it into `l1/*` records
-that `memory_recall` returns on the next turn — no `memory_put` required.
+one scheduler pass (`run_pass`, hosted by the `--mcp` writer since MCP-43) turns
+it into `l1/*` records that `memory_recall` returns on the next turn — no
+`memory_put` required.
 
 Two boundaries worth knowing:
 
@@ -611,11 +630,17 @@ Two boundaries worth knowing:
   forwards the whole `tools/call` to the writer (MCP-48), so the enqueue happens
   in the process that can drain it. A proxy must never enqueue locally — that
   queue has no drainer. The queue is in memory: queued turns live **for the
-  lifetime of that process** (no L0→queue backfill yet; the captured L0 records
-  survive a restart, MCP-43 decides the backfill).
-- **No scheduler in `--mcp` today (MCP-43).** Until it lands, the queued tasks
-  stay queued. That state is visible instead of silent: with a `none` ingest
-  runner and a non-empty queue, `capabilities.ingest` reports
+  lifetime of that process**. There is no L0→queue backfill, on purpose: a
+  correct one needs a durable "consolidated" marker on the L0 path, and without
+  it every restart would re-enqueue turns that were already extracted
+  (duplicate LLM work). Captured L0 records survive a restart; what a restart
+  can lose is the automatic re-extraction of turns captured by a process that
+  died before a pass.
+- **The `--mcp` writer drains it (MCP-43).** A writer-mode `--mcp` process runs
+  the scheduler over this very queue (`VANTADB_SCHEDULER_INTERVAL_MS`, default
+  `5000`), so a captured turn is consolidated by the next tick and recalled on
+  the next agent turn. A degraded runner stays visible instead of silent: with
+  a `none` ingest runner and a non-empty queue, `capabilities.ingest` reports
   `degraded:true` + `queue.depth > 0` (its `is_broken()` condition) and a
   legible `notice` — see [VANTA_MEMORY.md](./VANTA_MEMORY.md) § Operational
   modules (`ingest::observability`). The first enqueued turn also teaches this

@@ -18,6 +18,7 @@ mod dreams;
 mod error;
 mod governance;
 mod handlers;
+mod memory_scheduler;
 mod metrics;
 mod protocol;
 mod proxy;

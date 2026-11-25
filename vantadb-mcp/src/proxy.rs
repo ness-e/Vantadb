@@ -583,6 +583,12 @@ impl WriterProxy {
             tracing::warn!("MCP-48: local writer listener unreachable — restarting it");
             let (guard, port) = spawn_writer_http(storage.clone()).await.ok()?;
             let handle = ProxyHandle::for_local_port(port, self.local_api_key())?;
+            // MCP-43: re-acquiring the writer role re-acquires the thread
+            // capture queue (idempotent — the first promotion already started
+            // the loop; this pins the invariant instead of assuming it).
+            if self.drains_memory() {
+                crate::memory_scheduler::start(&storage);
+            }
             {
                 let mut link = self.link.write().await;
                 link.promoted = Some(PromotedWriter {
@@ -627,7 +633,15 @@ impl WriterProxy {
                 return None;
             }
         };
+        // MCP-43: this process is the writer now, so it owns the thread capture
+        // queue — captured turns must consolidate here, not pile up. `start` is
+        // idempotent (one loop per process). Started only AFTER the local handle
+        // exists: an early return above must not leave a loop draining storage
+        // whose lock (and discovery file) just dropped.
         let handle = ProxyHandle::for_local_port(port, writer_api_key)?;
+        if self.drains_memory() {
+            crate::memory_scheduler::start(&storage);
+        }
         {
             let mut link = self.link.write().await;
             link.promoted = Some(PromotedWriter {
@@ -655,6 +669,11 @@ impl WriterProxy {
         let Some(storage) = storage else {
             return;
         };
+        // MCP-43: the promoted scheduler stops before the flush (a pass
+        // mid-claim over flushed storage is the shutdown bug). No-op for a
+        // plain proxy — which never started one, so `scheduler_running` stays
+        // an honest `false`.
+        crate::memory_scheduler::stop().await;
         match tokio::task::spawn_blocking(move || storage.flush()).await {
             Ok(Ok(())) => tracing::info!("promoted writer flushed"),
             Ok(Err(e)) => tracing::error!(error = %e, "promoted writer flush failed"),
@@ -678,6 +697,13 @@ impl WriterProxy {
             .as_ref()
             .and_then(|c| c.api_key.clone())
             .or_else(|| self.api_key.clone())
+    }
+
+    /// MCP-43: whether a writer this process promotes into should drain the
+    /// memory queue. A read-only writer never captures a turn, so it has
+    /// nothing to consolidate.
+    fn drains_memory(&self) -> bool {
+        !self.promote_config.as_ref().is_some_and(|c| c.read_only)
     }
 }
 

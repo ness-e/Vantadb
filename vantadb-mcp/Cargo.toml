@@ -24,7 +24,11 @@ vantadb = { workspace = true, features = [
 # MEM-52: fachada productiva de ingest wiki — el tool wiki_ingest dispara el
 # worker de vanta-memory en un hilo de fondo (era dev-dep desde MEM-44;
 # dirección ciclo-free verificada vía cargo tree).
-vanta-memory = { workspace = true, features = ["llm-driver"] }
+# MCP-43: `http-server` enables the scheduler loop helper
+# (`services::scheduler::spawn_memory_scheduler`) so the `--mcp` writer can
+# drain the thread capture queue. It only adds Tokio primitives — `vantadb/server`
+# is already on here, so no new dependency tree.
+vanta-memory = { workspace = true, features = ["llm-driver", "http-server"] }
 tokio = { workspace = true, features = ["sync", "rt", "macros", "rt-multi-thread", "signal", "time", "io-util", "io-std", "net", "fs"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

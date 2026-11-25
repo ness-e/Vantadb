@@ -346,8 +346,9 @@ guard) — the host attaches `HttpCaptureBridge` through the additive
 second open fails with `DatabaseBusy`). The trigger reaches `ServerState`
 (field `src/server/state.rs:143`, call site `src/server/handlers.rs:1414`).
 Defaults stay inert — `ServerHooks::default()` (hence `run(config)`) passes
-`None` — and the MCP mode of the same binary does not host the scheduler
-(ADR-0054: second host deferred).
+`None` — and the MCP mode of the same binary wires the **scheduler** instead of
+this bridge (MCP-43): `--mcp` has its own capture path (`thread_send`, MCP-44),
+so it does not need `HttpCaptureBridge`.
 
 **`services::scheduler`** — the reusable pass of the L0→L3 planner (WIRE-15):
 `run_pass` dispatches expired `l1_idle:<session>` timers as L1 tasks, runs one
@@ -362,8 +363,19 @@ server's HTTP loop returns. The host owns the driver: `vantadb-server`
 keep flowing into L0). Each pass builds its runner from the FIND-112 surface
 (`VANTADB_INGEST_CONFIG` or `<storage>/data/vanta-ingest.toml`; secrets
 env-only, R-5); no real engine → the pass skips and the queue is untouched
-(P4). One loop per process — the scheduler runs in the writer
-(ADR-0054).
+(P4). One loop per process — the scheduler runs in the writer (ADR-0054).
+
+**Two hosts today (ADR-0054):** `vantadb-server` in HTTP mode (WIRE-16, bridge
+through `ServerHooks::on_storage_ready`) and `vantadb-server --mcp` in writer
+mode (MCP-43). The MCP host wires the loop over **its own** queue
+(`threads::memory_queue`, filled by `thread_send`) with interval default
+`5000` (an agent needs the previous turn recallable on the next one), starts it
+when the process owns the storage (a read-only writer starts none — it never
+captures a turn), restarts it if the process is promoted into the writer role by
+writer re-election (MCP-48), and stops + joins it before the storage flush and
+before the discovery file drops. A plain MCP proxy starts **no** loop — the
+queue belongs to the writer — and declares it in its startup log instead of
+staying silent.
 
 **`ingest::observability`** (MEM-72) — a runner-less pipeline is a legitimate
 state (the default `Local` provider builds `ConcreteRunner::None`), and that is
@@ -375,17 +387,19 @@ one process-wide snapshot and exposes it as `status()`:
 |---|---|
 | `runner` | `unknown` (no runner built yet) · `none` (no engine: extraction never runs) · `ollama` · `openai` |
 | `degraded` | `runner == none` |
-| `scheduler_running` | a loop is alive in this process (server today; `--mcp` with MCP-43) |
+| `scheduler_running` | a loop is alive in this process (`--http`, and `--mcp` writer mode since MCP-43) |
 | `queue.depth` / `queue.claimed` | waiting tasks / live leases, as of the last pass |
 | `last_pass.skipped` | `true` = the pass never ran (no runner); `false` = it ran, with `processed`/`failed`/`timers_fired` |
 | `degraded_warnings` | warnings emitted for degraded-with-backlog (proof of "once") |
 | `notice` | human-readable diagnosis, `null` when healthy |
 
 The queue is the in-process `LocalStateBackend` (ADR-0054), so the whole
-snapshot describes **this** process only: a process that does not run the loop
-(MCP mode today, until MCP-43) reports `scheduler_running: false`, its own
-empty `queue` and `last_pass: null`. Another process's queue depth is not
-observable through this surface — by design, not by omission.
+snapshot describes **one** process: a process that does not run the loop (an
+MCP *proxy* — the writer owns the queue) reports `scheduler_running: false`, its
+own empty `queue` and `last_pass: null`. Another process's queue depth is not
+observable through this surface — by design, not by omission. `capabilities`
+answers from whichever process owns the queue, because the MCP proxy forwards
+the whole call to the writer (MCP-48).
 
 The distinction operators need is **state + queue**, not either alone:
 `runner: none` with `queue.depth: 0` is an idle pipeline; the same `runner` with

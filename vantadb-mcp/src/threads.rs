@@ -349,8 +349,9 @@ fn note_runner_state_once(storage: &Arc<StorageEngine>) {
 /// Server-side ingest config, same sources as the wiki path
 /// (`wiki.rs::ingest_toml_path`): `VANTADB_INGEST_CONFIG` wins, else
 /// `<data_dir>/vanta-ingest.toml`. Duplicated because that helper is private;
-/// both must stay in sync (same host config, one meaning).
-fn ingest_runner_cfg(storage: &Arc<StorageEngine>) -> IngestRunnerCfg {
+/// both must stay in sync (same host config, one meaning). `pub(crate)` since
+/// MCP-43: the scheduler's per-pass runner factory resolves it here.
+pub(crate) fn ingest_runner_cfg(storage: &Arc<StorageEngine>) -> IngestRunnerCfg {
     let path = std::env::var("VANTADB_INGEST_CONFIG")
         .ok()
         .filter(|p| !p.trim().is_empty())

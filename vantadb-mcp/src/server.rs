@@ -463,6 +463,13 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     )
     .await;
 
+    // MCP-43: stop the memory scheduler here, not in the caller — `_writer_guard`
+    // above drops on return, and advertising "no writer" while a pass is still
+    // running (and could enqueue more work) is exactly the shutdown ordering
+    // this task must not leave open. Idempotent: a caller that already stopped
+    // it (or never started one) gets a no-op.
+    crate::memory_scheduler::stop().await;
+
     info!(
         total = metrics.requests_total.load(Ordering::Relaxed),
         errors = metrics.errors_total.load(Ordering::Relaxed),
@@ -1008,6 +1015,8 @@ pub async fn run_proxy_stdio_server(proxy: Arc<crate::proxy::WriterProxy>, confi
     });
     info!(
         writer = ?proxy.base_url().await,
+        scheduler_running = false,
+        reason = "proxy mode: the writer owns the capture queue",
         "MCP proxy stdio server started"
     );
     serve_lines_proxy(
@@ -1043,10 +1052,21 @@ pub async fn run_stdio_server_auto(
         cfg_with_path.storage_path = storage_path.to_string();
     }
     let path = cfg_with_path.storage_path.clone();
+    // MCP-43: a read-only writer never feeds memory (no capture, no queue).
+    let read_only = cfg_with_path.read_only;
     match vantadb::storage::StorageEngine::open_with_config(&path, Some(cfg_with_path.clone())) {
         Ok(storage) => {
             let storage = Arc::new(storage);
+            // MCP-43: this process owns the DB, so it owns the thread capture
+            // queue (ADR-0054) — drain it instead of letting captured turns
+            // pile up unconsolidated (MCP-44 enqueues, nobody consumed).
+            if !read_only {
+                crate::memory_scheduler::start(&storage);
+            }
             run_stdio_server(storage.clone()).await;
+            // The scheduler was stopped inside `run_stdio_server`, before its
+            // discovery guard dropped — so nothing can run a pass over the
+            // engine we are about to flush.
             tracing::info!("MCP server exited, flushing storage (auto)...");
             if let Err(e) = storage.flush() {
                 tracing::error!("Flush failed: {}", e);
@@ -1057,6 +1077,15 @@ pub async fn run_stdio_server_auto(
         }
         Err(vantadb::Error::DatabaseBusy(msg)) => {
             tracing::warn!(msg = %msg, "DatabaseBusy — trying proxy fallback");
+            // MCP-43: proxy mode starts NO scheduler — the queue belongs to the
+            // remote writer and this process cannot drain it. Say it, don't
+            // leave it silent (`capabilities` is forwarded, so the client reads
+            // the writer's own, truthful, `scheduler_running`).
+            tracing::info!(
+                scheduler_running = false,
+                reason = "proxy mode: the writer owns the capture queue",
+                "MCP scheduler not started"
+            );
             let api_key = cfg_with_path
                 .api_key
                 .clone()
@@ -1085,7 +1114,13 @@ pub async fn run_stdio_server_auto(
                 {
                     Ok(storage) => {
                         let storage = Arc::new(storage);
+                        // MCP-43: stale-retry writer path — same ownership rule.
+                        if !read_only {
+                            crate::memory_scheduler::start(&storage);
+                        }
                         run_stdio_server(storage.clone()).await;
+                        // Stopped inside `run_stdio_server` (same ordering as
+                        // the primary writer path).
                         tracing::info!("MCP server exited after stale retry, flushing...");
                         if let Err(e) = storage.flush() {
                             tracing::error!("Flush failed: {}", e);
