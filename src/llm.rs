@@ -199,19 +199,163 @@ pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
 
 // ── LocalOnnxProvider (embed-local) ───────────────────────────────────
 
+/// FIND-706: the warm ONNX state, keyed by the *resolved* model directory and
+/// shared process-wide.
+///
+/// The MCP tools build a provider per write (`memory_put` →
+/// `get_embedding_provider()`), so a per-provider session paid
+/// `commit_from_file` on a ~470 MB graph for every single put — 2421 ms median
+/// per `memory_put` measured, 99.7 % of that tool's latency. Loading once per
+/// process and reusing it leaves only the forward pass.
+#[cfg(feature = "embed-local")]
+static WARM_LOCAL: std::sync::OnceLock<parking_lot::Mutex<Option<std::sync::Arc<WarmLocal>>>> =
+    std::sync::OnceLock::new();
+
+/// Result-cache capacity: 256 × 384 dims × 4 B ≈ 384 KB per model.
+#[cfg(feature = "embed-local")]
+const WARM_CACHE_CAP: usize = 256;
+
 #[cfg(feature = "embed-local")]
 pub struct LocalOnnxProvider {
-    session: Option<parking_lot::Mutex<ort::session::Session>>,
-    tokenizer: Option<tokenizers::Tokenizer>,
+    /// Session + tokenizer + result cache, shared process-wide (FIND-706).
+    warm: std::sync::Arc<WarmLocal>,
     dim: usize,
     family: EmbedFamily,
     // Reason: retained for ONNX provider diagnostics and reload introspection under embed-local.
     #[allow(dead_code)]
     model_dir: String,
     allow_dummy: bool,
+}
+
+/// Bounded result cache: effective text → vector.
+///
+/// Lives *inside* the model-keyed [`WarmLocal`], so it structurally cannot
+/// answer with another model's vector (the key that matters — the model — is
+/// the identity of the container). No TTL: `embed` is deterministic in
+/// (model, family prefix, text), so expiry would only force recomputation.
+/// FIFO eviction, not LRU: an agent's write working set is small and the extra
+/// bookkeeping buys nothing measurable.
+#[cfg(feature = "embed-local")]
+#[derive(Default)]
+struct EmbedCache {
+    map: std::collections::HashMap<String, Vec<f32>>,
+    order: std::collections::VecDeque<String>,
+}
+
+#[cfg(feature = "embed-local")]
+impl EmbedCache {
+    fn get(&self, effective: &str) -> Option<Vec<f32>> {
+        self.map.get(effective).cloned()
+    }
+
+    fn put(&mut self, effective: &str, vector: Vec<f32>) {
+        if self.map.insert(effective.to_string(), vector).is_some() {
+            return;
+        }
+        self.order.push_back(effective.to_string());
+        while self.order.len() > WARM_CACHE_CAP {
+            if let Some(old) = self.order.pop_front() {
+                self.map.remove(&old);
+            }
+        }
+    }
+}
+
+/// The shared ONNX session, its tokenizer, its budget reservation and its
+/// result cache — one instance per live model directory.
+#[cfg(feature = "embed-local")]
+struct WarmLocal {
+    /// Resolved model dir this state was built from: the reuse key.
+    model_dir: String,
+    /// Vector width and family of the loaded model. Resolved once, with the
+    /// session: `detect_dim` parses `embeddings/manifest.json` and the budget
+    /// estimate stats the weights file, and neither changes while the session
+    /// lives. Recomputing them per provider also made `v.len() == dim` compare
+    /// against a dim that no longer necessarily belonged to the loaded model.
+    dim: usize,
+    family: EmbedFamily,
+    session: Option<parking_lot::Mutex<ort::session::Session>>,
+    tokenizer: Option<tokenizers::Tokenizer>,
     /// FIND-642: bytes reserved in the process-global ONNX budget while this
-    /// provider holds a session (released on drop).
+    /// session is resident (released on drop). Reserved **once** per session —
+    /// a per-provider reservation counted every put path as its own session.
     reserved_bytes: u64,
+    cache: parking_lot::Mutex<EmbedCache>,
+}
+
+#[cfg(feature = "embed-local")]
+impl Drop for WarmLocal {
+    fn drop(&mut self) {
+        if self.reserved_bytes > 0 {
+            crate::memory_governor::release_onnx_session(self.reserved_bytes);
+        }
+    }
+}
+
+#[cfg(feature = "embed-local")]
+impl WarmLocal {
+    fn build(model_dir: &str, strict: bool) -> Result<Self> {
+        let dim = LocalOnnxProvider::detect_dim(model_dir);
+        let family = family_of(model_dir);
+        let tokenizer = LocalOnnxProvider::try_load_tokenizer(model_dir);
+        // FIND-642: the resident ONNX session counts against `memory_limit`.
+        // Estimate the footprint BEFORE loading (weights on disk x factor +
+        // fixed ORT overhead); strict mode fails closed with Error::Embedding,
+        // lenient mode degrades to the deterministic dummy with a warning.
+        let estimate = crate::memory_governor::estimate_onnx_session_bytes(
+            LocalOnnxProvider::onnx_model_weights_bytes(model_dir),
+        );
+        let session = match LocalOnnxProvider::onnx_budget_decision(
+            estimate,
+            crate::config::Config::default().memory_limit,
+            strict,
+        )? {
+            true => LocalOnnxProvider::try_load_session(model_dir),
+            false => None,
+        };
+        let reserved_bytes = if session.is_some() {
+            crate::memory_governor::reserve_onnx_session(estimate);
+            estimate
+        } else {
+            0
+        };
+        Ok(Self {
+            model_dir: model_dir.to_string(),
+            dim,
+            family,
+            session: session.map(parking_lot::Mutex::new),
+            tokenizer,
+            reserved_bytes,
+            cache: parking_lot::Mutex::new(EmbedCache::default()),
+        })
+    }
+}
+
+/// Return the warm state for `model_dir`, building it on first use and
+/// rebuilding only when the resolved model directory changes.
+///
+/// A build that ends **without** a session is returned but never cached: a
+/// degraded state must not be memoized, or installing the model while the
+/// process is up would keep failing until a restart (the pre-fix behaviour
+/// re-probed on every call, which is what `vanta setup embeddings` relies on).
+#[cfg(feature = "embed-local")]
+fn warm_local(model_dir: &str, strict: bool) -> Result<std::sync::Arc<WarmLocal>> {
+    let slot = WARM_LOCAL.get_or_init(|| parking_lot::Mutex::new(None));
+    // The slot lock is held across the build on purpose: two racing first
+    // writes would otherwise load the model twice and reserve the ONNX budget
+    // twice. Nothing here is `async`, so no runtime thread is parked on a
+    // suspended task (concurrency-async rule 2).
+    let mut guard = slot.lock();
+    if let Some(warm) = guard.as_ref() {
+        if warm.model_dir == model_dir && warm.session.is_some() {
+            return Ok(std::sync::Arc::clone(warm));
+        }
+    }
+    let built = std::sync::Arc::new(WarmLocal::build(model_dir, strict)?);
+    if built.session.is_some() {
+        *guard = Some(std::sync::Arc::clone(&built));
+    }
+    Ok(built)
 }
 
 /// Embedding model family — decides the e5 `query:`/`passage:` prefixes.
@@ -369,40 +513,16 @@ impl LocalOnnxProvider {
         let model_dir = crate::config::resolve_local_model_path(&cfg.local_model_path)
             .to_string_lossy()
             .into_owned();
-        let model_dir = model_dir.as_str();
-        let dim = Self::detect_dim(model_dir);
-        let family = family_of(model_dir);
-        // try to load tokenizer
-        let tokenizer = Self::try_load_tokenizer(model_dir);
-        // FIND-642: the resident ONNX session counts against `memory_limit`.
-        // Estimate the footprint BEFORE loading (weights on disk x factor +
-        // fixed ORT overhead); strict mode fails closed with Error::Embedding,
-        // lenient mode degrades to the deterministic dummy with a warning.
-        let weights_bytes = Self::onnx_model_weights_bytes(model_dir);
-        let session_estimate = crate::memory_governor::estimate_onnx_session_bytes(weights_bytes);
-        let session = match Self::onnx_budget_decision(
-            session_estimate,
-            crate::config::Config::default().memory_limit,
-            cfg.strict_embeddings,
-        )? {
-            true => Self::try_load_session(model_dir),
-            false => None,
-        };
-        let reserved_bytes = if session.is_some() {
-            crate::memory_governor::reserve_onnx_session(session_estimate);
-            session_estimate
-        } else {
-            0
-        };
-        let allow_dummy = !cfg.strict_embeddings;
+        // FIND-706: the session, the tokenizer and the model's shape are
+        // process-wide, not per provider. Building a provider is now a slot
+        // lookup — no `commit_from_file`, no manifest parse, no weights stat.
+        let warm = warm_local(&model_dir, cfg.strict_embeddings)?;
         Ok(Self {
-            session: session.map(parking_lot::Mutex::new),
-            tokenizer,
-            dim,
-            family,
-            model_dir: model_dir.to_string(),
-            allow_dummy,
-            reserved_bytes,
+            dim: warm.dim,
+            family: warm.family,
+            warm,
+            model_dir,
+            allow_dummy: !cfg.strict_embeddings,
         })
     }
 
@@ -413,19 +533,25 @@ impl LocalOnnxProvider {
 
     pub(crate) fn new_dummy_with_policy(dim: usize, allow_dummy: bool) -> Self {
         Self {
-            session: None,
-            tokenizer: None,
+            warm: std::sync::Arc::new(WarmLocal {
+                model_dir: "__dummy__".to_string(),
+                dim,
+                family: EmbedFamily::Other,
+                session: None,
+                tokenizer: None,
+                reserved_bytes: 0,
+                cache: parking_lot::Mutex::new(EmbedCache::default()),
+            }),
             dim,
             family: EmbedFamily::Other,
             model_dir: "__dummy__".to_string(),
             allow_dummy,
-            reserved_bytes: 0,
         }
     }
 
     /// Returns `true` if this provider has an active ONNX session and tokenizer loaded.
     pub fn is_real(&self) -> bool {
-        self.session.is_some() && self.tokenizer.is_some()
+        self.warm.session.is_some() && self.warm.tokenizer.is_some()
     }
 
     fn detect_dim(model_dir: &str) -> usize {
@@ -922,8 +1048,17 @@ impl LocalOnnxProvider {
             return Err(Error::InvalidInput("text must not be empty".to_string()));
         }
         let effective = self.apply_prefix(text, kind);
+        // FIND-706: a hit skips tokenize + forward. Validity of the hit rests on
+        // the cache living inside the model-keyed warm state, and on the key
+        // being the *effective* text (prefix included), so `embed_query("x")`
+        // and `embed("x")` never collide under an e5 model.
+        let cached = { self.warm.cache.lock().get(&effective) };
+        if let Some(v) = cached {
+            return Ok(v);
+        }
         if let Some(v) = self.run_onnx(&effective) {
             if v.len() == self.dim {
+                self.warm.cache.lock().put(&effective, v.clone());
                 return Ok(v);
             }
         }
@@ -935,12 +1070,14 @@ impl LocalOnnxProvider {
                     .to_string(),
             ));
         }
+        // A synthetic vector is never cached: it must not outlive a transient
+        // ORT failure and shadow the real embedding afterwards.
         Ok(self.deterministic_embed(text))
     }
 
     fn run_onnx(&self, text: &str) -> Option<Vec<f32>> {
-        let tokenizer = self.tokenizer.as_ref()?;
-        let session_opt = self.session.as_ref()?;
+        let tokenizer = self.warm.tokenizer.as_ref()?;
+        let session_opt = self.warm.session.as_ref()?;
         // tokenize
         let encoding = tokenizer.encode(text, true).ok()?;
         let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
@@ -1051,17 +1188,6 @@ impl LocalOnnxProvider {
             }
         }
         Some(pooled)
-    }
-}
-
-#[cfg(feature = "embed-local")]
-impl Drop for LocalOnnxProvider {
-    fn drop(&mut self) {
-        // FIND-642: the session dies with `self`; release its budget
-        // reservation so `memory_limit` accounting stays honest.
-        if self.reserved_bytes > 0 {
-            crate::memory_governor::release_onnx_session(self.reserved_bytes);
-        }
     }
 }
 
@@ -1991,6 +2117,135 @@ mod tests {
             f.avx,
             "gate verdict must equal ort_cpu_supported(detected)"
         );
+    }
+
+    // ── FIND-706: warm session + result cache ─────────────────────────
+
+    #[test]
+    fn f706_embed_cache_is_bounded_and_hits() {
+        let mut cache = EmbedCache::default();
+        for i in 0..(WARM_CACHE_CAP + 44) {
+            cache.put(&format!("text-{i}"), vec![i as f32; 2]);
+        }
+        assert_eq!(cache.map.len(), WARM_CACHE_CAP, "cache must be bounded");
+        assert_eq!(
+            cache.order.len(),
+            WARM_CACHE_CAP,
+            "eviction queue must track"
+        );
+        let last = format!("text-{}", WARM_CACHE_CAP + 43);
+        assert!(cache.get(&last).is_some(), "newest entry must be cached");
+        assert!(
+            cache.get("text-0").is_none(),
+            "oldest entry must have been evicted"
+        );
+        // Overwriting an existing key must not grow the queue.
+        let before = cache.order.len();
+        cache.put(&last, vec![0.0; 2]);
+        assert_eq!(cache.order.len(), before);
+    }
+
+    #[test]
+    fn f706_warm_state_reuse_and_degraded_not_cached() {
+        // No model files under these dirs, so the build ends without a session.
+        // Contract: (a) a degraded state is never memoized — installing the
+        // model later is picked up by the next call instead of staying broken
+        // until a restart; (b) identity is per resolved model dir, so a second
+        // model can never inherit the first one's session or cache.
+        let a = warm_local("__f706-test-a__", false).expect("warm a");
+        assert!(a.session.is_none(), "no model files here → no session");
+        let a_again = warm_local("__f706-test-a__", false).expect("warm a again");
+        assert!(
+            !std::sync::Arc::ptr_eq(&a, &a_again),
+            "a state without a session must not be cached"
+        );
+        let b = warm_local("__f706-test-b__", false).expect("warm b");
+        assert_eq!(b.model_dir, "__f706-test-b__");
+    }
+
+    #[test]
+    fn f706_dummy_provider_has_no_session() {
+        let dummy = LocalOnnxProvider::new_dummy_with_policy(384, true);
+        assert!(!dummy.is_real());
+        assert!(dummy.is_synthetic());
+        // The dummy path must keep working with the feature on and no model.
+        assert_eq!(dummy.embed("hola").expect("dummy embed").len(), 384);
+    }
+
+    /// FIND-706 manual probe — needs the 470 MB ONNX model plus the ORT dylib,
+    /// so it is `#[ignore]`d and never runs in CI. It separates the three costs
+    /// the task demanded be measured *before* caching anything (tokenizer,
+    /// session load, forward), then replays the MCP write shape — 10 rounds x 3
+    /// `memory_put`s — through the real factory path.
+    ///
+    /// `cargo test -p vantadb --lib --features embed-local -- --ignored
+    ///  --nocapture find706` (from the repo root: the model path is relative).
+    #[test]
+    #[ignore = "manual probe: needs the ONNX model + ORT dylib on disk"]
+    #[cfg(feature = "embed-local")]
+    fn find706_embed_latency_probe() {
+        let dir = "embeddings/models/multilingual-e5-small/onnx";
+        let ms = |d: std::time::Duration| d.as_secs_f64() * 1000.0;
+
+        // 1) tokenizer alone
+        let t = std::time::Instant::now();
+        let tokenizer = LocalOnnxProvider::try_load_tokenizer(dir);
+        let tokenizer_ms = ms(t.elapsed());
+        assert!(
+            tokenizer.is_some(),
+            "no tokenizer under {dir} — run from the repo root"
+        );
+        drop(tokenizer);
+
+        // 2) session alone (graph + weights load)
+        let t = std::time::Instant::now();
+        let session = LocalOnnxProvider::try_load_session(dir);
+        let session_ms = ms(t.elapsed());
+        assert!(
+            session.is_some(),
+            "no ONNX session (dylib or weights missing)"
+        );
+        drop(session);
+
+        // 3) forward alone, on a warm provider
+        let warm = LocalOnnxProvider::new(dir).expect("provider");
+        assert!(
+            warm.is_real(),
+            "provider is not real — cannot probe the forward path"
+        );
+        warm.embed("warmup").expect("warmup");
+        let t = std::time::Instant::now();
+        for i in 0..10 {
+            warm.embed(&format!("forward probe {i}")).expect("forward");
+        }
+        let forward_ms = ms(t.elapsed()) / 10.0;
+        drop(warm);
+
+        println!(
+            "\nFIND-706 breakdown (ms): tokenizer={tokenizer_ms:.1} session={session_ms:.1} forward={forward_ms:.1}"
+        );
+
+        // 4) the MCP write path: one factory call per put, exactly what
+        //    `memory_put` does (vantadb-mcp/src/handlers/tools.rs:5145).
+        let rounds = 10;
+        let puts = 3;
+        let mut round_ms = Vec::new();
+        for r in 1..=rounds {
+            let t = std::time::Instant::now();
+            for p in 1..=puts {
+                let provider = crate::llm::get_embedding_provider();
+                provider
+                    .embed(&format!("FIND-706 sustained write probe round {r} put {p}"))
+                    .expect("embed");
+            }
+            round_ms.push(ms(t.elapsed()));
+        }
+        println!("| round | round total (ms) |");
+        println!("|------:|-----------------:|");
+        for (i, v) in round_ms.iter().enumerate() {
+            println!("| {} | {v:.0} |", i + 1);
+        }
+        println!("round 10 = {:.1} ms", round_ms[rounds - 1]);
     }
 }
 
