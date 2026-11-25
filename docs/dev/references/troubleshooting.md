@@ -20,7 +20,7 @@ tags: [troubleshooting, windows]
 |---|---|
 | [Build lock — running MCP holds `target/debug/*.exe`](#build-lock--a-running-mcp-server-holds-targetdebugexe) | `Acceso denegado (os error 5)` / `LNK1104` / `failed to remove file ...\target\debug\vantadb-server.exe` |
 | [Disk exhaustion — `target/` fills C: and the link fails](#disk-exhaustion--target-fills-c-and-the-link-fails-lnk1140) | `LNK1140` / `LNK1104` out of nowhere, drive at 0 bytes free, `target/` at tens of GB |
-| [git hooks](#git-hooks--commits-pass-with-no-gate-or-nodeenvvalueerror-traceback) | `git commit` passes in 1 s with no gate output; or every commit dies on `nodeenv ... ValueError: invalid literal for int() with base 10: '0-alpha'` |
+| [git hooks](#git-hooks--commits-pass-with-no-gate-or-nodeenv-valueerror-traceback) | `git commit` passes in 1 s with no gate output; or every commit dies on `nodeenv ... ValueError: invalid literal for int() with base 10: '0-alpha'` |
 
 ---
 
@@ -259,8 +259,9 @@ commit gate of the gate pyramid (Regla 1 of `.opencode/AGENTS.md`):
    (`v27.0.0-alpha.0.1.1`); `nodeenv.parse_version()` splits on dots and calls
    `int()` on the third segment (`0-alpha`) → `ValueError` before anything is
    downloaded. Tracked upstream: [ekalinin/nodeenv#453][ne453], fixed by
-   [PR #454][ne454] (merged 2026-10-29; still broken in 1.11.0, fixed in
-   **1.12.0**). Nothing in VantaDB pinned a Node version, so the gate broke the
+   [PR #454][ne454] (merged 2026-10-29, shipped in **1.11.1**: *"1.11.1 is
+   1.11.0 plus this fix only"*; 1.11.0 and older still break). Nothing in
+   VantaDB pinned a Node version, so the gate broke the
    day the upstream index changed — not the day anything here changed.
 
 **Fix.** Both, in this order.
@@ -296,6 +297,10 @@ commit gate of the gate pyramid (Regla 1 of `.opencode/AGENTS.md`):
 **Verify the wiring actually fires.** Do it in a throwaway worktree: the hook
 runs `git diff --cached`, so a test commit on your working branch would drag
 along whatever else is staged — and on a shared checkout, someone else's files.
+The hooks are committed with the executable bit set (`100755`); on POSIX, git
+**silently ignores** a hook without it (`advice.ignoredHook`), so if
+`git config core.hooksPath` is right and the hook still never prints anything,
+check `git ls-files -s .githooks/`.
 
 ```powershell
 git worktree add ..\hooktest -b test-hook develop

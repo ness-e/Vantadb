@@ -55,7 +55,7 @@ No aplica: no agrega símbolos públicos, endpoints, tools MCP ni métodos de bi
   2. `core.hooksPath` es config del clon: se documenta, **nunca** se versiona.
   3. Los gates deterministas siguen siendo los mismos (fmt, clippy core, ruff, prettier, markdownlint, verify_staged, actionlint) — este fix no relaja ninguno.
 - **Comandos de verificación:** `git config --get core.hooksPath` · `pre-commit install-hooks -c .githooks/pre-commit-config.yaml` · commit de prueba en `git worktree` descartable.
-- **Deuda pendiente:** el clon necesita `core.hooksPath` seteo manual (documentado; no hay auto-install). Ver `BLOQUEO` en el RESULTADO.
+- **Deuda pendiente:** (a) el clon necesita `core.hooksPath` seteado a mano (documentado; no hay auto-install); (b) **condición de push** — `node scripts/docs/gen-index.mjs --check` está rojo por tres task files de este run: la regeneración (`gen-index.mjs --write`) de `docs/index.md` + `llms.txt` debe entrar en el **mismo batch** que los task files del run. Regenerarla sola metería en el índice el enlace a `docs/dev/tasks/FIND-724.md`, que sigue untracked (`docs-links` rojo a cambio de `docs-index` rojo). Este commit es **local**; no pushear aislado.
 
 ## Deuda técnica (Regla 6 — MUST)
 
@@ -92,7 +92,7 @@ No aplica: no agrega símbolos públicos, endpoints, tools MCP ni métodos de bi
 
    Mecanismo: en Windows `pre-commit` siempre provisiona los hooks `language: node` con `nodeenv` (no hay `-n system`), y **sólo** pasa `-n <version>` si `language_version != default` (`pre_commit/languages/node.py:96-98`). Default = *latest*, y `nodeenv` resuelve latest al **primer** item de `nodejs.org/dist/index.json` — que desde 2026-10-29 es `v27.0.0-alpha.0.1.1`. `parse_version()` hace `int()` del tercer segmento (`0-alpha`) → explota antes de descargar nada.
 
-   Upstream: [ekalinin/nodeenv#453](https://github.com/ekalinin/nodeenv/issues/453), arreglado por [PR #454](https://github.com/ekalinin/nodeenv/pull/454) (mergeado 2026-10-29; 1.11.0 sigue roto, fix en **1.12.0**). Verificado en PyPI: última versión 1.12.0. Nada en VantaDB pinneaba Node, así que el gate se rompió el día que cambió el índice de upstream.
+   Upstream: [ekalinin/nodeenv#453](https://github.com/ekalinin/nodeenv/issues/453), arreglado por [PR #454](https://github.com/ekalinin/nodeenv/pull/454) y publicado en **1.11.1** ("1.11.1 is 1.11.0 plus this fix only"); 1.11.0 y anteriores siguen rotos (1.12.0 lo arrastra). Nada en VantaDB pinneaba Node, así que el gate se rompió el día que cambió el índice de upstream.
 
 **Por qué no "arreglar" cambiando la versión de Node del proyecto:** no hay versión de Node del proyecto (`rg nodeenv` sólo devuelve el Backlog). El pin vive en la config de pre-commit, es del **entorno aislado de los hooks**, y no cambia el toolchain del repo.
 
@@ -151,12 +151,21 @@ No aplica: no agrega símbolos públicos, endpoints, tools MCP ni métodos de bi
 
 ## Review (GATE — agente distinto, P2-01)
 
-- **Revisor:** `vanta-review` — **P2-01: DEGRADADO** — review en curso al momento del commit (sesión `ses_defc5cf40ffethudaxADoJSwaj`); veredicto pendiente de anexar (commit follow-up `docs(FIND-718): ...`).
+- **Revisor:** `vanta-review` — sesión `ses_defc5cf40ffethudaxADoJSwaj` (contexto distinto al implementador). Revisión **post-commit** porque el commit `fc08c4b35` se hizo con el review en vuelo (degradado explícito, luego anexado acá).
 - **Tier:** **Fast** (paths `docs/dev/**`, `.githooks/**` — ningún glob adversarial)
 - **Enfoque:** ¿el pin de Node es la causa raíz y no un tapabocas? ¿el hook puede salir 0 sin medir? ¿se versionó config local?
-- **Cómo se probó:** repro determinístico (`install-hooks` falla en 1.10.0 sin pin, pasa con `node: lts`), commit real en worktree aislado (positivo y negativo), `sh -n` del hook.
+- **Cómo se probó:** repro determinístico (`install-hooks` falla en 1.10.0 sin pin, pasa con `node: lts`), commit real en worktree aislado (positivo y negativo), `sh -n` del hook. El revisor **re-ejecutó**: `pre-commit validate-config` (0), `sh -n` (0), `node_env-lts\Scripts\node.exe --version` → `v26.13.1` en los 2 repos, `gen-index --check` (1), `check-docs`/`check-links`/`markdownlint`; y leyó el código en disco: `pre_commit/languages/node.py:30-38` (win32 siempre `C.DEFAULT`), `repository.py:118-121` (`default_language_version` se aplica **antes** del default → `lts` gana, sin camino de escape), `nodeenv.py:1044-1076` (`_get_last_node_version(lts=True)` + `parse_version`).
 - **Checklist anti-hábitos tóxicos:** ningún comando reportado sin ejecutarse (repro, install-hooks, commit positivo/negativo, `sh -n`, doc gates: todos corridos y con su output en este task file); sin `--no-verify`; sin rutas ajenas en el commit.
-- **Veredicto:** PENDIENTE → se anexa en follow-up. No se declara approve por defecto.
+- **Veredicto:** ❌ **cambios requeridos** (0 Critical · 4 Required · 4 Optional) → **atendidos en el follow-up**:
+
+| # | Requerido | Estado |
+|---|-----------|--------|
+| 1 | El fix upstream entró en **1.11.1**, no 1.12.0 (release de nodeenv: *"1.11.1 is 1.11.0 plus this fix only"*) | ✅ corregido en `troubleshooting.md` y en §Investigation Notes |
+| 2 | Ancla de la fila de índice rota: slug real `…nodeenv-valueerror-traceback` (el espacio entre code spans es guion; `check-links` no valida anclas y `MD051` está off, ningún gate lo cazaba) | ✅ corregido |
+| 3 | `## Review` sin veredicto con `Estado: ✅ COMPLETED` | ✅ esta sección |
+| 4 | `gen-index.mjs --check` rojo: `docs/index.md`/`llms.txt` deben regenerarse **en el mismo batch** que los 4 task files del run (`FIND-718/724/725` + ajenos); commiteado aislado, está bloqueado para push | ⏳ **fuera de mi scope** (regenerar metería el enlace a `FIND-724.md`, aún untracked) → registrado como condición de push en §Invariantes |
+
+Optional atendido: #5 (modo `100644` → hooks ignorados en POSIX) → `git update-index --chmod=+x .githooks/pre-commit .githooks/pre-push`. Descartados con motivo: #6 pin exacto ( `lts` gana en inmunidad a prereleases, que es el fallo real; documentado), #7 línea en README (README no tiene sección dev-setup; el destino natural es `.opencode/AGENTS.md`, untracked), #8 nit de referencia ya corregido.
 
 > **Guard de `pre-commit` (por qué bloqueaba a todos, y por qué no es un bug mío):**
 > `pre-commit` rechaza correr si el archivo de config **difiere entre worktree e índice**
@@ -171,6 +180,6 @@ No aplica: no agrega símbolos públicos, endpoints, tools MCP ni métodos de bi
 
 - **El "arreglo" NO es cambiar la versión de Node**: no existe tal pin en el repo. Es declarar qué Node usa el *entorno aislado de los hooks* (antes: "lo que haya arriba del índice de nodejs.org", que es un alpha).
 - **Capas independientes:** `default_language_version` (versionado, arregla todos los clones) y `core.hooksPath` (por clon, no versionable). El fix de repo no cablea el clon; el cableado no arregla `nodeenv`. Ambos, por separado.
-- **Máquina:** con `nodeenv` 1.10.0 instalado el fix de repo es suficiente. Actualizar a 1.12.0 (`python -m pip install -U nodeenv`) arregla además el camino *default* de otros proyectos — higiene local, no parte del contrato.
+- **Máquina:** con `nodeenv` 1.10.0 instalado el fix de repo es suficiente. Actualizar a **≥1.11.1** (`python -m pip install -U nodeenv`) arregla además el camino *default* de otros proyectos — higiene local, no parte del contrato.
 - **Test de commit en worktree, no en la rama:** el hook corre `git diff --cached`; en un checkout compartido, un commit de prueba arrastraría los archivos staged de otras tareas. El worktree tiene índice propio.
 - **Deuda aceptada (declarada, no silenciosa):** si `pwsh` falta, el gate multi-área se saltea **diciéndolo**; si `pre-commit` falta, corre sólo `cargo fmt --check` **diciéndolo**. Preferido a bloquear todo commit por una tool ausente, pero nunca en silencio.
