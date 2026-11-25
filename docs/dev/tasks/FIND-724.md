@@ -16,9 +16,9 @@ description: "El test del quiesce de snapshot medía el scheduling, no el produc
 - **Turns estimados:** 8
 - **Creado:** 2026-11-24T00:00
 - **last-synced:** 2026-11-24T00:00
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 5 steps
+- **Pendientes (downhill):** 0 steps
 
 ## Blast Radius
 
@@ -119,8 +119,8 @@ No aplica: la solución **no** agrega símbolos públicos, endpoints, tool MCP n
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 |
-| Pendientes de ejecución (downhill) | 5 |
-| % completado | 0% |
+| Pendientes de ejecución (downhill) | 0 |
+| % completado | 100% |
 
 ## Steps
 
@@ -145,11 +145,11 @@ No aplica: la solución **no** agrega símbolos públicos, endpoints, tool MCP n
 
 ### Step 4: Suite del área storage/snapshot
 - **Verify:** `cargo nextest run --profile audit -p vantadb -E 'test(storage) or test(snapshot)' --build-jobs 2`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE — `551 tests run: 551 passed (1 slow), 2429 skipped` [171.7 s], exit 0, sobre el estado final del código (post-fix, pre-amend; el amend solo toca este `.md`)
 
 ### Step 5: Cierre (fmt/clippy del paquete, OCR, review, commit local)
-- **Verify:** `rustfmt --check` del archivo (no `cargo fmt`: el worktree tiene cambios de otros agentes) · `cargo clippy -p vantadb --all-targets -- -D warnings` · `pwsh dev-tools/ocr-review.ps1` · review `vanta-review`
-- **Estado:** ⬜ PENDING
+- **Verify:** `rustfmt --edition 2021 --check src/storage/engine/tests/snapshot_quiesce.rs` → exit 0 (no `cargo fmt`: el worktree tiene cambios de otros agentes) · `cargo clippy -p vantadb --all-targets -- -D warnings` → exit 0 · `pwsh dev-tools/ocr-review.ps1` → sin archivos revisables (`default_path` excluye tests, `unsupported_ext` excluye `.md`) → sin Critical/High · `node scripts/docs/check-docs.mjs` → `GATING: all clear` · review `vanta-review` → code ✅ (ver §Review)
+- **Estado:** ✅ DONE — commit local `test(storage): make the snapshot quiesce test deterministic (FIND-724)` (sin push; política owner 2026-09-25)
 
 ## Dependencias
 - Ninguna (carril R, cupo 2 — comparte `target/` con `FIND-721`, `-j 2`).
@@ -162,5 +162,9 @@ No aplica: la solución **no** agrega símbolos públicos, endpoints, tool MCP n
 - **Veredicto:** ⬜ pendiente
 
 ## Notas
-- Prohibido explícito: subir el número de yields, `sleep`, `#[ignore]`, retries, relajar el assert.
+- Prohibido explícito: subir el número de yields, `sleep`, `#[ignore]`, retries, relajar el assert. Cumplido: el assert **se endureció** (dos condiciones en vez de una) y se eliminó el spin.
 - No se usa `loom` (interleavings deterministas): el invariante no necesita explorar el espacio de interleavings — la exclusión mutua del guard ya lo garantiza; añadir la dependencia sería coste sin ganancia (Regla 6 / ponytail).
+- No se usó el subscriber de `tracing` (señal más fuerte disponible: el `debug!` de reintento en `mod.rs:1524-1529`) porque exige un subscriber process-global en un binario libtest con 30+ tests (`serial_test` + guard) a cambio de un `stat` sobre un archivo que el producto ya escribe por contrato.
+- **Worktree compartido (carril R, cupo 2):** durante esta tarea el árbol tenía cambios sin commitear de otros agentes (`src/storage/engine/insert.rs`, `src/query.rs`, `src/wal.rs`, `src/utils/fs.rs`, `docs/api/*`, `vantadb-ts/*`, `vantadb-wasm/*`, `.github/*`). El commit es **scoped a 2 archivos**; el paso 4 corrió sobre ese árbol (no se puede aislar en un `target/` compartido) — el fallo de *test list* que vio el revisor (`os error 2` en `sparse_vectors-*.exe`) fue contención del artifact lock, no el diff.
+- `TIMEOUT_MS` 250 → 1000: la observación consume 1.5 ventanas y deja 3.5 de slack. `try_lock_for` es deadline-based, así que bajo carga la paciencia del producto se estira, nunca se acorta → no hay vector de falso-fallo por scheduling.
+- El CI de macOS **nunca imprimió la variante del error** (el assert viejo no miraba el `Result`); el test nuevo imprime `elapsed` + variante + `retriable` en el bounded test, así que la próxima vez la evidencia está en el log.

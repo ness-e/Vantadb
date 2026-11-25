@@ -916,8 +916,9 @@ impl StorageEngine {
     ///   based on batch size vs `incremental_threshold` (default: 1000).
     ///
     /// MUST NOT be called while holding `insert_lock` (non-reentrant): the
-    /// rollback path acquires it with a blocking `lock()` and would deadlock
-    /// (or panic via `try_lock().expect` on wasm32).
+    /// rollback path re-acquires it — with a blocking `lock()` on threaded
+    /// targets (deadlock) and with `try_lock()`, under the caller's guard, on
+    /// wasm32 (single-threaded: it degrades to no lock, never panics).
     #[tracing::instrument(skip(self, nodes), level = "debug", err)]
     pub fn batch_insert_with_opts(
         &self,
@@ -1098,10 +1099,18 @@ impl StorageEngine {
             #[cfg(not(target_arch = "wasm32"))]
             let _rollback_guard = self.insert_lock.lock();
             #[cfg(target_arch = "wasm32")]
-            let _rollback_guard = self
-                .insert_lock
-                .try_lock()
-                .expect("insert_lock held on single-threaded target");
+            // Single-threaded: a free lock is the only reachable state. The
+            // `Option` keeps the guard alive when taken, and there is no
+            // `expect` (denied crate-wide) in a rollback path that must run
+            // regardless.
+            let rollback_guard = self.insert_lock.try_lock();
+            #[cfg(target_arch = "wasm32")]
+            debug_assert!(
+                rollback_guard.is_some(),
+                "insert_lock free on a single-threaded target"
+            );
+            #[cfg(target_arch = "wasm32")]
+            let _rollback_guard = rollback_guard;
             let hnsw = self.hnsw.load();
             let mut vstore_opt = self.vstore0().ok();
 

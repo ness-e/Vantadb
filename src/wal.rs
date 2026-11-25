@@ -1344,6 +1344,13 @@ pub(crate) fn write_redacted_segment(
         return Err(Error::Io(err));
     }
     let bytes_after = file.metadata().map(|m| m.len()).unwrap_or(bytes_before);
+    // The handle must be released before the caller swaps this scratch file in
+    // (Windows refuses to rename over an open file). On `wasm32-unknown-unknown`
+    // `std::fs::File` is the stub with no file descriptor, so it has no `Drop`
+    // impl at all and an explicit `drop` is a no-op (`clippy::drop_non_drop`):
+    // let the value fall out of scope there instead of silencing the lint.
+    // `wasip1/2` are `wasm32` too but do have a real `File`, so they keep the drop.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     drop(file);
 
     if redacted == 0 {

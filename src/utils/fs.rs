@@ -64,6 +64,11 @@ fn write_atomic_with_tmp(
         writer.flush()?;
         let file = writer.into_inner().map_err(|err| err.into_error())?;
         file.sync_all()?;
+        // Release the handle before the rename (Windows refuses to replace an
+        // open file). `wasm32-unknown-unknown`'s `std::fs::File` has no
+        // descriptor and no `Drop` impl, so the explicit drop is a no-op there
+        // (`clippy::drop_non_drop`). `wasip1/2` do have a real `File`.
+        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
         drop(file);
         #[cfg(feature = "failpoints")]
         fail::fail_point!("atomic_write_before_rename", |_| {
