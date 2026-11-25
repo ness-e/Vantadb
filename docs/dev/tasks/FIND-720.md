@@ -192,7 +192,59 @@ Estado esperado tras el fix, por corrida:
 | 2 | Probar que el comparador puede dar `has_regression: true` (datos reales cruzados + delta sintético) sin tocar código de producto | ✅ |
 | 3 | `nightly.yml`: restore (cache branch-scoped) + adopt + seed + summary con comparabilidad y corpus | ✅ |
 | 4 | `BENCHMARKS.md` §11: qué corpus mide cada rama, qué baseline usa cada uno, y el puntero stale a `bench-canonical-p99-informational.yml` | ✅ |
-| 5 | Verify (actionlint + docs gates + ocr-review) + review P2-01 + commit local | ⬜ |
+| 5 | Verify (actionlint + docs gates + ocr-review) + review P2-01 + commit local | ✅ |
+
+## Verificación
+
+| Gate | Comando | Resultado |
+|---|---|---|
+| Workflow | `actionlint .github/workflows/nightly.yml` | ✅ exit 0 |
+| Hook pre-commit (staged-area) | `dev-tools/verify_staged.ps1` vía `.githooks/pre-commit` | ✅ `ALL 0 PASS` |
+| Markdownlint (hook) | `markdownlint-cli2 --config .github/markdownlint-cli2.yaml` | ✅ `Passed` |
+| Docs links | `node scripts/docs/check-links.mjs` | ✅ exit 0 (0 broken; 1 wikilink presupuestado en un histórico) |
+| Docs schema | `node scripts/docs/check-docs.mjs` | ✅ exit 0 (FIND-720.md aparece como ORPHAN, igual que FIND-716/717/721 ya aceptados) |
+| OCR delegation | `pwsh dev-tools/ocr-review.ps1 -Format json` | ✅ `nightly.yml` cae en el grupo `.github/**`; revisado contra sus reglas (abajo) |
+| Funcional end-to-end | `python target/tmp/find720/harness_steps.py` | ✅ `frio=True caliente=True vacio=True` |
+
+**El harness funcional** extrae los `run:` del YAML (no los copia a mano, así no hay
+divergencia) y ejecuta la cadena `adopt → compare → seed → summary` con `bash` +
+`python3` sobre un sandbox con fixtures. Tres escenarios:
+
+```
+FRIO     (cache vacío, baseline versionado de hoy)
+  ::notice::No persisted canonical_p99 baseline yet (cold cache) - this run seeds it.
+  comparable=0 of total=2
+  ::notice::Baseline seeded from this run; comparability starts on the next one.
+  ::warning::Nothing was comparable this run (2 labels landed in new_benchmarks) ...
+  -> comparable=0 new=2 has_regression=False · baseline persisted: True
+
+CALIENTE (baseline persistido de la corrida anterior)
+  persisted baseline: commit=ff53a12c6a9e0c407be88e2a90b5b0cdbea74548 run=44228771621 labels=2
+  ::warning::Detected 2 benchmark regression(s) exceeding 5.0%!
+  (non-zero exit tolerated: continue-on-error is set)
+  comparable=2 of total=2
+  baseline kept: nothing to adopt (total=2 comparable=2).
+  -> comparable=2 new=0 has_regression=True · baseline persisted: True
+
+VACIO    (el extract no produjo labels)
+  comparable=0 of total=0
+  baseline kept: nothing to adopt (total=0 comparable=0).
+  -> comparable=0 new=0 has_regression=False · baseline persisted: True
+```
+
+El segundo caso es el contrato cumplido: **con baseline persistido, 2 de 2 etiquetas se
+comparan y `has_regression` dispara** con números medidos en CI (mismo corpus, misma rama).
+El tercero es el pre-mortem (a) cerrado por construcción: un report vacío no puede borrar
+un baseline bueno.
+
+**Review OCR contra el Rule Group `.github/**`** (autoaplicado, sin LLM — es texto de
+reglas, no un veredicto independiente): `pull_request_target` N/A · ningún secret impreso ·
+`permissions:` del job intacto (`contents: read`, `issues: write`), no se añade ninguno ·
+`actions/cache` pinneado al **mismo SHA completo** que ya usan `certification.yml`/`ci-rust.yml`
+(`55cc8345…`, v6.1.0) · ninguna expresión `${{ }}` interpolada dentro de un bloque `run:`
+(`github.run_id` solo aparece como input `key:` del cache, `github.sha` va por `env:`) ·
+`timeout-minutes: 240` y `concurrency` del job intactos · ningún `continue-on-error` nuevo
+sin `# CATEGORY: INFORMATIONAL` · sin sintaxis deprecada (`::set-output` no se usa).
 
 ## Deuda declarada
 
@@ -200,6 +252,31 @@ Estado esperado tras el fix, por corrida:
 - **El corpus de `main` es superseded hasta el próximo merge `develop → main`.** No se puede alinear desde acá: `benches/**` está fuera de alcance y el merge es del owner. Mientras tanto el job mide lo que la rama tenga y lo compara **contra sí mismo** (misma rama, mismo corpus, etiqueta que lo garantiza) — degradación honesta, no falsa señal.
 - **`CI_POLICY.md:646`** describe el job sin el baseline (fuera del scope de escritura de esta tarea): el texto correcto vive ahora en `BENCHMARKS.md` §11.
 - **`FIND-665`** (baseline versionado `PLACEHOLDER`) queda cubierta **solo para `canonical_p99`**; el fichero versionado sigue pendiente para las familias de `analyze` hasta que ese job revida (depende de `FIND-716`, ya cerrado).
+
+## Review (P2-01)
+
+- **Tier (mecánico, `prompts/task.md` Fase 5):** **Fast**. Los paths del diff son
+  `.github/workflows/nightly.yml`, `docs/user/operations/BENCHMARKS.md` y
+  `docs/dev/tasks/FIND-720.md`; ningún glob adversarial (`docs/api/**`, `src/**`, `src/wal*`,
+  serialización, etc.). Diff = CI + docs, 0 líneas de Rust.
+- **Gate Fast ejecutado:** `.githooks/pre-commit` → `pre-commit` gates (`markdownlint-cli2`
+  Passed) + `dev-tools/verify_staged.ps1` → `ALL 0 PASS` + `actionlint ok`; más
+  `check-links`/`check-docs` en exit 0 (§Verificación).
+- **Review independiente: NO ejecutado (degradado, declarado).** Esta tarea corrió en un
+  sub-agente sin tool `task`, así que **no pudo invocar `vanta-review`** (P2-01 exige
+  `reviewer_context ≠ author_context`). No se simula un veredicto: queda para la sesión
+  orquestadora o el owner, con la lista corta de lo que hay que mirar:
+  1. ¿El *rolling cache* (`key: bench-p99-baseline-<run_id>` + `restore-keys:` prefijo) es
+     aceptable como persistencia de un baseline, sabiendo que es invisible en la UI? El
+     artefacto de auditoría está en `canonical-p99-results` (30 días).
+  2. ¿La regla "sembrar solo cuando `comparable == 0` y `total > 0`" cubre el caso de
+     regresión lenta (no re-siembra) sin dejar un baseline viejo para siempre? Hoy no hay
+     caducidad del baseline: si el bench mejora 40% de golpe, el baseline se queda atrás.
+  3. ¿`BENCHMARKS.md` §11 mezcla idiomas de forma aceptable (prosa nueva en inglés dentro de
+     una sección en español)? Es la regla de `AGENTS.md` §Doc Language Split para
+     `docs/user/operations/`, pero el resto de la sección no la cumple.
+- **Waiver registrado:** `owner: Eros (project owner)` · `ref: FIND-720 — subagente sin tool
+  task; review fresh pendiente, gate Fast mecánico completo`.
 
 ## Lo que esta tarea NO hace
 
