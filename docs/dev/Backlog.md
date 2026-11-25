@@ -737,7 +737,6 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `FIND-722` | 🟢 Baja | **`parse()` devuelve el `Debug` crudo de nom sin `line`/`col`: los helpers de posición son privados** | `src/executor.rs:80,110` (`iql_error_position`, `iql_parse_error_message`) · `vantadb-python/src/lib.rs` · `vantadb-ts/src/vantadb.ts` | 🟡 2-3h | 🟢 Baja | 🟡 Pendiente (2026-11-24) | FIND-156 expuso `parse()` en los 3 bindings, pero un error de sintaxis llega al usuario como el `Debug` interno de nom, sin línea ni columna, porque los dos helpers que sí calculan la posición son privados del `Executor`. Contrato: promoverlos (o exponer un `describe_parse_error` público) y que `execute_hybrid` y los 3 bindings consuman una sola fuente; test de binding que asserte `line` y `col` en un error representativo. | Origen: FIND-156 (2026-11-24) | Ver: `FIND-156` |
 
 ## Media 2026-11-24 - Flake de macOS y gate de WASM por `head_commit` (derivadas del monitor de CI)
 
@@ -764,3 +763,9 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
+
+## Media 2026-11-25 - El golden de API pública puede auto-actualizarse con una variable vacía (derivada de FIND-722)
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `FIND-731` | 🟡 Media | **`VANTADB_PUBLIC_API_UPDATE` vacía activa el modo actualización: el golden se reescribe solo y el test devuelve PASS** | `tests/api/public_api.rs:123` | 🟢 15 min | 🟡 Media | 🟡 Pendiente (2026-11-25) | Detectado por el review de `FIND-722`: el test usa `var_os("VANTADB_PUBLIC_API_UPDATE").is_some()`, así que **definirla vacía** (`VAR= cargo test`) entra en modo update y reescribe `tests/api/public-api.txt` devolviendo **PASS**. Consecuencia: cualquiera puede "arreglar" un fallo de contrato público sin querer, y una orden de CI mal escrita (variable definida pero vacía) convierte el gate en un auto-aceptador. Es la misma clase que el resto del día: un verificador que se deja convencer. Contrato: `var_os(..).is_some_and(\|v\| !v.is_empty())` y un test que demuestre que con la variable vacía el modo update **no** se activa (el golden no se toca y un delta real sigue fallando). | Origen: `FIND-722` (2026-11-25) | Ver: `FIND-722`, `FIND-723` |
