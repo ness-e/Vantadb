@@ -12,6 +12,18 @@
 #      por defecto `.tmp`) y los paths fijos de los tests (`vanta_schema_test`,
 #      `vantadb_ser_test_*`). Se borra SÓLO si tiene un `lock` de fjall libre, o
 #      si está vacío (0 bytes: pérdida nula).
+#   3. Ficheros SUELTOS bajo <TEMP> cuyo nombre empieza por `vanta`/`vantadb`
+#      (`vanta_test_wal_healing_<rand>.corrupt` 63 B, `vanta_test_sharded_<rand>.shard0.corrupt`
+#      54 B, `vanta-ckpt-<pid>.jsonl`): la cuarentena de WAL escribe un hermano del
+#      path del test y el `remove_file` del test no lo borra. Un fichero no tiene
+#      `lock` de fjall: su señal de vida es el handle abierto.
+#
+# La sonda de exclusividad sirve también para ficheros sueltos — medido 2026-11-25
+# (Windows 11, PS 7.6): abrir con `FileShare.None` FALLA mientras otro handle tenga
+# el fichero abierto, sea cual sea su modo (None, Read, ReadWrite, ReadWrite+Delete).
+# Y medido también: `Remove-Item` SÍ borra a través de un handle que permite DELETE
+# (justo lo que concede `std::fs::File`), así que quien protege es la sonda, no
+# `Remove-Item`.
 #
 # Dos pruebas de abandono, ambas obligatorias:
 #   - **Inactividad** (`-MinAgeMinutes`, 10 por defecto): nada escrito en el árbol
@@ -84,6 +96,13 @@ function Test-LockFree([string]$lockPath) {
     }
 }
 
+function Format-Bytes([long]$bytes) {
+    if ($bytes -ge 1GB) { return ('{0:N2} GB' -f ($bytes / 1GB)) }
+    if ($bytes -ge 1MB) { return ('{0:N2} MB' -f ($bytes / 1MB)) }
+    if ($bytes -ge 1KB) { return ('{0:N1} KB' -f ($bytes / 1KB)) }
+    return ('{0:N0} B' -f $bytes)
+}
+
 function Get-LeakKind([IO.DirectoryInfo]$dir) {
     if ($dir.Name -match '^\.fjall_compaction_tmp_(\d+)$') {
         return [pscustomobject]@{ Kind = 'fjall-compaction-tmp'; Pid = [int]$Matches[1] }
@@ -94,11 +113,25 @@ function Get-LeakKind([IO.DirectoryInfo]$dir) {
     return $null
 }
 
-# Devuelve @{ Path; Reason; Bytes } de lo que se puede borrar sin riesgo.
+# Mismo criterio de prefijos que los directorios. Coincide con el nombre de test
+# literal (`vanta-ckpt-<pid>.jsonl`, `vanta_test_wal_healing_<rand>.corrupt`) y NO
+# con un nombre que sólo *contenga* "vanta" (`notas-vanta.txt`): sin comodín inicial.
+function Get-LeakFileKind([IO.FileInfo]$file) {
+    if ($file.Name -like 'vanta*' -or $file.Name -like 'vantadb*') {
+        # Los checkpoints llevan el PID en el nombre: si el proceso vive, no es residuo.
+        $pidFromName = $(if ($file.Name -match '^vanta-ckpt-(\d+)') { [int]$Matches[1] } else { 0 })
+        return [pscustomobject]@{ Kind = 'test-loose-file'; Pid = $pidFromName }
+    }
+    return $null
+}
+
+# Devuelve @{ Path; Class ('dir'|'file'); Reason; Bytes; Guard } de lo que se puede
+# borrar sin riesgo. `Guard` es la ruta que hay que poder abrir en exclusiva justo
+# antes de borrar ($null = sin sonda que re-verificar).
 function Get-Collectable {
     $items = @()
     $now = Get-Date
-    foreach ($d in @(Get-ChildItem -LiteralPath (Get-TempPrefix) -Directory -ErrorAction SilentlyContinue)) {
+    foreach ($d in @(Get-ChildItem -LiteralPath (Get-TempPrefix) -Directory -Force -ErrorAction SilentlyContinue)) {
         $kind = Get-LeakKind $d
         if (-not $kind) { continue }
 
@@ -125,7 +158,35 @@ function Get-Collectable {
             $reason = "tempdir vacío (0 bytes), sin actividad hace $idle min"
         }
         if (-not $reason) { continue }
-        $items += [pscustomobject]@{ Path = $d.FullName; Reason = $reason; Bytes = $bytes }
+        $items += [pscustomobject]@{
+            Path = $d.FullName; Class = 'dir'; Reason = $reason; Bytes = $bytes
+            # Re-verificado justo antes de borrar: un dir con lock pudo reabrirse.
+            Guard = $(if ($lock) { $lock.FullName } else { $null })
+        }
+    }
+
+    # Ficheros sueltos: mismo criterio y misma doble prueba (handle libre + inactividad).
+    # Un fichero sin handle abierto que además no se tocó en N minutos está muerto:
+    # ningún test vivo deja su `.corrupt` de cuarentena cerrado y quieto.
+    # -Force: un residuo con atributo Hidden sigue siendo residuo; sin esto el
+    # reporte diría "0 ficheros" justo en el caso que el ticket denuncia.
+    foreach ($f in @(Get-ChildItem -LiteralPath (Get-TempPrefix) -File -Force -ErrorAction SilentlyContinue)) {
+        $kind = Get-LeakFileKind $f
+        if (-not $kind) { continue }
+        # Un checkpoint de un proceso VIVO no es residuo, aunque lleve >10 min quieto
+        # (lo escribe por intervalos y entre guardados no mantiene el handle abierto).
+        if ($kind.Pid -gt 0 -and (Test-PidAlive $kind.Pid)) { continue }
+        $idle = [int]($now - $f.LastWriteTime).TotalMinutes
+        if ($idle -lt $MinAgeMinutes) { continue }
+        # La sonda del fichero es el fichero: FileShare.None falla con cualquier handle vivo.
+        # ponytail: techo conocido — un handle abierto con acceso CERO (sólo atributos)
+        # no colisiona con FileShare.None; la inactividad de N minutos es el segundo
+        # cierre para ese caso. Si aparece uno real, sondear también con FileAccess::Read.
+        if (-not (Test-LockFree $f.FullName)) { continue }
+        $items += [pscustomobject]@{
+            Path = $f.FullName; Class = 'file'; Bytes = $f.Length; Guard = $f.FullName
+            Reason = "fichero suelto de test, sin handle abierto, sin actividad hace $idle min"
+        }
     }
     return $items
 }
@@ -135,6 +196,34 @@ function Set-Old([string]$path, [int]$Minutes) {
     Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue |
         ForEach-Object { $_.LastWriteTime = $stamp }
     (Get-Item -LiteralPath $path -Force).LastWriteTime = $stamp
+}
+
+# Único camino de borrado: lo usan el barrido real y el self-check (si el assert
+# borrara por su cuenta, el self-check pasaría sin ejercitar este código).
+# Re-verifica la guarda por item: entre el inventario y el borrado una DB puede
+# reabrirse y, en Windows, `Remove-Item` atraviesa un handle que permita DELETE.
+function Invoke-Collect([object[]]$items) {
+    $removed = 0
+    $freed = [long]0
+    $skipped = @()
+    foreach ($i in $items) {
+        if ($i.Guard -and -not (Test-LockFree $i.Guard)) {
+            # Si ya no existe, otro lo borró: no es una duda, no hay nada que reportar.
+            if (-not (Test-Path -LiteralPath $i.Guard)) { continue }
+            $skipped += [pscustomobject]@{ Item = $i; Kind = 'duda'; Why = 'se abrió después del inventario' }
+            continue
+        }
+        try {
+            Remove-Item -LiteralPath (Assert-UnderTemp $i.Path) -Recurse -Force -ErrorAction Stop
+            $freed += $i.Bytes
+            $removed++
+        } catch {
+            # Un REFUSED de Assert-UnderTemp es "ante la duda no borrar", no un fallo.
+            $kind = $(if ($_.Exception.Message -like 'REFUSED*') { 'duda' } else { 'error' })
+            $skipped += [pscustomobject]@{ Item = $i; Kind = $kind; Why = $_.Exception.Message }
+        }
+    }
+    return [pscustomobject]@{ Removed = $removed; Freed = $freed; Skipped = $skipped }
 }
 
 # --- SelfCheck (no toca residuo real; crea y borra su propio escenario) ----------
@@ -151,6 +240,10 @@ if ($SelfCheck) {
         return (@(Get-Collectable | Where-Object { $_.Path -eq $p }).Count -eq 1)
     }
     $temp = Get-TempPrefix
+    # El share que concede `std::fs::File` en Windows: RW + DELETE. Es el único caso en
+    # que `Remove-Item` borra a través de un handle vivo, así que es el que hay que
+    # usar para que las pruebas de la guarda no pasen por el motivo equivocado.
+    $holdShare = [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete
 
     Write-Host '=== SelfCheck: el recolector no puede tocar nada fuera de %TEMP% ==='
     foreach ($p in @(
@@ -192,11 +285,28 @@ if ($SelfCheck) {
     Assert-SC (-not (Test-Collectable $real)) 'recién escrita: la guarda de inactividad la protege'
     Set-Old $real 30
     Assert-SC (Test-Collectable $real) 'vieja y con lock libre: entra en la lista de recolección'
-    foreach ($i in @(Get-Collectable | Where-Object { $_.Path -eq $real })) {
-        Remove-Item -LiteralPath (Assert-UnderTemp $i.Path) -Recurse -Force -ErrorAction Continue
-    }
-    Assert-SC (-not (Test-Path $real)) 'el recolector la borró'
+    $realItem = @(Get-Collectable | Where-Object { $_.Path -eq $real })[0]
+    $r = Invoke-Collect @($realItem)
+    Assert-SC ($r.Removed -eq 1 -and -not (Test-Path $real)) 'Invoke-Collect la borró'
     Assert-SC (-not (Test-Collectable $real)) 'no queda en la lista tras borrarla'
+
+    # La guarda de borrado se RE-VERIFICA tras el inventario: si la DB se reabre en el
+    # medio, el item ya inventariado se respeta. Sin esta prueba, borrar la guarda no
+    # rompería ningún assert.
+    $reopen = Assert-UnderTemp (Join-Path $temp ('.tmp' + ([guid]::NewGuid().ToString('N').Substring(0, 8).ToUpper())))
+    New-Item -ItemType Directory -Force -Path (Join-Path $reopen 'data') | Out-Null
+    Set-Content -LiteralPath (Join-Path $reopen 'data\lock') -Value '' -NoNewline
+    Set-Old $reopen 30
+    $reopenItem = @(Get-Collectable | Where-Object { $_.Path -eq $reopen })[0]
+    Assert-SC ($null -ne $reopenItem) 'la DB se inventaría con el lock libre'
+    # El handle concede DELETE, igual que `std::fs::File`: sin eso `Remove-Item` fallaría
+    # solo y el assert pasaría aunque la guarda no existiera (misma vacuidad que en F1).
+    $lockAgain = [IO.File]::Open((Join-Path $reopen 'data\lock'), [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, $holdShare)
+    $r = Invoke-Collect @($reopenItem)
+    Assert-SC ($r.Removed -eq 0 -and (Test-Path $reopen)) 'se reabrió tras el inventario: la guarda la respeta'
+    $lockAgain.Dispose()
+    $r = Invoke-Collect @($reopenItem)
+    Assert-SC ($r.Removed -eq 1 -and -not (Test-Path $reopen)) 'vuelto a cerrar: el mismo item ahora sí se borra'
 
     Write-Host '=== SelfCheck: lo que no es nuestro, no se toca ==='
     $foreign = Assert-UnderTemp (Join-Path $temp ('.tmpA' + ([guid]::NewGuid().ToString('N').Substring(0, 5))))
@@ -215,6 +325,65 @@ if ($SelfCheck) {
     Remove-Item -LiteralPath $foreign -Recurse -Force
     Remove-Item -LiteralPath $stale -Recurse -Force
 
+    Write-Host '=== SelfCheck: ficheros sueltos (FIND-743) ==='
+    # (1) libre y viejo -> se borra. Recién escrito -> lo protege la inactividad.
+    $loose = Assert-UnderTemp (Join-Path $temp ('vanta_test_loose_' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.corrupt'))
+    Set-Content -LiteralPath $loose -Value 'x' -NoNewline
+    Assert-SC (-not (Test-Collectable $loose)) 'fichero suelto reciente: la guarda de inactividad lo protege'
+    Set-Old $loose 30
+    Assert-SC (Test-Collectable $loose) 'fichero suelto viejo y con handle libre: entra en el inventario'
+    $r = Invoke-Collect @(Get-Collectable | Where-Object { $_.Path -eq $loose })
+    Assert-SC ($r.Removed -eq 1 -and -not (Test-Path $loose)) 'Invoke-Collect lo borró de verdad'
+
+    # (2) abierto (handle propio) -> se respeta, incluso con un item ya inventariado.
+    # El handle concede DELETE a propósito: es lo que da `std::fs::File` y es el ÚNICO
+    # caso en que `Remove-Item` borra a través del handle. Con un share sin DELETE el
+    # assert pasaría aunque la guarda no existiera (el propio Remove-Item fallaría).
+    $heldFile = Assert-UnderTemp (Join-Path $temp ('vanta_test_held_' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.corrupt'))
+    Set-Content -LiteralPath $heldFile -Value 'x' -NoNewline
+    Set-Old $heldFile 30
+    $heldItem = @(Get-Collectable | Where-Object { $_.Path -eq $heldFile })[0]
+    Assert-SC ($null -ne $heldItem) 'el fichero se inventaría con el handle libre'
+    $holdHandle = [IO.File]::Open($heldFile, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, $holdShare)
+    Assert-SC (-not (Test-Collectable $heldFile)) 'fichero suelto abierto: no entra en el inventario'
+    $r = Invoke-Collect @($heldItem)
+    Assert-SC ($r.Removed -eq 0 -and (Test-Path $heldFile)) 'Invoke-Collect re-verifica el handle y respeta el fichero abierto'
+    Assert-SC (@($r.Skipped).Count -eq 1 -and @($r.Skipped)[0].Kind -eq 'duda') 'el respeto se reporta como duda, no como fallo'
+
+    # Control positivo: con ESTE handle, un Remove-Item directo SÍ borra. Si algún día
+    # deja de borrar, el assert de arriba queda vacuo y este lo delata.
+    $ctrl = Assert-UnderTemp (Join-Path $temp ('vanta_test_ctrl_' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.corrupt'))
+    Set-Content -LiteralPath $ctrl -Value 'x' -NoNewline
+    $ctrlHandle = [IO.File]::Open($ctrl, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, $holdShare)
+    $ctrlDeleted = $false
+    try { Remove-Item -LiteralPath $ctrl -Force -ErrorAction Stop; $ctrlDeleted = $true } catch { $ctrlDeleted = $false }
+    $ctrlHandle.Dispose()
+    Assert-SC $ctrlDeleted 'control: Remove-Item atraviesa un handle con DELETE (si no, la guarda no sería la que protege)'
+
+    $holdHandle.Dispose()
+    Remove-Item -LiteralPath $heldFile -Force -ErrorAction SilentlyContinue
+
+    # (4) nombre ajeno (aunque contenga "vanta") -> intacto.
+    foreach ($n in @(('Report_' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.txt'), ('notas-vanta_' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.txt'))) {
+        $foreignFile = Assert-UnderTemp (Join-Path $temp $n)
+        Set-Content -LiteralPath $foreignFile -Value 'x' -NoNewline
+        Set-Old $foreignFile 30
+        Assert-SC (-not (Test-Collectable $foreignFile)) ("'{0}' no matchea los prefijos: intacto" -f $n)
+        Remove-Item -LiteralPath $foreignFile -Force -ErrorAction SilentlyContinue
+    }
+    Assert-SC ($null -eq (Get-LeakFileKind ([IO.FileInfo](Join-Path $temp 'Report.txt')))) 'un fichero cualquiera no se clasifica'
+
+    # (5) nombre válido pero FUERA de %TEMP% -> la guarda lo rechaza end-to-end: la ruta
+    # entra a Invoke-Collect como item y se convierte en skip, nunca en borrado.
+    $outsidePath = Join-Path $env:SystemRoot 'vanta_test_outside.wal.corrupt'
+    Assert-SC (Test-Refused $outsidePath) 'nombre válido fuera de %TEMP%: Assert-UnderTemp lo rechaza'
+    $r = Invoke-Collect @([pscustomobject]@{ Path = $outsidePath; Class = 'file'; Guard = $null; Bytes = 1; Reason = 'inyectado por el self-check' })
+    Assert-SC ($r.Removed -eq 0 -and @($r.Skipped | Where-Object { $_.Why -like 'REFUSED*' }).Count -eq 1) 'Invoke-Collect se niega a borrar fuera de %TEMP% y lo reporta'
+
+    # (6) un checkpoint de un PID VIVO no se reclasifica como residuo por el mtime.
+    $ownCkpt = [IO.FileInfo](Join-Path $temp ("vanta-ckpt-$PID.jsonl"))
+    Assert-SC ($null -ne (Get-LeakFileKind $ownCkpt) -and (Get-LeakFileKind $ownCkpt).Pid -eq $PID) 'un `vanta-ckpt-<pid>` se clasifica con su PID'
+
     Write-Host ''
     Write-Host ("SELFCHECK: {0} ({1}/{2} asserts)" -f $(if ($fail -eq 0) { 'PASS' } else { 'FAIL' }), $pass, ($pass + $fail))
     exit $(if ($fail -eq 0) { 0 } else { 1 })
@@ -222,43 +391,49 @@ if ($SelfCheck) {
 
 # --- Recolección ----------------------------------------------------------------
 $items = @(Get-Collectable)
-$totalBytes = ($items | Measure-Object -Property Bytes -Sum).Sum
-if ($null -eq $totalBytes) { $totalBytes = 0 }
+$dirs = @($items | Where-Object { $_.Class -eq 'dir' })
+$files = @($items | Where-Object { $_.Class -eq 'file' })
+$dirBytes = [double](($dirs | Measure-Object -Property Bytes -Sum).Sum)
+$fileBytes = [double](($files | Measure-Object -Property Bytes -Sum).Sum)
 
 if (-not $Quiet) {
     Write-Host ("%TEMP% = {0}" -f (Get-TempPrefix))
-    if ($items.Count -eq 0) {
-        Write-Host 'sin residuos recolectables.'
-    } else {
-        foreach ($i in $items) {
-            Write-Host ("  {0,8:N1} MB  {1}  [{2}]" -f ($i.Bytes / 1MB), $i.Path, $i.Reason)
-        }
-    }
+    foreach ($i in $dirs) { Write-Host ("  [dir ] {0,10}  {1}  [{2}]" -f (Format-Bytes $i.Bytes), $i.Path, $i.Reason) }
+    foreach ($i in $files) { Write-Host ("  [file] {0,10}  {1}  [{2}]" -f (Format-Bytes $i.Bytes), $i.Path, $i.Reason) }
+    # Las dos clases se reportan SIEMPRE, incluso en cero: un total único deja que
+    # "limpio" signifique a la vez "no hay nada" y "no miré la mitad del inventario".
+    Write-Host ("dirs : {0} carpeta(s), {1}" -f $dirs.Count, (Format-Bytes ([long]$dirBytes)))
+    Write-Host ("files: {0} fichero(s), {1}" -f $files.Count, (Format-Bytes ([long]$fileBytes)))
 }
 
 if ($DryRun -or $items.Count -eq 0) {
     if (-not $Quiet -and $items.Count -gt 0) {
-        Write-Host ("-DryRun: liberaría {0:N1} MB en {1} carpeta(s). Nada se borró." -f ($totalBytes / 1MB), $items.Count)
+        Write-Host ("-DryRun: liberaría {0} en {1} carpeta(s) + {2} fichero(s). Nada se borró." -f (Format-Bytes ([long]($dirBytes + $fileBytes))), $dirs.Count, $files.Count)
     }
     exit 0
 }
 
-$freed = 0
-$removed = 0
-foreach ($i in $items) {
-    try {
-        Remove-Item -LiteralPath (Assert-UnderTemp $i.Path) -Recurse -Force -ErrorAction Stop
-        $freed += $i.Bytes
-        $removed++
-    } catch {
-        if (-not $Quiet) { Write-Host ("  no se pudo borrar {0}: {1}" -f $i.Path, $_.Exception.Message) -ForegroundColor DarkYellow }
-    }
+$result = Invoke-Collect $items
+
+# "Ante la duda, no borrar y reportar": lo que la guarda rechazó se imprime siempre
+# (también con -Quiet) — un skip silencioso es un gate ciego. Un fallo de borrado se
+# distingue de una duda: son dos cosas distintas y mezclarlas esconde una de las dos.
+foreach ($s in $result.Skipped) {
+    $label = $(if ($s.Kind -eq 'duda') { 'respetado por duda' } else { 'NO se pudo borrar ' })
+    $color = $(if ($s.Kind -eq 'duda') { 'DarkYellow' } else { 'Red' })
+    Write-Host ("  {0}: {1}  [{2}]" -f $label, $s.Item.Path, $s.Why) -ForegroundColor $color
 }
 
+$dudas = @($result.Skipped | Where-Object { $_.Kind -eq 'duda' }).Count
+$errores = $result.Skipped.Count - $dudas
+$skippedDirs = @($result.Skipped | Where-Object { $_.Item.Class -eq 'dir' }).Count
+$skippedFiles = @($result.Skipped | Where-Object { $_.Item.Class -eq 'file' }).Count
 if (-not $Quiet) {
-    Write-Host ("recolector: {0}/{1} carpeta(s), {2:N1} MB liberados." -f $removed, $items.Count, ($freed / 1MB))
-} elseif ($removed -gt 0) {
+    Write-Host ("recolector: {0}/{1} carpeta(s) + {2}/{3} fichero(s), {4} liberados ({5} respetado(s) por duda, {6} fallo(s))." -f `
+        ($dirs.Count - $skippedDirs), $dirs.Count, ($files.Count - $skippedFiles), $files.Count, (Format-Bytes $result.Freed), $dudas, $errores)
+} elseif ($result.Removed -gt 0) {
     # -Quiet sigue avisando cuando hizo algo: un gate silencioso que libera GB es un gate ciego.
-    Write-Host ("temp-collector: {0} carpeta(s) huérfana(s) en %TEMP%, {1:N1} MB liberados." -f $removed, ($freed / 1MB))
+    Write-Host ("temp-collector: {0} carpeta(s) + {1} fichero(s) huérfano(s) en %TEMP%, {2} liberados." -f `
+        ($dirs.Count - $skippedDirs), ($files.Count - $skippedFiles), (Format-Bytes $result.Freed))
 }
 exit 0
