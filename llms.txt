@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-538 documentation pages; it deliberately omits the 231 task files,
+539 documentation pages; it deliberately omits the 233 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -80,6 +80,7 @@ is in docs/index.md in the repository.
 - [ADR-0061: Implicit WAL transactions for multi-chunk put_batch — all-or-nothing batches](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0061-implicit-batch-transactions.md): Every put_batch is framed in an implicit WAL transaction (Begin/Prepare/Commit) reusing the 2PC markers shipped before v0.9.0, with a dedicated txn id, one insert_lock for the whole batch, and recovery-side discard+undo — zero on-disk format change
 - [ADR-0062: Numeric fidelity of the AST JSON — u128 ids travel as decimal strings](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0062-ast-json-numeric-fidelity.md): The IQL AST JSON emits its six u128 id fields as decimal strings; i64 Int literals stay numbers, limit pinned by test. Scoped to the token channel while parse() is still unreleased
 - [ADR-0063: Home of the host wiring — the FIND-112 runner surface moves to vanta-memory](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0063-host-wiring-home-vanta-memory.md): The env/TOML runner surface both server hosts need lives in the binary crate vantadb-server, which vantadb-mcp cannot depend on (Cargo cycle). It moves by owner into vanta-memory (runner_config + services::scheduler); wire_memory stays in the server
+- [ADR-0064: One IQL parse-error formatter in the core - parse_iql and 1-based character positions](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0064-iql-parse-error-formatter.md): IQL parse errors get one public formatter in the core (parse_iql -> Result<Statement>); line/col are 1-based characters, so all three bindings inherit one position contract
 - [Decisiones No Tomadas — Registro de descartes](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/DECISIONS-NOT-TAKEN.md): Registro consolidado de features/decisiones evaluadas y rechazadas o diferidas, con razón y fuente — evita re-litigar descartes sin evidencia nueva.
 - [Review Guide: ADR-0029 articulation + decisions D24-D37](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0053-adr-029-review-guide.md): Evidence notation: file:line verified against the working tree on 2026-08-22
 - [ADR-0011: Native sparse vectors — representation, metric, and coexistence with BM25](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0011-sparse-vectors-native.md): Superseded by ADR-0058, which restates the same decision with the code references verified against the 0.9.0 tree (SparseVector lives in src/node/vector_data.rs:30; sparse vectors are native, not dense-only)

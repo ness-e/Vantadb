@@ -69,6 +69,8 @@ let batch = provider.embed_batch(&["hola mundo".into(), "hello world".into()])?;
 
 `src/llm.rs` `pub struct LocalOnnxProvider { warm: Arc<WarmLocal>, dim: usize, family: EmbedFamily, model_dir: String, allow_dummy: bool }` — `WarmLocal` (FIND-706) owns the process-wide `session: Option<Mutex<Session>>`, the `tokenizer: Option<Tokenizer>`, the FIND-642 budget reservation and a bounded result cache.
 
+`WarmLocal` and its `EmbedCache` are **private module types** (`struct`, not `pub struct`, `src/llm.rs:240,267`): no path outside `src/llm.rs` can name them, and neither appears in the `cargo public-api` golden. The cache policy below is an implementation choice, not a contract — only `LocalOnnxProvider` and the `EmbeddingProvider` methods are.
+
 - `dim` auto-detected from `embeddings/manifest.json` (by `model_dir` substring) → `config.json:hidden_size` → default `384`.
 - `try_load_tokenizer` probes `model_dir/tokenizer.json`, `../tokenizer.json`, `../../tokenizer.json`.
 - `try_load_session` calls `ort::init().commit()` once (`load-dynamic`) then probes `model.onnx`, `onnx/model.onnx`, `model_int8.onnx`, or any `*.onnx` recursively (the cataloged `manifest.json` ONNX models all pin `onnx/model.onnx`, including `bge-m3` with its `onnx/model.onnx_data` external weights).
