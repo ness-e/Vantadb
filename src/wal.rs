@@ -2393,8 +2393,10 @@ mod tests {
 
     #[test]
     fn test_wal_roundtrip() {
-        let dir = std::env::temp_dir().join(format!("vanta_test_wal_rt_{}", rand::random::<u32>()));
-        let _ = std::fs::remove_file(&dir);
+        // FIND-735: TempDir gives each run its own WAL path, so two concurrent
+        // runs of this test cannot share a file.
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("vanta.wal");
 
         {
             let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
@@ -2422,8 +2424,6 @@ mod tests {
                 panic!("Expected Checkpoint at index 3");
             }
         }
-
-        let _ = std::fs::remove_file(&dir);
     }
 
     #[test]
@@ -2439,14 +2439,9 @@ mod tests {
     fn test_sync_mode_never_skips_auto_sync() {
         use crate::config::SyncMode;
 
-        let dir_never =
-            std::env::temp_dir().join(format!("vanta_test_wal_never_{}", rand::random::<u32>()));
-        let dir_periodic = std::env::temp_dir().join(format!(
-            "vanta_test_wal_never_ctrl_{}",
-            rand::random::<u32>()
-        ));
-        let _ = std::fs::remove_file(&dir_never);
-        let _ = std::fs::remove_file(&dir_periodic);
+        let tmp = tempfile::tempdir().unwrap();
+        let dir_never = tmp.path().join("never.wal");
+        let dir_periodic = tmp.path().join("periodic.wal");
 
         // Control: Periodic with threshold 1 auto-syncs (counter reset to 0).
         {
@@ -2476,18 +2471,14 @@ mod tests {
                 "explicit sync() still resets the counter"
             );
         }
-
-        let _ = std::fs::remove_file(&dir_never);
-        let _ = std::fs::remove_file(&dir_periodic);
     }
 
     /// WAL v2 (RES-01 / ACID Phase 4a): `Prepare { txn_id, op_count }` round-trips
     /// through `WalWriter` → reopen → `WalReader::replay_all`.
     #[test]
     fn test_wal_v2_prepare_roundtrip_unit() {
-        let dir =
-            std::env::temp_dir().join(format!("vanta_test_wal_prepare_{}", rand::random::<u32>()));
-        let _ = std::fs::remove_file(&dir);
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("prepare.wal");
 
         {
             let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
@@ -2522,17 +2513,12 @@ mod tests {
             }
             other => panic!("expected Prepare, got {other:?}"),
         }
-
-        let _ = std::fs::remove_file(&dir);
     }
 
     #[test]
     fn test_batch_append_byte_format_matches_append() {
-        let dir = std::env::temp_dir().join(format!(
-            "vanta_test_wal_batch_fmt_{}",
-            rand::random::<u32>()
-        ));
-        let _ = std::fs::remove_file(&dir);
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("batch_fmt.wal");
 
         let records = vec![
             WalRecord::Insert(UnifiedNode::new(1)),
@@ -2550,7 +2536,10 @@ mod tests {
             w.sync().unwrap();
         }
         let sequential = std::fs::read(&dir).unwrap();
-        let _ = std::fs::remove_file(&dir);
+        // Fail loudly if the reset does not happen: a silent failure makes the
+        // next writer append to the 4-record file and the byte comparison below
+        // fails looking like a `batch_append` framing bug.
+        std::fs::remove_file(&dir).expect("reset the WAL before the batch phase");
 
         // batch_append must produce byte-identical record bytes (the header
         // carries a wall-clock timestamp, so only the record region is compared)
@@ -2576,8 +2565,6 @@ mod tests {
         })
         .unwrap();
         assert_eq!(replayed.len(), records.len());
-
-        let _ = std::fs::remove_file(&dir);
     }
 
     #[test]
@@ -2603,9 +2590,8 @@ mod tests {
 
     #[test]
     fn test_wal_version_mismatch() {
-        let dir =
-            std::env::temp_dir().join(format!("vanta_test_wal_mismatch_{}", rand::random::<u32>()));
-        let _ = std::fs::remove_file(&dir);
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("mismatch.wal");
 
         {
             // Write a WAL without a valid signature (version 0 or generic file)
@@ -2633,15 +2619,15 @@ mod tests {
                 other => panic!("Expected IncompatibleFormat, got {:?}", other),
             }
         }
-
-        let _ = std::fs::remove_file(&dir);
     }
 
     #[test]
     fn test_wal_auto_healing_and_recovery() {
-        let dir =
-            std::env::temp_dir().join(format!("vanta_test_wal_healing_{}", rand::random::<u32>()));
-        let _ = std::fs::remove_file(&dir);
+        // FIND-735: this test makes the writer quarantine a corrupt tail into
+        // `<wal>.corrupt`; with a bare `remove_file` that sibling survived in
+        // the shared %TEMP% root. Inside a TempDir it dies with the tree.
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("healing.wal");
 
         // 1. Write 3 valid records + checkpoint
         {
@@ -2690,19 +2676,13 @@ mod tests {
                 _ => panic!("Expected Insert node at index 4"),
             }
         }
-
-        let _ = std::fs::remove_file(&dir);
     }
 
     #[test]
     fn test_corrupt_wal_tail_is_quarantined() {
-        let dir = std::env::temp_dir().join(format!(
-            "vanta_test_wal_quarantine_{}",
-            rand::random::<u32>()
-        ));
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("quarantine.wal");
         let backup = PathBuf::from(format!("{}.corrupt", dir.display()));
-        let _ = std::fs::remove_file(&dir);
-        let _ = std::fs::remove_file(&backup);
 
         // 1. Write a valid WAL
         {
@@ -2746,8 +2726,11 @@ mod tests {
             assert_eq!(records.len(), 2);
         }
 
-        let _ = std::fs::remove_file(&dir);
-        let _ = std::fs::remove_file(&backup);
+        // FIND-735: make the no-leak claim falsifiable. `Drop` swallows delete
+        // errors, so a leaked tree (open handle, AV lock) would keep this test
+        // green; `close()` reports it instead.
+        tmp.close()
+            .expect("the test tree must be removable once every handle is closed");
     }
 
     #[test]

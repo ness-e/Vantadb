@@ -431,10 +431,14 @@ mod tests {
 
     #[test]
     fn persist_and_load_roundtrip() {
+        // FIND-735: a PID-derived name is not unique per run (the OS recycles
+        // PIDs after a crashed run), and it outlives the test on panic.
+        // Declared first so it drops LAST: an mmap backend inside `index` must
+        // not still be alive when the tree is removed (TempDir swallows the
+        // Windows delete failure, which would silently re-create this bug).
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("index.bin");
         let index = single_full_node_index();
-        let dir = std::env::temp_dir().join(format!("vantadb_ser_test_{}", std::process::id()));
-        let _ = std::fs::create_dir_all(&dir);
-        let path = dir.join("index.bin");
 
         index.persist_to_file(&path).unwrap();
         assert!(path.exists(), "file must exist");
@@ -449,8 +453,6 @@ mod tests {
             VectorRepresentations::Full(v) => assert_eq!(v.as_slice(), &[0.1, 0.2, 0.3, 0.4]),
             _ => panic!("expected Full"),
         }
-
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(feature = "failpoints")]
@@ -472,20 +474,20 @@ mod tests {
 
     #[test]
     fn load_nonexistent_file_returns_none() {
-        let path = std::env::temp_dir().join("vantadb__nonexistent__index.bin");
+        // FIND-735: the path must be guaranteed absent — a literal name under
+        // %TEMP% could exist for reasons unrelated to this test.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("does-not-exist.bin");
         let result = CPIndex::load_from_file(&path, false);
         assert!(result.is_none());
     }
     #[test]
     fn load_corrupt_file_returns_none() {
-        let dir =
-            std::env::temp_dir().join(format!("vantadb_ser_test_corrupt_{}", std::process::id()));
-        let _ = std::fs::create_dir_all(&dir);
-        let path = dir.join("corrupt.bin");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("corrupt.bin");
         std::fs::write(&path, [0u8; 32]).unwrap();
         let result = CPIndex::load_from_file(&path, false);
         assert!(result.is_none());
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 

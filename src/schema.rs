@@ -257,22 +257,24 @@ mod tests {
 
     #[test]
     fn file_write_read_roundtrip() {
-        let dir = std::env::temp_dir().join("vanta_schema_test");
-        let _ = std::fs::create_dir_all(&dir);
-        let path = dir.join(".vanta.schema");
+        // FIND-735: a fixed name under %TEMP% is shared by every concurrent run.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".vanta.schema");
 
         let h = StorageHeader::current();
         h.write_to(&path).unwrap();
         let read = StorageHeader::read_from(&path).unwrap().unwrap();
         assert_eq!(read, h);
-
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn read_missing_returns_none() {
-        let path = Path::new("/tmp/nonexistent_schema_file_for_testing");
-        let result = StorageHeader::read_from(path).unwrap();
+        // FIND-735: `/tmp/x` on Windows resolves to `C:\tmp\x` — a shared,
+        // world-writable location anything can create. Prove the absence in a
+        // private tree instead of betting on global state.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nonexistent_schema_file_for_testing");
+        let result = StorageHeader::read_from(&path).unwrap();
         assert!(result.is_none());
     }
 }
