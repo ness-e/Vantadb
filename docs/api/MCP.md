@@ -423,12 +423,44 @@ after the in-flight restore or scheduling operation completes.
 
 | Tool | Description |
 |------|-------------|
-| `capabilities` | Introspects supported engine features: runtime profile, persistence, vector search, IQL queries, read-only mode. |
+| `capabilities` | Introspects supported engine features: runtime profile, persistence, vector search, IQL queries, read-only mode. Also reports **embeddings** (`embedding`) and the **memory ingest pipeline** (`ingest`: runner in use, last pass, queue depth — see the note below). |
 | `generate_snippet` | Generates a text snippet from a payload, optionally highlighting matched query terms. |
 | `vanta_scene` | *(`brain` profile exclusive in `tools/list`)* Multiplexed scene navigation and mutation gateway (`action`: `read` \| `list` \| `query` \| `write` \| `edit`). |
 | `vanta_dream` | *(`brain` profile exclusive in `tools/list`)* Multiplexed idle memory consolidation and promotion gateway (`action`: `list` \| `load` \| `discard` \| `consolidate` \| `promote`). |
 | `vanta_graph` | *(`brain` profile exclusive in `tools/list`)* Multiplexed property-graph analysis and traversal gateway (`action`: `neighbors` \| `traverse` \| `page_rank` \| `degree_centrality` \| `topological_sort` \| `is_dag` \| `remove_edge`). |
 | `vanta_dispatch` | *(`brain` profile exclusive in `tools/list`)* Universal MCP meta-tool for the `brain` profile: invokes any of the 96 defined VantaDB tools (90 listed + 6 dispatch-only `code_*`) by `{tool, arguments}` without inflating the `tools/list` schema token budget. |
+
+**The `ingest` block (MEM-72).** A memory pipeline without an LLM provider is a
+legitimate state — the default ingest provider builds no engine and every
+extraction is `NotConfigured` — which is exactly why it must not be silent.
+`capabilities` therefore carries an additive `ingest` object:
+
+```json
+"ingest": {
+  "runner": "none",              // unknown | none | ollama | openai
+  "degraded": true,              // runner == none: extraction is disabled
+  "scheduler_running": true,     // a scheduler loop is alive in this process
+  "queue": { "depth": 5, "claimed": 0 },
+  "last_pass": { "at_ms": 1764100000000, "skipped": true,
+                 "processed": 0, "failed": 0, "timers_fired": 0 },
+  "degraded_warnings": 1,
+  "notice": "ingest runner is none: 5 queued task(s) will never be extracted
+             (the pass is skipped). Set VANTADB_INGEST_PROVIDER=ollama|openai ..."
+}
+```
+
+Read `runner` **with** `queue.depth`: `none` + `0` is an idle pipeline, `none` +
+`> 0` is a broken one — the pass is skipped and the queue will never drain. In
+that case the process logs a single `warn!` per degraded episode (not one per
+pass) and `degraded_warnings` counts it. `last_pass: null` means no pass ran in
+this process at all — the process does not host the scheduler (today the MCP
+mode does not; MCP-43 changes that), which is different from a skipped pass.
+`scheduler_running` goes back to `false` when the loop stops (graceful shutdown
+or a dropped handle), so it never claims a loop that is gone.
+
+The queue is the scheduler's in-process state (ADR-0054), so `ingest` describes
+**this** process only. An MCP session that proxies to another writer sees its
+own `queue` and `last_pass: null` — the writer's backlog is not visible here.
 
 ### Backup & Bulk Import (4)
 

@@ -3190,6 +3190,12 @@ pub fn handle_tools_call(
                 }
             }
             out["embedding"] = emb;
+            // MEM-72: the memory ingest pipeline is a separate (LLM) subsystem
+            // whose degraded state was invisible here — "no runner" and "no
+            // work" looked identical. Additive key: `ingest` reports the runner
+            // in use, the last pass and the queue depth so an operator can tell
+            // an idle pipeline from a runner that will never extract.
+            out["ingest"] = json!(vanta_memory::ingest::observability::status());
             Ok(text_content(serialize_content(&out)))
         }
 

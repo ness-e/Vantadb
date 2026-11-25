@@ -18,8 +18,11 @@
 //!
 //! Each pass builds its runner through the host-provided factory (FIND-112
 //! pattern: runner per pass, built from env/TOML on the host side). A factory
-//! that returns `None` skips the pass observably (`tracing::debug!`) and
-//! leaves the queue untouched — Principio 4: nothing is lost, nothing blocks.
+//! that returns `None` skips the pass and leaves the queue untouched —
+//! Principio 4: nothing is lost, nothing blocks. The skip is published in
+//! [`crate::ingest::observability`] and warns **once per degraded episode**
+//! when there is queued work (MEM-72), so a runner-less pipeline is never
+//! silent.
 //! Secrets stay on the host side (R-5); this module never reads env.
 //!
 //! # Single writer (ADR-0054)
@@ -32,6 +35,7 @@
 use crate::core::abstractions::LlmRunner;
 use crate::core::record::{L1DedupConfig, L1ExtractorConfig};
 use crate::core::state::{TaskKind, TaskPayload};
+use crate::ingest::observability::{self, QueueSnapshot};
 use crate::services::pipeline_worker::{MemoryTaskHandler, PipelineWorker, RunStats, WorkerConfig};
 use crate::utils::local_backend::LocalStateBackend;
 use crate::utils::managed_timer::Clock;
@@ -118,11 +122,26 @@ pub fn run_pass<C: Clock, R: LlmRunner>(
         worker_config.batch_size,
     );
 
-    PassStats {
+    let stats = PassStats {
         timers_fired,
         worker: worker_stats,
         reclaimed,
-    }
+    };
+
+    // MEM-72: publish the pass outcome (and the post-pass queue depth) so a
+    // host can tell "nothing to ingest" from "the pass is not running".
+    let (high, normal) = queue.queue_depth();
+    observability::note_pass(
+        stats.worker.processed + stats.reclaimed.processed,
+        stats.worker.failed + stats.reclaimed.failed,
+        stats.timers_fired,
+        QueueSnapshot {
+            depth: high.saturating_add(normal),
+            claimed: queue.pending_count(),
+        },
+    );
+
+    stats
 }
 
 /// Default interval between autonomous background decay passes (24 hours, TEC-07 / Q18).
@@ -236,6 +255,9 @@ impl Drop for MemoryScheduler {
         if let Some(handle) = self.handle.take() {
             handle.abort();
         }
+        // MEM-72: an abort skips the loop's own `note_scheduler_stopped`, so the
+        // drop path clears it too (idempotent; a stale `true` would be a lie).
+        observability::note_scheduler_stopped();
     }
 }
 
@@ -251,7 +273,9 @@ impl Drop for MemoryScheduler {
 /// `runner_factory` is called once per pass (FIND-112 pattern: build the
 /// runner per pass, e.g. `move || build_ingest_runner(&cfg)`). Returning
 /// `None` skips the pass observably and leaves the queue untouched
-/// (Principio 4 — nothing lost, nothing blocks).
+/// (Principio 4 — nothing lost, nothing blocks); the skip is recorded in
+/// [`crate::ingest::observability`] with the backlog depth and warns once per
+/// degraded episode (MEM-72).
 #[cfg(feature = "http-server")]
 pub fn spawn_memory_scheduler<F, R>(
     queue: Arc<LocalStateBackend<crate::utils::managed_timer::SystemClock>>,
@@ -290,11 +314,17 @@ where
             tokio::time::interval_at(tokio::time::Instant::now() + decay_interval, decay_interval);
         decay_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        // MEM-72: `capabilities` reports `scheduler_running` from here.
+        observability::note_scheduler_started();
+
         loop {
             tokio::select! {
                 _ = shutdown_rx.changed() => break,
                 _ = ticker.tick() => {
                     let queue = Arc::clone(&queue);
+                    // Depth probe kept outside the pass (the pass consumes its
+                    // own clone) so a skipped pass can still report the backlog.
+                    let probe = Arc::clone(&queue);
                     let db = db.clone();
                     let runner_factory = Arc::clone(&runner_factory);
                     let outcome = tokio::task::spawn_blocking(move || {
@@ -322,6 +352,14 @@ where
                             tracing::debug!(
                                 "memory scheduler: no runner configured; skipping pass"
                             );
+                            // MEM-72: degraded is a legitimate state, but
+                            // degraded *with backlog* is a broken pipeline —
+                            // the status records it and warns once per episode.
+                            let (high, normal) = probe.queue_depth();
+                            observability::note_skipped_pass(QueueSnapshot {
+                                depth: high.saturating_add(normal),
+                                claimed: probe.pending_count(),
+                            });
                         }
                         Err(join_error) => {
                             tracing::warn!(
@@ -346,6 +384,8 @@ where
                 }
             }
         }
+        // MEM-72: the loop is gone (graceful break) — stop claiming otherwise.
+        observability::note_scheduler_stopped();
     });
     MemoryScheduler {
         shutdown: shutdown_tx,

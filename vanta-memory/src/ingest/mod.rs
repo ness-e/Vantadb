@@ -19,6 +19,7 @@
 pub mod auto_sync;
 pub mod callback;
 pub mod merge;
+pub mod observability;
 pub mod prompts;
 pub mod runner_config;
 pub mod worker;

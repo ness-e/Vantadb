@@ -18,6 +18,7 @@ use serde::Deserialize;
 
 use crate::adapters::standalone::llm_runner::{LlmConfig, StandaloneLlmRunner};
 use crate::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
+use crate::ingest::observability::{self, RunnerState};
 use crate::ingest::{clamp_llm_concurrency, IngestConfig};
 
 /// Default request timeout when unset (mirrors `StandaloneLlmRunner`).
@@ -255,9 +256,15 @@ impl IngestRunnerCfg {
         self.pipeline.clone()
     }
 
-    /// Per-call constructor (S3): pure config mapping, no I/O.
+    /// Per-call constructor (S3): config mapping, no I/O. It carries ONE
+    /// deliberate side effect — [`observability::note_runner`] — because this is
+    /// the only place that maps provider → [`ConcreteRunner`], so it is where
+    /// the process-wide status learns which runner is in use (MEM-72). Last
+    /// build wins: a per-call host (e.g. the wiki ingest path in `vantadb-mcp`)
+    /// re-notes the same runner on every call, and a host that alternates
+    /// providers reports the most recent one.
     pub fn build_runner(&self) -> Option<ConcreteRunner> {
-        match self.provider {
+        let runner = match self.provider {
             IngestRunnerProvider::Local => Some(ConcreteRunner::None),
             IngestRunnerProvider::Ollama => Some(ConcreteRunner::Ollama(self.standalone_cfg())),
             IngestRunnerProvider::OpenAi if self.openai_api_key.is_some() => {
@@ -266,7 +273,18 @@ impl IngestRunnerCfg {
             // No key in env → deferred NotConfigured (pattern B2b `llm.rs`:
             // error at `run`, never panic at construction).
             IngestRunnerProvider::OpenAi => Some(ConcreteRunner::None),
-        }
+        };
+        // MEM-72: observability, not config — this is the only mapping from
+        // provider to concrete runner, so it is where the process-wide status
+        // learns *which* runner is in use (`ingest::observability::status`).
+        // A degraded (`none`) build is a legitimate state; the status is what
+        // makes it visible instead of silent.
+        observability::note_runner(match runner.as_ref() {
+            Some(ConcreteRunner::Ollama(_)) => RunnerState::Ollama,
+            Some(ConcreteRunner::OpenAi(_)) => RunnerState::OpenAi,
+            Some(ConcreteRunner::None) | None => RunnerState::None,
+        });
+        runner
     }
 
     /// Shared standalone config (ollama/openai differ only by resolved

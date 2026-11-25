@@ -282,7 +282,8 @@ skip; never a silent loss.
 | `gateway::approval_handlers` | Typed handlers behind the MCP `capture_list_pending` / `capture_approve` / `capture_reject` tools (MEM-68) — boundary validation, no transport | `gateway/approval_handlers.rs:90-117` |
 | `ingest::auto_sync` | Pull-based scheduled wiki re-ingest (MEM-45): per-file FNV-1a change detection, disabled by default, interval ≥ 60 s | `ingest/auto_sync.rs:108` (`tick`), `:33-36` |
 | `services::conversation_hook` | `HttpCaptureBridge` — implements the core's `ConversationTrigger` for `POST /api/v2/conversations` (MEM-55): L0 capture + L1 task enqueue; **wired by `vantadb-server` HTTP mode** (WIRE-16) | `services/conversation_hook.rs:36-45,93-107` · `vantadb-server/src/scheduler.rs:124-146` |
-| `services::scheduler` | Pull-based pass (`run_pass` = expired timers + one worker pass + stale-claim reclaim) + feature-gated loop helper (`spawn_memory_scheduler`, `http-server`); host-driven with graceful join (WIRE-15/16) | `services/scheduler.rs:80` (`run_pass`), `:198` (`spawn_memory_scheduler`) |
+| `services::scheduler` | Pull-based pass (`run_pass` = expired timers + one worker pass + stale-claim reclaim) + feature-gated loop helper (`spawn_memory_scheduler`, `http-server`); host-driven with graceful join (WIRE-15/16) | `services/scheduler.rs:83` (`run_pass`), `:277` (`spawn_memory_scheduler`) |
+| `ingest::observability` | Process-wide ingest status (MEM-72): runner in use, last pass outcome, queue depth; warns once per degraded episode | `ingest/observability.rs` (`status`, `note_runner`, `note_pass`, `note_skipped_pass`, `note_scheduler_started/stopped`) |
 
 **`core::dream`** — `consolidate_session` requires the idle window (`detect_idle`,
 default 10 min) and degrades without a runner to LLM-free primitives: hash-bucket
@@ -352,9 +353,40 @@ server's HTTP loop returns. The host owns the driver: `vantadb-server`
 `VANTADB_SCHEDULER_INTERVAL_MS > 0` (default `60000`; `0` = off — captures
 keep flowing into L0). Each pass builds its runner from the FIND-112 surface
 (`VANTADB_INGEST_CONFIG` or `<storage>/data/vanta-ingest.toml`; secrets
-env-only, R-5); no real engine → the pass skips observably and the queue is
-untouched (P4). One loop per process — the scheduler runs in the writer
+env-only, R-5); no real engine → the pass skips and the queue is untouched
+(P4). One loop per process — the scheduler runs in the writer
 (ADR-0054).
+
+**`ingest::observability`** (MEM-72) — a runner-less pipeline is a legitimate
+state (the default `Local` provider builds `ConcreteRunner::None`), and that is
+precisely why it must be *visible*: from the outside, "running and extracting
+nothing" and "running with no engine" used to look identical. The module keeps
+one process-wide snapshot and exposes it as `status()`:
+
+| Field | Meaning |
+|---|---|
+| `runner` | `unknown` (no runner built yet) · `none` (no engine: extraction never runs) · `ollama` · `openai` |
+| `degraded` | `runner == none` |
+| `scheduler_running` | a loop is alive in this process (server today; `--mcp` with MCP-43) |
+| `queue.depth` / `queue.claimed` | waiting tasks / live leases, as of the last pass |
+| `last_pass.skipped` | `true` = the pass never ran (no runner); `false` = it ran, with `processed`/`failed`/`timers_fired` |
+| `degraded_warnings` | warnings emitted for degraded-with-backlog (proof of "once") |
+| `notice` | human-readable diagnosis, `null` when healthy |
+
+The queue is the in-process `LocalStateBackend` (ADR-0054), so the whole
+snapshot describes **this** process only: a process that does not run the loop
+(MCP mode today, until MCP-43) reports `scheduler_running: false`, its own
+empty `queue` and `last_pass: null`. Another process's queue depth is not
+observable through this surface — by design, not by omission.
+
+The distinction operators need is **state + queue**, not either alone:
+`runner: none` with `queue.depth: 0` is an idle pipeline; the same `runner` with
+`queue.depth > 0` is a broken one (`IngestStatus::is_broken`). In that second
+case a `warn!` is emitted **once per episode** (a new episode starts when the
+queue drains and grows again, or the runner changes), never once per pass —
+a per-pass warning would flood the log of every host running without an engine.
+The MCP `capabilities` tool embeds this snapshot under `ingest`.
+
 
 ## Audit & backup (MEMG-13)
 
