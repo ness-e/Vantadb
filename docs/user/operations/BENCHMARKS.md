@@ -1554,11 +1554,15 @@ with FINDs for the owner. Reports: `metricas/memoria/report_h2h_h2h-strat10_{van
 
 ## 20. CI perf-bench gate — RETIRED 2026-10-29
 
-> **Retired:** the `perf-bench.yml` workflow no longer exists and
-> `benchmarks/compare_baseline.py` + `benchmarks/python_baseline.json` were
-> removed with it. Python-side regression is covered by
-> `scripts/bench_regression.py` like every other lane. What follows is kept
-> as methodology record (bands + noise floor), not an operable gate.
+> **Retired on `develop`:** the `perf-bench.yml` workflow is gone from
+> `develop` and `benchmarks/compare_baseline.py` +
+> `benchmarks/python_baseline.json` were removed with it (2026-10-25 de-bloat,
+> `255db8208`). The three files still exist on `main`, which is the only branch
+> where the workflow is registered and runnable — see
+> [Operator state](#operator-state-and-the-attribution-verdict-2026-11-25-find-233)
+> below for what that means in practice. Python-side regression on `develop` is
+> covered by `scripts/bench_regression.py` like every other lane. What follows
+> is kept as methodology record (bands + noise floor), not an operable gate.
 >
 > **Source of truth (retired):** ~~`benchmarks/compare_baseline.py` (bands + A/B mode) + `.github/workflows/perf-bench.yml` (workflow)~~.
 > **Reproduce (Regla 11):**
@@ -1603,6 +1607,103 @@ gh run list --workflow=perf-bench.yml --limit 3 --json databaseId,conclusion,hea
 ```
 
 ≥2 consecutive `success` runs on the pushed ref = the gate is stable.
+
+### Operator state and the attribution verdict (2026-11-25, FIND-233)
+
+The backlog asked this section's instrument to attribute a **+10-19%** post-0.8.0
+delta (from `FIND-233`). Answering that required knowing what the instrument
+*is*, so here is the operator state, each row backed by the command that shows
+it (audited 2026-11-25 against `ness-e/Vantadb`):
+
+| Question | Answer | Command |
+| :--- | :--- | :--- |
+| Does the workflow still exist? | **On `main` only.** Absent from `develop` since `255db8208` (2026-10-25 de-bloat), together with `compare_baseline.py` and `python_baseline.json` | `git ls-tree develop --name-only .github/workflows/` → no `perf` entry; `git show main:benchmarks/python_baseline.json` → still carries the 2026-10-03 re-baseline metadata |
+| Has the A/B path ever run? | **No.** One run survives in total and its event is `push`, not `workflow_dispatch` | `gh api repos/ness-e/Vantadb/actions/workflows/364848308/runs --jq .total_count` → `1` |
+| Which run? | `40592702083` · `2026-10-27T22:10:15Z` · `success` · `main` @ `3e1e21b3` · job **6m12s** | `gh run list --workflow perf-bench.yml --limit 10 --json conclusion,createdAt,headSha` |
+| Can the `FIND-232` evidence be re-derived? | **No.** All four cited runs return `HTTP 404` — artifacts and logs deleted. The 1.7x-2.4x table survives only as transcription | `gh run view 37088714140 \| 37089421873 \| 37089581213 \| 36093538630 --json databaseId` → `404 Not Found` |
+
+#### Intra-job noise floor, measured
+
+Three sub-runs of the same profile (`10000 × 128d`, `1000` queries) inside **one**
+job, **one** VM, **one** commit. That is the most generous floor this instrument
+can offer: nothing but the scheduler differs between the columns.
+
+| Metric | sub-run 1 | sub-run 2 | sub-run 3 | spread (max/min) |
+| :--- | ---: | ---: | ---: | ---: |
+| ingest throughput (rec/s) | 230.19 | 243.59 | 243.37 | **5.8%** |
+| `query_vector.p50` (ms) | 2.2630 | 2.2308 | 1.9384 | **16.7%** |
+| `query_vector.p95` (ms) | 2.6754 | 2.5325 | 2.3638 | **13.2%** |
+| `query_vector.p99` (ms) | 2.8245 | 3.0010 | 2.9553 | **6.2%** |
+| `query_hybrid.p50` (ms) | 5.4610 | 6.1058 | 4.5494 | **34.2%** |
+| `query_hybrid.p95` (ms) | 6.9599 | 7.3392 | 5.1622 | **42.2%** |
+| `query_hybrid.p99` (ms) | 11.7452 | 12.2807 | 10.5246 | **16.7%** |
+| `query_text.p50` (ms) | 0.0047 | 0.0047 | 0.0047 | 0% |
+
+**Reproduce (Regla 11):** `gh run view 40592702083 -R ness-e/Vantadb --log` — one
+`Vector HNSW` and one `Hybrid Fusion` line per sub-run. Environment: GitHub-hosted
+`ubuntu-latest` (Azure `eastus2`), job `6m12s`, median-of-3 comparator, same
+profile the baseline was generated with.
+
+**Reading.** A median of 3 inherits 13-42% of spread on the vector/hybrid
+families *with the machine held constant*. The warn band that gates the
+quarantined family (>15%) sits **below** that floor, which is why that run
+emitted two warnings (`query_text.p95 +62.1%`, `p99 +17.5%`) on sub-10 µs
+numbers where ~3 µs of absolute jitter is the entire signal.
+
+#### Why the +10-19% cannot be attributed
+
+The delta the backlog asked to attribute (baseline run `36093538630`,
+2026-09-25, ref `114f55f0`, vs the 2026-10-03 runs) is: `query_vector` p50
+**+15.7%** / p95 **+19.3%**, `query_hybrid` **+10.7%** / **+8.5%**, `insert`
+**−2%**, `rebuild` **−1.3%**, `text` **+8-13%**.
+
+| Delta | Value | Intra-job floor | Cross-VM floor | Verdict |
+| :--- | ---: | ---: | ---: | :--- |
+| `query_vector.p50` | +15.7% | 16.7% | +70%..+140% | inside the noise |
+| `query_vector.p95` | +19.3% | 13.2% | +70%..+140% | 1.46x the intra-job floor, 3.6x below the cross-VM one → inside |
+| `query_hybrid.p50` | +10.7% | 34.2% | +70%..+140% | inside the noise |
+| `query_hybrid.p95` | +8.5% | 42.2% | +70%..+140% | inside the noise |
+| `insert` | −2% | 5.8% (throughput) | +70%..+140% | inside the noise |
+| `rebuild` | −1.3% | n/a (single batch) | +70%..+140% | inside the noise |
+| `text` | +8-13% | µs-scale | +70%..+140% | inside the noise |
+
+The original comparison spans **nine days and different runners**, so the
+applicable floor is the cross-VM one (`1.7x-2.4x`, i.e. +70%..+140%); every
+quoted delta is 4-9x smaller than that. Against the stricter same-machine floor,
+only `query_vector.p95` exceeds it (+19.3% vs 13.2%, a factor of 1.46) — and it
+is still 3.6x below the cross-VM floor that actually applies to the comparison.
+
+**Verdict: not attributable.** Not "it was the VM" either — the honest statement
+is that this instrument cannot separate code from machine at that amplitude, and
+the A/B that could (`ab_ref=114f55f0`) was never dispatched.
+
+#### Decision (2026-11-25) — accept the noise
+
+| Option | Verdict | Cost |
+| :--- | :--- | :--- |
+| (a) CPU calibration before the bench | **Rejected** | **≈+1 min per run, recurring** (estimate: 111 kB package + one `sysbench cpu --time=10` pass per arm, ×3 — `sysbench` is in `noble/universe`, [packages.ubuntu.com](https://packages.ubuntu.com/noble/sysbench)) = +15-22% of a 4.5-6.2 min job. It normalises CPU only: `insert.p99` is fsync-bound (16.8x cross-VM) and every number crosses PyO3, so one factor cannot model three regimes. It is also unvalidatable now — the multi-VM runs it would calibrate against were deleted. |
+| (b) Same-job A/B as the only path | **Right method, not adopted as the path** | **11-15 min per invocation** on a runner like today's (6m12s base + 5-9 min A/B overhead), opt-in. Adopting it as the only path means resurrecting a workflow `FIND-317` retired and the 2026-10-25 de-bloat removed: re-litigating a closed decision with no new evidence. |
+| (c) Accept the noise; keep the calibrated bands | **CHOSEN** | **0 min recurring, 0 lines of code.** The bands stay as `FIND-232` calibrated them; on `develop` there is no gate left to band, and no new run data exists to re-derive them. |
+
+**Escalation**, if the attribution must be answered — no code change, nothing
+recurring:
+
+```bash
+gh workflow run "PERF: Benchmarks — Python Integration" -R ness-e/Vantadb \
+  --ref main -f ab_ref=114f55f0 -f size=10000 -f queries=1000 -f dim=128
+gh run watch <run-id> --exit-status
+```
+
+Budget **11-15 min** and calibrate the A/B bands in the same campaign with a
+same-SHA dispatch (`-f ab_ref=$(git rev-parse main)`), which measures the
+same-job ratio floor directly instead of inferring it.
+
+**If the fine signal ever becomes load-bearing**, the instrument to build is not
+a calibrated wall clock: deterministic measurement by instruction counts
+(Valgrind, via [`iai-callgrind`](https://docs.rs/iai-callgrind/latest/iai_callgrind/),
+which documents "consistent measurements even in virtualized CI environments")
+sidesteps the machine factor rather than normalising it. That is a decision for
+whoever owns §11, not a change made here.
 
 ---
 
