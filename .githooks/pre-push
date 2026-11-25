@@ -63,6 +63,14 @@ winpath() {
     esac
 }
 VERIFY_PS1_WIN="$(winpath "$VERIFY_SCRIPT")"
+
+# --- Residuos de test (FIND-732): un proceso de test que muere sin ejecutar Drop
+#     (slow-timeout de nextest, abort, SIGKILL) deja su TempDir en %TEMP%; en un
+#     dia son GB. Advisory: reclama lo huerfano y NUNCA bloquea el push. ---
+if [ -f "$REPO_ROOT/dev-tools/temp-collector.ps1" ] && command -v pwsh >/dev/null 2>&1; then
+    pwsh -NoProfile -File "$(winpath "$REPO_ROOT/dev-tools/temp-collector.ps1")" -Quiet || true
+fi
+
 if command -v pwsh >/dev/null 2>&1; then
     pwsh -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_PS1_WIN" || STATUS=$?
 elif command -v powershell.exe >/dev/null 2>&1; then

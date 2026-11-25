@@ -82,6 +82,9 @@ try {
     run "clippy" (("cargo", "clippy", "-p", "vantadb", "-j", "$Jobs") + $feats + @("--", "-D", "warnings"))
     run "audit" ("cargo", "audit")   # ignores managed in .cargo/audit.toml
     run "deny" ("cargo", "deny", "check")
+    # FIND-732: una suite que mató un test a mitad deja su DB temporal en %TEMP%
+    # (Drop no corre). Se reclama lo huérfano antes de la suite; advisory, nunca falla el gate.
+    try { & pwsh -NoProfile -File (Join-Path $PSScriptRoot "temp-collector.ps1") -Quiet } catch { }
     if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
         # exclusiones RESOURCE-GUARD: ver $fastGateFilter arriba + CI_POLICY §"Fast Gate Test Exclusions"
         run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", $fastGateFilter))

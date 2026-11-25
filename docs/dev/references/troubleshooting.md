@@ -226,6 +226,72 @@ every path in the real cleanup list starts with `target\` and is either
 pwsh -NoProfile -File dev-tools/target-cleanup.ps1 -SelfCheck   # SELFCHECK: PASS (16/16 asserts)
 ```
 
+### Test runs leak their temp databases into `%TEMP%` (`FIND-732`)
+
+**Symptom.** The drive fills up with `StorageFull` gate failures while `target/`
+looks normal. `%TEMP%` holds thousands of entries:
+
+```powershell
+(Get-ChildItem $env:TEMP -Directory | Measure-Object).Count          # 1887
+Get-ChildItem $env:TEMP -Directory -Filter '.tmp*' | Measure-Object  # casi todas
+Get-ChildItem $env:TEMP -Directory -Filter '.fjall_compaction_tmp_*' | Measure-Object
+```
+
+Measured 2026-11-25: **15.35 GB in one day**, three gate aborts, the last one
+with 0.52 GB free. Deleting them by hand works and changes nothing about the
+next run.
+
+**Root cause — two different leaks, both of them "no `Drop`".**
+
+| Leak | Who creates it | Why it stays |
+|---|---|---|
+| `<TEMP>\.tmpXXXXXX` | `tempfile::TempDir` (default prefix `.tmp`, `tempfile-3.27.0/src/lib.rs:231`) | cleanup happens in `Drop` (`src/dir/mod.rs:499-501`) and **`drop` ignores the error**. If the process is killed — nextest `slow-timeout = { period = "60s", terminate-after = 3 }` in `.config/nextest.toml` — no destructor runs. Upstream says so: *"`TempDir` and `NamedTempFile` will fail if their destructors don't run"* (`src/lib.rs:16-24`) |
+| `<TEMP>\.fjall_compaction_tmp_<pid>` | `FjallBackend::compact()` — it writes the rewrite as a **sibling** of the data dir (`src/backends/fjall_backend.rs:512-523`) | the temp DB is only removed at the start of the *next* compaction on the same path. If the test dies mid-compact, it is never removed. When the data dir lives directly under `%TEMP%` (tests with fixed paths), so does the residue |
+
+A test that **panics** is not a leak: unwinding runs `Drop`, and the directory
+goes away. Only a **killed** process leaks. That is why the suite looks clean
+and the drive still fills.
+
+**Fix — `dev-tools/temp-collector.ps1`.** A collector that only touches what it
+can prove is ours *and* abandoned. Both signals are required:
+
+- **Idleness** (`-MinAgeMinutes`, 10 by default): nothing written anywhere in the
+  tree within the window. Without this there are three windows where the DB is
+  alive and the lock is free — `compact()` closes the temp DB *before* the swap
+  (`fjall_backend.rs:558-560` vs `:628-663`), a test that closes and reopens its
+  database, and a `.tmp*` of another program (any Rust `tempfile` uses `.tmp`)
+  created a millisecond ago;
+- **Lock**: fjall keeps `<db>\lock` open (`fjall-3.1.12/src/file.rs:11`,
+  `LOCK_FILE`), so opening it with `FileShare.None` succeeds **only** if nobody
+  has that database open.
+
+Names it recognises: `<TEMP>\.fjall_compaction_tmp_<pid>` (dead PID *and* no
+open DB), `<TEMP>\.tmp*`, and the fixed paths the tests still use
+(`vanta*`/`vantadb*`, e.g. `vanta_schema_test`, `vantadb_ser_test_*`) — a
+`.tmp*`/`vanta*` dir with no `lock` at ≤4 levels is left alone, and so is
+anything outside `%TEMP%` or `%TEMP%` itself (`Assert-UnderTemp`, the same guard
+pattern as `target-cleanup.ps1`).
+
+```powershell
+pwsh -NoProfile -File dev-tools/temp-collector.ps1 -DryRun      # qué borraría, con MB
+pwsh -NoProfile -File dev-tools/temp-collector.ps1              # borra
+pwsh -NoProfile -File dev-tools/temp-collector.ps1 -MinAgeMinutes 0   # sólo si no hay suites en vuelo
+pwsh -NoProfile -File dev-tools/temp-collector.ps1 -SelfCheck   # SELFCHECK: PASS (19/19 asserts)
+```
+
+It runs on its own from the two places a gate starts a suite: in
+`dev-tools/verify.ps1`, just before the `nextest` step, and in the `pre-push`
+hook before the Rust gate (so a `verify.ps1` that dies at `fmt`/`clippy` still
+leaves nothing behind). Both calls are **advisory** — it never changes a gate's
+verdict. Exit codes: `0` ok (including "nothing to reclaim"), `1` self-check
+failure or an unexpected error; a path refused during the sweep is reported and
+skipped, not fatal.
+
+What it will never do: delete `%TEMP%` itself, delete anything outside
+`%TEMP%`, delete a database whose `lock` is held, delete a directory written
+within `-MinAgeMinutes`, delete a non-empty `.tmp*`/`vanta*` that carries no
+fjall `lock`, or kill a process.
+
 ---
 
 ## git hooks — commits pass with no gate, or `nodeenv` `ValueError` traceback
