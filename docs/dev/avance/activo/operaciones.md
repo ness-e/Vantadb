@@ -973,3 +973,23 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Commit:** `3bfd2f14a`
 - **Review P2-01:** tier fast (`dev-tools/**`) `changes-required` → corregido en la misma ronda: **F1** el assert del fichero abierto era vacuo; **F2** los directorios se borraban por un camino duplicado sin cubrir la guarda nueva. También F4 (`-Force` en la enumeración → un residuo *Hidden* ahora se ve y se borra), F5 (`Test-PidAlive` para `vanta-ckpt-<pid>`), F6 (dudas separadas de fallos de borrado), F7 (`Assert-UnderTemp` end-to-end en vez de un assert tautológico).
 - **Deuda restante:** `FIND-744` sigue **produciendo** el `.shard0.corrupt` — este ticket sólo hace que **se vea y se recoja**.
+
+### El binario declara su commit, para que un artefacto stale no pueda pasar un DoD (`FIND-741`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** `MCP-47` verificó el L0 de `MCP-44` contra el binario de `target/release` (16:13), **anterior** a `2fb20c728`. El binario respondió `{"ok":true}` **sin** el bloque `memory:{captured,queued}`: la feature no estaba y la respuesta tenía **la forma anterior**. Casi todos los DoD de la ola (`MCP-43`, `MCP-44`, `MCP-47`, `MEM-73`) se verifican contra un binario, así que un artefacto stale **devuelve algo plausible y el test pasa sin probar nada**.
+- **Resultado:** ✅ `vantadb-server --version` → `vantadb-server 0.9.0 (commit <sha>, worktree clean|dirty)`. El SHA se **graba en el artefacto** (`build.rs` → `cargo:rustc-env`), no se consulta al ejecutar.
+  - **Por qué embebido y no `git rev-parse` en runtime:** la pregunta del DoD es *"¿lo que ejecuté salió de este commit?"*; un `git rev-parse` en runtime contesta *"¿en qué commit estoy parado ahora?"* y **colapsa (a) binario == HEAD con (b) binario de un commit anterior** en la misma salida, así que el test no podría fallar nunca — sería decorativo. `vergen` haría lo mismo con ~10 crates transitorios, sin justificar la dependencia.
+  - **Por qué en el crate hoja:** `cargo:rustc-env` pertenece al paquete **emisor**, así que un commit invalida **sólo `vantadb-server`**. En el crate raíz invalidaría el engine de 200k LOC en cada commit y tiraría sccache workspace-wide.
+  - **`rerun-if-changed`** sobre `.git/{HEAD,index,logs/HEAD}` (resuelto con `--absolute-git-dir`, funciona en worktrees), fuentes/manifests del engine linkeado, `Cargo.lock`, `rust-toolchain.toml`, `.cargo/config.toml`. Sin git → `unknown` (+ escape `VANTADB_BUILD_COMMIT` para CI/Docker, con `cargo:warning` si discrepa).
+- **Coste medido:** commit → rebuild **~19 s de `vantadb-server`, cero del engine** (`Compiling vantadb v0.9.0` nunca aparece; medido también por el reviewer de forma independiente) · no-op con árbol quieto **1,55 s** · sin dependencias nuevas, `Cargo.lock` intacto.
+- **Verificación:** `vantadb-server/tests/git_commit_declared.rs` lanza el **proceso real** vía `CARGO_BIN_EXE_*` y falla si el sha declarado ≠ `git rev-parse --short HEAD`; sólo se salta si **no hay metadata git** (si `.git` existe y git falla, **falla**). Repro en vivo, sin fabricar el escenario: el binario decía `d246ba9a6` mientras HEAD ya era `3bfd2f14a` → el check falla y **obliga a rebuild**. El artefacto de `target/release` (un día de antigüedad) sigue diciendo sólo `vantadb-server 0.9.0` → no declara commit, no pasa. Review P2-01 APPROVE (7/7 del contrato con comando y salida).
+- **Commit:** `e8df96232`
+- **Protocolo para los DoD de la ola** (usar el path **exacto**, nunca el de `PATH`):
+  ```powershell
+  $bin = "./target/debug/vantadb-server.exe"
+  & $bin --version                              # (commit <sha>, worktree clean|dirty)
+  git rev-parse --short HEAD                    # debe coincidir
+  git status --porcelain --untracked-files=no   # debe estar vacío
+  ```
+  Verificar **sólo** si los dos SHAs coinciden **y** dice `worktree clean`. Si no: `cargo build -p vantadb-server --bin vantadb-server` y repetir.
+- **Deuda:** `FIND-98` queda con base — el mismo mecanismo en el paquete raíz detectaría el `vanta-cli` instalado stale, a cambio de un rebuild del engine por commit; el pin `binarySha256` del binario certificado hay que re-derivarlo en la próxima reinstalación.
