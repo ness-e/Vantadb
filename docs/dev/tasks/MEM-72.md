@@ -1,7 +1,7 @@
 ---
 title: "MEM-72: runner LLM degradado visible, no silencioso"
 kind: task
-status: in-progress
+status: completed
 description: "`capabilities` (MCP) y la superficie de observabilidad de vanta-memory exponen runner en uso, resultado del último pass y profundidad de cola; con runner=None y cola no vacía se emite un warn UNA sola vez"
 ---
 
@@ -12,7 +12,7 @@ description: "`capabilities` (MCP) y la superficie de observabilidad de vanta-me
 - **Fuente:** Backlog `MEM-72` — dependencia bloqueante de `MCP-43/44/47`
 - **Esfuerzo:** 🟡 2-3h
 - **Tipo:** Rust (feature-add: símbolos públicos nuevos en `vanta-memory`, campo aditivo en respuesta MCP)
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 - **Creado:** 2026-11-25
 
 ## Blast Radius
@@ -107,4 +107,9 @@ Veredicto inicial `changes-required`; 1 bloqueante + 3 Medium, todos corregidos 
 | **[Medium]** El test decía "uno solo" y declaraba dos (raza real bajo `cargo test` no aislado) | Un único `#[test]` con 6 fases (episodio, drenaje, runner real, ciclo del loop, pass real) |
 | **[Medium]** `build_runner` documentado como "pure config mapping" con efecto lateral | Doc comment declara el efecto, el porqué y el "last build wins" (wiki ingest per-call) |
 | **[Medium]** El shape MCP no explica que la cola es proceso-local | Una frase en `VANTA_MEMORY.md` y en `MCP.md`; el ejemplo ya no sugiere ver la cola del writer |
+
+**Re-verdicto (mismo reviewer, sobre el estado final): `approve`.** Verificó en los archivos los 6 fixes (script de limpieza del loop en `scheduler.rs:388` + `Drop:260`, un solo `#[test]`, doc de `build_runner`, ambas docs con "process-local", warn reformulado, anclas `:83`/`:277`) y re-corrió el contrato: verde, sin hallazgos bloqueantes. Residual declarado: `degraded_warnings` prueba la decisión, no la emisión del log.
+
+**Commit:** `c0f5667db` — 10 archivos, 776 insertions / 12 deletions, sin archivos de otros carriles.
+
 
