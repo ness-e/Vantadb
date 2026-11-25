@@ -305,7 +305,7 @@ check `git ls-files -s .githooks/`.
 ```powershell
 git worktree add ..\hooktest -b test-hook develop
 # in ..\hooktest: create a file, git add <file>, git commit -m "test"
-#   -> "pre-commit: running .githooks/pre-commit-config.yaml gates..." + gate lines + "gates passed."
+#   -> "pre-commit: running .githooks/pre-commit-config.yaml gates (no stash)..." + gate lines + "gates passed."
 git worktree remove --force ..\hooktest
 git branch -D test-hook
 ```
@@ -358,9 +358,13 @@ git diff --staged --name-only -z --diff-filter=ACMRTUXB \
   | xargs -0 pre-commit run --config .githooks/pre-commit-config.yaml --files
 ```
 
-`--files` receives exactly the file set `pre-commit` would have derived itself,
-so the verdict is unchanged. The hook prints the tracked files it is leaving
-alone and never writes into the working tree.
+`--files` receives exactly the file set `pre-commit` would have derived itself, so
+the set of checked files is byte-identical. What changes is the **content**:
+`--files` reads the working tree, so a *partially staged* file is validated on
+its working-tree version while the commit takes the index version. The hook names
+those files (`partially staged — hooks validated the WORKING-TREE version`) so the
+gap is visible instead of silent. The hook prints the tracked files it is leaving
+alone and never reverts or replays the working tree.
 
 **Verify the invariant** - in a throwaway clone, never in the shared checkout:
 
@@ -385,10 +389,18 @@ Aborting whenever foreign WIP exists was rejected: on a shared checkout WIP is
 the normal state, so an abort would block every commit and push everyone to
 `--no-verify`, which is no gate at all.
 
-**Recovering a stash that never came back.** An interrupted run leaves the patch
-at `~/.cache/pre-commit/patch*`. Inspect it with `git apply --stat <patch>`, apply
-with `git apply <patch>`. Do not re-run the hook first - it would revert the tree
-again.
+**Recovering a stash that never came back** (only an *old* run, before this fix,
+can leave one). The patch path is printed by the run itself - `Stashing unstaged
+files to <path>`, e.g. `C:\Users\<you>\.cache\pre-commit\patch<ts>-<pid>` on
+Windows, `~/.cache/pre-commit/patch<ts>-<pid>` on POSIX. Check it applies before
+touching anything, then apply:
+
+```powershell
+git apply --check <patch>    # no output = it applies cleanly
+git apply <patch>
+```
+
+Re-running the current hook is safe: it no longer reverts the tree.
 
 
 [ne453]: https://github.com/ekalinin/nodeenv/issues/453

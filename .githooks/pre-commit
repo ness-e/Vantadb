@@ -36,15 +36,20 @@ if command -v pre-commit >/dev/null 2>&1; then
     # destroyed other agents' work three times (FIND-720, FIND-721, FIND-723): a
     # write landing inside the window is silently dropped by the replay, and an
     # interrupted run leaves every tracked file reverted. Passing the staged list
-    # explicitly (`--files`) keeps the exact same file set and makes `stash`
-    # False, so this hook cannot write into the tree at all.
+    # explicitly (`--files`) keeps the same file set and makes `stash` False, so
+    # this hook no longer reverts nor replays the tree. (It can still WRITE to it
+    # through the formatters — ruff-format and prettier --write do that by design
+    # and pre-commit reports "files were modified by this hook".)
     #
-    # TRADE-OFF (measured, not assumed): hooks now see the WORKING TREE, not the
-    # index. Hooks that pass filenames (ruff, prettier, markdownlint,
-    # forbid-junk) are unaffected — they still receive only the staged names.
-    # Whole-tree hooks (cargo fmt --check, cargo clippy, verify_staged clippy) can
-    # now fail on a file another agent is editing. That failure is loud and true
-    # and is never "fixed" by rewriting the tree. Bypass:
+    # TRADE-OFF (measured, not assumed): hooks now read working-tree CONTENT, not
+    # index content. The file SET is byte-identical to what pre-commit derives
+    # itself (git.py::get_staged_files uses this exact diff command), but a
+    # partially staged file is validated on the working-tree version while the
+    # commit takes the index version — see the warning below. Whole-tree hooks
+    # (cargo fmt --check, cargo clippy, verify_staged clippy) can now fail on a
+    # file another agent is editing, and can report a false "files were modified"
+    # if that agent writes during the run. Loud and non-destructive either way.
+    # Bypass for a foreign file:
     #   SKIP=cargo-fmt,cargo-clippy git commit ...
     # REJECTED: aborting whenever foreign WIP exists. WIP is the normal state of
     # this checkout (measured 2026-11-25: `M src/executor.rs` while FIND-722 ran),
@@ -58,15 +63,26 @@ if command -v pre-commit >/dev/null 2>&1; then
         echo "$UNMERGED" | sed 's/^/  /' >&2
         exit 1
     fi
-    if ! git diff --quiet --no-ext-diff -- .githooks/pre-commit-config.yaml; then
-        echo "ERROR: .githooks/pre-commit-config.yaml has unstaged changes — the gates" >&2
-        echo "       must run the staged config. Fix: git add .githooks/pre-commit-config.yaml" >&2
-        exit 1
+    # Mirror upstream `_has_unstaged_config`: only exit code 1 means "unstaged".
+    if git diff --quiet --no-ext-diff -- .githooks/pre-commit-config.yaml; then
+        :
+    else
+        CONFIG_RC=$?
+        if [ "$CONFIG_RC" -eq 1 ]; then
+            echo "ERROR: .githooks/pre-commit-config.yaml has unstaged changes — the gates" >&2
+            echo "       must run the staged config. Fix: git add .githooks/pre-commit-config.yaml" >&2
+            exit 1
+        fi
+        echo "pre-commit: WARNING — git diff exited $CONFIG_RC checking the config; continuing." >&2
     fi
 
-    STAGED_LIST=$(git diff --staged --name-only --no-ext-diff)
-    if [ -z "$STAGED_LIST" ]; then
-        echo "pre-commit: nothing staged; yaml gates skipped."
+    # F1 (P2-01): guard on the SAME filtered list that feeds --files. With only
+    # deletions staged the unfiltered list is non-empty while the filtered one is
+    # empty, and `pre-commit run --files` with zero args means `files == []`
+    # -> stash = True -> the revert/replay comes back.
+    STAGED_FILTERED=$(git diff --staged --name-only --no-ext-diff --diff-filter=ACMRTUXB)
+    if [ -z "$STAGED_FILTERED" ]; then
+        echo "pre-commit: nothing to check (no staged file with content); yaml gates skipped."
     else
         WIP_LIST=$(git diff --name-only --no-ext-diff)
         if [ -n "$WIP_LIST" ]; then
@@ -76,10 +92,24 @@ if command -v pre-commit >/dev/null 2>&1; then
             echo "pre-commit: if one fails on a file you did not stage, use:"
             echo "pre-commit:   SKIP=cargo-fmt,cargo-clippy git commit ..."
         fi
+        # F2 (P2-01): a file that is staged AND modified is validated on its
+        # working-tree content but committed from the index. Only this subset can
+        # disagree with the commit, so name it instead of hiding the gap.
+        PARTIAL=$(git diff --name-only --no-ext-diff | while IFS= read -r f; do
+            if printf '%s\n' "$STAGED_FILTERED" | grep -qxF -- "$f"; then
+                printf '%s\n' "$f"
+            fi
+        done)
+        if [ -n "$PARTIAL" ]; then
+            echo "pre-commit: [FIND-726] partially staged — hooks validated the WORKING-TREE"
+            echo "pre-commit: version, the commit takes the INDEX version:"
+            echo "$PARTIAL" | head -n 10 | sed 's/^/  /'
+        fi
         echo "pre-commit: running .githooks/pre-commit-config.yaml gates (no stash)..."
-        # -0/xargs keeps paths with spaces intact; --files is what disables the stash.
+        # -0 keeps paths with spaces intact; -r is belt-and-suspenders against the
+        # empty-list case above; --files is what disables the stash.
         if git diff --staged --name-only --no-ext-diff -z --diff-filter=ACMRTUXB \
-            | xargs -0 pre-commit run --config "$REPO_ROOT/.githooks/pre-commit-config.yaml" --show-diff-on-failure --files; then
+            | xargs -0 -r pre-commit run --config "$REPO_ROOT/.githooks/pre-commit-config.yaml" --show-diff-on-failure --files; then
             echo "pre-commit: gates passed."
         else
             FAILED=1
