@@ -23,6 +23,9 @@
 //   rust  - static parse of `src/lib.rs`: `pub mod` reachable transitively,
 //           top-level `pub fn|struct|enum|trait|type|const`, inherent
 //           `impl T { pub fn }` methods, and the crate-root `pub use` re-exports.
+//           `impl T` counts only when `T` is itself public (declared `pub` in a
+//           reachable module, or re-exported) — an impl of a private helper is
+//           implementation, not contract.
 //   python- `.pyi` type stubs + the `__all__` re-export lists. The stubs are the
 //           DECLARED surface and `vantadb-python/tests/test_stub_drift.py`
 //           already asserts they match the compiled module via
@@ -264,6 +267,10 @@ function changedFiles(baseRef, headRef) {
 // pub items; it does not resolve macro-generated items, `include!`, cfg-gated
 // items behind default-off features, or generic arity. Signature-level fidelity
 // is the `public-api` snapshot's job (tests/api/public_api.rs), not this file's.
+// ponytail: an `impl`'s type is matched to its declaration by NAME, not by a
+// module resolver — a private `Foo` could ride on a public `Foo` (false
+// positive, accepted; see the filter at the end of extractRust). Upgrade path
+// if that ever bites: record declared names per module path instead of the set.
 
 const RUST_MODULE_DEPTH = 4; // crate root + 4 nested levels is the real shape
 const RUST_FILE_CAP = 4000; // hard stop; src/ is ~1000 files and never grows past this
@@ -378,7 +385,43 @@ function extractRust(reader) {
       if (fn && implType) out.add(`rust\tmethod\t${implType}::${fn[1]}`);
     }
   }
-  return [...out].sort();
+
+  // An `impl` is surface only when the type it implements is itself public:
+  // declared `pub` (no `(crate)`/`(super)`/`(in path)` restriction) in a module
+  // reachable from the crate root, or re-exported with `pub use`. A private
+  // helper's impl — a guard, a test double, `EmbedCache`, `WarmLocal` — is
+  // implementation, not contract, and counting it made every new internal type
+  // read as a public API change that demanded an ADR it did not deserve
+  // (FIND-736: 46 of 176 impls in this crate were private types).
+  //
+  // The set is built AFTER the walk, not inline: an `impl` and its type's
+  // declaration can live in different modules, so deciding per-file would drop
+  // the ones written in a sibling file.
+  //
+  // Matching is by LAST SEGMENT, which resolves `impl crate::a::Foo` in another
+  // file without a module resolver. The cost is that a private `Foo` inherits a
+  // public `Foo`'s verdict — a false POSITIVE, which is the right way to be
+  // wrong here: an over-strict filter would hide an impl that really is public,
+  // and a gate that under-reports is worse than one that over-reports.
+  const PUBLIC_TYPE_KINDS = new Set(["struct", "enum", "trait", "union", "type"]);
+  const publicTypes = new Set();
+  for (const e of out) {
+    const [lang, kind, name] = e.split("\t");
+    if (lang !== "rust") continue;
+    if (kind === "reexport" || PUBLIC_TYPE_KINDS.has(kind)) publicTypes.add(lastSegment(name));
+  }
+  // `method` names are `<type>::<fn>`; every other name is the type itself.
+  const implTarget = (name, kind) =>
+    kind === "method" ? name.slice(0, name.lastIndexOf("::")) : name;
+
+  return [...out]
+    .filter((e) => {
+      const [, kind, name] = e.split("\t");
+      if (kind !== "impl" && kind !== "method") return true;
+      const ty = implTarget(name, kind);
+      return ty !== "" && publicTypes.has(lastSegment(ty));
+    })
+    .sort();
 }
 
 /** `a::{B, c::{D as E}}` -> [a::B? no: B, E] — public re-export names only. */
@@ -984,6 +1027,63 @@ function selfTest() {
     extractRust(stubReader(files)).forEach((e) => out.add(e));
     assert(out.has("rust\timpl\tengine::Engine"), "impl block under CRLF");
     assert(out.has("rust\tmethod\tengine::Engine::open"), "impl method under CRLF");
+  });
+
+  check("rust: impl of a non-public type is NOT surface; impl of a pub type is", () => {
+    // FIND-736: `impl Foo` for a private `struct Foo` (an internal helper, a
+    // test double, a guard) is implementation, not contract. Counting it made
+    // every new internal type read as a public API change that demanded an ADR.
+    const out = new Set();
+    extractRust(
+      stubReader({
+        // `other` is declared BEFORE `inner` on purpose: the impl in other.rs is
+        // met before the declaration it depends on can have been seen, so a
+        // per-file (running-set) filter fails this while a whole-walk set passes.
+        "src/lib.rs": "pub mod other;\npub mod inner;\npub use external::Widget;",
+        "src/inner.rs": [
+          "pub struct Bar;",
+          "struct Foo;",
+          "pub(crate) struct Qux;",
+          "impl Bar {",
+          "    pub fn kept(&self) {}",
+          "}",
+          "impl Foo {",
+          "    pub fn dropped(&self) {}",
+          "}",
+          "impl Qux {",
+          "    pub fn also_dropped(&self) {}",
+          "}",
+        ].join("\n"),
+        "src/other.rs": [
+          "impl crate::inner::Bar {",
+          "    pub fn elsewhere(&self) {}",
+          "}",
+          // Declared outside the walk (`external` is not a module of this
+          // crate) and visible only because lib.rs re-exports it by name.
+          "impl crate::external::Widget {",
+          "    pub fn shown(&self) {}",
+          "}",
+        ].join("\n"),
+      }),
+    ).forEach((e) => out.add(e));
+    const has = (k, n) => out.has(`rust\t${k}\t${n}`);
+    assert(has("impl", "inner::Bar"), "impl of a pub struct is surface");
+    assert(has("method", "inner::Bar::kept"), "pub method of a pub type is surface");
+    assert(
+      has("method", "inner::Bar::elsewhere"),
+      "an impl written in another module resolves against the declaration",
+    );
+    assert(
+      has("method", "external::Widget::shown"),
+      "a `pub use` re-export makes the type public even when its declaration is not walked",
+    );
+    assert(!has("impl", "inner::Foo"), "impl of a private struct must not be surface");
+    assert(!has("method", "inner::Foo::dropped"), "method of a private type must not be surface");
+    assert(!has("impl", "inner::Qux"), "impl of a pub(crate) struct must not be surface");
+    assert(
+      !has("method", "inner::Qux::also_dropped"),
+      "method of a pub(crate) type must not be surface",
+    );
   });
 
   check("python: classes, methods, properties, __all__ extracted; docstrings skipped", () => {
