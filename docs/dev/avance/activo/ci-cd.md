@@ -982,3 +982,17 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Commit:** `98e752079`
 - **Deuda declarada:** el caso `X/Y` (aborto) sigue sin fixture real (ninguna partición aborta desde `FIND-714`); `suppression hits: 0` en la corrida real, así que las dos entradas de `tsan-suppressions.txt` podrían estar muertas y se evalúan con el run verde completo; el `sed` es GNU → en macOS fallaría cerrado.
 - **Nota de método:** probar el parser contra el *job log* da falso positivo (incluye el eco del script y las anotaciones `##[error]`). El fixture fiel es la sección del step de test, sin timestamp y con ANSI.
+
+### perf-bench cross-VM: decisión (c) aceptar el ruido, atribución declarada imposible (`FIND-233`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** Atribuir el delta de +10-19 % post-0.8.0 y decidir calibración, dado que el instrumento medía cross-VM con un factor de 1,7x-2,4x.
+- **Resultado:** ✅ Decidido con números, **sin coste recurrente** (0 min, 0 líneas de código). Hallazgos que corrigen la premisa de la fila:
+  - **`perf-bench.yml` solo existe en `main`**: se borró de `develop` en `255db8208` (de-bloat, 2026-10-25) junto con `compare_baseline.py` y `python_baseline.json`.
+  - **El A/B same-job nunca se invocó**: `total_count: 1`, `event: push`, **0 dispatches**. Implementado en `11ab6c3c` y jamás usado.
+  - **Los 4 runs de evidencia de `FIND-232` devuelven 404** (`37088714140`, `37089421873`, `37089581213`, `36093538630`): artefactos y logs borrados. La evidencia original ya no es re-derivable.
+  - **Suelo de ruido medido** del único log sobreviviente (`40592702083`, 3 sub-runs, **una** VM, **un** commit): `query_hybrid.p50` **34,2 %** / `p95` **42,2 %**, `query_vector.p50` **16,7 %** / `p95` 13,2 %, ingest 5,8 %. El delta a atribuir (+15,7 %/+19,3 % vector, +10,7 %/+8,5 % hybrid) **cabe dentro del ruido de una sola máquina** → **no atribuible** (ni al código ni a la VM).
+  - **Calibración CPU rechazada**: ≈+1 min/corrida recurrente (+15-22 % del job) y normaliza solo 1 de 3 regímenes (`insert.p99` es fsync-bound 16,8x y todo cruza PyO3); además los runs multi-VM contra los que se validaría están borrados.
+- **Escalada opcional documentada (sin código):** 1 dispatch en `main` con `ab_ref=114f55f0`, 11-15 min, comando en `BENCHMARKS.md` §20.
+- **Commits:** `5eaf978c8` + `79d6ca1ca`
+- **Review:** P2-01 **degradado** (worker leaf sin fork a reviewer); waiver registrado (owner=orquestador, ref=plan §6.c). `verify_changed.ps1` no completó por lock de `target/` con dos workers Rust en paralelo — gate Rust no aplicable a un diff docs-only.
+- **Colaterales registrados:** `docs/specs/SPEC.md:140` describe el gate como operativo cuando ya no existe en `develop`; la banda *warn* (15 %) está por debajo del suelo intra-job y no tiene piso absoluto.
