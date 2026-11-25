@@ -116,7 +116,7 @@ Presupuestar **11-15 min** y calibrar las bandas A/B en la misma campaña con un
   4. `gh run view 40592702083 --log` → 3 sub-runs extraídos; spread calculado a mano (tabla §Noise floor).
   5. `gh run view {37088714140,37089421873,37089581213,36093538630}` → `HTTP 404` en los cuatro.
   6. `git ls-tree develop --name-only .github/workflows/` → sin entrada `perf`; `git show main:benchmarks/python_baseline.json` → metadata de re-baseline 2026-10-03 presente.
-  7. `node scripts/docs/check-links.mjs` → exit 0 (0 broken); `node scripts/docs/check-docs.mjs` → exit 0; `npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml` → 0 issues; `dev-tools/verify_changed.ps1` → ver §RESULTADO.
+  7. `node scripts/docs/check-links.mjs` → exit 0 (0 broken); `node scripts/docs/check-docs.mjs` → exit 0; `npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml` → 0 issues; `pwsh dev-tools/verify_changed.ps1` → **ALL 5 PASS** (fmt · check · clippy · clippy-tests · docs-coverage, 199 ficheros afectados; corrió sobre un árbol que además llevaba el WIP ajeno de `src/executor.rs`).
 - **Regla 11:** no se modificó ninguna cifra medida existente; el bloque nuevo es 100% datos con comando + entorno. §11 (baseline canónico, `FIND-720`) intacto.
 - **Veredicto: approve (DEGRADADO — sin fork).** Este worker es leaf (`subagent: deny`): no puede forkear `vanta-review`. Waiver: `owner: orquestador` · `ref: docs/dev/plans/2026-11-23-release-v0.10.0-gates.md §6.c` — la evidencia mecánica de arriba queda para spot-check. Sustantivamente: (c) es la única opción sin coste recurrente y la que los datos soportan; la atribución se declara no-atribuible con aritmética explícita, no con una opinión; el cambio es docs-only y no toca ninguna cifra medida ni el baseline de `FIND-720`.
 
@@ -138,7 +138,7 @@ PROXIMO_STEP: ninguno (escalada opcional: 1 dispatch A/B en main, 11-15 min, com
 COMMIT_HASH: 5eaf978c8
 ARCHIVOS: docs/user/operations/BENCHMARKS.md · docs/dev/tasks/FIND-233.md
 VERIFY_CONTRATO: pasa (tabla de auditoría + noise floor + aritmética + decisión con coste; check-links 0 broken · check-docs exit 0 · markdownlint 0 issues · pre-commit: markdownlint Passed + staged-area gate + actionlint ok)
-BLOQUEO: ninguno (verify_changed.ps1 no completó: lock de `target/` por workers Rust en paralelo — gate Rust no aplicable a un diff docs-only, marcado como degradado)
+BLOQUEO: ninguno (verify_changed.ps1 → ALL 5 PASS: fmt · check · clippy · clippy-tests · docs-coverage sobre 199 ficheros afectados; el gate Rust corrió sobre un árbol que incluía el WIP ajeno de src/executor.rs)
 GATES_EVALUADOS: P:no D:no V:no C:disparado | P: contrato explícito; D: sin símbolos públicos nuevos; V: verify sin fallas; C: colateral SPEC.md:140 stale
 SKILLS_CARGADAS: ci-cd-and-automation · git-workflow-and-versioning · performance-optimization (pinned SDP) · doubt-driven-development · documentation-skill (+ campaign-executor/progreso base)
 ```
