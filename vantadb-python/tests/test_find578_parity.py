@@ -106,7 +106,11 @@ def test_batch_request_carries_temporal_params(tmp_path):
     db = _db()
     db.import_file(str(_write_temporal_fixture(tmp_path)))
 
-    for kwargs in ({"as_of_ms": 1000}, {"as_of_ms": 2000}, {"valid_window": {"from_ms": 1000, "to_ms": 2000}}):
+    for kwargs in (
+        {"as_of_ms": 1000},
+        {"as_of_ms": 2000},
+        {"valid_window": {"from_ms": 1000, "to_ms": 2000}},
+    ):
         sequential = sorted(
             h.key for h in db.search("tt", [1.0, 0.0], top_k=10, **kwargs)
         )
@@ -151,7 +155,11 @@ def test_batch_request_carries_exclude_superseded():
         return sorted(
             h.key
             for h in db.search_batch_requests(
-                [vanta.SearchRequest(namespace="ns", query_vector=[1.0, 0.0, 0.0], **req_kwargs)]
+                [
+                    vanta.SearchRequest(
+                        namespace="ns", query_vector=[1.0, 0.0, 0.0], **req_kwargs
+                    )
+                ]
             )[0]
         )
 
@@ -171,7 +179,11 @@ def test_batch_request_carries_min_confidence():
         return sorted(
             h.key
             for h in db.search_batch_requests(
-                [vanta.SearchRequest(namespace="ns", query_vector=[1.0, 0.0, 0.0], **req_kwargs)]
+                [
+                    vanta.SearchRequest(
+                        namespace="ns", query_vector=[1.0, 0.0, 0.0], **req_kwargs
+                    )
+                ]
             )[0]
         )
 
@@ -275,7 +287,9 @@ def test_put_batch_confidence_per_record_and_batch_default():
 def test_put_batch_confidence_out_of_range_rejected():
     db = _db()
     with pytest.raises(vanta.ValidationError, match="confidence"):
-        db.put_batch([{"namespace": "ns", "key": "k", "payload": "p", "confidence": 2.0}])
+        db.put_batch(
+            [{"namespace": "ns", "key": "k", "payload": "p", "confidence": 2.0}]
+        )
     with pytest.raises(vanta.ValidationError, match="confidence"):
         db.put_batch([{"namespace": "ns", "key": "k", "payload": "p"}], confidence=9.9)
 
