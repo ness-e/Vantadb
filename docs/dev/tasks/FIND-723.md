@@ -254,6 +254,93 @@ del generador no coincide con el de filas: 62→63) y el step 6 ya no pre-regist
 el veredicto. Opcional aplicado: nota en `ADR-0062` §Verification sobre
 `check-docs` rojo por ficheros untracked ajenos.
 
+## Implementación (worker, carril R) — `ADR-0062` §Migration surface, fila por fila
+
+> Segunda pasada sobre este ID: la decisión ya estaba cerrada arriba; esta
+> sección ejecuta las 11 filas del ADR. **Nada de la decisión se re-litigó.**
+
+**El plan quedó desactualizado y manda el ADR.** La fila `FIND-723` de
+`docs/dev/plans/2026-11-23-release-v0.10.0-gates.md:197` todavía dice
+"`u128`/`i64` como string en el AST"; el ADR `caff66108` la acota: solo los 6
+campos `u128`, `Int` sigue numérico con su límite fijado (D2). Ejecutado según
+el ADR.
+
+| # | Artefacto | Hecho | Evidencia |
+|---|---|---|---|
+| 1 | `src/query.rs` (6 campos) | 6 atributos `serialize_with = "crate::sdk::types::u128_serde::serialize"` (reuso de API-01, sin helper nuevo, sin `pub` nuevo) | `rg -c u128_serde src/query.rs` → 6 |
+| 2 | `src/parser/mod.rs::tests::test_ast_json_projection_shape` | **no se tocó**; cobertura **nueva** en `test_ast_json_projection_ids_are_decimal_strings` (5 variantes / 6 campos, `u128::MAX` incluido) | `cargo nextest … -E 'test(ast_json)'` → 4/4 ✅ |
+| 3 | `tests/api/public-api.txt` | **sin diff** | ver §Verificación de implementación |
+| 4 | `docs/api/IQL.md` §AST JSON | regla de ids + ejemplo `Insert`/`Delete`; `:523` matizado (exacto en Rust/Python, lossy en JS > 2^53) | markdownlint 0 issues |
+| 5 | `vantadb-python/tests/test_find156_ast_json.py` | `thread_id == "1"` + variantes `Delete`/`Update`/`Insert`/`Relate` | ver §Verificación de implementación |
+| 6 | `docs/api/PYTHON_SDK.md:960-962` | **sin retracción** (era correcto); verificado: ningún ejemplo del AST muestra un id numérico | `rg -n 'node_id' docs/api/PYTHON_SDK.md` → 6 hits, **ninguno** un ejemplo de AST (tabla `:1355`, prosa `:1376`, `:932`) |
+| 7 | `vantadb-wasm/src/lib.rs:1860-1862` + `src/vantadb_wasm.d.ts:144-146` | caveat acotado a `Int`; ids declarados bit-exactos. `pkg/` **no se commitea** (gitignored, 0 archivos trackeados) | `git ls-files vantadb-wasm/pkg` → 0 |
+| 8 | `vantadb-ts/src/__tests__/find156.test.ts` | **añadido** `serializes u128 ids as decimal strings`; la aserción de `Int` (103-115 → ahora 116+) **intacta** | `npx vitest run src/__tests__/find156.test.ts` |
+| 9 | `vantadb-ts/src/types.ts:48-54` | caveat acotado a `Int`; ids exactos | `npx tsc --noEmit` |
+| 10 | `docs/api/TS_SDK.md:551-555` | caveat acotado a `Int`; ids exactos | markdownlint 0 issues |
+| 11 | `docs/api/BINDINGS_NAMESPACES.md:48` | **sin edición** — la regla sigue cierta y el AST ahora la cumple | verificado, 0 cambios |
+
+`vantadb-node`: n/a (no expone `parse()`).
+
+**Hallazgo no previsto por el ADR (lo dejó el RED):** `serde_json::to_value()`
+**falla** con `number out of range` para un `u128 > u64::MAX` — no es que el id
+se degrade a double, es que la proyección `Value` no puede ni representarlo.
+El canal que usan los bindings (`to_string` + `JSON.parse`) sí emitía los
+dígitos, así que el síntoma medido en FIND-156 era el correcto; esto solo
+refuerza el motivo y añade un consumidor más que se rompía en silencio
+(`to_value` en Rust).
+
+### Verificación de implementación (medida)
+
+| Comando | Resultado |
+|---|---|
+| RED antes del fix: `cargo nextest run --profile audit -p vantadb -E 'test(ast_json)'` | ❌ 3/4 — `serde_json::to_value` → `Error("number out of range")` para `123456789012345678901234` |
+| `cargo nextest run --profile audit -p vantadb -E 'test(ast_json)' --build-jobs 2` | ✅ 4/4 (GREEN) |
+| `cargo nextest run -p vantadb --test public_api --run-ignored ignored-only` | ✅ PASS — `tests/api/public-api.txt` **byte-idéntico**, 0 diff |
+| `cargo fmt --check` | ✅ 0 |
+| `cargo clippy -p vantadb --all-targets -- -D warnings` | ✅ 0 |
+| `npx tsc --noEmit` (`vantadb-ts`) | ✅ 0 |
+| `npx vitest run src/__tests__/find156.test.ts` | ✅ 9/9 (id string exacto + pin de `Int` intacto) |
+| `vantadb-python/.venv` + `maturin develop` → `pytest tests/test_find156_ast_json.py` | ✅ 9/9 |
+| `wasm-pack build --dev` (`pkg/` estaba stale — gitignored) | ✅ regenerado |
+| `node scripts/docs/check-links.mjs` | ✅ 0 broken |
+| `node scripts/docs/gen-index.mjs --check` | ❌ solo por `docs/dev/tasks/FIND-724.md` (untracked, carril ajeno) |
+| `node scripts/docs/check-docs.mjs` | ❌ exit 1 — **única** entrada de gating: `docs/dev/tasks/FIND-721.md` (untracked, carril ajeno); `FIND-723.md`, `IQL.md` y `TS_SDK.md` no aparecen |
+| markdownlint-cli2 sobre `IQL.md` + `TS_SDK.md` | ✅ 0 issues |
+| `pwsh dev-tools/ocr-review.ps1` + `ocr delegate rule` | ✅ preview + rule groups (Rust core / JS ecosystem) |
+
+`pkg/`, `pkg-node/` y `pkg-web/` son artefactos gitignored
+(`git ls-files vantadb-wasm/pkg` → 0): el rebuild hacía falta para correr vitest
+contra el core nuevo, no forma parte del commit.
+
+**Contaminación de carril (medida, no maquillada):** el worktree tenía cambios
+sin commitear de otros dos carriles (`src/storage/engine/insert.rs`,
+`src/wal.rs`, `src/utils/fs.rs`, `snapshot_quiesce.rs` — FIND-724 / FIND-721).
+`-p vantadb` compila el crate entero, así que los verdes de arriba se midieron
+**con esas ediciones presentes**. No son míos, no entran al commit, y el
+`public-api` + `ast_json` no tocan esos módulos.
+
+### Review P2-01 (implementación) — `vanta-review`, contexto fresco
+
+**Ronda 1: 🔴 CHANGES REQUIRED** — 1 Required (una frase de doc) + 2 Optional +
+2 nits. El slice de código pasó limpio: 6 atributos con el helper correcto
+(`u128_serde::serialize`, no `serialize_opt`), el test prueba *string* y no
+"parece string", `u128::MAX` es id legal en la gramática (verificado fuera del
+test), `Int` intacto, el ejemplo de `IQL.md` validado campo por campo contra el
+binding Python real, y las 11 filas del ADR verificadas una por una incluidas
+las *verify-only*. El reviewer re-ejecutó `ast_json` → 4/4.
+
+| # | Hallazgo | Resolución |
+|---|---|---|
+| **R1 (Required)** | `TS_SDK.md:556` ofrecía un escape hatch inexistente: "decode with a bigint-aware parser". `parse()` devuelve un objeto **ya decodificado** y el acceso raw-text (O7) no existe en el código (`parse_ast_json`/`ast_text`/`raw_json` → 0 hits) | Reemplazado por: "`parse()` returns an already-decoded object, so it cannot preserve such a literal at all; a raw-text accessor is not available yet (ADR-0062, option O7)" |
+| R2 (Optional) | `IQL.md:538` nombraba solo `test_ast_json_projection_shape`; el pin de ids es otro test | Añadido el nombre del test de ids |
+| R3 (Optional) | `PYTHON_SDK.md:961-962` no dice que los ids **llegan como string** | **No aplicado**: la fila 6 del ADR es *verify-only* ("no retraction needed"). Queda como candidato a fila `FIND-*` |
+| R4 (Optional) | Entrada en `CHANGELOG.md` `[Unreleased] → Changed` | **No aplicado**: AGENTS.md Regla 7 prohíbe tocar el CHANGELOG a mano (lo mantiene release-plz) |
+| R5 (nit) | El comentario del test prometía un guard estructural que el test no da | Comentario corregido: "This is a pin, not a structural guard — a NEW `u128` field would not be covered" |
+| R6 (nit) | La evidencia de la fila 6 citaba `rg → 0 ejemplos`, que es falso (hay 6 hits) | Evidencia reescrita con lo que el comando realmente sostiene |
+
+El propio dictamen dice que con el fix de R1 pasa a ✅ **sin re-review de
+código** (doc-only) — no se pidió segunda ronda.
+
 ## SDP
 
 `SDP:` campaign-executor, progreso, ci-cd-and-automation,

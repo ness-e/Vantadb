@@ -45,12 +45,13 @@ export type NodeId = number | bigint;
  * Declared once (`vantadb-wasm`) and re-exported here so the two packages
  * cannot drift.
  *
- * **Numeric caveat (JS only):** the WASM layer parses the core's JSON text with
- * `JSON.parse`, so every number is an IEEE-754 double. `u128` node ids and
- * `Int` literals above 2^53 (`9_007_199_254_740_991`) lose precision through
- * this surface — the same limitation `PYTHON_SDK.md` documents for any
- * double-decoding tool. Python is unaffected (`json.loads` keeps arbitrary
- * precision). Keep large ids as strings when re-emitting an AST.
+ * **Numeric caveat (JS only):** ids are safe — the core emits the six `u128`
+ * id fields (`node_id`, `source_id`, `target_id`, `thread_id`) as decimal
+ * strings (ADR-0062), so they cross `JSON.parse` bit-exact; keep them as
+ * strings and never `Number()` them. `Int` literals above 2^53
+ * (`9_007_199_254_740_991`) still lose precision through this surface, because
+ * every JSON *number* is an IEEE-754 double. Python is unaffected
+ * (`json.loads` keeps arbitrary precision).
  */
 export type { AstJson } from "vantadb-wasm";
 

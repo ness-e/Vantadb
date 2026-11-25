@@ -89,6 +89,20 @@ def test_parse_handles_non_query_variants():
     """The AST is the whole statement enum, not just ``Query``."""
     ast = _db().parse('INSERT MESSAGE SYSTEM "hi" TO THREAD#1')
     assert "InsertMessage" in ast
+    # ADR-0062: u128 ids are decimal strings on every wire, Python included.
+    # The value is exact (``json.loads``) but the *type* is now a string.
+    assert ast["InsertMessage"]["thread_id"] == "1"
+
+
+def test_parse_serializes_u128_ids_as_decimal_strings():
+    """ADR-0062: the six u128 id fields never cross as JSON numbers."""
+    big = "123456789012345678901234"
+    assert _db().parse(f"DELETE NODE#{big}")["Delete"]["node_id"] == big
+    assert _db().parse(f"UPDATE NODE#{big} SET a = 1")["Update"]["node_id"] == big
+    insert = _db().parse(f'INSERT NODE#{big} TYPE Person {{ name: "x" }}')
+    assert insert["Insert"]["node_id"] == big
+    relate = _db().parse(f'RELATE NODE#{big} --"knows"--> NODE#1')
+    assert (relate["Relate"]["source_id"], relate["Relate"]["target_id"]) == (big, "1")
 
 
 def test_parse_is_pure_and_works_on_a_closed_client():

@@ -1857,9 +1857,13 @@ impl Client {
     /// variants as arrays and the additive `null` fields — with no hand-written
     /// projection here.
     ///
-    /// **Not exact for numbers:** `JSON.parse` yields IEEE-754 doubles, so
-    /// `u128` node ids and `Int` literals above 2^53 lose precision
-    /// (`AstJson` in `vantadb_wasm.d.ts`).
+    /// **Ids are exact:** the six `u128` id fields (`node_id`, `source_id`,
+    /// `target_id`, `thread_id`) serialize as decimal strings (ADR-0062), so
+    /// they survive `JSON.parse` bit-exact — keep them as strings.
+    ///
+    /// **`Int` literals are not:** a JSON *number* becomes an IEEE-754 double,
+    /// so `Int` values above 2^53 lose precision (`AstJson` in
+    /// `vantadb_wasm.d.ts`).
     ///
     /// Pure: never touches the engine, so it works on a closed client.
     pub fn parse(&self, query: &str) -> Result<JsValue, JsValue> {

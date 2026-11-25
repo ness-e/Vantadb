@@ -37,7 +37,6 @@
 // target (pkg-web/) still exposes them and ships its own wasm-bindgen
 // .d.ts, so consumers of that target are covered separately.
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Domain types (the public surface for TypeScript consumers)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,9 +140,11 @@ export type SparseVector = Record<string, number>;
  * JSON). Untyped in depth on purpose: the variants are the core's serde
  * representation, so mirroring them here would create a second source of truth.
  *
- * **Numeric caveat:** values cross into JS through `JSON.parse`, so every
- * number is an IEEE-754 double. `u128` node ids and `Int` literals above 2^53
- * lose precision here (Python, which decodes with `json.loads`, does not).
+ * **Numeric caveat:** the six `u128` id fields (`node_id`, `source_id`,
+ * `target_id`, `thread_id`) are decimal strings (ADR-0062), so they cross
+ * `JSON.parse` bit-exact — keep them as strings. `Int` literals above 2^53
+ * lose precision here, because every JSON *number* is an IEEE-754 double
+ * (Python, which decodes with `json.loads`, does not).
  */
 export type AstJson = Record<string, unknown>;
 

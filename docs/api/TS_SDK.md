@@ -548,11 +548,14 @@ every grammar addition.
 Parsing never touches the engine, so it cannot write and it is the one method
 that keeps working after `close()`.
 
-**Numeric caveat:** the value crosses into JS through `JSON.parse`, so every
-number is an IEEE-754 double. `u128` node ids and `Int` literals above `2^53`
-lose precision through this surface (the same limitation `PYTHON_SDK.md`
-documents for any double-decoding tool; Python itself is exact). Keep large ids
-as strings when re-emitting an AST. Parse failures throw `DbError` with
+**Numeric caveat:** ids are safe — the core emits the six `u128` id fields as
+decimal strings (ADR-0062), so they cross `JSON.parse` bit-exact; keep them as
+the strings the core returns and never `Number()` them. **`Int` literals above
+`2^53` still lose precision** through this surface, because every JSON *number*
+becomes an IEEE-754 double (Python, which decodes with `json.loads`, is exact).
+`parse()` returns an already-decoded object, so it cannot preserve such a
+literal at all; a raw-text accessor is not available yet (ADR-0062, option O7).
+Parse failures throw `DbError` with
 `code: "VANTADB_VALIDATION_ERROR"`; the message is the parser's own text and
 does **not** carry `line`/`col` (see [IQL.md § Error Handling](./IQL.md#error-handling)).
 

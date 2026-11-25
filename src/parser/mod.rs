@@ -1575,6 +1575,51 @@ mod tests {
         assert_eq!(v["Query"]["offset"], serde_json::Value::Null);
     }
 
+    #[test]
+    fn test_ast_json_projection_ids_are_decimal_strings() {
+        // ADR-0062 (FIND-723): the six `u128` id fields cross the JSON wire as
+        // decimal strings. A JSON number is an IEEE-754 double in every JS
+        // decoder, and an id must be bit-exact to be usable (it goes back into
+        // `delete`/`relate`). One case per id-bearing variant (5 variants, 6
+        // fields): dropping the attribute from any of the six fails here.
+        // This is a pin, not a structural guard — a NEW `u128` field would not
+        // be covered until a case is added for it.
+        const SOURCE: &str = "123456789012345678901234";
+        const TARGET: &str = "987654321098765432109876";
+        const THREAD: &str = "340282366920938463463374607431768211455"; // u128::MAX
+
+        fn ast_json(iql: &str) -> serde_json::Value {
+            let (_, stmt) =
+                parse_statement(iql).unwrap_or_else(|e| panic!("must parse {iql}: {e}"));
+            serde_json::to_value(&stmt).expect("statement must serialize to JSON")
+        }
+
+        // Insert / Update / Delete carry `node_id`.
+        let v = ast_json(&format!(
+            "INSERT NODE#{SOURCE} TYPE Person {{ name: \"x\" }}"
+        ));
+        assert_eq!(v["Insert"]["node_id"].as_str(), Some(SOURCE), "{v}");
+        let v = ast_json(&format!("UPDATE NODE#{SOURCE} SET name = \"x\""));
+        assert_eq!(v["Update"]["node_id"].as_str(), Some(SOURCE), "{v}");
+        let v = ast_json(&format!("DELETE NODE#{SOURCE}"));
+        assert_eq!(v["Delete"]["node_id"].as_str(), Some(SOURCE), "{v}");
+
+        // Relate carries `source_id` and `target_id`.
+        let v = ast_json(&format!(
+            "RELATE NODE#{SOURCE} --\"knows\"--> NODE#{TARGET}"
+        ));
+        assert_eq!(v["Relate"]["source_id"].as_str(), Some(SOURCE), "{v}");
+        assert_eq!(v["Relate"]["target_id"].as_str(), Some(TARGET), "{v}");
+
+        // InsertMessage carries `thread_id`.
+        let v = ast_json(&format!("INSERT MESSAGE SYSTEM \"hi\" TO THREAD#{THREAD}"));
+        assert_eq!(
+            v["InsertMessage"]["thread_id"].as_str(),
+            Some(THREAD),
+            "{v}"
+        );
+    }
+
     // ─── LIMIT / OFFSET pagination (WIRE-12) ─────────────────────
 
     #[test]

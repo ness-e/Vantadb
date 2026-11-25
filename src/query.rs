@@ -36,6 +36,10 @@ pub enum Statement {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct InsertStatement {
     /// Node ID (0 = auto-assign).
+    ///
+    /// Serializes as a decimal string (ADR-0062): a JSON number is an IEEE-754
+    /// double in most decoders and an id must be bit-exact to be usable.
+    #[serde(serialize_with = "crate::sdk::types::u128_serde::serialize")]
     pub node_id: u128,
     /// Entity type string.
     pub node_type: String,
@@ -49,6 +53,9 @@ pub struct InsertStatement {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct UpdateStatement {
     /// Node ID to update.
+    ///
+    /// Serializes as a decimal string (ADR-0062).
+    #[serde(serialize_with = "crate::sdk::types::u128_serde::serialize")]
     pub node_id: u128,
     /// Relational field values to set.
     pub fields: BTreeMap<String, FieldValue>,
@@ -60,6 +67,9 @@ pub struct UpdateStatement {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct DeleteStatement {
     /// Node ID to delete.
+    ///
+    /// Serializes as a decimal string (ADR-0062).
+    #[serde(serialize_with = "crate::sdk::types::u128_serde::serialize")]
     pub node_id: u128,
 }
 
@@ -67,8 +77,14 @@ pub struct DeleteStatement {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RelateStatement {
     /// Source node ID.
+    ///
+    /// Serializes as a decimal string (ADR-0062).
+    #[serde(serialize_with = "crate::sdk::types::u128_serde::serialize")]
     pub source_id: u128,
     /// Target node ID.
+    ///
+    /// Serializes as a decimal string (ADR-0062).
+    #[serde(serialize_with = "crate::sdk::types::u128_serde::serialize")]
     pub target_id: u128,
     /// Edge label.
     pub label: String,
@@ -84,6 +100,9 @@ pub struct InsertMessageStatement {
     /// Message content.
     pub content: String,
     /// Thread ID this message belongs to.
+    ///
+    /// Serializes as a decimal string (ADR-0062).
+    #[serde(serialize_with = "crate::sdk::types::u128_serde::serialize")]
     pub thread_id: u128,
 }
 

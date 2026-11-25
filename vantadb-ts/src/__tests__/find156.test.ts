@@ -100,6 +100,19 @@ describe("FIND-156: parse() = the core AST JSON", () => {
     expect(closed.parse(QUERY)).toEqual(EXPECTED);
   });
 
+  it("serializes u128 ids as decimal strings (ADR-0062)", () => {
+    // The other half of the numeric surface: ids must survive `JSON.parse`
+    // bit-exact, which is only possible as strings. Per-variant coverage of the
+    // six fields lives in the core (`test_ast_json_projection_ids_are_decimal_strings`);
+    // this pins the WASM channel.
+    const big = "123456789012345678901234";
+    const ast = db.parse(`DELETE NODE#${big}`) as unknown as {
+      Delete: { node_id: unknown };
+    };
+    expect(typeof ast.Delete.node_id).toBe("string");
+    expect(ast.Delete.node_id).toBe(big);
+  });
+
   it("pins the documented >2^53 precision limitation", () => {
     // FIND-156 review, Critical-1: the value crosses into JS via JSON.parse, so
     // every number is an IEEE-754 double. This test LOCKS that known limitation

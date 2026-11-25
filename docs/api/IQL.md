@@ -520,12 +520,25 @@ tagged enums with `snake_case` fields, the same convention as the SDK
   `{"Select": {...}}`, …;
 - tuple variants become arrays: `Condition::Relational(field, op, value)` →
   `{"Relational": ["edad", "Eq", {"Int": 28}]}`;
-- `Int` literals serialize as `{"Int": 28}` (i64, exact), floats as
-  `{"Float": 1.5}`.
+- **ids serialize as decimal strings** (ADR-0062). The six id fields —
+  `Insert.node_id`, `Update.node_id`, `Delete.node_id`, `Relate.source_id`,
+  `Relate.target_id`, `InsertMessage.thread_id` — are `u128`, so they always
+  cross the wire as a decimal string, never as a JSON number:
+  `{"Delete": {"node_id": "123456789012345678901234"}}`. A JSON number is an
+  IEEE-754 double in most decoders, and an id must be bit-exact to be usable —
+  it is fed back to `delete`/`relate`, so a truncated id silently addresses the
+  wrong node. Keep ids as strings (`BigInt`/decimal parser if you need
+  arithmetic); do not `parseInt`/`Number()` them;
+- `Int` literals serialize as `{"Int": 28}` (i64): exact in Rust and Python,
+  **lossy through JavaScript decoders above `2^53`**
+  (`Number.MAX_SAFE_INTEGER`) because `JSON.parse` yields doubles — the same
+  limit `TS_SDK.md` documents. Floats serialize as `{"Float": 1.5}`.
 
 Rust consumers serialize the `Statement` returned by
-`vantadb::parser::parse_statement` with `serde_json`. The shape is pinned by
-`src/parser/mod.rs::tests::test_ast_json_projection_shape`.
+`vantadb::parser::parse_statement` with `serde_json`. The general shape is
+pinned by `src/parser/mod.rs::tests::test_ast_json_projection_shape`; the
+decimal-string ids by its sibling
+`test_ast_json_projection_ids_are_decimal_strings`.
 
 Example — `FROM Person p WHERE edad == 28 FETCH name`:
 
@@ -552,6 +565,23 @@ Example — `FROM Person p WHERE edad == 28 FETCH name`:
 
 `LIMIT`/`OFFSET` serialize as `limit`/`offset` (`null` when absent), e.g.
 `FROM Doc LIMIT 5 OFFSET 2` → `"limit": 5, "offset": 2`.
+
+Example — ids travel as decimal strings (ADR-0062), for
+`INSERT NODE#123456789012345678901234 TYPE Person { name: "Ada" }`:
+
+```json
+{
+  "Insert": {
+    "node_id": "123456789012345678901234",
+    "node_type": "Person",
+    "fields": { "name": { "String": "Ada" } },
+    "vector": null
+  }
+}
+```
+
+`DELETE NODE#123456789012345678901234` →
+`{"Delete": {"node_id": "123456789012345678901234"}}`.
 
 Aggregation fields serialize additively on `SELECT`
 (`SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category` →
