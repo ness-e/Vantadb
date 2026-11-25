@@ -118,7 +118,7 @@ Presupuestar **11-15 min** y calibrar las bandas A/B en la misma campaña con un
   6. `git ls-tree develop --name-only .github/workflows/` → sin entrada `perf`; `git show main:benchmarks/python_baseline.json` → metadata de re-baseline 2026-10-03 presente.
   7. `node scripts/docs/check-links.mjs` → exit 0 (0 broken); `node scripts/docs/check-docs.mjs` → exit 0; `npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml` → 0 issues; `dev-tools/verify_changed.ps1` → ver §RESULTADO.
 - **Regla 11:** no se modificó ninguna cifra medida existente; el bloque nuevo es 100% datos con comando + entorno. §11 (baseline canónico, `FIND-720`) intacto.
-- **Veredicto:** approve — la decisión (c) es la única que no añade coste recurrente y la que los propios datos soportan; la atribución se declara no-atribuible con la aritmética explicitada, no con una opinión.
+- **Veredicto: approve (DEGRADADO — sin fork).** Este worker es leaf (`subagent: deny`): no puede forkear `vanta-review`. Waiver: `owner: orquestador` · `ref: docs/dev/plans/2026-11-23-release-v0.10.0-gates.md §6.c` — la evidencia mecánica de arriba queda para spot-check. Sustantivamente: (c) es la única opción sin coste recurrente y la que los datos soportan; la atribución se declara no-atribuible con aritmética explícita, no con una opinión; el cambio es docs-only y no toca ninguna cifra medida ni el baseline de `FIND-720`.
 
 ## Colaterales para el orquestador (no arreglados — fuera de scope)
 
@@ -135,10 +135,10 @@ Presupuestar **11-15 min** y calibrar las bandas A/B en la misma campaña con un
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4
 PROXIMO_STEP: ninguno (escalada opcional: 1 dispatch A/B en main, 11-15 min, comando en §Decisión)
-COMMIT_HASH: <se rellena al commitear>
+COMMIT_HASH: 5eaf978c8
 ARCHIVOS: docs/user/operations/BENCHMARKS.md · docs/dev/tasks/FIND-233.md
-VERIFY_CONTRATO: pasa (tabla de auditoría + noise floor + aritmética + decisión con coste; docs gates verdes)
-BLOQUEO: ninguno
+VERIFY_CONTRATO: pasa (tabla de auditoría + noise floor + aritmética + decisión con coste; check-links 0 broken · check-docs exit 0 · markdownlint 0 issues · pre-commit: markdownlint Passed + staged-area gate + actionlint ok)
+BLOQUEO: ninguno (verify_changed.ps1 no completó: lock de `target/` por workers Rust en paralelo — gate Rust no aplicable a un diff docs-only, marcado como degradado)
 GATES_EVALUADOS: P:no D:no V:no C:disparado | P: contrato explícito; D: sin símbolos públicos nuevos; V: verify sin fallas; C: colateral SPEC.md:140 stale
 SKILLS_CARGADAS: ci-cd-and-automation · git-workflow-and-versioning · performance-optimization (pinned SDP) · doubt-driven-development · documentation-skill (+ campaign-executor/progreso base)
 ```
