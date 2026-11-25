@@ -964,3 +964,21 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
   - `enforcement: active` y `bypass_actors` intactos en ambos. Verificado por `gh api` posterior.
 - **Evidencia del daño que esto causaba:** ese mismo día entraron a `develop` 42 enlaces rotos, 24 violaciones de schema, un secreto en prosa y 33 ficheros dañados por el stamper **sin que nada se pusiera rojo**; se descubrieron mirando el CI a mano.
 - **Commits:** sin commit (cambio de configuración del repo, no de código).
+
+### Typecheck y lint de `vantadb-ts` detrás de un gate (`FIND-729`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** `npx tsc --noEmit` fallaba con 4 errores (`AstJson`, `ListOptionsInput`, `MemoryRecordInput`, `SearchRequestInput`) y `npm run lint` con 6. La causa de los 4 no era código: `vantadb-wasm/pkg/vantadb_wasm.d.ts` (artefacto gitignored, R-2 de `js-ecosystem.md`) tenía 390 líneas —el `.d.ts` crudo de `wasm-pack`— frente a las 956 de la fuente escrita a mano, y nadie corría `dev-tools/build-wasm-types.mjs` en local. La causa de los 6 es **de gate, no de código**: el único job que corre `tsc`+`lint` es `release-npm-wasm.yml:100-110` y dispara **sólo en `pull_request`**, así que los pushes directos a `develop` lo esquivaban.
+- **Resultado:** ✅ Tipos regenerados con el script del repo (no a mano); los 6 de eslint resueltos **en código y sin un solo `eslint-disable`** (3 parámetros de paridad con `argsIgnorePattern: "^_"`, 1 import redundante, 2 casts `any` que el `.d.ts` ya tipa). El `pre-push` ahora corre `build-wasm-types --check` (bloque propio con gatillo `^(vantadb-wasm|vantadb-ts)/`), `tsc --noEmit` y `npm run lint` además de `npm test`.
+- **Verificación:** `tsc` 0 · `lint` 0 · `npm test` 26 ficheros / 394 · `--check` 0 · `check-links`/`check-docs`/`gen-index --check` 0 · `verify_changed.ps1` ALL 5 PASS. Hook probado en worktree descartable con push simulado: rango `vantadb-ts/` corre las 4; rango `vantadb-wasm/` solo corre el `--check`; `.d.ts` desincronizado, `TS2322` y var sin usar → **BLOCKED** con mensaje accionable.
+- **Coste añadido al `pre-push`:** ≈ **12 s** (1,3 + 4,4 + 6,5); 1,3 s en un push que solo toca WASM.
+- **Commit:** `ecc2df930`
+- **Deuda:** el agujero de fondo sigue en `release-npm-wasm.yml` (gatillo `pull_request` sin `push: branches: [develop]`).
+
+### La aserción del corpus TSan no verificaba nada (`FIND-730`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** El step `Assert the TSan partition was actually exercised` salía `success` con `SUMMARY` vacío (`partition 1/4:  (selected == executed)`) en el run `45564374043`: nunca parseó un número, así que sus dos guardas (aborto `X/Y`, selección `0`) eran inertes.
+- **Resultado:** ✅ Tres causas encadenadas cerradas: (1) el log del `tee` trae ANSI (`<ESC>[1m821<ESC>[0m tests run`) → se limpia con `sed 's/\x1b\[[0-9;]*m//g'`; (2) el step corría como `/usr/bin/bash -e {0}` **sin `pipefail`** (el comentario del YAML afirmaba lo contrario) → `shell: bash` + `set -euo pipefail` **en el propio `run:`**, sin depender de herencia; (3) `[ "" -eq 0 ]` dentro de un `if` está exento de `-e` y caía al `echo` verde → `[ -z "$SUMMARY" ]` con `::error::` y `exit 1`. Extra del review: el conteo se extrae **solo** de la línea de `Summary` en dos etapas, para que un test que imprima `N tests run` en la sección de FAILURES no gane el `tail -1`.
+- **Verificación:** `actionlint` 0 · script extraído del YAML (no una copia) contra **6 fixtures**: log real reconstruido de la partición 1/4 (`821 tests run`, exit 0), log vacío (exit 1), log sin summary (exit 1), `0 tests run` con ANSI (exit 1), control con `set -eu` (exit 1) y **señuelo `9999 tests run` al final** → sigue dando 821. `gen-index --check` 0 · `check-links` 0 · `check-docs` all clear.
+- **Commit:** `98e752079`
+- **Deuda declarada:** el caso `X/Y` (aborto) sigue sin fixture real (ninguna partición aborta desde `FIND-714`); `suppression hits: 0` en la corrida real, así que las dos entradas de `tsan-suppressions.txt` podrían estar muertas y se evalúan con el run verde completo; el `sed` es GNU → en macOS fallaría cerrado.
+- **Nota de método:** probar el parser contra el *job log* da falso positivo (incluye el eco del script y las anotaciones `##[error]`). El fixture fiel es la sección del step de test, sin timestamp y con ANSI.
