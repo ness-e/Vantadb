@@ -437,7 +437,7 @@ Lectura: el `.node` nativo es ~3.3× más grande que el `.wasm` (4.5 MB vs 1.35 
 
 > **Guard:** `cargo bench -p vantadb --bench canonical_p99 --no-run` debe compilar sin error. Protege contra regresión de consumo (memoria/vec, p99 latency, heap) detectando cambios que rompen el bench canónico.
 
-**Baseline canónico (Regla 9):** `benches/canonical_p99.rs` — 100k vectores GloVe-100d (reales, normalizados) + 1000 queries held-out con ground truth exacta, insert + search p50/p95/p99 + recall@10. Desde 2026-10-29 reemplaza al corpus sintético seed-42 1536d (queries = dataset, recall optimista). Measured 2026-10-29 (Windows dev, `-j 1`): **insert 176.3 s · search p50 0.8036 / p95 1.1253 / p99 1.4446 ms · recall@10 0.9046** (machine-readable baseline `benchmarks/criterion_baseline.json`, vía `analyze`). §1 Stress Protocol remains the separate certified series (different scope — do not mix).
+**Baseline canónico (Regla 9):** `benches/canonical_p99.rs` — 100k vectores GloVe-100d (reales, normalizados) + 1000 queries held-out con ground truth exacta, insert + search p50/p95/p99 + recall@10. Desde 2026-10-29 reemplaza al corpus sintético seed-42 1536d (queries = dataset, recall optimista). Measured 2026-10-29 (Windows dev, `-j 1`): **insert 176.3 s · search p50 0.8036 / p95 1.1253 / p99 1.4446 ms · recall@10 0.9046**. That is a developer-machine measurement, **not** the comparator's baseline: the machine-readable baseline is the one the CI job persists for itself (see "Corpus and baseline identity" below). §1 Stress Protocol remains the separate certified series (different scope — do not mix).
 
 **Contrato consumo guard:**
 
@@ -450,9 +450,57 @@ Select-String -Path "dev-tools/verify.ps1" -Pattern "consumo guard" | Measure-Ob
 
 **Política anti-regresión:**
 - Cada PR que toque `src/index/`, `benches/`, `Cargo.toml` debe ejecutar `cargo bench -p vantadb --bench canonical_p99 --no-run` en CI (compile-gate, no timed run en fast gate).
-- Regresión p99 >10% vs baseline (`benchmarks/criterion_baseline.json` + canonical numbers above) requiere ADR o revert (Regla 9 — medir antes/después).
-- **Enforcement status (Q5, owner-open):** the `>10%` policy is EVALUATED in `bench-canonical-p99-informational.yml` but never blocks the PR; on regression the workflow opens a `benchmark, regression` issue (the contract's "informational-opens-issue" form). Promoting it to a blocking gate is owner decision Q5 — **do not change without OK**.
+- Regresión p99 >10% vs baseline (the job's persisted baseline + the canonical numbers above) requiere ADR o revert (Regla 9 — medir antes/después). `benchmarks/criterion_baseline.json` is the baseline of the `certification.yml`/`analyze` families, **not** of `canonical_p99`.
+- **Enforcement status (Q5, owner-open):** the `>10%` policy is EVALUATED in `nightly.yml` job `bench-informational` but never blocks the PR; on regression the workflow opens a `benchmark, regression` issue (the contract's "informational-opens-issue" form). Promoting it to a blocking gate is owner decision Q5 — **do not change without OK**.
 - `dev-tools/verify.ps1` incluye `consumo guard` compile-check como step adicional (ponytail: solo `--no-run`, sin bench timed en gate rápido).
+
+### Corpus and baseline identity (FIND-720)
+
+`canonical_p99` labels embed the corpus they measured (`insert_100k_glove100d`,
+`insert_100k_1536d`). That is deliberate: a baseline may only be compared
+against the same corpus, because 1536d and 100d timings differ by roughly 4x and
+a cross-corpus comparison would report a fake improvement. So **which corpus a
+branch measures decides which baseline it can use**:
+
+| Branch | Corpus measured | Labels emitted | Baseline used by the comparator |
+|---|---|---|---|
+| `develop` (canonical since `2b821184a`, 2026-10-29) | GloVe-100 real, 100k x 100d | `canonical_p99/insert_100k_glove100d`, `canonical_p99/search_1000_queries_glove100d` | the job's own, persisted between runs |
+| `main` (until the next `develop` -> `main` merge) | synthetic seed-42, 100k x 1536d — **superseded** | `canonical_p99/insert_100k_1536d`, `canonical_p99/search_1000_queries_1536d` | its own, same mechanism |
+
+How that baseline works (`nightly.yml` job `bench-informational`):
+
+- **Where it lives.** `actions/cache` on `metricas/benchmarks/baseline`, key
+  `bench-p99-baseline-<run_id>` with `restore-keys: bench-p99-baseline-`. A
+  rolling cache: entries are immutable, so the unique key writes a new one and
+  the prefix restores the newest. Caches are branch-scoped, so `main`'s 1536d
+  lineage and `develop`'s GloVe-100d lineage cannot be compared against each
+  other.
+- **How it is seeded.** The first run per lineage finds no cache: every label
+  lands in `new_benchmarks`, and the job then promotes that same run's report to
+  become the baseline. Comparability — and therefore the ability to fire —
+  starts on the **next** run. Nothing is ever seeded from a developer machine
+  (§20 measured 1.7x-2.4x cross-VM spread; that is noise, not a baseline).
+- **When it is not re-seeded.** Any run that compared (stable, regression or
+  improvement) keeps the existing baseline. Adopting every run would make a slow
+  regression invisible by construction.
+- **Where the versioned file fits.** `benchmarks/criterion_baseline.json` is
+  written by `certification.yml` job `analyze` (`update-baseline` + commit) for
+  the `hnsw_pure` / `hybrid_queries` / `high_density_search` families. The
+  `canonical_p99` job never writes it and only reads it as a cold-cache seed.
+  Sharing one slot between two producers with disjoint labels is what made the
+  gate structurally silent (FIND-720: `stable_count: 0`, `has_regression: false`
+  on runs 44228761011 and 44228771621).
+- **Audit trail (Regla 11).** The baseline a run actually used is uploaded with
+  the `canonical-p99-results` artifact (30-day retention) next to the report and
+  the comparison JSON, so a published number can be traced to the baseline it
+  was compared against.
+
+`REGRESSION_THRESHOLD` in `scripts/bench_regression.py` is 5%. Two measured runs
+of the same 1536d bench, same branch, 5h20m apart, differ by 7-9%
+(`766984.4 -> 698162.6 ms` insert, `4260.7 -> 3958.1 ms` search) — above that
+threshold. So `stable_count > 0` is not the number to watch; **empty
+`new_benchmarks`** is. Read any `has_regression: true` against that spread
+before filing a finding.
 
 <!-- consumo guard: anchor for GOV-B3 verification — do not remove -->
 

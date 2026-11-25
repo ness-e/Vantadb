@@ -492,6 +492,28 @@ jobs:
           swap-mb: 6144
           free-disk: true
 
+      # FIND-720: this job needs its OWN baseline. `benchmarks/criterion_baseline.json`
+      # (the path `scripts/bench_regression.py` hardcodes, no --baseline flag) is
+      # written by certification.yml job `analyze`, which promotes the
+      # hnsw_pure/hybrid_queries family - disjoint from the canonical_p99 labels
+      # this job measures. Measured on runs 44228761011 / 44228771621 (2026-11-18):
+      # `.stable_count: 0`, `.new_benchmarks: [2]`, `.has_regression: false`, with
+      # `baseline_commit: "TBH-02-initial-seed"` proving the file WAS read and had
+      # 0 of 2 matching labels. `has_regression` was structurally unreachable.
+      #
+      # Rolling cache, not an artifact: cache restore matches by key prefix (the
+      # newest cache wins) and caches are branch-scoped, so `main`'s 1536d lineage
+      # and `develop`'s GloVe-100d lineage can never be compared against each
+      # other. The artifact lookup used by `critcmp-regression` would need
+      # pagination here (the newest 100 repo artifacts contain none of ours).
+      # The baseline actually used is still uploaded for audit (Regla 11).
+      - name: Restore canonical_p99 baseline (branch-scoped rolling cache)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: metricas/benchmarks/baseline
+          key: bench-p99-baseline-${{ github.run_id }}
+          restore-keys: bench-p99-baseline-
+
       # FIND-317: the perf-path gate (skip unless src/index|src/storage|benches
       # changed) was removed with the PR trigger it guarded - it is unreachable
       # on schedule/dispatch and would silently lie about what runs. A dispatch
@@ -507,19 +529,6 @@ jobs:
         continue-on-error: true # CATEGORY: INFORMATIONAL
         run: cargo bench -p vantadb --bench param_sweep -- --nocapture 2>&1 | tee -a metricas/benchmarks/canonical_p99_results.txt
 
-      - name: Publish p50/p95/p99 vs baseline to summary
-        if: always()
-        continue-on-error: true # CATEGORY: INFORMATIONAL
-        run: |
-          {
-            echo "## canonical_p99 (informational)"
-            echo ""
-            echo "Baseline: docs/user/operations/BENCHMARKS.md §11 (consumo guard) + §1."
-            echo "Regression policy: p99 >10% vs baseline needs ADR-or-revert - evaluated here, never enforced (Q5)."
-            echo ""
-            grep -E "canonical_p99 search" metricas/benchmarks/canonical_p99_results.txt || echo "(p50/p95/p99 line not found - see artifact)"
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Extract criterion estimates
         if: always()
         continue-on-error: true # CATEGORY: INFORMATIONAL
@@ -527,6 +536,22 @@ jobs:
           python scripts/bench_regression.py extract \
             --criterion-root target/criterion \
             --output metricas/benchmarks/benchmark_report_canonical_p99.json
+
+      # FIND-720: `scripts/bench_regression.py` resolves the baseline from its own
+      # location (BASELINE_PATH, no flag), so the restored baseline is adopted at
+      # that path for the compare step only. Nothing is written back to git: this
+      # job holds `contents: read`. The versioned file keeps belonging to
+      # certification.yml `analyze`.
+      - name: Adopt persisted baseline
+        if: always()
+        continue-on-error: true # CATEGORY: INFORMATIONAL
+        run: |
+          if [ -f metricas/benchmarks/baseline/criterion_baseline.json ]; then
+            cp metricas/benchmarks/baseline/criterion_baseline.json benchmarks/criterion_baseline.json
+            python -c "import json;b=json.load(open('benchmarks/criterion_baseline.json'));print('persisted baseline: commit=%s run=%s labels=%d' % (b['metadata'].get('commit'), b['metadata'].get('run_id'), len(b['benchmarks'])))"
+          else
+            echo "::notice::No persisted canonical_p99 baseline yet (cold cache) - this run seeds it."
+          fi
 
       # CATEGORY: INFORMATIONAL - compare may fail with no baseline or format
       # drift. Non-blocking by design.
@@ -542,6 +567,72 @@ jobs:
             --fail-on-regression
         env:
           GITHUB_SHA: ${{ github.sha }}
+
+      # FIND-720: seed/promote ONLY when nothing was comparable (every label new).
+      # A run that did compare never overwrites the baseline - adopting every run
+      # would make a slow regression invisible by definition. Same rule as AUD-030
+      # ("a bad run is never baked in"), narrowed to the bootstrap case.
+      # `total > 0` keeps an empty/failed extract from wiping a good baseline.
+      - name: Seed baseline when nothing was comparable
+        if: always()
+        continue-on-error: true # CATEGORY: INFORMATIONAL
+        run: |
+          CMP=metricas/benchmarks/bench_comparison_canonical_p99.json
+          if [ ! -f "$CMP" ]; then echo "no comparison report - nothing to seed"; exit 0; fi
+          total=$(python -c "import json;print(json.load(open('$CMP'))['total'])")
+          comparable=$(python -c "import json;d=json.load(open('$CMP'));print(d['stable_count']+len(d['regressions'])+len(d['improvements']))")
+          echo "comparable=$comparable of total=$total"
+          if [ "$total" -gt 0 ] && [ "$comparable" -eq 0 ]; then
+            python scripts/bench_regression.py update-baseline metricas/benchmarks/benchmark_report_canonical_p99.json
+            mkdir -p metricas/benchmarks/baseline
+            cp benchmarks/criterion_baseline.json metricas/benchmarks/baseline/criterion_baseline.json
+            echo "::notice::Baseline seeded from this run; comparability starts on the next one."
+          else
+            echo "baseline kept: nothing to adopt (total=$total comparable=$comparable)."
+          fi
+
+      - name: Publish numbers, comparability and corpus to summary
+        if: always()
+        continue-on-error: true # CATEGORY: INFORMATIONAL
+        run: |
+          REPORT=metricas/benchmarks/benchmark_report_canonical_p99.json
+          CMP=metricas/benchmarks/bench_comparison_canonical_p99.json
+          # The label carries the corpus (`_glove100d` on develop, `_1536d` on main
+          # until the next develop->main merge). A mismatch is announced, never
+          # compared: 1536d vs 100d is a different measurement, not a regression.
+          CORPUS=""
+          if [ -f "$REPORT" ]; then
+            CORPUS=$(python -c "import json;d=json.load(open('$REPORT'));print(', '.join(sorted({k.rsplit('_',1)[-1] for k in d['benchmarks']})))")
+          fi
+          HASREG=false
+          CERT=""
+          if [ -f "$CMP" ]; then
+            HASREG=$(python -c "import json;print(str(json.load(open('$CMP'))['has_regression']).lower())")
+            CERT=$(python -c "import json;d=json.load(open('$CMP'));print('%d of %d' % (d['stable_count']+len(d['regressions'])+len(d['improvements']), d['total']))")
+            CERT="$CERT | stable $(python -c "import json;print(json.load(open('$CMP'))['stable_count'])") | regressions $(python -c "import json;print(len(json.load(open('$CMP'))['regressions']))") | new $(python -c "import json;print(len(json.load(open('$CMP'))['new_benchmarks']))") | has_regression $HASREG"
+          fi
+          {
+            echo "## canonical_p99 (informational)"
+            echo ""
+            echo "Measured corpus (from the labels): \`${CORPUS:-unknown}\` - canonical is \`glove100d\` (BENCHMARKS.md §11)."
+            echo "Baseline: this job's own persisted baseline (branch-scoped cache), seeded from a measured run - never from a dev box."
+            echo "Regression policy: p99 >10% vs baseline needs ADR-or-revert - evaluated here, never enforced (Q5)."
+            echo ""
+            grep -E "canonical_p99 search" metricas/benchmarks/canonical_p99_results.txt || echo "(p50/p95/p99 line not found - see artifact)"
+            if [ -n "$CERT" ]; then
+              echo ""
+              echo "Comparable: **$CERT**"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$CMP" ]; then
+            NEW=$(python -c "import json;print(len(json.load(open('$CMP'))['new_benchmarks']))")
+            if [ "$NEW" -gt 0 ]; then
+              echo "::warning::Nothing was comparable this run ($NEW labels landed in new_benchmarks) - the regression gate cannot fire for this corpus until a baseline is seeded."
+            fi
+          fi
+          if [ -n "$CORPUS" ] && [ "$CORPUS" != "glove100d" ]; then
+            echo "::warning::Measured corpus is '$CORPUS', not the canonical 'glove100d' (BENCHMARKS.md §11). The numbers are valid for that corpus only and are never compared across corpora."
+          fi
 
       - name: Open regression finding (never blocks merge)
         if: always()
@@ -564,7 +655,7 @@ jobs:
               `**Commit:** \`${context.sha}\`\n` +
               `**Workflow:** [${context.workflow}](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})\n` +
               `**Numbers:** \`${numbers}\`\n` +
-              `**Baseline:** docs/user/operations/BENCHMARKS.md §11 + benchmarks/criterion_baseline.json\n` +
+              `**Baseline:** this job's own branch-scoped persisted baseline (measured on a CI runner, seeded by the first run - see BENCHMARKS.md §11)\n` +
               `**Policy:** p99 >10% vs baseline needs ADR-or-revert (Regla 9). This issue is the finding; the PR stays green (Q5).\n\n` +
               `### Regressions\n\n| Benchmark | Before (ms) | After (ms) | Change | Severity |\n|---|---|---|---|---|\n`;
             for (const r of cmp.regressions || []) {
@@ -607,6 +698,7 @@ jobs:
             metricas/benchmarks/canonical_p99_results.txt
             metricas/benchmarks/benchmark_report_canonical_p99.json
             metricas/benchmarks/bench_comparison_canonical_p99.json
+            metricas/benchmarks/baseline/
           retention-days: 30
 
   # Origin: ocr-delegate.yml. OCR Delegation Spec - INFORMATIONAL ONLY.
