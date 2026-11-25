@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-536 documentation pages; it deliberately omits the 214 task files,
+537 documentation pages; it deliberately omits the 215 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -78,6 +78,7 @@ is in docs/index.md in the repository.
 - [ADR-0059: Storage-path env var unification — `VANTADB_STORAGE_PATH` is the only name](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0059-storage-path-env-unification.md): The VANTA_DB / VANTADB_STORAGE_PATH coexistence decided in ADR-0012 is gone: the CLI --db flag and Config::from_env() both read VANTADB_STORAGE_PATH, and VANTA_DB is read nowhere in the tree (FIND-89 consolidation, verified 2026-10-20)
 - [ADR-0060: On-disk compatibility v0.9.0 → v0.10.0 — open in place, lazy index rebuild, no implicit encryption](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0060-on-disk-compatibility-v090-v0100.md): Every persisted schema/version between v0.9.0 and v0.10.0 is inventoried and classified: primary formats are byte-compatible so v0.9.0 databases open in place, secondary index state self-heals at open, and encryption of an existing database stays out of the open path (ADR-0057 D7)
 - [ADR-0061: Implicit WAL transactions for multi-chunk put_batch — all-or-nothing batches](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0061-implicit-batch-transactions.md): Every put_batch is framed in an implicit WAL transaction (Begin/Prepare/Commit) reusing the 2PC markers shipped before v0.9.0, with a dedicated txn id, one insert_lock for the whole batch, and recovery-side discard+undo — zero on-disk format change
+- [ADR-0062: Numeric fidelity of the AST JSON — u128 ids travel as decimal strings](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0062-ast-json-numeric-fidelity.md): The IQL AST JSON emits its six u128 id fields as decimal strings; i64 Int literals stay numbers, limit pinned by test. Scoped to the token channel while parse() is still unreleased
 - [Decisiones No Tomadas — Registro de descartes](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/DECISIONS-NOT-TAKEN.md): Registro consolidado de features/decisiones evaluadas y rechazadas o diferidas, con razón y fuente — evita re-litigar descartes sin evidencia nueva.
 - [Review Guide: ADR-0029 articulation + decisions D24-D37](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0053-adr-029-review-guide.md): Evidence notation: file:line verified against the working tree on 2026-08-22
 - [ADR-0011: Native sparse vectors — representation, metric, and coexistence with BM25](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0011-sparse-vectors-native.md): Superseded by ADR-0058, which restates the same decision with the code references verified against the 0.9.0 tree (SparseVector lives in src/node/vector_data.rs:30; sparse vectors are native, not dense-only)
