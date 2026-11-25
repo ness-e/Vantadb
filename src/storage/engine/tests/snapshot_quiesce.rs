@@ -9,8 +9,10 @@
 //! [`crate::error::Error::Timeout`]; the snapshot itself patiently retries
 //! through several timeout windows so an active writer never fails a backup.
 //!
-//! These tests coordinate threads with channels / bounded spins only — no
-//! sleeps — so they terminate promptly and deterministically.
+//! These tests coordinate threads with channels and on progress signals
+//! published by the code under test — never with an assumed schedule and never
+//! with sleeps — so they terminate promptly and deterministically on any core
+//! count.
 
 use super::*;
 use std::sync::mpsc;
@@ -88,15 +90,49 @@ fn test_snapshot_quiesce_writer_times_out_then_retries_ok() {
 /// start does not fail the backup — `create_snapshot` waits through the
 /// contention window and completes once the writer releases. No deadlock:
 /// both threads finish promptly.
+///
+/// FIND-724: the wait is proven from two signals, never from an assumed
+/// schedule.
+///
+/// 1. `create_snapshot_inner` publishes `snapshot.format` immediately before
+///    it takes the quiesce guard, so that marker proves the capture is *at*
+///    the guard — not merely that a thread was spawned (without it, "hold,
+///    release, expect success" would be vacuous: the thread could start after
+///    the release).
+/// 2. The capture must then outlive one whole patience window
+///    (`insert_lock_timeout_ms`) with the guard still held. Only waiting can
+///    survive a window; a capture that stopped waiting would complete within
+///    microseconds, and that is exactly what the assertion catches.
+///
+/// The old version spun a fixed 10 000 `yield_now()` and lost on a loaded
+/// 3-core runner: the spin outlived the product's *bounded* patience
+/// (5 windows, see `acquire_snapshot_quiesce`), the capture returned its
+/// documented, retriable `Timeout`, and the assert reported a product failure
+/// that never happened.
 #[cfg(feature = "fjall")]
 #[test]
 fn test_snapshot_quiesce_capture_waits_for_held_writer() {
+    // Patience = 5 attempts (`acquire_snapshot_quiesce`) × TIMEOUT_MS. The
+    // observation below spends 1.5 windows, leaving 3.5 windows of slack
+    // before the product would legitimately time out.
+    const TIMEOUT_MS: u64 = 1_000;
+    // Liveness backstop for the marker only — it is not a scheduling bet.
+    const MARKER_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
+
     let dir = tempfile::tempdir().expect("tempdir");
-    let engine = std::sync::Arc::new(disk_engine(dir.path(), 250));
+    let engine = std::sync::Arc::new(disk_engine(dir.path(), TIMEOUT_MS));
 
     for id in 1..=5 {
         engine.insert(&sample_node(id)).expect("insert seed");
     }
+
+    // Written right before the quiesce acquire (data_dir is `<root>/data`).
+    let marker = dir
+        .path()
+        .join("data")
+        .join("snapshots")
+        .join("patient")
+        .join("snapshot.format");
 
     // A writer pins the lock until told to release — the snapshot must
     // out-wait it (patient quiesce) rather than error out.
@@ -112,32 +148,110 @@ fn test_snapshot_quiesce_capture_waits_for_held_writer() {
     });
     held_rx.recv().expect("writer holds lock");
 
+    let (done_tx, done_rx) = mpsc::channel::<()>();
     let snapshot = std::thread::spawn({
         let engine = engine.clone();
-        move || engine.create_snapshot("patient")
+        move || {
+            let res = engine.create_snapshot("patient");
+            let _ = done_tx.send(());
+            res
+        }
     });
 
-    // Bounded spin (no sleep): the snapshot cannot finish while the writer
-    // holds the quiesce guard.
-    for _ in 0..10_000 {
-        if snapshot.is_finished() {
-            break;
-        }
+    // (1) Condition-poll, no sleep: wait until the capture reaches the guard,
+    // aborting as soon as it returns instead of spinning out the deadline.
+    let deadline = std::time::Instant::now() + MARKER_DEADLINE;
+    while !marker.is_file() {
+        assert!(
+            !snapshot.is_finished(),
+            "create_snapshot returned before the quiesce wait was observable \
+             (never reached the guard)"
+        );
+        assert!(
+            std::time::Instant::now() < deadline,
+            "create_snapshot never reached the quiesce guard ({MARKER_DEADLINE:?})"
+        );
         std::thread::yield_now();
     }
-    assert!(
-        !snapshot.is_finished(),
-        "snapshot must wait for the quiesce guard instead of failing"
+
+    // (2) One full patience window with the guard still held: a capture that
+    // stopped waiting completes here, a queued one cannot.
+    let observation = std::time::Duration::from_millis(TIMEOUT_MS + TIMEOUT_MS / 2);
+    let outlived_a_window = matches!(
+        done_rx.recv_timeout(observation),
+        Err(mpsc::RecvTimeoutError::Timeout)
     );
 
+    // Always release first, so a failure reports the assertion and not a
+    // cascade panic in the writer thread.
     release_tx.send(()).expect("release writer");
     writer.join().expect("join writer");
-    let snap = snapshot
-        .join()
-        .expect("join snapshot")
-        .expect("snapshot must succeed after the writer released");
+    let result = snapshot.join().expect("join snapshot");
+
+    assert!(
+        outlived_a_window,
+        "create_snapshot completed within one {TIMEOUT_MS} ms quiesce window while the writer \
+         held the guard: it must wait for it instead of failing"
+    );
+    let snap = result.expect("snapshot must succeed after the writer released");
     assert!(snap.path.join("snapshot.format").is_file());
     assert!(snap.path.join("backend.manifest").is_file());
+}
+
+/// FIND-724 — the patience is BOUNDED, and that is exactly why the capture
+/// test above must release the guard *within* the window: `acquire_snapshot_quiesce`
+/// retries `QUIESCE_ATTEMPTS` (5) windows of `insert_lock_timeout_ms` and then
+/// surfaces the typed, retriable `Timeout` instead of hanging a backup forever
+/// (`src/storage/engine/mod.rs` — "a genuinely stuck critical section still
+/// surfaces Timeout rather than hanging the caller forever"). A writer that
+/// outlives all five windows therefore fails the capture BY DESIGN, which is
+/// what the old 10 000-yield scenario accidentally demanded of it.
+#[cfg(feature = "fjall")]
+#[test]
+fn test_snapshot_quiesce_bounded_patience_surfaces_timeout() {
+    const TIMEOUT_MS: u64 = 200; // 5 attempts → ~1 s of patience
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let engine = disk_engine(dir.path(), TIMEOUT_MS);
+
+    for id in 1..=3 {
+        engine.insert(&sample_node(id)).expect("insert seed");
+    }
+
+    // Hold the quiesce guard on this thread, as the snapshot mirror does: the
+    // capture burns its five windows and gives up. No thread, no sleep.
+    let quiesce = engine
+        .insert_lock
+        .try_lock()
+        .expect("lock must be free at test start");
+    let started = std::time::Instant::now();
+    let err = engine
+        .create_snapshot("bounded")
+        .expect_err("a writer outliving every quiesce window must fail the capture");
+    eprintln!(
+        "bounded patience: elapsed={:?} error={err:?} retriable={}",
+        started.elapsed(),
+        err.is_retriable()
+    );
+    assert!(
+        matches!(err, crate::error::Error::Timeout { .. }),
+        "expected typed Timeout, got {err:?}"
+    );
+    assert!(
+        err.is_retriable(),
+        "snapshot quiesce Timeout must be retriable"
+    );
+    assert!(
+        err.to_string().contains("create_snapshot"),
+        "Timeout must name the quiesce operation, got {err}"
+    );
+
+    drop(quiesce);
+    // The same capture succeeds once the guard is released, and the failed
+    // attempt left no half-built snapshot dir behind.
+    engine
+        .create_snapshot("bounded")
+        .expect("snapshot must succeed after the guard is released");
 }
 
 /// Writer + snapshot racing for the quiesce guard: whichever order the
