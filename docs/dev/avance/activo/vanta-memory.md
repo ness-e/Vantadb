@@ -427,3 +427,11 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 - **Commits:** `c0f5667db` (código + docs + tests) + `2e8fe2e9d` (cierre del task file)
 - **Techo documentado:** `degraded_warnings` prueba la decisión, no la emisión del log (capturarla exigiría `tracing-subscriber` como dev-dep de `vanta-memory`); el snapshot es **proceso-local**, así que un MCP en modo proxy no ve la cola del writer — esa es la deuda que abre `MCP-43`.
 - **Desbloquea:** `MCP-43`, `MCP-44` (`thread_send` alimenta el pipeline) y `MEM-73` (e2e L0→L3).
+
+### `MCP-42` cerrado sin trabajo propio: era latencia de embedding, no un crash (`MCP-42`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** Explicar el `exit 255` del servidor MCP bajo escritura sostenida, que se arrastraba como "crash misterioso".
+- **Resultado:** ✅ **No había crash.** El stderr de los repros mostraba cierre limpio (`MCP stdio server shut down total=32 errors=0`, `cleaned discovery file on Drop`, `HNSW index persisted`, `Storage flushed`), sin panic ni OOM. Lo que ocurría era que la latencia de `memory_put` **cruzaba el timeout del cliente (60 s)** y el cliente mataba al hijo: el 255 era la consecuencia, no la causa. Y la latencia era **99,7 % carga del modelo ONNX** (tokenizador 1,63 s + sesión 1,86 s por escritura frente a 10,1 ms de forward), arreglado en `FIND-706` (`82077466c`): ronda 10 de 12,8 s → 0,2 s.
+- **Por qué se cierra sin trabajo propio:** la causa raíz se resolvió en otro sitio y la fila describía un fenómeno que no existe. Dejarla abierta haría creer que el servidor crashea.
+- **Verificación:** los repros de `FIND-706` (10 rondas, DB aislada) corren completos sin timeout; `capabilities` ahora expone el estado del runner (`MEM-72`), así que un pipeline que no extrae se ve por superficie en vez de por crash aparente.
+- **Referencias:** `FIND-706` · `MEM-72` · `MCP-48` (el proxy ya no muere con su writer, que era el otro modo de fallo "parece que crasheó").
