@@ -1654,3 +1654,14 @@ resultado aunque el codigo "funcione".
 - **Commit:** `071099119`
 - **Review P2-01:** ronda 1 🔴 (1 Required: `TS_SDK.md` ofrecía un "bigint-aware parser" inexistente sobre un objeto ya decodificado) → corregido.
 - **Deuda:** el accessor `parse_ast_json() -> str` (arreglo barato para literales `Int` en JS) es fila propia; entrada de `CHANGELOG.md` la mantiene release-plz (Regla 7).
+
+### Pins de portabilidad obsoletos y código de error canónico perdido en la frontera TS (`FIND-728`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** El gate `pre-push` reparado (`FIND-718`) bloqueó el push con `npm test` en rojo: **4 tests pre-existentes** en `vantadb-ts` que nadie había visto porque el hook estaba muerto. Había que decidir caso por caso si la implementación o el test estaban equivocados.
+- **Resultado:** ✅ **Decisión mixta, y esa es la parte importante:**
+  - **(a) 3 pins eran obsoletos** (`reindexHnswFromText`, `rebuildIndex`): afirman "WASM has no `std::fs`" sobre operaciones que **no tocan el disco** — están implementadas para todos los backends sin gate de plataforma (`src/sdk/api/admin.rs:19,45-113`; 0 hits de `target_arch = "wasm32"` en `src/sdk/`) y devuelven un report real en runtime. El pin se escribió **dos meses después** de que el binding ya tuviera la capacidad. Se corrigieron los tests; `exportAll`/`exportNamespace`/`importFile` **sí** llegan a `std::fs` y sus pins siguen verdes (el `operation not supported` lo emite std, no el core).
+  - **(b) 1 rojo tenía razón, y era un bug de superficie pública**: `fromNativeError` leía primero el `.code` **grueso** de `vantadb-ffi-core::VantaErrorCode`, que colapsa `Validation`/`InvalidInput`/`Iql`/`IqlParse` en `ERR_INVALID_INPUT`, e **ignoraba `raw_code`** (que el binding ya adjuntaba desde FFI-02). Efecto: **todo error de validación del motor llegaba al usuario como `VANTADB_INVALID_ARGUMENT`**, contra `ERROR_HANDLING.md` §1.1, `TS_SDK.md:709` y `api-contract.md` R-8. Fix en `vantadb-ts/src/errors.ts`: `raw_code` gana, `.code` queda como fallback para paquetes viejos.
+  - **El 2.º fichero en fallo no estaba en el brief**: `hardening.test.ts`. Se descubrió al correr la suite completa.
+- **Verificación:** `npm test` **394/394** (26 ficheros; antes 389 + 4 rojos) · `portability`+`hardening` ×3 estables 87/87 · `check-docs`/`check-links` exit 0 · ocr-review OK · `vanta-review` adversarial **approve** (0 Critical / 0 Required; 5 accionables aplicados).
+- **Commit:** `b63997cdd` — `fix(ts):`, no `test(ts):`, porque hay cambio de superficie pública y llamarlo "test" lo habría escondido del changelog.
+- **Deuda derivada (fila `FIND-729`):** `vantadb-ts` no tiene typecheck ni lint en **ningún** gate: `npx tsc --noEmit` falla con 4 errores por `vantadb-wasm/pkg/*.d.ts` desincronizado (`build-wasm-types --check` → FAIL) y `npm run lint` falla con 6 errores pre-existentes. El `pre-push` solo corre `npm test`.
