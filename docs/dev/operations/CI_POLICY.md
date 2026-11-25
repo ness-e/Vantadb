@@ -402,8 +402,8 @@ scale capabilities without bottlenecking daily development.
 | `memory-concurrency` | Memory & concurrency heavy tests (concurrency, memory brutality, fuzz proptest) |
 | `other-heavy` | Remaining heavy tests: CLI, benchmarks, hybrid ranking, MCP (`vantadb-mcp`), columnar, `concurrent_insert_preserves_hnsw_invariants` |
 | `mutation-test` | **INFORMATIONAL** — `cargo mutants --list --json` mutant inventory only (see §"FIND-328 triage"). Not a gate: the real mutation gate needs a scoped design (FIND-717) |
-| `light-benchmarks` | Bench series, daily 02:00 cron (`hnsw_pure`, `hybrid_queries`, `canonical_p99`, `ingestion_concurrent`, …). Currently red: FIND-716 |
-| `high-density` | `high_density` bench at the highest density profile, daily 02:00 cron. Currently red: FIND-716 |
+| `light-benchmarks` | Bench series, daily 02:00 cron (`hnsw_pure`, `hybrid_queries`, `canonical_p99`, `ingestion_concurrent`, …). Recovered by FIND-716 (job-level `concurrency` collision removed); cap 240 min. FIND-716 |
+| `high-density` | `high_density` bench at the highest density profile, daily 02:00 cron. Recovered by FIND-716; cap 360 min |
 | `analyze` | Merges the bench result dirs and publishes the comparison (`always()`, tolerates missing dirs) |
 | `critcmp-regression` | Opt-in critcmp comparison against a previous `critcmp-baseline` artifact (`enable_critcmp` input) |
 
@@ -435,9 +435,14 @@ inventory; it does not gate the release. It carries no `continue-on-error`; the 
 "green but did nothing" mode cannot come back. A real mutation gate is FIND-717 (needs
 scoped/incremental mutant selection and a budget, per the cargo-mutants CI guide).
 
-**Residual red in the same workflow (FIND-716, not fixed here):** `Light benchmarks` and
-`High density` fail on **every** run with **zero steps** (`log not found`), including runs where
-their cron `if:` gates them out. Four jobs in this file declare a job-level `concurrency:` block
+**Resolved (FIND-716, `9e4e04d70`):** `Light benchmarks` and
+`High density` used to fail on **every** run with **zero steps** and `runner_name: none` — they were
+failed **8 s after start**, not queued: four jobs in this file declared a job-level `concurrency:` block
+reusing the workflow's own group, so each job waited on a slot its own run held. The four blocks were
+removed (the workflow-level `cancel-in-progress: false` is the single authority); `failpoint-tests` and
+`fuzz-pr` keep theirs because they use distinct groups. Cost ceiling when the lanes run again: 7 × (240 +
+360) min + ~70 min/week ≈ 71 h of runner capacity — not billed on a public repo, but real in concurrency
+and artifact retention. Original note kept below for context. Four jobs in this file declare a job-level `concurrency:` block
 that **reuses the workflow-level group** `${{ github.workflow }}-${{ github.ref }}`
 (`light-benchmarks` L416, `high-density` L489, `analyze` L524, `critcmp-regression` L697). GitHub
 keeps at most one running job or workflow per concurrency group, so a job in that group waits for

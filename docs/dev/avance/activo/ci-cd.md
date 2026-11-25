@@ -922,3 +922,13 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Commit:** `fd52e68a4` (código, 2 archivos) + `e3c2ee81e` (cierre documental, 1 archivo). El cierre fue un commit normal y no un `--amend` porque `FIND-714`/`FIND-718` ya habían commiteado encima: amendar habría reescrito historia ajena.
 - **Rollback:** `git revert fd52e68a4` (vuelve al `if:` viejo; el trigger nunca se tocó).
 - **Pendiente (owner, post-push):** verificar el primer run real de `WASM Scope (push range)` con `gh api repos/ness-e/Vantadb/actions/runs/<id>/jobs --jq '.jobs[]|select(.name|test("WASM"))|"\(.name) => \(.conclusion)"'`.
+
+### Colisión de `concurrency` job-level que mataba 4 lanes de bench (`FIND-716`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** `Light benchmarks` y `High density` daban `conclusion=failure` con **cero steps** y `log not found` en **25/25** ejecuciones programadas. Cuatro jobs declaraban un `concurrency:` job-level cuyo group era literalmente `${{ github.workflow }}-${{ github.ref }}` — el mismo que ya retiene el run.
+- **Resultado:** ✅ Mecanismo medido, no inferido: `runner_name: none` y `started_at == completed_at`, **8 s** después del start y **65 min antes** de que el run terminara → GitHub no los encola, los **falla al instante**, porque cada job espera un slot que su propio run retiene. Se borraron los 4 bloques redundantes (`light-benchmarks`, `high-density`, `analyze`, `critcmp-regression`; −20/+17) y se dejó **una** nota autoritativa en el workflow-level (`cancel-in-progress: false`) en vez de 4 copias. `failpoint-tests` y `fuzz-pr` conservan su bloque: usan groups distintos y son el patrón correcto.
+  - Un efecto secundario que nadie había visto: `Analyze` nunca corrió, así que sus artifacts `light-bench-results`/`density-bench-results` **tampoco existían**.
+- **Costo declarado (no disfrazado):** techo de **4.270 min/semana ≈ 71 h** de runner — 7 noches × (240 + 360) min + ~70 min de `analyze`, más 60 min por dispatch de `critcmp`. Repo público ⇒ los minutos no se facturan; el costo real es capacidad concurrente, retención de artifacts y **el riesgo de que aparezca una regresión que el "cero steps" enmascaraba**. No hay duración medida: los lanes nunca ejecutaron un step desde `a4c290914`, así que el número honesto es el cap.
+- **Verificación:** `actionlint` exit 0 · `rg '^ {4}concurrency:'` → solo `failpoint-tests` y `fuzz-pr` · `rg '^concurrency:'` → solo el workflow-level · `check-links` 0.
+- **Commit:** `9e4e04d70`
+- **Corrección del review (P2-01):** el relato original decía "queda pending y se cancela al terminar el run" (falso: mueren al instante) y un costo de "2h + 6h" sin fuente (venía de un comentario pre-consolidación que esta tarea borra). Ambas corregidas en el YAML y en el task file.
