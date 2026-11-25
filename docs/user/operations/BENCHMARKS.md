@@ -495,12 +495,29 @@ How that baseline works (`nightly.yml` job `bench-informational`):
   the comparison JSON, so a published number can be traced to the baseline it
   was compared against.
 
-`REGRESSION_THRESHOLD` in `scripts/bench_regression.py` is 5%. Two measured runs
-of the same 1536d bench, same branch, 5h20m apart, differ by 7-9%
-(`766984.4 -> 698162.6 ms` insert, `4260.7 -> 3958.1 ms` search) — above that
-threshold. So `stable_count > 0` is not the number to watch; **empty
-`new_benchmarks`** is. Read any `has_regression: true` against that spread
-before filing a finding.
+`REGRESSION_THRESHOLD` in `scripts/bench_regression.py` is **10%** (raised from
+5% on 2026-11-25, `BENCH-BAND`). The band is set above the noise this comparator
+actually shows, not at it: two measured runs of the same 1536d bench, same
+branch, 5h20m apart, differ by 7-9% (`766984.4 -> 698162.6 ms` insert,
+`4260.7 -> 3958.1 ms` search). At 5% both sides of that spread were reported, so
+a run that only saw its own noise could not land in `stable`.
+
+That single band is a simplification, and it is calibrated on the two
+`canonical_p99` families (insert, search) only. The hybrid/vector families of
+[§20](#operator-state-and-the-attribution-verdict-2026-11-25-find-233) spread
+16.7-42.2% *inside one job on one VM*, so 10% would still fire on their noise if
+this comparator ever measured them. The band also sits at the edge of its own
+primary source: the same pair of runs, measured max/min instead of delta-vs-first,
+is a 9.9% spread.
+
+Known ceiling: at 10% a real 8% regression reads as `stable`, and in
+`certification.yml` job `analyze` it no longer blocks the nightly baseline
+promotion — that promotion is gated on `has_regression`, so an 8% regression
+would be baked into the baseline instead of flagged. Both lanes are
+informational; this is the price of a band that means something.
+
+So `stable_count > 0` is not the number to watch; **empty `new_benchmarks`** is.
+Read any `has_regression: true` against that spread before filing a finding.
 
 <!-- consumo guard: anchor for GOV-B3 verification — do not remove -->
 
@@ -1684,6 +1701,23 @@ the A/B that could (`ab_ref=114f55f0`) was never dispatched.
 | (a) CPU calibration before the bench | **Rejected** | **≈+1 min per run, recurring** (estimate: 111 kB package + one `sysbench cpu --time=10` pass per arm, ×3 — `sysbench` is in `noble/universe`, [packages.ubuntu.com](https://packages.ubuntu.com/noble/sysbench)) = +15-22% of a 4.5-6.2 min job. It normalises CPU only: `insert.p99` is fsync-bound (16.8x cross-VM) and every number crosses PyO3, so one factor cannot model three regimes. It is also unvalidatable now — the multi-VM runs it would calibrate against were deleted. |
 | (b) Same-job A/B as the only path | **Right method, not adopted as the path** | **11-15 min per invocation** on a runner like today's (6m12s base + 5-9 min A/B overhead), opt-in. Adopting it as the only path means resurrecting a workflow `FIND-317` retired and the 2026-10-25 de-bloat removed: re-litigating a closed decision with no new evidence. |
 | (c) Accept the noise; keep the calibrated bands | **CHOSEN** | **0 min recurring, 0 lines of code.** The bands stay as `FIND-232` calibrated them; on `develop` there is no gate left to band, and no new run data exists to re-derive them. |
+
+#### What that floor implies for the live comparator (2026-11-25, BENCH-BAND)
+
+The floor above is why the Criterion comparator's band could not stay at 5%.
+16.7% (`query_vector.p50`, the tighter of the two families) and 42.2%
+(`query_hybrid.p95`, the worst) are spreads measured with nothing but the
+scheduler differing, on a median-of-3 that was supposed to absorb exactly that —
+so a 5% band fires on noise by construction. `scripts/bench_regression.py` now
+defaults to **10%**, and its primary source is its own measured run-to-run spread
+(7-9% on `canonical_p99`, see §11); the table above is corroboration from a
+*different* instrument, not the same measurement.
+
+That is not a reversal of option (c): (c) kept the *retired Python* gate's bands
+untouched because no gate is left on `develop` to band, while this is the
+Criterion lane that still runs. The cost is one constant and its comment. The
+ceiling — a real 8% regression now reads as `stable`, and no longer blocks the
+`analyze` baseline promotion — is written next to that constant and in §11.
 
 **Escalation**, if the attribution must be answered — no code change, nothing
 recurring:

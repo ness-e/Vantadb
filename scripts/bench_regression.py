@@ -4,7 +4,8 @@ TSK-79: Benchmark Regression Detection for Nightly CI.
 
 Extracts Criterion estimates from target/criterion/, compares against a
 stored baseline, and emits machine-readable reports + human alerts for
-regressions exceeding a configurable threshold (default 5%).
+regressions exceeding a configurable threshold (default 10%, see
+REGRESSION_THRESHOLD for why the band sits above the measured noise).
 
 Modes:
   extract       Parse target/criterion/ into a portable JSON report.
@@ -19,7 +20,31 @@ import re
 import sys
 from pathlib import Path
 
-REGRESSION_THRESHOLD = 5.0  # percent
+# Band set ABOVE the measured run-to-run noise of this comparator, not at it
+# (BENCH-BAND, 2026-11-25; owner decision, plan 2026-11-23 §9 row 5).
+#
+# Primary source — the spread THIS instrument shows on GitHub-hosted runners.
+# canonical_p99, same branch, two real runs 5h20m apart (FIND-720 / BENCHMARKS.md
+# §11, runs 44228761011 -> 44228771621):
+#     insert 766984.4 -> 698162.6 ms  = -9.0%  (max/min ratio 9.9%)
+#     search 4260.7   -> 3958.1 ms    = -7.1%  (max/min ratio 7.7%)
+# At 5% both sides of that spread were reported, so a run that only saw its own
+# noise could never land in `stable` (the FIND-720 `stable_count: 0` symptom).
+#
+# Corroboration — a DIFFERENT instrument (the retired Python perf-bench), not the
+# same measurement: 16.7% (`query_vector.p50`) to 42.2% (`query_hybrid.p95`)
+# spread *inside one job, one VM, one commit* (run 40592702083, BENCHMARKS.md
+# §20). Sub-10% bands are below the ambient noise of these runners.
+#
+# One band for every label is a simplification: it is calibrated on the two
+# canonical_p99 families (insert, search). The hybrid/vector families of §20
+# still spread 16.7-42.2% intra-VM, so if this comparator ever measures them the
+# band is a floor, not a fit.
+# Known ceiling: at 10% a real 8% regression reads as `stable`, and in
+# certification.yml job `analyze` it no longer blocks the nightly baseline
+# promotion (that promotion is gated on `has_regression`) — an 8% regression
+# would be baked into the baseline instead of flagged.
+REGRESSION_THRESHOLD = 10.0  # percent
 BASELINE_PATH = Path(__file__).resolve().parent.parent / "benchmarks" / "criterion_baseline.json"
 
 
