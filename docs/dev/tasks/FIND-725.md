@@ -24,10 +24,10 @@ description: "Un push multi-commit que toca vantadb-wasm/ en un commit intermedi
 - **Tipo:** CI/CD (GitHub Actions) + docs
 - **Turns estimados:** 5-10
 - **Creado:** 2026-11-24T21:00
-- **last-synced:** 2026-11-24T23:05
-- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-11-24T23:55
+- **Estado:** ✅ COMPLETED (review P2-01 ronda 2: approve)
 - **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 0 steps
+- **Pendientes (downhill):** 0 steps (queda la verificación post-push del owner, fuera del contrato)
 
 ## Blast Radius
 
@@ -46,7 +46,7 @@ description: "Un push multi-commit que toca vantadb-wasm/ en un commit intermedi
 
 ## Contrato
 
-"`npx --no-install actionlint .github/workflows/ci-rust.yml` sale 0 — **no ejecutable en este repo: no hay `package.json` ni `node_modules`, `npx --no-install` no resuelve el paquete**. Se usa en su lugar el binario canónico ya instalado: `actionlint .github/workflows/ci-rust.yml` (v1.7.12, exit 0). Además, la prueba del predicado fuera de CI demuestra: (i) un push cuyo commit **intermedio** toca `vantadb-wasm/` **sí** corre el job; (ii) un push que no lo toca en ningún commit **no** lo corre; (iii) el primer push de una rama corre siempre."
+"`npx --no-install actionlint .github/workflows/ci-rust.yml` sale 0 — **no ejecutable en este repo: no hay `package.json` ni `node_modules`, `npx --no-install` no resuelve el paquete**. Se usa en su lugar el binario canónico ya instalado: `actionlint .github/workflows/ci-rust.yml` (v1.7.12, exit 0; el revisor lo confirmó con controles negativos que sí fallan). Además, la prueba **end-to-end del bloque `run:` extraído del propio `.yml`** (8 escenarios, clones superficiales con remoto `file://`) demuestra: (i) un push cuyo commit **intermedio** toca `vantadb-wasm/` **sí** corre el job; (ii) un push que no lo toca en ningún commit **no** lo corre; (iii) el primer push de una rama corre siempre."
 
 ## Spec (SDD)
 
@@ -74,7 +74,7 @@ description: "Un push multi-commit que toca vantadb-wasm/ en un commit intermedi
 
 | Nivel | Gate |
 |-------|------|
-| **Task** | `actionlint` exit 0 + las 3 pruebas del contrato (8 escenarios end-to-end) + los 9 bordes documentados |
+| **Task** | `actionlint` exit 0 + las 3 pruebas del contrato (8 escenarios end-to-end sobre el bloque extraído) + los 9 bordes documentados |
 | **Commit** | Atómico, `ci(wasm): …`, `git diff` limitado a `ci-rust.yml` + este task file |
 | **Release** | N/A (no toca código publicado, ni versión, ni publish). `ci:` no genera bump en release-plz. |
 
@@ -229,8 +229,8 @@ correcto: ese push no introduce el cambio.
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 |
-| Pendientes de ejecución (downhill) | 2 (review P2-01 · commit) |
-| % completado | 70% |
+| Pendientes de ejecución (downhill) | 0 (los 4 steps cerrados; queda sólo la verificación post-push del owner) |
+| % completado | 100% |
 
 ## Fase 1 — Evidencia de Debugging (GATE — solo tipo Bug)
 
@@ -270,7 +270,7 @@ correcto: ese push no introduce el cambio.
 | Script injection | ✅ `github.event.before`/`after`/`event_name` van por `env:` y se citan (`"$PUSH_BEFORE"`), nunca interpolados en el `run:` |
 | Credenciales hardcodeadas | ✅ ninguna |
 | `fetch-depth: 0` faltante | ✅ justificado: no hace falta historia, sólo un tree diff; el base se busca por SHA (comentario en el step) |
-| Lógica de `if:` | ✅ `needs.wasm-scope.outputs.wasm == 'true'` (los outputs son strings) |
+| Lógica de `if:` | ✅ `!cancelled() && github.actor != 'dependabot[bot]' && (needs.wasm-scope.outputs.wasm == 'true' \|\| needs.wasm-scope.result != 'success')` — 3 términos: status (H1), actor (L2) y el output (los outputs son strings) |
 | `shell` explícito | ✅ `shell: bash` |
 | `needs:` roto | ✅ `wasm-scope` existe |
 | `timeout-minutes` | ✅ 5 |
@@ -283,7 +283,7 @@ correcto: ese push no introduce el cambio.
 - **Archivos:** `.github/workflows/ci-rust.yml`, `docs/dev/tasks/FIND-725.md`
 - **Acción:** el working tree comparte `ci-rust.yml` con `FIND-714` (TSan sin commitear), así que **no** se usa `git add` sobre el fichero: se commitea un blob propio (`git show HEAD:ci-rust.yml` + sólo el bloque WASM → `git hash-object -w` → `git update-index --cacheinfo`). Mensaje `ci(wasm): gate the wasm tests on the push range, not the last commit (FIND-725)`. **Sin push.**
 - **Verify:** `git show --stat HEAD` = 2 archivos; `git show HEAD -- .github/workflows/ci-rust.yml | grep -c 'tsan-suppressions'` = 0
-- **Estado:** ✅ DONE — commit local (ver `COMMIT_HASH` en el `RESULTADO`), con el follow-up del review incorporado por amend sobre el mismo commit.
+- **Estado:** ✅ DONE — commit local `fd52e68a4` (`ci(wasm): …`), 2 archivos, blob `89dc913` = el `mine2.yml` revisorado, 0 líneas de TSan. **Delta pendiente:** este task file quedó, en el commit, en su versión previa a la ronda 2 de review; la versión final (este texto) está en el working tree y **no se pudo commitear**: `.githooks/pre-commit` aborta con `Your pre-commit configuration is unstaged` porque `.githooks/pre-commit-config.yaml` está modificado por otra sesión, y ese check no pasa cuando el commit aísla paths (`--only` o `GIT_INDEX_FILE`) — ver `## Handoff`.
 
 ## Dependencias
 
@@ -309,15 +309,34 @@ correcto: ese push no introduce el cambio.
 | **L3** | La prueba del predicado era una copia y no ejercitaba non-push / fetch-fail / clon shallow | ✅ aplicado: ahora el bloque se **extrae** del `.yml` y corre sobre clones superficiales; 8 escenarios + `## Prueba end-to-end` declara su alcance explícito |
 | **L4** | Deriva de estado en este task file (steps PENDING ya hechos) | ✅ aplicado: steps y contadores sincronizados |
 
-### Ronda 2 — verificación de las correcciones
+### Ronda 2 — ✅ approve
 
-Pendiente de respuesta del mismo revisor (`vanta-review`, `ses_defd3b3a1ffepefvn5ZU0T5GU1`): se le pidió re-verificar H1/M1/M2/L1 con el bloque nuevo extraído del `.yml` (8 escenarios) y cerrar con veredicto. **Ningún veredicto de aprobación está registrado todavía.**
+El revisor re-verificó los seis hallazgos con sus propias manos y su propio arsenal:
 
-- **Veredicto:** ❌ cambios requeridos (ronda 1) → correcciones aplicadas → re-review pendiente.
+| Ronda 1 | Evidencia de la re-verificación |
+|---|---|
+| H1 | `actionlint` con **control negativo**: romper `needs.wasm-scope.result` → exit 1 y el propio linter expone el tipo `{outputs: {wasm: string}; result: string}` → `result` **es** propiedad válida. Segundo control: `!notcancelled()` → exit 1 con la lista de funciones (incluye `cancelled`). Mejor evidencia que su cita de docs de la ronda 1. |
+| M1 | Su probe independiente de rename-out → `true`; el output ahora imprime **ambos** paths. |
+| M2 | Su probe → `true`; y verificó que **`-z` es load-bearing**, no decorativo: `quotePath=false` solo sigue entrecomillando un path con `"` (`"vantadb-wasm/src/we\"ird.rs"`). |
+| M2 (riesgo del pipe) | Medido: `git diff` solo → exit 128; pipeline **con** `pipefail` → 128 → fail-open; **sin** pipefail → 0 → `false` (pérdida silenciosa). `set -euo pipefail` está en el bloque, lo probó desactivándolo. |
+| L1 / L2 / L3 / M3 | Comentario y tabla declaran el cambio; con dependabot `result == 'skipped'` satisface la rama fail-open pero el guard de actor idéntico evita correr; el bloque extraído es byte-fiel a `mine2.yml:619-661`; el commit tiene 2 archivos y 0 líneas de TSan, y el trabajo de `FIND-714` sigue intacto en el working tree. |
+
+**Caminos de skip con un cambio de wasm dentro del push: agotados.** (1) fallo/timeout/checkout del job → `result != 'success'` → corre; (2) el step no escribe el output → el job falla → corre; (3) Dependabot → no corre por diseño (no toca `vantadb-wasm/`; el crate sigue cubierto por `experimental-check`); (4) run cancelado por `concurrency` → `!cancelled()` lo saltea y es correcto (un run nuevo lo supersede — con `always()` cada push superseded arrancaría un `wasm-test` zombie); (5) el workflow no dispara → semántica del trigger, ver `## Notas`.
+
+- **Veredicto:** ✅ **approve** (ronda 2). Sin Critical ni High. Hallazgos nuevos de la ronda 2: **M4** (deriva de estado de este task file), **L5** (Contrato/DoD/OCR citaban la prueba vieja) y un nit de acoplamiento de guards — los tres cerrados en este pase.
+
+## Handoff (estado exacto al cerrar)
+
+- **Commit:** `fd52e68a4` — `ci(wasm): gate the wasm tests on the push range, not the last commit (FIND-725)`. 2 archivos: `.github/workflows/ci-rust.yml` (blob `89dc913`) + `docs/dev/tasks/FIND-725.md` (versión previa a la ronda 2). Es el **único** commit de esta tarea y **no** contiene TSan.
+- **En el working tree, sin commitear:** la versión final de este task file (veredicto de ronda 2, L5, contadores, notas de acoplamiento y del trigger). Contenido listo, sólo falta el commit.
+- **Por qué no se commiteó:** `.githooks/pre-commit` corre `pre-commit` sobre el árbol y aborta con `[ERROR] Your pre-commit configuration is unstaged` porque `.githooks/pre-commit-config.yaml` está modificado por otra sesión (`+12` líneas, ya `git add`-eado). Ese check compara el config contra **el índice que usa el commit**: con `--only <paths>` o con `GIT_INDEX_FILE` temporal —las dos formas de no arrastrar el trabajo ajeno de `FIND-714`/`FIND-724`— el config vuelve a verse "unstaged" y el gate bloquea. Sin aislar el commit, se arrastrarían archivos ajenos. No se usó `--no-verify` (prohibido por AGENTS.md Regla 1).
+- **Cómo desbloquear (para el owner/orquestador, cuando el commit ajeno del config exista):** `git add .githooks/pre-commit-config.yaml` y luego `git commit --amend --only -m "ci(wasm): gate the wasm tests on the push range, not the last commit (FIND-725)" -- .github/workflows/ci-rust.yml docs/dev/tasks/FIND-725.md`; o, ya sin config ajena pendiente, un `git add` + `commit --amend` normal.
 
 ## Notas
 
 - **Scope discipline:** `CI_POLICY.md` no enumera jobs por nombre para `wasm-test` (sólo describe su comportamiento BEST-EFFORT en `:223-225`, que no cambia) y `TRIGGERS.md` es por fichero → el job `wasm-scope` no crea drift documental. No se toca `docs/dev/Backlog.md` (lo cura el cierre del plan) ni `docs/dev/plans/**`.
 - **`npx --no-install actionlint`** no es ejecutable en este repo (sin `package.json`): el contrato se cumple con el binario `actionlint` v1.7.12 ya instalado y pinneado por la misma fuente que documenta `RULES.md` regla 6 (`actionlint` 0).
 - **Gates de docs:** `node scripts/docs/check-links.mjs` → exit 0 (0 markdown rotos, 1 wikilink dentro de presupuesto en un archivo histórico ajeno). `node scripts/docs/check-docs.mjs` → exit 1 **por `docs/dev/tasks/FIND-724.md` (`MISSING FRONTMATTER`)**, un task file de otro carril en vuelo; este archivo pasa el esquema (`title` + `kind: task`) y los `orphans` son *reporting only*, no gate. No se regeneran índices (`gen-index.mjs --write`): arrastraría las entradas de `FIND-714`/`FIND-724` y metería archivos ajenos en este commit.
-- **Working tree compartido:** al cerrar, el árbol tenía trabajo ajeno sin commitear (`FIND-714`: job `sanitizer-tsan` + `dev-tools/tsan-suppressions.txt`; `FIND-724`: `CI_POLICY.md` + `src/storage/engine/tests/snapshot_quiesce.rs`). El commit se armó con un blob propio (`git show HEAD:ci-rust.yml` + sólo mi bloque, `git hash-object` + `update-index --cacheinfo`) para no arrastrar ni una línea de TSan: el diff commiteado es de 3 hunks / +74/-3 sobre ese fichero.
+- **Working tree compartido:** al cerrar, el árbol tenía trabajo ajeno sin commitear (`FIND-714`: job `sanitizer-tsan` + `dev-tools/tsan-suppressions.txt`, **staged** por su propia sesión; `FIND-724`: `CI_POLICY.md` + `src/storage/engine/tests/snapshot_quiesce.rs`). El commit se armó con un índice propio (`GIT_INDEX_FILE` temporal + `git read-tree HEAD` + `git hash-object -w` + `update-index --cacheinfo`) para no arrastrar ni una línea de TSan ni pisar el índice compartido: el commit son **2 archivos** y el diff de `ci-rust.yml` no contiene `tsan-suppressions`.
+- **Acoplamiento de guards (nit de la ronda 2):** `wasm-scope` y `wasm-test` comparten `github.actor != 'dependabot[bot]'`. Como con Dependabot `wasm-scope.result == 'skipped'` **satisface** la rama fail-open, es el guard de `wasm-test` el que evita que los PRs de Dependabot corran los browser tests: **no borrar ese segundo guard** "porque el job de scope ya guarda".
+- **El trigger no lo arregla esta tarea (info de la ronda 2):** `on.push.paths` matchea por glob (`vantadb-*/**`); en un rename *fuera* del crate lo que ve el trigger es el path **destino**. Si el destino cae en un glob listado, el workflow dispara y M1 aplica; si no, no hay run y M1 es irrelevante. Es semántica pre-existente del trigger, no verificable sin push, fuera de alcance.
