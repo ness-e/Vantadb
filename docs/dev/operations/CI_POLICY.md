@@ -62,7 +62,6 @@ governance semantics are excluded from the default fast lane.
 | `deny` | Dependency Policy Check (`cargo deny`) |
 | `experimental-check` | Experimental Crates Check (continue-on-error, non-blocking) |
 | `sanitizer-asan` | AddressSanitizer (nightly, continue-on-error) |
-| `sanitizer-tsan` | ThreadSanitizer (nightly, continue-on-error) — 4 hash partitions; contract and suppression scope in §"TSan lane (`sanitizer-tsan`) — contract and suppression scope (FIND-714)" |
 | `release-combo` | Release Combo Check — `cargo check --release` of `vanta-cli` (`server,jemalloc`) + `vantadb-server` (`jemalloc`) with `RUSTFLAGS=-D warnings`; the exact combo of `release-binaries.yml` (FIND-231) |
 
 > **Note (ERR-OBS-01):** the `test` job exercises error-observability behavior
@@ -80,68 +79,99 @@ governance semantics are excluded from the default fast lane.
 - **Fast:** Any test exceeding a few seconds must be moved to heavy certification or heavily
   optimized.
 
-#### TSan lane (`sanitizer-tsan`) — contract and suppression scope (FIND-714)
+#### TSan lane — retired 2026-11-25 (FIND-734; previously `sanitizer-tsan`, FIND-714)
 
-The lane exists to answer one question: *does the engine race under concurrent access?* Until
-2026-11-24 it could not answer it. Measured on run `45486044760`, job `138775290328`
-(partition 1/4):
+**No ThreadSanitizer job runs in CI.** The job was removed from
+`.github/workflows/ci-rust.yml`, and so was its `dev-tools/tsan-suppressions.txt`. It could not
+produce a verdict about VantaDB, and the alternative — a chronic red behind `continue-on-error` —
+is the case Regla 2 forbids. This section keeps the measurement, the reason, and the recipe to
+bring the lane back.
+
+**What was measured.** Run `45668284667`, job `139404898566` (partition 1/4, `b7a5d2eab`). For the
+first time the lane ran its corpus instead of dying after four tests: `822 tests run (selected ==
+executed)`, no abort, the FIND-714 assertion green — while reporting `race reports: 243` and
+`suppression hits: 0`. All 243 belong to one class, and in every one of them **both disputed
+accesses sit inside uninstrumented `std`/`core`/`alloc`**, which is why TSan cannot adjudicate any
+of them. That is a statement about the instrument, not a clean bill of health for the engine:
+
+| Reports | Signature | What it actually is |
+|---|---|---|
+| 176 | `Arc<Mutex<Option<test::run_test::{closure#0}>>>::drop` vs `compiler_move` (`library/test/src/lib.rs:687`) | libtest's own event plumbing, guarded by a `std::sync::Mutex` |
+| 58 | `free`/`dealloc_nonnull` vs `Atomic<usize>::fetch_sub` on `Arc<flume::Hook<fjall::worker_pool::WorkerMessage, flume::signal::SyncSignal>>` | an `Arc` refcount during fjall/flume teardown — all of it inside `std` |
+| 8 | tokio `blocking::pool`: 7 shutdown (`ThreadManagementState::begin_shutdown`), 1 spawn (`VecDeque::push_back_mut`) | a `std::sync::Mutex` doing its job, invisibly |
+| 1 | `OnceLock<DistanceKernels>` init (`kernels.rs:275`) | the futex-based `Once` |
+
+Note what that table does *not* say. 67 of the 243 reports do carry `vantadb::` frames — the drop
+chain of `FjallBackend`/`StorageEngine`, `gc::spawn_memory_ttl_sweeper`, the test bodies — but in
+every one the *conflicting pair* is `free`/`Atomics`/`MaybeUninit` in `std`. A real double-free or
+use-after-free in `FjallInner`'s teardown would print the same shape, and with `std` uninstrumented
+TSan cannot tell them apart. That is the reason to retire the lane, not evidence that the engine is
+race-free.
+
+**Root cause — the lane cannot see any synchronization.** TSan learns about synchronization from
+two sources: libc interception (`pthread_mutex_lock`) and compile-time instrumentation of atomics.
+VantaDB's synchronization arrives by neither route. Rust's `std::sync::Mutex`, `Once`/`OnceLock` and
+`Arc` refcounts are futex- and atomic-based *inside `std`*; `std` is not instrumented here (no
+`-Zbuild-std`, it ships precompiled); and a futex is not a `pthread_mutex`, so the libc interceptor
+never fires. The log says it directly: the stack runs through
+`<std::sys::sync::once::futex::Once>::call`. The Rust Unstable Book is explicit — *"Using it without
+instrumenting all the program code can lead to false positive reports"*, and *"It is strongly
+recommended to combine sanitizers with recompiled and instrumented standard library, for example
+using cargo `-Zbuild-std` functionality"*
+([`sanitizer`](https://doc.rust-lang.org/nightly/unstable-book/compiler-flags/sanitizer.html)).
+
+**Why a suppression file could not fix it.** The mechanism itself works: `race:` is matched against
+function *and* file names of the reporting stack and of the previous-access stack, the string being
+a substring with `*` implied (see
+[ThreadSanitizerSuppressions](https://github.com/google/sanitizers/wiki/ThreadSanitizerSuppressions)
+and `IsSuppressed` in
+[`tsan_suppressions.cpp`](https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/tsan/rtl/tsan_suppressions.cpp)).
+Two things blocked it, and neither is the format.
+
+*The list expires faster than a nightly cycle.* FIND-714's two entries were loaded by this very run
+— `Using suppressions: …/tsan-suppressions.txt (2 entries)` — and scored `suppression hits: 0`
+within ~24 h, because libtest replaced its event channel with a different internal type.
+`suppression hits` exists to make that rot visible, and it did its job.
+
+*Some signatures can only be named by naming engine types.* Per-family tokens do exist
+(`test::run_test::{closure#0}` would cover 176), but warn #42 — the 42nd `WARNING` in that
+partition's log — carries no harness and no dependency frames at all:
 
 ```
-Summary [   0.801s] 4/821 tests run: 0 passed, 4 failed, 2322 skipped
+Read of size 8 at 0x5555577e3420 by thread T4:
+  #0 vantadb::index::distance::kernels::f32_dot_and_norm_b_sq  src/index/distance/kernels.rs:275
+  #1 vantadb::index::distance::metrics::f32_l2_norm            src/index/distance/metrics.rs:14
+Previous write of size 8 at 0x5555577e3420 by thread T3:
+  #0 <core::mem::maybe_uninit::MaybeUninit<DistanceKernels>>::write
+  #1 <std::sync::once_lock::OnceLock<DistanceKernels>>::initialize   once_lock.rs:574
 ```
 
-4 of 821 tests in the partition, all four from the `--lib` binary, all four with the same
-signature and **zero `vantadb` frames**: libtest's own event channel
-(`<std::sync::mpmc::list::Channel<test::event::CompletedTest>>::read` / `::write`, reached via
-`core::profiling::compiler_copy`). TSan instruments the test binary but not `std` (no
-`-Zbuild-std`), so the harness channel is reported racy in every process; nextest's default
-profile is fail-fast, so the run stopped at the first four and the other 59 binaries never ran.
-Red said nothing about the engine, and a green would have said nothing either.
+`select_kernels()` is `KERNELS.get_or_init(..)` — correct code; the acquire happens in the
+uninstrumented `Once`. Silencing that one report means writing a suppression naming
+`OnceLock<vantadb::index::distance::kernels::DistanceKernels>` — an engine type — or `MaybeUninit<`.
+The remaining 67 are fjall's write queue and tokio's pool, i.e. the queue that carries our writes to
+disk. A green reachable only by naming engine and storage types is the `race:std` failure mode
+FIND-227 rejected, one level down — and it has to be re-earned every time those internals move,
+which the 24-hour expiry already demonstrated.
 
-**Contract (enforced in `.github/workflows/ci-rust.yml`):**
-
-| Element | Value |
-|---|---|
-| Suppression file | `dev-tools/tsan-suppressions.txt` — `race:std::sync::mpmc`, `race:CompletedTest` |
-| Wiring | `TSAN_OPTIONS=suppressions=<abs path>:halt_on_error=1:history_size=2:external_symbolizer_path=<llvm-symbolizer>`; a missing or empty file fails the step |
-| Fail-fast | `--no-fail-fast`, so one report cannot hide the rest of the partition |
-| Executed-count assertion | a **completed** run prints `N tests run: …`; an **aborted** run prints `X/Y tests run` and fails the step; a completed run of `0 tests` also fails |
-
-The assertion reads `Y` from nextest's own summary, so nothing is hardcoded. Be precise about
-what it proves: it detects **aborts** (`X ≠ Y`, the `4/821` shape) and an **empty selection**
-(`0 tests run`); it does *not* detect a corpus that shrinks legitimately — numerator and
-denominator shrink together. Who bounds the corpus: the `-E` filterset on the test step and the
-`[profile.default]` `default-filter` in `.config/nextest.toml`. If `Y` drops materially for a
-partition, look there first.
-
-The suppression is deliberately narrow: `std::sync::mpmc` and `CompletedTest` are both absent from
-`src/` and `tests/` (`rg -n "mpmc|CompletedTest" src/ tests/` → 0 hits). The effective scope is the
-*wider* of the two entries (they are a union), and both are libtest-only. A broader entry such as
-`race:std` would silence a real race in any stack that passes through `std`; that is the failure
-mode FIND-227 rejected, and it stays rejected.
-
-**Why `race:` is the right TSan mechanism here:** the suppression string is matched against
-function and file names of the main stack and of the previous-access stack
-([ThreadSanitizerSuppressions](https://github.com/google/sanitizers/wiki/ThreadSanitizerSuppressions)),
-so a `vantadb` frame in a future report does not match either entry and the lane turns red.
-`race_top` would only match the top frame (here `memcpy`) and is useless for this signature.
-
-**Status of `continue-on-error`:** still `true` (`CATEGORY: NON-CRITICAL`). Removing it is the
-last step of FIND-714 and requires a run where all four partitions log
-`partition <n>/4: <N> tests run (selected == executed)` with `N` in the order of the partition
-size (~785-821, never `0`), `race reports: 0`, `suppression hits: > 0` (proof the entries are live
-and not dead), and everything inside the 50-minute step budget. That run needs a push, so it is an
-owner action. If the next run still shows non-harness races (rayon fences, dependency teardown —
-the residual documented in FIND-227), the honest alternative is option (b) of the plan: **retire
-the job** with an explicit `CATEGORY` and a withdrawal note in this section — never a chronic red
-hidden behind `continue-on-error` (Regla 2).
-
-**Repro / triage:**
+**Bringing the lane back.** The prerequisite is an instrumented `std`, not a suppression:
 
 ```
-gh api repos/ness-e/VantaDB/actions/jobs/<job-id>/logs --allow-escape-sequences \
-  | rg 'Summary|WARNING: ThreadSanitizer'
+export RUSTFLAGS="-Zsanitizer=thread -Cunsafe-allow-abi-mismatch=sanitizer"
+cargo +nightly nextest run --target x86_64-unknown-linux-gnu -Zbuild-std <same partitions as before>
 ```
+
+`rust-src` must be installed (`rustup component add rust-src --toolchain nightly`, seconds) and the
+build gets slower — measured, not estimated: on a Windows dev box at `rustc 1.101.0-nightly
+(c36f14571)`, cold cache and no sccache, compiling instrumented `std` for
+`x86_64-unknown-linux-gnu` took **3.2 min** (164 MB of artifacts) before the run stopped at the link
+step, which needs a Linux linker that host does not have. That is the *added* cost per leg over
+today's precompiled `std`, it does not include the `-p vantadb` dependency graph, and partitions 2-4
+should get it from sccache — so the 50-minute step budget is not the obstacle. Only then is
+`race reports: 0` a pass condition worth trusting, because only then does TSan see
+`std::sync::Mutex`. A returning lane ships with `-Zbuild-std` from day one, without
+`continue-on-error`, with no suppression file, and as a scheduled heavy job — never as a red check
+on every pull request. Revival tracked as `FIND-737`.
 
 ### Fast Gate Test Exclusions
 
