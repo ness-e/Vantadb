@@ -645,7 +645,7 @@ the model context under the recall-first rule.
 
 | Hook (OpenCode v2) | What it does |
 |---|---|
-| `session.idle` event | Reads the closed exchange with `ctx.session.context()` and posts the `user` + `assistant` turns (text parts only) to `thread_send` on a stable per-session thread (`vanta-opencode-idle-<sessionID>`, resolved via `thread_list`, created once via `thread_create`). Deduped by the assistant message id (falling back to the user id, then to the turn text). |
+| `session.idle` event | Reads the closed exchange with `ctx.session.context()` and posts the `user` + `assistant` turns (text parts only) to `thread_send` on a stable per-session thread (`vanta-opencode-idle-<sessionID>`, resolved from plugin storage, else `thread_list`, else `thread_create`; re-resolved if a send fails). Deduped by the assistant message id (falling back to the user id, then to the turn text). |
 | `ctx.session.hook("context")` | Calls `memory_recall` with the **verbatim** user turn (`scope: "agent"`, `top_k: 5`) once per distinct turn, and injects `prepend_context` **verbatim** only when there are hits. |
 | `ctx.session.hook("context")` | Publishes `capabilities.ingest` once per session: when `is_broken()` (`runner: none` **and** `queue.depth > 0`) it emits one legible line saying the pipeline captures but does not consolidate. |
 
@@ -700,7 +700,7 @@ VANTADB_MEMORY_WRITE_TIMEOUT_MS=15000    # optional; per write call (thread_send
 ```
 
 Mechanical gate: `node .opencode/plugins/vanta-memory-capture.selftest.mjs`
-(15 assertions over a mocked transport, including the three branches that must
+(19 assertions over a mocked transport, including the branches that must
 never invert — empty recall injects nothing, hits inject the block, a credential
 never reaches the wire).
 

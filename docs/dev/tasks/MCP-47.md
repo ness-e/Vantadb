@@ -19,7 +19,7 @@ description: "Plugin v2 de OpenCode: en `session.idle` postea el intercambio cer
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | El loader de OpenCode v2 (`.opencode/plugins/*.ts` se descubre solo, `https://opencode.ai/docs/plugins/`); `ctx.session.hook("context")` corre en **cada request de modelo** (incluidas continuaciones por tool); `ctx.event.subscribe({types:["session.idle"]})` una vez por sesión |
+| Callers | El loader de OpenCode v2 (`.opencode/plugins/*.ts` se descubre solo, `https://opencode.ai/docs/plugins/`); `ctx.session.hook("context")` corre en **cada request de modelo** (incluidas continuaciones por tool); `ctx.event.subscribe({signal})` + filtro propio por `event.type === "session.idle"` (el filtro `types` de la doc web no existe en `@opencode/client@2.0.15`) |
 | Callees | `vanta-cli mcp-call` (WIRE-10, one-shot) → `thread_send` (MCP-44: captura L0 + encola L1), `thread_create`/`thread_list` (thread estable por sesión), `memory_recall` (recall-first), `capabilities` (MEM-72 `ingest`) |
 | Implicaciones | Es el plugin que corre en **cada sesión de agente**. Tres fallos son graves: (a) romper la sesión → todo camino es `try/catch` y el transporte tiene timeout; (b) inyectar memoria irrelevante → `recalled` vacío **no** inyecta nada; (c) postear secretos → `redactSecrets` en la frontera + solo partes `text` (nunca tool-calls/results) + contenido por stdin, jamás argv. Sin migración de datos. Sin cambios en `vanta-memory/**`, `vantadb-mcp/src/**` ni `src/**`. |
 
@@ -37,7 +37,7 @@ node .opencode/plugins/vanta-memory-capture.selftest.mjs
 node --test .opencode/plugins/vanta-memory-capture.selftest.mjs
 ```
 
-Ambas deben pasar 13/13, y **el self-check debe fallar si se invierte cualquiera de las dos ramas** (verificado por mutación, §Verification). No hay `tsconfig` en `.opencode/` ni `tsc` instalado: `npx tsc --noEmit -p .opencode` **no es ejecutable** aquí (ver §Deuda).
+Ambas deben pasar **19/19**, y **el self-check debe fallar si se invierte cualquiera de las ramas** (verificado con 4 mutaciones, §Verification). No hay `tsconfig` en `.opencode/` ni `tsc` instalado: `npx tsc --noEmit -p .opencode` **no es ejecutable** aquí (ver §Deuda).
 
 ## Spec (SDD)
 
@@ -93,18 +93,35 @@ Todos los hallazgos se evaluaron contra el artefacto; 15 dieron cambio, 2 quedar
 | 16 | LOW | `recallBlock` inyecta cuando `recalled` está *ausente* (no solo no-vacío) | ⚠️ Trade-off: ausente ≠ "sin hits" (respuestas de gateway que solo traen `prepend_context`). `recalled: []` sí es explícito y gana siempre. Documentado |
 | 17 | LOW | TDZ de `timer` en `runCli`: un `finish` síncrono dejaría la promesa sin resolver | ✅ `let timer` declarado antes de `finish` |
 
+### Ronda 2 (`vanta-review`, veredicto `changes-required` de nuevo — regresiones de la ronda 1)
+
+La segunda pasada encontró que los fixes de la ronda 1 intercambiaban un modo de fallo por otros tres. Todos verificados contra el código y corregidos:
+
+| # | Sev | Regresión | Disposición |
+|---|-----|-----------|-------------|
+| NEW-1 | HIGH | Un intercambio que cierra **mientras** hay una captura en vuelo se descartaba en silencio (`inFlight` hacía `continue`) | ✅ Ahora se **encola** (`pending` + loop `do/while` serializado por sesión): dos idles seguidos capturan dos intercambios. Test con captura lenta y 2 idles |
+| NEW-2 | HIGH | Un envío parcial re-enviaba **también la mitad ya guardada**, en cada idle, para siempre | ✅ Tracking por rol (`partial`): el reintento manda solo lo que falta. Test: `["user","assistant","assistant"]`, sin duplicar el user |
+| NEW-3 | HIGH | El breaker era **de proceso**: un hook con dos fallos apagaba el recall para **todas** las sesiones hasta reiniciar, y el log mentía ("for this session") | ✅ Contador por sesión (`Map<sessionID, n>`); el probe de `capabilities` dejó de compartirlo. Test: sesión A se apaga, sesión B sigue intentando |
+| NEW-4 | MED/HIGH | `mcp-call` hace `escaped.trim_matches('"')` (`src/cli_handlers/mcp_call.rs:101`): un turno que **termina en `"`** rompe el splice (JSON inválido → exit 2) | ✅ `placeholderSafe()` añade un espacio final cuando el valor acaba en `"` (inocuo en un query de búsqueda). Test propio. El fix del CLI es ajeno (archivo prohibido) |
+| NEW-5 | MED | Bajar el scan a 3 páginas re-armaba el fork de thread en stores >300 threads | ✅ El id se persiste en `ctx.storage` (`thread/<sessionID>`): el scan pasa a ser fallback y un store grande reusa su propio thread |
+| NEW-6 | LOW | El task file y el doc se contradecían tras los fixes (13/13 vs 15/15, `subscribe({types})`, "timeout de 5 s", "created once", y el comentario de redacción prometía no tocar prosa) | ✅ Corregidos: 19/19, `subscribe({signal})` + filtro propio, presupuestos 12/15 s, "created once, re-resolved", y el comentario ahora dice explícitamente que la redacción **sobre-redacta** prosa con forma de asignación |
+| NEW-7 | LOW | El probe de `capabilities` gastaba 12 s en el primer request **de cada sesión** para una respuesta que con transporte one-shot no puede reflejar backlog | ✅ Probe **una vez por proceso** (promesa cacheada, camino de fallo propio) y el aviso se emite una vez por sesión desde el cache |
+| #4 | HIGH | Sigue "abierto" como coste: el hook espera `memory_recall` (7-8,5 s medidos) en el primer request de cada turno distinto | ⚠️ Trade-off aceptado y documentado: el probe ya no suma (1 llamada, cacheada) y el breaker es por sesión. Bajar más el presupuesto hace que el recall caduque siempre (se midió con 5 s) |
+| #9 | MED | Redacción: prosa tras un PEM sin terminar se comía sin línea en blanco; `password: "x` sin cerrar no se redactaba | ✅ PEM acotado a 8 KB, patrón extra para comilla sin cerrar. Sobre-redactar texto con forma de asignación es decisión explícita, no un efecto colateral silencioso |
+
 ## Verification
 
 | Comando | Resultado |
 |---|---|
-| `node .opencode/plugins/vanta-memory-capture.selftest.mjs` | ✅ **15/15 pass** (`fail 0`) — tras los fixes del review (13 antes) |
-| `node --test .opencode/plugins/vanta-memory-capture.selftest.mjs` | ✅ 15/15 pass — mismo archivo, runner del repo |
+| `node .opencode/plugins/vanta-memory-capture.selftest.mjs` | ✅ **19/19 pass** (`fail 0`) — 13 iniciales + 6 nacidos de las dos rondas de review |
+| `node --test .opencode/plugins/vanta-memory-capture.selftest.mjs` | ✅ 19/19 pass — mismo archivo, runner del repo |
 | Mutación A (recall vacío devuelve un texto en vez de `null`) | ✅ **fallan 3** tests; revertido |
-| Mutación B (la captura no lee el transcript ⇒ no postea) | ✅ **fallan 3** tests; revertido |
+| Mutación B (la captura no lee el transcript ⇒ no postea) | ✅ **fallan 5** tests; revertido |
 | Mutación C (quitar `redactSecrets` del posteo — el gate viejo no la veía) | ✅ **falla 1** test (`credentials are redacted before they are posted`); revertido |
+| Mutación D (descartar el idle en vez de encolarlo — regresión NEW-1) | ✅ **falla 1** test (`two exchanges closing during one slow capture are both captured, none dropped`); revertido |
 | Smoke real del transporte (`./target/release/vanta-cli.exe --db <tmp> mcp-call --tool capabilities --args '{}'`) | ✅ `mcp-call` devuelve `{"content":[{"text":"<json>"}]}` (sin `structuredContent`) y `parseResult` lo desempaqueta; el payload real de un DB fresco **no trae bloque `ingest`** → `isIngestBroken()` = `false` (superficie sin instrumentar ≠ pipeline roto). Ambos shapes (envelope y `ingest` pelado) dan el resultado esperado. Los logs INFO del binario van a stderr y no contaminan el parse. DB temporal borrada |
 | **E2E real** (plugin completo contra `vanta-cli` + DB temporal, `session.idle` inyectado) | ✅ `thread_list` → `thread_create` → **2× `thread_send`** → `thread_get` devuelve `role:"user"` con el texto del turno y `role:"assistant"` con la respuesta, en el thread `vanta-opencode-idle-ses_live`; el evento distinto de `session.idle` se ignora; un solo thread (sin fork). **El token de prueba (`ghp_…`) quedó como `token=[REDACTED:credential]` en lo almacenado**: la redacción se prueba contra el binario, no solo contra el mock. DB temporal borrada |
-| **L0 capture (MCP-44) — NO verificable con los binarios locales** | ⚠️ Los binarios locales son **anteriores** a `2fb20c728`: `thread_send` responde `{"ok":true}` **sin bloque `memory`** y `memory_list {"namespace":"l0/<tid>"}` devuelve `records: []`, tanto en `target/release` (16:13) como en `target/debug` (17:53) — el fuente (`vantadb-mcp/src/threads.rs:236-239`) sí emite `memory:{captured,queued}`. La mitad transporte del plugin queda probada; la mitad servidor es de MCP-44 y no se toca acá (fuera de scope). El plugin solo usa `ok === true` para contar envíos, así que funciona con ambos shapes |
+| **L0 capture (MCP-44) — NO verificable con los binarios locales** | ⚠️ Los binarios locales son **anteriores** a `2fb20c728`: `thread_send` responde `{"ok":true}` **sin bloque `memory`** y `memory_list {"namespace":"l0/<tid>"}` devuelve `records: []`. El de `target/release` (16:13) es rápido pero stale; el de `target/debug` (17:53) sí tiene el fuente nuevo pero es demasiado lento (`thread_send` > 15 s ⇒ timeout en los dos envíos, medido). El fuente (`vantadb-mcp/src/threads.rs:236-239`) sí emite `memory:{captured,queued}`. La mitad transporte del plugin queda probada contra el binario; la mitad servidor es de MCP-44 y no se toca acá. El plugin solo usa `ok === true` para contar envíos, así que funciona con ambos shapes |
 | `memory_recall` tras capturar | ✅ responde en plazo con `recalled: []` / `prepend_context: ""` (L1 vacío: no hay scheduler, MCP-43). `capabilities.ingest` = `null` en el proceso efímero del `mcp-call` |
 | Latencia medida (release, spawn en frío por llamada) | `capabilities` 1,6-2,5 s · `memory_recall` 7,0-8,5 s · `thread_send` >5 s (con 5 s fallaba siempre) — origen de los dos presupuestos del §Spec fila 14 |
 | `npx tsc --noEmit -p .opencode` | ⛔ **no ejecutable**: no existe `.opencode/tsconfig.json` y `tsc` no está instalado (ni local ni en PATH). `node` sí parsea el `.ts` (type-stripping) — sintaxis verificada, tipos no |
