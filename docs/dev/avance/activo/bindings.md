@@ -1697,3 +1697,13 @@ resultado aunque el codigo "funcione".
 - **Techo documentado:** `=0`, `=false`, `=no`, `=off` y `=" "` **siguen** significando update — el criterio pactado es "existe y no está vacío", no parsear booleano. Pineado por `explicit_falsy_values_still_request_update` con `ponytail:` y upgrade path.
 - **Deuda derivada (fila `FIND-738`, misma clase, 5 sitios):** `src/hardware/mod.rs:320-321` (`VANTADB_QUIET`/`VANTADB_SILENT`), `src/storage/engine/tests/read_only_files.rs:101` (`FIND632_DENY_ALLOWLIST`), `tests/core/snapshot_certification.rs:2800` (`FIND319_WINDOWS_NAME_TEST_CHILD`), `tests/compat_v090.rs:424` (`VANTADB_V090_CLI`), `src/hardware/mod.rs:749` (`VANTADB_PROFILE_PATH`).
 - **Nota de proceso:** un intento de commit fue bloqueado por `cargo-fmt`/`cargo-clippy` sobre archivos ajenos; el reintento pasó **sin `SKIP` ni `--no-verify`**.
+
+### `thread_send` alimenta el pipeline de memoria (`MCP-44`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** `thread_send` **solo escribía storage**: un turno enviado por el MCP no producía memoria recuperable. Debía capturar L0 y encolar L1.
+- **Resultado:** ✅ `vantadb-mcp/src/threads.rs`: cada turno `user`/`assistant` se captura en L0 (`l0/<thread_id>`, cursor idempotente) y encola **una** tarea L1 en la cola proceso-local del writer (`OnceLock<Arc<LocalStateBackend<SystemClock>>>`, **ADR-0054**); respuesta aditiva `{ok:true, memory:{captured,queued}}`. Con runner `none` publica `degraded` + `queue.depth` en `capabilities.ingest` (**MEM-72**, `is_broken()`) y el proceso aprende su runner en el primer enqueue. El rol `system` **no** se captura (evita ruido en L1).
+  - **Test e2e:** turno → `run_pass` (runner *scripted*) → `memory_recall` lo devuelve **sin `memory_put`**. Contrato `-p vantadb-mcp -E 'test(thread)'` **7/7**; suite del crate **198/198**.
+- **Commit:** `2fb20c728`
+- **Review P2-01:** veredicto inicial `changes-required` → **R1** (degradado no cableado en `--mcp`), **R2** (`last_pass` fabricado), **R3** (el delete dejaba L0/cola huérfanos), **R4** (DoD sin cerrar) resueltos o documentados; O1-O4 aplicados o declarados. **No hubo segunda ronda formal** del reviewer (declarado, no fabricado).
+- **Deuda declarada:** `note_backlog` (publicar backlog sin fabricar `last_pass`) requiere `vanta-memory/src/ingest/**`; cascada `thread_delete → l0/l1` pendiente; cola in-memory sin backfill L0→cola tras restart; test de doble entrega MCP+HTTP pendiente.
+- **Desbloquea:** `MCP-47` (el plugin ya no necesita `memory_put`: consume `memory:{captured,queued}` y `capabilities.ingest` como semáforo). `MCP-43` sigue esperando: debe drenar **esta** cola (`threads::memory_queue()`, `pub(crate)` a propósito) y decidir el backfill tras restart.
