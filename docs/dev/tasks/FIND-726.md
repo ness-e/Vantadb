@@ -66,16 +66,20 @@ es `--files` / `--all-files`.
 
 | Opción | Veredicto |
 |---|---|
-| **(a)** invocar `pre-commit` con `--files <staged>` (= `--no-stash` efectivo) | **Elegida.** Mismo set de ficheros que deriva `pre-commit` (`git diff --staged --diff-filter=ACMRTUXB`), `stash` pasa a `False`, el hook no escribe nada en el árbol |
+| **(a)** invocar `pre-commit` con `--files <staged>` (= `--no-stash` efectivo) | **Elegida.** Mismo set de ficheros que deriva `pre-commit` (`git diff --staged --diff-filter=ACMRTUXB`), `stash` pasa a `False`, el hook no revierte ni reaplica el árbol |
 | **(b)** detectar WIP tracked y abortar | **Rechazada.** En este checkout el WIP ajeno es el estado normal (medido hoy: `M src/executor.rs` de `FIND-722` mientras corría esta tarea). Abortar bloquearía *todos* los commits y empujaría a `--no-verify`, que es cero gate |
-| **(c)** ambas | Reducida a (a) + **aviso** con la lista de ficheros que se dejan intactos. El aviso explica un rojo de gate causado por WIP ajeno; no bloquea |
+| **(c)** ambas | Reducida a (a) + **aviso** con la lista de ficheros que se dejan intactos y con los *partially staged*. El aviso explica un rojo de gate causado por WIP ajeno; no bloquea |
+| **(d)** materializar el índice en un worktree temporal y correr ahí | **Descartada** (P2-01, F6): recuperaría semántica de contenido-index de verdad, pero añade `write-tree` + `checkout-index` + ciclo de vida de un worktree por commit. Es la salida si algún día el aviso de *partially staged* no basta |
 
 **Trade-off documentado:** con `--files` los hooks ven el **working tree**, no el
-índice. Los hooks con `pass_filenames` (ruff, prettier, markdownlint, junk) sólo
-reciben los nombres staged → sin cambio. Los whole-tree (`cargo fmt --check`,
-`cargo clippy`, clippy por miembro de `verify_staged`) **sí** pueden fallar por
-un fichero que otro agente está editando. Eso es ruidoso y verdadero, y el bypass
-es explícito: `SKIP=cargo-fmt,cargo-clippy git commit ...`.
+índice. Los hooks con `pass_filenames` (ruff, prettier, markdownlint, junk)
+reciben los mismos **nombres** pero leen contenido del working tree: un fichero
+*partially staged* se valida sobre una versión y se commitea otra, y eso ahora se
+nombra en pantalla. Los whole-tree (`cargo fmt --check`, `cargo clippy`, clippy
+por miembro de `verify_staged`) **sí** pueden fallar por un fichero que otro
+agente está editando, e incluso reportar un falso "files were modified by this
+hook" si ese agente escribe durante el run. Ruidoso, nunca destructivo. Bypass
+explícito: `SKIP=cargo-fmt,cargo-clippy git commit ...`.
 
 ## Impacto mapeado (Regla 0)
 
@@ -107,7 +111,7 @@ aditivo (parámetros del mismo comando) y reversible con un solo revert.
 2. ✅ GREEN — `--files` + guards (unmerged, config unstaged) + aviso de WIP.
 3. ✅ Verify — contrato de hash, caso limpio en verde, gate sigue mordiendo.
 4. ✅ Troubleshooting § git hooks.
-5. ✅ Review P2-01 + commit local.
+5. ✅ Review P2-01 (`vanta-review`, changes-required) → F1/F2/F9 corregidos y re-verificados; commit local.
 
 ## Verificación (contrato)
 
@@ -143,19 +147,85 @@ El log dice `Restored changes` igual. Ese es el fallo silencioso de `FIND-720/72
 | escritura concurrente | idem + `Add-Content` a los 900 ms | `A_PRESENT: True   B_PRESENT: True` |
 | árbol limpio (caso normal) | `git commit` real, hook disparado por git | `COMMIT_RC: 0` → `[develop 069c70496]` |
 | el gate sigue mordiendo | `git commit` con `junk.tar.gz` staged | `ERROR [DOC-04]: Prohibited junk/binary files` · `COMMIT_RC: 1` |
+| **F1 (P2-01)** sólo un borrado staged + WIP ajeno | `sh .githooks/pre-commit` | `STAGED_FILTERED(psh): []` · `"nothing to check (no staged file with content)"` · **`STASH_LINES: 0`** · hash idéntico |
+| **F2 (P2-01)** fichero partially staged | idem | aviso `partially staged — hooks validated the WORKING-TREE version` + `STASH_LINES: 0` + hash idéntico |
+
+Los dos últimos se corrieron con el hook `ac7f6e81` (post-review) **commiteado en
+el clon**, porque `git checkout -- .` del arnés revertía el fichero del hook al
+de `HEAD` y las dos primeras pasadas midieron sin querer el hook viejo.
+
+**Producción — el árbol real compartido.** El commit de esta tarea se hizo sobre
+`develop` con **15 ficheros tracked de otros agentes** con ediciones unstaged
+(`src/executor.rs`, `src/llm.rs`, `vantadb-python/*`, `vantadb-ts/*`,
+`vantadb-wasm/src/lib.rs`, `docs/api/*`), con snapshot previo en un parche
+(45 KB):
+
+```
+FOREIGN_WIP_FILES: 15
+COMMIT_RC: 0   ->  [develop 5d293d759] fix(hooks): never stash a shared worktree (FIND-726)
+SAME 5cb949612452 docs/api/BINDINGS_NAMESPACES.md
+SAME 8316a6cd2bd6 docs/api/EMBEDDINGS.md
+... (15/15 SAME) ...
+DRIFT_COUNT: 0
+```
+
+`git ls-tree -r HEAD .githooks` → `100755 blob ac7f6e81 .githooks/pre-commit`
+(exec bit intacto).
+
+## Review P2-01
+
+- **Revisor:** `vanta-review`, contexto fresco (no participó de la implementación).
+- **Enfoque:** fidelidad del set de ficheros contra `pre_commit/git.py::get_staged_files`
+  (v4.6.2), `pass_filenames` de los 7 hooks, `$@` eliminado, los dos guards, el
+  borde `xargs`/lista vacía, veracidad de la doc y falso verde. Reproducción **sólo**
+  en el clon descartable, nunca en el checkout compartido.
+- **Cómo se probó:** `pre-commit --version` (4.6.2), `xargs --version`, `printf "" |
+  xargs -0 echo` para el caso lista vacía, `git diff HEAD --stat` contra el diff
+  declarado, y re-ejecución del caso "sólo borrados" con el hook nuevo.
+- **Veredicto:** **changes-required** → corregido en el mismo commit.
+
+| Hallazgo | Sev. | Disposición |
+|---|---|---|
+| **F1** `xargs` con lista vacía (sólo borrados staged) reintroducía `stash=True`, y el hook decía "(no stash)" | Critical | **Corregido.** La guarda usa la lista **filtrada** (`--diff-filter=ACMRTUXB`, la misma que alimenta `--files`) y `xargs -0 -r` como cinturón. Verificado: `STASH_LINES: 0`. |
+| **F2** "verdict unchanged" falso: con `--files` el *contenido* validado es el working tree | Required | **Corregido.** Aviso `partially staged — hooks validated the WORKING-TREE version` nombrando los ficheros; doc y task file corregidos. |
+| **F3** task file decía `status: completed` sin `## Review` | Required | **Corregido.** Esta sección + steps sincronizados en el commit. |
+| **F4** "cannot write into the tree at all" era absoluto | Optional | **Corregido** en la cabecera: los formatters (`ruff-format`, `prettier --write`) escriben in-place por diseño. |
+| **F5** falso rojo "files were modified" si otro agente escribe durante el run | Optional | **Documentado** en cabecera + trade-off: ruidoso, no destructivo. |
+| **F6** alternativa: materializar el índice en un worktree temporal | Optional | **Evaluada y descartada** con su fila en la tabla de opciones (opción (d)). |
+| **F7** "no re-ejecutes el hook, revertiría el árbol" (ya es falso) + ruta `~/.cache` en Windows | Nit | **Corregido** en troubleshooting: ruta que imprimió el log + `git apply --check`. |
+| **F8** el snippet esperaba `gates...` y el hook imprime `gates (no stash)...` | Nit | **Corregido.** |
+| **F9** `if ! git diff --quiet` bloqueaba con cualquier rc ≠ 0 | Nit | **Corregido**: sólo rc 1 bloquea (como upstream); otro rc → warning. |
+| **F10** listas >128 KiB parten en N runs; nombre que empieza por `-` | Nit | **Aceptado**: ruidoso, no destructivo. Sin cambio. |
+
+Bug adicional propio detectado al implementar F2: `while … && printf` dentro de
+una sustitución de comandos devolvía rc=1 cuando el último fichero no era
+*partially staged*, y `set -e` **abortaba el hook**. Reescrito con `if`.
+
 
 ## Invariantes
 
 - El bit `100755` de `.githooks/pre-commit` no se pierde (`git ls-tree -r HEAD .githooks`).
-- Ningún gate pierde cobertura: mismo set de ficheros que deriva `pre-commit`.
-- El hook nunca escribe en el working tree; si no puede verificar, falla.
+- El **set** de ficheros que ven los hooks es byte-idéntico al que derivaría
+  `pre-commit` solo. El **contenido** validado es el working tree: un fichero
+  *partially staged* se avisa en pantalla (no se aborta).
+- El hook nunca **revierte ni reaplica** el working tree, y nunca stashea: si no
+  puede verificar, falla. (Los formatters `ruff-format` / `prettier --write`
+  escriben in-place por diseño, como antes.)
 
 ## Deuda / hallazgos laterales
 
-- `command -v pre-commit` **no resuelve** `pre-commit.exe` en el `sh` de este
-  Git for Windows (bash no aplica el fallback de extensión en `command -v`), así
-  que un `git commit` lanzado desde bash cae al fallback y los gates yaml no
-  corren. Se reprodujo en el clon de prueba. **No se toca acá** (cambiaría qué
-  gates están activos en todo el repo); fila `FIND-*` propuesta.
-- El parche del stash interrumpido queda en `~/.cache/pre-commit/patch*`:
-  recuperable a mano, pero nadie lo sabe. Documentado en troubleshooting.
+- El parche del stash interrumpido queda en el `pre-commit` store
+  (`C:\Users\<u>\.cache\pre-commit\patch*` en Windows, `~/.cache/...` en POSIX):
+  recuperable a mano con la ruta que imprime el log. Documentado en troubleshooting.
+- **NOTICED BUT NOT TOUCHING:** `node scripts/docs/gen-index.mjs --check` falla
+  **en `HEAD` sin mis cambios** (verificado en el clon descartable, que no tiene
+  `FIND-726.md`). Drift preexistente de `docs/index.md` + un `web/` untracked
+  compartido; regenerarlo hornearía el WIP de `FIND-706/722` en el mismo commit.
+  Fuera del scope de escritura declarado (`docs/index.md` no está en la lista).
+- **NOTICED BUT NOT TOUCHING:** `.githooks/pre-commit:26` usa
+  `command -v pre-commit`; en este Git for Windows el `sh` de git **no** resuelve
+  `pre-commit.exe` sin extensión en `command -v` (medido), así que un commit
+  lanzado desde bash cae al fallback y los gates yaml no corren. Arreglarlo
+  activaría gates hoy dormidos en todo el repo: decisión del owner, no efecto
+  lateral de este fix.
+
