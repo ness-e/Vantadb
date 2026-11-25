@@ -17,10 +17,14 @@ name: 'HEAVY: Certification - tests, benches, chaos, fuzz'
 # - schedule: cada cron corre SOLO su familia (ventana por event.schedule):
 #   bench 02:00 diario, cert dom 03:00, fuzz lun 06:00. Sin esto, cada cron
 #   pagaba la suite completa (causa de runs de 79 min + 3 failures diarios).
-# - heavy-cert sin concurrency group -> ahora grupo estandar cancelable.
-# - bench nocturno (light-benchmarks/high-density/analyze/critcmp-regression):
-#   concurrency job-level cancel-in-progress:false — restaura la proteccion
-#   de heavy-bench-nightly (un push durante el bench 02:00 no lo cancela).
+# - heavy-cert sin concurrency group -> ahora grupo estandar serializado, no cancelable.
+# - FIND-716: los 4 bench jobs (light-benchmarks/high-density/analyze/
+#   critcmp-regression) llevaban ademas un concurrency job-level con el MISMO
+#   group que el workflow. GitHub admite un solo job O run por group, asi que
+#   el job no podia adquirir un slot que su propio run retiene: GitHub lo
+#   fallaba al instante, sin runner ni steps (medido: started_at ==
+#   completed_at, runner_name = none). Borrado: el workflow-level ya protege
+#   el bench 02:00 de un push. No re-duplicar.
 on:
   push:
     branches: [main]
@@ -77,6 +81,11 @@ concurrency:
   cancel-in-progress: false
   # Heavies de schedule nunca se cancelan por un push (fuzz-pr lleva override
   # cancel:true por ser el unico pesado que corre en PRs).
+  # FIND-716 — NO repetir este group en un `concurrency:` job-level: el run ya
+  # lo ocupa, asi que GitHub no encola el job, lo falla al instante (failure,
+  # 0 steps, sin runner). `cancel-in-progress: false` NO protege de eso: solo
+  # impide cancelar lo que ya corre. Si un job necesita su propio gate, usar un
+  # group DISTINTO (failpoint-tests, fuzz-pr).
 
 permissions:
   contents: read
@@ -417,10 +426,7 @@ jobs:
 
     name: Light benchmarks
     needs: ci-gate
-    # Restaura proteccion heavy-bench-nightly (cancel:false): el bench ~2h no se cancela.
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: false
+    # No concurrency propio: ver la nota del concurrency de workflow (FIND-716).
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -490,10 +496,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *')
     name: High density
     needs: ci-gate
-    # Restaura proteccion heavy-bench-nightly (cancel:false): el bench ~2h no se cancela.
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: false
+    # No concurrency propio: ver la nota del concurrency de workflow (FIND-716).
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
@@ -525,10 +528,7 @@ jobs:
 
     name: Analyze
     needs: [ci-gate, light-benchmarks, high-density]
-    # Restaura proteccion heavy-bench-nightly (cancel:false).
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: false
+    # No concurrency propio: ver la nota del concurrency de workflow (FIND-716).
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -698,10 +698,7 @@ jobs:
     name: critcmp regression (candidate)
     if: github.actor != 'dependabot[bot]' && (github.event.inputs.enable_critcmp == 'true')
     needs: ci-gate
-    # Restaura proteccion heavy-bench-nightly (cancel:false).
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: false
+    # No concurrency propio: ver la nota del concurrency de workflow (FIND-716).
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
