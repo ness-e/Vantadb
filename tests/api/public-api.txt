@@ -2987,6 +2987,7 @@ impl<'a> core::marker::Unpin for vantadb::executor::Executor<'a>
 impl<'a> core::marker::UnsafeUnpin for vantadb::executor::Executor<'a>
 impl<'a> !core::panic::unwind_safe::RefUnwindSafe for vantadb::executor::Executor<'a>
 impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::executor::Executor<'a>
+pub fn vantadb::executor::parse_iql(&str) -> vantadb::error::Result<vantadb::query::Statement>
 pub mod vantadb::gc
 pub struct vantadb::gc::GcWorker<'a>
 impl<'a> vantadb::gc::GcWorker<'a>

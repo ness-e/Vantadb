@@ -11,6 +11,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Client } from "../vantadb.js";
+import { DbError, ERROR_CODES } from "../errors.js";
 
 // Same statement the core test uses, so both snapshots describe one shape.
 const QUERY = "FROM Person p WHERE edad == 28 FETCH name";
@@ -92,6 +93,37 @@ describe("FIND-156: parse() = the core AST JSON", () => {
   it("rejects invalid IQL", () => {
     // NB: `SELECT ... FROM ...` is VALID IQL (Statement::Select) — not an error.
     expect(() => db.parse("FROM")).toThrow();
+  });
+
+  it("reports the line and column of a parse error (FIND-722)", () => {
+    // The core formats the error (`parse_iql`), so this surface reports the
+    // same positioned text `query()` does — and the position is structured,
+    // not message-parsed: `details.line`/`details.col` are 1-based.
+    let caught: unknown;
+    try {
+      db.parse("FROM Person p extra_stuff");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(DbError);
+    const err = caught as DbError;
+    expect(err.code).toBe(ERROR_CODES.VALIDATION_ERROR);
+    expect(err.message).toMatch(/IQL parse error at line 1, col 15:/);
+    const details = err.details as { line?: number; col?: number };
+    expect(details.line).toBe(1);
+    expect(details.col).toBe(15); // points at `extra_stuff`
+
+    // Unknown leading keyword: `nom`'s `alt` cannot attribute the failure, so
+    // the honest position is the statement start — never 0.
+    let caughtKeyword: unknown;
+    try {
+      db.parse("INSERT INTO");
+    } catch (e) {
+      caughtKeyword = e;
+    }
+    const keywordErr = caughtKeyword as DbError;
+    const keywordDetails = keywordErr.details as { line?: number; col?: number };
+    expect([keywordDetails.line, keywordDetails.col]).toEqual([1, 1]);
   });
 
   it("is pure: parses on a closed client (no op-gate)", () => {

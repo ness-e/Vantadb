@@ -76,19 +76,29 @@ impl CertitudeMode {
     }
 }
 
-/// Extract line/col from a nom parse error by measuring how much input was consumed.
+/// Extract the 1-based line/column of the first character the parser did not
+/// accept, by measuring how much input it consumed.
+///
+/// Both values are **1-based** (FIND-722): `line` 1 is the first line, `col` 1
+/// the first character of a line, and for a failure on a token `col` points at
+/// that token's first character — the parser stops *before* it, not at the
+/// whitespace it already consumed. `col` counts **characters**, never bytes, so
+/// an accented identifier or a non-ASCII string literal before the rejected
+/// token does not shift the column. (Before FIND-722 `col` was the 0-based byte
+/// index of the rejected token while `line` was 1-based; every offset moved by
+/// +1 except position 0, which was already clamped.)
 fn iql_error_position(input: &str, err: &nom::Err<nom::error::Error<&str>>) -> (usize, usize) {
     let consumed = match err {
         nom::Err::Incomplete(_) => input.len(),
-        nom::Err::Error(e) | nom::Err::Failure(e) => input.len() - e.input.len(),
+        // `e.input` is a suffix of `input` (borrowck guarantees it); `saturating_sub`
+        // makes that explicit instead of relying on it silently.
+        nom::Err::Error(e) | nom::Err::Failure(e) => input.len().saturating_sub(e.input.len()),
     };
-    let line = input[..consumed].matches('\n').count() + 1;
-    let col = consumed
-        - input[..consumed]
-            .rfind('\n')
-            .map(|pos| pos + 1)
-            .unwrap_or(0);
-    (line.max(1), col.max(1))
+    let consumed_text = &input[..consumed];
+    let line = consumed_text.matches('\n').count() + 1;
+    let line_start = consumed_text.rfind('\n').map(|pos| pos + 1).unwrap_or(0);
+    let col = input[line_start..consumed].chars().count() + 1;
+    (line, col)
 }
 
 /// Human-readable message for an IQL parse failure.
@@ -189,6 +199,35 @@ fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
                 format!("parse error ({:?}) near `{snippet}`", inner.code)
             }
         }
+    }
+}
+
+/// Parse an IQL statement, reporting failures as the canonical positioned error.
+///
+/// This is the **single** formatter for IQL parse failures (api-contract R-8):
+/// [`Executor::execute_hybrid`] and every binding's pure `parse()` method route
+/// through it, so a syntax error reads the same everywhere — the parser's own
+/// message plus the position of the token it rejected. Bindings must not
+/// re-derive `line`/`col` from the `nom` error themselves.
+///
+/// `line` and `col` in the returned [`Error::IqlParse`] are **1-based** and
+/// measured on `input` after its leading whitespace; callers trim exactly like
+/// [`Executor::execute_hybrid`] does, so `parse()` and `query()` report the
+/// same position for the same string.
+pub fn parse_iql(input: &str) -> Result<Statement> {
+    parse_statement(input)
+        .map(|(_, statement)| statement)
+        .map_err(|err| iql_parse_error(input, &err))
+}
+
+/// Positioned [`Error::IqlParse`] for a `nom` failure — the one formatter
+/// behind [`parse_iql`], shared by the execution path and the bindings.
+fn iql_parse_error(input: &str, err: &nom::Err<nom::error::Error<&str>>) -> Error {
+    let (line, col) = iql_error_position(input, err);
+    Error::IqlParse {
+        msg: iql_parse_error_message(err),
+        line,
+        col,
     }
 }
 
@@ -322,17 +361,9 @@ impl<'a> Executor<'a> {
                 "LISP query execution is not supported (archived 2024-06). Use IQL syntax instead - see docs/api/IQL.md.",
             )))
         } else {
-            match parse_statement(trimmed) {
-                Ok((_, stmt)) => self.execute_statement(stmt),
-                Err(e) => {
-                    let (line, col) = iql_error_position(trimmed, &e);
-                    Err(Error::IqlParse {
-                        msg: iql_parse_error_message(&e),
-                        line,
-                        col,
-                    })
-                }
-            }
+            // FIND-722: one formatter for both paths — this used to build the
+            // `IqlParse` inline, so a binding's `parse()` had no way to reuse it.
+            self.execute_statement(parse_iql(trimmed)?)
         }
     }
 
@@ -981,6 +1012,82 @@ mod tests {
         assert!(matches!(err, Error::IqlParse { .. }));
     }
 
+    /// FIND-722: `parse_iql` is the single formatter — it returns exactly the
+    /// positioned error `execute_hybrid` returns, so a binding's `parse()` and
+    /// the execution path cannot diverge in message or position.
+    ///
+    /// A *soft* (`Err::Error`) failure collapses to the statement start: `alt`
+    /// in `parse_statement` only propagates the last alternative's error, which
+    /// starts at offset 0 — so `INSERT INTO` (known keyword, incomplete
+    /// statement) reports (1, 1). Committed failures (`Failure`: `Verify`,
+    /// `Fail`, `Eof`) keep their real position.
+    #[test]
+    fn parse_iql_matches_execute_hybrid_iql_error() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        let query = "INSERT INTO";
+        let from_parse = parse_iql(query).unwrap_err();
+        let from_exec = ex.execute_hybrid(query).unwrap_err();
+        match (from_parse, from_exec) {
+            (
+                Error::IqlParse {
+                    msg: a,
+                    line: la,
+                    col: ca,
+                },
+                Error::IqlParse {
+                    msg: b,
+                    line: lb,
+                    col: cb,
+                },
+            ) => {
+                assert_eq!(a, b, "one formatter: same message on both paths");
+                assert_eq!((la, ca), (lb, cb), "one formatter: same position");
+                assert_eq!((la, ca), (1, 1), "1-based: statement start, never 0");
+            }
+            other => panic!("expected IqlParse on both paths, got {other:?}"),
+        }
+    }
+
+    /// FIND-722: `line` counts real lines (1-based) and `col` is 1-based — a
+    /// malformed clause on the second line is reported at line 2, column 1.
+    #[test]
+    fn parse_iql_reports_line_and_col_for_multiline_parse_error() {
+        match parse_iql("FROM Doc\nLIMIT abc") {
+            Err(Error::IqlParse { msg, line, col }) => {
+                assert_eq!(
+                    msg,
+                    "malformed LIMIT/OFFSET clause: expected `LIMIT <n> [OFFSET <m>]`"
+                );
+                assert_eq!((line, col), (2, 1), "second line, first column");
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+    }
+
+    /// FIND-722: the position of a *structured* failure points at the rejected
+    /// clause, 1-based (it used to be the 0-based index of that clause), and
+    /// `col` counts characters — a multi-byte prefix must not shift it.
+    #[test]
+    fn iql_error_col_is_one_based_for_a_structured_failure() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        // Trailing input: `extra_stuff` starts at 1-based column 15.
+        match ex.execute_hybrid("FROM Person p extra_stuff").unwrap_err() {
+            Error::IqlParse { line, col, .. } => assert_eq!((line, col), (1, 15)),
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+        // Multi-byte prefix (`José` is 5 bytes): characters say 35, bytes say 36.
+        // This is the assert that keeps the column unit honest.
+        match ex
+            .execute_hybrid("FROM Doc p WHERE nombre == \"José\" extra_stuff")
+            .unwrap_err()
+        {
+            Error::IqlParse { line, col, .. } => assert_eq!((line, col), (1, 35)),
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+    }
+
     /// FIND-528: el fallback del mensaje de parseo embebía el input crudo —
     /// una query de 1 MiB devolvía un error de ~1 MiB (amplificación de
     /// payload en la ruta de error). El mensaje queda acotado.
@@ -1415,7 +1522,7 @@ mod tests {
             Error::IqlParse { msg, line, col } => {
                 assert_eq!(msg, "AS OF specified more than once");
                 assert_eq!(line, 1);
-                assert_eq!(col, 17, "position must point at the duplicate clause");
+                assert_eq!(col, 18, "1-based: points at the duplicate clause");
             }
             other => panic!("expected IqlParse, got {other:?}"),
         }
@@ -1435,7 +1542,7 @@ mod tests {
                     "malformed LIMIT/OFFSET clause: expected `LIMIT <n> [OFFSET <m>]`"
                 );
                 assert_eq!(line, 1);
-                assert_eq!(col, 9, "position must point at the malformed clause");
+                assert_eq!(col, 10, "1-based: points at the malformed clause");
             }
             other => panic!("expected IqlParse, got {other:?}"),
         }
@@ -2766,7 +2873,7 @@ mod tests {
                     "LIMIT/OFFSET are not supported with aggregation queries"
                 );
                 assert_eq!(line, 1);
-                assert_eq!(col, 29, "position must point at the LIMIT clause");
+                assert_eq!(col, 30, "1-based: points at the LIMIT clause");
             }
             other => panic!("expected IqlParse, got {other:?}"),
         }
@@ -2779,7 +2886,7 @@ mod tests {
             Error::IqlParse { msg, line, col } => {
                 assert_eq!(msg, "AS OF is not supported with aggregation queries");
                 assert_eq!(line, 1);
-                assert_eq!(col, 29, "position must point at the AS OF clause");
+                assert_eq!(col, 30, "1-based: points at the AS OF clause");
             }
             other => panic!("expected IqlParse, got {other:?}"),
         }
@@ -2809,7 +2916,7 @@ mod tests {
                     msg,
                     "invalid GROUP BY clause: requires at least one aggregate function (COUNT/SUM) and a group field that does not collide with an aggregate output name"
                 );
-                assert_eq!((line, col), (1, 22));
+                assert_eq!((line, col), (1, 23));
             }
             other => panic!("expected IqlParse, got {other:?}"),
         }
@@ -2843,11 +2950,7 @@ mod tests {
         match err {
             Error::IqlParse { msg, line, col } => {
                 assert!(msg.contains("WHERE"), "message must mention WHERE: {msg}");
-                assert_eq!(
-                    (line, col),
-                    (1, 9),
-                    "position must point at the WHERE clause"
-                );
+                assert_eq!((line, col), (1, 10), "1-based: points at the WHERE clause");
             }
             other => panic!("expected IqlParse, got {other:?}"),
         }
@@ -2867,11 +2970,7 @@ mod tests {
                     msg.contains("trailing"),
                     "message must mention the trailing input: {msg}"
                 );
-                assert_eq!(
-                    (line, col),
-                    (1, 11),
-                    "position must point at the trailing text"
-                );
+                assert_eq!((line, col), (1, 12), "1-based: points at the trailing text");
             }
             other => panic!("expected IqlParse, got {other:?}"),
         }

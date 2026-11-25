@@ -917,6 +917,8 @@ pub(crate) fn map_vanta_error(err: vantadb::error::Error) -> PyErr {
 /// - `code` — exact `VANTADB_*` wire value from `Error::code()` (cross-binding contract)
 /// - `retriable` — mirrors `is_retriable()`
 /// - `hint` — recovery hint from `recovery_hint()`, `None` when absent
+/// - `line`/`col` — 1-based IQL parse position (FIND-722), set only when the
+///   error is `IqlParse`
 ///
 /// `create_exception!` types cannot carry `#[pymethods]` (static C types), so
 /// `.to_dict()` is exposed as the module-level `error_to_dict()` helper in
@@ -926,18 +928,38 @@ pub(crate) fn map_vanta_error(err: vantadb::error::Error) -> PyErr {
 /// (pyfunctions) and released (`py.detach` closures) — re-acquiring is a
 /// cheap no-op when the GIL is already ours. Attribute set on an exception
 /// instance cannot fail in practice (it has `__dict__`; values are
-/// str/bool/None), so setattr errors are deliberately swallowed.
-fn attach_err_meta_parts(py_err: &PyErr, code: &str, retriable: bool, hint: Option<&str>) {
+/// str/bool/None/int), so setattr errors are deliberately swallowed.
+fn attach_err_meta_parts(
+    py_err: &PyErr,
+    code: &str,
+    retriable: bool,
+    hint: Option<&str>,
+    iql_position: Option<(usize, usize)>,
+) {
     Python::attach(|py| {
         let obj = py_err.value(py);
         let _ = obj.setattr("code", code);
         let _ = obj.setattr("retriable", retriable);
         let _ = obj.setattr("hint", hint);
+        if let Some((line, col)) = iql_position {
+            let _ = obj.setattr("line", line);
+            let _ = obj.setattr("col", col);
+        }
     });
 }
 
 fn attach_err_meta(py_err: &PyErr, err: &vantadb::error::Error) {
-    attach_err_meta_parts(py_err, err.code(), err.is_retriable(), err.recovery_hint());
+    let position = match err {
+        vantadb::error::Error::IqlParse { line, col, .. } => Some((*line, *col)),
+        _ => None,
+    };
+    attach_err_meta_parts(
+        py_err,
+        err.code(),
+        err.is_retriable(),
+        err.recovery_hint(),
+        position,
+    );
 }
 
 /// Attach canonical ERR-PY-01 error metadata (`code`, `retriable`, `hint`) to a
@@ -950,7 +972,7 @@ pub(crate) fn with_err_meta(
     retriable: bool,
     hint: Option<&str>,
 ) -> PyErr {
-    attach_err_meta_parts(&py_err, code, retriable, hint);
+    attach_err_meta_parts(&py_err, code, retriable, hint, None);
     py_err
 }
 

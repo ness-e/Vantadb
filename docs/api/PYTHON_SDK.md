@@ -957,9 +957,12 @@ fields (`limit`, `offset`, `as_of_ms`, …) when absent.
 
 Parsing never touches the engine, so it is safe to call on a closed client and
 it can never write. Invalid statements (unexpected token, or trailing input
-after the statement) raise `ValidationError`. Python decodes the core's JSON with
-:mod:`json`, so `u128` node ids and `Int` literals keep arbitrary precision —
-this surface is exact (the JS bindings are limited to IEEE-754 doubles).
+after the statement) raise `ValidationError` carrying the core's positioned
+message (`IQL parse error at line N, col M: …`) plus the 1-based `line` and
+`col` attributes pointing at the rejected token. Python decodes the core's JSON
+with :mod:`json`, so `u128` node ids and `Int` literals keep arbitrary
+precision — this surface is exact (the JS bindings are limited to IEEE-754
+doubles).
 
 ```python
 ast = db.parse("FROM Person p WHERE edad == 28 FETCH name")

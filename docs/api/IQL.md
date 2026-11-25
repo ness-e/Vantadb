@@ -590,19 +590,38 @@ Aggregation fields serialize additively on `SELECT`
 
 ## Error Handling
 
-Parse errors return an IQL-specific error format:
+Parse errors return an IQL-specific error format, in **both** paths — the
+execution path (`query()` in every binding) and the pure `parse()` method:
 
 ```
 IQL parse error at line <line>, col <col>: <message>
 ```
 
-This positioned form comes from the execution path (`query()` in every binding).
-The bindings' pure `parse()` method, which only projects the AST and never
-executes, reports parse failures as the parser's own text
-(`IQL parse error: <message>`) **without** `line`/`col`: the helpers that derive
-the position and the curated message are private to the execution path, and
-duplicating them per binding would create a second source of truth. Sharing them
-from the core is pending.
+`line` and `col` are **1-based**; `col` counts **characters**, not bytes, so a
+non-ASCII identifier or string literal before the rejected token does not shift
+it. `col` points at the first character of the token the parser could not
+accept (the position is measured after the statement's leading whitespace,
+exactly as the execution path trims).
+
+A *soft* failure (`Err::Error`) is reported at the statement start — line 1,
+column 1 — because `parse_statement` resolves its alternatives with `alt`, which
+propagates only the last alternative's error and that error begins at offset 0
+(`INSERT INTO`, a known keyword with an incomplete statement, reports 1:1).
+Committed failures (`Failure`: a malformed `LIMIT`/`AS OF`/`WHERE`/`SIGUE`
+clause, an invalid literal, leftover input) keep their real position, and that is
+where `col` is informative. The message is the parser's own text, bounded to a
+snippet of the offending input.
+
+Both paths share one formatter in the core — `vantadb::executor::parse_iql`
+(FIND-722) — so a statement that fails to parse reports the same message and
+position whether the caller executes it or only projects its AST. The bindings
+surface the position structurally as well: `line`/`col` attributes on the
+Python exception and `details.line`/`details.col` on the TypeScript `DbError`.
+
+One deliberate asymmetry: `(`-prefixed LISP input is rejected by `query()` as
+`IQL error: LISP query execution is not supported …` (an archived-surface
+decision, not a parse), while `parse()` reports it as a positioned parse error
+like any other unparseable statement.
 
 Execution errors during query processing return:
 

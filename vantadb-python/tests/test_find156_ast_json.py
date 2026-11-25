@@ -79,6 +79,36 @@ def test_parse_rejects_invalid_iql_as_validation_error():
     assert exc.value.code == "VANTADB_VALIDATION_ERROR"
 
 
+def test_parse_reports_the_line_and_col_of_a_parse_error():
+    """FIND-722: the error is positioned — one formatter for every path.
+
+    ``line``/``col`` are 1-based and point at the rejected token; the formatter
+    is the core's (`vantadb::executor::parse_iql`), so ``parse()`` and
+    ``query()`` report the same position for the same string.
+    """
+    with pytest.raises(
+        vanta.ValidationError, match=r"IQL parse error at line 1, col 15:"
+    ) as exc:
+        _db().parse("FROM Person p extra_stuff")
+    assert (exc.value.line, exc.value.col) == (1, 15), "points at `extra_stuff`"
+    assert exc.value.code == "VANTADB_VALIDATION_ERROR"
+
+    # Unknown leading keyword: `nom`'s `alt` cannot attribute the failure to one
+    # alternative, so the honest position is the statement start — never 0.
+    with pytest.raises(vanta.ValidationError) as exc:
+        _db().parse("INSERT INTO")
+    assert (exc.value.line, exc.value.col) == (1, 1)
+
+    # `(`-prefixed LISP is a committed rejection in `query()`
+    # (`IQL error: LISP query execution is not supported …`) but an unparseable
+    # statement here — same error class, positioned (IQL.md §Error Handling).
+    with pytest.raises(
+        vanta.ValidationError, match=r"IQL parse error at line 1, col 1:"
+    ) as exc:
+        _db().parse("(match ...)")
+    assert (exc.value.line, exc.value.col) == (1, 1)
+
+
 def test_parse_rejects_trailing_input():
     """Leftover input after a complete statement is an error, as in ``query``."""
     with pytest.raises(vanta.ValidationError, match="IQL parse error"):

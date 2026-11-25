@@ -2256,7 +2256,11 @@ impl Client {
     ///
     /// Raises:
     ///     ValidationError: If ``query`` is not a valid IQL statement
-    ///         (unexpected token, or trailing input after the statement).
+    ///         (unexpected token, or trailing input after the statement). The
+    ///         exception carries ``line`` and ``col`` (both 1-based) pointing
+    ///         at the rejected token, and its message is the same
+    ///         ``IQL parse error at line N, col M: ...`` the ``query()`` path
+    ///         produces (FIND-722).
     ///
     /// Example:
     ///     ```python
@@ -2266,17 +2270,12 @@ impl Client {
     ///     'Person'
     ///     ```
     fn parse(&self, py: Python<'_>, query: &str) -> PyResult<Py<PyAny>> {
-        // Binding glue (api-contract R-8): the AST types and their
-        // serialization live in the core — this only translates the projection
-        // to Python. Parse positions are not re-derived here: the private
-        // helpers `iql_error_position`/`iql_parse_error_message` live in
-        // `src/executor.rs` and duplicating them per binding would create a
-        // second source of truth.
-        let (_, statement) = vantadb::parser::parse_statement(query.trim_start()).map_err(|e| {
-            map_vanta_error(vantadb::Error::InvalidInput(format!(
-                "IQL parse error: {e}"
-            )))
-        })?;
+        // Binding glue (api-contract R-8): the AST types, their serialization
+        // and the parse-error formatting all live in the core. `parse_iql`
+        // returns the same positioned `Error::IqlParse` the execution path
+        // produces (FIND-722), so this surface never re-derives line/col.
+        let statement =
+            vantadb::executor::parse_iql(query.trim_start()).map_err(map_vanta_error)?;
         let json = serde_json::to_string(&statement).map_err(|e| {
             map_vanta_error(vantadb::Error::InvalidInput(format!(
                 "AST JSON serialization failed: {e}"

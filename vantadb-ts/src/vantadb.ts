@@ -1406,7 +1406,9 @@ export class Client {
    *
    * @param query - IQL statement to parse.
    * @returns The AST as JSON-compatible data.
-   * @throws {DbError} If the statement is invalid.
+   * @throws {DbError} If the statement is invalid. `details.line` and
+   * `details.col` carry the 1-based position of the rejected token (FIND-722),
+   * and the message is the same positioned text `query()` produces.
    *
    * @example
    * ```ts

@@ -339,6 +339,7 @@ Every `Error` subclass exposes:
 | `.retriable` | `bool` | Equivalent to `is_retriable()` |
 | `.details` | `dict \| None` | Structured fields from the Rust variant — *pending*: not attached yet (ERR-PY-01 shipped `code`/`retriable`/`hint`; variant-field extraction is a follow-up task) |
 | `.hint` | `str \| None` | Recovery hint (mirrors `recovery_hint()`) |
+| `.line` / `.col` | `int` | **IQL parse errors only** (`IqlParse`): the 1-based position of the rejected token, `col` counted in characters (FIND-722). Absent on every other error |
 
 ### 5.2 `error_to_dict()` (`.to_dict()` deferred)
 

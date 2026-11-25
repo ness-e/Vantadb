@@ -563,8 +563,10 @@ becomes an IEEE-754 double (Python, which decodes with `json.loads`, is exact).
 `parse()` returns an already-decoded object, so it cannot preserve such a
 literal at all; a raw-text accessor is not available yet (ADR-0062, option O7).
 Parse failures throw `DbError` with
-`code: "VANTADB_VALIDATION_ERROR"`; the message is the parser's own text and
-does **not** carry `line`/`col` (see [IQL.md § Error Handling](./IQL.md#error-handling)).
+`code: "VANTADB_VALIDATION_ERROR"` and the core's positioned message
+(`IQL parse error at line N, col M: …`, both 1-based); the position is also
+available structurally as `details.line` / `details.col`, so callers never parse
+the message (see [IQL.md § Error Handling](./IQL.md#error-handling)).
 
 ```ts
 const ast = db.parse("FROM Person p WHERE edad == 28 FETCH name");

@@ -168,6 +168,10 @@ interface WasmErrorLike extends Error {
    * coarse `VantaErrorCode` (`ERR_*`) alias.
    */
   raw_code?: unknown;
+  /** 1-based IQL parse line attached by `to_js_err` on `IqlParse` (FIND-722). */
+  line?: unknown;
+  /** 1-based IQL parse column attached by `to_js_err` on `IqlParse` (FIND-722). */
+  col?: unknown;
 }
 
 /** Map structured or raw code into canonical ERROR_CODES string. */
@@ -266,7 +270,18 @@ export const NATIVE_CODE_PREFIX =
 export function fromNativeError(e: unknown, context: string = "native"): DbError {
   if (e instanceof DbError) return e;
   const rawMessage = e instanceof Error ? e.message : String(e);
-  const details = e instanceof Error ? { name: e.name, stack: e.stack } : { original: e };
+  const details: Record<string, unknown> =
+    e instanceof Error ? { name: e.name, stack: e.stack } : { original: e };
+
+  // 0. IQL parse position (FIND-722): `to_js_err` attaches `line`/`col`
+  //    (1-based) as structured fields, so callers read them instead of
+  //    scraping the message. Additive: `details` keeps `name`/`stack`.
+  if (e instanceof Error) {
+    const line = (e as WasmErrorLike).line;
+    const col = (e as WasmErrorLike).col;
+    if (typeof line === "number") details.line = line;
+    if (typeof col === "number") details.col = col;
+  }
 
   let code: string | undefined;
 

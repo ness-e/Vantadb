@@ -245,7 +245,7 @@ so the bare `get`/`delete` collision is gone.
 | `capabilities` | system | |
 | `operational_metrics` | system | |
 | `query` | system | IQL engine |
-| `parse` | system | AST JSON of an IQL statement, no execution; pure (works closed) — FIND-156 |
+| `parse` | system | AST JSON of an IQL statement, no execution; pure (works closed); parse errors are positioned (`line`/`col`, 1-based) — FIND-156, FIND-722 |
 | `flush` | system | durability flush |
 | `compact_wal` | system | WAL maintenance |
 | `compact_layout` | system | storage layout |
@@ -303,7 +303,7 @@ so the bare `get`/`delete` collision is gone.
 | `capabilities` | system | ✅ | |
 | `operationalMetrics` | system | ✅ | |
 | `query` | system | ✅ | IQL |
-| `parse` | system | ✅ | AST JSON of an IQL statement, no execution; pure (works closed), **flat only** (not `db.system`) — FIND-156 |
+| `parse` | system | ✅ | AST JSON of an IQL statement, no execution; pure (works closed), **flat only** (not `db.system`); errors carry `line`/`col` (1-based) — FIND-156, FIND-722 |
 | `flush` | system | ✅ | |
 | `compactWal` | system | ✅ | |
 | `compactLayout` | system | ✅ | |
@@ -361,7 +361,7 @@ so the bare `get`/`delete` collision is gone.
 | `hardware_profile` | system | ✅ | Python-only |
 | `operational_metrics` | system | ✅ | |
 | `query` | system | ✅ | IQL |
-| `parse` | system | ✅ | AST JSON of an IQL statement, no execution; pure (works closed), **flat only** (not `db.system`) — FIND-156 |
+| `parse` | system | ✅ | AST JSON of an IQL statement, no execution; pure (works closed), **flat only** (not `db.system`); errors carry `line`/`col` (1-based) — FIND-156, FIND-722 |
 | `flush` | system | ✅ | |
 | `compact_wal` | system | ✅ | |
 | `compact_layout` | system | ✅ | |

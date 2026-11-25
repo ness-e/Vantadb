@@ -1867,8 +1867,9 @@ impl Client {
     ///
     /// Pure: never touches the engine, so it works on a closed client.
     pub fn parse(&self, query: &str) -> Result<JsValue, JsValue> {
-        let (_, statement) = vantadb::parser::parse_statement(query.trim_start())
-            .map_err(|e| to_js_err(Error::InvalidInput(format!("IQL parse error: {e}"))))?;
+        // FIND-722: the core owns the parse-error formatter, so this surface
+        // reports the same positioned `Error::IqlParse` as `query()`.
+        let statement = vantadb::executor::parse_iql(query.trim_start()).map_err(to_js_err)?;
         let json = serde_json::to_string(&statement).map_err(|e| {
             to_js_err(Error::InvalidInput(format!(
                 "AST JSON serialization failed: {e}"
@@ -2249,6 +2250,12 @@ fn to_js_err(e: Error) -> JsValue {
         &JsValue::from_f64(vanta_code.as_u32() as f64),
     );
     let _ = js_sys::Reflect::set(&err, &"raw_code".into(), &JsValue::from_str(e.code()));
+    // FIND-722: an IQL parse error also carries its position as structured
+    // fields (`line`/`col`, both 1-based) so TS callers never parse the message.
+    if let Error::IqlParse { line, col, .. } = &e {
+        let _ = js_sys::Reflect::set(&err, &"line".into(), &JsValue::from_f64(*line as f64));
+        let _ = js_sys::Reflect::set(&err, &"col".into(), &JsValue::from_f64(*col as f64));
+    }
     let _ = js_sys::Reflect::set(&err, &"message".into(), &JsValue::from_str(&formatted));
     err.into()
 }
