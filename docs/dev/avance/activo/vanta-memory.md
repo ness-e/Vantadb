@@ -435,3 +435,14 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 - **Por qué se cierra sin trabajo propio:** la causa raíz se resolvió en otro sitio y la fila describía un fenómeno que no existe. Dejarla abierta haría creer que el servidor crashea.
 - **Verificación:** los repros de `FIND-706` (10 rondas, DB aislada) corren completos sin timeout; `capabilities` ahora expone el estado del runner (`MEM-72`), así que un pipeline que no extrae se ve por superficie en vez de por crash aparente.
 - **Referencias:** `FIND-706` · `MEM-72` · `MCP-48` (el proxy ya no muere con su writer, que era el otro modo de fallo "parece que crasheó").
+
+### El pass del bridge anulaba el ciclo L3 (`MEM-71`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** `run_bridge_pass` —el pass que documenta `services::conversation_hook` para hosts del `/conversation/add`— construía un `MemoryTaskHandler` con `trigger_every_n = usize::MAX` **y sin `with_queue`**, así que un host que siguiera el patrón documentado se quedaba en L1: L2 nunca se encolaba y L3 era inalcanzable.
+- **Resultado:** ✅ El pass del bridge **es** `scheduler::run_pass` (una implementación, un comportamiento): timers, una tanda del worker cuya cascada L1 → L2 → L3 se encola por la misma cola, y reclaim; persona a `PERSONA_TRIGGER_EVERY_N = 50` (ahora `pub`).
+  - **¿Era intencional?** No como diseño: fue el alcance de `MEM-55` (solo L1), superado por `ADR-0054:92` ("`run_bridge_pass` se generaliza al pass del driver") y ya generalizado por `WIRE-16`; `run_bridge_pass` tenía **cero** callers productivos.
+  - **El bug era mayor que el `usize::MAX`:** sin `with_queue` el cascade L1→L2 no ocurría nunca, así que habilitar persona **no habría bastado**. Test e2e: turno del bridge → **un** `run_bridge_pass` → 5 memorias → escena → persona (`processed == 3`, cola drenada). La cadencia se fija en **dos capas**: función pura (`N-1` no, `N` sí) y **cableado** (checkpoint en 49 no regenera, a 50 resetea); con `usize::MAX` el segundo falla.
+- **Verificación:** `-E 'test(bridge) or test(persona) or test(pass)'` **61/61** · con `--features http-server` **64/64** · clippy `-D warnings` limpio · fmt limpio · `check-links`/`check-docs` exit 0 · markdownlint 0 issues · mutación de control roja · review P2-01 `changes-required` (2 Required) → corregido → **approve**.
+- **Commits:** `3f20a1798` (código + tests + docs + task file) + `6fc453b6f` (cierre del task file)
+- **Techo documentado:** `run_bridge_pass` queda como **alias de una línea**; un pass "solo worker" se construye con `PipelineWorker` + `MemoryTaskHandler`. Sin campo `persona_disabled_by_design` en `observability`: con el pass unificado sería siempre `false`.
+- **Nota de proceso:** dos commits usaron `SKIP=cargo-fmt,cargo-clippy` porque los hooks whole-tree fallaban por WIP ajeno (`src/wal.rs` de otra sesión); los mismos hooks **scoped a sus 6 archivos pasan**. Sin `--no-verify`.
