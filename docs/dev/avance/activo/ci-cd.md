@@ -1008,3 +1008,14 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Commits:** `5d293d759` (fix inicial) + `c268eea59` (F1) + `49d5cff56` (veredicto)
 - **Deuda:** `command -v pre-commit` no resuelve `.exe` en bash; drift preexistente de `gen-index` en `HEAD`; **no hay 2ª ronda de review** (declarado, no fabricado).
 - **Incidente de proceso:** su `--amend` cayó sobre el commit de `FIND-233` y lo reescribió; lo revirtió con `reset --soft`. Misma clase que el incidente de `F0.2`. Regla adoptada: **`--amend` prohibido mientras haya más de un agente vivo**.
+
+### Banda de regresión del bench: de 5 % a 10 %, por encima del ruido medido (`BENCH-BAND`, decisión §9.5)
+- **Fecha:** 2026-11-25
+- **Objetivo:** El comparador del bench canónico tenía **5 %** de tolerancia declarada mientras el ruido medido entre corridas era de **7-9 %**. Con esa banda, cada corrida habría avisado de "regresiones" que eran ruido — y en dos semanas nadie miraría el aviso.
+- **Resultado:** ✅ `REGRESSION_THRESHOLD = 10.0` en **`scripts/bench_regression.py:52`**, único sitio: ningún workflow pasa `--threshold` (`nightly.yml:563-567`, `certification.yml:670-675`) y **no se le añade**, porque el flag explícito sería la segunda copia del umbral (la clase de bug de `FIND-704`).
+  - **Fuente primaria (mismo instrumento):** `canonical_p99`, misma rama, dos corridas reales separadas 5h20m — `insert` 766.984,4 → 698.162,6 ms (**−9,0 %**) y `search` 4.260,7 → 3.958,1 ms (**−7,1 %**); en base max/min **9,9 % / 7,7 %**. La banda queda **al borde de su propia fuente**, y así está escrito.
+  - **Corroboración (otro instrumento, no la misma medición):** run `40592702083`, 3 sub-runs, una VM, un commit → `query_hybrid.p50` **34,2 %** / `p95` **42,2 %**, `query_vector.p50` **16,7 %**.
+  - **Una banda única es una simplificación:** el comparador tiene un `threshold` global y hoy solo compara las dos familias de `canonical_p99` (mismo instrumento). Si algún día midiera las familias de §20 (16,7-42,2 % intra-VM), 10 % avisaría por ruido. Anotado en §11, §20 y en la constante.
+- **Verificación:** prueba mecánica con sintéticos en `%TEMP%/opencode/bench-band/` (copia del script, baseline sintético; el fichero versionado no se tocó): **8 % → `has_regression: false`, `stable_count 2`, exit 0** (antes: 2 warnings, exit 1) · **20 % → `has_regression: true`, exit 1** · control con los números reales de `FIND-720`: `--threshold 5` → `stable 0` + 2 "improvements"; default 10 → `stable 2`. `actionlint` 0 · `check-links` 0 · `check-docs` all clear · `gen-index --check` 0.
+- **Commit:** `eb2e52ee0`
+- **Techo conocido (escrito en la constante y en §11/§20):** un **8 % real** ahora se lee como estable, y en `certification.yml` job `analyze` el `has_regression` **gatea la promoción del baseline** → ese 8 % se hornearía en vez de marcarse. Es el precio de una banda que significa algo.
