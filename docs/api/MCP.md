@@ -584,11 +584,56 @@ self-correct; malformed params are JSON-RPC `-32602`.
 | Tool | Description |
 |------|-------------|
 | `thread_create` | Creates a conversation thread. Returns `{thread_id}` (u128 string). `ttl_secs` is optional — expired threads are reaped later by `thread_purge_expired`. Write path. |
-| `thread_send` | Appends one message to a thread. Roles are free-form strings (`user`, `assistant`, …). Returns `{ok:true}`. Write path. |
+| `thread_send` | Appends one message to a thread **and feeds the memory pipeline**: `user`/`assistant` turns are captured as L0 records and one L1 extraction task is enqueued. Roles are free-form strings (`user`, `assistant`, …); other roles are stored but not captured. Returns `{ok:true, memory:{captured,queued}}`. Write path (MCP-44). |
 | `thread_get` | Reads one thread with its full message history: `{thread:{thread_id,title,messages:[{role,content,timestamp}],created_at,updated_at}}`. Missing thread → error-content "not found". Read-only. |
 | `thread_list` | Lists threads with `{limit?, offset?}` pagination. Returns `{threads:[...],count}`. Read-only. |
-| `thread_delete` | Deletes a thread and its messages. Returns `{deleted:true}` — permanent, no undo. Scoped destructive. |
+| `thread_delete` | Deletes a thread and its messages. Returns `{deleted:true}` — permanent for the thread store, no undo (turns already captured remain as memory: see below). Scoped destructive. |
 | `thread_purge_expired` | Removes every thread whose TTL has expired. Returns `{purged:n}`. Scoped destructive (TTL-expired threads only). |
+
+### Thread writes feed memory (MCP-44)
+
+Storage is not memory: a turn appended by `thread_send` becomes recallable
+memory only if it enters the pipeline. Each `user`/`assistant` turn is
+
+1. **captured into L0** (`l0/<thread_id>`, LLM-free, idempotent — a replay
+   filtered by the L0 cursor enqueues nothing), and
+2. **enqueued as ONE L1 extraction task** on the process-local queue.
+
+`memory:{captured,queued}` reports what actually happened. `queued:true` means
+the task is waiting for the writer's scheduler, not that memory already exists:
+one scheduler pass (`run_pass`, MCP-43 in `--mcp`) turns it into `l1/*` records
+that `memory_recall` returns on the next turn — no `memory_put` required.
+
+Two boundaries worth knowing:
+
+- **Process-local queue (ADR-0054).** The queue belongs to the process that owns
+  the database. In proxy mode this handler never runs locally: the proxy
+  forwards the whole `tools/call` to the writer (MCP-48), so the enqueue happens
+  in the process that can drain it. A proxy must never enqueue locally — that
+  queue has no drainer. The queue is in memory: queued turns live **for the
+  lifetime of that process** (no L0→queue backfill yet; the captured L0 records
+  survive a restart, MCP-43 decides the backfill).
+- **No scheduler in `--mcp` today (MCP-43).** Until it lands, the queued tasks
+  stay queued. That state is visible instead of silent: with a `none` ingest
+  runner and a non-empty queue, `capabilities.ingest` reports
+  `degraded:true` + `queue.depth > 0` (its `is_broken()` condition) and a
+  legible `notice` — see [VANTA_MEMORY.md](./VANTA_MEMORY.md) § Operational
+  modules (`ingest::observability`). The first enqueued turn also teaches this
+  process its runner (the same config→runner mapping `wiki_ingest` uses), so a
+  threads-only `--mcp` session is not stuck reporting `unknown`.
+
+Two semantics that are easy to misread:
+
+- **`last_pass` on a degraded pipeline.** The backlog is published through
+  `ingest::observability`'s degraded path — the only writer of `queue` depth
+  today. So in `--mcp`, `capabilities.ingest.last_pass.skipped:true` can mean
+  "a turn was enqueued while the runner is `none`" rather than "a scheduler tick
+  ran". `queue.depth` is the authoritative backlog signal; `scheduler_running`
+  says whether a loop exists at all.
+- **Deleting a thread does not delete memory.** `thread_delete` and
+  `thread_purge_expired` operate on the thread store (chat history). Turns
+  already captured stay in `l0/<thread_id>` and, once extracted, in
+  `l1/<thread_id>`. A purge cascade into memory is not implemented.
 
 ## Prompts (4)
 
