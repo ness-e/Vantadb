@@ -727,7 +727,6 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `FIND-718` | 🟡 Media | **El hook `pre-commit` instalado está roto y el clon no tiene `core.hooksPath`: los gates de commit no se ejecutan** | `.pre-commit-config.yaml` · `.githooks/pre-commit` · `dev-tools/verify_staged.ps1` | 🟢 1h | 🟡 Media | 🟡 Pendiente (2026-11-24) | Detectado por FIND-177 al commitear: el hook aborta con `nodeenv ... ValueError: invalid literal for int() with base 10: '0-alpha'`, y `git config core.hooksPath` está vacío, así que el hook ni se invoca (los hooks viven en `.githooks/`, no en `.git/hooks/`). Consecuencia: los gates de commit (yaml + `verify_staged` multi-área) no corren en este clon, y un `pre-commit install` sobre ese estado fallaría o saltearía gates en silencio. La verificación de hoy se sostuvo porque el orquestador corrió `dev-tools/verify.ps1` a mano. Contrato: `git config --get core.hooksPath` devuelve `.githooks` y `git commit` (cambio trivial inocuo en una rama de prueba) ejecuta el hook sin abortar. | Origen: FIND-177 (cierre 2026-11-24) | — |
 
 ## Media 2026-11-24 - Gates que no muerden (derivadas del cierre de Fase 1/2)
 

@@ -1644,3 +1644,13 @@ el propio SDK ya usa— los arregla a los tres.
 - **Commit:** `4eb4e8a5d`
 - **Hallazgo del review que vale registrar (H-03):** el contrato original `-E 'test(auto_embed)'` **no seleccionaba ningún test nuevo**, así que revertir la política dejaba el gate verde. Se sustituyó por 5 legs obligatorios. Tercera instancia del día de un contrato no falsable (`FIND-317`, `F0.2`).
 - **Deuda diferida:** server HTTP (`src/server/state.rs` descarta el campo con `..`) · bindings JS · `COMPATIBILITY.md`/`UPGRADE.md` para el próximo release · `memory_put.degraded` deriva de su `fallback` local · `degraded: false` con embed real sin test (requiere sesión ONNX) · vectores sintéticos ya persistidos por `INSERT MESSAGE` no se re-indexan (un `UPDATE … SET VECTOR` los repara).
+
+### Hook `pre-commit` reparado y cableado (`FIND-718`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** El hook `pre-commit` estaba roto (`nodeenv … ValueError: invalid literal for int() with base 10: '0-alpha'`) y `git config core.hooksPath` estaba **vacío**, así que los hooks de `.githooks/` ni se invocaban. Los gates de commit (yaml + `verify_staged` multi-área) no corrían en este clon.
+- **Resultado:** ✅ **Dos defectos independientes, dos arreglos**: (a) `nodeenv` 1.10.0 resolvía "latest" a una versión `alpha` y hacía `int("0-alpha")` — bug upstream ([nodeenv#453](https://github.com/ekalinin/nodeenv/issues/453), fix en **1.11.1**); el repo ahora pinnea `default_language_version: node: lts` en vez de "latest"; (b) `core.hooksPath` se cablea a `.githooks` (config **local**, no versionable: documentado en `troubleshooting.md` § git hooks para que un clon nuevo no quede sin hooks en silencio).
+  - Verificado en los dos sentidos: commit de prueba en un worktree descartable → `gates passed`/`ALL 0 PASS`/`actionlint ok`; commit con gate violado → exit 1 con puntero de triage.
+  - El exec bit importa: `git ls-tree -r HEAD .githooks` → `100755` en `pre-commit` y `pre-push` (en POSIX sin ese bit git ignora el hook **en silencio**).
+- **Commits:** `fc08c4b35` (fix) · `783f3f8cf` (P2-01: versión upstream 1.11.1, ancla del TOC, exec bit) · `183335be0` (evidencia de `gen-index` verde)
+- **Efecto colateral inmediato:** al empezar a correr, el hook **stashea los cambios unstaged** de ficheros trackeados; con varios agentes en el mismo árbol eso es una ventana de riesgo (fila `FIND-726`), y ya barrió un `exec bit` staged de otro commit.
+- **Review P2-01:** 1 ronda, `changes-required` → los 4 requeridos atendidos y verificados. Sin segunda ronda: el veredicto sobre el follow-up no existe (declarado).
