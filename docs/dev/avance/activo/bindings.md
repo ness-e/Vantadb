@@ -1644,3 +1644,13 @@ resultado aunque el codigo "funcione".
 - **Verificación:** `nextest test(ast_json)` 3 passed · `check -p vantadb_py` ✅ · `check -p vantadb-wasm --target wasm32` ✅ · fmt/clippy (py) ✅ · pytest 8/8 + stub-drift 7/7 · `tsc --noEmit` ✅ · vitest 8/8 · docs links 0 / coverage 0 gaps.
 - **Commit:** `20c164970`
 - **Deuda (filas derivadas):** `FIND-721` (clippy wasm32 rojo por `src/wal.rs:1347` `drop_non_drop`, pre-existente: la lane no está verde en `develop`) · `FIND-722` (`iql_error_position`/`iql_parse_error_message` privados en `src/executor.rs:80,110`: `parse()` devuelve el `Debug` de nom sin `line`/`col`) · `FIND-723` (serde del AST con `u128`/`i64` como string). Además: `parse` es flat-only y `native.ts` no lo expone.
+
+### AST JSON: `u128` como string decimal en los 6 campos del AST (`FIND-723` + `ADR-0062`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** Implementar la decisión de `ADR-0062`: los ids `u128` del AST dejaban de caber en un número JSON de JavaScript.
+- **Resultado:** ✅ Los **6 campos** (`Insert/Update/Delete.node_id`, `Relate.source_id`+`target_id`, `InsertMessage.thread_id`) serializan como **string decimal** reusando `crate::sdk::types::u128_serde` (API-01). Los `i64` `Int` quedan numéricos con su límite pinneado: `FieldValue` es el tipo persistido de `UnifiedNode`, así que uniformarlo es decisión on-disk aparte.
+  - **Hallazgo que el ADR no registraba:** el test RED no falló por precisión sino con `serde_json::to_value` → `Error("number out of range")`. Un `u128 > u64::MAX` **no puede ni representarse** como `Value::Number`: había dos síntomas con una causa.
+- **Verificación:** `test(ast_json)` 4/4 (5 variantes / 6 campos, `u128::MAX` incluido) · `public_api --run-ignored` PASS con **`public-api.txt` byte-idéntico** (un atributo de serde no es firma) · `tsc --noEmit` · `vitest` 9/9 · `pytest` 9/9 · `wasm-pack` · clippy/fmt · `validate-docs-coverage` 0 gaps.
+- **Commit:** `071099119`
+- **Review P2-01:** ronda 1 🔴 (1 Required: `TS_SDK.md` ofrecía un "bigint-aware parser" inexistente sobre un objeto ya decodificado) → corregido.
+- **Deuda:** el accessor `parse_ast_json() -> str` (arreglo barato para literales `Int` en JS) es fila propia; entrada de `CHANGELOG.md` la mantiene release-plz (Regla 7).

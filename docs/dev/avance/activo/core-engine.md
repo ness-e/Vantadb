@@ -1654,3 +1654,21 @@ el propio SDK ya usa— los arregla a los tres.
 - **Commits:** `fc08c4b35` (fix) · `783f3f8cf` (P2-01: versión upstream 1.11.1, ancla del TOC, exec bit) · `183335be0` (evidencia de `gen-index` verde)
 - **Efecto colateral inmediato:** al empezar a correr, el hook **stashea los cambios unstaged** de ficheros trackeados; con varios agentes en el mismo árbol eso es una ventana de riesgo (fila `FIND-726`), y ya barrió un `exec bit` staged de otro commit.
 - **Review P2-01:** 1 ronda, `changes-required` → los 4 requeridos atendidos y verificados. Sin segunda ronda: el veredicto sobre el follow-up no existe (declarado).
+
+### `clippy --target wasm32` en verde: dos `drop_non_drop` y un `expect_used` que ninguna lane veía (`FIND-721`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** `cargo clippy -p vantadb-wasm --target wasm32-unknown-unknown -- -D warnings` fallaba con **3 errores** (`src/wal.rs:1347`, `src/utils/fs.rs:67`, `src/storage/engine/insert.rs:1101`) y ninguna lane de CI ejercía ese target: el rojo solo aparecía si alguien lo corría a mano.
+- **Resultado:** ✅ Verde en **ambos targets, sin un solo `#[allow]`**. El `drop(file)` de `write_redacted_segment` y `write_atomic_with_tmp` pasa a `#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]`: en `wasm32-unknown-unknown` `std::fs::File` es el stub sin descriptor y **sin `Drop`**, así que el `drop` era no-op; `wasip1/2` y `emscripten` conservan el `drop` (tienen `File` real). El `fsync` **no** se gateó y en host el handle sigue cerrándose antes del `rename` (Windows rechaza reemplazar un archivo abierto). En `insert.rs` el `try_lock().expect(...)` del rollback wasm32 pasa a `Option` + `debug_assert!` (mismo guard, sin panic).
+- **Verificación:** clippy wasm32 exit 0 · `check` wasm32 exit 0 · `check -p vantadb` host exit 0 · clippy host exit 0 · `nextest 'test(redact) or test(write_atomic)'` 11/11 · `check-docs` all clear. Predicate validado con `rustc --print cfg`, no de memoria.
+- **Commit:** `757191bb6`
+- **Review P2-01:** 2 rondas (ronda 1 `cambios requeridos`: el doc de `batch_insert_with_opts` prometía el panic eliminado) → ronda 2 **approve** con el contrato re-ejecutado sobre HEAD.
+- **Deuda:** la lane de CI que ejerce el target sigue pendiente (step YAML exacto en el task file §Deuda).
+
+### Snapshot quiesce: el test medía scheduling, no producto (`FIND-724`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** `Tests (macOS)` —**check requerido**— estaba rojo por `test_snapshot_quiesce_capture_waits_for_held_writer`. Había que decidir si era un defecto de producto en macOS o un test inválido.
+- **Resultado:** ✅ **Veredicto (b): el producto está bien; el escenario del test era imposible.** Con el guard tomado, el capture devuelve `Timeout { operation: "acquire insert_lock in create_snapshot (FIND-651 quiesce)", duration_ms: 200 }`, `retriable=true`, en **1.0498578 s** = exactamente las 5 ventanas, **idéntico en Windows y macOS** → no es plataforma: `acquire_snapshot_quiesce` acota la paciencia a 5 ventanas **por diseño** (`mod.rs:1505-1537`). El test viejo retenía el guard un tiempo no acotado (10 000 `yield_now()`) y exigía paciencia **ilimitada**; su verde era suerte del scheduler. El segundo panic del CI (`:110:31`) era **cascada** (`release_rx.recv()` del writer al dropearse `release_tx`), no una segunda causa.
+  - **Fix test-only, con mutante en las dos direcciones.** La *primera* reescritura pasaba el mutante (`acquire_snapshot_quiesce` → `try_lock` inmediato): el marker se escribe antes del acquire, así que el mutante podía completar tras el release. Se cerró con una segunda condición —con el guard tomado, el capture debe **sobrevivir una ventana completa** de paciencia— y se añadió `test_snapshot_quiesce_bounded_patience_surfaces_timeout` para fijar el bound.
+- **Verificación:** `test(snapshot_quiesce)` **10/10 ×2** · área `test(storage) or test(snapshot)` **551/551** · clippy `-D warnings` 0 · `check-docs` all clear · mutante ROJO en la 2ª iteración.
+- **Commits:** `3d55a5840` + `1e04a3dcf`
+- **Riesgo residual declarado:** queda un hueco de *detección* si el capture se despreempta >1.5 s entre el marker y el acquire (falso-verde, no flake); cerrarlo exige que el producto señalice el intento. Y el bound de 5 ventanas no está contado como número: deuda anotada.

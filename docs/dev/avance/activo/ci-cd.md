@@ -932,3 +932,35 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Verificación:** `actionlint` exit 0 · `rg '^ {4}concurrency:'` → solo `failpoint-tests` y `fuzz-pr` · `rg '^concurrency:'` → solo el workflow-level · `check-links` 0.
 - **Commit:** `9e4e04d70`
 - **Corrección del review (P2-01):** el relato original decía "queda pending y se cancela al terminar el run" (falso: mueren al instante) y un costo de "2h + 6h" sin fuente (venía de un comentario pre-consolidación que esta tarea borra). Ambas corregidas en el YAML y en el task file.
+
+### Bench canónico: el baseline no existía y el productor estaba muerto (`FIND-720`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** El comparador publicaba `stable_count: 0`, `new_benchmarks: [2]`, `has_regression: false`: la detección de regresiones **no podía disparar nunca**.
+- **Resultado:** ✅ Causa raíz **distinta de las dos hipótesis de la fila**, medida en los artefactos de los runs `44228761011`/`44228771621`:
+  - "el comparador no recibe baseline" → **refutada**: `baseline_commit: "TBH-02-initial-seed"` solo existe si `benchmarks/criterion_baseline.json` se lee; si faltara, `load_baseline()` devolvería `{"description":"empty"}` y el campo diría `"unknown"`.
+  - "1536d→100d rompe el matching" → **refutada como causa**: los dos runs son 1536d y aun así dieron 0 coincidencias.
+  - **Causa real:** el baseline tiene 9 etiquetas de otra familia (`hnsw_pure/*`, `hybrid_queries/*`, `The Memory Abyss/*`, …) y **ninguna `canonical_p99/*`** (solape 0/2). Y el único caller de `update-baseline` era `certification.yml → analyze`, **uno de los 4 jobs que `FIND-716` mataba con cero steps** → el fichero seguía en `created: 2026-08-30` con `description` "PLACEHOLDER … MUST be refreshed".
+  - **Fix:** el job persiste su propio baseline con `actions/cache` **branch-scoped** (así `main`/1536d y `develop`/100d no se contaminan), lo adopta en el path fijo del script, lo siembra solo si no hay nada comparable, y publica `::warning::` cuando no hay comparables. El baseline usado se sube con el artefacto (auditoría Regla 11). El fichero versionado no se edita.
+  - **Prueba de que puede disparar:** con el baseline sembrado desde un run real y comparando otro run real → `new_benchmarks: []`, `has_regression: true` (spread real entre corridas **7-9 %**); con delta sintético +50 % → 2 regresiones `critical`, exit 1.
+- **Commits:** `aea7b1221` + `5a42181c3`
+- **Deuda declarada:** el umbral sigue en **5 %** frente a un ruido medido de **7-9 %** → decisión del owner (plan §9.5). El corpus de `main` sigue en 1536d hasta el próximo `develop → main`. `CI_POLICY.md:646` describe el job sin el baseline.
+- **Review P2-01:** no ejecutado (subagente sin tool `task`); waiver registrado y 3 preguntas concretas dejadas en §Review.
+
+### Cobertura de mutación real con presupuesto (`FIND-717`)
+- **Fecha:** 2026-11-25
+- **Objetivo:** Hasta `3f7fdd3fa` el job `mutation-test` moría en "Set up job" (pin inexistente de `upload-artifact`); y aun con pin válido no medía nada: `--check` significa *"cargo check a cada mutante, sin correr los tests"* y `--output-json` no es un flag, con el exit≠0 tragado por `|| true` → verde sin artefacto. Quedó INFORMATIONAL: **cero señal de calidad de tests por mutación**.
+- **Resultado:** ✅ El job ahora corre **los tests** por mutante sobre una superficie fijada y acotada: `cargo mutants --file src/physical_plan/dedup.rs --file src/index/search/pool.rs --exclude-re "<2 supervivientes conocidos>" --in-place --cap-lints=true --build-timeout 900 -- --lib` → por cada mutante recompila el crate y corre `cargo test --lib -p vantadb`. Umbral **0 supervivientes** entre los 7 (exit 2 ⇒ job rojo); **90 min de step / 105 min de job**; guards MIN/MAX de superficie para que el gate no se vacíe ni crezca sin decidirlo. El inventario del crate (12.676 mutantes) se publica **solo como contexto** y el summary imprime `surface` junto a `crate` para que nadie lo lea como cobertura.
+  - Medición real del presupuesto: **35 min** con 7 mutantes en caliente, **43 min** con 9, ≈4,4 min/mutante (`--build-timeout 900`; `--timeout` sin fijar = default 5× baseline, 168 s medido).
+- **Verificación:** `actionlint` exit 0 · medición local 7/7 muertos en 35 min (exit 0) y 9 probados/2 supervivientes (exit 2) · `check-docs`/`check-links` all clear.
+- **Commit:** `e6423f1c7`
+- **Decisiones del owner (no tomadas por el agente):** (a) los **2 supervivientes reales** (`dedup.rs:63` close-propagation, `pool.rs:16` buffer reciclado) están **excluidos por nombre** para que el gate no nazca rojo; la alternativa es vaciar `MUTANTS_KNOWN_SURVIVORS` y que el job los reporte en cada corrida; (b) apareció un **test flaky** (`mcp_init::tests::test_brain_profile_degraded_warning_on_probe_timeout`) que rompe el baseline bajo carga y puede fabricar un falso "caught" → fila `FIND-727`.
+
+### Rulesets: el check requerido que no existía y el gate de docs ausente en `develop` (`FIND-715` + `FIND-719`)
+- **Fecha:** 2026-11-24
+- **Objetivo:** Dos agujeros en la **configuración** del repo, no en los workflows: (a) ambos rulesets exigían un status check llamado `MSRV Check (1.94.1)`, nombre que ningún job reporta desde `5a669a186` → el requisito era **insatisfacible**; (b) ningún job de `docs-gates` era required en `develop`, así que las regresiones de documentación entraban sin que nada se pusiera rojo.
+- **Resultado:** ✅ Corregidos por el orquestador vía API, con backup previo en `%TEMP%/opencode/ruleset-*-before*.json`:
+  - `23692587` (`develop`): `MSRV Check (1.94.1)` → `MSRV Check (1.95.0)`, y de **10 a 13** checks añadiendo `Internal links resolve`, `Frontmatter schema, kind agreement, orphans` y `Generated indexes are current`.
+  - `16844590` (`main`): mismo renombrado, 18 checks preservados.
+  - `enforcement: active` y `bypass_actors` intactos en ambos. Verificado por `gh api` posterior.
+- **Evidencia del daño que esto causaba:** ese mismo día entraron a `develop` 42 enlaces rotos, 24 violaciones de schema, un secreto en prosa y 33 ficheros dañados por el stamper **sin que nada se pusiera rojo**; se descubrieron mirando el CI a mano.
+- **Commits:** sin commit (cambio de configuración del repo, no de código).
