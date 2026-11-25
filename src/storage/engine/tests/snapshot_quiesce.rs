@@ -94,15 +94,24 @@ fn test_snapshot_quiesce_writer_times_out_then_retries_ok() {
 /// FIND-724: the wait is proven from two signals, never from an assumed
 /// schedule.
 ///
-/// 1. `create_snapshot_inner` publishes `snapshot.format` immediately before
-///    it takes the quiesce guard, so that marker proves the capture is *at*
-///    the guard — not merely that a thread was spawned (without it, "hold,
-///    release, expect success" would be vacuous: the thread could start after
-///    the release).
+/// 1. `create_snapshot_inner` publishes `snapshot.format` just before it takes
+///    the quiesce guard (`create_dir(<snapshot>/data)` sits in between, plus a
+///    `failpoints`-only failpoint right after), so that marker proves the
+///    capture is *at* the guard — not merely that a thread was spawned
+///    (without it, "hold, release, expect success" would be vacuous: the
+///    thread could start after the release).
 /// 2. The capture must then outlive one whole patience window
 ///    (`insert_lock_timeout_ms`) with the guard still held. Only waiting can
 ///    survive a window; a capture that stopped waiting would complete within
 ///    microseconds, and that is exactly what the assertion catches.
+///
+/// Residual gap, documented and not mitigated: the marker precedes the
+/// acquire, so a capture preempted for longer than the observation window
+/// between the two could acquire *after* the release and pass without ever
+/// waiting. Closing it needs the product to signal the attempt itself (e.g.
+/// counting the "retrying after contention" debug event), which costs a
+/// process-global tracing subscriber in a libtest binary — not worth it for a
+/// window that would have to exceed 1.5 s.
 ///
 /// The old version spun a fixed 10 000 `yield_now()` and lost on a loaded
 /// 3-core runner: the spin outlived the product's *bounded* patience
@@ -242,8 +251,19 @@ fn test_snapshot_quiesce_bounded_patience_surfaces_timeout() {
         "snapshot quiesce Timeout must be retriable"
     );
     assert!(
-        err.to_string().contains("create_snapshot"),
-        "Timeout must name the quiesce operation, got {err}"
+        matches!(&err, crate::error::Error::Timeout { operation, .. } if operation.contains("create_snapshot")),
+        "Timeout must name the quiesce operation, got {err:?}"
+    );
+
+    // The failed attempt cleaned up after itself: a leftover dir would make
+    // the next capture fail with a misleading `AlreadyExists`.
+    assert!(
+        !dir.path()
+            .join("data")
+            .join("snapshots")
+            .join("bounded")
+            .exists(),
+        "a failed capture must not leave its snapshot dir behind"
     );
 
     drop(quiesce);
