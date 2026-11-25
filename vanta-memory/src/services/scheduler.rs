@@ -48,10 +48,15 @@ use std::sync::Arc;
 
 /// L3 persona trigger cadence for scheduler passes: regenerate the persona
 /// after this many new memories (mirrors the D19 e2e full-pass cadence).
-/// Hosts needing a different cadence can build their own
-/// [`MemoryTaskHandler`] over the same queue (pattern:
-/// [`crate::services::conversation_hook`]).
-const PERSONA_TRIGGER_EVERY_N: usize = 50;
+/// Hosts needing a different cadence construct their own [`PipelineWorker`] +
+/// [`MemoryTaskHandler`] over the same queue (`PipelineWorker::run_once` drives
+/// the batch; the handler wiring shape is in `tests/e2e_flow.rs`). There is no
+/// second pass to configure.
+///
+/// Public since MEM-71: a host (or a test) that needs to reason about the
+/// cadence references this number instead of duplicating `50` — and no pass
+/// ships a "persona never fires" sentinel like `usize::MAX`.
+pub const PERSONA_TRIGGER_EVERY_N: usize = 50;
 
 /// Statistics of one [`run_pass`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

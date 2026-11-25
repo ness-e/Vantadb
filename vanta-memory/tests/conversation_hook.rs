@@ -12,6 +12,7 @@
 use std::sync::Arc;
 use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
 use vanta_memory::core::conversation::L0Recorder;
+use vanta_memory::core::persona::get_persona;
 use vanta_memory::core::record::read_session_records;
 use vanta_memory::services::conversation_hook::{run_bridge_pass, HttpCaptureBridge};
 use vanta_memory::utils::local_backend::LocalStateBackend;
@@ -67,6 +68,92 @@ fn open_db() -> Embedded {
     .expect("open in-memory db")
 }
 
+/// L1 extraction with enough memories to cross the L1→L2 cascade threshold
+/// (`MemoryTaskHandler::auto_l2_threshold`, default 5) — the threshold is part
+/// of the contract under test, so it is exercised, not bypassed.
+const FIVE_MEMORIES_JSON: &str = r#"[
+  {"scene_name": "Ways of working", "message_ids": ["m1"], "memories": [
+    {"content": "User prefers dark mode", "type": "preference", "priority": 80, "source_message_ids": ["m1"]},
+    {"content": "User edits in vim", "type": "preference", "priority": 70, "source_message_ids": ["m1"]},
+    {"content": "User works at night", "type": "preference", "priority": 60, "source_message_ids": ["m1"]},
+    {"content": "User writes in Spanish", "type": "preference", "priority": 50, "source_message_ids": ["m1"]},
+    {"content": "User reviews on Fridays", "type": "preference", "priority": 40, "source_message_ids": ["m1"]}
+  ]}
+]"#;
+
+/// L2 scene extraction: one CREATE candidate (shape per `scene_extractor`).
+const SCENE_JSON: &str = r#"[{"scene_name": "ways_of_working", "summary": "How the user works", "content": "Night owl who edits in vim.", "merge_sources": []}]"#;
+
+/// L3 persona generation (shape per `pipeline_manager.rs`).
+const PERSONA_JSON: &str = "{\"persona\":\"# Profile\\n\\nNight owl builder.\"}";
+
+/// Runner covering every stage the documented hook pattern reaches:
+/// L1 extraction + dedup, L2 scene extraction, L3 persona (shapes copied from
+/// `tests/e2e_flow.rs`). Any other task id is a bug (panics), so the test also
+/// pins *which* LLM calls the pass makes.
+struct FullCycleRunner;
+
+impl LlmRunner for FullCycleRunner {
+    fn run(&self, params: &LlmRunParams) -> Result<String, LlmError> {
+        match params.task_id.as_str() {
+            "l1-extraction" => Ok(FIVE_MEMORIES_JSON.to_string()),
+            // Every judged record gets an explicit `store`; an absent one
+            // defaults to store anyway (`parse_batch_result`).
+            "l1-conflict-detection" => {
+                let judged = params
+                    .prompt
+                    .split("NEW MEMORIES TO JUDGE")
+                    .nth(1)
+                    .unwrap_or(&params.prompt);
+                let decisions: Vec<String> = judged
+                    .match_indices("\"record_id\": \"")
+                    .map(|(i, m)| {
+                        judged[i + m.len()..]
+                            .split('"')
+                            .next()
+                            .unwrap_or("m_0")
+                            .to_string()
+                    })
+                    .map(|id| format!(r#"{{"record_id": "{id}", "action": "store"}}"#))
+                    .collect();
+                Ok(format!("[{}]", decisions.join(",")))
+            }
+            "l2-scene-extraction" => Ok(SCENE_JSON.to_string()),
+            "persona-generation" => Ok(PERSONA_JSON.to_string()),
+            other => panic!("unexpected LLM call: {other}"),
+        }
+    }
+}
+
+#[test]
+fn bridge_pass_reaches_l3_and_writes_the_persona() {
+    let db = open_db();
+    let queue = Arc::new(LocalStateBackend::new(SystemClock));
+    let bridge = HttpCaptureBridge::new(db.clone(), queue.clone());
+
+    // Exactly the documented pattern (`conversation_hook.rs` module docs):
+    // wire the bridge, then drive the pipeline with `run_bridge_pass`.
+    bridge.trigger(7, "user", "Here is how I work").unwrap();
+    let stats = run_bridge_pass(&queue, db.clone(), &FullCycleRunner);
+    assert_eq!(
+        stats.worker.processed, 3,
+        "one pass must drain L1 → L2 → L3 (batch of 8), got {stats:?}"
+    );
+    assert_eq!(queue.queue_depth(), (0, 0), "the pass must drain the queue");
+
+    // MEM-71: before the fix this pass built a bare handler (no queue wiring,
+    // `trigger_every_n = usize::MAX`), so L2 was never enqueued and the
+    // documented pattern produced L1 only. The persona is the observable proof
+    // that L1 → L2 → L3 actually ran end to end.
+    let persona = get_persona(&db, "7")
+        .expect("persona read")
+        .expect("the bridge pass must reach L3 and write the persona");
+    assert!(
+        persona.content.contains("Night owl builder."),
+        "{persona:?}"
+    );
+}
+
 #[test]
 fn bridge_enqueues_task_and_worker_writes_l1_memories() {
     let db = open_db();
@@ -83,7 +170,7 @@ fn bridge_enqueues_task_and_worker_writes_l1_memories() {
     );
 
     let stats = run_bridge_pass(&queue, db.clone(), &ScriptedRunner { fail_l1: false });
-    assert_eq!(stats.processed, 1);
+    assert_eq!(stats.worker.processed, 1);
     assert_eq!(queue.queue_depth(), (0, 0));
 
     // Memories appear in l1/<session> where session == decimal thread id.
@@ -115,7 +202,7 @@ fn extraction_failure_keeps_l0_and_recovers_on_healthy_retry() {
 
     // Healthy runner recovers the full flow on the next pass.
     let stats = run_bridge_pass(&queue, db.clone(), &ScriptedRunner { fail_l1: false });
-    assert_eq!(stats.processed, 1);
+    assert_eq!(stats.worker.processed, 1);
     let records = read_session_records(&db, "7").expect("read l1 records");
     assert!(records.iter().any(|r| r.content.contains("dark mode")));
 }

@@ -7,11 +7,13 @@
 //! driven by a [`FakeClock`] — deterministic, zero sleeps. The Tokio loop
 //! helper (feature `http-server`) is covered in `tests/scheduler_loop.rs`.
 
-use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
+use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner, PersonaTriggerPriority};
 use vanta_memory::core::conversation::{L0Capture, L0Message, L0Recorder, L0Role};
+use vanta_memory::core::persona::{evaluate_persona_trigger, PersonaTriggerInput};
 use vanta_memory::core::record::read_session_records;
 use vanta_memory::core::state::{TaskKind, TaskPayload};
-use vanta_memory::services::scheduler::run_pass;
+use vanta_memory::services::scheduler::{run_pass, PERSONA_TRIGGER_EVERY_N};
+use vanta_memory::utils::checkpoint::CheckpointManager;
 use vanta_memory::utils::{l1_idle_member, FakeClock, LocalStateBackend};
 use vantadb::config::Config;
 use vantadb::sdk::Embedded;
@@ -110,8 +112,131 @@ fn pass_processes_queued_l1_task_and_writes_memories() {
     );
 }
 
-// ═══ pass: timer dispatch ═══
+// ═══ pass: L3 persona cadence (MEM-71) ═══
 
+/// The cadence the pass ships, pinned to the number — not to "fires someday".
+/// `usize::MAX` (the old bridge sentinel) is the failure this test forbids: the
+/// L3 persona would never regenerate and no host could tell.
+#[test]
+fn persona_cadence_is_fifty_memories_and_p4_fires_exactly_at_it() {
+    assert_eq!(
+        PERSONA_TRIGGER_EVERY_N, 50,
+        "the scheduler cadence is a product decision, not a tuning knob: pin it"
+    );
+
+    // A healthy, already-generated persona: cold start / recovery / first scene
+    // cannot fire, so only P4 decides.
+    let input_at = |memories: usize| PersonaTriggerInput {
+        request_persona_update: false,
+        request_reason: None,
+        scenes_processed: 2,
+        memories_since_last_persona: memories,
+        has_scene_blocks: true,
+        previously_generated: true,
+        has_persona_body: true,
+    };
+
+    // One memory short: regenerating here is the "garbage axioms" failure mode
+    // — a persona rewritten with no new material.
+    let before = evaluate_persona_trigger(
+        &input_at(PERSONA_TRIGGER_EVERY_N - 1),
+        PERSONA_TRIGGER_EVERY_N,
+    );
+    assert!(!before.should, "{before:?}");
+    assert_eq!(before.priority, None);
+
+    // Exactly at the threshold: P4, once.
+    let at_n =
+        evaluate_persona_trigger(&input_at(PERSONA_TRIGGER_EVERY_N), PERSONA_TRIGGER_EVERY_N);
+    assert!(at_n.should, "{at_n:?}");
+    assert_eq!(at_n.priority, Some(PersonaTriggerPriority::P4MemoryCount));
+}
+
+/// Minimal runner for the L3 cadence wiring test: the queue holds only L3
+/// tasks, so `persona-generation` is the only reachable call and it must
+/// return the output contract. Any other id is a bug (panics).
+struct PersonaOnlyRunner;
+
+impl LlmRunner for PersonaOnlyRunner {
+    fn run(&self, params: &LlmRunParams) -> Result<String, LlmError> {
+        match params.task_id.as_str() {
+            "persona-generation" => {
+                Ok(r##"{"persona":"# Profile\n\nNight owl builder."}"##.to_string())
+            }
+            other => panic!("unexpected LLM call in the L3 cadence test: {other}"),
+        }
+    }
+}
+
+fn l3_task(session: &str) -> TaskPayload {
+    TaskPayload {
+        id: String::new(),
+        kind: TaskKind::L3,
+        session_id: session.to_string(),
+        priority: 1,
+        created_at_ms: 0,
+        attempts: 0,
+    }
+}
+
+/// MEM-71, the wiring half: `run_pass` must hand `PERSONA_TRIGGER_EVERY_N` to
+/// the handler. Replacing it with `usize::MAX` (the old bridge sentinel) leaves
+/// the pure-trigger test above green but must fail here.
+///
+/// Observable: a successful generation ends in `mark_persona_generated`, which
+/// resets `memories_since_last_persona`. With the persona disabled, the pass
+/// returns early (`!trigger.should`) and the counter keeps its value — so
+/// 49 → 49 is "nothing regenerated" and 50 → 0 is "P4 fired".
+#[test]
+fn run_pass_regenerates_persona_exactly_at_the_fifty_memory_cadence() {
+    let db = open_db();
+    let queue = LocalStateBackend::new(FakeClock::new(1_000));
+    let checkpoints = CheckpointManager::new(&db);
+
+    // A persona was generated before (P2 cold start off) and no scene block
+    // exists yet (`scenes_processed == 0`), so P1/P2/P3 cannot fire: P4 is the
+    // only trigger in play.
+    checkpoints
+        .mark_persona_generated(0, 1_000, "1970-01-01T00:00:01.000Z")
+        .expect("seed checkpoint");
+    checkpoints
+        .add_memories_extracted(PERSONA_TRIGGER_EVERY_N as u64 - 1)
+        .expect("seed memories");
+    queue.enqueue_task(l3_task("cadence-below"));
+
+    let below = run_pass(&queue, db.clone(), &PersonaOnlyRunner);
+    assert_eq!(below.worker.processed, 1);
+    assert_eq!(below.worker.failed, 0);
+    assert_eq!(
+        checkpoints
+            .read()
+            .expect("read checkpoint")
+            .memories_since_last_persona,
+        PERSONA_TRIGGER_EVERY_N as u64 - 1,
+        "one memory short: regenerating here is the garbage-axioms failure mode"
+    );
+
+    // Exactly at the cadence: P4 fires, the pass regenerates and the counter
+    // resets. `usize::MAX` would leave it at 50.
+    checkpoints
+        .add_memories_extracted(1)
+        .expect("seed the last memory");
+    queue.enqueue_task(l3_task("cadence-at"));
+
+    let at_n = run_pass(&queue, db.clone(), &PersonaOnlyRunner);
+    assert_eq!(at_n.worker.processed, 1);
+    assert_eq!(at_n.worker.failed, 0);
+    assert_eq!(
+        checkpoints
+            .read()
+            .expect("read checkpoint")
+            .memories_since_last_persona,
+        0,
+        "at PERSONA_TRIGGER_EVERY_N memories the pass must regenerate the persona"
+    );
+}
+
+// ═══ pass: timer dispatch ═══
 #[test]
 fn pass_dispatches_expired_idle_timer_into_l1_task_once() {
     let db = open_db();

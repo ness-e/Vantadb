@@ -281,8 +281,8 @@ skip; never a silent loss.
 | `core::memory_generation_log` | Per-session generation provenance at L1/L2/L3 (MEM-41) under `genlog/<session>`; best-effort, capped keep-recent | `core/memory_generation_log/store.rs:17,35,51` |
 | `gateway::approval_handlers` | Typed handlers behind the MCP `capture_list_pending` / `capture_approve` / `capture_reject` tools (MEM-68) — boundary validation, no transport | `gateway/approval_handlers.rs:90-117` |
 | `ingest::auto_sync` | Pull-based scheduled wiki re-ingest (MEM-45): per-file FNV-1a change detection, disabled by default, interval ≥ 60 s | `ingest/auto_sync.rs:108` (`tick`), `:33-36` |
-| `services::conversation_hook` | `HttpCaptureBridge` — implements the core's `ConversationTrigger` for `POST /api/v2/conversations` (MEM-55): L0 capture + L1 task enqueue; **wired by `vantadb-server` HTTP mode** (WIRE-16) | `services/conversation_hook.rs:36-45,93-107` · `vantadb-server/src/scheduler.rs:124-146` |
-| `services::scheduler` | Pull-based pass (`run_pass` = expired timers + one worker pass + stale-claim reclaim) + feature-gated loop helper (`spawn_memory_scheduler`, `http-server`); host-driven with graceful join (WIRE-15/16) | `services/scheduler.rs:83` (`run_pass`), `:277` (`spawn_memory_scheduler`) |
+| `services::conversation_hook` | `HttpCaptureBridge` — implements the core's `ConversationTrigger` for `POST /api/v2/conversations` (MEM-55): L0 capture + L1 task enqueue; **wired by `vantadb-server` HTTP mode** (WIRE-16). `run_bridge_pass` is one pass of the same L0→L3 planner (MEM-71) | `services/conversation_hook.rs:46-55,122-128` · `vantadb-server/src/scheduler.rs:124-146` |
+| `services::scheduler` | Pull-based pass (`run_pass` = expired timers + one worker pass + stale-claim reclaim, L3 persona at `PERSONA_TRIGGER_EVERY_N`) + feature-gated loop helper (`spawn_memory_scheduler`, `http-server`); host-driven with graceful join (WIRE-15/16) | `services/scheduler.rs:58` (cadence), `:87` (`run_pass`), `:284` (`spawn_memory_scheduler`) |
 | `ingest::observability` | Process-wide ingest status (MEM-72): runner in use, last pass outcome, queue depth; warns once per degraded episode | `ingest/observability.rs` (`status`, `note_runner`, `note_pass`, `note_skipped_pass`, `note_scheduler_started/stopped`) |
 
 **`core::dream`** — `consolidate_session` requires the idle window (`detect_idle`,
@@ -328,8 +328,16 @@ files (`// ponytail` note in source).
 (cycle), so the hook point is the additive
 `vantadb::cli_server::ConversationTrigger` trait and the impl lives here.
 `trigger` captures the saved turn into L0 (LLM-free — data is never lost) and
-enqueues an L1 task; `run_bridge_pass` drains the queue through the MEM-16
-worker (`trigger_every_n = usize::MAX`, so this path never regenerates persona).
+enqueues an L1 task; `run_bridge_pass` drives **one pass of the same L0→L3
+planner** `run_pass` exposes (MEM-71): expired timers, one worker batch — whose
+L1 → L2 → L3 cascade is enqueued through this queue — and stale-claim reclaim.
+The L3 persona regenerates at
+`services::scheduler::PERSONA_TRIGGER_EVERY_N` (50) memories, plus the cold
+start / recovery / first-scene triggers. Before MEM-71 this
+pass built a bare handler with `trigger_every_n = usize::MAX` and no queue
+wiring, so a host following these docs reached L1 only: L2 was never enqueued
+and L3 could never run. One pass per process: a host that already runs
+`spawn_memory_scheduler` must not also call this.
 **Wiring status (WIRE-16):** wired in production by `vantadb-server` in HTTP
 mode (writable servers — read-only skips the wiring, mirroring the TTL sweeper
 guard) — the host attaches `HttpCaptureBridge` through the additive

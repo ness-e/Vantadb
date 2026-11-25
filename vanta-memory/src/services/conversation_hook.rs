@@ -11,9 +11,20 @@
 //! ```ignore
 //! let queue = Arc::new(LocalStateBackend::new(SystemClock));
 //! state.conversation_trigger = Some(Arc::new(HttpCaptureBridge::new(db.clone(), queue.clone())));
-//! // Later / on a host thread: drain queued tasks through the MEM-16 worker.
-//! run_bridge_pass(&queue, db.clone(), &runner);
+//! // Later / on a host thread: run one pass of the L0→L3 planner.
+//! let stats = run_bridge_pass(&queue, db.clone(), &runner);
 //! ```
+//!
+//! That pass **is** [`crate::services::scheduler::run_pass`] — the same one
+//! `vantadb-server` drives in production (WIRE-16): expired timers, one worker
+//! batch whose L1 → L2 → L3 cascade is enqueued through this queue, and
+//! stale-claim reclaim. The L3 persona regenerates at
+//! [`crate::services::scheduler::PERSONA_TRIGGER_EVERY_N`] memories (plus the
+//! cold-start / recovery / first-scene triggers).
+//!
+//! One pass per process (ADR-0054): if the host already runs
+//! `spawn_memory_scheduler`, it does not need this, and never run both
+//! concurrently — they share the `worker-{pid}` claim owner.
 //!
 //! Principio 4: without a configured runner hosts simply never call
 //! [`run_bridge_pass`] — messages stay safely captured in `l0/` and queued L1
@@ -21,9 +32,8 @@
 
 use crate::core::abstractions::LlmRunner;
 use crate::core::conversation::{now_ms, L0Capture, L0Message, L0Recorder, L0Role};
-use crate::core::record::{L1DedupConfig, L1ExtractorConfig};
 use crate::core::state::{TaskKind, TaskPayload};
-use crate::services::pipeline_worker::{MemoryTaskHandler, PipelineWorker, RunStats, WorkerConfig};
+use crate::services::scheduler::PassStats;
 use crate::utils::local_backend::LocalStateBackend;
 use crate::utils::managed_timer::{Clock, SystemClock};
 use std::sync::Arc;
@@ -84,24 +94,35 @@ impl<C: Clock> vantadb::cli_server::ConversationTrigger for HttpCaptureBridge<C>
     }
 }
 
-/// Drive one MEM-16 worker pass over the bridge queue with the given runner.
+/// Drive one pass of the L0→L3 planner over the bridge queue with `runner`.
 ///
-/// `trigger_every_n` is set to `usize::MAX` so the persona trigger never fires
-/// here — a conversation-add pass extracts memories, it does not regenerate
-/// personas. Hosts wanting the full cycle can build their own
-/// [`MemoryTaskHandler`] over the same queue instead.
+/// This is [`crate::services::scheduler::run_pass`] (one implementation, one
+/// behavior): expired timers dispatched into queue tasks, one
+/// [`PipelineWorker`](crate::services::pipeline_worker::PipelineWorker) batch —
+/// whose L1 → L2 → L3 cascade is enqueued through this same queue — and
+/// stale-claim reclaim. The L3 persona regenerates at
+/// [`PERSONA_TRIGGER_EVERY_N`](crate::services::scheduler::PERSONA_TRIGGER_EVERY_N)
+/// memories, plus the cold-start / recovery / first-scene triggers. A host
+/// wanting a different cadence builds its own
+/// [`MemoryTaskHandler`](crate::services::pipeline_worker::MemoryTaskHandler)
+/// and [`PipelineWorker`](crate::services::pipeline_worker::PipelineWorker)
+/// over the same queue.
+///
+/// One pass per process (ADR-0054): a host that already runs
+/// `spawn_memory_scheduler` does not need this, and running both concurrently
+/// is a host bug — they share the `worker-{pid}` claim owner, so a
+/// session-lock loser requeues a clone that runs the LLM work twice.
+///
+/// MEM-71: this used to build a bare handler with `trigger_every_n =
+/// usize::MAX` **and no queue wiring**, so a host following these docs reached
+/// L1 only — L2 was never enqueued, so L3 could not run either. The
+/// "extracts memories, does not regenerate personas" comment described a
+/// MEM-55 scope boundary that ADR-0054 already superseded ("`run_bridge_pass`
+/// se generaliza al pass del driver").
 pub fn run_bridge_pass<C: Clock, R: LlmRunner>(
     queue: &LocalStateBackend<C>,
     db: Embedded,
     runner: &R,
-) -> RunStats {
-    let mut worker = PipelineWorker::new(queue, WorkerConfig::default());
-    let mut handler = MemoryTaskHandler::new(
-        db,
-        runner,
-        L1ExtractorConfig::default(),
-        L1DedupConfig::default(),
-        usize::MAX,
-    );
-    worker.run_once(&mut handler)
+) -> PassStats {
+    crate::services::scheduler::run_pass(queue, db, runner)
 }
