@@ -1178,20 +1178,47 @@ jobs:
       # [profile.default] default-filter in .config/nextest.toml, not here.
       - name: Assert the TSan partition was actually exercised
         if: always()
+        # FIND-730: with no `shell:` key this step ran as `/usr/bin/bash -e {0}`
+        # (step header in run 45564374043 attempt 1) — no pipefail, so a
+        # `grep | tail` that matched nothing still exited 0. `shell: bash` is
+        # documented as `bash --noprofile --norc -eo pipefail {0}`; the
+        # `set -euo pipefail` below deliberately repeats it so the guarantee
+        # does not depend on inherited shell configuration.
+        shell: bash
         run: |
+          set -euo pipefail
           LOG="tsan-partition-${{ matrix.partition }}.log"
           if [ ! -s "$LOG" ]; then
             echo "::error::partition ${{ matrix.partition }}/4 produced no TSan log — no verdict at all (FIND-714)."
             exit 1
           fi
-          # GitHub runs `run:` as `bash -eo pipefail`, so `grep | tail` fails when
-          # grep matches nothing (pipefail reports the last command that failed).
-          # The `if !` is therefore the gate AND the diagnostic: without it, `set -e`
-          # would kill the step here and the operator would see a bare exit 1 with
-          # no reason. No `|| true` is used or needed (RULES.md rule 6).
+          # FIND-730: this used to claim "GitHub runs `run:` as `bash -eo pipefail`".
+          # FALSE — see the step header. Both guards below were inert: the parse
+          # never matched (cause 1: ANSI) and the non-match was not fatal
+          # (cause 2: no pipefail). ANSI is stripped first because the log comes
+          # from `tee` with CARGO_TERM_COLOR: always, so the real summary line is
+          #   <ESC>[1m821<ESC>[0m tests run:
+          # and the digits are separated from ` tests run` by the reset sequence.
+          # The `sed` is GNU sed, which is what ubuntu-latest ships.
+          # The count is taken ONLY from nextest's summary line: a test that
+          # prints "N tests run" in its output lands in the FAILURES section,
+          # which comes AFTER the summary, and `tail -1` would pick it up. That
+          # decoy would defeat both guards, so the line is selected first.
+          # The `if !` is the gate AND the diagnostic: with pipefail restored,
+          # `grep` matching nothing fails the pipeline, and the message says why
+          # instead of leaving a bare exit 1. No `|| true` is used (RULES.md rule 6).
           # `tests? run` also covers nextest's singular form for a 1-test partition.
-          if ! SUMMARY="$(grep -Eo '([0-9]+/)?[0-9]+ tests? run' "$LOG" | tail -1)"; then
+          if ! SUMMARY="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG" \
+            | grep -E 'Summary.*([0-9]+/)?[0-9]+ tests? run' \
+            | grep -Eo '([0-9]+/)?[0-9]+ tests? run' | tail -1)"; then
             echo "::error::partition ${{ matrix.partition }}/4 has no nextest summary — it never reported how many tests it ran (FIND-714)."
+            exit 1
+          fi
+          # FIND-730: belt and braces over the pipefail above. An empty parse used
+          # to reach the `-eq 0` test below, which is an arithmetic error inside an
+          # `if` — exempt from `-e` — so it fell through to the green echo.
+          if [ -z "$SUMMARY" ]; then
+            echo "::error::partition ${{ matrix.partition }}/4 parsed an empty summary — the assertion cannot verify the corpus (FIND-730)."
             exit 1
           fi
           if [[ "$SUMMARY" == */* ]]; then
