@@ -272,11 +272,23 @@ open DB), `<TEMP>\.tmp*`, and the fixed paths the tests still use
 anything outside `%TEMP%` or `%TEMP%` itself (`Assert-UnderTemp`, the same guard
 pattern as `target-cleanup.ps1`).
 
+**Loose files are swept too** (`FIND-743`). A directory has fjall's `lock`;
+a file has nothing to open, so the probe runs on the **file itself**: it is
+opened with `FileShare.None`, and that fails while any other handle holds it,
+whatever share that handle granted (`None`/`Read`/`ReadWrite`/`ReadWrite+Delete`)
+— measured, and cross-process. This matters because `Remove-Item` *does* delete
+through a handle that grants `DELETE` (which is what `std::fs::File` grants), so
+the probe is what protects the file, not the delete call. The two signals are
+the same (lock + idleness), and the guard is **re-checked immediately before
+deleting**: between inventory and delete a database can reopen. The report
+always prints both lines — `dirs` and `files` — even at zero, so an empty report
+claims the whole inventory and not just the half that was looked at.
+
 ```powershell
 pwsh -NoProfile -File dev-tools/temp-collector.ps1 -DryRun      # qué borraría, con MB
 pwsh -NoProfile -File dev-tools/temp-collector.ps1              # borra
 pwsh -NoProfile -File dev-tools/temp-collector.ps1 -MinAgeMinutes 0   # sólo si no hay suites en vuelo
-pwsh -NoProfile -File dev-tools/temp-collector.ps1 -SelfCheck   # SELFCHECK: PASS (19/19 asserts)
+pwsh -NoProfile -File dev-tools/temp-collector.ps1 -SelfCheck   # SELFCHECK: PASS (36/36 asserts)
 ```
 
 It runs on its own from the two places a gate starts a suite: in
