@@ -93,6 +93,24 @@ if [ "$RS_CHANGED" -eq 1 ]; then
     esac
 fi
 
+# --- WASM types: la fuente a mano vs el pkg generado (FIND-729) ---
+# `pkg/` es artefacto gitignored; el script copia `vantadb-wasm/src/vantadb_wasm.d.ts`
+# encima. `release-npm-wasm.yml` corre el script en write-mode, asi que la deriva
+# solo se ve en local: `tsc` falla con "no exported member" sobre tipos que ya existen.
+# El check no necesita node_modules (es node puro), si node.
+if echo "$CHANGED" | grep -qE '^(vantadb-wasm|vantadb-ts)/'; then
+    if [ -f "vantadb-wasm/pkg/vantadb_wasm.d.ts" ] && command -v node >/dev/null 2>&1; then
+        echo "pre-push: wasm/ts touched — pkg .d.ts in sync with the hand-written source..."
+        node dev-tools/build-wasm-types.mjs --check || {
+            echo "pre-push: vantadb-wasm/pkg/vantadb_wasm.d.ts is stale."
+            echo "pre-push:   fix: node dev-tools/build-wasm-types.mjs   (Push BLOCKED.)"
+            exit 1
+        }
+    else
+        echo "pre-push: vantadb-wasm/pkg missing — types check skipped (CI covers)."
+    fi
+fi
+
 # --- Node (solo si se toco + hay node_modules) ---
 if echo "$CHANGED" | grep -qE '^(vantadb-node|vantadb-ts)/'; then
     if [ -d "vantadb-node/node_modules" ] && command -v npm >/dev/null 2>&1; then
@@ -102,10 +120,21 @@ if echo "$CHANGED" | grep -qE '^(vantadb-node|vantadb-ts)/'; then
         echo "pre-push: node area touched but no node_modules — npm test skipped (CI covers)."
     fi
     if [ -d "vantadb-ts/node_modules" ] && command -v npm >/dev/null 2>&1; then
+        # FIND-729: el unico gate de typecheck/lint vive en release-npm-wasm.yml y
+        # ese workflow dispara solo en `pull_request` — los pushes directos a
+        # develop (el camino normal aca) lo esquivan. Los dos comandos son baratos.
+        if [ -f "vantadb-wasm/pkg/vantadb_wasm.d.ts" ]; then
+            echo "pre-push: vantadb-ts touched — tsc --noEmit..."
+            (cd vantadb-ts && npx tsc --noEmit) || { echo "pre-push: vantadb-ts typecheck FAILED. Push BLOCKED."; exit 1; }
+        else
+            echo "pre-push: vantadb-wasm/pkg missing — typecheck skipped (CI covers)."
+        fi
+        echo "pre-push: vantadb-ts touched — lint..."
+        (cd vantadb-ts && npm run lint) || { echo "pre-push: vantadb-ts lint FAILED. Push BLOCKED."; exit 1; }
         echo "pre-push: vantadb-ts touched — npm test..."
         (cd vantadb-ts && npm test) || { echo "pre-push: vantadb-ts tests FAILED. Push BLOCKED."; exit 1; }
     else
-        echo "pre-push: ts area touched but no node_modules — npm test skipped (CI covers)."
+        echo "pre-push: ts area touched but no node_modules — typecheck/lint/test skipped (CI covers)."
     fi
 fi
 

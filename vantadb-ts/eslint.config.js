@@ -13,6 +13,11 @@ export default tseslint.config(
         crypto: "readonly",
       },
     },
+    rules: {
+      // A leading underscore marks a parameter kept only for signature parity
+      // (e.g. native.ts methods that fail closed with NOT_SUPPORTED).
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
   },
   {
     files: ["src/__tests__/**", "examples/**", "test-runner.mjs"],

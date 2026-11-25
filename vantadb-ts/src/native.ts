@@ -868,7 +868,7 @@ export class NativeVantaDB implements NativeClientBinding {
   /**
    * Find nodes by edge/metadata label.
    */
-  async findNodesByLabel(label: string): Promise<string[]> {
+  async findNodesByLabel(_label: string): Promise<string[]> {
     this.ensureOpen();
     return this._native("findNodesByLabel", async () => {
       // FIND-539: no label-index primitive exists in vantadb-node —
@@ -955,8 +955,8 @@ export class NativeVantaDB implements NativeClientBinding {
   async graphShortestPath(
     sourceId: string | number | bigint,
     targetId: string | number | bigint,
-    maxDepth: number = 10,
-    direction: "Forward" | "Reverse" | "Both" | string = "Forward",
+    _maxDepth: number = 10,
+    _direction: "Forward" | "Reverse" | "Both" | string = "Forward",
   ): Promise<string[]> {
     this.ensureOpen();
     return this._native("graphShortestPath", async () => {
@@ -1197,10 +1197,7 @@ export class NativeVantaDB implements NativeClientBinding {
    * — same detach semantics as `search` (abort = detach: the op runs on,
    * the engine is never cancelled).
    */
-  async query(
-    iql: string,
-    abort?: AbortHandle | undefined | null,
-  ): Promise<QueryResult> {
+  async query(iql: string, abort?: AbortHandle | undefined | null): Promise<QueryResult> {
     this.ensureOpen();
     if (typeof iql !== "string") {
       throw new DbError(ERROR_CODES.INVALID_ARGUMENT, "query: iql must be a string");

@@ -17,7 +17,6 @@ import type {
   ExportReport,
   FilterSpec,
   FlatValue,
-  ForgetMode,
   ForgetOptions,
   GetInput,
   GraphBfsResult,
@@ -445,8 +444,10 @@ export class Client {
   async closeAsync(): Promise<void> {
     if (this._closed) return;
     try {
-      if (typeof (this.inner as any).closeAsync === "function") {
-        await (this.inner as any).closeAsync();
+      // The guard stays for an older `vantadb-wasm` pkg, which shipped
+      // without `closeAsync`; the declared type has it (vantadb_wasm.d.ts).
+      if (typeof this.inner.closeAsync === "function") {
+        await this.inner.closeAsync();
       } else {
         this.inner.close();
       }
