@@ -55,7 +55,7 @@ No aplica: no agrega símbolos públicos, endpoints, tools MCP ni métodos de bi
   2. `core.hooksPath` es config del clon: se documenta, **nunca** se versiona.
   3. Los gates deterministas siguen siendo los mismos (fmt, clippy core, ruff, prettier, markdownlint, verify_staged, actionlint) — este fix no relaja ninguno.
 - **Comandos de verificación:** `git config --get core.hooksPath` · `pre-commit install-hooks -c .githooks/pre-commit-config.yaml` · commit de prueba en `git worktree` descartable.
-- **Deuda pendiente:** (a) el clon necesita `core.hooksPath` seteado a mano (documentado; no hay auto-install); (b) **condición de push** — `node scripts/docs/gen-index.mjs --check` está rojo por tres task files de este run: la regeneración (`gen-index.mjs --write`) de `docs/index.md` + `llms.txt` debe entrar en el **mismo batch** que los task files del run. Regenerarla sola metería en el índice el enlace a `docs/dev/tasks/FIND-724.md`, que sigue untracked (`docs-links` rojo a cambio de `docs-index` rojo). Este commit es **local**; no pushear aislado.
+- **Deuda pendiente:** (a) el clon necesita `core.hooksPath` seteado a mano (documentado; no hay auto-install); (b) **condición de push** — la regeneración de `docs/index.md` + `llms.txt` ya está en el working tree (uncommitted) y `node scripts/docs/gen-index.mjs --check` da **exit 0**; debe commitearse en el **mismo batch** que los task files del run. Este commit es **local**: no pushear aislado, o el job required `docs-index` vería el índice viejo.
 
 ## Deuda técnica (Regla 6 — MUST)
 
