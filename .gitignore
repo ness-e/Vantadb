@@ -292,3 +292,6 @@ llama-index-vector-stores-vantadb/
 #     docs/index.md skills/vantadb/SKILL.md                 -> vacio (OK)
 !tests/fixtures/v0.9.0/db/
 !tests/fixtures/v0.9.0/db/data/vector_index.bin
+
+# campaign-server budget artifacts (generated next to plan files, never content)
+*.budget.json
