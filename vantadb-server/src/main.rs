@@ -124,13 +124,39 @@ fn print_help() {
          OPTIONS:\n    \
          {MCP_FLAG}    Run as an MCP stdio server instead of the HTTP CLI server\n    \
          -h, --help    Print help information\n    \
-         -V, --version    Print version"
+         -V, --version    Print version and source commit"
     );
 }
 
-/// Prints the crate version (called on `-V`/`--version`).
+/// Commit this binary was compiled from (`build.rs`; `unknown` when there was
+/// no git metadata at build time).
+const BUILD_COMMIT: &str = env!("VANTADB_BUILD_COMMIT");
+
+/// Whether the build tree had uncommitted tracked changes: `clean`, `dirty`, or
+/// `unknown` (no git metadata).
+const BUILD_WORKTREE: &str = env!("VANTADB_BUILD_WORKTREE");
+
+/// One-line version report: crate version plus the commit it was built from
+/// (FIND-741).
+///
+/// A DoD that verifies behaviour against a binary must be able to reject an
+/// artifact that does not come from the commit under test, so the line always
+/// carries the commit and the worktree state — a binary from a dirty tree does
+/// not represent `HEAD` either.
+fn version_line(version: &str, commit: &str, worktree: &str) -> String {
+    if commit == "unknown" {
+        format!("vantadb-server {version} (commit unknown, not a git checkout)")
+    } else {
+        format!("vantadb-server {version} (commit {commit}, worktree {worktree})")
+    }
+}
+
+/// Prints the crate version and source commit (called on `-V`/`--version`).
 fn print_version() {
-    println!("vantadb-server {}", env!("CARGO_PKG_VERSION"));
+    println!(
+        "{}",
+        version_line(env!("CARGO_PKG_VERSION"), BUILD_COMMIT, BUILD_WORKTREE)
+    );
 }
 
 #[cfg(test)]
@@ -176,6 +202,23 @@ mod tests {
         assert_eq!(
             validate_args(&["--mcp".to_string(), "--bogus".to_string(), "x".to_string()]),
             Err("--bogus".to_string())
+        );
+    }
+
+    /// FIND-741: all three states a stale-binary check must distinguish.
+    #[test]
+    fn version_line_names_commit_and_worktree() {
+        assert_eq!(
+            version_line("0.9.0", "7818ecd99", "clean"),
+            "vantadb-server 0.9.0 (commit 7818ecd99, worktree clean)"
+        );
+        assert_eq!(
+            version_line("0.9.0", "7818ecd99", "dirty"),
+            "vantadb-server 0.9.0 (commit 7818ecd99, worktree dirty)"
+        );
+        assert_eq!(
+            version_line("0.9.0", "unknown", "unknown"),
+            "vantadb-server 0.9.0 (commit unknown, not a git checkout)"
         );
     }
 }
