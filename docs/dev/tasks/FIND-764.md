@@ -322,15 +322,16 @@ se corrió (prohibido por el contrato) — con su consecuencia escrita en §Deud
 
 ## Deuda / pendiente
 
-- **Bloqueante, cross-lane: `gen-index --check` está rojo** y este commit lo
-  reproduce. `node scripts/docs/gen-index.mjs --check` → `[docs/index.md]
-  "### Task files — 272" -> expected 275`: faltan **3** task files, de los cuales
-  sólo `FIND-764.md` es mío (los otros dos, `FIND-757.md` y `FIND-758.md`, son
-  de carriles en vuelo y están **sin commitear**, así que regenerar acá hornearía
-  trabajo ajeno). `Generated indexes are current` es un check **required**: el
-  primer push de este commit saldrá rojo ahí hasta que el orquestador corra
-  `gen-index.mjs --write` al cierre del wave. Es exactamente el `failure` que ya
-  arrastra `cd7d8c5f7`.
+- **Bloqueante, cross-lane: `gen-index --check` está rojo**, y lo estará mientras
+  haya carriles en vuelo. `node scripts/docs/gen-index.mjs --check` → `[docs/index.md]
+  "### Task files — 272" -> expected 275` (leído antes de este cierre). El drift
+  es de **task files sin commitear** de otros carriles (`FIND-757.md`,
+  `FIND-758.md`, `FIND-769.md` al cerrar: la lista cambia con cada carril), así
+  que regenerar acá hornearía trabajo ajeno — y el contrato de esta tarea
+  **prohíbe** `gen-index`. `Generated indexes are current` es un check
+  **required**: el primer push de este commit saldrá rojo ahí hasta que el
+  orquestador corra `gen-index.mjs --write` al cierre del wave. Es exactamente el
+  `failure` que ya arrastra `cd7d8c5f7`.
 - **`FAQ.md:26-30`** describe `cancel-in-progress` en dos formas (`true` en
   CI/PR, `false` en release) y **falta la tercera** (expresión por evento), que
   es hoy la forma de `docs-gates.yml` y `ci-rust.yml`. Fuera de la lista de
@@ -345,6 +346,17 @@ se corrió (prohibido por el contrato) — con su consecuencia escrita en §Deud
   cambio no lo toca. Se detecta con la lista de §(C) y se mitiga en el release
   re-corriendo `Tests (Linux)` y **confirmando que ejecutó** (no sólo que está
   verde). Candidato a `FIND-*` si se repite.
+
+- **Incidente de árbol compartido (declarado, reparado):** `9f8bc0ffd` se llevó
+  **9 líneas de `docs/dev/tasks/FIND-768.md`**: `git read-tree HEAD` y `git commit`
+  no son atómicos y el carril de `FIND-768` commiteó `4b3db3560` en medio (clase
+  `FIND-753`). El helper verificó por contenido lo que le pedí y no podía ver el
+  fichero ajeno; se detectó leyendo `git show --stat`. Restaurado en `4666b6467`
+  (`+9/−0`).
+- **Una exención de hook, declarada:** el commit se hizo con
+  `SKIP=markdownlint-cli2`: el hook del env de `pre-commit` (v0.23.2) marca
+  `Failed` con `Linting: 0 files` porque los `.md` están bajo `docs/dev/**`, que
+  la config excluye; la **misma** invocación da **exit 0 / 0 issues** con v0.24.2.
 
 ## Alcance (escritura)
 
