@@ -1,1 +1,0 @@
-pub fn probe( ){let x=1;println!("{}",x);}

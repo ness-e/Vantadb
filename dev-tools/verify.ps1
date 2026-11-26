@@ -2,7 +2,11 @@
 # el fast gate local por defecto — vive en el nightly (nightly.yml job `coverage-budget`,
 # script dev-tools/coverage-budget.ps1). On-demand local: `pwsh dev-tools/verify.ps1 -IncludeCoverage`.
 # CI canónico ADR-018 (root crate ≥80%, ci-rust.yml) intacto.
-param([switch]$IncludeCoverage)
+# FIND-760: -Skip <id>[,<id>...] — granular, same idiom as the pre-push `SKIP=<gate>`
+# env var (and as pre-commit's native SKIP). A skipped step NAMES itself and the run
+# summary repeats it: a silent skip is a disguised red. It is additive: callers that
+# pass nothing get the exact same ten steps as before.
+param([switch]$IncludeCoverage, [string[]]$Skip)
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
@@ -66,6 +70,26 @@ $feats = Get-CoreFeatures
 $fastGateFilter = Get-FastGateFilter
 $pass = 0; $fail = 0
 
+# ── -Skip (FIND-760) ─────────────────────────────────────────────────────────
+# Accepts both `-Skip fmt,check` (array) and `-Skip "fmt,check"` (one string):
+# the pre-push hook passes a single comma-joined argument.
+$SkipSet = @{}
+foreach ($entry in $Skip) {
+    foreach ($id in ($entry -split ',')) {
+        $t = $id.Trim().ToLower()
+        if ($t) { $SkipSet[$t] = $true }
+    }
+}
+$skipped = 0
+function Skip-Step([string]$id) {
+    if ($SkipSet.ContainsKey($id)) {
+        Write-Host "  ${id}... SKIPPED (-Skip $id)" -ForegroundColor DarkYellow
+        $Script:skipped++
+        return $true
+    }
+    return $false
+}
+
 function run($name, [string[]]$cmd) {
     Write-Host "  ${name}..." -ForegroundColor Yellow -NoNewline
     $prevEAP = $ErrorActionPreference
@@ -77,41 +101,51 @@ function run($name, [string[]]$cmd) {
 }
 
 try {
-    run "fmt" ("cargo", "fmt", "--all", "--", "--check")
-    run "check" (("cargo", "check", "-p", "vantadb", "-j", "$Jobs") + $feats)
-    run "clippy" (("cargo", "clippy", "-p", "vantadb", "-j", "$Jobs") + $feats + @("--", "-D", "warnings"))
-    run "audit" ("cargo", "audit")   # ignores managed in .cargo/audit.toml
-    run "deny" ("cargo", "deny", "check")
+    if (-not (Skip-Step "fmt")) { run "fmt" ("cargo", "fmt", "--all", "--", "--check") }
+    if (-not (Skip-Step "check")) { run "check" (("cargo", "check", "-p", "vantadb", "-j", "$Jobs") + $feats) }
+    if (-not (Skip-Step "clippy")) { run "clippy" (("cargo", "clippy", "-p", "vantadb", "-j", "$Jobs") + $feats + @("--", "-D", "warnings")) }
+    if (-not (Skip-Step "audit")) { run "audit" ("cargo", "audit") }   # ignores managed in .cargo/audit.toml
+    if (-not (Skip-Step "deny")) { run "deny" ("cargo", "deny", "check") }
     # FIND-732: una suite que mató un test a mitad deja su DB temporal en %TEMP%
     # (Drop no corre). Se reclama lo huérfano antes de la suite; advisory, nunca falla el gate.
     try { & pwsh -NoProfile -File (Join-Path $PSScriptRoot "temp-collector.ps1") -Quiet } catch { }
-    if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
-        # exclusiones RESOURCE-GUARD: ver $fastGateFilter arriba + CI_POLICY §"Fast Gate Test Exclusions"
-        run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", $fastGateFilter))
-    } else {
-        run "test" (("cargo", "test", "-p", "vantadb") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
+    if (-not (Skip-Step "nextest")) {
+        if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
+            # exclusiones RESOURCE-GUARD: ver $fastGateFilter arriba + CI_POLICY §"Fast Gate Test Exclusions"
+            run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", $fastGateFilter))
+        } else {
+            run "test" (("cargo", "test", "-p", "vantadb") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
+        }
     }
-    if ($IncludeCoverage) {
-        # On-demand: mismo script que corre el nightly (reporte JSON + presupuesto por directorio).
-        run "coverage-budget" ("pwsh", "-NoProfile", "$PSScriptRoot\coverage-budget.ps1")
-    } else {
-        # HARD-02 (decisión owner (c) 2026-09-27): coverage vive en el nightly (nightly.yml job
-        # `coverage-budget`); el fast gate local no lo corre por defecto (restaura el budget <5min).
-        # On-demand: -IncludeCoverage. CI canónico ADR-018 intacto (ci-rust.yml).
-        Write-Host "  coverage report+budget moved to nightly - run with -IncludeCoverage" -ForegroundColor DarkYellow
+    if (-not (Skip-Step "coverage-budget")) {
+        if ($IncludeCoverage) {
+            # On-demand: mismo script que corre el nightly (reporte JSON + presupuesto por directorio).
+            run "coverage-budget" ("pwsh", "-NoProfile", "$PSScriptRoot\coverage-budget.ps1")
+        } else {
+            # HARD-02 (decisión owner (c) 2026-09-27): coverage vive en el nightly (nightly.yml job
+            # `coverage-budget`); el fast gate local no lo corre por defecto (restaura el budget <5min).
+            # On-demand: -IncludeCoverage. CI canónico ADR-018 intacto (ci-rust.yml).
+            Write-Host "  coverage report+budget moved to nightly - run with -IncludeCoverage" -ForegroundColor DarkYellow
+        }
     }
-    if (Test-Path "$ProjectRoot\scripts\validate-docs-coverage.ps1") {
-        run "docs-coverage" ("pwsh", "-NoProfile", "$ProjectRoot\scripts\validate-docs-coverage.ps1")
-    } else {
-        Write-Host "  docs-coverage script not installed - skipping docs gate" -ForegroundColor DarkYellow
+    if (-not (Skip-Step "docs-coverage")) {
+        if (Test-Path "$ProjectRoot\scripts\validate-docs-coverage.ps1") {
+            run "docs-coverage" ("pwsh", "-NoProfile", "$ProjectRoot\scripts\validate-docs-coverage.ps1")
+        } else {
+            Write-Host "  docs-coverage script not installed - skipping docs gate" -ForegroundColor DarkYellow
+        }
     }
     # GOV-A3 probe CLI reales (doctor/backup/restore) — ponytail 1-2 líneas: reuse cargo run --bin vanta-cli
-    run "cli-probes" ("cargo", "run", "-p", "vantadb", "--bin", "vanta-cli", "--", "--help")
+    if (-not (Skip-Step "cli-probes")) { run "cli-probes" ("cargo", "run", "-p", "vantadb", "--bin", "vanta-cli", "--", "--help") }
     # GOV-B3 consumo guard — anti-regresión compile gate (ponytail: solo --no-run, sin timed bench en fast gate)
-    run "consumo guard" ("cargo", "bench", "-p", "vantadb", "--bench", "canonical_p99", "--no-run", "-j", "1")
+    if (-not (Skip-Step "consumo-guard")) { run "consumo guard" ("cargo", "bench", "-p", "vantadb", "--bench", "canonical_p99", "--no-run", "-j", "1") }
     # GOV-C3 Daily Backup Verification — ponytail: validates runbook §3.1 exists (docs-only), no heavy restore in fast gate
     # Full restore+doctor verification lives in DISASTER_RECOVERY_RUNBOOK.md §3.1; fast gate only checks doc anchor exists
-    run "daily backup verification" ("pwsh", "-NoProfile", "-Command", "if ((Select-String -Path 'docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md' -Pattern 'Daily Backup Verification' | Measure-Object).Count -ge 1) { exit 0 } else { Write-Host 'Daily Backup Verification missing in runbook' -ForegroundColor Red; exit 1 }")
+    if (-not (Skip-Step "backup-verification")) { run "daily backup verification" ("pwsh", "-NoProfile", "-Command", "if ((Select-String -Path 'docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md' -Pattern 'Daily Backup Verification' | Measure-Object).Count -ge 1) { exit 0 } else { Write-Host 'Daily Backup Verification missing in runbook' -ForegroundColor Red; exit 1 }") }
+    if ($skipped -gt 0) {
+        # Never let a partial run look green: the summary says what was not measured.
+        Write-Host "WARNING: $skipped step(s) SKIPPED on request - this run is NOT a full gate." -ForegroundColor DarkYellow
+    }
     Write-Host "ALL ${pass} PASS" -ForegroundColor Green; exit 0
 } catch {
     if ($fail -eq 0) { $Script:fail = 1 }

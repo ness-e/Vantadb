@@ -11,7 +11,7 @@ tags: [vantadb, ci, workflows, rules, policy]
 > **Scope:** `.github/workflows/` (27 files, names as on disk 2026-09-22) + `docs/dev/workflow/*` + `docs/dev/operations/CI_POLICY.md`
 > **No tocar aquí:** engine code, bindings, release versioning (see release-ci rules); procedure lives in `RUNBOOK.md`, trigger matrix in `TRIGGERS.md`, publish chain in `PUBLISH.md`
 > **Status:** 🟢 Vigente
-> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-10-02, post FIND-228); rule 1 completion: FIND-228 (2026-10-02); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation); rule 9: HARD-07 (review gate mechanized — `reviewer_context ≠ author_context`, 2026-09-27)
+> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-10-02, post FIND-228); rule 1 completion: FIND-228 (2026-10-02); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation); rule 9: HARD-07 (review gate mechanized — `reviewer_context ≠ author_context`, 2026-09-27); rule 10: FIND-760 (pre-push judges the range, 2026-11-26); rule 11: FIND-753 (private index + content verification, 2026-11-26)
 
 One verifiable rule per high-severity audit finding. Each rule states **Must / Must not / Why**, a good/bad example, and a mechanical check. If the check fails, the PR fails.
 
@@ -209,6 +209,49 @@ review: { mode: "degraded", verdict: "approve", waiver: { owner: "Eros", ref: "2
 
 - **Verify:** `node --test .opencode/task-system/mcp/review-gate.test.mjs` → 5/5 (T1–T4 canónicos + T5 regresión del guard); waiver visible in `traces/<campaignId>.jsonl` (`review.waiver`) + `.opencode/task-system/memory/decisions.md`.
 - **Rollout:** el enforcement vive en `campaign-server.mjs`; the running MCP process keeps the previous code — the gate activates on process restart.
+
+### 10 — The pre-push gate judges the range that travels, not the working tree
+
+- **Must:** scope a pre-push gate to the files the push carries (`git diff --name-only @{u}..HEAD`). `fmt` runs per range file (`rustfmt --check --edition 2021 --config skip_children=true <file>`); a gate that cannot be file-scoped (`check`, `clippy`, `audit`, `deny`, `nextest`) runs only when the range touches Rust, and keeps measuring the whole crate because a crate compiles as a unit and a test has no owning file.
+- **Must not:** run a whole-tree formatter/linter as a **pre-push** gate (it blocks every lane on the slowest lane's WIP), or quietly drop a gate to make a push pass. Use the granular `SKIP=<gate>` and let the hook **name** the skipped gate — `SKIP` is ignored when `CI` is set.
+- **Por qué:** FIND-760, measured. The push of `FIND-152` (2 commits, both fmt-clean: `cargo fmt --check -p vantadb-wasm` → 0) was blocked by unformatted WIP **from another lane** (`vanta-memory/src/core/conversation/consolidation.rs`, `vantadb-mcp/src/memory_scheduler.rs`), because the hook ran `verify.ps1` on the working tree. The hook had no `SKIP`, so the only exits were `--no-verify` (kills every gate) or waiting — and 4 live lanes make every push hostage to the slowest one. Tree-wide `fmt` stays covered by CI (`ci-rust.yml:123`).
+
+```sh
+# BAD: measures the tree — another lane's WIP decides whether you can push
+cargo fmt --all -- --check
+
+# GOOD (.githooks/pre-push): measures what travels
+git diff --name-only '@{u}..HEAD' | grep '\.rs$' | while IFS= read -r f; do
+    rustfmt --check --edition 2021 --config skip_children=true "$f" || exit 1
+done
+```
+
+- **Verify:** `bash -n .githooks/pre-push` → 0; two-sided proof — (a) an unformatted `.rs` **outside** the range in the working tree → hook exits 0; (b) an unformatted `.rs` **inside** the range → hook exits ≠ 0 and names the file.
+- **Rollout:** `FIND-760` (2026-11-26).
+
+### 11 — Commits go through a private index and are proven by content
+
+- **Must:** a commit made while other lanes work on the same checkout uses a **private index** (exact command below) — never the shared `.git/index` — and **verifies the result by content** (`git show HEAD:<file>`), not by exit code.
+- **Must not:** trust `git commit`'s exit code as evidence, or use `git commit -a` / a bare `git commit` with other lanes' work staged. Also: do **not** use the private index for `git add -p` interactive staging, for a merge commit (`MERGE_HEAD` must be in the index), or when the commit must carry what is already staged deliberately in the shared index — use `git commit -- <paths>` there. `--amend` is out of scope.
+
+```powershell
+# GOOD: private index, named paths only, then a content check
+$env:GIT_INDEX_FILE = "$env:TEMP\opencode\idx-$(Get-Random)"
+git read-tree HEAD
+git add -- docs/dev/Backlog.md .githooks/pre-push
+git commit -m "fix(ci): …"
+Remove-Item Env:GIT_INDEX_FILE
+git show HEAD:docs/dev/Backlog.md | rg 'FIND-760'   # expect 0 hits, not just exit 0
+# or, one step: pwsh dev-tools/git-commit-isolated.ps1 -Message "…" -Paths … -ExpectAbsent docs/dev/Backlog.md::FIND-760
+
+# BAD: shared index — whatever another lane staged rides along, and a concurrent
+# commit can bake a stale copy of a shared file and revert your edit WITH EXIT 0
+git commit -a -m "fix(ci): …"
+```
+
+- **Por qué:** FIND-753, measured three times in one day. (1) `Unable to create .git/index.lock` on 8 consecutive attempts with 4 lanes; (2) a concurrent commit baked a **stale** `docs/dev/Backlog.md` and a row another lane had just deleted **reappeared in HEAD** — detected by re-reading the fragment from HEAD (exit code was 0); (3) the index held another lane's pre-staged `tests/cli_tests.rs` (−92 lines), so a `git commit -a` would have deleted committed work. **The trap is the exit code:** a reverting commit succeeds.
+- **Verify:** the content check returns 0 hits for a fragment you removed and ≥1 for one you added; a deliberately wrong `-ExpectAbsent` makes `dev-tools/git-commit-isolated.ps1` exit 1.
+- **Techo declarado:** the private index shrinks the race window to `add`+`commit` (milliseconds) and **detects** a reversal; it does not **prevent** one. Prevention needs a wave-wide lock, which does not exist. `FIND-753` (2026-11-26).
 
 ## See also
 
