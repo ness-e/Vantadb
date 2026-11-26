@@ -644,7 +644,8 @@ surfaces in ≤24h instead of ≤7d:
 The `default-filter` of `.config/nextest.toml` excludes ~55 heavy binaries by name. For six of
 them the exclusion was *documented but never measured*: nobody had counted how many tests they
 hold, or whether a healthy lane runs them at all. Counted on 2026-11-26 against `gh`, the answer
-is **154 tests in the six binaries, of which 118 (77 %) have no lane that executes them**.
+is **154 tests in the six binaries, of which 118 (77 %) had no lane that executes them** — **104
+after `FIND-768`** recovered the 14 that `snapshot_certification`'s selector silently skipped.
 
 | Binary | Tests | Lane today | Last real result | Verdict |
 |---|---:|---|---|---|
@@ -652,7 +653,7 @@ is **154 tests in the six binaries, of which 118 (77 %) have no lane that execut
 | `benchmark_datasets` | 1 | same job | same | **does not run** — and when run locally without GloVe-100 it returns early in green (`tests/benchmark_datasets.rs:18`) |
 | `cli_tests` | 96 | same job | same | **does not run** — CI and the local nextest gate both exclude the binary |
 | `concurrency_parity` | 5 | `certification.yml` → job `memory_concurrency` | run `45598671538`: **success** → 36 success / 0 failure / 3 skipped in 30 d | **runs** 5 of 5 — `test_triple_backend_parity_validation` is `#[cfg_attr(not(feature = "rocksdb"), ignore)]` and this lane passes `--features rocksdb`, so the ignore is not applied |
-| `snapshot_certification` | 56 with `--features failpoints` | `snapshot-certification.yml` phases 03/04/05 | run `45802050950` (2026-11-26): **success** → 39 success / 6 failure / 3 cancelled in 30 d | **runs partially** — the phase selector `test(snapshot) or test(pending_restore) or test(schedule)` matches **42 of 56**; 14 are never selected |
+| `snapshot_certification` | 56 with `--features failpoints` (59 in phase 04, which adds 3 `encryption`-gated tests) | `snapshot-certification.yml` phases 03/04/05 | run `45802050950` (2026-11-26): **success** → 39 success / 6 failure / 3 cancelled in 30 d | **runs the whole binary** since `FIND-768` (2026-11-26): phases 03/04 select `binary(snapshot_certification)` instead of `test(snapshot) or test(pending_restore) or test(schedule)`, which matched only 42 of 56 and left 14 unexecuted (4 `export_format_*`, `find319_child_flag_ignores_empty_values`, 5 `vantafile_*`, 4 `wal_*`). `run_phase` now counts the **target** with `nextest list` before running and fails when the phase's JUnit reports a different number (`listed == executed`, one line per phase in `listed-vs-executed.txt` — that file, not this cell, is the authoritative per-phase count); `--no-tests fail` only ever covered the empty selection |
 | `security_audit` | 6 | `certification.yml` → job `security-audit` (`FIND-767`) | new lane, weekly (Sun 03:00) + dispatch; first run pending | **runs** 6 of 6 - own job at the end of the file, isolated from `other-heavy`; `--ignore-default-filter` cancels the exclusion and `--no-tests fail` turns an empty selection **red**. Measured 63-89 s, which is why it is not a per-PR lane |
 
 **How these numbers were obtained** (repeatable; the full evidence lives in

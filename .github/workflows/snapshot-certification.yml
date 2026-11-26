@@ -113,13 +113,46 @@ jobs:
           report=target/nextest/audit/junit.xml
 
           run_phase() {
-            local phase="$1"
-            shift
-            local status
-            local -a pipeline_status
+            local phase="$1" coverage="$2" selector="$3"
+            shift 3
+            # Remaining args select the targets this phase covers
+            # (package, --lib/--test, --features).
+            local status listed list_status executed
+            local -a pipeline_status run_args expect
             touch "$out/$phase.started"
             if [[ -f "$report" ]]; then
               mv "$report" "$out/$phase.prior-report.txt"
+            fi
+
+            run_args=("$@")
+            expect=("$@")
+            if [[ -n "$selector" ]]; then
+              run_args+=(-E "$selector")
+              # scoped: the filter IS the intended population. full: the
+              # population is the whole target, so a selector that narrows it
+              # shows up as executed < listed instead of shrinking both sides.
+              if [[ "$coverage" == "scoped" ]]; then
+                expect+=(-E "$selector")
+              fi
+            fi
+
+            # FIND-768: listed == executed, counted before running. A green
+            # that never counted its population cannot tell "42 of 56 passed"
+            # from "56 of 56 passed" - which is exactly how 14 tests stayed
+            # unexecuted behind a green lane.
+            set +e
+            cargo nextest list \
+              --profile audit --cargo-profile ci \
+              --locked --build-jobs 2 \
+              --ignore-default-filter \
+              "${expect[@]}" > "$out/$phase.listed.txt" 2> "$out/$phase.list.stderr.txt"
+            list_status=$?
+            set -e
+            listed=$(grep -oE '^[^[:space:]]+::[^[:space:]]+ ' "$out/$phase.listed.txt" | wc -l || true)
+            if [[ "$list_status" -ne 0 || "$listed" -eq 0 ]]; then
+              echo "$phase: nextest list exited $list_status selecting $listed test(s)." >&2
+              printf '%s\n' 1 > "$out/$phase.exit-code.txt"
+              return 1
             fi
 
             set +e
@@ -127,7 +160,7 @@ jobs:
               --profile audit --cargo-profile ci \
               --locked --build-jobs 2 --test-threads 1 \
               --ignore-default-filter --no-tests fail \
-              "$@" 2>&1 | tee "$out/$phase.txt"
+              "${run_args[@]}" 2>&1 | tee "$out/$phase.txt"
             pipeline_status=("${PIPESTATUS[@]}")
             set -e
             status="${pipeline_status[0]}"
@@ -135,9 +168,16 @@ jobs:
               status=1
             fi
 
-            # Never publish a report restored from the previous phase/cache.
             if [[ -f "$report" ]]; then
               cp "$report" "$out/$phase.junit.xml"
+              executed=$(grep -o '<testcase' "$out/$phase.junit.xml" | wc -l || true)
+              printf '%s listed=%s executed=%s coverage=%s\n' \
+                "$phase" "$listed" "$executed" "$coverage" \
+                | tee -a "$out/listed-vs-executed.txt"
+              if [[ "$executed" -ne "$listed" ]]; then
+                echo "$phase: population is $listed test(s) but $executed executed." >&2
+                status=1
+              fi
             elif [[ "$status" -eq 0 ]]; then
               echo "Successful phase did not produce a fresh JUnit report." >&2
               status=1
@@ -146,25 +186,21 @@ jobs:
             return "$status"
           }
 
-          run_phase 01-unit-plain \
-            -p vantadb --lib --features failpoints \
-            -E 'test(snapshot) or test(pending_restore)'
-          run_phase 02-unit-encrypted \
-            -p vantadb --lib --features failpoints,encryption \
-            -E 'test(snapshot) or test(pending_restore)'
-          run_phase 03-certification-plain \
-            -p vantadb --test snapshot_certification --features failpoints \
-            -E 'test(snapshot) or test(pending_restore) or test(schedule)'
-          run_phase 04-certification-encrypted \
-            -p vantadb --test snapshot_certification --features failpoints,encryption \
-            -E 'test(snapshot) or test(pending_restore) or test(schedule)'
-          run_phase 05-rocksdb-native \
-            -p vantadb --test snapshot_certification --features failpoints,encryption,rocksdb \
-            -E 'test(test_snapshot_rocksdb_native_checkpoint_roundtrip)'
-          run_phase 06-memory-snapshots \
-            -p vanta-memory --test backup_snapshot --test rollback -E 'test(snapshot)'
-          run_phase 07-mcp-snapshots \
-            -p vantadb-mcp --test mcp_tests -E 'test(snapshot)'
+          run_phase 01-unit-plain scoped 'test(snapshot) or test(pending_restore)' \
+            -p vantadb --lib --features failpoints
+          run_phase 02-unit-encrypted scoped 'test(snapshot) or test(pending_restore)' \
+            -p vantadb --lib --features failpoints,encryption
+          # full: every test in the binary, whatever its name (FIND-768).
+          run_phase 03-certification-plain full 'binary(snapshot_certification)' \
+            -p vantadb --test snapshot_certification --features failpoints
+          run_phase 04-certification-encrypted full 'binary(snapshot_certification)' \
+            -p vantadb --test snapshot_certification --features failpoints,encryption
+          run_phase 05-rocksdb-native scoped 'test(test_snapshot_rocksdb_native_checkpoint_roundtrip)' \
+            -p vantadb --test snapshot_certification --features failpoints,encryption,rocksdb
+          run_phase 06-memory-snapshots scoped 'test(snapshot)' \
+            -p vanta-memory --test backup_snapshot --test rollback
+          run_phase 07-mcp-snapshots scoped 'test(snapshot)' \
+            -p vantadb-mcp --test mcp_tests
 
       - name: Upload execution logs, exit codes and JUnit reports
         if: always()
