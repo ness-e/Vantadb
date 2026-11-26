@@ -996,3 +996,52 @@ jobs:
             fuzz/corpus/${{ matrix.target }}/
           if-no-files-found: warn
           retention-days: 14  # FIND-141: mismo criterio que job fuzz (artefactos PR efimeros)
+
+  # FIND-767 — the only lane that executes `security_audit`.
+  #
+  # Counted by FIND-752: the binary holds 6 tests, it sits in the
+  # `default-filter` exclusion list (`.config/nextest.toml:68`) and
+  # `git log -S"security_audit" -- .github/workflows` returned 0 commits, so
+  # none of them ever ran. Both local gates skip it too — `dev-tools/verify.ps1:117`
+  # by name in the `cargo test` fallback, `dev-tools/coverage-budget.ps1:79` by
+  # `--skip`. "Exists and never runs" was the whole story.
+  #
+  # Why this lane and not a PR lane in ci-rust.yml (measured, not assumed):
+  # the 6 tests take 68 s / 73 s / 81 s wall (target/debug on Windows, 4 / 8 / 1
+  # test-threads), with `security_audit_resource_exhaustion` alone at ~65-89 s.
+  # That is over the "worth it per PR" bar, so it runs weekly instead of
+  # charging every PR a minute-plus for a suite most diffs cannot affect.
+  # If the suite is ever cut to <30 s, revisit: a per-PR lane is strictly better
+  # coverage than this one (this runs `main` on Sundays only, and `main` trails
+  # `develop` — see FIND-752 §(b)).
+  #
+  # Deliberately isolated (FIND-766 edits `other-heavy` in the next wave): own
+  # job, own `name:`, no dataset download, no step borrowed from `other-heavy`.
+  # It also has no `needs: ci-gate`, and that is a decision, not an omission:
+  # this is the ONLY lane that runs these tests, and `needs: ci-gate` turns it
+  # into `skipped` (which GitHub reports as success) whenever main CI is red —
+  # the invisible-coverage failure mode FIND-752 measured. ~70 s of tests plus
+  # one debug build once a week is cheaper than a gate that reports green
+  # without measuring.
+  security-audit:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0')
+    name: "Certification: security_audit"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-nextest: true
+          shared-key: security-audit
+      # `--ignore-default-filter` cancels the exclusion in
+      # `.config/nextest.toml:68`; without it the selection matches 0 tests and
+      # exits 0 — FIND-738's failure mode, and the reason this suite could look
+      # wired up while measuring nothing. `--no-tests fail` is the mechanical
+      # guard: an empty selection is red, never green. The count is not a
+      # claim in this file: nextest prints its own `6 tests run: 6 passed`
+      # summary, and the first real run is what publishes it.
+      - name: Run the security audit suite (6 tests)
+        run: >
+          cargo nextest run -p vantadb --test security_audit
+          --ignore-default-filter --profile audit --no-tests fail --locked
