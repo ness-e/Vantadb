@@ -800,22 +800,10 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
 
-## Alta 2026-11-25 - `test_wal_version_mismatch` es un falso verde tautológico (derivada de FIND-735)
-
-| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
-|---|---|---|---|---|---|---|---|---|---|
-| `FIND-742` | 🟠 Alta | **`test_wal_version_mismatch` no puede fallar: su única aserción de versión es `X == X` y el fixture no es un mismatch de versión** | `src/wal.rs:2587-2619` · `src/wal.rs:255-266,286-292` | 🟢 1h | 🟠 Alta | 🟡 Pendiente (2026-11-25) | Detectado por el review adversarial de `FIND-735` (no se tocó ahí porque arreglarlo cambia **qué afirma** el test). `assert_eq!(expected_version, WAL_MAX_READABLE_VERSION)` compara contra **la misma constante** con la que `WalHeader::deserialize` construye el error (`:259`), así que no puede fallar en ninguna combinación de features. Peor: el fixture es `b"NOT_A_VALID_MAGIC_BYTES_123456"` (30 B) — un mismatch de **magic**, no de versión — así que el path de `Error::WALVersionMismatch` (`:286-292`) **sigue sin cobertura**, y el test lo "pasa" porque cae dentro del `IncompatibleFormat` que espera. El comentario del test afirma que el fixture "uses v0", que es **falso**. Contrato: un test nuevo con header `VWAL`-magic + versión 0 hecho a mano afirma `Error::WALVersionMismatch` concretamente, y la aserción tautológica se sustituye por una que **pueda** fallar; verificar por mutación (cambiar el valor esperado debe ponerlo rojo). | Origen: `FIND-735` (2026-11-25) | Ver: `FIND-735`, `FIND-726` |
-
 ## Media 2026-11-25 - El recolector de temporales es ciego a los ficheros sueltos (derivada de FIND-735)
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-
-## Baja 2026-11-25 - `wal_sharded.rs:999` quedó fuera del aislamiento de paths (derivada de FIND-735)
-
-| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
-|---|---|---|---|---|---|---|---|---|---|
-| `FIND-744` | 🟢 Baja | **`wal_sharded.rs:999` deja `vanta_test_sharded_<rand>.shard0.corrupt` (54 B/corrida) suelto en `%TEMP%`: misma clase que `FIND-735`, quedó fuera de scope** | `src/wal_sharded.rs:999` | 🟢 30min | 🟢 Baja | 🟡 Pendiente (2026-11-25) | Medido 3× al cerrar `FIND-735`: el test del sharded deja un `.corrupt` suelto en `%TEMP%` (54 B por corrida). Usa nonce, así que **no colisiona** — el problema es sólo el residuo, y que el recolector no lo ve (`FIND-743`). Se dejó fuera porque el ticket acotaba los 3 ficheros. Contrato: el test usa `TempDir` (o `close()` explícito) y `rg -n 'std::env::temp_dir|"/tmp/'` sobre `src/wal_sharded.rs` sale 0; el mismo filtro de `FIND-735` (`nextest -E 'test(sharded)'`) sigue verde. **Barrido de clase recomendado al hacerlo:** `rg -n 'std::env::temp_dir|"/tmp/|env::temp_dir' src/ tests/` para cerrar la clase entera en un commit en vez de la tercera reincidencia. | Origen: `FIND-735` (2026-11-25) | Ver: `FIND-735`, `FIND-743` |
 
 ## Media 2026-11-25 - Sin backfill L0→cola tras restart (derivada de MCP-43)
 
@@ -840,3 +828,9 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
 | `FIND-749` | 🟡 Media | **El plugin de OpenCode decide `isBroken` con la fórmula vieja (`runner === "none" && depth > 0`) y no consume `ingest.health`** | `.opencode/plugins/vanta-memory-capture.ts:137-138,144` | 🟢 30-60min | 🟡 Media | 🟡 Pendiente (2026-11-25) | Con `ADR-0065` la superficie publica `health`/`drain_path`, pero el plugin sigue **recomputando** el predicado por su cuenta: queda **ciego al caso "loop que arrancó y murió con trabajo encolado"** (el que `FIND-748` existe para hacer visible) y trata `queue: null` como `0`, que es exactamente el error que la decisión prohíbe. El core arreglado y el cliente con la fórmula vieja es peor que los dos viejos: ahora hay **dos** definiciones de "roto" y la que el usuario ve es la incorrecta. Deuda consciente de `FIND-748`: arreglarlo exige tocar el repo de `.opencode` (base `2296ccd`), fuera del alcance de la implementación del core. Contrato: el plugin lee `ingest.health` y avisa cuando es `broken` (con `drain_path` en el texto), `unknown` no dispara aviso de roto, y el self-check añade el caso `health: "broken"` con `drain_path: "none"` (loop muerto) que hoy no dispara. | Origen: `FIND-748` (2026-11-25) | Ver: `ADR-0065`, `MCP-47`, `FIND-748` |
+
+## Media 2026-11-26 - Ocho sitios más con `%TEMP%` en tests (derivada de FIND-742/744)
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `FIND-750` | 🟡 Media | **Ocho sitios más derivan paths de test de `%TEMP%`: la clase de `FIND-735`/`FIND-744` no está cerrada** | `src/cli_server_auth_tests.rs:402` · `src/server/cli_server_auth_tests.rs:416` · `tests/wal_rollback.rs:27` · `src/node/vector_data.rs:447` · `src/embedding_health.rs:385` · `src/config.rs:3249` · `src/sdk/version_history.rs:724,745` | 🟢 2-3h | 🟡 Media | 🟡 Pendiente (2026-11-26) | Lo encontró el **barrido de clase** que `FIND-742`/`FIND-744` recomendaban: `FIND-735` arregló 13 sitios en 3 ficheros y `FIND-744` uno más, pero la misma construcción aparece **ocho veces más**, incluidas dos copias del **mismo** fichero de tests de auth (`src/cli_server_auth_tests.rs` y `src/server/cli_server_auth_tests.rs`, con nombres por **PID**). Es la tercera reincidencia de la misma clase: arreglar el sitio que nombra el ticket deja los hermanos rotos, y cada fix nuevo descubre el siguiente. Contrato: cada sitio usa `TempDir` (efímero) o un nombre único por ejecución según si el test inspecciona el path después del `Drop` — **decidir por test, no por patrón** — y el gate de cierre es el barrido completo: `rg -n 'std::env::temp_dir|"/tmp/|env::temp_dir' src/ tests/` → sólo las coincidencias justificadas por escrito. Cerrar la **clase** en un commit, no la cuarta instancia. | Origen: `FIND-742`/`FIND-744` (2026-11-26) | Ver: `FIND-735`, `FIND-744`, `FIND-743` |
