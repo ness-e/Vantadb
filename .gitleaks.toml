@@ -20,6 +20,25 @@ paths = [
     '''(^|/)\.gitleaks\.toml$''',
     '''(^|/)\.secretlintrc\.json$''',
     '''(^|/)\.secretlintignore$''',
+    # --- FIND-786: hashes de integridad, NO credenciales ---
+    # `embeddings/manifest.lock` es un manifiesto GENERADO: cada valor es el
+    # SHA-256 del contenido de un artefacto (<ruta del modelo> -> <64 hex>).
+    # `generic-api-key` lo marca por la keyword `token` del NOMBRE del fichero
+    # de modelo ("tokenizer.json") sumada a la entropia del hash (3.63-3.94,
+    # umbral 3.5). Las lineas hermanas de la MISMA estructura
+    # ("onnx/model.onnx": "<hash identico en forma>") NO se marcan: el
+    # disparador es la keyword del nombre, no el valor.
+    # Se silencia el PATH, no el valor: una allowlist de regex sobre 64 chars
+    # hex valdria para TODO el repo y silenciaria cualquier secreto con esa
+    # forma. Alcance asumido y acotado: un secreto real pegado a mano en este
+    # fichero generado no se detectaria; lo regenera y verifica el tooling de
+    # `embeddings/` (cada valor se recomputa contra el artefacto real).
+    # `(^|/)` = cualquier profundidad con ese tramo final (mismo criterio que el
+    # resto de este allowlist, y robusto a rutas absolutas cuando `--source` no
+    # es la raiz del repo). Medido: `embeddings/manifest.lock.bak` y
+    # `embeddings/models/x/manifest.lock` NO quedan cubiertos; un
+    # `foo/embeddings/manifest.lock` SI (residual aceptado, 1 solo path).
+    '''(^|/)embeddings/manifest\.lock$''',
 
     # --- Triage de hallazgos históricos (workflow_dispatch 2026-11-17, 194 findings) ---
     # `.opencode/` ya está en .gitignore y vive como repo separado (configOpencode);
