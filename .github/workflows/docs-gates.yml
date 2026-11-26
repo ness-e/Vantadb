@@ -68,9 +68,39 @@ on:
     - cron: '23 7 * * 1'
   workflow_dispatch:
 
+# FIND-771: en `push` NO se cancela; en `pull_request` SI. No es una concesion:
+# las dos superficies no pierden lo mismo.
+# El defecto: desde FIND-763 este workflow hospeda un check REQUIRED
+# (`Generate API reference (rustdoc)`, hoy en los rulesets de `develop` y
+# `main`), y la ventana del run es la del job mas caro del repo: 13m08s medidos
+# (run 45821094074, 12:35:36 -> 12:48:44; el job rustdoc 13m05s de esos 13m08s;
+# el resto de los 16 jobs, <=4m10s; con sccache caliente el run baja a ~1m30s).
+# Un push dentro de la ventana cancelaba el run entero. Lo que queda NO es un
+# context ausente ni un `Expected` eterno: el check-run SI se reporta, con
+# conclusion `cancelled` (comprobado en el SHA 337ee796 del run 45802050777:
+# `completed / cancelled`, arrancado 10:39:45, matado 10:45:46 por el push de
+# las 10:45:27). El coste real es doble y es peor que un rojo: (a) son 6m01s de
+# rustdoc tirados a la basura, y (b) ese commit queda con un required en
+# `cancelled`, o sea merge bloqueado hasta que alguien pulse Re-run - y en
+# `develop` la historia acumula commits cuyo gate de doc NUNCA midio, que es la
+# clase de FIND-764 (SHA sin suite verificada) encima de un gate required.
+#
+# Por que solo en `push`: el grupo es `${{ github.ref }}`, y en `pull_request`
+# ese ref es `refs/pull/N/merge`, que GitHub reconstruye en CADA push. O sea que
+# el head revisado siempre trae su propio run y cancelar el anterior no pierde
+# ningun context: solo tira el trabajo de un SHA que ya nadie revisa. Ahi
+# cancelar es lo correcto (un fix-up no espera 13 min detras del run viejo). En
+# `push` el ref es la rama, el SHA es el que queda en la historia, y no hay run
+# nuevo que reporte por el: por eso no se cancela.
+# Con `false` en push el coste esta acotado: GitHub mantiene como maximo uno en
+# curso + uno pendiente por grupo (workflow-syntax §concurrency / "Control the
+# concurrency of workflows and jobs"), y un tercer push cancela el PENDIENTE,
+# cuyo SHA ya esta superado por el que lo cancela. Para que cada push de un
+# burst reciba su run existe `concurrency.queue: max` (hasta 100 pendientes);
+# hoy no se usa: con runs de 13 min, encolar mas de uno es encolar SHAs muertos.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -566,10 +596,33 @@ jobs:
       # procesa rustdoc en Windows, y `--workspace` unifica features (vanta-proxy
       # activa `encryption`) que un `-p vantadb` no ve. Correr SIEMPRE el comando
       # exacto de abajo; un verde con `-p` no predice este step.
+      # FIND-771 (B): el gate no publicaba CUANTO midio, asi que "verde" y
+      # "verde que midio" se veian igual desde la UI mientras no hubiera un rojo
+      # - y en este step la unica forma de saberlo era leer el log. El resumen
+      # publica el tamano del arbol de doc que el paso anterior acaba de
+      # escribir, y la asercion de abajo convierte un 0 en un rojo: un summary
+      # que siempre dice "ok" sin contar nada es la misma vacuidad con mejor
+      # tipografia.
+      # Alcance honesto del numero: son DIRECTORIOS con `index.html` bajo
+      # `target/doc` (targets de lib y de bin), y cargo acumula doc entre
+      # invocaciones, asi que el `target/` que restaura el cache puede aportar
+      # alguno. No es "crates que este step compilo": es el tamano de la
+      # superficie publicada, y para lo que sirve -que el verde no sea de 0- es
+      # exactamente lo que hace falta.
       - name: Deny rustdoc warnings (doc gate)
         env:
           RUSTDOCFLAGS: "-D warnings"
-        run: cargo doc --no-deps --workspace --keep-going
+        run: |
+          cargo doc --no-deps --workspace --keep-going
+          DOCS=$(find target/doc -mindepth 2 -maxdepth 2 -name index.html | wc -l)
+          {
+            echo "## Doc gate (rustdoc public surface)"
+            echo ""
+            echo "- Doc directories under \`target/doc\`: **${DOCS}** (lib + bin targets with an \`index.html\`)"
+            echo "- rustdoc warnings: **0** (\`RUSTDOCFLAGS=-D warnings\`; the first one aborts this step)"
+            echo "- Command: \`cargo doc --no-deps --workspace --keep-going\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$DOCS" -gt 0
 
       # `--no-deps` evita descargar/parsear crates externos (la doc de dependencias
       # la sirve docs.rs). `--workspace` cubre core + vantadb-*/providers.
