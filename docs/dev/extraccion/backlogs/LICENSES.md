@@ -40,7 +40,7 @@ Los **8 valores `NOASSERTION`** del snapshot congelado de la API de GitHub queda
 
 | Proyecto (`owner/repo`) | SHA pin | API GitHub | Licencia verificada en clon (`C:\Users\Eros\...`) | Categoría | Backlog y filas `X-*` | Gate para VantaDB |
 |---|---|---|---|---|---|---|
-| `rohitg00/agentmemory` | `4f758eff36` | `Apache-2.0` | `Apache-2.0` (`LICENSE`, `packages/mcp/LICENSE`) | Permissive | [agentmemory.md](./agentmemory.md) (`X-AGM-01..04`, 4) | Permisivo (`Apache-2.0`) |
+| `rohitg00/agentmemory` | `4f758eff36` | `Apache-2.0` | `Apache-2.0` (`LICENSE`, `packages/mcp/LICENSE`) | Permissive | [agentmemory/BACKLOG.md](../agentmemory/BACKLOG.md) (`X-AGM-01..04`, 4) | Permisivo (`Apache-2.0`) |
 | `agno-agi/agno` | `f45ccee83d` | `Apache-2.0` | `Apache-2.0` (`LICENSE`, `libs/*/LICENSE`) | Permissive | [agno.md](./agno.md) (`X-AGN-01..05`, 5) | Permisivo (`Apache-2.0`) |
 | `Mintplex-Labs/anything-llm` | `308b27662b` | `MIT` | `MIT` (`LICENSE`; submódulos `embed`/`browser-extension` no clonados) | Permissive | [anything-llm.md](./anything-llm.md) (`X-ALL-01..07`, 7) | Permisivo (`MIT`; no tocar submódulos) |
 | `microsoft/autogen` | `d07c667a32` | `CC-BY-4.0` | Código `MIT` (`LICENSE-CODE`); docs `CC-BY-4.0` (`LICENSE`) | Mixta por componente | [autogen.md](./autogen.md) (`X-ATG-01..05`, 5) | `X-ATG-01..05` citan `.py` (`MIT`); no copiar docs `CC-BY-4.0` |
