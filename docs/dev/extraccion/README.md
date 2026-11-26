@@ -20,6 +20,7 @@ comparados) vive en esta carpeta.
 | [agent-memory-2026-11-07/](agent-memory-2026-11-07/) | 42 informes de proyectos + documentos de control (CONSOLIDATED, REVIEW-COVERAGE, METHOD, BENCHMARK-NOTES, VANTA-REFERENCE, AUDIT-REPO, manifiestos, revisiones) |
 | [backlogs/](backlogs/) | Un backlog por proyecto en el formato canónico de `docs/dev/Backlog.md` (10 columnas), matriz legal [LICENSES.md](backlogs/LICENSES.md) y trazabilidad `archivo:líneas` |
 | [ZepCloud-Konig/](ZepCloud-Konig/) | Dossier docs-only de Zep Cloud/Konig con informe de retrieval, Context Block, governance, Agent Skills, Konig, benchmarks y backlog `X-ZEP-*` |
+| [agentmemory/](agentmemory/) | Dossier de `rohitg00/agentmemory` con informe de captura, leases, invalidación/privacidad y backlog `X-AGM-*` |
 
 ## Lectura recomendada
 
