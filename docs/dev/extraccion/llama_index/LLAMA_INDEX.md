@@ -478,7 +478,7 @@ Agregar casos de árbol plano [L20] con padre no publicado, metadata corrupta
   un retry implícito ni «exactly once».
   Es observación de **una etapa**, no recibo total: varias etapas/receptores
   pueden tener resultados distintos. Para escrituras referencia por operación
-  al [C13 MutationReceipt propuesto](../agent-memory-2026-11-07/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén),
+  al [C13 MutationReceipt propuesto](../transversal/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén),
   conservando aceptación, commit, durabilidad y proyecciones independientes.
   `Applied` de transform no acredita commit; `PendingProjection` puede coexistir
   con primario confirmado/durable y otro receptor fallido. La espera cancelada

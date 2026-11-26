@@ -23,7 +23,7 @@ La aceptación final de esta revisión corresponde al lead.
 
 ## Alcance, identidad y fuentes
 
-- Lectura íntegra de [CONSOLIDATED](../CONSOLIDATED.md), L1–322, y
+- Lectura íntegra de [CONSOLIDATED](../../transversal/CONSOLIDATED.md), L1–322, y
   [BENCHMARK-NOTES](../BENCHMARK-NOTES.md), L1–216.
 - Contraste documental con [REVIEW-COVERAGE](../REVIEW-COVERAGE.md), L19–28,
   L121–142; [VANTA-REFERENCE](../VANTA-REFERENCE.md), L13–52 y L56–97;

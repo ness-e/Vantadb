@@ -131,7 +131,7 @@ lecturas que combinan estado materializado y deltas; su corrección completa y
 coste no se verificaron recorriendo todos los lectores ANN/fulltext.
 
 Para Vanta sólo se consume el contrato hipotético
-[C13 MutationReceipt](../agent-memory-2026-11-07/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén):
+[C13 MutationReceipt](../transversal/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén):
 `operation_id`, `primary_commit`,
 `primary_durability: Option<DurablePosition>`, `projections`,
 `visibility_generation`, `outcome`. **Dimensiones independientes**:

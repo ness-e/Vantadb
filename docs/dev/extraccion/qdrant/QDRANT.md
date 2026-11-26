@@ -30,7 +30,7 @@ los cambios concurrentes del workspace. Las fuentes de código upstream fijan
 públicas de esta lectura, no parte de la metadata congelada.
 
 **Contrato transversal propuesto, no implementado:** se consume
-[C13 MutationReceipt](../agent-memory-2026-11-07/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén):
+[C13 MutationReceipt](../transversal/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén):
 `MutationReceipt { operation_id, acceptance, primary_commit,
 primary_durability: Option<DurablePosition>, projections: Vec<ProjectionStatus>,
 visibility_generation, outcome }`. Aceptación, commit primario, durabilidad,

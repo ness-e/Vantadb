@@ -285,7 +285,7 @@ auditoría de seguridad, conformance de todos los extractores o rendimiento.
   tick recarga stats/entries/trails; `SourceRequest.ondrift` diferencia lectura
   actual y rango indexado. Son código/contrato, no prueba de interacción.
 - Vanta `git show` de `code_index.rs L191–240,286–328`, writer ya contrastado
-  y C12 en [CONSOLIDATED](../CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory):
+  y C12 en [CONSOLIDATED](../../transversal/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory):
   generación y provenance por relación siguen propuestas. C13 tampoco es
   implementación; no se confunde `WriteReceipt`/hash SHA256 con firma.
 - API oficial: cuerpos/fechas/estado de

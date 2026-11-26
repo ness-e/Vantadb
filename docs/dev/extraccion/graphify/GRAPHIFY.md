@@ -65,7 +65,7 @@ memoria de producto: se necesitan contrato y persistencia canónica explícitos.
   líneas 113–151. La API de aristas no admite el objeto de evidencia completo.
   Guardar evidencia como memoria canónica asociada a la relación.
 - **Contrato Rust propuesto:** único `CodeEvidenceImport` C12 de
-  [CONSOLIDATED](../agent-memory-2026-11-07/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
+  [CONSOLIDATED](../transversal/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
   `also_seen` produce evidencias asociadas separadas de una misma relación;
   origen, dirección y referencias se preservan. El score reportado no se
   convierte automáticamente a confianza derivada de Vanta.

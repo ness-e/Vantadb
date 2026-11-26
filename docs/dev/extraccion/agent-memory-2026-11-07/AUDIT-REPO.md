@@ -19,7 +19,7 @@ tags: [extraccion, audit]
 | Regla `.gitignore` para `backlogs/` | Conforme (con deuda colateral fuera del árbol) | `.gitignore:146-147` declara `*logs/` seguido de `!docs/dev/extraccion/backlogs/`; `git check-ignore` devuelve vacío |
 | Referencias legacy (`research/agent-memory`, `../../Backlog-OpenViking`) | Conforme (con menciones textuales históricas a `.gitignore:268`) | `0` enlaces rotos a `docs/dev/research/agent-memory` o `../../Backlog-OpenViking`; `0` wikilinks `[[...]]` |
 | Enlace a `../../avance/investigaciones.md` | Hallazgo medio (tracked-but-ignored) | Presente en [README.md](README.md) L18 (no en [../README.md](../README.md)); destino force-tracked en Git pero directorio ignorado en `.gitignore:280` |
-| Sincronización de estado `41+1` vs `42/42` | Desincronizado (4 archivos) | [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) declara `42/42` (Meilisearch E3 acreditado 2026-11-20), pero [README.md](README.md), [EXPANSION-STATUS.md](EXPANSION-STATUS.md), [CONSOLIDATED.md](CONSOLIDATED.md) e `investigaciones.md` conservan `41+1` |
+| Sincronización de estado `41+1` vs `42/42` | Desincronizado (4 archivos) | [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) declara `42/42` (Meilisearch E3 acreditado 2026-11-20), pero [README.md](README.md), [EXPANSION-STATUS.md](EXPANSION-STATUS.md), [CONSOLIDATED.md](../transversal/CONSOLIDATED.md) e `investigaciones.md` conservan `41+1` |
 
 ## 2. Historial de commits recientes (`extraccion/` e índices)
 
@@ -85,5 +85,5 @@ Tras los commits `0405f4aa7` (acreditación del eje E3 de incidencias en [meilis
 | [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) L19–25, L97, L123–125 | **42 aceptados con límites** (Meilisearch E3 acreditado 2026-11-20) | Vigente (fuente actualizada en `b76bd1a1e`) | Mantener; revisar nota colateral de `codebase-memory-mcp` en L89/L130 frente a §11.5 (`7764b490b`) |
 | [README.md](README.md) L13, L111, L119 | **41 con límites + 1 limitado** (Meilisearch E3 no acreditado por prohibición de forge) | Desactualizado | Actualizar a 42 aceptados con límites (E3 acreditado 2026-11-20 con alcance residual en §12.1) y corregir nota `.gitignore` de L120 |
 | [EXPANSION-STATUS.md](EXPANSION-STATUS.md) L18–21 (y referencias L40, L45) | **41 con límites y 1 limitado** en bloque `Estado vigente` | Desactualizado | Añadir bloque vigente 2026-11-20 (`42 con límites`) reclasificando Tanda 8 (`41+1`) como antecedente |
-| [CONSOLIDATED.md](CONSOLIDATED.md) L11, L213 | **41 aceptados con límites** y Meilisearch E3 **NO acreditado** | Desactualizado | Sincronizar cabecera L11 y fila Meilisearch de la tabla §3 (L213) con §12.1 de [meilisearch.md](../meilisearch/MEILISEARCH.md) |
+| [CONSOLIDATED.md](../transversal/CONSOLIDATED.md) L11, L213 | **41 aceptados con límites** y Meilisearch E3 **NO acreditado** | Desactualizado | Sincronizar cabecera L11 y fila Meilisearch de la tabla §3 (L213) con §12.1 de [meilisearch.md](../meilisearch/MEILISEARCH.md) |
 | `docs/dev/avance/investigaciones.md` L229 | **41 aceptados con límites** + Meilisearch E3 **NO acreditado** | Desactualizado | Sincronizar cierre documental (y resolver su condición `tracked-but-ignored` en `.gitignore`) |

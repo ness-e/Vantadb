@@ -70,7 +70,7 @@ Las siguientes fichas son contratos propuestos, no código aprobado ni tareas nu
   líneas 113–151. La API de arista recibe label/peso/fecha, no un objeto
   arbitrario de procedencia: conservar una memoria-evidencia vinculada.
 - **Contrato Rust propuesto:** exclusivamente `CodeEvidenceImport`, C12 de
-  [CONSOLIDATED](../agent-memory-2026-11-07/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
+  [CONSOLIDATED](../transversal/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
   Mapear qname/ruta/rango a `refs`, estrategia/candidatos a evidencia asociada,
   confianza reportada sin convertirla en confianza canónica. Resuelto, ambiguo
   y externo son estados distintos. No se define otro DTO de importación.

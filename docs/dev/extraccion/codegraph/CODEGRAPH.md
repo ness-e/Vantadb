@@ -127,7 +127,7 @@ de memoria y adaptadores de presentación. BM25/HNSW/RRF y provenance ya existen
 - **Seam Vanta:** `vanta-memory/src/ingest/merge.rs`, writer/provenance,
   scheduler/checkpoints. Evitar una segunda cola o almacenamiento paralelo.
 - **Contrato HIPOTÉTICO:** `CodeEvidenceImport` C12 de
-  [CONSOLIDATED](../agent-memory-2026-11-07/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
+  [CONSOLIDATED](../transversal/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
   La generación, revisión y productor pertenecen a su identidad; registros,
   relaciones y evidencia no constituyen un segundo `ImportBundle`.
   El recibo de publicación describe visibilidad/limpieza, no otro almacén.
@@ -426,7 +426,7 @@ no invalida por sí solo todas las cifras publicadas ni mide calidad del resolve
 ### 12.1 Contrato compartido y terminación de A/B
 
 **Propuestas Rust, no implementadas.** Importar solo mediante
-[`CodeEvidenceImport`, C12](../agent-memory-2026-11-07/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory):
+[`CodeEvidenceImport`, C12](../transversal/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory):
 identidad repo/revision/producer/schema_version/generation; refs, relation,
 direction; evidencia Ast/Heuristic/Model/Unknown, span/hash/reported_weight.
 `EvidenceSlice`, receipts e informes de consulta son vistas de aplicación de

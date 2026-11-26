@@ -41,5 +41,5 @@ Esta carpeta contiene el estudio complementario de Zep Cloud y Konig. No es una 
 
 - Graphiti ya fue auditado como proyecto open-source: `../agent-memory-2026-11-07/graphiti.md`
 - Backlog previo: `../graphiti/BACKLOG.md`
-- Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
+- Consolidado general: `../transversal/CONSOLIDATED.md`
 - Importador Zep existente: `../../api/MEMORY_INTERCHANGE_FORMAT.md`

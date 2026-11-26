@@ -67,7 +67,7 @@ que Vanta los ingiera automáticamente. Tampoco justifica incorporar otro indexe
   líneas 113–151. La arista no admite metadata arbitraria: usar evidencia asociada.
   Wiki y scene existentes sirven para navegación/documentación, no otro store.
 - **Contrato Rust propuesto:** único `CodeEvidenceImport`, C12 de
-  [CONSOLIDATED](../agent-memory-2026-11-07/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
+  [CONSOLIDATED](../transversal/CONSOLIDATED.md#c12--codeevidenceimport-contrato-canónico-único-de-evidencia-code-memory).
   Layers/tour son derivados asociados a sus referencias, no otro
   `CodeExplanationImport` ni otra memoria. Si el export no acredita origen,
   usar `Unknown`, no `Ast`; el peso queda reportado, no confianza canónica.

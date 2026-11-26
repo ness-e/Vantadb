@@ -25,7 +25,7 @@ tags: [research, memory, index]
 
 | Documento | Contenido |
 |---|---|
-| [CONSOLIDATED.md](CONSOLIDATED.md) | Síntesis de diez puntos: recomendaciones, candidatos unificados, prerequisitos, rechazados, advertencias, benchmarks, brechas, deuda propia, UI |
+| [CONSOLIDATED.md](../transversal/CONSOLIDATED.md) | Síntesis de diez puntos: recomendaciones, candidatos unificados, prerequisitos, rechazados, advertencias, benchmarks, brechas, deuda propia, UI |
 | [METHOD.md](METHOD.md) | Protocolo de evaluación: contrato de evidencia, selección, preparación reproducible, referencia VantaDB |
 | [EXPANSION-CONTRACT.md](EXPANSION-CONTRACT.md) | Contrato de profundidad, evidencia y revisión de los 42 informes ampliados |
 | [EXPANSION-STATUS.md](EXPANSION-STATUS.md) | Estado operativo y asignaciones durables de la reanudación |

@@ -363,7 +363,7 @@ Referencias:
 
 - `vanta-memory/src/core/skill/skill_extractor.rs`
 - `docs/api/EMBEDDED_SDK.md`
-- `docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md`
+- `docs/dev/extraccion/transversal/CONSOLIDATED.md`
 
 Gap específico:
 
@@ -582,7 +582,7 @@ No conviene crear backlog nuevo para:
 
 Referencias:
 
-- `docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md`
+- `docs/dev/extraccion/transversal/CONSOLIDATED.md`
 - `docs/dev/extraccion/ZepCloud-Konig/ZEP-CLOUD-KONIG.md`
 - `docs/dev/extraccion/graphiti/BACKLOG.md`
 - `docs/api/MEMORY_INTERCHANGE_FORMAT.md`

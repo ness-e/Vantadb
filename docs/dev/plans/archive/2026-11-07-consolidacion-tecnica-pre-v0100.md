@@ -15,7 +15,7 @@ description: "Plan canónico de campaña (/pipeline run) con las 63 tareas técn
 > **Campaign ID:** 9c4e7a21-6b38-4f90-a512-8d3e1b704c95
 > **Inicio:** 2026-11-07
 > **Estado:** ✅ CAMPAÑA CERRADA — las 63 tareas tienen código aterrizado y pusheado en `develop` (hasta `884363b5a`); T44 (`FIND-531`, commit `884363b5a`) y T45 (`DOC-24`, esta reconciliación) completadas; migración de 103 filas `✅ Completada` del Backlog a `docs/dev/avance/` ejecutada 2026-11-20 (37 degradadas a `🟡 Parcial` por falta de evidencia — trabajo vivo real). Plan archivado.
-> **Fuente:** `docs/dev/Backlog.md`, `docs/dev/strategy/ROADMAP.md`, `docs/dev/extraccion/Backlog-OpenViking-VantaDB.md`, `docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md`
+> **Fuente:** `docs/dev/Backlog.md`, `docs/dev/strategy/ROADMAP.md`, `docs/dev/extraccion/Backlog-OpenViking-VantaDB.md`, `docs/dev/extraccion/transversal/CONSOLIDATED.md`
 > **Autonomous:** false
 
 ## Contexto Estratégico y Ventana de Ejecución (`2026-11-07` → `2026-12-01`)

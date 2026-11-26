@@ -67,13 +67,14 @@ carpeta propia por repositorio: `docs/dev/extraccion/<repositorio>/BACKLOG.md`.
 | [surrealdb/](surrealdb/) | `surrealdb/BACKLOG.md` | Informe + backlog canónico del proyecto |
 | [TencentDB-Agent-Memory/](TencentDB-Agent-Memory/) | `TencentDB-Agent-Memory/BACKLOG.md` | Informe + backlog canónico del proyecto |
 | [tidb/](tidb/) | `tidb/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [transversal/](transversal/) | `transversal/BACKLOG.md` | Síntesis de la campaña + backlog de los 16 candidatos unificados C1–C16 |
 | [Understand-Anything/](Understand-Anything/) | `Understand-Anything/BACKLOG.md` | Informe + backlog canónico del proyecto |
 | [weaviate/](weaviate/) | `weaviate/BACKLOG.md` | Informe + backlog canónico del proyecto |
 | [ZepCloud-Konig/](ZepCloud-Konig/) | `ZepCloud-Konig/BACKLOG.md` | Informe + backlog canónico del proyecto |
 
 ## Lectura recomendada
 
-1. [CONSOLIDATED](agent-memory-2026-11-07/CONSOLIDATED.md) — los 16 candidatos
+1. [CONSOLIDATED](transversal/CONSOLIDATED.md) — los 16 candidatos
    transversales C1–C16 con prioridades y seams.
 2. [REVIEW-COVERAGE](agent-memory-2026-11-07/REVIEW-COVERAGE.md) — qué está
    acreditado, parcial o no acreditado por proyecto.

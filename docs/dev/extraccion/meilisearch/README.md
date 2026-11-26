@@ -37,6 +37,6 @@ Esta carpeta contiene el dossier del repositorio [`meilisearch/meilisearch`](htt
 ## Documentos relacionados
 
 - Backlog canónico del dossier: `BACKLOG.md`
-- Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
+- Consolidado general: `../transversal/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
 - Matriz legal: `../LICENSES.md`

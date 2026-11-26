@@ -123,7 +123,7 @@ Los **8 valores `NOASSERTION`** del snapshot congelado de la API de GitHub queda
 
 ## 4. Gate previo a especificación e implementación
 
-Antes de promover cualquier fila `X-*` a `/spec` o a `docs/dev/Backlog.md` (véase [CONSOLIDATED.md](./agent-memory-2026-11-07/CONSOLIDATED.md)):
+Antes de promover cualquier fila `X-*` a `/spec` o a `docs/dev/Backlog.md` (véase [CONSOLIDATED.md](./transversal/CONSOLIDATED.md)):
 
 1. **Bloqueo *clean-room* obligatorio (35 filas: `X-OVK-01..14`, `X-KHO-01..07`, `X-SUR-01..04`, `X-RED-01..05`, `X-DIF-01..05`):** la spec se redacta únicamente desde la descripción funcional en voz VantaDB y los seams propios; queda prohibido abrir el clon upstream durante la escritura del código Rust/TS o copiar nombres internos no estándar, tablas de constantes, prompts o layouts UI.
 2. **Guardia de subárbol en repositorios mixtos (21 filas: `X-MEI-01..05`, `X-WEA-01..06`, `X-FLW-01..05`, `X-ATG-01..05`):** toda revalidación adicional contra el clon debe verificar antes que la ruta objetivo no pertenezca a `*enterprise_edition*`, `wl/**`, `packages/server/src/enterprise/**`, `IdentityManager.ts` ni documentación `CC-BY-4.0`.

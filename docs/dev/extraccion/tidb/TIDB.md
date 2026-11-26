@@ -81,7 +81,7 @@ no memorias durables. LLM, extracción, answerer y juez no intervienen aquí.
    recurso, no morir al retornar la consulta si el SDK conserva el resultado.
 
 **Receipt canónico:** para cualquier escritura Vanta se consume el
-[C13 MutationReceipt](../agent-memory-2026-11-07/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén),
+[C13 MutationReceipt](../transversal/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén),
 no `CompletionState` como reemplazo. `operation_id`, `primary_commit`,
 `primary_durability: Option<DurablePosition>`, `projections`,
 `visibility_generation`, `outcome` separan conocimiento de commit/durabilidad/

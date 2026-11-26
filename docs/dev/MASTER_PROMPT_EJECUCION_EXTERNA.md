@@ -79,7 +79,7 @@ Directorio Brain: `C:\Users\Eros\.gemini\antigravity\brain\137ef63a-aff3-45ac-a3
   - `docs/dev/Backlog.md` — Backlog técnico principal (10 columnas). Filas canónicas actualizadas (`MEMG-27`, `MEMG-28`, `DOC-24`). Las filas obsoletas enumeradas se purgan una a una, verificadas individualmente con evidencia (commit o archivo), en la Task 45; ningún recuento agregado autoriza la purga.
   - `docs/dev/strategy/ROADMAP.md` — Hoja de ruta en 4 Horizontes (`v0.10.0` → `v1.0.0 GA` → `v1.5` → `v2.0`).
   - `docs/dev/strategy/GO_TO_MARKET.md`, `DISTRIBUTION.md`, `OPERATING-MODEL.md`.
-  - `docs/dev/extraccion/OpenViking/OPENVIKING.md` y `docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md`.
+  - `docs/dev/extraccion/OpenViking/OPENVIKING.md` y `docs/dev/extraccion/transversal/CONSOLIDATED.md`.
   - `docs/dev/workflow/PUBLISH.md` y `docs/dev/reviews/2026-10-20-release-v0.9.0-postmortem.md` — Runbook de publicación y post-mortem del 0.9.0 (7 fallos evitables).
   - `release-plz.toml` y `Cargo.toml`.
 

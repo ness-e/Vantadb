@@ -304,7 +304,7 @@ projection_state, authorized_refs }`; `accept_revision`, `retire_source`,
 `inspect_receipt`. Errores `Conflict|Forbidden|Unavailable`; scope del servidor.
 Inputs separan idempotency key de revisión; receipt no revela IDs a no lectores.
 Es vista de dominio que referencia por operación al
-[C13 MutationReceipt propuesto](../agent-memory-2026-11-07/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén),
+[C13 MutationReceipt propuesto](../transversal/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén),
 no su sustituto. Aceptación, commit, durabilidad y readiness son dimensiones
 independientes: fuente aceptada con commit desconocido y primario durable con
 proyección pendiente son representables, no una escalera `accepted→ready`.

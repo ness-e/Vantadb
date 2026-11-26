@@ -1,6 +1,6 @@
 ---
-title: "Backlogs de extracción — formato canónico"
-kind: index
+title: "Backlogs de extracción - formato canónico"
+kind: research
 status: active
 description: "Formato canónico obligatorio de los BACKLOG.md por proyecto (10 columnas, reglas y gate legal)"
 tags: [extraccion, backlog, formato]

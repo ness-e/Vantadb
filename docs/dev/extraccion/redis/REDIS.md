@@ -152,7 +152,7 @@ resolución del efecto y la revisión, no instalar una segunda cola.
 **Límites:** RDB, manifest multipart AOF, rewrite y todo el replay no se auditaron
 integralmente. Un rewrite AOF no es rebuild de ANN, y una entrada reproducible de
 log no prueba que el índice derivado de Vanta esté listo. El contrato unificado
-[MutationReceipt](../agent-memory-2026-11-07/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén)
+[MutationReceipt](../transversal/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén)
 separa `primary_commit`, `primary_durability`, `projections` y
 `visibility_generation`: **primary durable puede preceder a readiness**.
 

@@ -268,7 +268,7 @@ consumidor; UI no debe presentar todo como «listo».
 projection_state, counters_state, diagnostic_code }`; lectura de estado y
 reconciliación idempotente. Error del contador no cambia éxito del primario.
 Cuando describe mutaciones, referencia por `operation_id` al
-[C13 MutationReceipt propuesto](../agent-memory-2026-11-07/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén),
+[C13 MutationReceipt propuesto](../transversal/CONSOLIDATED.md#c13--mutationreceipt-recibo-de-mutación-multialmacén),
 sin reemplazarlo. `primary_state` no acredita commit, fsync ni readiness:
 aceptación, commit primario, durabilidad y proyecciones siguen independientes.
 Commit confirmado/durable con proyección pendiente y espera vencida conserva
