@@ -995,8 +995,18 @@ mod tests {
     use crate::config::SyncMode;
     use crate::node::UnifiedNode;
 
-    fn test_wal_path() -> PathBuf {
-        std::env::temp_dir().join(format!("vanta_test_sharded_{}", rand::random::<u32>()))
+    /// Per-test scratch path. The returned `TempDir` **must stay bound** for the
+    /// whole test body: it owns the directory, so the shard files *and* the
+    /// `<shard>.corrupt` quarantine siblings die with the tree. `clean_shards`
+    /// only ever deleted the files it knew about, so the quarantine residue
+    /// used to survive in `%TEMP%` forever (FIND-744). Bind it first: locals
+    /// drop in reverse order, so writers/readers close before the tree goes.
+    fn test_wal_path() -> (tempfile::TempDir, PathBuf) {
+        let tmp = tempfile::tempdir().expect("create per-test temp dir");
+        // No nonce needed: the `TempDir` is already unique per test, so a fixed
+        // base name carries no collision risk (FIND-744).
+        let path = tmp.path().join("vanta_test_sharded");
+        (tmp, path)
     }
 
     fn make_record(id: u128) -> WalRecord {
@@ -1168,7 +1178,7 @@ mod tests {
 
     #[test]
     fn test_new_single_shard() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
         assert_eq!(sw.num_shards, 1);
         assert_eq!(sw.shards.len(), 1);
@@ -1177,7 +1187,7 @@ mod tests {
 
     #[test]
     fn test_new_multiple_shards() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
         assert_eq!(sw.num_shards, 4);
         assert_eq!(sw.shards.len(), 4);
@@ -1186,7 +1196,7 @@ mod tests {
 
     #[test]
     fn test_new_zero_shards_defaults_to_one() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 0, SyncMode::Periodic).unwrap();
         assert_eq!(sw.num_shards, 1);
         assert_eq!(sw.shards.len(), 1);
@@ -1195,7 +1205,7 @@ mod tests {
 
     #[test]
     fn test_new_with_buffer_custom_parameters() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new_with_buffer(&path, 2, SyncMode::Periodic, 128 * 1024, Some(10))
             .unwrap();
         assert_eq!(sw.num_shards, 2);
@@ -1206,7 +1216,7 @@ mod tests {
 
     #[test]
     fn test_debug_format() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
         let fmt = format!("{:?}", sw);
         assert!(fmt.contains("ShardedWal"));
@@ -1218,7 +1228,7 @@ mod tests {
 
     #[test]
     fn test_append_single_record() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
         sw.append(&make_record(42)).unwrap();
         assert_eq!(sw.total_record_count(), 1);
@@ -1227,7 +1237,7 @@ mod tests {
 
     #[test]
     fn test_append_multiple_records() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
         sw.append(&make_record(1)).unwrap();
         sw.append(&make_record(2)).unwrap();
@@ -1238,7 +1248,7 @@ mod tests {
 
     #[test]
     fn test_append_round_robin_distribution() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let num_shards = 3;
         let sw = ShardedWal::new(&path, num_shards, SyncMode::Periodic).unwrap();
 
@@ -1261,7 +1271,7 @@ mod tests {
 
     #[test]
     fn test_append_round_robin_uneven() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let num_shards = 3;
         let sw = ShardedWal::new(&path, num_shards, SyncMode::Periodic).unwrap();
 
@@ -1278,7 +1288,7 @@ mod tests {
 
     #[test]
     fn test_append_all_record_variants() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
 
         sw.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
@@ -1301,7 +1311,7 @@ mod tests {
 
     #[test]
     fn test_batch_append_multiple_records() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         let records: Vec<WalRecord> = (0..10).map(make_record).collect();
@@ -1312,7 +1322,7 @@ mod tests {
 
     #[test]
     fn test_batch_append_empty() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
         sw.batch_append(vec![]).unwrap();
         assert_eq!(sw.total_record_count(), 0);
@@ -1321,7 +1331,7 @@ mod tests {
 
     #[test]
     fn test_batch_append_single_record() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
         sw.batch_append(vec![make_record(99)]).unwrap();
         assert_eq!(sw.total_record_count(), 1);
@@ -1332,7 +1342,7 @@ mod tests {
 
     #[test]
     fn test_flush_all() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         sw.append(&make_record(1)).unwrap();
@@ -1344,7 +1354,7 @@ mod tests {
 
     #[test]
     fn test_flush_all_empty() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
         // Flush with no records should succeed
         sw.flush_all().unwrap();
@@ -1356,7 +1366,7 @@ mod tests {
 
     #[test]
     fn test_total_record_count_empty() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
         assert_eq!(sw.total_record_count(), 0);
         clean_shards(&path, 3);
@@ -1364,7 +1374,7 @@ mod tests {
 
     #[test]
     fn test_total_record_count_after_ops() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         assert_eq!(sw.total_record_count(), 0);
@@ -1381,7 +1391,7 @@ mod tests {
 
     #[test]
     fn test_rotate_all_reopens_files() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         sw.append(&make_record(1)).unwrap();
@@ -1404,7 +1414,7 @@ mod tests {
 
     #[test]
     fn test_rotate_all_empty() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         // Rotating with no records should succeed
@@ -1417,7 +1427,7 @@ mod tests {
 
     #[test]
     fn test_recover_all_records() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         sw.append(&make_record(10)).unwrap();
@@ -1437,7 +1447,7 @@ mod tests {
 
     #[test]
     fn test_recover_with_checkpoint_skips_old_records() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         sw.append(&make_record(10)).unwrap();
@@ -1459,7 +1469,7 @@ mod tests {
 
     #[test]
     fn test_recover_checkpoint_global_seq_4_shards() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
 
         // Write 8 records (2 per shard via round-robin)
@@ -1492,7 +1502,7 @@ mod tests {
 
     #[test]
     fn test_recover_empty_wal() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         let mut recovered = Vec::new();
@@ -1508,7 +1518,7 @@ mod tests {
 
     #[test]
     fn test_recover_missing_shard_file_skips_gracefully() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         // Write to shard 0 only (odd number of round-robins)
@@ -1538,7 +1548,7 @@ mod tests {
 
     #[test]
     fn test_append_to_rotated_wal_works() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
 
         sw.append(&make_record(1)).unwrap();
@@ -1556,7 +1566,7 @@ mod tests {
 
     #[test]
     fn test_meta_persists_resolved_shard_count() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
         assert_eq!(read_shard_meta(&path), Some(3));
         clean_shards(&path, 3);
@@ -1564,7 +1574,7 @@ mod tests {
 
     #[test]
     fn test_reopen_with_different_shard_count_no_loss() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         {
             let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
             for i in 0..6 {
@@ -1590,7 +1600,7 @@ mod tests {
 
     #[test]
     fn test_reopen_single_file_legacy_with_multi_shard_request() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         {
             let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
             for i in 0..3 {
@@ -1618,7 +1628,7 @@ mod tests {
 
     #[test]
     fn test_reopen_resumes_round_robin_position() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         {
             let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
             sw.append(&make_record(1)).unwrap();
@@ -1669,7 +1679,7 @@ mod tests {
 
     #[test]
     fn test_salvage_preview_truncated_reports_explicit_discards() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         {
             let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
             for i in 1..=4 {
@@ -1712,7 +1722,12 @@ mod tests {
 
     #[test]
     fn test_salvage_truncate_restores_coherent_recovery() {
-        let path = test_wal_path();
+        // FIND-744: this is the one test in the module whose reopen quarantines
+        // a torn tail into `<shard>.corrupt` — the 54 B residue that used to
+        // land loose in `%TEMP%` (measured: +1 file per run of this test, 0 for
+        // its siblings). `close()` makes the cleanup falsable: `Drop` swallows
+        // the delete error.
+        let (tmp, path) = test_wal_path();
         {
             let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
             for i in 1..=4 {
@@ -1766,11 +1781,15 @@ mod tests {
         for b in done.backups {
             let _ = std::fs::remove_file(b);
         }
+        // Drop the last writer before the tree: Windows cannot delete a
+        // directory that still holds an open handle.
+        drop(sw);
+        tmp.close().expect("per-test temp dir must be removable");
     }
 
     #[test]
     fn test_find354_recover_interleaved_writes_in_strict_global_seq_order() {
-        let path = test_wal_path();
+        let (_tmp, path) = test_wal_path();
         let num_shards = 4;
         let sw = ShardedWal::new(&path, num_shards, SyncMode::Periodic).unwrap();
 
