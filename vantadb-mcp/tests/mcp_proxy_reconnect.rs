@@ -329,16 +329,22 @@ async fn live_writer_lock_blocks_promotion() {
 
     // ── Coarse net, not the contract (FIND-739) ────────────────────────────
     // With the lock patience pinned, this call is dominated by 3 probes +
-    // 50/150 ms backoff. Measured: 1.93-2.10 s over 6 runs under 6 CPU
-    // burners (each probe pays two `is_pid_alive`, ~300 ms per Windows
-    // targeted refresh). The 10 s net is ~5x the measured worst, ~2x the
+    // 50/150 ms backoff: measured 1.90-2.40 s over 9 runs (FIND-757). The
+    // scenario matters — discovery advertises a **live PID at a closed port**,
+    // so every probe pays the 500 ms health timeout and `try_connect` never
+    // short-circuits on a dead PID. That timeout is the cost (~1.5 s, ~77 %);
+    // the six `is_pid_alive` calls are measured at 24-34 ms each ⇒ ~0.17 s
+    // (~9 %). FIND-757: the "~300 ms per Windows targeted refresh" this
+    // comment used to claim was never measured in isolation, and is wrong by
+    // an order of magnitude. The 10 s net is ~4x the measured worst, ~2x the
     // loaded number reported for the old shape (MCP-44: 5.05 s, which also
     // paid the 1000 ms of patience this test no longer pays), and ~2x below
     // the regression it exists for: `System::new_all()` per PID check costs
-    // ~3.5 s on Windows and this path now does **six** checks per resolution
-    // (2 per probe × 3 probes) ⇒ ~21 s today, 11.17 s when MCP-48 measured it
-    // with fewer checks. It is a net, not the contract — the mechanism
-    // asserts above are what must never go red.
+    // ~3.5 s on Windows (**estimate — not re-measured, that call is gone**)
+    // and this path does six checks per resolution (2 per probe × 3 probes)
+    // ⇒ ~21 s, 11.17 s when MCP-48 measured it with fewer checks. It is a
+    // net, not the contract — the mechanism asserts above are what must never
+    // go red.
     assert!(
         elapsed < Duration::from_secs(10),
         "re-election regressed: {elapsed:?} for 3 probes + backoff with a 50 ms lock patience \
