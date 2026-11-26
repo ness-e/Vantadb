@@ -12,10 +12,14 @@ owner: vanta-arch
 
 ## Status
 
-Accepted by `vanta-arch` (2026-11-25). **Not yet implemented**: the code change is
-tracked by [`FIND-748`](../../tasks/FIND-748.md). This record fixes the contract;
-if the implementer finds a fact that contradicts D1-D8, it comes back here as a new
-ADR instead of deviating quietly. Supersedes nothing. Extends
+Accepted by `vanta-arch` (2026-11-25). Implemented in `dfb51d807`
+([`FIND-748`](../../tasks/FIND-748.md), status `completed`): D1-D7 landed as
+written, and **D8 was amended on 2026-11-26** because its example contradicted
+the code — the implementer documented the wire and returned the conflict instead
+of bending the code to a wrong paragraph (see the amendment inside D8). This
+record fixes the contract; if the implementer finds a fact that contradicts
+D1-D8, it comes back here as a new ADR instead of deviating quietly. Supersedes
+nothing. Extends
 [ADR-0054](./ADR-0054-scheduler-host-vantadb-server.md) (the queue's home), which
 it does not reopen.
 
@@ -59,8 +63,10 @@ thing:
    (the reported lie — `MEM-73`);
 2. a pipeline whose scheduler loop was never started, or started and stopped,
    with queued work — `scheduler_running` exists but is not part of the formula;
-3. a process that cannot see the queue at all (one-shot `mcp-call`, read-only
-   writer), where `depth: 0` describes a queue nobody asked about.
+3. a process that cannot see the queue at all (a read-only writer, a process
+   whose loop is disabled), where `depth: 0` describes a queue nobody asked
+   about — and, one field over, the one-shot `mcp-call` child that answers about
+   its *own* empty queue while the writer's backlog is elsewhere (D8).
 
 `MEM-72`'s blocking finding was the same class one field over
 (`scheduler_running` was write-once-true, so a dead loop said "alive"). The
@@ -161,7 +167,10 @@ not live under a name that reads as "now".
 
 ```text
 unknown   queue is None, OR this process has no evidence of hosting the
-          pipeline (runner unknown, no pass, no loop) — e.g. one-shot mcp-call
+          pipeline (runner unknown, no pass, no loop) — e.g. a read-only
+          writer, or a loop disabled before the first pass (see D8: a
+          one-shot child that owns the writer role is *not* an example,
+          because its own loop is up)
 idle      depth == 0
 broken    depth > 0 and drain_path == none
 draining  depth > 0 and drain_path != none
@@ -223,19 +232,77 @@ enqueue path calls that. `last_pass: null` then means exactly what the docs say.
 ### D8 — the multi-process ceiling is unchanged, and it stays declared
 
 The queue is in-process state ([ADR-0054](./ADR-0054-scheduler-host-vantadb-server.md):51-52,
-"restart = cola vacía"), so `ingest` describes the process that answered:
-in `--mcp` proxy mode `tools/call` is forwarded whole to the writer
-(`docs/api/MCP.md:498-507`), so the answer is the writer's; in one-shot
-`mcp-call` every invocation is a fresh process whose empty queue is not the
-writer's, which is why that case now reads `unknown` instead of `idle`. What this
-ADR does **not** do: give a proxy a view of the writer's queue. That would need a
-cross-process surface and is still `MCP-43`-adjacent debt.
+"restart = cola vacía"), so `ingest` describes the process that answered. D8
+declares that ceiling; it does **not** convert the one-shot path into `unknown`
+(the amendment below records what it used to claim). What the wire actually
+reports:
+
+| Case | Who answers | `ingest` in the answer |
+|---|---|---|
+| `--mcp` writer | the writer | its own queue: `idle` + `drain_path: loop` on an empty queue with the loop up (a *degraded* runner is still `idle` at depth 0, but `drain_path: none` and `notice` is loud) |
+| `--mcp` proxy | the writer — the child forwards `tools/call` whole (`docs/api/MCP.md:510-526`) | the **writer's** queue and health; the child's own state never reaches the client |
+| one-shot `mcp-call`, child wins the writer role | the child | its **own** (empty) queue: `idle` + `drain_path: loop`. `scheduler_running: true` defeats the "no evidence of hosting" guard, even though `runner` is still `unknown` until the first tick |
+| one-shot `mcp-call`, child ends in proxy (another writer holds the DB) | the writer | the writer's queue and health |
+| read-only writer, or a process whose loop is disabled (`VANTADB_SCHEDULER_INTERVAL_MS=0`) before the first pass/enqueue | that process | `unknown`: no runner observed, no pass, no loop — it holds its own `{0,0}` but nothing evidences hosting |
+
+Two corollaries the contract depends on:
+
+- **`health: unknown` means "no evidence of hosting here", never "someone else's
+  backlog"** — and the honest producers are the read-only writer and the
+  loop-disabled process, not the one-shot child.
+- **`queue: null` never appears on the `capabilities` wire.** The handler always
+  reads its own queue (`vantadb-mcp/src/handlers/tools.rs:3199-3201` passes
+  `Some(queue_snapshot())`), so the `null` shape exists only on the library
+  surface (`status()`).
+
+What this ADR does **not** do: give a proxy — or a one-shot child that is not the
+writer — a view of the writer's queue. That would need a cross-process surface
+and is still `MCP-43`-adjacent debt.
+
+**Enmienda (2026-11-26) — what D8 said, what was measured, why it changed.**
+As accepted, D8 claimed: *"in one-shot `mcp-call` every invocation is a fresh
+process whose empty queue is not the writer's, which is why that case now reads
+`unknown` instead of `idle`."* That sentence was wrong when written: it described
+what D3's guard would do if nothing else were true in the child, not what the
+child does. Measured during the implementation (`dfb51d807`) by reading the
+launch path, and re-verified for this amendment on 2026-11-26:
+
+- `vanta-cli mcp-call` spawns `<server> --mcp`
+  (`src/cli_handlers/mcp_call.rs:260-266`).
+- That child opens the storage as a writer and, unless `read_only`, calls
+  `memory_scheduler::start()` **before** the first request
+  (`vantadb-mcp/src/server.rs:1057-1065`).
+- `start()` calls `note_scheduler_started()` before returning
+  (`vantadb-mcp/src/memory_scheduler.rs:134`), so `scheduler_running == true`
+  when the first `capabilities` is answered.
+- D3's guard is `runner == unknown && !scheduler_running && last_pass.is_none()`
+  (`vanta-memory/src/ingest/observability.rs:366`), so it does not fire; the
+  child reports `idle` with `drain_path: loop`. (`runner` stays `unknown` until
+  the first tick builds one — that field does not decide `health`.)
+- `queue: null` was likewise unreachable on the wire: the handler always passes
+  `Some(crate::threads::queue_snapshot())` (`handlers/tools.rs:3199-3201`).
+- When another writer holds the database the child never answers: it forwards
+  the call, so the client reads the **writer's** health — a case D8 did not
+  mention at all.
+
+Why the decision changes rather than the code: passing `None` whenever hosting is
+not evidenced would make the child hide a queue **it is actually holding** — an
+empty queue its own loop can drain — and would put `queue: null` on the wire.
+That is less information, not more; the operator loses the ability to tell "this
+child answers about itself and its loop is up" from "this process is not a
+host at all". D3's guard stays as the definition of `unknown`; the *example* was
+what was wrong, and it is now the read-only writer or the loop-disabled process.
+The published docs already say this, because the implementer documented the code
+instead of the paragraph: `docs/api/MCP.md:528-536` and the one-shot caveat at
+`:727-734`, `docs/api/VANTA_MEMORY.md:402-412`. This amendment makes the ADR
+agree with them.
 
 ## Positive consequences
 
 - The three `false`-as-"fine" cases in the problem statement are gone: a
   just-enqueued turn is visible immediately; a dead or never-started driver with
-  work queued is `broken`; a process that cannot see a queue says `unknown`.
+  work queued is `broken`; a process with no queue to read, or no evidence of
+  hosting one, says `unknown`.
 - `last_pass.skipped == true` means a skipped pass again (D7), so
   `docs/api/MCP.md:652-657` loses a paragraph that exists only to explain a wart.
 - The surface needs no registry, no lock-order rule and no second copy of the
@@ -246,7 +313,10 @@ cross-process surface and is still `MCP-43`-adjacent debt.
 - **`queue` can be `null`.** A consumer doing `ingest.queue.depth` without a
   guard breaks. The only in-repo consumer (the OpenCode plugin) already guards;
   any third-party parser documented against `docs/api/MCP.md` must adopt the
-  guard. It is a form change in one state, which is why this ADR exists.
+  guard. It is a form change in one state, which is why this ADR exists. Note
+  (D8): on today's `capabilities` wire the field is always an object, because the
+  handler always reads its own queue — so the `null` is a library-surface shape
+  and a forward hazard, not a break in the published wire today.
 - **`depth` gains one meaning and loses another.** It is now "queued right now"
   instead of "queued at the last pass"; anyone who wanted the historical value
   moves to `last_pass.queue`.
@@ -263,7 +333,8 @@ cross-process surface and is still `MCP-43`-adjacent debt.
 
 ## Measurement and its limits
 
-Measured by reading the tree at `HEAD` (2026-11-25), not by running:
+Measured by reading the tree at `HEAD` (2026-11-25; the D8 rows re-measured
+2026-11-26), not by running:
 
 | Claim | Source |
 |---|---|
@@ -273,6 +344,10 @@ Measured by reading the tree at `HEAD` (2026-11-25), not by running:
 | Live occupancy can be O(1) | `queue.len()` + `pending.len()` (`:27,:30`); `pending_count` is already O(1) at `:347` |
 | The existing sampling is O(n) and already paid twice per pass | `queue_depth` splits by priority by scanning the vec (`:217-221`); called at `scheduler.rs:138,363` |
 | The plugin survives `null` | `vanta-memory-capture.ts:137,144` use `ingest.queue?.depth ?? 0` |
+| The one-shot child starts its loop before the first request | `mcp_call.rs:260-266` → `server.rs:1057-1065` → `memory_scheduler.rs:134` |
+| `scheduler_running` alone defeats the "no evidence of hosting" guard | `observability.rs:366` (`!s.scheduler_running`) |
+| `capabilities` always publishes a queue object | `handlers/tools.rs:3199-3201` (`Some(queue_snapshot())`) |
+| `unknown` on the wire needs a process that starts no loop | `server.rs:1056,1063` (read-only); `memory_scheduler.rs:111-116` (interval `0`) |
 | `gen-index` is already stale for an unrelated lane | `node scripts/docs/gen-index.mjs --check` reports `docs/index.md` diverging on `MEMG-27`/`MEMG-28` |
 
 **Not measured: the latency of the live read.** No benchmark was run. What is
@@ -286,11 +361,16 @@ plus two `len()` calls, i.e. strictly less work than the per-pass
 The mechanical contract lives in [`FIND-748`](../../tasks/FIND-748.md). At the
 ADR level:
 
-- `queue: null` appears in the JSON for a process with no live read; `health` is
-  `unknown` in the same answer.
+- `queue: null` appears in the JSON of `status()` — the library surface with no
+  live read — with `health: unknown` in the same answer. On the `capabilities`
+  wire the field is always an object (D8), so the null shape is verified at the
+  library surface, not through the tool.
+- A one-shot `mcp-call` child that wins the writer role answers `idle` /
+  `drain_path: loop` about its own queue; a child that ends in proxy answers with
+  the writer's `ingest` (D8 amendment, 2026-11-26).
 - A queued task with a healthy runner and a never-started scheduler reads
-  `depth > 0`, `drain_path: none`, `health: broken` — the assertion that fails
-  against today's code.
+  `depth > 0`, `drain_path: none`, `health: broken` — the assertion that failed
+  against the pre-implementation code.
 - `is_broken()` and `last_pass.queue` are shown to be independent, in both
   directions.
 
@@ -300,9 +380,10 @@ ADR level:
 - `FIND-748` backlog row, `docs/dev/Backlog.md:836` — the measured finding.
 - [vanta-memory.md § MEM-73](../../avance/activo/vanta-memory.md) — the composition
   that produced findings 3 and 4.
-- `docs/api/MCP.md:452,478-507,644,652-657` — the published `capabilities`
-  surface this ADR corrects.
-- `docs/api/VANTA_MEMORY.md:286,391,399-406` — the module contract and the
+- `docs/api/MCP.md:452,462-536,727-734` — the published `capabilities`
+  surface this ADR corrects, and the one-shot caveat the D8 amendment aligns
+  with.
+- `docs/api/VANTA_MEMORY.md:286,380-419` — the module contract and the
   process-local ceiling.
 - [ADR-0054](./ADR-0054-scheduler-host-vantadb-server.md) — the queue's home and
   its in-memory semantics.

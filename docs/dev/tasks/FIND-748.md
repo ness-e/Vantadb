@@ -275,9 +275,13 @@ medido con `gen-index.mjs --check`). El carril que lo regenere lo hace en su com
 
 ## Qué NO resuelve (declarado)
 
-- **Vista multi-proceso.** `ingest` describe el proceso que respondió. Proxy
-  reenvía a writer (`MCP.md:498-507`); one-shot reporta `unknown` en vez de `idle`.
-  Sigue siendo deuda `MCP-43`.
+- **Vista multi-proceso.** `ingest` describe el proceso que respondió. En proxy
+  el hijo reenvía `tools/call` al writer (`MCP.md:510-526`), así que la salud que
+  llega es la del writer; un one-shot cuyo hijo gana el rol de writer responde
+  `idle` / `drain_path: loop` sobre **su propia** cola (arranca loop antes de la
+  primera petición). `unknown` queda para el proceso sin evidencia de hospedar
+  (writer read-only, loop deshabilitado antes del primer pass/enqueue). Sigue
+  siendo deuda `MCP-43` (ADR-0065 § D8, enmendado 2026-11-26).
 - **Duplicación del predicado en el cliente** (fila de arriba).
 - **Leases varadas.** Un `claimed > 0` con `drain_path: none` no se marca `broken`
   (evita el falso positivo de la primera pasada de un host on-demand). Se ve en el
@@ -425,6 +429,14 @@ corrigió a lo que el código hace (hijo writer → `idle`, su propia cola; hijo
 hospedar, p. ej. writer read-only), y queda **pendiente** que `vanta-arch` decida entre (a) aceptar
 esa redacción y enmendar D8, o (b) cambiar el handler para pasar `None` sin
 evidencia de hospedaje (lo que además haría aparecer `queue: null` en el wire).
+
+**Resuelto (vanta-arch, 2026-11-26): opción (a).** `ADR-0065 § D8` quedó
+enmendado para describir los cinco casos del wire (writer, proxy, one-shot
+hijo-writer → `idle`/`loop`, one-shot hijo-proxy → salud del writer, y
+read-only/loop-deshabilitado → `unknown`), conservando la afirmación original
+como registro de la enmienda. El handler no cambia: pasar `None` cuando el
+proceso **sí** tiene la cola en la mano ocultaría información veraz y empeoraría
+el diagnóstico.
 
 ## Review
 
