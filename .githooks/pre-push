@@ -11,6 +11,11 @@
 # - providers/* tocados: fmt --check por manifest (sin compilar).
 # - CLI instalado stale: AVISO en cada push (advisory, nunca cambia el
 #   veredicto; silencio si no hay binario y bajo `CI`) — FIND-754.
+# - fmt: el instrumento es el de CI (FIND-762). fmt-range.ps1 lee el toolchain
+#   del job `fmt` de ci-rust.yml y mide con ESE (no con uno hardcodeado); si no
+#   esta instalado, mide con el del PATH y lo dice como ADVISORY — nunca bloquea
+#   por "no tengo nightly", que no es una propiedad del commit. La version de
+#   rustfmt se imprime SIEMPRE: un verde sin instrumento no es comparable con CI.
 #
 # FIND-760 — por qué el fmt es por fichero y no por árbol: `cargo fmt --check`
 # sobre el árbol bloqueó el push de FIND-152 (2 commits fmt-clean) porque el WIP
