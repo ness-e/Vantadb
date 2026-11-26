@@ -100,7 +100,14 @@ Repetido idéntico en los tres venvs presentes (`vantadb-python/.venv`,
 | 4 | Endurecer el contrato: ventana real + alias sirviendo el objeto **compilado** (`vantadb_py.Client is vantadb_py.vantadb_py.Client`) | `pytest` | ✅ 3/3 (antes 2) |
 | 5 | Registrar la deprecación en `docs/api/DEPRECATIONS.md` (D2.3, estaba ausente) + target en `PYTHON_SDK.md` + **alcance del freeze** en `VERSIONING.md` | gates de docs | ✅ 0 broken links / 0 docs errors / 0 gaps de cobertura |
 | 6 | Review P2-01 ronda 1 (agente distinto) → 🔴 changes required (1C/3R/4O) → aplicado | ver §Review | ✅ C1 y R1-R3 resueltos; R1 escalado al owner |
-| 7 | Cerrar la fila (Backlog) + entrada en `bindings.md` + commit aislado | helper `git-commit-isolated.ps1` | ✅ |
+| 7 | Cerrar la fila (Backlog) + entrada en `bindings.md` + commit aislado | helper `git-commit-isolated.ps1` | ✅ `19fbb5b87` + `08093505a` (reparación, ver §Incógnitas 6) |
+
+## Commits
+
+| Commit | Contenido |
+|---|---|
+| `19fbb5b87` | `fix(python): FIND-118` — mensaje/docstrings, test endurecido, registro `DEPRECATIONS.md`, `PYTHON_SDK.md`, alcance del freeze en `VERSIONING.md`, task file, entrada de `bindings.md`, fila del Backlog |
+| `08093505a` | `fix(backlog): FIND-118` — reparación de la copia stale del Backlog (ver §Incógnitas 6) |
 
 ## Contrato
 
@@ -164,6 +171,15 @@ pwsh scripts/validate-docs-coverage.ps1
 5. **`README.md:105` / `README_ES.md:105`** dicen "still works but emits a
    `DeprecationWarning`" sin versión: siguen siendo ciertos, no se editaron
    (fuera del alcance declarado y sin dato falso).
+6. **Incidente del árbol compartido (clase `FIND-753`):** mi primer commit
+   (`19fbb5b87`) llevó una copia **stale** de `docs/dev/Backlog.md` y borró 11
+   líneas ajenas (secciones `FIND-770` y `FIND-771`, commiteadas por otro carril
+   entre mi lectura y mi commit) además de mi propia fila. El exit code fue 0; lo
+   cazó la comprobación **por contenido** del helper. Reparado en `08093505a`,
+   reconstruyendo desde `19fbb5b87^` a nivel de byte. Lección: en checkout
+   compartido, un archivo compartido se re-verifica contra `HEAD` inmediatamente
+   antes de `git add`; y `git show` por pipe no es byte-safe para acentos (mangle
+   silencioso) — `git checkout <rev> -- <path>` sí.
 
 ## Review
 
