@@ -4,7 +4,8 @@ name: 'GATES: Docs - lint, links, secrets, API surface, examples, rustdoc'
 # tras fusionar docs-secrets×2 y retirar lint-markdown subsumido por baseline 0).
 # Origenes: gate-docs.yml, gate-docs-links.yml, gate-api-docs.yml,
 #   gate-doc-examples.yml, gate-docs-secrets.yml, ci-rustdoc.yml.
-# Triggers = union de paths + schedule semanal de docs-links (lun 07:23 UTC).
+# Triggers = `push` filtrado por paths, `pull_request` SIN filtro (FIND-765) +
+# schedule semanal de docs-links (lun 07:23 UTC).
 # Deltas documentados vs origenes:
 # - rustdoc usaba concurrency group 'rustdoc-${{ github.ref }}'; ahora grupo
 #   estandar (evita runs huerfanos fuera del grupo; historial en git).
@@ -39,30 +40,30 @@ on:
       - '.github/markdownlint-cli2.yaml'
       - 'release-manifest.json'
       - 'cliff.toml'
+  # FIND-765 (2026-11-26): `pull_request` NO lleva `paths:` a proposito.
+  # Un workflow que no dispara no reporta NINGUN check-run, y los contexts
+  # required que se le atribuyen quedan en "Pending" para siempre: la doc dice
+  # "Avoid requiring workflows that can be skipped" (docs.github.com/en/pull-
+  # requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-
+  # status-checks). Contraste: un JOB que se salta por `if:` SI reporta, y
+  # GitHub lo cuenta como Success ("Successful check statuses are success,
+  # skipped, and neutral", /en/pull-requests/reference/status-checks).
+  # De este fichero salen 3 de los 13 contexts required de `develop` (23692587)
+  # y 6 de los 18 de `main` (16844590).
+  # El filtro dejaba fuera 426 de 2351 ficheros tracked (18%), no solo `web/**`
+  # (que no existe en ninguna rama: `git ls-tree origin/main -d` -> vacio):
+  # `integrations/**` 81, `vanta-proxy/**` 61 (crate del workspace, no lo cubre
+  # `vantadb-*/**`), `dev-tools/**` 48, `examples/**`, `benches/**`, `evals/**`,
+  # `fuzz/**`, `Formula/**`, `Justfile`, `deny.toml`… Un PR que solo los tocara
+  # era inmergeable y el PR no decia por que.
+  # Coste medido de los 16 jobs en un PR (run 45771790202): 967 s de runner y
+  # 10m38s de pared, pero 84% de ese tiempo son 3 jobs (doc-examples 466 s,
+  # doctests 270 s, rustdoc 73 s) que un PR de docs no puede afectar. Si esa
+  # latencia molesta, el filtrado fino va DENTRO de esos tres con su `if:` +
+  # un job de diff de paths (fail-closed) — nunca en el disparador.
+  # `push` conserva el filtro: ahi no hay required check que satisfacer.
   pull_request:
     branches: [main, develop]
-    paths:
-      - 'docs/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'vantadb-python/vantadb_py/**'
-      - 'vantadb-python/vantadb/**'
-      - 'vantadb-ts/src/**'
-      - 'vantadb-ts/package.json'
-      - 'vantadb-node/package.json'
-      - 'vantadb-*/**'
-      - 'vanta-memory/**'
-      - 'providers/**'
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'README.md'
-      - 'llms.txt'
-      - '.github/markdownlint-cli2.yaml'
-      - 'release-manifest.json'
-      - 'cliff.toml'
   schedule:
     - cron: '23 7 * * 1'
   workflow_dispatch:
