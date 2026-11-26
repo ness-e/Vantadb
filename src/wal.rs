@@ -2589,12 +2589,17 @@ mod tests {
     }
 
     #[test]
-    fn test_wal_version_mismatch() {
+    fn test_wal_rejects_foreign_magic() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("mismatch.wal");
 
         {
-            // Write a WAL without a valid signature (version 0 or generic file)
+            // FIND-742: this fixture is NOT a WAL and NOT a version test — it
+            // is 30 ASCII bytes whose first four (`NOT_`) are the magic and
+            // whose bytes 4..6 (`A`, `_`) happen to read as version 24385. The
+            // magic check fires first, so the reader reports a MAGIC mismatch.
+            // The version-mismatch path is covered by
+            // `test_wal_rejects_valid_magic_with_version_zero` below.
             let mut file = File::create(&dir).unwrap();
             file.write_all(b"NOT_A_VALID_MAGIC_BYTES_123456").unwrap();
         }
@@ -2606,17 +2611,50 @@ mod tests {
             match r.err().unwrap() {
                 Error::IncompatibleFormat {
                     expected_magic,
-                    expected_version,
+                    found_magic,
+                    found_version,
                     ..
                 } => {
                     assert_eq!(expected_magic, *b"VWAL");
-                    // WAL v2 (RES-01): expected_version tracks the current
-                    // format version. The test file in this fixture uses v0,
-                    // so the reader should report its CURRENT version as the
-                    // expected version when rejecting.
-                    assert_eq!(expected_version, WAL_MAX_READABLE_VERSION);
+                    assert_eq!(found_magic, *b"NOT_");
+                    // FIND-742: assert against the bytes READ FROM THE FILE.
+                    // Asserting the reported version against
+                    // `WAL_MAX_READABLE_VERSION` is `X == X` — the reader builds
+                    // the error with that very constant (`deserialize`, magic
+                    // branch), so it could never fail. `24385` is what bytes
+                    // 4..6 of the fixture (`A`, `_`) read as a LE u16.
+                    assert_eq!(found_version, 24385);
                 }
                 other => panic!("Expected IncompatibleFormat, got {:?}", other),
+            }
+        }
+    }
+
+    #[test]
+    fn test_wal_rejects_valid_magic_with_version_zero() {
+        // FIND-742: magic `VWAL` + format version 0 must hit the dedicated
+        // `WALVersionMismatch` path (`deserialize`, `format_version < 1`) —
+        // not the generic `IncompatibleFormat` a foreign magic produces.
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("v0.wal");
+        std::fs::write(&path, WalHeader::new(0).serialize()).unwrap();
+
+        // `.err()` (not the `Result`) so the panic message can print the error
+        // without requiring `WalReader: Debug`.
+        match WalReader::open(&path).err() {
+            Some(Error::WALVersionMismatch {
+                expected, found, ..
+            }) => {
+                assert_eq!(found, 0, "the reader must report the version on disk");
+                // A literal on purpose: production builds this field from
+                // `WAL_FORMAT_VERSION` itself (`deserialize`), so comparing
+                // against that constant would be the same `X == X` this task
+                // removed. Pinned to 3 by the wire contract (`WAL_FORMAT_VERSION`
+                // moves only with a format bump).
+                assert_eq!(expected, 3, "the reader must name the version it writes");
+            }
+            other => {
+                panic!("expected WALVersionMismatch for a VWAL-magic v0 header, got {other:?}")
             }
         }
     }
