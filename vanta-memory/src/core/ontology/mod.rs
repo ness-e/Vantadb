@@ -6,7 +6,7 @@
 //! Invariants:
 //! 1. When a new triplet contradicts a prior `(subject, predicate)` edge/record,
 //!    the previous record's `invalid_at_ms` is stamped with `now_ms` without physical deletion.
-//! 2. Historical queries via [`query_triplets_as_of`] support bitemporal `AS OF` point-in-time reads.
+//! 2. Historical queries via `query_triplets_as_of` support bitemporal `AS OF` point-in-time reads.
 
 use crate::core::abstractions::MemoryRecord;
 use crate::core::conversation::sanitize_component;
@@ -235,15 +235,71 @@ pub fn apply_triplet_with_source(
     });
 
     // Add directed edge in graph with creation timestamp
-    let _ = db.add_edge(
-        subj_id,
-        obj_id,
-        &triplet.predicate,
-        None,
-        Some(triplet.valid_at_ms),
-    );
+    ensure_lineage_edge(db, subj_id, obj_id, &triplet.predicate, triplet.valid_at_ms);
 
     Ok(())
+}
+
+/// Best-effort lineage edge (TEC-15): create `from → to` only when **both**
+/// endpoints are already graph nodes.
+///
+/// Why the guard (FIND-747): `add_edge` requires both endpoints to exist
+/// (`Embedded::add_edge`, `sdk/api/graph.rs`) and fails with
+/// `NodeNotFound` otherwise — logged at ERROR by its `#[instrument(err)]`.
+/// The lineage ids this crate computes — `entity_node_id("scene:…")`,
+/// `"episode:…"`, `"persona:…"`, `"record:…"` — name nodes that nothing in
+/// the workspace ever inserts (the only `insert_node` calls in
+/// `vanta-memory` are the triplet entity nodes above), so the edge could
+/// never succeed: every L2 and L3 pass wrote one `ERROR add_edge … Node not
+/// found` to stderr for a condition that is structural, not a failure.
+///
+/// A skip is recorded at `debug!` with the reason, never as an error: the
+/// lineage stays canonical in the record metadata (`source_episode_ids`,
+/// `derived_from`), and the edge becomes real for free the day those nodes
+/// are materialized.
+///
+/// Returns `true` when the edge was created (or already existed).
+pub(crate) fn ensure_lineage_edge(
+    db: &Embedded,
+    from: u128,
+    to: u128,
+    label: &str,
+    created_at_ms: u64,
+) -> bool {
+    for endpoint in [from, to] {
+        match db.get_node(endpoint) {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                tracing::debug!(
+                    edge = label,
+                    missing_node = endpoint,
+                    from,
+                    to,
+                    reason = "lineage endpoint is not a materialized graph node; \
+                              lineage stays in record metadata",
+                    "lineage edge skipped"
+                );
+                return false;
+            }
+            Err(e) => {
+                tracing::debug!(
+                    edge = label,
+                    from,
+                    to,
+                    error = %e,
+                    "lineage edge skipped: endpoint lookup failed"
+                );
+                return false;
+            }
+        }
+    }
+    match db.add_edge(from, to, label, None, Some(created_at_ms)) {
+        Ok(()) => true,
+        Err(e) => {
+            tracing::debug!(edge = label, from, to, error = %e, "lineage edge failed");
+            false
+        }
+    }
 }
 
 /// Extract and apply bitemporal triplets from memory records during L2 consolidation.
@@ -276,6 +332,97 @@ mod tests {
             ..Config::default()
         })
         .unwrap()
+    }
+
+    /// FIND-747: an edge whose endpoints are not materialized nodes is a
+    /// declared skip (false), not an ERROR, and it does not invent nodes.
+    #[test]
+    fn lineage_edge_skips_when_endpoints_are_not_nodes() {
+        let db = open_test_db();
+        let from = entity_node_id("scene:sess:2024-08-01-22-10");
+        let to = entity_node_id("episode:sess:rec_1");
+
+        assert!(
+            !ensure_lineage_edge(&db, from, to, "derived_from", 1000),
+            "no endpoint exists, so no edge can be created"
+        );
+        assert!(
+            db.get_node(from).unwrap().is_none(),
+            "a skipped edge must not materialize phantom nodes"
+        );
+        assert!(db.get_node(to).unwrap().is_none());
+    }
+
+    /// FIND-747: when both endpoints ARE nodes the edge is created — the guard
+    /// is a precondition, not a blanket disable.
+    #[test]
+    fn lineage_edge_created_when_both_endpoints_exist() {
+        let db = open_test_db();
+        let from = entity_node_id("from");
+        let to = entity_node_id("to");
+        for id in [from, to] {
+            db.insert_node(NodeInput {
+                id,
+                content: None,
+                vector: None,
+                fields: BTreeMap::new(),
+            })
+            .unwrap();
+        }
+
+        assert!(ensure_lineage_edge(&db, from, to, "derived_from", 1000));
+        let node = db.get_node(from).unwrap().expect("source node");
+        assert!(
+            node.edges
+                .iter()
+                .any(|e| e.target == to && e.label == "derived_from"),
+            "edge must be present: {:?}",
+            node.edges
+        );
+    }
+
+    /// FIND-747: the triplets pass does not emit an error on the healthy path
+    /// even though the entity nodes it links are the only ones it owns.
+    #[test]
+    fn triplets_pass_succeeds_without_graph_errors() {
+        let db = open_test_db();
+        let rec = MemoryRecord {
+            id: "rec_1".to_string(),
+            content: "user likes pizza".to_string(),
+            memory_type: crate::core::abstractions::MemoryType::Persona,
+            priority: 50,
+            scene_name: "s".to_string(),
+            source_message_ids: Vec::new(),
+            metadata: Default::default(),
+            timestamps: Vec::new(),
+            created_at: "2024-08-01T22:10:00.000Z".to_string(),
+            updated_at: "2024-08-01T22:10:00.000Z".to_string(),
+            version: 1,
+            session_key: "sess".to_string(),
+            session_id: "sess".to_string(),
+            task_id: None,
+            team_id: None,
+            user_id: None,
+            agent_id: None,
+            vector: None,
+            heat: 0,
+            superseded_by: None,
+        };
+
+        let applied = extract_and_apply_bitemporal_triplets(&db, "sess", &[rec], 1000).unwrap();
+        assert_eq!(applied, 1, "one triplet extracted and applied");
+
+        // Both entity nodes exist (the only `insert_node` owner in the crate),
+        // so the predicate edge resolves.
+        let subj = db
+            .get_node(entity_node_id("user"))
+            .unwrap()
+            .expect("subject");
+        assert!(
+            subj.edges.iter().any(|e| e.label == "likes"),
+            "predicate edge must exist: {:?}",
+            subj.edges
+        );
     }
 
     #[test]

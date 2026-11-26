@@ -3,10 +3,10 @@
 //!
 //! Consumes prioritized tasks from the state backend, serializes per-session
 //! work through TTL locks, retries failures and dead-letters exhausted tasks.
-//! [`MemoryTaskHandler`] wires the task kinds to the existing pipeline
+//! `MemoryTaskHandler` wires the task kinds to the existing pipeline
 //! modules: L0 capture (`l0_recorder`) → L1 extraction + dedup
 //! (`l1_extractor`/`l1_dedup`, or the fused single-call `l1_batch` when the
-//! handler opts in via [`MemoryTaskHandler::with_use_batch`]) → L2 scenes
+//! handler opts in via `MemoryTaskHandler::with_use_batch`) → L2 scenes
 //! (`scene_extractor`) → L3 persona (`persona_trigger`/`persona_generator`)
 //! → idle consolidation (`dream::consolidate_session` on `TaskKind::Dream`),
 //! with counters tracked in the
@@ -14,8 +14,8 @@
 //!
 //! Not ported from Vanta memory engine: Prometheus metrics (single-process scope).
 //! Multi-worker pending recovery (`claimStaleTasks`) IS ported (MEM-66):
-//! see [`PipelineWorker::reclaim_stale`] and the claim API on
-//! [`LocalStateBackend`](crate::utils::local_backend::LocalStateBackend).
+//! see `PipelineWorker::reclaim_stale` and the claim API on
+//! `LocalStateBackend`.
 
 use std::time::Instant;
 
@@ -87,7 +87,7 @@ pub struct RunStats {
     pub skipped_locked: usize,
 }
 
-/// Per-layer latency telemetry snapshot emitted by [`MemoryTaskHandler`].
+/// Per-layer latency telemetry snapshot emitted by `MemoryTaskHandler`.
 ///
 /// `MEM-65`: `MEM-34` covered only the core count metrics; per-layer wall-clock
 /// latency (L1 extraction, L2 scene grouping, L3 persona generation, post-L3
@@ -209,7 +209,7 @@ impl Default for ContextAssemblyConfig {
     }
 }
 
-/// Task consumer over a [`LocalStateBackend`].
+/// Task consumer over a `LocalStateBackend`.
 pub struct PipelineWorker<'a, C: Clock> {
     backend: &'a LocalStateBackend<C>,
     config: WorkerConfig,
@@ -601,7 +601,7 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
         Ok(Some((records.len(), last_scene_name)))
     }
 
-    /// Idle consolidation wired to MEM-61 [`consolidate_session`] (FIND-86
+    /// Idle consolidation wired to MEM-61 `consolidate_session` (FIND-86
     /// D1). `last_active` comes from the checkpoint's [`PipelineSessionState`]
     /// (missing session → 0 = unknown → treated as idle; fail-open is safe
     /// because dream writes go to `dream/<s>/<run_id>` and L1 is never
@@ -684,11 +684,21 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             })
             .map_err(|e| e.to_string())?;
 
-        // MEM0-04: extract and update bitemporal triplets into graph
+        // MEM0-04: extract and update bitemporal triplets into graph.
+        // FIND-747: the result used to be dropped with `let _ =` — an error
+        // here was invisible (the pass still succeeded). A named `debug!` keeps
+        // the healthy path silent for the client and leaves a trace when
+        // triplet extraction genuinely fails.
         let now_ms = crate::core::conversation::now_ms();
-        let _ = crate::core::ontology::extract_and_apply_bitemporal_triplets(
+        if let Err(e) = crate::core::ontology::extract_and_apply_bitemporal_triplets(
             &self.db, session_id, &records, now_ms,
-        );
+        ) {
+            tracing::debug!(
+                session = %session_id,
+                error = %e,
+                "bitemporal triplet apply failed; L2 scene extraction is unaffected"
+            );
+        }
 
         // TEC-18: Auto-cascade L2 -> L3 (which executes L3 persona and triggers context assembly)
         self.enqueue_task(TaskPayload {

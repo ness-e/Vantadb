@@ -101,7 +101,7 @@ pub fn upsert_scene_with_sources(
 }
 
 /// Mark a scene block as soft-deleted (MEM-14): sets `deleted: true` and
-/// replaces the content with [`SOFT_DELETE_MARKER`][crate::core::scene::scene_format::SOFT_DELETE_MARKER],
+/// replaces the content with [`SOFT_DELETE_MARKER`],
 /// preserving the META contract (`created`/`updated`/`summary`/`heat` — parity
 /// with the Vanta memory engine cleanup that never touches META).
 ///
@@ -226,13 +226,23 @@ pub fn write_scene_block(
         ..Default::default()
     })?;
 
-    // Lineage: register graph edges derived_from (TEC-15)
+    // Lineage: register graph edges derived_from (TEC-15). Guarded: neither
+    // endpoint is materialized as a node today, so this is a declared skip
+    // logged at `debug!` — not an `ERROR` per pass (FIND-747). See
+    // `ontology::ensure_lineage_edge`.
+    let now_ms = crate::core::conversation::now_ms();
     let scene_node_id =
         crate::core::ontology::entity_node_id(&format!("scene:{session_key}:{key}"));
     for ep_id in &block.source_episode_ids {
         let ep_node_id =
             crate::core::ontology::entity_node_id(&format!("episode:{session_key}:{ep_id}"));
-        let _ = db.add_edge(scene_node_id, ep_node_id, "derived_from", None, None);
+        crate::core::ontology::ensure_lineage_edge(
+            db,
+            scene_node_id,
+            ep_node_id,
+            "derived_from",
+            now_ms,
+        );
     }
     Ok(())
 }

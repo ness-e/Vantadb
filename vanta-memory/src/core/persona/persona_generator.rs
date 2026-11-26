@@ -470,18 +470,33 @@ fn write_persona(
         ..Default::default()
     })?;
 
-    // Lineage: register graph edges derived_from (TEC-15)
+    // Lineage: register graph edges derived_from (TEC-15). Guarded: the ids
+    // name nodes nothing materializes today, so this is a declared skip
+    // logged at `debug!`, not an `ERROR` (FIND-747).
+    let now_ms = crate::core::conversation::now_ms();
     let persona_node_id =
         crate::core::ontology::entity_node_id(&format!("persona:{session_key}:{key}"));
     for ep_id in &record.source_episode_ids {
         let ep_node_id =
             crate::core::ontology::entity_node_id(&format!("episode:{session_key}:{ep_id}"));
-        let _ = db.add_edge(persona_node_id, ep_node_id, "derived_from", None, None);
+        crate::core::ontology::ensure_lineage_edge(
+            db,
+            persona_node_id,
+            ep_node_id,
+            "derived_from",
+            now_ms,
+        );
     }
     for scene_name in &record.source_scene_names {
         let scene_node_id =
             crate::core::ontology::entity_node_id(&format!("scene:{session_key}:{scene_name}"));
-        let _ = db.add_edge(persona_node_id, scene_node_id, "derived_from", None, None);
+        crate::core::ontology::ensure_lineage_edge(
+            db,
+            persona_node_id,
+            scene_node_id,
+            "derived_from",
+            now_ms,
+        );
     }
     Ok(())
 }

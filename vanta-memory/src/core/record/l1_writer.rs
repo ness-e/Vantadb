@@ -1,6 +1,6 @@
 //! L1 memory writer — applies dedup decisions to the VantaDB store (MEM-11).
 //!
-//! Phase 2 persistence: each [`DedupDecision`] maps to a store mutation:
+//! Phase 2 persistence: each `DedupDecision` maps to a store mutation:
 //! - `store` → `put` a brand-new record (id = decision.record_id or generated).
 //! - `update`/`merge` → `put` the merged/updated record with
 //!   `version = max(targets)+1` and merged_* fields, then prune the target
@@ -8,7 +8,7 @@
 //! - `skip` → no-op.
 //!
 //! Persistence goes through the VantaDB SDK (Principio 2) — namespace
-//! `l1/<session>`, key = record id, payload = serialized [`MemoryRecord`].
+//! `l1/<session>`, key = record id, payload = serialized `MemoryRecord`.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -373,7 +373,7 @@ fn log_and_mark(
 
 /// MEMG-01: flag the records the new memory explicitly contradicts.
 ///
-/// Reuses MEM-60 [`mark_contradiction`] — the exact semantics dream
+/// Reuses MEM-60 `mark_contradiction` — the exact semantics dream
 /// consolidation uses (`superseded_by` pointer, old record preserved, never
 /// deleted). Conservative by construction:
 /// - only ids the judgment listed as explicit contradictions,
@@ -786,7 +786,10 @@ pub(crate) fn put_record_with_options(
         dedup_policy_override,
     )?)?;
 
-    // Graph edges for derived records/axioms (TEC-15)
+    // Graph edges for derived records/axioms (TEC-15). Guarded: the targets
+    // are episode/message ids that no node is materialized for, so this is a
+    // declared skip logged at `debug!`, not an `ERROR` (FIND-747).
+    let now_ms = crate::core::conversation::now_ms();
     let session_key = ns.strip_prefix("l1/").unwrap_or(ns);
     let node_id =
         crate::core::ontology::entity_node_id(&format!("record:{session_key}:{}", record.id));
@@ -810,7 +813,13 @@ pub(crate) fn put_record_with_options(
     for src_id in sources {
         let parent_node_id =
             crate::core::ontology::entity_node_id(&format!("episode:{session_key}:{src_id}"));
-        let _ = db.add_edge(node_id, parent_node_id, "derived_from", None, None);
+        crate::core::ontology::ensure_lineage_edge(
+            db,
+            node_id,
+            parent_node_id,
+            "derived_from",
+            now_ms,
+        );
     }
 
     Ok(stored)

@@ -46,6 +46,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// One turn whose extraction yields 5 memories — the default
@@ -203,6 +204,9 @@ struct Server {
     child: Child,
     stdin: ChildStdin,
     rx: Receiver<String>,
+    /// Every stderr line the server wrote, in order (FIND-747). Echoed to the
+    /// operator as it arrives, so the log is not lost by capturing it.
+    stderr: Arc<Mutex<Vec<String>>>,
     next_id: u64,
 }
 
@@ -222,11 +226,16 @@ impl Server {
             .env("VANTADB_SCHEDULER_INTERVAL_MS", "1500")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            // FIND-747: captured (not inherited) so the cycle can assert that
+            // the healthy path does not train the reader to ignore stderr. The
+            // reader thread echoes every line, so `--no-capture` output is what
+            // `inherit` used to be.
+            .stderr(Stdio::piped())
             .spawn()
             .expect("spawn vantadb-server --mcp");
         let stdin = child.stdin.take().expect("child stdin");
         let stdout = child.stdout.take().expect("child stdout");
+        let stderr_pipe = child.stderr.take().expect("child stderr");
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             for line in BufReader::new(stdout).lines() {
@@ -236,12 +245,27 @@ impl Server {
                 }
             }
         });
+        let stderr = Arc::new(Mutex::new(Vec::new()));
+        let sink = Arc::clone(&stderr);
+        std::thread::spawn(move || {
+            for line in BufReader::new(stderr_pipe).lines() {
+                let Ok(line) = line else { break };
+                eprintln!("{line}");
+                sink.lock().expect("stderr buffer").push(line);
+            }
+        });
         Self {
             child,
             stdin,
             rx,
+            stderr,
             next_id: 1,
         }
+    }
+
+    /// Snapshot of the server's stderr so far (FIND-747).
+    fn stderr_lines(&self) -> Vec<String> {
+        self.stderr.lock().expect("stderr buffer").clone()
     }
 
     fn request(&mut self, method: &str, params: Value) -> Value {
@@ -458,7 +482,26 @@ fn e2e_l0_to_l3_cycle_in_the_shipped_binary() {
         "a healthy pipeline carries no notice: {caps}"
     );
 
+    // FIND-747: the healthy cycle must not emit errors it will discard. An
+    // `ERROR add_edge … Node not found` per pass trains every client reading
+    // stderr to ignore the channel, and hides a real lineage failure behind
+    // the same text. The pass above is the real one (no `run_pass`), so this
+    // is measured on the shipped path.
+    let stderr = server.stderr_lines();
+    let noise: Vec<&String> = stderr
+        .iter()
+        .filter(|l| l.contains("Node not found"))
+        .collect();
+    assert!(
+        noise.is_empty(),
+        "the healthy cycle wrote {} lineage error line(s) to stderr: {:?}\nfull stderr:\n{}",
+        noise.len(),
+        noise,
+        stderr.join("\n")
+    );
+
     eprintln!(
-        "MEM-73 e2e: L0→L3 in {elapsed:?} (pass ran, queue drained, scene={scenes}, persona=true)"
+        "MEM-73 e2e: L0→L3 in {elapsed:?} (pass ran, queue drained, scene={scenes}, persona=true, stderr lines={})",
+        stderr.len()
     );
 }
