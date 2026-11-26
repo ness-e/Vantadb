@@ -239,11 +239,13 @@ done
 
 ```powershell
 # GOOD: private index, named paths only, then a content check, then sync the index
-$env:GIT_INDEX_FILE = "$env:TEMP\opencode\idx-$(Get-Random)"
+$idx = "$env:TEMP\opencode\idx-$(Get-Random)"       # your file, no globbing of others'
+$env:GIT_INDEX_FILE = $idx
 git read-tree HEAD
 git add -- docs/dev/Backlog.md .githooks/pre-push
 git commit -m "fix(ci): …"
 Remove-Item Env:GIT_INDEX_FILE
+Remove-Item $idx -ErrorAction SilentlyContinue      # the temp index FILE, not just the env var
 git show HEAD:docs/dev/Backlog.md | rg 'FIND-760'   # expect 0 hits, not just exit 0
 git add -- docs/dev/Backlog.md .githooks/pre-push   # REQUIRED: sync the shared index
 # or, one step (does all of the above): pwsh dev-tools/git-commit-isolated.ps1 -Message "…" -Paths … -ExpectAbsent docs/dev/Backlog.md::FIND-760

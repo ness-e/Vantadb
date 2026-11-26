@@ -146,6 +146,7 @@ try {
         # Never let a partial run look green: the summary says what was not measured.
         Write-Host "WARNING: $skipped step(s) SKIPPED on request - this run is NOT a full gate." -ForegroundColor DarkYellow
         Write-Host "PARTIAL ${pass} PASS / $skipped SKIPPED" -ForegroundColor DarkYellow
+        if ($pass -eq 0) { Write-Host "NOTHING WAS VERIFIED: every step was skipped." -ForegroundColor DarkYellow }
         exit 0
     }
     Write-Host "ALL ${pass} PASS" -ForegroundColor Green; exit 0

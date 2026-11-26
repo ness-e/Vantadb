@@ -112,9 +112,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     fi
     # Un diff que falla (sha inventado, ref desconocida) dejaba el rango VACÍO y
     # el hook pasaba midiendo nada. Fail closed: no se puede medir → se bloquea.
-    # Un `base` vacío daría `git diff "..sha"` = HEAD..HEAD, válido y vacío: se usa
-    # el propio sha para que el rango nunca sea un artefacto del parseo.
-    [ -n "$base" ] || base=$local_sha
+    # Un `base` vacío daría `git diff "..sha"` = HEAD..HEAD, válido y VACÍO: la
+    # misma forma fail-open que la guarda de abajo pretende cerrar. Si no hay base,
+    # no se puede medir el rango → se bloquea.
+    if [ -z "$base" ]; then
+        echo "pre-push: ERROR — no base commit for $local_sha; the range cannot be measured. Push BLOCKED." >&2
+        exit 1
+    fi
     RANGE_FILES=$(git diff --name-only "$base..$local_sha" 2>/dev/null) || {
         echo "pre-push: ERROR — cannot diff $base..$local_sha. Push BLOCKED." >&2
         exit 1

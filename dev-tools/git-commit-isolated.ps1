@@ -38,9 +38,11 @@
 .PARAMETER ExpectAbsent
   `<path>::<literal>` that must NOT appear in `HEAD:<path>` after the commit.
   This is the check that catches a stale copy being baked in. Repeatable.
+  Neither the path nor the literal may contain a comma (the list is comma-split;
+  a comma makes it two specs, and a malformed spec fails loudly, never silently).
 
 .PARAMETER ExpectPresent
-  `<path>::<literal>` that MUST appear in `HEAD:<path>`. Repeatable.
+  `<path>::<literal>` that MUST appear in `HEAD:<path>`. Repeatable, same rule.
 
 .EXAMPLE
   pwsh dev-tools/git-commit-isolated.ps1 -Message "fix(ci): pre-push judges the range" `
