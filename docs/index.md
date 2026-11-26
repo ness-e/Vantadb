@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-853 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+854 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (2)
 
@@ -67,7 +67,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Write receipts (VER-10) — attestation of writes](./api/WRITE_RECEIPTS.md)                    | reference | Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan                            |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)                  | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (716)
+## Internal / contributor (717)
 
 ### Architecture decision records — 67
 
@@ -246,18 +246,19 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [weaviate/weaviate - dossier de extracción](./dev/extraccion/weaviate/README.md)                                   | index | Seis fichas del informe Weaviate (recibo por ítem, leases de recursos, capabilities de búsqueda, matriz índice/compresión, publicación revisionada y diagnóstico de recuperación) como filas del esquema canónico de 10 columnas                                                                                                                                                                         |
 | [Reviews archivados (2026-08-26) — migrados a Notion](./dev/reviews/README.md)                                     | index | Los 45 reports archivados se conservan en Notion (página "Reviews 2026"), con el análisis de vigencia de cada uno _(archived)_                                                                                                                                                                                                                                                                           |
 
-### Plans — 8
+### Plans — 9
 
-| Document                                                                                                               | Kind | Summary                                                                                                                                                   |
-| ---------------------------------------------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](./dev/plans/artifacts/bnd-08-publish-checklist.md) | plan | Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de                                                                     |
-| [Backlog acotado - release v0.10.0 (parciales + criticas)](./dev/plans/backlog-release-v0.10.0.md)                     | plan | Vista filtrada del backlog: todas las filas parciales y todas las criticas que deben cerrarse antes del 1-dic                                             |
-| [Plan de ejecución: release v0.10.0 + ola v0.10.x (36 parciales)](./dev/plans/2026-11-23-release-v0.10.0-gates.md)     | plan | Plan único de ejecución: cierre del release v0.10.0 y las 36 filas Parcial del backlog en 5 fases con waves, routing de sub-agentes y contratos mecánicos |
-| [Upstream PR draft — CrewAI](./dev/plans/artifacts/mkt-18f-prs/crewai.md)                                              | plan | Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)                                                                    |
-| [Upstream PR draft — DSPy](./dev/plans/artifacts/mkt-18f-prs/dspy.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)                                                                      |
-| [Upstream PR draft — LangChain](./dev/plans/artifacts/mkt-18f-prs/langchain.md)                                        | plan | Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404                                |
-| [Upstream PR draft — LlamaIndex](./dev/plans/artifacts/mkt-18f-prs/llamaindex.md)                                      | plan | Prereq (bloquea merge upstream): publicar vantadb-llamaindex en PyPI (tag adapters-v0.5.0)                                                                |
-| [Upstream PR draft — Mem0](./dev/plans/artifacts/mkt-18f-prs/mem0.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-mem0 en PyPI (tag adapters-v0.5.0)                                                                      |
+| Document                                                                                                               | Kind | Summary                                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](./dev/plans/artifacts/bnd-08-publish-checklist.md) | plan | Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de                                                                                                                 |
+| [Backlog acotado - release v0.10.0 (parciales + criticas)](./dev/plans/backlog-release-v0.10.0.md)                     | plan | Vista filtrada del backlog: todas las filas parciales y todas las criticas que deben cerrarse antes del 1-dic                                                                                         |
+| [Batch de parciales y filas nuevas - ejecución por waves](./dev/plans/2026-11-26-batch-parciales-y-nuevas.md)          | plan | Plan de ejecución del lote de 34 IDs recibido el 2026-11-26: triage del gate aplicado, 19 tareas DO agrupadas en waves por partición de ficheros, y el resto diferido, omitido o bloqueado con razón. |
+| [Plan de ejecución: release v0.10.0 + ola v0.10.x (36 parciales)](./dev/plans/2026-11-23-release-v0.10.0-gates.md)     | plan | Plan único de ejecución: cierre del release v0.10.0 y las 36 filas Parcial del backlog en 5 fases con waves, routing de sub-agentes y contratos mecánicos                                             |
+| [Upstream PR draft — CrewAI](./dev/plans/artifacts/mkt-18f-prs/crewai.md)                                              | plan | Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)                                                                                                                |
+| [Upstream PR draft — DSPy](./dev/plans/artifacts/mkt-18f-prs/dspy.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)                                                                                                                  |
+| [Upstream PR draft — LangChain](./dev/plans/artifacts/mkt-18f-prs/langchain.md)                                        | plan | Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404                                                                            |
+| [Upstream PR draft — LlamaIndex](./dev/plans/artifacts/mkt-18f-prs/llamaindex.md)                                      | plan | Prereq (bloquea merge upstream): publicar vantadb-llamaindex en PyPI (tag adapters-v0.5.0)                                                                                                            |
+| [Upstream PR draft — Mem0](./dev/plans/artifacts/mkt-18f-prs/mem0.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-mem0 en PyPI (tag adapters-v0.5.0)                                                                                                                  |
 
 ### Reports — 7
 
