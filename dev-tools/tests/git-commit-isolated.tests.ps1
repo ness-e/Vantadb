@@ -1,0 +1,232 @@
+# FIND-778 test: the helper must REFUSE a commit whose tree is the canonical
+# empty tree (4b825dc…), on the success path AND on the failure path, and must
+# leave HEAD on the previous SHA, the worktree intact, and no private index
+# behind.
+#
+# Self-contained: every scenario builds a throwaway git repo under $env:TEMP and
+# points the child's TEMP at it, so the private index never lands in the real
+# %TEMP%\opencode and the real checkout is never touched.
+#
+# Run: pwsh -NoProfile -File dev-tools/tests/git-commit-isolated.tests.ps1
+
+$ErrorActionPreference = "Stop"
+
+$SCRIPT = (Resolve-Path (Join-Path $PSScriptRoot ".." "git-commit-isolated.ps1")).Path
+$EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+$ROOT = Join-Path $env:TEMP ("f778-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
+
+$fail = 0
+function Check([bool]$cond, [string]$what) {
+    if ($cond) { Write-Host "  PASS  $what" -ForegroundColor Green }
+    else { Write-Host "  FAIL  $what" -ForegroundColor Red; $script:fail++ }
+}
+
+function Write-Hook([string]$dir, [string]$body) {
+    $hooks = Join-Path $dir ".githooks-test"
+    New-Item -ItemType Directory -Force $hooks | Out-Null
+    # LF endings: git runs hooks through sh.
+    [IO.File]::WriteAllText((Join-Path $hooks "pre-commit"), ("#!/bin/sh`n" + $body + "`n").Replace("`r`n", "`n"))
+    git -C $dir config core.hooksPath ".githooks-test"
+}
+
+function New-TestRepo([string]$name) {
+    $dir = Join-Path $ROOT $name
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    git -C $dir init -q
+    if ($LASTEXITCODE -ne 0) { throw "git init failed in $dir" }
+    git -C $dir config user.email "f778@test.invalid"
+    git -C $dir config user.name "FIND-778"
+    git -C $dir config core.autocrlf false
+    git -C $dir config commit.gpgsign false
+    New-Item -ItemType Directory -Force (Join-Path $dir "docs") | Out-Null
+    for ($i = 0; $i -lt 60; $i++) { Set-Content -LiteralPath (Join-Path $dir "docs/file$i.txt") -Value "line $i" -NoNewline }
+    git -C $dir add -A
+    git -C $dir commit -qm "init"
+    return $dir
+}
+
+# Runs the helper inside the repo with an isolated TEMP so the private index
+# lands under the test dir. Returns the helper's exit code.
+function Invoke-Helper([string]$dir, [string[]]$helperArgs) {
+    $savedTemp = $env:TEMP
+    $savedTmp = $env:TMP
+    try {
+        $env:TEMP = Join-Path $dir "tmp"
+        $env:TMP = $env:TEMP
+        New-Item -ItemType Directory -Force $env:TEMP | Out-Null
+        # The helper resolves the repo from the CURRENT directory: it MUST be the
+        # throwaway repo, never the real checkout.
+        Push-Location $dir
+        try {
+            $out = & pwsh -NoProfile -File $SCRIPT @helperArgs 2>&1
+            $code = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        $out | ForEach-Object { Write-Host "    | $_" }
+        return [pscustomobject]@{ Code = $code; Out = ($out -join "`n") }
+    } finally {
+        $env:TEMP = $savedTemp
+        $env:TMP = $savedTmp
+    }
+}
+
+function Get-LeftoverIndexes([string]$dir) {
+    $d = Join-Path $dir "tmp" "opencode"
+    if (-not (Test-Path $d)) { return @() }
+    return @(Get-ChildItem $d -Filter "idx-*" -ErrorAction SilentlyContinue)
+}
+
+function Get-WorktreeFileCount([string]$dir) {
+    return @(Get-ChildItem (Join-Path $dir "docs") -File -ErrorAction SilentlyContinue).Count
+}
+
+try {
+    # ── Scenario 1: SUCCESS path, tree ends up empty ────────────────────────
+    # The hook wipes the private index after write-tree; `git commit` then
+    # commits the empty index and exits 0 — the incident's payload, clean exit.
+    Write-Host "`n[1] success path, empty tree (hook empties the private index)" -ForegroundColor Cyan
+    $r1 = New-TestRepo "s1"
+    Write-Hook $r1 @"
+# FIND-778: sabotage the private index, exactly the shape the incident produced
+git read-tree --empty
+exit 0
+"@
+    $treeBefore = "$(git -C $r1 rev-parse 'HEAD^{tree}')".Trim()
+    $headBefore1 = "$(git -C $r1 rev-parse HEAD)".Trim()
+    Set-Content -LiteralPath (Join-Path $r1 "docs/file0.txt") -Value "changed" -NoNewline
+
+    $res = Invoke-Helper $r1 @("-Message", "test: empty tree", "-Paths", "docs/file0.txt")
+    Check ($res.Code -ne 0) "exits non-zero (got $($res.Code))"
+    Check ($res.Code -eq 4) "exit code is 4 = refused by result guards"
+    Check ($res.Out -match "REFUSED") "output says REFUSED"
+    Check ($res.Out -match "EMPTY tree") "output names the empty tree"
+    Check ("$(git -C $r1 rev-parse 'HEAD^{tree}')".Trim() -ne $EMPTY_TREE) "HEAD tree is NOT the empty tree"
+    Check ("$(git -C $r1 rev-parse HEAD)".Trim() -eq $headBefore1) "HEAD restored to the previous SHA"
+    Check (Get-WorktreeFileCount $r1 -eq 60) "worktree intact (60 files)"
+    Check ((Get-LeftoverIndexes $r1).Count -eq 0) "no private index left behind"
+
+    # ── Scenario 2: FAILURE path, HEAD moved anyway ────────────────────────
+    # The hook creates the empty-tree commit itself and then exits 1: `git
+    # commit` reports failure while HEAD has already moved. This is the exact
+    # gap that made today's incident unrecoverable by exit code.
+    Write-Host "`n[2] failure path (commit exists, git commit exit != 0)" -ForegroundColor Cyan
+    $r2 = New-TestRepo "s2"
+    Write-Hook $r2 @"
+git read-tree --empty
+bad=`$(git commit-tree "`$(git write-tree)" -p HEAD -m "test: empty tree via failure")
+git update-ref HEAD "`$bad"
+echo "`$bad" > "$($r2 -replace '\\','/')/.bad-sha"
+exit 1
+"@
+    $headBefore2 = "$(git -C $r2 rev-parse HEAD)".Trim()
+    Set-Content -LiteralPath (Join-Path $r2 "docs/file0.txt") -Value "changed" -NoNewline
+
+    $res2 = Invoke-Helper $r2 @("-Message", "test: empty tree via failure", "-Paths", "docs/file0.txt")
+    $badSha = (Get-Content (Join-Path $r2 ".bad-sha") -ErrorAction SilentlyContinue) -join ""
+    $badSha = $badSha.Trim()
+    Check ($res2.Code -eq 4) "exit code is 4 (got $($res2.Code))"
+    Check ($badSha.Length -eq 40) "hook did create a commit ($badSha)"
+    Check ("$(git -C $r2 rev-parse 'HEAD^{tree}')".Trim() -ne $EMPTY_TREE) "HEAD tree is NOT the empty tree"
+    Check ("$(git -C $r2 rev-parse HEAD)".Trim() -eq $headBefore2) "HEAD restored to the previous SHA"
+    Check ($res2.Out -match [regex]::Escape($badSha)) "output names the refused commit SHA"
+    if ($badSha.Length -eq 40) {
+        & git -C $r2 cat-file -e "$badSha^{commit}" 2>$null
+        Check ($LASTEXITCODE -eq 0) "refused commit object kept for the record"
+    }
+    Check ((Get-LeftoverIndexes $r2).Count -eq 0) "no private index left behind"
+
+    # ── Scenario 3: pre-commit aborts -> nothing created, still cleaned ────
+    Write-Host "`n[3] hook aborts before the commit (no commit created)" -ForegroundColor Cyan
+    $r3 = New-TestRepo "s3"
+    Write-Hook $r3 "exit 1"
+    $headBefore3 = "$(git -C $r3 rev-parse HEAD)".Trim()
+    Set-Content -LiteralPath (Join-Path $r3 "docs/file0.txt") -Value "changed" -NoNewline
+
+    $res3 = Invoke-Helper $r3 @("-Message", "test: aborted", "-Paths", "docs/file0.txt")
+    Check ($res3.Code -eq 2) "exit code is 2 = commit not created (got $($res3.Code))"
+    Check ("$(git -C $r3 rev-parse HEAD)".Trim() -eq $headBefore3) "HEAD did not move"
+    Check ((Get-LeftoverIndexes $r3).Count -eq 0) "no private index left behind"
+
+    # ── Scenario 4: happy path still works ─────────────────────────────────
+    Write-Host "`n[4] happy path (real commit, content verified)" -ForegroundColor Cyan
+    $r4 = New-TestRepo "s4"
+    Set-Content -LiteralPath (Join-Path $r4 "docs/file0.txt") -Value "MARKER-778 changed" -NoNewline
+    $headBefore4 = "$(git -C $r4 rev-parse HEAD)".Trim()
+
+    $res4 = Invoke-Helper $r4 @("-Message", "test: happy path", "-Paths", "docs/file0.txt", "-ExpectPresent", "docs/file0.txt::MARKER-778")
+    Check ($res4.Code -eq 0) "exit code is 0 (got $($res4.Code))"
+    Check ("$(git -C $r4 rev-parse HEAD)".Trim() -ne $headBefore4) "HEAD moved"
+    Check ("$(git -C $r4 rev-parse 'HEAD^{tree}')".Trim() -ne $EMPTY_TREE) "HEAD tree is not empty"
+    Check ("$(git -C $r4 log -1 --pretty=%s)".Trim() -eq "test: happy path") "commit message correct"
+    Check ((Get-WorktreeFileCount $r4) -eq 60) "worktree intact (60 files)"
+    Check ((Get-LeftoverIndexes $r4).Count -eq 0) "no private index left behind"
+
+    # ── Scenario 5: legitimate deletion is NOT blocked (pre-mortem a) ──────
+    # A single `git rm` must still commit: the guards only fire on mass
+    # deletions whose files are still on disk, on the empty tree, or on an
+    # entry-count collapse.
+    Write-Host "`n[5] a legitimate deletion still commits" -ForegroundColor Cyan
+    $r5 = New-TestRepo "s5"
+    Remove-Item -LiteralPath (Join-Path $r5 "docs/file5.txt") -Force
+    git -C $r5 rm -q --cached -- "docs/file5.txt" | Out-Null
+    $headBefore5 = "$(git -C $r5 rev-parse HEAD)".Trim()
+    $res5 = Invoke-Helper $r5 @("-Message", "test: delete one file", "-Paths", "docs/file5.txt")
+    Check ($res5.Code -eq 0) "exit code is 0 (got $($res5.Code))"
+    Check ("$(git -C $r5 rev-parse HEAD)".Trim() -ne $headBefore5) "HEAD moved"
+    Check ($res5.Out -match "refreshed") "shared index refreshed"
+    # ── Scenario 6: another lane's VALID commit is never reverted, never "OK" ──
+    # The hook commits a DIFFERENT file on its own private index and exits 1. HEAD
+    # then holds a perfectly valid commit that is not ours: the script must not
+    # restore it, must not print OK (P2-01 C1: pre-fix it printed OK and exit 0),
+    # and must exit 6.
+    Write-Host "`n[6] another lane's valid commit: refused, not reverted, no OK" -ForegroundColor Cyan
+    $r6 = New-TestRepo "s6"
+    Write-Hook $r6 @"
+export GIT_INDEX_FILE="`$(git rev-parse --git-dir)/peer-index"
+git read-tree HEAD
+echo peer > docs/peer.txt
+git add docs/peer.txt
+peer_tree=`$(git write-tree)
+bad=`$(git commit-tree "`$peer_tree" -p HEAD -m "another lane: unrelated work")
+git update-ref HEAD "`$bad"
+exit 1
+"@
+    Set-Content -LiteralPath (Join-Path $r6 "docs/file0.txt") -Value "changed" -NoNewline
+    $headBefore6 = "$(git -C $r6 rev-parse HEAD)".Trim()
+    $res6 = Invoke-Helper $r6 @("-Message", "test: someone else's commit", "-Paths", "docs/file0.txt")
+    $headAfter6 = "$(git -C $r6 rev-parse HEAD)".Trim()
+    Check ($res6.Code -eq 6) "exit code is 6 = nothing of yours, peer commit kept (got $($res6.Code))"
+    Check ($res6.Out -match "ANOTHER lane") "output names the other lane"
+    Check ($headAfter6 -ne $headBefore6) "the other lane's commit was NOT reverted"
+    Check ($res6.Out -notmatch "OK:") "never prints OK"
+    Check ($res6.Out -match [regex]::Escape($headAfter6)) "their commit SHA is reported"
+
+    # ── Scenario 7: an EMPTY tree is restored even when it is not ours ──────
+    # An empty tree deletes the whole repository: there is no work of anyone's to
+    # preserve, so the ref is restored anyway (P2-01 H1).
+    Write-Host "`n[7] another lane's EMPTY-tree commit: restored anyway" -ForegroundColor Cyan
+    $r7 = New-TestRepo "s7"
+    Write-Hook $r7 @"
+git read-tree --empty
+bad=`$(git commit-tree "`$(git write-tree)" -p HEAD -m "another lane: wipes the repo")
+git update-ref HEAD "`$bad"
+exit 1
+"@
+    Set-Content -LiteralPath (Join-Path $r7 "docs/file0.txt") -Value "changed" -NoNewline
+    $headBefore7 = "$(git -C $r7 rev-parse HEAD)".Trim()
+    $res7 = Invoke-Helper $r7 @("-Message", "test: someone else's empty tree", "-Paths", "docs/file0.txt")
+    Check ($res7.Code -eq 4) "exit code is 4 = refused and restored (got $($res7.Code))"
+    Check ("$(git -C $r7 rev-parse 'HEAD^{tree}')".Trim() -ne $EMPTY_TREE) "HEAD is not the empty tree"
+    Check ("$(git -C $r7 rev-parse HEAD)".Trim() -eq $headBefore7) "HEAD restored despite the commit not being ours"
+    Check ($res7.Out -match "restored anyway") "output explains the empty-tree exception"
+    Check ((Get-WorktreeFileCount $r7) -eq 60) "worktree intact (60 files)"
+}
+finally {
+    Remove-Item -LiteralPath $ROOT -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host ""
+if ($fail -gt 0) { Write-Host "FAILED: $fail assertion(s)." -ForegroundColor Red; exit 1 }
+Write-Host "OK: git-commit-isolated guards hold." -ForegroundColor Green
+exit 0
