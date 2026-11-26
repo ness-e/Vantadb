@@ -9,6 +9,8 @@
 # - skills/docs .md tocados: markdownlint docs/** (30s).
 # - .github/workflows tocados: actionlint si esta instalado.
 # - providers/* tocados: fmt --check por manifest (sin compilar).
+# - CLI instalado stale: AVISO en cada push (advisory, nunca cambia el
+#   veredicto; silencio si no hay binario y bajo `CI`) — FIND-754.
 #
 # FIND-760 — por qué el fmt es por fichero y no por árbol: `cargo fmt --check`
 # sobre el árbol bloqueó el push de FIND-152 (2 commits fmt-clean) porque el WIP
@@ -191,6 +193,30 @@ VERIFY_PS1_WIN="$(winpath "$VERIFY_SCRIPT")"
 #     dia son GB. Advisory: reclama lo huerfano y NUNCA bloquea el push. ---
 if [ -f "$REPO_ROOT/dev-tools/temp-collector.ps1" ]; then
     "$PS_EXE" -NoProfile -ExecutionPolicy Bypass -File "$(winpath "$REPO_ROOT/dev-tools/temp-collector.ps1")" -Quiet || true
+fi
+
+# --- Frescura del CLI instalado (FIND-754): ADVISORY. Nunca cambia el veredicto.
+# `vanta-cli --version` declara el commit del que salió (FIND-98), así que una
+# copia stale en ~/.cargo/bin se puede NOMBRAR en vez de responder lo mismo que
+# una fresca. Va acá y NO en el gate por PR: compara contra un binario instalado
+# y un runner no tiene `~/.cargo/bin` (por eso también se calla con CI definido).
+# Advisory y no bloqueante porque el CLI stale lo sufre QUIEN LO USA, no quien
+# pushea: un rojo por «no lo instalé» frenaría pushes legítimos. `-Advisory`
+# mantiene intacta la matriz 0/1/2 del script para quien quiera el veredicto; en
+# este modo no imprime nada si no hay binario, nombra el stale y la razón de un
+# fallo, y siempre sale 0.
+CLI_CHECK="$REPO_ROOT/scripts/check-cli-fresh.ps1"
+if [ -n "${CI:-}" ]; then
+    : # corrida de CI: sin binario instalado no hay nada que comparar
+elif [ -f "$CLI_CHECK" ]; then
+    CLI_OUT=$("$PS_EXE" -NoProfile -ExecutionPolicy Bypass -File "$(winpath "$CLI_CHECK")" -Advisory 2>&1) || true
+    if [ -n "$CLI_OUT" ]; then
+        echo "pre-push: CLI freshness ADVISORY (does not block this push):"
+        # `|| true` even here: under `set -e` a closed stdout (EPIPE on `sed`)
+        # would abort the hook and block a push — an advisory cannot be allowed
+        # to block by accident.
+        printf '%s\n' "$CLI_OUT" | sed 's/^/  /' || true
+    fi
 fi
 
 PS_SKIP="fmt"   # el fmt del árbol ya no corre acá: lo cubre el gate por rango de arriba + CI
