@@ -191,9 +191,7 @@ las dos puntas:
    privados ni los wrappers internos: por eso 21 de los 43 de `FIND-755` eran
    links a privados que ahí no resuelven, y por eso `lsm.rs:5` (módulo
    `pub(crate)`) **no aparece** en esa vista. A la inversa, la vista privada
-   documenta ítems que el público descarta y **genera lints propios** — dos de
-   estos 36 son `private_intra_doc_links`, una clase que sólo existe cuando
-   documentás lo privado.
+   documenta ítems que el público descarta y **genera lints propios**.
 2. **Si se unifica, una de las dos queda sin gate.** Elegir
    `--document-private-items` para todo obliga al gate público a cargar con 33
    lints internos que el lector de docs.rs nunca verá; elegir el público deja el
@@ -342,12 +340,12 @@ de `src/**`, `vantadb-python/**`, `vantadb-mcp/**`, `vanta-memory/**`,
 | # | Sev | Hallazgo | Cómo se cerró |
 |---|---|---|---|
 | B-1 | **Blocking** | se borraba la fila cuyo contrato tenía **tres** partes (step + `REQUIRED` + cerrar los lints) cumpliendo sólo la tercera: el cableado quedaba sin fila viva — el mismo fallo que la ronda 1 de `FIND-755` (M-2) | fila nueva **`FIND-763`** en el Backlog con el YAML exacto y la entrada en `REQUIRED`, citada desde §Incógnitas 1 |
-| M-1 | Medium | §"el número del ticket" atribuía el 33 a una *proyección* y la referencia citada lo desmiente (`FIND-755.md:436-437` y `:309` lo dan por medido) | reescrito: **33 = medido sin `--all-features`**, 36 = con ella; se borró "proyección" |
+| M-1 | Medium | §"el número del ticket" atribuía el 33 a una *proyección* y la referencia citada lo desmiente (`FIND-755.md:436-437` y `:309` lo dan por medido) | reescrito: **33 = medido sin `--all-features`**, 36 = con ella. El término sobrevive una sola vez (§Desviación, donde sí es defendible: el desglose por crate del ticket está incompleto) y se corrigió también en §Incógnitas 3 (R-1) |
 | M-2 | Medium | se nombraban +5 causas para un delta de +3, y los tres −1 por crate quedaban sin explicar | eliminada la reconciliación crate a crate; se pegan las dos mediciones y **sólo** los dos sumandos probados (`llm`+`config` gateados, `vantadb-wasm` fuera de la lista) |
 | M-3 | Medium | "(a) 14 lints / 13 líneas" contradecía su tabla, y atribuir 2 lints a `physical_plan/mod.rs:94` forzaba 37 | corregido a **14/14**; la aritmética real es **34 líneas `-->` + 2 diagnósticos sin `-->` = 36**, con el doble en `temporal.rs:376` |
 | L-1 | Low | "20 ficheros" en prosa contra 24 reales | 24 |
 | L-2 | Low | se nombraba una feature inexistente (`llm`) | `remote-inference`/`embed-local`, con `Cargo.toml:156` |
-| L-3 | Low | "dos de estos 36 son `private_intra_doc_links`": sólo se sostiene **uno** | corregido a uno, con la razón de por qué los demás no aplican (módulos privados) |
+| L-3 | Low | "dos de estos 36 son `private_intra_doc_links`": sólo se sostiene **uno** | corregido a uno en §Por qué dos steps (el párrafo viejo duplicado se borró: R-2), con la razón de por qué los demás no aplican (módulos privados) |
 | L-4 | Low | el contrato del ticket usa `rg`/`wc`, que no existen en pwsh | el bloque de medición muestra la forma `Select-String` que se corrió |
 | Nit | — | los backticks nuevos **sí** aparecen en `help()` de Python | declarado en la fila de `vantadb-python` |
 | Opt-1 | — | poner el step nuevo **antes** del artefacto (no comparten fingerprint) | incorporado al YAML de `FIND-763` |
@@ -365,6 +363,17 @@ de `src/**`, `vantadb-python/**`, `vantadb-mcp/**`, `vanta-memory/**`,
 - **Veredicto:** ronda 1 `changes-required` (bookkeeping, **0 en código**) →
   **corregido**; el contrato mecánico y la ausencia de debilitamiento quedaron
   verificados por el revisor **antes** de estas correcciones.
+- **Ronda 1-bis — verificación de cierre** (misma sesión de review, sobre el
+  commit `d9bb8f5f9`, por contenido con `git show HEAD:<path>`): **0 Blocking,
+  0 Medium, 2 Low**. B-1/M-2/M-3/L-1/L-2/L-4/Nit confirmados cerrados; M-2
+  además validado con un sumando que el autor no había identificado
+  (`watch_config` tras `#[cfg(feature = "hot-reload")]`, `Cargo.toml:180`, fuera
+  de `default` ⇒ explica el +1 de `vantadb`). Quedaban **R-1** (una segunda
+  ocurrencia de "proyección" en §Incógnitas 3) y **R-2** (el párrafo viejo de
+  L-3 convivía con el corregido), ambas **Low de texto**. Aplicadas en este
+  commit de cierre, junto con la corrección de las dos celdas de la tabla que
+  las daban por cerradas antes de estarlo. El revisor dejó el pre-compromiso
+  explícito: *"Con R-1 y R-2 aplicados, la ronda 2 es `approve` sin más."*
 
 ## Incógnitas
 
@@ -400,8 +409,8 @@ de `src/**`, `vantadb-python/**`, `vantadb-mcp/**`, `vanta-memory/**`,
    líneas de arriba tiene que entrar.
 3. **`FIND-755` y `FIND-761` miden distinto por diseño.** Cualquier intento
    futuro de "unificar" los dos comandos deja una superficie sin gate (§Por qué
-   dos steps). El número del ticket (33/4 crates) era una proyección: medido es
-   **36/5**.
+   dos steps). El 33/4 del ticket se midió **sin** `--all-features` y **sin**
+   `vantadb-wasm`; medido completo es **36/5**.
 4. **`--all-features` sigue siendo el comando caro** (rocksdb + bindgen). El
    step público propuesto (sin `--all-features`) no lo paga; el del artefacto sí,
    y ya lo venía pagando.
