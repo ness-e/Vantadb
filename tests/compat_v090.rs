@@ -20,6 +20,9 @@ use vantadb::migration::MigrationEngine;
 use vantadb::{Config, Header};
 use vantadb::{DistanceMetric, Embedded, Error, MemoryInput, MemorySearchRequest};
 
+#[path = "common/env_var.rs"]
+mod env_var;
+
 const FIXTURE_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/v0.9.0");
 
 fn manifest() -> Value {
@@ -418,14 +421,17 @@ fn compat_v090_future_version_is_typed_error_never_panic() {
 /// Automated only when a v0.9.0 `vanta-cli` binary is provided via the
 /// `VANTADB_V090_CLI` environment variable (e.g. the one built by
 /// `gen-fixture-v090.ps1`); the test skips loudly otherwise — a full build of
-/// the tag inside a unit test is out of scope.
+/// the tag inside a unit test is out of scope. A defined-but-empty variable is
+/// treated as unset: `Command::new("")` would panic instead of skipping
+/// (FIND-738).
 #[test]
 fn compat_v090_rollback_fixture_reopened_by_v090_binary() {
-    let Some(cli) = std::env::var_os("VANTADB_V090_CLI") else {
+    let Some(cli) = env_var::env_value(std::env::var_os("VANTADB_V090_CLI")) else {
         eprintln!(
             "SKIP compat_v090_rollback_fixture_reopened_by_v090_binary: \
              set VANTADB_V090_CLI to a v0.9.0 vanta-cli binary to run the \
-             cross-version rollback check"
+             cross-version rollback check (a defined-but-empty value counts \
+             as unset)"
         );
         return;
     };
@@ -463,4 +469,26 @@ fn compat_v090_rollback_fixture_reopened_by_v090_binary() {
         String::from_utf8_lossy(&out.stdout).contains("written by v0.10.0"),
         "v0.9.0 binary must read the record written by v0.10.0"
     );
+}
+
+/// Site 5 of FIND-738: `VANTADB_V090_CLI` transports a **path to a binary**.
+/// A defined-but-empty variable used to reach `Command::new("")` and panic on
+/// spawn; the test's own contract says "no binary → skip loudly". Empty must
+/// therefore read as unset, never as an empty path.
+#[test]
+fn v090_cli_path_ignores_empty_value() {
+    use std::ffi::OsString;
+    assert!(env_var::env_value(None).is_none(), "absent = skip");
+    assert!(
+        env_var::env_value(Some(OsString::new())).is_none(),
+        "defined-but-empty = skip, never Command::new(\"\")"
+    );
+    assert_eq!(
+        env_var::env_value(Some(OsString::from("/opt/v090/vanta-cli"))),
+        Some(OsString::from("/opt/v090/vanta-cli")),
+        "a real path must be returned unchanged"
+    );
+    // env_present would have said "yes" for the empty case — the reason this
+    // site needs env_value and not the boolean predicate.
+    assert!(!env_var::env_present(Some(OsString::new())));
 }

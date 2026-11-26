@@ -98,7 +98,7 @@ pub(super) fn diff_snapshots(
 pub(super) fn fjall_open_allowlist(rel: &Path) -> bool {
     // FIND-632 RED probe: deny everything to re-observe the raw set of files
     // Fjall mutates on a read_only open (e.g. after a fjall version bump).
-    if std::env::var_os("FIND632_DENY_ALLOWLIST").is_some() {
+    if crate::utils::env_present(std::env::var_os("FIND632_DENY_ALLOWLIST")) {
         return false;
     }
     let mut components = rel.components().map(|c| c.as_os_str());
@@ -122,4 +122,23 @@ pub(super) fn fjall_open_allowlist(rel: &Path) -> bool {
     }
 
     false
+}
+
+/// Site 3 of FIND-738: `FIND632_DENY_ALLOWLIST` is a RED probe documented as
+/// "set to `1` to force every path out". Defined-but-empty must mean "not set",
+/// because the empty form is what a shell leaves behind (`FIND632_DENY_ALLOWLIST=`
+/// plus a forgotten value) and it would deny the whole allowlist — every
+/// `read_only` test failing for a reason nobody asked for.
+#[test]
+fn deny_allowlist_flag_ignores_empty_values() {
+    use std::ffi::OsString;
+    assert!(!crate::utils::env_present(None), "absent = probe off");
+    assert!(
+        !crate::utils::env_present(Some(OsString::new())),
+        "defined-but-empty = probe off"
+    );
+    assert!(
+        crate::utils::env_present(Some(OsString::from("1"))),
+        "any value = probe on (documented form is `=1`)"
+    );
 }

@@ -113,10 +113,9 @@ impl HardwareCapabilities {
     /// 3. `.vanta_profile` in the current working directory as fallback.
     #[cfg(any(feature = "sysinfo", test))]
     pub(crate) fn default_profile_path() -> std::path::PathBuf {
-        if let Some(custom) = std::env::var_os("VANTADB_PROFILE_PATH") {
-            if !custom.is_empty() {
-                return std::path::PathBuf::from(custom);
-            }
+        // Empty is "not configured": the resolution order below applies (FIND-738).
+        if let Some(custom) = crate::utils::env_value(std::env::var_os("VANTADB_PROFILE_PATH")) {
+            return std::path::PathBuf::from(custom);
         }
         if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
             if !home.is_empty() {
@@ -317,8 +316,8 @@ impl HardwareScout {
 
     #[cfg(feature = "cli")]
     pub(crate) fn log_adaptive_status(caps: &HardwareCapabilities, cached: bool) {
-        if std::env::var_os("VANTADB_QUIET").is_some()
-            || std::env::var_os("VANTADB_SILENT").is_some()
+        if crate::utils::env_present(std::env::var_os("VANTADB_QUIET"))
+            || crate::utils::env_present(std::env::var_os("VANTADB_SILENT"))
         {
             return;
         }
@@ -746,8 +745,9 @@ mod tests {
             "profile path must end with .vanta_profile, got: {path:?}"
         );
 
-        if std::env::var_os("VANTADB_PROFILE_PATH").is_none()
-            && (std::env::var_os("HOME").is_some() || std::env::var_os("USERPROFILE").is_some())
+        if crate::utils::env_value(std::env::var_os("VANTADB_PROFILE_PATH")).is_none()
+            && (crate::utils::env_present(std::env::var_os("HOME"))
+                || crate::utils::env_present(std::env::var_os("USERPROFILE")))
         {
             assert!(
                 path.components().count() > 1,
@@ -777,5 +777,65 @@ mod tests {
         std::env::set_var("VANTADB_QUIET", "1");
         HardwareScout::log_adaptive_status(&caps, false);
         std::env::remove_var("VANTADB_QUIET");
+    }
+
+    // ─── FIND-738: an empty value is not a flag ───────────────
+
+    /// Site 1: `log_adaptive_status` silences on `VANTADB_QUIET` /
+    /// `VANTADB_SILENT`. The predicate asserted here is the one the site
+    /// applies, so a defined-but-empty variable must not silence: an inherited
+    /// `VANTADB_QUIET=` hid diagnostics exactly when someone was debugging.
+    ///
+    /// Effect-level testing is skipped on purpose — capturing console/tty
+    /// output needs a subprocess and is flakier than the predicate it covers.
+    #[test]
+    #[cfg(feature = "cli")]
+    fn quiet_and_silent_flags_ignore_empty_values() {
+        use std::ffi::OsString;
+        for name in ["VANTADB_QUIET", "VANTADB_SILENT"] {
+            assert!(
+                !crate::utils::env_present(None),
+                "{name}: absent must not silence"
+            );
+            assert!(
+                !crate::utils::env_present(Some(OsString::new())),
+                "{name}: defined-but-empty must not silence"
+            );
+            assert!(
+                crate::utils::env_present(Some(OsString::from("1"))),
+                "{name}: a value must silence"
+            );
+        }
+    }
+
+    /// Site 2: the guard of `test_default_profile_path_resolution` decides
+    /// "is `VANTADB_PROFILE_PATH` configured?" before asserting the home-dir
+    /// branch. `default_profile_path` ignores an empty value (it falls through
+    /// the documented order), so the guard must ignore it too — otherwise
+    /// `VANTADB_PROFILE_PATH=` silently skipped those assertions.
+    ///
+    /// Pure-predicate test: `default_profile_path` reads the environment itself
+    /// and `set_var` is racy under nextest.
+    ///
+    /// ponytail: if this needs effect-level coverage, extract a
+    /// `default_profile_path_from(env)` variant; not worth it while the
+    /// production resolver is already correct.
+    #[test]
+    fn profile_path_env_ignores_empty_value() {
+        use std::ffi::OsString;
+        // VANTADB_PROFILE_PATH transports a path → env_value.
+        assert!(crate::utils::env_value(None).is_none(), "absent = unset");
+        assert!(
+            crate::utils::env_value(Some(OsString::new())).is_none(),
+            "an empty value must count as unset, never as PathBuf::from(\"\")"
+        );
+        assert_eq!(
+            crate::utils::env_value(Some(OsString::from("/tmp/p"))),
+            Some(OsString::from("/tmp/p")),
+            "a real value must be returned unchanged"
+        );
+        // HOME / USERPROFILE are presence checks → env_present.
+        assert!(!crate::utils::env_present(Some(OsString::new())));
+        assert!(crate::utils::env_present(Some(OsString::from("/home/x"))));
     }
 }

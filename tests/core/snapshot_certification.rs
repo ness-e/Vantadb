@@ -11,6 +11,9 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+#[path = "../common/env_var.rs"]
+mod env_var;
+
 use common::{TerminalReporter, VantaHarness};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -2797,7 +2800,7 @@ fn test_pending_restore_symlink_marker_fails_closed() {
 #[test]
 fn test_snapshot_windows_name_rejected_by_all_entry_points_before_io() {
     const CHILD: &str = "FIND319_WINDOWS_NAME_TEST_CHILD";
-    if std::env::var_os(CHILD).is_none() {
+    if !env_var::env_present(std::env::var_os(CHILD)) {
         let working_dir = tempdir().expect("isolated working directory");
         let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
             .current_dir(working_dir.path())
@@ -3359,4 +3362,27 @@ fn test_scheduled_restore_malformed_marker_fails_closed() {
     fs::remove_file(marker).expect("cancel");
     let db = Embedded::open(dir.path()).expect("open current state");
     assert!(db.get("snapshot-test", "a0").expect("get").is_some());
+}
+
+/// Site 4 of FIND-738: the spawn guard of
+/// `test_snapshot_windows_name_rejected_by_all_entry_points_before_io` asks
+/// "am I the child?". A bare `is_none()` answered "yes, I am the child" for
+/// `FIND319_WINDOWS_NAME_TEST_CHILD=` — a defined-but-empty variable left by a
+/// shell — which ran the body in the parent process and silently dropped the
+/// isolation the test exists for.
+#[test]
+fn find319_child_flag_ignores_empty_values() {
+    use std::ffi::OsString;
+    assert!(
+        !env_var::env_present(None),
+        "absent = parent: spawn the isolated child"
+    );
+    assert!(
+        !env_var::env_present(Some(OsString::new())),
+        "defined-but-empty = parent: spawn the isolated child"
+    );
+    assert!(
+        env_var::env_present(Some(OsString::from("1"))),
+        "any value = child: run the body"
+    );
 }
