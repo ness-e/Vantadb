@@ -172,7 +172,12 @@ fi
 # actionlint (GitHub Actions YAML, solo si está instalado — condicional heredado)
 if command -v actionlint >/dev/null 2>&1; then
     echo "pre-commit: running actionlint..."
-    if actionlint 2>/dev/null; then
+    # FIND-784: `actionlint` SIN argumentos lee stdin, no los workflows (y `2>/dev/null`
+    # ocultaba el motivo del fallo). Lintar el directorio es determinista.
+    # FIND-784: `actionlint` sin argumentos lee stdin y un DIRECTORIO no lo acepta
+    # ("Incorrect function" en Windows); acepta FICHEROS. Y `2>/dev/null` ocultaba el
+    # motivo del fallo. Se le pasan los workflows y se deja ver el error.
+    if actionlint .github/workflows/*.yml; then
         echo "pre-commit: actionlint ok."
     else
         echo "pre-commit: actionlint FAILED."
