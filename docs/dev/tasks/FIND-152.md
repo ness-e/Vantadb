@@ -15,7 +15,7 @@ description: "El ticket medía 43+49 `unwrap` como 'contexto prod'. Medido: los 
 - **Tipo:** audit + fix puntual WASM
 - **Creado:** 2026-11-26
 - **Estado:** ✅ COMPLETED
-- **SDP:** `security-and-hardening` (pin: trust boundary) · `incremental-implementation` · `test-driven-development` · `context-engineering` · `doubt-driven-development` · `source-driven-development` · base (`campaign-executor`, `progreso`)
+- **SDP:** `security-and-hardening` (pin: trust boundary) · `incremental-implementation` · `test-driven-development` · `context-engineering` · `doubt-driven-development` · `source-driven-development` · `documentation-skill` (obligatoria por `AGENTS.md` Regla 3: el entregable son 4 `.md` bajo `docs/`) · base (`campaign-executor`, `progreso`)
 
 ## Blast Radius
 
@@ -81,6 +81,17 @@ unreachable!()                            // inalcanzable por construcción
 
 En la iteración final `attempt == MAX_RETRIES`, la guarda de reintento es falsa y el brazo `Err(e)` devuelve: el bucle no puede caer. **Es infalible por construcción (a), pero con el peor fallo posible en wasm**: `unreachable!()` compila a `panic!`, y un panic en un módulo wasm **aborta el host** en vez de llegar al llamador JS como excepción. La alternativa sin panic es trivial (`Err(JsValue::from_str(..))`), así que se aplica la rama "alternativa sin panic si es trivial" de la clase (a).
 
+### Los otros dos entregables de la fila (encontrados por el review, no por mí)
+
+El texto de la fila en el Backlog no era sólo los `unwrap`: decía también **"`+ 14 unchecked-ops ast-grep + 67 unsafe-review pointers`. Disposar antes del endurecimiento a ERROR (fila por fila)"**. Borrar la fila sin tocarlos los dejaba sin dueño fuera del único tracker vivo. Medidos:
+
+| Ítem | Medición (2026-11-26) | Clase / disposición |
+|---|---|---|
+| **unchecked-ops** (`*_unchecked`) | `rg -c '_unchecked' src/**/*.rs` → **16**, de los cuales **15 en producción**: `src/index/distance/kernels.rs` **12** + `src/index/distance/mapper.rs` **3** (el 16.º es `src/index/graph/tests.rs`, test) | **(a) infalible por construcción, justificado `// SAFETY:`** — los dos ficheros llevan **14** comentarios `// SAFETY:` (12 + 2, uno cubre dos call-sites) y el invariante es el mismo en todos: `chunks_exact(N)` garantiza `chunk.len() == N`. **No se convierten**: `get_unchecked` no tiene alternativa segura de coste equivalente en un kernel SIMD, y la alternativa (`get`) es lo que el kernel existe para evitar. El ticket decía 14 y hoy hay 15: el delta es una instancia nueva, no una stale |
+| **unsafe-review pointers** | `rg -n 'unsafe\s*(\{\|fn \|impl )' src/ -g '!**/tests/**' -g '!**/*tests.rs'` → **70** sitios · `rg -c '// SAFETY:'` sobre el mismo scope → **54** comentarios | **(c) invariante que hay que demostrar sitio por sitio** — no es un conteo que se cierre leyendo: hay que emitir veredicto por sitio. Registrado como **`FIND-759`**, no cerrado acá |
+
+- **Por qué el unsafe no se cierra en esta tarea:** un recuento no prueba nada. Los 70 sitios menos los 54 `SAFETY` **no** equivalen a "16 sin justificar" (un comentario puede cubrir dos bloques contiguos, y varios `unsafe fn` heredan el invariante del caller). Emitir ese veredicto es una revisión de seguridad por sitio, que es el objeto de `vanta-audit` — y por eso la fila derivada conserva el contrato, en vez de heredar un número que nadie va a poder reproducir.
+
 ## Invariantes de dominio (handoff — MUST)
 
 1. **Cero `unwrap`/`expect`/`panic!`/`unreachable!` en código de producción** en `src/shred/mod.rs` y en la región prod de `vantadb-wasm/src/**`. Este es el invariante que la fila protegía, y ahora es medible: `rg` sobre la región prod = 0.
@@ -101,7 +112,10 @@ En la iteración final `attempt == MAX_RETRIES`, la guarda de reintento es falsa
 | Tests de shred | `cargo nextest run --profile audit -p vantadb -E 'test(shred)' --build-jobs 2` | **35/35 ✅** |
 | Compila en el target real | `cargo check -p vantadb-wasm --target wasm32-unknown-unknown --features opfs` | **✅ 29,9 s** (sin `--features opfs` el módulo `worker` ni se compila: el gate no mediría) |
 | Formato | `cargo fmt -p vantadb-wasm -- --check` | **✅ exit 0** |
-| OCR review | `pwsh dev-tools/ocr-review.ps1` | ver §Review |
+| OCR review | `pwsh dev-tools/ocr-review.ps1` | rule group `project / {vantadb-wasm/**,…}`: el cambio **es** la remediación de su regla "`unwrap()`/`panic!`/`unimplemented!` en producción donde el fallo es propagable" |
+| unchecked-ops heredados de la fila | `rg -c '_unchecked' src/**/*.rs` | **16** (15 prod + 1 test), 14 `// SAFETY:` en los dos ficheros → clase (a) |
+| unsafe heredados de la fila | `rg 'unsafe\s*(\{\|fn \|impl )' src/ -g '!**/tests/**'` · `rg -c '// SAFETY:'` | **70** sitios · **54** comentarios → `FIND-759` (veredicto por sitio, no por recuento) |
+| Gates de docs | `node scripts/docs/check-links.mjs` · `check-docs.mjs` · `markdownlint-cli2 --config .github/…` | **exit 0** · **exit 0**, orphans **0** · **0 ficheros** (mis 4 rutas están en el `ignores` del config, por diseño) |
 | `.gitignore` / temporales | — | sin `.tmp-*` en el repo (los scripts auxiliares viven en `%TEMP%\opencode\`) |
 
 **Clase (b) medida en `shred`:** 0. El decodificador ya propaga (`take`/`take_array` + `corrupt_row`, SH-02) y `delete`/`delete_op` devuelven `Result`. Ningún `unwrap` quedó sin convertir porque no había ninguno en producción.
@@ -112,7 +126,18 @@ En la iteración final `attempt == MAX_RETRIES`, la guarda de reintento es falsa
 
 ## Review P2-01
 
-Tier **adversarial** (el diff toca `vantadb-wasm/src/**`, binding: aunque `src/storage/**` no se toca, el cambio es en una frontera de FFI/panic). Agente distinto: `vanta-review`, una ronda. Dictamen en §Cierre.
+Tier **adversarial** (el diff toca `vantadb-wasm/src/**`, binding: una frontera de panic que cruza a JS).
+
+- **Revisor:** `vanta-review`, contexto fresco, **una ronda** (sesión distinta de la que implementó).
+- **Enfoque:** (C1) si la frontera producción/test de los 92 `unwrap` estaba bien establecida, cruzada por dos criterios independientes; (C2) si la aritmética del bucle de reintento hace realmente inalcanzable la rama y si convertir un panic en `Err` cambia algo para los 5 consumidores; (C3) si abstenerse de arreglar `delete.rs:54` era correcto; (C4) si cerrar la fila dejaba trabajo vivo; (C5) frontmatter, enlaces y `description`.
+- **Cómo se probó:** re-ejecutó `rg` de los tres conteos y del alcance `unsafe`/`unchecked`; leyó `send`/`try_send`/`MAX_RETRIES`/`is_retryable` y los 5 call-sites públicos hasta `connect_worker` (`lib.rs:677`) y `worker_read/write/delete` (`lib.rs:718/730/742`), verificando que **ningún `let _ =`** traga el error nuevo; re-corrió `cargo check` wasm32+`opfs` (0 warnings) y `check-links`/`check-docs`; leyó `take()`/`take_array` de `shred` línea por línea.
+- **Veredicto ronda 1:** 🔴 **changes-required** — 3 bloqueos, ninguno en el fix de código:
+  1. **[Alto]** la fila borrada arrastraba 2 de 3 entregables (`14 unchecked-ops` + `67 unsafe-review pointers`) y quedaban sin dueño → **aplicado**: medidos (15 `_unchecked` productivos con `SAFETY`; 70 sitios `unsafe` / 54 `SAFETY`) y el unsafe pasa a `FIND-759`.
+  2. **[Medio]** el gate remitía a un `§Cierre` inexistente → **aplicado**: este bloque.
+  3. **[Medio]** SDP sin `documentation-skill` siendo una tarea 80 % documental → **aplicado**: agregada.
+- **Nit aplicado:** la rama devolvía un `JsValue::from_str` mientras todo el archivo usa `js_sys::Error`; ahora `js_sys::Error::new(..).into()` para que el lado JS vea **una sola clase de error**.
+- **Nit no aplicado (declarado):** el contrato literal del ticket (`rg '\.unwrap\(\)'`) no puede medir este fix; el gate real es el `rg` de la familia de panic. Se deja escrito en §Verificación en vez de reescribir el contrato del plan.
+- **Ronda 2:** no ejecutada (una ronda por contrato). Los 3 bloqueos y el nit quedan **aplicados en el commit de cierre**, verificados por `cargo check` wasm32+`opfs` y `cargo fmt --check`.
 
 ## Nota de proceso (árbol compartido + disco)
 
@@ -122,4 +147,5 @@ Tier **adversarial** (el diff toca `vantadb-wasm/src/**`, binding: aunque `src/s
 
 ## Deuda derivada
 
-`FIND-758` — el purgado de shred se traga el fallo con `let _ =` (`src/storage/engine/delete.rs:54`). Registrada en `docs/dev/Backlog.md`; no se arregla acá por propiedad de fichero (Arch/Engine).
+- **`FIND-758`** — el purgado de shred se traga el fallo con `let _ =` (`src/storage/engine/delete.rs:54`). No se arregla acá por propiedad de fichero (Arch/Engine).
+- **`FIND-759`** — inventario y veredicto por sitio de los 70 `unsafe` de `src/**` (54 con `// SAFETY:`). No se cierra con un recuento; lo que heredó de `FIND-152` es el contrato, no el número.
