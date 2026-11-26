@@ -11,7 +11,7 @@ tags: [vantadb, ci, workflows, rules, policy]
 > **Scope:** `.github/workflows/` (27 files, names as on disk 2026-09-22) + `docs/dev/workflow/*` + `docs/dev/operations/CI_POLICY.md`
 > **No tocar aquí:** engine code, bindings, release versioning (see release-ci rules); procedure lives in `RUNBOOK.md`, trigger matrix in `TRIGGERS.md`, publish chain in `PUBLISH.md`
 > **Status:** 🟢 Vigente
-> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-10-02, post FIND-228); rule 1 completion: FIND-228 (2026-10-02); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation); rule 9: HARD-07 (review gate mechanized — `reviewer_context ≠ author_context`, 2026-09-27); rule 10: FIND-760 (pre-push judges the range, 2026-11-26); rule 10 advisory: FIND-754 (2026-11-26); rule 11: FIND-753 (private index + content verification, 2026-11-26)
+> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-10-02, post FIND-228); rule 1 completion: FIND-228 (2026-10-02); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation); rule 9: HARD-07 (review gate mechanized — `reviewer_context ≠ author_context`, 2026-09-27); rule 10: FIND-760 (pre-push judges the range, 2026-11-26); rule 10 advisory: FIND-754 (2026-11-26); rule 11: FIND-753 (private index + content verification, 2026-11-26); rule 12: FIND-764 + FIND-771 (concurrency per event, 2026-11-26)
 
 One verifiable rule per high-severity audit finding. Each rule states **Must / Must not / Why**, a good/bad example, and a mechanical check. If the check fails, the PR fails.
 
@@ -47,7 +47,7 @@ on:
 
 - **Verify:** inspect each workflow's `on:` and path filters; after a direct push to `develop`, check matching workflow runs for the SHA (`gh run list --commit <sha>`).
 
-> **Amendment 2026-11-16 (owner):** el owner integra directamente en `develop` por push (bypass de admin admitido por el remoto), sin que un `pull_request` dirigido a `develop` dé señal de esa integración. Los CI que validan código integrado en `develop` listan esa rama en `push.branches` como excepción intencional: `ci-rust.yml`, `demo-acceptance.yml`, `docs-gates.yml`, `platform-ops.yml` y `ci-fleet.yml`. `perf-bench.yml` ya no existe en `.github/workflows/`. El defecto TS de `211d9d6bd` (FFI-02) permaneció 9 días en `origin/develop` sin CI de bindings. Con un PR `develop → main` abierto, un push puede producir un par push+PR si coinciden los filtros; la `concurrency` por `github.ref` cancela runs obsoletos de la misma ref, pero no deduplica necesariamente el push de rama y el PR, que tienen refs distintas.
+> **Amendment 2026-11-16 (owner):** el owner integra directamente en `develop` por push (bypass de admin admitido por el remoto), sin que un `pull_request` dirigido a `develop` dé señal de esa integración. Los CI que validan código integrado en `develop` listan esa rama en `push.branches` como excepción intencional: `ci-rust.yml`, `demo-acceptance.yml`, `docs-gates.yml`, `platform-ops.yml` y `ci-fleet.yml`. `perf-bench.yml` ya no existe en `.github/workflows/`. El defecto TS de `211d9d6bd` (FFI-02) permaneció 9 días en `origin/develop` sin CI de bindings. Con un PR `develop → main` abierto, un push puede producir un par push+PR si coinciden los filtros; la `concurrency` por `github.ref` cancela runs obsoletos de la misma ref **en `pull_request`** (en `push` ya no se cancela: §12), pero no deduplica necesariamente el push de rama y el PR, que tienen refs distintas.
 >
 > **Amendment 2026-10-02 (FIND-228), histórico:** los 15 workflows CI/demo/gate pasaron entonces a `push: [main]`, con `perf-bench.yml` como excepción. Esta enmienda ya no describe el estado real ni la política vigente.
 
@@ -273,6 +273,34 @@ git commit -a -m "fix(ci): …"
   - Reparación medida en `30fdc9c42` (9 líneas restauradas, 0 adiciones). Y ojo con el inverso: `git hash-object <worktree>` == `git rev-parse HEAD:<path>` solo prueba que el worktree coincide con HEAD, **no** que tu commit no haya revertido a otro.
 - **Verify:** the content check returns 0 hits for a fragment you removed and ≥1 for one you added; a deliberately wrong `-ExpectAbsent` makes `dev-tools/git-commit-isolated.ps1` exit 1; and `git diff --cached -- <your paths>` is **empty** right after the commit (if it is not, the shared index is stale — run the `git add` above).
 - **Techo declarado:** the private index shrinks the race window to `add`+`commit` (milliseconds) and **detects** a reversal; it does not **prevent** one. Prevention needs a wave-wide lock, which does not exist. `FIND-753` (2026-11-26).
+
+### 12 — `cancel-in-progress`: only where the next push rebuilds the ref
+
+- **Must:** cancel superseded runs only on the event whose ref the next push **recreates** (`pull_request` → `refs/pull/N/merge`). On `push` the group is the branch and the SHA stays in history, so the run that gets cancelled is the only run **of that workflow** that will ever report for that commit. The rule covers the **job-level** `concurrency` blocks too, not just the workflow-level one: same group key, same damage to a required job.
+- **Must not:** leave `cancel-in-progress: true` on a workflow that also runs on `push`. The result is a commit on `develop` whose suite **never executed**: `cancelled` after N minutes of compiling, no `error:`, no `test result` — and the run summary cannot tell "I cancelled it" from "the diff broke something". It also cannot tell *which* mechanism cancelled it: of the two cancellations on `cd7d8c5f7`, only one carries a reason.
+
+```yaml
+# GOOD (FIND-764 in ci-rust.yml, FIND-771 in docs-gates.yml)
+on: [push, pull_request]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  lint:
+    concurrency:                     # job-level blocks carry the same expression
+      group: lint-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# BAD: on push this kills the only run of this workflow that will report for that SHA
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+- **Por qué:** measured twice in one day, one class, two workflows. `docs-gates.yml` killed 6m01s of rustdoc on `337ee7963` (`FIND-771`). On `cd7d8c5f7` (`FIND-764`, 1 of 9 runs that day) `Tests (Windows)` died at **35m23s** and its check-run annotation names the mechanism — *"Canceling since a higher priority waiting request for CI: Rust — Build & Lint + Tests-refs/heads/develop exists"* — while `Tests (Linux)` had already died at **17m53s**, compiling and without a `test result`, with **no ci-rust run in existence at that time**: attributed to nothing. Two dead jobs, one SHA without a suite, and the summary shows the same word for both.
+- **Verify:** `grep -n 'cancel-in-progress' .github/workflows/<file>` → in a workflow with `push:`, **no** occurrence is `true` (every one is `false` or an expression that is false for `push`), workflow-level and job-level alike. Behaviour check, because the list alone does not see job state: `gh run view <id> --json jobs` on the run that was superseded → no job of it in `cancelled`.
+- **Techo declarado:** on `push` GitHub keeps at most **one running + one pending** per group (`queue: single` is the default): a third arrival cancels the **pending** one, whose SHA is already superseded by the one that cancelled it. On `ci-rust.yml` (2026-11-26) **1 of 8** gaps fell inside the preceding run — measured — and **0 of the 7 consecutive pairs** would have hit this one — **derived, not measured** (8 gaps give 7 pairs; a pending entry is displaced only if the next push also arrives inside the window). `concurrency.queue: max` exists (up to 100 pending) if every push ever needs its own run — with 24m–69m runs, queueing more than one is queueing dead SHAs. Events that are neither `push` nor `pull_request` (`workflow_dispatch`, `schedule`) evaluate the expression to **false**, so they never cancel an **in-progress** run; that is not protection for the *pending* slot — `queue: single` displaces a pending entry whatever the flag says — and a `workflow_dispatch` on a branch shares `refs/heads/<branch>` with that branch's pushes.
+- **Rollout:** `FIND-771` (2026-11-26, `docs-gates.yml`) · `FIND-764` (2026-11-26, `ci-rust.yml`, workflow + 5 job blocks).
 
 ## See also
 

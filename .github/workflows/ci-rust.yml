@@ -55,10 +55,40 @@ env:
 permissions:
   contents: read
 
-# Cancela runs obsoletos del mismo workflow+ref en cada push (como ci-fleet).
+# FIND-764: `cancel-in-progress` SOLO en `pull_request`. El grupo es
+# `github.ref`, y ese ref significa cosas distintas por evento:
+#
+# - `push` -> `refs/heads/develop`. El run que se mata es el UNICO de este
+#   workflow que va a reportar por ese SHA, y el SHA se queda en la historia de
+#   la rama: matarlo deja un commit integrado sin suite. Medido el 2026-11-26 en
+#   `cd7d8c5f7` (integrado en `develop`): el run termino en `cancelled`;
+#   `Tests (Windows)` murio a los 35m23s y su check-run nombra el mecanismo en
+#   la anotacion -"Canceling since a higher priority waiting request for
+#   CI: Rust - Build & Lint + Tests-refs/heads/develop exists"-. En el mismo
+#   SHA, `Tests (Linux)` habia quedado `cancelled` a los 17m53s sin ejecutar un
+#   test (murio compilando `vantadb_py`, 0 `test result`), pero ningun run de
+#   `ci-rust` existia a esa hora: esa cancelacion NO se pudo atribuir. Es el
+#   segundo modo de fallo del mismo sintoma: un SHA sin suite, por causas que el
+#   resumen del run no distingue. Frecuencia del dia: 1 de 9 runs de `develop`.
+# - `pull_request` -> `refs/pull/N/merge`, que GitHub RECONSTRUYE en cada push:
+#   el head revisado trae su propio run nuevo, asi que cancelar el viejo tira
+#   trabajo de un SHA que ya nadie revisa. Mismo criterio y mismo remedio que
+#   `FIND-771` en `docs-gates.yml`.
+#
+# Coste de serializar los push, medido sobre los 9 runs de `develop` de hoy:
+# duracion del run 24m13s-69m35s (mediana 39m32s), y de los 8 huecos entre
+# pushes solo 1 (49m21s) cae dentro del run anterior -> habria esperado, sin
+# perder nada; los otros 7 llegaron con 12m27s-2h36m12s de margen sobre el
+# `updatedAt` del anterior. Ningun PR espera: su grupo es otro ref.
+#
+# Los bloques `concurrency` de job llevan la misma expresion, por la misma
+# razon: con el grupo de workflow serializando el ref son inertes hoy -solo un
+# run por ref ejecuta jobs, asi que `fmt-refs/heads/develop` jamas tiene dos
+# contendientes-, pero un cambio futuro del grupo de workflow no debe resucitar
+# esta clase en un check required.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust-scope:
@@ -169,7 +199,7 @@ jobs:
       contents: read
     concurrency:
       group: secret-scan-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -199,7 +229,7 @@ jobs:
     timeout-minutes: 10
     concurrency:
       group: fmt-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -233,7 +263,7 @@ jobs:
     timeout-minutes: 15
     concurrency:
       group: lint-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -276,7 +306,7 @@ jobs:
     timeout-minutes: 30
     concurrency:
       group: semver-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -319,7 +349,7 @@ jobs:
     timeout-minutes: 45
     concurrency:
       group: public-api-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

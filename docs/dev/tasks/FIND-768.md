@@ -196,15 +196,6 @@ revisor confirmó por reproducción y no por reporte.
   dos carriles Rust vivos y el artefacto estaba bloqueado (los 10 min de espera del
   `nextest list`). Los gates que sí aplican a la superficie tocada están todos en verde
   (`actionlint`, YAML, `bash -n`, harness A/B/C, `check-links`, `check-docs`).
-- **Incidente del primer commit (declarado, reparado):** `3554aa3db` se llevó por delante la
-  sección de `FIND-757` en `docs/dev/Backlog.md` — la expectativa del helper lo detectó
-  (`REVERTED: '| FIND-768 |' is STILL in HEAD`), pero el commit ya estaba hecho: lo que había
-  commiteado era un snapshot del working tree donde el fichero se había reordenado mientras
-  yo reconstruía desde `HEAD`. Reparado en `a187d034d` (+6/−6: restaura `FIND-757`, retira
-  `FIND-768`) y verificado **por contenido** (`ExpectPresent FIND-757`, `ExpectPresent
-  FIND-758`, `ExpectAbsent FIND-768`). Lección: con dos carriles escribiendo el mismo fichero,
-  reconstruir desde `HEAD` y commitear no son atómicos; la expectativa del helper detecta el
-  daño pero no lo previene.
 - **NOTICED BUT NOT TOUCHING:** (1) `cancel-in-progress: true` en `push` dentro de esta
   lane (`:68`) es la clase de `FIND-764` y esta lane es la única que carga los 56 —
   merece fila propia; (2) el harness A/B/C vive en `%TEMP%` y no en el repo, porque
