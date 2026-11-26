@@ -90,33 +90,36 @@ No aplica: el diff **no** agrega símbolos públicos, endpoints, tools MCP ni m�
 
 ### Step 3: 20 corridas consecutivas bajo carga
 - **Verify:** bucle de 20 con 6 `Start-Job` quemando CPU.
-- **Resultado:** **20/20 sin fallo de test** — 19 ejecutadas verdes + 1 corrida (`run 3`) que **no llegó a ejecutar**: `vantadb-mcp/tests/l0_l3_cycle_e2e.rs` (otro carril, a medio escribir) rompió el build con `error[E0425] cannot find type Arc`; al compilar de nuevo, el mismo filtro siguió verde. Sumadas 4 corridas extra de confirmación (`run 21-24`): **23 ejecuciones verdes, 0 fallos**.
+- **Resultado:** **20/20 verdes con 6 jobs de CPU, 0 fallos y 0 corridas sin ejecutar** — sobre el código final (post-review). El primer bucle, antes del review, dio 20/20 con 19 ejecutadas y 1 que **no llegó a ejecutar**: `vantadb-mcp/tests/l0_l3_cycle_e2e.rs` (otro carril, a medio escribir) rompió el build con `error[E0425] cannot find type Arc`; no fue un fallo del test y el bucle se rehizo entero tras aplicar los requeridos.
 - **Estado:** ✅ DONE
 
 ### Step 4: Falsabilidad (mutante de escenario)
 - **Acción:** apuntar el `StorageEngine` del setup a `{path}-nolock` (el escritor deja de retener el lock) y correr el filtro; revertir después.
-- **Resultado:** el test **cae** con `unreachable writer must surface an error, not a promotion: Object {...}` — la llamada **promueve** en vez de fallar cerrado. Muere en la aserción pre-existente de BUSY (`expect_err`), no en las nuevas: el mutante prueba que el **escenario** es falsable, y el complemento de las aserciones nuevas (rol `writer-promoted`, `reconnects()==1`) lo fija `proxy_re_elects_writer_without_restart` en el mismo archivo. No se sobrevende: no hay contador por sonda que mutar (ver §Incógnitas).
+- **Resultado:** el test **cae** con `unreachable writer must surface an error, not a promotion: Object {...}` — la llamada **promueve** en vez de fallar cerrado. Muere en la aserción pre-existente de BUSY (`expect_err`), no en las nuevas: el mutante prueba que el **escenario** es falsable. El complemento de las aserciones nuevas solo existe para `reconnects()`/`role()` (`proxy_re_elects_writer_without_restart`: `reconnects()==1`, `writer-promoted`); `resolve_failures()` y `connected()` **no** tienen complemento en el repo — declarado, no sobrevendido.
 - **Estado:** ✅ DONE (revertido; `git diff` del archivo = solo el cambio intencional)
 
 ### Step 5: Archivo de test completo + cierre
-- **Verify:** `cargo nextest run --profile audit -p vantadb-mcp --test mcp_proxy_reconnect --build-jobs 2` → **4 tests run: 4 passed** [6.438 s] · `rustfmt --edition 2021 --check` → exit 0 · `cargo clippy -p vantadb-mcp --tests -- -D warnings` → exit 0 · `check-docs` → `GATING: all clear` · `check-links` → 0 markdown roto
-- **Estado:** ✅ DONE — commits locales `f097c5f78` (test) + `81e7143ac` (cierre docs)
+- **Verify:** `cargo nextest run --profile audit -p vantadb-mcp --test mcp_proxy_reconnect --build-jobs 2` → **4 tests run: 4 passed** · `rustfmt --edition 2021 --check` → exit 0 · `cargo clippy -p vantadb-mcp --tests -- -D warnings` → exit 0 · `check-links` → 0 markdown roto · `check-docs` → **exit 1 por ficheros ajenos** (`.tmp-avance-entry.md` sin frontmatter, `FIND-740-747.md` con `description` 457 > 400); ninguno de este cierre
+- **Estado:** ✅ DONE — commits locales `f097c5f78` (test), `81e7143ac` (cierre docs), `20abd3797` (mediciones) + el ajuste post-review encima
 
 ## Resultado
 
-- **20/20 corridas del bucle sin un fallo de test** (+4 extra = 23 ejecuciones verdes, 0 fallos), con 6 jobs de CPU en paralelo. Detalle y la única corrida que no ejecutó (build ajeno) en §Step 3.
-- **Mecanismo elegido:** (a) conteo de resoluciones (`resolve_failures() == 1`, el observable que dejó `MCP-48`) + (b) estado final (rol `proxy`, `reconnects() == 0`, `connected() == false`, `DatabaseBusy` en un segundo `open`) + pinche del reloj que el test no controlaba (`file_lock_timeout_ms: 50` en vez del default 1000 ms).
-- **Por qué conserva la cota:** la red sigue ahí, pero gruesa y **justificada por medición** — `5 s → 10 s`. Medido 1,93-2,10 s con carga (×~5 de margen); el peor número *con carga* de esta clase es 5,05 s (`MCP-44`, que además pagaba los 1000 ms que este test ya no paga) y la regresión que la red protege es 11,17 s. Sin la red, la clase `System::new_all()` quedaría en verde.
+- **20/20 corridas del bucle sin un fallo** (0 sin ejecutar) con 6 jobs de CPU en paralelo, sobre el código final. Detalle en §Step 3.
+- **Mecanismo elegido:** (a) conteo de resoluciones (`resolve_failures() == 1`, observable de `MCP-48`); (b) estado final (rol `proxy`, `reconnects() == 0`, `connected() == false`, `DatabaseBusy` en un segundo `open` con la paciencia de producción, discovery leído y parseado); (c) **cota inferior de 150 ms** — el backoff que 3 sondas deben pagar, sin la cual `RESOLVE_ATTEMPTS→1` pasaba el test; y pinche del reloj que el test no controlaba (`file_lock_timeout_ms: 50` en vez del default 1000 ms).
+- **Por qué conserva la cota:** la red sigue, gruesa y **justificada por medición** — `5 s → 10 s`. Medido 1,93-2,10 s con carga (~5× de margen); la forma vieja con carga reportó 5,05 s (`MCP-44`, que además pagaba los 1000 ms que este test ya no paga) y la regresión que la red protege cuesta hoy **~21 s** (6 `is_pid_alive` × ~3,5 s de `System::new_all()`), no 11,17 s. Sin la red, esa clase quedaría en verde.
 
 ## Dependencias
 - `MCP-48` ✅ (`d38975eb9`: introdujo `reconnects()`/`resolve_failures()`) · `MCP-44` ✅ (`2fb20c728`: midió el fallo) · `FIND-724` ✅ (patrón señal-vs-reloj). Carril R (1 de 2 slots).
 
 ## Incógnitas / deuda observada y no tocada
-- **`is_pid_alive` cuesta ~300 ms por llamada en Windows** (refresco dirigido por PID), y cada sonda paga **dos** (`try_proxy` + `cleanup_stale`) ⇒ una resolución completa son ~1,9 s. El `<0,3 s` que anota `MCP-48` en `avance/activo/bindings.md:1684` describe el camino de reconexión que acierta en la primera sonda, no esta resolución de 3 sondas con PID vivo; conviene medirlo antes de citarlo como número de este camino. Reducirlo es cambio de producción (`vantadb-mcp/src/**`, prohibido en este ticket) → **derivada a registrar por el owner**.
-- Los 1000 ms de paciencia por defecto siguen siendo el coste del caso patológico documentado en `promote()` (`proxy.rs:570-574`). El test ya no los paga porque no es lo que verifica.
+- **`is_pid_alive` cuesta ~300 ms por llamada en Windows** (refresco dirigido por PID), y cada sonda paga **dos** (`try_proxy` + `cleanup_stale`) ⇒ una resolución completa son ~1,9 s. El `<0,3 s` que anota `MCP-48` en `avance/activo/bindings.md:1684` describe el camino de reconexión que acierta en la primera sonda, no esta resolución completa: la entrada de `MCP-48` quedó **anotada en el lugar** con la medición vigente (1,93-2,10 s) y con el coste actualizado de la clase de regresión (~21 s, no 11,17 s, porque hoy son 6 comprobaciones). Reducirlo es cambio de producción (`vantadb-mcp/src/**`, prohibido en este ticket) → **derivada a registrar por el owner**.
+- Los 1000 ms de paciencia por defecto siguen siendo el coste del caso patológico documentado en `promote()` (`proxy.rs:570-574`). El test ya no los paga en el camino medido, pero **sí los sigue cubriendo**: el segundo `open` usa la config por defecto y corre después de capturar `elapsed`.
+- `check-docs` está **rojo por ficheros de otros carriles** (`.tmp-avance-entry.md` sin frontmatter; `FIND-740-747.md` con `description` de 457 > 400). No se tocaron: son ajenos y borrarlos pisaría trabajo en vuelo. Mientras existan, el gate no distingue un rojo nuevo de los heredados — la clase "un check que ya está rojo no mide" (la misma que `FIND-740`).
 
 ## Review (GATE — agente distinto, P2-01)
 
-- **Revisor:** `vanta-review` (tier fast: el diff toca tests + docs, ningún path de la tabla adversarial)
-- **Enfoque:** ¿el test sigue afirmando el invariante o se volvió siempre-verde? ¿la red de 10 s conserva la protección de 11,17 s?
-- **Veredicto:** ver §Review abajo / entrada de `avance`
+- **Revisor:** `vanta-review` (sesión `ses_de99346c2ffeLg5Ccr6klxaJjE`; tier fast — el diff toca tests + docs, ningún path de la tabla adversarial)
+- **Enfoque:** ¿el test puede volverse siempre-verde? ¿la red de 10 s conserva de verdad la protección de la clase `System::new_all()`? ¿pinchar `file_lock_timeout_ms: 50` debilita lo verificado? ¿la falsabilidad declarada es honesta? ¿el commit de docs arrastró trabajo ajeno?
+- **Cómo se probó:** el revisor re-ejecutó el contrato por su cuenta (filtro 1/1 en dos corridas, archivo completo 4/4, `rustfmt --edition 2021 --check` exit 0, `clippy -D warnings` exit 0, `check-links` exit 0), leyó `proxy.rs` completo y verificó `git show 81e7143ac -- docs/dev/Backlog.md` (solo la sección de FIND-739) más el working tree (borrados ajenos sin commitear).
+- **Veredicto ronda 1:** 🔴 `changes-required` — 0 Critical, **5 Required** (R1 cota inferior ausente: `resolve_failures` cuenta resoluciones, no sondas; R2 falsabilidad sobrevendida; R3 este gate sin dictamen; R4 `check-docs` afirmado en verde sin estarlo; R5 contradicción `<0,3 s` vs 1,93-2,10 s en `avance`) y **4 Optional** (escalera 5/10/20 y no 40; default de producción sin cubrir; discovery solo `exists()`; aritmética de márgenes).
+- **Aplicado:** los 5 requeridos y los 4 opcionales, con el contrato re-ejecutado después (20/20 bajo carga, archivo 4/4, fmt/clippy 0). **Sin segunda ronda formal** (declarado, no fabricado).
