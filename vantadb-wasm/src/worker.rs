@@ -234,7 +234,12 @@ impl OpfsWorkerProxy {
                 Err(e) => return Err(e),
             }
         }
-        unreachable!()
+        // Unreachable by construction: on the final iteration
+        // `attempt == MAX_RETRIES`, the retry guard is false and the catch-all
+        // `Err(e)` arm above returns. Returned as an error rather than
+        // `unreachable!()` because a panic in a wasm module aborts the host
+        // instead of surfacing to the JS caller (FIND-152).
+        Err(JsValue::from_str("worker send: retry loop exhausted"))
     }
 
     async fn try_send(&self, req: &WorkerRequest) -> Result<WorkerResponse, JsValue> {
