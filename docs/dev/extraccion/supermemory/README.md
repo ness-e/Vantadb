@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`supermemoryai/supermemory`](h
 | Rama | `main` |
 | SHA validado | `16ed414e0e0c61c946b7687ec813b2064fe75dd4` |
 | Snapshot de metadata | 31559 estrellas, MIT |
+| Gate legal | Permisivo en clientes `MIT`; `X-SUP-08` exige contrato externo |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`supermemoryai/supermemory`](h
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

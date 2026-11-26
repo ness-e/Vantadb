@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`TencentCloud/TencentDB-Agent-
 | Rama | `feat/server_team` |
 | SHA validado | `2002196f2d7c22ea267cfcaf67c5a6fa861df681` |
 | Snapshot de metadata | 30589 estrellas, NOASSERTION |
+| Gate legal | Permisivo (`MIT` local; puentes npm/cloud externos aparte) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`TencentCloud/TencentDB-Agent-
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

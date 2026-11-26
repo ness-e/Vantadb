@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`colbymchenry/codegraph`](http
 | Rama | `main` |
 | SHA validado | `f72c9d2efb14454ff4f9fd7b8460abd82f19a287` |
 | Snapshot de metadata | 76956 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`colbymchenry/codegraph`](http
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

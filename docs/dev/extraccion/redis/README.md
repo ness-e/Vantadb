@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`redis/redis`](https://github.
 | Rama | `unstable` |
 | SHA validado | `5b69ba2ce91fea8e9fc70ebac8ce341b37e75533` |
 | Snapshot de metadata | 77268 estrellas, NOASSERTION |
+| Gate legal | **BLOQUEO código**: ninguna opción compatible con `Apache-2.0` |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`redis/redis`](https://github.
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

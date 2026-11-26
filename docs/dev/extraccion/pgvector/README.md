@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`pgvector/pgvector`](https://g
 | Rama | `master` |
 | SHA validado | `724588a5504b0e9c462e3126563370e8d50a01eb` |
 | Snapshot de metadata | 23612 estrellas, NOASSERTION |
+| Gate legal | Permisivo (`PostgreSQL License`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`pgvector/pgvector`](https://g
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

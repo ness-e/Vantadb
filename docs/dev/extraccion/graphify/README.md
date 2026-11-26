@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`Graphify-Labs/graphify`](http
 | Rama | `v8` |
 | SHA validado | `16218bfc80d4ca2799734d045039f7ed1a5fa9fb` |
 | Snapshot de metadata | 143653 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`; preservar `NOTICE` si hay derivación) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`Graphify-Labs/graphify`](http
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

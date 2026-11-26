@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`VectifyAI/PageIndex`](https:/
 | Rama | `main` |
 | SHA validado | `2ac8694bf8fe89a3840dda9bdb88db5119b77fc4` |
 | Snapshot de metadata | 40160 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`VectifyAI/PageIndex`](https:/
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`facebookresearch/faiss`](http
 | Rama | `main` |
 | SHA validado | `277b3c76b7a1507915eb8f5010dcb367cbc95494` |
 | Snapshot de metadata | 41261 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`facebookresearch/faiss`](http
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

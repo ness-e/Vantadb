@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`agno-agi/agno`](https://githu
 | Rama | `main` |
 | SHA validado | `f45ccee83dcd332c6a2cf46b0a0add3e7f7d3e68` |
 | Snapshot de metadata | 43089 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`agno-agi/agno`](https://githu
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

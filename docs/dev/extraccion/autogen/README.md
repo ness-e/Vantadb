@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`microsoft/autogen`](https://g
 | Rama | `main` |
 | SHA validado | `d07c667a3239ea4ab7af62a53b0f4ff205a1f23d` |
 | Snapshot de metadata | 61738 estrellas, CC-BY-4.0 |
+| Gate legal | `X-ATG-01..05` citan `.py` (`MIT`); no copiar docs `CC-BY-4.0` |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`microsoft/autogen`](https://g
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`run-llama/llama_index`](https
 | Rama | `main` |
 | SHA validado | `444fdf0684707de62ebb447d658dba137dd9cb99` |
 | Snapshot de metadata | 52837 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`run-llama/llama_index`](https
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

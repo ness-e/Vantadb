@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`MemPalace/mempalace`](https:/
 | Rama | `develop` |
 | SHA validado | `f8e35362189bd0a5abf4c0df1dd5bf90ba059176` |
 | Snapshot de metadata | 60446 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`MemPalace/mempalace`](https:/
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

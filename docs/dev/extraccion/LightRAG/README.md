@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`HKUDS/LightRAG`](https://gith
 | Rama | `main` |
 | SHA validado | `aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a` |
 | Snapshot de metadata | 40591 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`HKUDS/LightRAG`](https://gith
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

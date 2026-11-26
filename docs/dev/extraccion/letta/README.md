@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`letta-ai/letta`](https://gith
 | Rama | `main` |
 | SHA validado | `8816d3a8516893bfdc0fa14bfb1235226012e295` |
 | Snapshot de metadata | 25377 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`; V1 `archive` deprecado upstream) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`letta-ai/letta`](https://gith
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

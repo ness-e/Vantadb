@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`FlowiseAI/Flowise`](https://g
 | Rama | `main` |
 | SHA validado | `9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb` |
 | Snapshot de metadata | 55562 estrellas, NOASSERTION |
+| Gate legal | `X-FLW-01..05` en rutas `Apache-2.0`; vedado `enterprise/**` |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`FlowiseAI/Flowise`](https://g
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

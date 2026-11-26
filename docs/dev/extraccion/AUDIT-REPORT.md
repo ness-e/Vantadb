@@ -10,14 +10,14 @@ tags: [extraccion, audit, licenses, backlogs]
 
 Resumen de cierre de la ola de consolidación documental (workers W1–W5). Este
 documento **no re-deriva** datos: remite a las fuentes verificadas
-[backlogs/LICENSES.md](backlogs/LICENSES.md) (matriz legal),
+[LICENSES.md](LICENSES.md) (matriz legal),
 [agent-memory-2026-11-07/AUDIT-REPO.md](agent-memory-2026-11-07/AUDIT-REPO.md)
 (integridad de árbol, índices, `.gitignore`, enlaces y cobertura) y al `git diff`
 de la ola (corrección de backlogs y nuevos documentos).
 
 ## 1. Licencias del corpus (43 proyectos)
 
-Fuente: [backlogs/LICENSES.md](backlogs/LICENSES.md) — verificación local de los
+Fuente: [LICENSES.md](LICENSES.md) — verificación local de los
 `LICENSE*`/`NOTICE*` en los clones fijados por SHA, cruzada con las 265 filas
 `X-*` frente a la licencia `Apache-2.0` de VantaDB.
 
@@ -58,9 +58,9 @@ Hallazgos resueltos en esta ola:
 
 ## 3. Trazabilidad de los backlogs
 
-- **43 backlogs** por proyecto bajo [backlogs/](backlogs/) en el formato
+- **43 backlogs** por proyecto bajo `<repositorio>/BACKLOG.md` en el formato
   canónico de 10 columnas de `docs/dev/Backlog.md` (convenciones en
-  [backlogs/README.md](backlogs/README.md)).
+  [BACKLOG-FORMAT.md](BACKLOG-FORMAT.md)).
 - **265 filas `X-*`** con **265 fichas 1:1** completadas en los lotes A/B/C
   (`ca7400f9d`, `466726e70`, `83218f1e4`, `81623ec33`), cada una con evidencia
   `archivo:líneas` sobre el clon fijado por SHA.
@@ -83,6 +83,6 @@ propuesto está implementado ni aprobado.
 
 | Documento | Rol |
 |---|---|
-| [backlogs/LICENSES.md](backlogs/LICENSES.md) | Matriz legal verificada de los 43 proyectos y gate previo a spec |
+| [LICENSES.md](LICENSES.md) | Matriz legal verificada de los 43 proyectos y gate previo a spec |
 | [agent-memory-2026-11-07/AUDIT-REPO.md](agent-memory-2026-11-07/AUDIT-REPO.md) | Auditoría de árbol, índices, `.gitignore` y enlaces |
 | Este documento | Resumen consolidado de los cinco ejes para cierre de la ola |

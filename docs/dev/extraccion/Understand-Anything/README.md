@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`Egonex-AI/Understand-Anything
 | Rama | `main` |
 | SHA validado | `a6ea4024767df85ce4f99140d4f12ecfc5a81eb6` |
 | Snapshot de metadata | 91147 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`Egonex-AI/Understand-Anything
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`chroma-core/chroma`](https://
 | Rama | `main` |
 | SHA validado | `1a3ac2c7c623adbd03ed2508dc27b98cdf26016d` |
 | Snapshot de metadata | 29650 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`chroma-core/chroma`](https://
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

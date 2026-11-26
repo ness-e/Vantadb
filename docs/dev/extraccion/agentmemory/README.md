@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`rohitg00/agentmemory`](https:
 | Rama | `main` |
 | SHA validado | `4f758eff36c8403570e1bf2ac6d986239fcdb662` |
 | Snapshot de metadata | 30.183 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`) |
 | VantaDB de contraste en el informe | `97c9623c8ef5a70fdb51aff215bfbb3b05b15612` |
 
 ## Estado
@@ -40,3 +41,4 @@ Esta carpeta contiene el dossier del repositorio [`rohitg00/agentmemory`](https:
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
 - Referencia VantaDB del contraste: `../agent-memory-2026-11-07/VANTA-REFERENCE.md`
+- Matriz legal: `../LICENSES.md`

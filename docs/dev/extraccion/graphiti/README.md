@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`getzep/graphiti`](https://git
 | Rama | `main` |
 | SHA validado | `747b480ec6b12ecb718f1e2bc588b20ee36ea9c2` |
 | Snapshot de metadata | 32614 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`getzep/graphiti`](https://git
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

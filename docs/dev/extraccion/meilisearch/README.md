@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`meilisearch/meilisearch`](htt
 | Rama | `main` |
 | SHA validado | `c18c81973ad5d3e126f4583cdd16a9ec1719aa4a` |
 | Snapshot de metadata | 59806 estrellas, NOASSERTION |
+| Gate legal | `X-MEI-01..05` en `MIT`; vedado `*enterprise_edition*` (Rust) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`meilisearch/meilisearch`](htt
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

@@ -46,7 +46,7 @@ El inventario físico y en Git bajo `docs/dev/extraccion/` suma **115 documentos
 - `2` en raíz ([../README.md](../README.md), [../Backlog-OpenViking-VantaDB.md](../Backlog-OpenViking-VantaDB.md)).
 - `50` en `agent-memory-2026-11-07/` (`8` documentos de control + `42` informes de proyectos).
 - `19` en `agent-memory-2026-11-07/reviews/`.
-- `44` en `backlogs/` ([../backlogs/README.md](../backlogs/README.md) + `43` backlogs por proyecto/OpenViking).
+- `44` en `backlogs/` ([../BACKLOG-FORMAT.md](../BACKLOG-FORMAT.md) + `43` backlogs por proyecto/OpenViking).
 
 | Índice generado | Entradas `extraccion/` | Cobertura | Observaciones |
 |---|---:|---|---|

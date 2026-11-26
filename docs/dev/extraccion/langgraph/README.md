@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`langchain-ai/langgraph`](http
 | Rama | `main` |
 | SHA validado | `e5e37b5d70dbfd93c7006bd90a658c6179a95946` |
 | Snapshot de metadata | 44598 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`langchain-ai/langgraph`](http
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

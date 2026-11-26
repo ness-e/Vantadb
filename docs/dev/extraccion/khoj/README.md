@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`khoj-ai/khoj`](https://github
 | Rama | `master` |
 | SHA validado | `ae229ca894c0b80ad84664afcfdde523b5e87057` |
 | Snapshot de metadata | 38033 estrellas, AGPL-3.0 |
+| Gate legal | **BLOQUEO código**: solo *clean-room* |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`khoj-ai/khoj`](https://github
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

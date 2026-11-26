@@ -21,6 +21,7 @@ Esta carpeta contiene el estudio complementario de Zep Cloud y Konig. No es una 
 - **Fecha de consulta:** 2026-11-20.
 - **Alcance:** Zep Cloud v4, Konig, Context Graphs, Context Block, governance, Agent Skills y metodología de evaluación.
 - **No alcance:** código del producto, ejecución de servicios, benchmarks propios, verificación de claims comerciales ni implementación en VantaDB.
+- **Gate legal:** producto SaaS propietario y cerrado — solo patrones y contratos documentales; fuera de la matriz `../LICENSES.md` (que cubre los 43 clones).
 
 ## Fuentes principales
 

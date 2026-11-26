@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`weaviate/weaviate`](https://g
 | Rama | `main` |
 | SHA validado | `85bd085e6fd6bcf2c6269c880dc49181c86bbb92` |
 | Snapshot de metadata | 16942 estrellas, NOASSERTION |
+| Gate legal | `X-WEA-01..06` fuera de `wl/` (`BSD-3-Clause`); vedado `wl/**` |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`weaviate/weaviate`](https://g
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

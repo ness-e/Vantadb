@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`crewAIInc/crewAI`](https://gi
 | Rama | `main` |
 | SHA validado | `73f48320dbe6e2dc7a9bc54fefc6a13637b9485c` |
 | Snapshot de metadata | 60593 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`crewAIInc/crewAI`](https://gi
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

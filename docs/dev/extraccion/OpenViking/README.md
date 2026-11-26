@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`volcengine/OpenViking`](https
 | Rama | `main` |
 | SHA validado | `b8e88959f3ab437b4d08514eceaa7221cca470dc` |
 | Snapshot de metadata |  estrellas, AGPL-3.0 |
+| Gate legal | **BLOQUEO código**: `14/14` filas vienen de árbol `AGPL-3.0` |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`volcengine/OpenViking`](https
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

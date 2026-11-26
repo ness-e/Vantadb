@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`openai/openai-agents-python`]
 | Rama | `main` |
 | SHA validado | `27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9` |
 | Snapshot de metadata | 30539 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`openai/openai-agents-python`]
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

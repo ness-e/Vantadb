@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`The-Vibe-Company/quivr`](http
 | Rama | `main` |
 | SHA validado | `bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f` |
 | Snapshot de metadata | 39633 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`The-Vibe-Company/quivr`](http
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

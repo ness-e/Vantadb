@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`lancedb/lancedb`](https://git
 | Rama | `main` |
 | SHA validado | `bff93ff314eee34f625d05bd92b73d95867fe787` |
 | Snapshot de metadata | 11857 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`lancedb/lancedb`](https://git
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

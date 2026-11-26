@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`microsoft/graphrag`](https://
 | Rama | `main` |
 | SHA validado | `34b2b67ae4601ad0b47bcd179fbe3f2a23aa0857` |
 | Snapshot de metadata | 36585 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`microsoft/graphrag`](https://
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

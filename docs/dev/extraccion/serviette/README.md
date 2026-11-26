@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`pathwaycom/serviette`](https:
 | Rama | `main` |
 | SHA validado | `84e92a33728cf843026f4011d86568b403e38fb4` |
 | Snapshot de metadata | 58725 estrellas, MIT |
+| Gate legal | Fuente `serviette` `MIT`; prohibido depender de `pathway` |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`pathwaycom/serviette`](https:
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

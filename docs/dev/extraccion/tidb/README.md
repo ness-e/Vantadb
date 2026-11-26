@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`pingcap/tidb`](https://github
 | Rama | `master` |
 | SHA validado | `41efd866c3801a637ab2d6712b86d8b2cd77ac5b` |
 | Snapshot de metadata | 40715 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`; no tocar submódulo enterprise) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`pingcap/tidb`](https://github
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

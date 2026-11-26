@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`Mintplex-Labs/anything-llm`](
 | Rama | `master` |
 | SHA validado | `308b27662b2f6fd4947791d61c797945c609fcbc` |
 | Snapshot de metadata | 68021 estrellas, MIT |
+| Gate legal | Permisivo (`MIT`; no tocar submódulos) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`Mintplex-Labs/anything-llm`](
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

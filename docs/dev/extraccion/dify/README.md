@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`langgenius/dify`](https://git
 | Rama | `main` |
 | SHA validado | `65b4e17d6ebeff39c7e66c832649afff01666adf` |
 | Snapshot de metadata | 160588 estrellas, NOASSERTION |
+| Gate legal | **BLOQUEO código/UI**: solo *clean-room* |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`langgenius/dify`](https://git
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

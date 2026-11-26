@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`surrealdb/surrealdb`](https:/
 | Rama | `main` |
 | SHA validado | `9577ac5f0caa60a39d5a334e9352aed0e232f9e6` |
 | Snapshot de metadata | 33289 estrellas, NOASSERTION |
+| Gate legal | **BLOQUEO código (Rust)**: riesgo máximo de copia accidental |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`surrealdb/surrealdb`](https:/
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

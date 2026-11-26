@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`qdrant/qdrant`](https://githu
 | Rama | `master` |
 | SHA validado | `222b2e44ab1c3f17e8246396ead6558e45041df7` |
 | Snapshot de metadata | 35458 estrellas, Apache-2.0 |
+| Gate legal | Permisivo (`Apache-2.0`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`qdrant/qdrant`](https://githu
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`

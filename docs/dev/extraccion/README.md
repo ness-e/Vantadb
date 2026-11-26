@@ -19,7 +19,8 @@ carpeta propia por repositorio: `docs/dev/extraccion/<repositorio>/BACKLOG.md`.
 | [AUDIT-REPORT.md](AUDIT-REPORT.md) | Auditoría integral consolidada de los 5 ejes (licencias, estado del repo, trazabilidad de los 43 backlogs Lotes A/B/C y cruce contra `HEAD`) |
 | [Backlog-OpenViking-VantaDB.md](Backlog-OpenViking-VantaDB.md) | Informe central histórico de OpenViking; su dossier canónico está en [OpenViking/](OpenViking/) |
 | [agent-memory-2026-11-07/](agent-memory-2026-11-07/) | 42 informes de proyectos + documentos de control (CONSOLIDATED, REVIEW-COVERAGE, METHOD, BENCHMARK-NOTES, VANTA-REFERENCE, AUDIT-REPO, manifiestos, revisiones) |
-| [backlogs/](backlogs/) | Formato canónico de backlogs y matriz legal [LICENSES.md](backlogs/LICENSES.md); los `BACKLOG.md` viven en las carpetas por proyecto |
+| [BACKLOG-FORMAT.md](BACKLOG-FORMAT.md) | Formato canónico obligatorio de los `BACKLOG.md` por proyecto (10 columnas, reglas, gate legal) |
+| [LICENSES.md](LICENSES.md) | Matriz legal verificada de los 43 clones y gate previo a especificar cualquier fila `X-*` |
 
 ## Dossiers por proyecto
 
@@ -76,8 +77,8 @@ carpeta propia por repositorio: `docs/dev/extraccion/<repositorio>/BACKLOG.md`.
    transversales C1–C16 con prioridades y seams.
 2. [REVIEW-COVERAGE](agent-memory-2026-11-07/REVIEW-COVERAGE.md) — qué está
    acreditado, parcial o no acreditado por proyecto.
-3. [backlogs/](backlogs/README.md) — formato y convenciones de las filas.
-4. [LICENSES](backlogs/LICENSES.md) — gate legal antes de especificar cualquier
+3. [BACKLOG-FORMAT.md](BACKLOG-FORMAT.md) — formato y convenciones de las filas.
+4. [LICENSES.md](LICENSES.md) — gate legal antes de especificar cualquier
    fila `X-*`.
 
 ## Estado

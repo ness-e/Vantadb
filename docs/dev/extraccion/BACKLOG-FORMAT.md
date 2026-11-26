@@ -1,16 +1,16 @@
 ---
-title: "Backlogs de extracción — índice y formato"
+title: "Backlogs de extracción — formato canónico"
 kind: index
 status: active
-description: "Formato canónico de backlogs de extracción y matriz legal; los backlogs por proyecto viven en carpetas propias bajo docs/dev/extraccion"
-tags: [extraccion, backlog, index]
+description: "Formato canónico obligatorio de los BACKLOG.md por proyecto (10 columnas, reglas y gate legal)"
+tags: [extraccion, backlog, formato]
 ---
 
 # Backlogs de extracción
 
-Los backlogs canónicos por proyecto viven ahora en una carpeta propia dentro de
-`docs/dev/extraccion/<repositorio>/BACKLOG.md`. Esta carpeta conserva el
-formato obligatorio y la matriz legal [LICENSES.md](LICENSES.md).
+Los backlogs canónicos por proyecto viven en una carpeta propia dentro de
+`docs/dev/extraccion/<repositorio>/BACKLOG.md`. Este documento fija el formato
+obligatorio; la matriz legal del corpus está en [LICENSES.md](LICENSES.md).
 
 Cada backlog convierte las candidatas del informe de extracción en filas
 ejecutables con el **esquema canónico de 10 columnas** de `docs/dev/Backlog.md`.

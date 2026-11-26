@@ -24,6 +24,7 @@ Esta carpeta contiene el dossier del repositorio [`DeusData/codebase-memory-mcp`
 | Rama | `main` |
 | SHA validado | `612eee2518ef84cc573e491fdee5fa5c90264cb5` |
 | Snapshot de metadata | 48254 estrellas, MIT |
+| Gate legal | Permisivo (`MIT` en `src/` y `graph-ui/`) |
 | VantaDB de contraste | Ver la sección de identidad del informe |
 
 ## Estado
@@ -39,4 +40,4 @@ Esta carpeta contiene el dossier del repositorio [`DeusData/codebase-memory-mcp`
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`
-- Matriz legal: `../backlogs/LICENSES.md`
+- Matriz legal: `../LICENSES.md`
