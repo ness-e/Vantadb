@@ -274,4 +274,9 @@ Todo verificado en vivo por el reviewer (binarios falsos incluidos). Qué se hiz
 | [low] F10: `status: in-progress` sin §Review | ✅ este bloque; status `completed`. |
 | [nit] derive `version` en `src/cli.rs` queda como señuelo | ⚠️ no se toca (comentario en la lib = recompilar el engine); el comentario del bin ya explica que el override vive ahí. |
 
-Veredicto tras la ronda: **APPROVE** (los dos high y los medium accionables cerrados; F5 es un techo documentado, F3/F6 dejan deuda de cableado explícita fuera de alcance).
+Estado tras aplicar la ronda: los **2 high** y los medium accionables están
+cerrados y re-verificados por el autor (mediciones de rerun set + matriz de
+códigos con binarios falsos); **no hubo segunda ronda** (la tarea pide una).
+Residual declarado: F5 (un build sucio declara el commit base — techo del
+artefacto) y el cableado del script en CI/hook (`.github/**` y `dev-tools/**`
+fuera de alcance).
