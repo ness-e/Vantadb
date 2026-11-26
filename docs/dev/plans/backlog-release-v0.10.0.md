@@ -1,7 +1,7 @@
 ---
 title: "Backlog acotado - release v0.10.0 (parciales + criticas)"
 kind: plan
-status: active
+status: superseded
 description: "Vista filtrada del backlog: todas las filas parciales y todas las criticas que deben cerrarse antes del 1-dic"
 tags: [vantadb, backlog, release]
 ---

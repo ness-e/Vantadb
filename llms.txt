@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-590 documentation pages; it deliberately omits the 264 task files,
+590 documentation pages; it deliberately omits the 265 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -259,14 +259,14 @@ is in docs/index.md in the repository.
 ## Plans
 
 - [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/bnd-08-publish-checklist.md): Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de
-- [Backlog acotado - release v0.10.0 (parciales + criticas)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/backlog-release-v0.10.0.md): Vista filtrada del backlog: todas las filas parciales y todas las criticas que deben cerrarse antes del 1-dic
-- [Batch de parciales y filas nuevas - ejecución completa por waves](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-11-26-batch-parciales-y-nuevas.md): Plan de ejecución de los 33 IDs recibidos el 2026-11-26. Todas las tareas entran al plan y se ejecutan; se agrupan en waves por partición de ficheros. Los prerequisitos externos (credenciales, autorización de publish) se declaran por tarea, no se usan para descartarla.
-- [Plan de ejecución: release v0.10.0 + ola v0.10.x (36 parciales)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-11-23-release-v0.10.0-gates.md): Plan único de ejecución: cierre del release v0.10.0 y las 36 filas Parcial del backlog en 5 fases con waves, routing de sub-agentes y contratos mecánicos
+- [Batch de parciales y filas nuevas - ejecución completa por waves](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-11-26-batch-parciales-y-nuevas.md): Plan de ejecución de los 33 IDs recibidos + 2 del plan del release el 2026-11-26. Todas las tareas entran al plan y se ejecutan; se agrupan en waves por partición de ficheros. Los prerequisitos externos (credenciales, autorización de publish) se declaran por tarea, no se usan para descartarla.
 - [Upstream PR draft — CrewAI](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/crewai.md): Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — DSPy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/dspy.md): Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — LangChain](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/langchain.md): Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404
 - [Upstream PR draft — LlamaIndex](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/llamaindex.md): Prereq (bloquea merge upstream): publicar vantadb-llamaindex en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — Mem0](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/mem0.md): Prereq (bloquea merge upstream): publicar vantadb-mem0 en PyPI (tag adapters-v0.5.0)
+- [Backlog acotado - release v0.10.0 (parciales + criticas)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/backlog-release-v0.10.0.md): Vista filtrada del backlog: todas las filas parciales y todas las criticas que deben cerrarse antes del 1-dic
+- [Plan de ejecución: release v0.10.0 + ola v0.10.x (36 parciales)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-11-23-release-v0.10.0-gates.md): Plan único de ejecución: cierre del release v0.10.0 y las 36 filas Parcial del backlog en 5 fases con waves, routing de sub-agentes y contratos mecánicos
 
 ## API reference
 

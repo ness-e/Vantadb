@@ -2,7 +2,7 @@
 title: "Batch de parciales y filas nuevas - ejecución completa por waves"
 kind: plan
 status: active
-description: "Plan de ejecución de los 33 IDs recibidos el 2026-11-26. Todas las tareas entran al plan y se ejecutan; se agrupan en waves por partición de ficheros. Los prerequisitos externos (credenciales, autorización de publish) se declaran por tarea, no se usan para descartarla."
+description: "Plan de ejecución de los 33 IDs recibidos + 2 del plan del release el 2026-11-26. Todas las tareas entran al plan y se ejecutan; se agrupan en waves por partición de ficheros. Los prerequisitos externos (credenciales, autorización de publish) se declaran por tarea, no se usan para descartarla."
 tags: [pipeline, backlog, waves]
 ---
 
@@ -18,7 +18,7 @@ tags: [pipeline, backlog, waves]
 - **1 solo carril en `src/**`** cuando la tarea es un barrido ancho (`DEAD-01`, `FIND-759`).
 - Commits **locales**, `GIT_INDEX_FILE` temporal, verificación **por contenido**, nunca `--amend`, push sólo con instrucción explícita.
 
-## Las 33 tareas y su wave
+## Las 35 tareas y su wave
 
 | # | ID | Wave | Carril | Ficheros / zona exclusiva | Prerequisito declarado |
 |---:|---|---|---|---|---|
@@ -55,6 +55,8 @@ tags: [pipeline, backlog, waves]
 | 31 | `NOT-06` | W8 | D | 71 páginas de Notion | **credenciales/permiso del workspace del owner** |
 | 32 | `GTM-05` | W8 | D | landing `vantadb.dev` | **DNS/dominio + cuenta Vercel del owner** |
 | 33 | `GTM-09` | W8 | D | `/enterprise` + one-pager | **precio público**: decisión del owner |
+| 34 | `FIND-689` | **W9** | L | guardrail de transferencia `ness-e/Vantadb` → `NegentMind/vantadb` | **Trusted Publishing OIDC en crates.io** + decisión de transferencia del owner |
+| 35 | `FIND-704` | **W9** | A→R | `src/config.rs` (tipo `ModelLocation`) + `src/llm.rs` · `src/embedding_health.rs` | decisión de `vanta-arch` sobre strict vs lenient |
 
 > Las filas 30–33 **se ejecutan hasta donde no requieran el clic del owner**: contenido, copy, estructura de página, plantilla de Notion, `vercel.json`, borradores listos para publicar. Lo que queda pendiente se lista explícitamente como "espera al owner" y **la tarea sigue en el plan**.
 

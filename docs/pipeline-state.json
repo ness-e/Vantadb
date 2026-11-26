@@ -1,23 +1,43 @@
 {
-  "plan": "docs/dev/plans/2026-11-23-release-v0.10.0-gates.md",
-  "planVersion": "2026-11-24 executable - lanes R2/D4/C3/A2, batch verify per wave, continuous until Dec 1",
+  "plan": "docs/dev/plans/2026-11-26-batch-parciales-y-nuevas.md",
+  "planVersion": "2026-11-26 unified - 35 tasks in 9 waves, single active plan",
   "ownerDecision": "ejecutar todas las parciales sin cupo artificial hasta el 1-dic; el release va al final (2026-11-24)",
   "totalCompleted": 9,
   "totalFailed": 0,
   "total": 46,
   "consecutiveFails": 0,
   "failMode": "parallel-lanes",
-  "lanes": { "R": { "cap": 2, "running": 1 }, "D": { "cap": 4, "running": 2 }, "C": { "cap": 3, "running": 1 }, "A": { "cap": 2, "running": 0 } },
-  "phase": "B (F1)",
-  "running": {
-    "F0.2": "ses_df0f65c9dffeCOV56QtoRfcxOW (R, vanta-worker) - rebuild + re-pin 5 sites + .scopegrain",
-    "FIND-328": "ses_df0e218dbffefHzC4XvzVGPZzb (C, vanta-lead) - heavy cert triage, commit 51de511c1, waiting review",
-    "FIND-177": "ses_df0d25b04ffeceES7vRdQ2QhvY (D, vanta-docs) - Windows binary lock troubleshooting",
-    "FIND-164": "ses_df0d25b03ffe13IPKvl5qGwfRQ (D, vanta-docs) - scope every nextest mention with -p"
+  "lanes": {
+    "R": {
+      "cap": 2,
+      "running": 0
+    },
+    "C": {
+      "cap": 2,
+      "running": 0
+    },
+    "A": {
+      "cap": 1,
+      "running": 0
+    },
+    "D": {
+      "cap": 1,
+      "running": 0
+    },
+    "L": {
+      "cap": 1,
+      "running": 0
+    }
   },
+  "phase": "B (F1)",
+  "running": {},
   "completed": {
-    "FIND-700": "c54165cff", "FIND-699": "61c2be235", "FIND-485": "d0df55c2b", "FIND-707": "51c038efd",
-    "FIND-705": "5a669a186 + 11abb6e54", "FIND-709": "9dab5093b",
+    "FIND-700": "c54165cff",
+    "FIND-699": "61c2be235",
+    "FIND-485": "d0df55c2b",
+    "FIND-707": "51c038efd",
+    "FIND-705": "5a669a186 + 11abb6e54",
+    "FIND-709": "9dab5093b",
     "F0.1": "0ecbe574e - FIND-701/702 closed, FIND-714/715 registered",
     "F0.3": "919632e21 + 29cbcbcf1",
     "F0.4": "777fc24a5 - no-execution verdict",
@@ -28,10 +48,21 @@
     "FIND-177 y FIND-192 serializadas: ambas tocan dev-tools/",
     "Backlog.md: solo lo escribe el orquestador (agentes devuelven el texto de la fila)"
   ],
-  "repoConfig": { "rulesets": "23692587 + 16844590 -> MSRV Check (1.95.0)" },
-  "authorizations": {
-    "pushDevelop": true, "commits": true, "subagents": true, "ciMonitoring": true, "repoSettings": true, "closeStalePRs": true,
-    "tags": false, "publish": false, "mergeToMain": "solo con OK del owner y CI verde en develop", "destructive": false
+  "repoConfig": {
+    "rulesets": "23692587 + 16844590 -> MSRV Check (1.95.0)"
   },
-  "lastSync": "2026-11-24T20:55:00Z"
+  "authorizations": {
+    "pushDevelop": true,
+    "commits": true,
+    "subagents": true,
+    "ciMonitoring": true,
+    "repoSettings": true,
+    "closeStalePRs": true,
+    "tags": false,
+    "publish": false,
+    "mergeToMain": "solo con OK del owner y CI verde en develop",
+    "destructive": false
+  },
+  "lastSync": "2026-11-24T20:55:00Z",
+  "note": "Los estados del plan 2026-11-23 quedaron superseded; la fuente de verdad es Backlog.md + avance/. Entradas \"running\" de 2026-11-24 estaban muertas y se vaciaron."
 }
