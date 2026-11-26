@@ -639,6 +639,56 @@ surfaces in ≤24h instead of ≤7d:
     run opens (or comments on) the `[Nightly] Heavy certification subset
     failed` auto-issue listing this job.
 
+### 2c. Excluded-binary coverage ledger (FIND-752, 2026-11-26)
+
+The `default-filter` of `.config/nextest.toml` excludes ~55 heavy binaries by name. For six of
+them the exclusion was *documented but never measured*: nobody had counted how many tests they
+hold, or whether a healthy lane runs them at all. Counted on 2026-11-26 against `gh`, the answer
+is **154 tests in the six binaries, of which 119 (77 %) have no lane that executes them**.
+
+| Binary | Tests | Lane today | Last real result | Verdict |
+|---|---:|---|---|---|
+| `benchmark_internal` | 1 | `certification.yml` → job `other_heavy` (step "Run remaining heavy tests") | run `45598671538` (2026-11-25): job **failure at the TBH-01 dataset gate, before the test step** → 0 success / 36 failure in 30 d | **does not run** |
+| `benchmark_datasets` | 1 | same job | same | **does not run** — and when run locally without GloVe-100 it returns early in green (`tests/benchmark_datasets.rs:18`) |
+| `cli_tests` | 96 | same job | same | **does not run** — CI and the local nextest gate both exclude the binary |
+| `concurrency_parity` | 5 (4 + 1 `#[ignore]`) | `certification.yml` → job `memory_concurrency` | run `45598671538`: **success** → 35 success / 0 failure in 30 d | **runs** 4 of 5; `test_triple_backend_parity_validation` is `#[ignore]` and no workflow passes `--include-ignored` → **does not run** |
+| `snapshot_certification` | 56 with `--features failpoints` | `snapshot-certification.yml` phases 03/04/05 | run `45802050950` (2026-11-26): **success** → 39 success / 6 failure / 3 cancelled in 30 d | **runs partially** — the phase selector `test(snapshot) or test(pending_restore) or test(schedule)` matches **42 of 56**; 14 are never selected |
+| `security_audit` | 6 | **none** | never ran; `git log -S"security_audit" -- .github/workflows` → 0 commits | **does not run** — `verify.ps1:117` and `coverage-budget.ps1:79` both `--skip security_audit` |
+
+**How these numbers were obtained** (repeatable; the full evidence lives in
+[`docs/dev/tasks/FIND-752.md`](../tasks/FIND-752.md)):
+
+```bash
+# inventory — the default filter is what hides them, hence --ignore-default-filter
+cargo nextest list -p vantadb --ignore-default-filter --run-ignored all \
+  -E 'binary(benchmark_internal) or binary(benchmark_datasets) or binary(cli_tests) \
+      or binary(concurrency_parity) or binary(snapshot_certification) or binary(security_audit)'
+# 154 tests (1 + 1 + 96 + 5 + 45 + 6)
+
+# what the snapshot lane actually selects, with the features that lane builds
+cargo nextest list -p vantadb --ignore-default-filter --run-ignored all \
+  --features failpoints --test snapshot_certification \
+  -E 'test(snapshot) or test(pending_restore) or test(schedule)'
+# 42 of 56
+
+# per-job conclusions for every scheduled run in the window
+gh run list --workflow certification.yml --created ">=2026-10-27" --limit 200 \
+  --json databaseId,event,conclusion
+gh api repos/{owner}/{repo}/actions/runs/<id>/jobs --jq '.jobs[] | "\(.conclusion) \(.name)"'
+```
+
+**The three states this ledger separates.** From outside, "excluded from the fast filter" looks
+the same whether the test (1) runs in another lane and passes, (2) runs and fails, or (3) does not
+run anywhere. Only (3) is the hole. `other_heavy` is the reason the distinction matters: it has
+not produced a single green run in 30 days, and it fails **before** the test step, so its three
+binaries are not "failing tests" — they are tests nothing executes. The immediate cause is
+`FIND-328`'s fix (download before the dataset gate) sitting in `develop` 552 commits ahead of
+`main`, which is the tree the schedule actually runs.
+
+**Rule for the next exclusion:** a binary added to `default-filter` must appear in this table with
+the lane that runs it and the command that counts it. An exclusion without a named green lane is
+the fast gate quietly shrinking.
+
 ### Coverage — Report & Per-Directory Budget (nightly) + CI canonical gate (HARD-02)
 
 **Decisions (owner):** 2026-09-26 (a) — the local gate no longer blocks on a global
