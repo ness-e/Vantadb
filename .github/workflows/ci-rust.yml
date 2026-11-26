@@ -28,31 +28,24 @@ on:
       - "release-plz.toml"
       - "release-manifest.json"
       - "cliff.toml"
+  # FIND-770: `pull_request` NO lleva `paths:` a proposito. Un workflow que no
+  # arranca no reporta NINGUN check-run: sus checks quedan en `Pending` y el PR
+  # no se puede mergear si son required
+  # (docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+  # §on.<push|pull_request>.<paths>). 10 de los 14 contexts required de
+  # `develop` (ruleset 23692587) salen de este fichero, y fuera de la lista
+  # quedaban 1280 de 2353 ficheros tracked (54,4 %) - 959 bajo `docs/`.
+  #
+  # El filtro NO se pierde: se mueve adentro, al job `rust-scope`, porque los
+  # patrones existen para no correr en cada PR los jobs caros que no puede
+  # afectar (medido en el run 45821093876: Tests Windows 3426 s, macOS 1586 s,
+  # Linux 658 s, Clippy 671 s). Un job omitido por `if:` SI reporta su
+  # check-run, con conclusion `skipped`, que GitHub trata como 'Success' y no
+  # bloquea el merge aunque el check sea required
+  # (docs.github.com/en/pull-requests/reference/status-checks).
+  # Mismo razonamiento y mismo remedio que `FIND-765` en `docs-gates.yml`.
   pull_request:
     branches: ["main", "develop"]
-    paths:
-      - "src/**"
-      - "tests/**"
-      - "benches/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "build.rs"
-      - ".config/nextest.toml"
-      - ".github/workflows/ci-rust.yml"
-      - "deny.toml"
-      - "osv-scanner.toml"
-      - "rust-toolchain.toml"
-      - "vantadb-*/**"
-      - "vanta-memory/**"
-      - "vanta-proxy/**"
-      - "integrations/**"
-      - "providers/**"
-      - ".gitleaks.toml"
-      - ".secretlintrc.json"
-      - ".secretlintignore"
-      - "release-plz.toml"
-      - "release-manifest.json"
-      - "cliff.toml"
   workflow_dispatch:
 
 env:
@@ -68,6 +61,104 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  rust-scope:
+    # FIND-770: `on.pull_request` no lleva `paths:` (ver el bloque `on:`), asi
+    # que el filtro vive aqui. Este job contesta "¿este PR toca alguno de los
+    # patrones Rust?" y `clippy` -que es el primer eslabon de la cadena de
+    # compilacion- se gatea con su respuesta.
+    #
+    # `rust=false` NO deja ningun context sin reportar: `clippy` se omite por
+    # `if:` y los 9 jobs que lo llevan en `needs` (tests Linux/Windows/macOS,
+    # embeddings, coverage, miri, asan, experimental, release-combo) se omiten
+    # por dependencia -"If a job fails or is skipped, all jobs that need it are
+    # skipped", workflow-syntax §jobs.<job_id>.needs-. Un job omitido reporta su
+    # check-run como `skipped` = 'Success', incluso si es required
+    # (docs.github.com/en/pull-requests/reference/status-checks).
+    #
+    # Fail-open a proposito, misma politica que `wasm-scope` (FIND-725): no es
+    # un PR, base irresoluble, diff fallido o un scope que no termina bien
+    # corren los gates. Un falso positivo cuesta minutos de runner; un falso
+    # negativo pierde una suite entera en silencio (`skipped`, no `failure`).
+    #
+    # Este job NO lleva `if:` propio, y no es un olvido: en un `push` sale por
+    # el primer branch del script (no es `pull_request`) y cuesta ~5 s de
+    # checkout. Ponerle un `if: github.event_name == 'pull_request'` haria que
+    # en cada push quedara `skipped`, y con eso `clippy` y los 8 jobs de su
+    # cadena tambien: el deadlock, por la puerta del guard.
+    name: Rust Scope (PR paths)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.changed.outputs.rust }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # Shallow clone basta: la base se busca por SHA abajo (mismo truco que
+        # `adr-gate`) y un diff de arboles no necesita historia.
+
+      - name: Detect Rust-relevant changes in the PR range
+        id: changed
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "event=$EVENT_NAME (not a pull_request) — running the Rust gates"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "${BASE_SHA:-}" ]; then
+            echo "::warning::no base SHA on this pull_request — fail-open: running the Rust gates"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git fetch --depth 1 origin "$BASE_SHA"; then
+            echo "::warning::cannot fetch base commit $BASE_SHA — fail-open: running the Rust gates"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # `--no-renames` + `-z`/`quotePath=false`: los dos mismos traps que
+          # `wasm-scope` (un fichero movido imprime solo su ruta nueva; git
+          # C-quotea rutas no-ASCII y el `"` inicial romperia el match).
+          if ! changed="$(git -c core.quotePath=false diff --name-only --no-renames -z "$BASE_SHA" HEAD | tr '\0' '\n')"; then
+            echo "::warning::git diff $BASE_SHA..HEAD failed — fail-open: running the Rust gates"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Espejo de `on.push.paths` (24 patrones; superset de los 22 que
+          # llevaba `pull_request`: `.cargo/**` y `.github/actions/rust-setup/**`
+          # eran solo de push). Mantener las dos listas en sync: un path que
+          # dispara el workflow en push tiene que disparar los gates en el PR.
+          # Anclado con ^ y terminado en `/` o `$` para que un prefijo no se
+          # escape (`src/` no debe casar `src-tauri/`).
+          PATTERNS='^(src/|tests/|benches/|Cargo\.toml$|Cargo\.lock$|build\.rs$|\.config/nextest\.toml$|\.github/workflows/ci-rust\.yml$|\.github/actions/rust-setup/|\.cargo/|deny\.toml$|osv-scanner\.toml$|rust-toolchain\.toml$|vantadb-[^/]+/|vanta-memory/|vanta-proxy/|integrations/|providers/|\.gitleaks\.toml$|\.secretlintrc\.json$|\.secretlintignore$|release-plz\.toml$|release-manifest\.json$|cliff\.toml$)'
+
+          echo "--- files changed in $BASE_SHA..HEAD ---"
+          printf '%s\n' "$changed"
+          # Here-string, no pipe: `printf ... | grep -q` bajo `set -o pipefail`
+          # hace que un `grep` que sale en el primer match cierre el pipe y
+          # `printf` muera con SIGPIPE (141) -> el pipeline da no-cero y la
+          # respuesta seria `rust=false` con un PR que SI toca Rust. Silencioso
+          # y en la direccion catastrofica.
+          #
+          # `rc`: `grep` devuelve 0 (match), 1 (sin match) o 2 (regex rota).
+          # Tratar 2 como "sin match" apagaria los gates en TODOS los PRs por un
+          # typo en el patron, sin que nada se ponga rojo: fail-open.
+          rc=0
+          grep -qE "$PATTERNS" <<< "$changed" || rc=$?
+          case "$rc" in
+            0) echo "rust=true" >> "$GITHUB_OUTPUT" ;;
+            1) echo "rust=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::warning::grep exited $rc (malformed pattern?) — fail-open: running the Rust gates"
+               echo "rust=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+
   secret-scan:
     name: Secret Scan (gitleaks + secretlint)
     # TEC-10 (Q27 Opción B) + BIZ-18: Blindaje obligatorio de secretos en CI.
@@ -128,6 +219,16 @@ jobs:
     # 'skipped' y GitHub cuenta 'skipped' como required check SATISFECHO.
     # Este check es barato (clippy compila el codigo: es el control mas barato que existe) y es required: si se omite, un PR de
     # Dependabot mergearia sin el. Los jobs caros siguen blindados.
+    #
+    # FIND-770: el guard nuevo es por PATH, no por actor, y no contradice lo de
+    # arriba: un PR de Dependabot toca `Cargo.toml`/`Cargo.lock`, que estan en
+    # los patrones de `rust-scope`, asi que corre clippy igual. Lo que se omite
+    # es un PR que no toca ni un fichero que el build lea (`docs/**` & cia).
+    # Sobre `skipped` como 'Success' requerido, ver el comentario de abajo.
+    needs: [rust-scope]
+    if: >-
+      !cancelled() && (needs.rust-scope.outputs.rust == 'true' ||
+      needs.rust-scope.result != 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -163,10 +264,15 @@ jobs:
     # HARD-01: rails inventory + triage of accepted deltas:
     # docs/api/COMPATIBILITY.md. Companion snapshot job: public-api-snapshot.
     name: Semver Checks (public API)
+    # FIND-770: mismo guard por path que `clippy`. Sin el, un PR solo-docs
+    # contra `main` gastaria ~30 min de nightly rustdoc en un cambio que no
+    # puede tocar la API publica.
+    needs: [rust-scope]
     runs-on: ubuntu-latest
-    if:
-      github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref ==
-      'main')
+    if: >-
+      !cancelled() && github.actor != 'dependabot[bot]' &&
+      (github.ref == 'refs/heads/main' || github.base_ref == 'main') &&
+      (needs.rust-scope.outputs.rust == 'true' || needs.rust-scope.result != 'success')
     timeout-minutes: 30
     concurrency:
       group: semver-${{ github.ref }}
@@ -203,10 +309,13 @@ jobs:
     # snapshot (VANTADB_PUBLIC_API_UPDATE=1) in the PR; rails inventory:
     # docs/api/COMPATIBILITY.md.
     name: Public API Snapshot
+    # FIND-770: mismo guard por path que `clippy` (45 min de nightly rustdoc).
+    needs: [rust-scope]
     runs-on: ubuntu-latest
-    if:
-      github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref ==
-      'main')
+    if: >-
+      !cancelled() && github.actor != 'dependabot[bot]' &&
+      (github.ref == 'refs/heads/main' || github.base_ref == 'main') &&
+      (needs.rust-scope.outputs.rust == 'true' || needs.rust-scope.result != 'success')
     timeout-minutes: 45
     concurrency:
       group: public-api-${{ github.ref }}
