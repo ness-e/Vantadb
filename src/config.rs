@@ -606,10 +606,23 @@ fn local_model_bases() -> Vec<PathBuf> {
             bases.push(dir.to_path_buf());
         }
     }
-    if let Some(home) = env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")) {
-        bases.push(PathBuf::from(home).join(".vantadb"));
+    if let Some(data_dir) = home_data_dir(crate::utils::env_chain(
+        env::var_os("HOME"),
+        env::var_os("USERPROFILE"),
+    )) {
+        bases.push(data_dir);
     }
     bases
+}
+
+/// `~/.vantadb`, the data dir `scripts/setup-embeddings.ps1` installs the model into.
+///
+/// Returns `None` when `HOME`/`USERPROFILE` is absent **or empty**: an empty
+/// home used to yield a `.vantadb` base relative to the CWD, so the model could
+/// resolve as missing (or match by accident) depending on the launch directory
+/// (FIND-751). Filters again on purpose: the test hands over the raw `Some("")`.
+fn home_data_dir(home: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    crate::utils::env_value(home).map(|h| PathBuf::from(h).join(".vantadb"))
 }
 
 /// Resolve `local_model_path` against `local_model_bases`.
@@ -3253,5 +3266,29 @@ mod tests {
         // FIND-703: unset stays unset (an empty join would resolve to the cwd).
         assert_eq!(resolve_local_model_path(""), PathBuf::new());
         assert_eq!(resolve_local_model_path("   "), PathBuf::new());
+    }
+
+    // FIND-751: `HOME=` yields `Some("")`; `.vantadb` joined onto the empty path
+    // is a CWD-relative base that can hide the installed model (FIND-697 class).
+    #[test]
+    fn f751_home_data_dir_needs_a_non_empty_home() {
+        use std::ffi::OsString;
+
+        assert_eq!(home_data_dir(None), None);
+        assert_eq!(
+            home_data_dir(Some(OsString::new())),
+            None,
+            "an empty HOME must not yield a CWD-relative .vantadb base"
+        );
+
+        let home = if cfg!(windows) {
+            PathBuf::from(r"C:\Users\tester")
+        } else {
+            PathBuf::from("/home/tester")
+        };
+        assert_eq!(
+            home_data_dir(Some(home.clone().into_os_string())),
+            Some(home.join(".vantadb"))
+        );
     }
 }

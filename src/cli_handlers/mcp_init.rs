@@ -4,6 +4,7 @@
 //! Supported clients: `claude-code`, `cursor`, `windsurf`, `opencode`.
 
 use serde_json::{json, Map, Value};
+use std::ffi::OsString;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -128,44 +129,66 @@ fn brain_profile_binary_warning(
 pub const SUPPORTED_CLIENTS: &[&str] = &["claude-code", "cursor", "windsurf", "opencode"];
 
 /// Resolves the default configuration file path for a supported IDE or coding client.
+///
+/// Clients whose config lives in the home directory (`claude-code`, `cursor`,
+/// `windsurf`) return an error when neither `HOME` nor `USERPROFILE` carries a
+/// value, telling the caller to pass `--config` explicitly. A CWD-relative
+/// fallback used to be resolved here, and `mcp init` would write the client's
+/// config into whatever directory it was launched from and report success
+/// (FIND-751).
 pub fn resolve_default_config_path(client: &str) -> Result<PathBuf> {
-    let home = std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from);
+    resolve_default_config_path_from(client, home_env(), Path::new(LOCAL_MCP_CONFIG).exists())
+}
+
+/// Project-scoped Claude Code config; when present it wins over the home one.
+const LOCAL_MCP_CONFIG: &str = ".mcp.json";
+
+/// `HOME`, then `USERPROFILE`. `utils::env_chain` filters each value so `HOME=`
+/// falls through to `USERPROFILE` instead of stopping the chain (FIND-751).
+fn home_env() -> Option<OsString> {
+    crate::utils::env_chain(std::env::var_os("HOME"), std::env::var_os("USERPROFILE"))
+}
+
+/// Takes the home value and the local-config probe instead of reading the
+/// environment/filesystem so both branches are testable without `set_var` (racy
+/// under nextest) or a CWD-dependent test. Filters again on purpose: the test
+/// hands over the raw `Some("")`, so the helper must reject it too.
+fn resolve_default_config_path_from(
+    client: &str,
+    home: Option<OsString>,
+    local_mcp_exists: bool,
+) -> Result<PathBuf> {
+    let home = crate::utils::env_value(home).map(PathBuf::from);
 
     match client {
         "claude-code" => {
-            let local_mcp = Path::new(".mcp.json");
-            if local_mcp.exists() {
-                Ok(local_mcp.to_path_buf())
-            } else if let Some(h) = home {
-                Ok(h.join(".claude.json"))
+            if local_mcp_exists {
+                Ok(PathBuf::from(LOCAL_MCP_CONFIG))
             } else {
-                Ok(PathBuf::from(".claude.json"))
+                Ok(require_home(client, home)?.join(".claude.json"))
             }
         }
-        "cursor" => {
-            if let Some(h) = home {
-                Ok(h.join(".cursor").join("mcp.json"))
-            } else {
-                Ok(PathBuf::from(".cursor").join("mcp.json"))
-            }
-        }
-        "windsurf" => {
-            if let Some(h) = home {
-                Ok(h.join(".codeium").join("windsurf").join("mcp_config.json"))
-            } else {
-                Ok(PathBuf::from(".codeium")
-                    .join("windsurf")
-                    .join("mcp_config.json"))
-            }
-        }
+        "cursor" => Ok(require_home(client, home)?.join(".cursor").join("mcp.json")),
+        "windsurf" => Ok(require_home(client, home)?
+            .join(".codeium")
+            .join("windsurf")
+            .join("mcp_config.json")),
         "opencode" => Ok(PathBuf::from(".opencode").join("opencode.json")),
         other => Err(Error::InvalidInput(format!(
             "Unsupported client '{other}'. Supported clients: {}",
             SUPPORTED_CLIENTS.join(", ")
         ))),
     }
+}
+
+/// Rejects a missing home instead of yielding a path relative to the CWD.
+fn require_home(client: &str, home: Option<PathBuf>) -> Result<PathBuf> {
+    home.ok_or_else(|| {
+        Error::Cli(ChainedError::msg(format!(
+            "Cannot determine the {client} config directory: HOME and USERPROFILE are both \
+             unset or empty. Pass --config <path> to choose the config file explicitly."
+        )))
+    })
 }
 
 /// Injects or updates the VantaDB MCP server entry in the JSON document,
@@ -349,6 +372,95 @@ mod tests {
         assert!(err.is_err());
         let msg = err.err().unwrap().to_string();
         assert!(msg.contains("Unsupported client 'unknown-client'"));
+    }
+
+    // FIND-751: `var_os` returns `Some("")` for `HOME=`, and `PathBuf::from("")`
+    // joined with a file name is a path relative to the CWD. The resolved path
+    // is the first thing the handler computes (`target_path`), and its `?` runs
+    // before any read/write, so an error here means no file is written and no
+    // success is reported.
+    #[test]
+    fn test_empty_home_never_resolves_a_cwd_relative_config() {
+        for client in ["cursor", "windsurf"] {
+            let absent = resolve_default_config_path_from(client, None, false);
+            assert!(
+                absent.is_err(),
+                "{client}: an unset HOME must not resolve a config path"
+            );
+
+            let empty = resolve_default_config_path_from(client, Some(OsString::new()), false);
+            let msg = empty
+                .expect_err("an empty HOME must not resolve a CWD-relative config")
+                .to_string();
+            assert!(
+                msg.contains("--config") && msg.contains("USERPROFILE"),
+                "{client}: the error must be actionable, got: {msg}"
+            );
+        }
+
+        // `claude-code` keeps its project-scoped `.mcp.json` branch, so it only
+        // needs a home when no local config exists.
+        assert!(
+            resolve_default_config_path_from("claude-code", None, false).is_err(),
+            "claude-code: an unset HOME must not resolve a CWD-relative config"
+        );
+        assert!(
+            resolve_default_config_path_from("claude-code", Some(OsString::new()), false).is_err(),
+            "claude-code: an empty HOME must not resolve a CWD-relative config"
+        );
+        assert_eq!(
+            resolve_default_config_path_from("claude-code", None, true).unwrap(),
+            PathBuf::from(".mcp.json"),
+            "the project-scoped config still wins without a home"
+        );
+    }
+
+    #[test]
+    fn test_home_value_resolves_under_home() {
+        let home = if cfg!(windows) {
+            PathBuf::from(r"C:\Users\tester")
+        } else {
+            PathBuf::from("/home/tester")
+        };
+
+        assert_eq!(
+            resolve_default_config_path_from("cursor", Some(home.clone().into_os_string()), false)
+                .unwrap(),
+            home.join(".cursor").join("mcp.json")
+        );
+        assert_eq!(
+            resolve_default_config_path_from(
+                "windsurf",
+                Some(home.clone().into_os_string()),
+                false
+            )
+            .unwrap(),
+            home.join(".codeium")
+                .join("windsurf")
+                .join("mcp_config.json")
+        );
+        assert_eq!(
+            resolve_default_config_path_from(
+                "claude-code",
+                Some(home.clone().into_os_string()),
+                false
+            )
+            .unwrap(),
+            home.join(".claude.json")
+        );
+    }
+
+    #[test]
+    fn test_opencode_config_is_project_scoped_regardless_of_home() {
+        let expected = PathBuf::from(".opencode").join("opencode.json");
+        assert_eq!(
+            resolve_default_config_path_from("opencode", None, false).unwrap(),
+            expected
+        );
+        assert_eq!(
+            resolve_default_config_path_from("opencode", Some(OsString::new()), false).unwrap(),
+            expected
+        );
     }
 
     #[test]

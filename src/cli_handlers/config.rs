@@ -37,8 +37,21 @@ struct ConfigItem {
 }
 
 fn user_config_path() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
-    Some(PathBuf::from(home).join(".vanta").join("config.toml"))
+    user_config_path_from(crate::utils::env_chain(
+        std::env::var_os("HOME"),
+        std::env::var_os("USERPROFILE"),
+    ))
+}
+
+/// Takes the home value instead of reading the environment so the empty case is
+/// testable without `set_var` (racy under nextest). Filters again on purpose:
+/// the test hands over the raw `Some("")`, so the helper must reject it too.
+///
+/// An empty `HOME` used to yield `.vanta/config.toml`, relative to the CWD: the
+/// user layer was then either empty or silently read from the project directory
+/// (FIND-751).
+fn user_config_path_from(home: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    crate::utils::env_value(home).map(|h| PathBuf::from(h).join(".vanta").join("config.toml"))
 }
 
 fn project_config_path() -> PathBuf {
@@ -744,4 +757,33 @@ pub fn cmd_config_doctor(db_path: &str, json_output: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+
+    // FIND-751: `HOME=` yields `Some("")`, and `.vanta/config.toml` joined onto
+    // the empty path is a CWD-relative file the user never configured.
+    #[test]
+    fn user_config_path_needs_a_non_empty_home() {
+        assert_eq!(user_config_path_from(None), None);
+
+        let empty = user_config_path_from(Some(OsString::new()));
+        assert_eq!(
+            empty, None,
+            "an empty HOME must not become a CWD-relative config path"
+        );
+
+        let home = if cfg!(windows) {
+            std::path::PathBuf::from(r"C:\Users\tester")
+        } else {
+            std::path::PathBuf::from("/home/tester")
+        };
+        assert_eq!(
+            user_config_path_from(Some(home.clone().into_os_string())),
+            Some(home.join(".vanta").join("config.toml"))
+        );
+    }
 }

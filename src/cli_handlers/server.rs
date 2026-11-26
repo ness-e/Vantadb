@@ -311,6 +311,16 @@ async fn cmd_server_http(
     crate::cli_server::run(config).await
 }
 
+/// `~/.vanta/bin`, where an installed `vanta` binary lives.
+///
+/// Returns `None` when `HOME`/`USERPROFILE` is absent **or empty**: an empty
+/// home used to produce `./.vanta/bin/<exe>`, which was probed **before** the
+/// bare `exe_name` on `PATH` — widening the server binary search to the CWD
+/// (FIND-751). Filters again on purpose: the test hands over the raw `Some("")`.
+fn home_bin_dir(home: Option<std::ffi::OsString>) -> Option<std::path::PathBuf> {
+    crate::utils::env_value(home).map(|h| std::path::PathBuf::from(h).join(".vanta").join("bin"))
+}
+
 fn cmd_server_mcp(
     db_path: &str,
     port: Option<u16>,
@@ -365,9 +375,13 @@ fn cmd_server_mcp(
         sibling_server.set_file_name(&exe_name);
         candidates.push(sibling_server);
     }
-    // Also look in ~/.vanta/bin (or %USERPROFILE%\.vanta\bin)
-    if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
-        let vanta_bin = std::path::PathBuf::from(home).join(".vanta").join("bin");
+    // Also look in ~/.vanta/bin (or %USERPROFILE%\.vanta\bin). `env_chain`
+    // filters each variable so `HOME=` still falls through instead of stopping
+    // the chain on an empty value (FIND-751).
+    if let Some(vanta_bin) = home_bin_dir(crate::utils::env_chain(
+        std::env::var_os("USERPROFILE"),
+        std::env::var_os("HOME"),
+    )) {
         candidates.push(vanta_bin.join(&exe_name));
         candidates.push(vanta_bin.join(if cfg!(windows) { "vanta.exe" } else { "vanta" }));
     }
@@ -424,4 +438,33 @@ pub fn cmd_completions(shell: Shell) {
     let mut cmd = Cli::command();
     let shell: clap_complete::Shell = shell.into();
     clap_complete::generate(shell, &mut cmd, "vanta-cli", &mut std::io::stdout());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+
+    // FIND-751: `USERPROFILE=` yields `Some("")`, and `.vanta/bin` joined onto
+    // the empty path is `./.vanta/bin` — a CWD-relative candidate probed before
+    // the bare executable name on PATH.
+    #[test]
+    fn home_bin_dir_needs_a_non_empty_home() {
+        assert_eq!(home_bin_dir(None), None);
+        assert_eq!(
+            home_bin_dir(Some(OsString::new())),
+            None,
+            "an empty home must not yield a CWD-relative bin directory"
+        );
+
+        let home = if cfg!(windows) {
+            std::path::PathBuf::from(r"C:\Users\tester")
+        } else {
+            std::path::PathBuf::from("/home/tester")
+        };
+        assert_eq!(
+            home_bin_dir(Some(home.clone().into_os_string())),
+            Some(home.join(".vanta").join("bin"))
+        );
+    }
 }

@@ -36,3 +36,43 @@ pub(crate) fn env_present(value: Option<OsString>) -> bool {
 pub(crate) fn env_value(value: Option<OsString>) -> Option<OsString> {
     value.filter(|v| !v.is_empty())
 }
+
+/// First of two environment variables that **transports** a value; empty counts
+/// as unset on both sides.
+///
+/// Exactly `env_value(first).or_else(|| env_value(second))`, factored so the
+/// fall-through is testable: a bare `first.or_else(|| second)` stops at
+/// `Some("")` because `var_os` reports `HOME=` as present-and-empty, so
+/// `USERPROFILE` was never consulted (FIND-751, and FIND-738 before it).
+/// Order is the caller's: `HOME` first on POSIX-shaped call sites,
+/// `USERPROFILE` first on Windows-shaped ones.
+pub(crate) fn env_chain(first: Option<OsString>, second: Option<OsString>) -> Option<OsString> {
+    env_value(first).or_else(|| env_value(second))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // FIND-751: the chain must fall through an empty first variable. The bug
+    // this guards was shipped once: `var_os("HOME").or_else(|| var_os("USERPROFILE"))`
+    // returns `Some("")` for `HOME=` and never reads the second variable.
+    #[test]
+    fn env_chain_falls_through_an_empty_first_value() {
+        let home = OsString::from("/home/tester");
+
+        assert_eq!(env_chain(None, None), None);
+        assert_eq!(env_chain(Some(OsString::new()), None), None);
+        assert_eq!(env_chain(None, Some(home.clone())), Some(home.clone()));
+        assert_eq!(
+            env_chain(Some(OsString::new()), Some(home.clone())),
+            Some(home.clone()),
+            "an empty first variable must not stop the chain"
+        );
+        assert_eq!(
+            env_chain(Some(OsString::from("/first")), Some(home)),
+            Some(OsString::from("/first")),
+            "a real first value wins"
+        );
+    }
+}
