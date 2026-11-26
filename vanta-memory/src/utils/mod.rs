@@ -1,7 +1,7 @@
 //! Orchestration utilities: pipeline manager, timers, locks, checkpointing.
 //!
-//! MEM-16: injectable clock ([`managed_timer`]), local state backend
-//! ([`local_backend`]), timer scanner, persistent checkpoint and the
+//! MEM-16: injectable clock (`managed_timer`), local state backend
+//! (`local_backend`), timer scanner, persistent checkpoint and the
 //! pipeline managers + factory.
 
 pub mod backup;

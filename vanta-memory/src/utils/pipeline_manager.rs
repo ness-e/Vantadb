@@ -36,7 +36,7 @@ impl Default for PipelineConfig {
     }
 }
 
-/// In-process pipeline manager over a [`LocalStateBackend`].
+/// In-process pipeline manager over a `LocalStateBackend`.
 pub struct MemoryPipelineManager<'a, C: Clock> {
     backend: &'a LocalStateBackend<C>,
     config: PipelineConfig,

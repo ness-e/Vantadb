@@ -31,7 +31,7 @@ fn next_key(ts_ms: u64) -> String {
 }
 
 /// Append one entry. Errors propagate (testable path); production callers use
-/// [`record_best_effort`].
+/// `record_best_effort`.
 pub fn try_record(db: &Embedded, entry: &GenerationLogEntry) -> Result<(), GenLogError> {
     let ns = genlog_namespace(&entry.session_key);
     db.put(MemoryInput {

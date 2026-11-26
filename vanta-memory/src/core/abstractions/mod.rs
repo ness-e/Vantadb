@@ -2,7 +2,7 @@
 //!
 //! Host-neutral, implementation-neutral: nothing here imports deployment
 //! specifics. These are the data contracts that L0→L3 consume (extraction,
-//! dedup, scenes, persona) plus the [`super::llm_runner::LlmRunner`]
+//! dedup, scenes, persona) plus the `super::llm_runner::LlmRunner`
 //! abstraction. They mirror the Vanta memory engine record contracts
 //! (`MemoryCore/src/core/record/l1-writer.ts`, `l1-dedup.ts`,
 //! `l1-extractor.ts`) reimplemented in Rust — Vanta memory engine is a reference for the

@@ -7,8 +7,8 @@
 //! added by MEM-13/14.
 //!
 //! Feature gating: the real HTTP transport compiles only with `llm-driver`.
-//! Without it (default, LLM-free) the runner exists but [`run`] returns
-//! [`LlmError::NotConfigured`] — callers degrade (store-all, heuristic dedup)
+//! Without it (default, LLM-free) the runner exists but `run` returns
+//! `LlmError::NotConfigured` — callers degrade (store-all, heuristic dedup)
 //! and never block.
 
 use std::time::Duration;

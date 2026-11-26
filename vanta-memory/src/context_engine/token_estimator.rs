@@ -112,7 +112,7 @@ pub(crate) fn build_units(msgs: Vec<ChatMessage>) -> Vec<Vec<ChatMessage>> {
 /// Emergency truncation: drop-from-front whole units until the history fits
 /// `budget_tokens`, always keeping the last `min_keep` messages. If it still
 /// exceeds, truncates the largest remaining message's content to
-/// [`MAX_CONTENT_CHARS`]. LLM-free, deterministic.
+/// `MAX_CONTENT_CHARS`. LLM-free, deterministic.
 pub fn emergency_truncate(
     msgs: Vec<ChatMessage>,
     budget_tokens: u64,

@@ -13,7 +13,7 @@
 //!   recency, relevance, and importance scores … using min-max scaling").
 //!   RRF is rank-based and scale-free, so heterogeneous arms never compete
 //!   on raw scales.
-//! - **recency** — MEMG-07's [`retention_factor`] (`2^(−age/half_life)`,
+//! - **recency** — MEMG-07's `retention_factor` (`2^(−age/half_life)`,
 //!   `age` since `updated_at`), consumed as-is. CrewAI's composite `decay =
 //!   0.5^(age_days/half_life_days)` is the same exponential family.
 //! - **importance** — the record's declared `priority` (0-100) → `[0,1]`;

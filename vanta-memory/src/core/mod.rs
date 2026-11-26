@@ -51,14 +51,14 @@ pub mod memory_generation_log;
 
 /// MEM-61: Dreaming — idle consolidation (sleep-time tiering, Letta pattern).
 /// Pure LLM-free primitives (`detect_idle`, `merge_duplicates`,
-/// `resolve_contradictions`, `normalize_relative_dates`) + [`Dreamer`] trait
+/// `resolve_contradictions`, `normalize_relative_dates`) + `Dreamer` trait
 /// extension point. Writes a separate `dream/<session>/<run_id>` namespace —
 /// the original `l1/<session>` store is **never** mutated.
 pub mod dream;
 
 /// MEMG-21: Reflection — periodic pass over episodic memory (lessons).
 /// Groups episodes by scene and writes lessons (LLM-free deterministic digest
-/// or an optional [`Reflector`] runner) to `reflection/<session>/<run_id>` —
+/// or an optional `Reflector` runner) to `reflection/<session>/<run_id>` —
 /// the original `l1/<session>` store is **never** mutated. Pull-based; the
 /// promotion to L1 and scheduler wiring are deferred (FIND-290).
 pub mod reflection;

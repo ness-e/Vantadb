@@ -1,13 +1,13 @@
 //! Generation-log provenance for the memory pipeline (MEM-41).
 //!
 //! Every successful or failed generation at layers L1/L2/L3 appends one
-//! [`GenerationLogEntry`] under the `genlog/<session>` namespace so provenance
+//! `GenerationLogEntry` under the `genlog/<session>` namespace so provenance
 //! is consultable per session/layer ordered by timestamp.
 //!
 //! Principio 4 (never blocks): all writes go through
-//! [`record_best_effort`], which swallows store errors with a
+//! `record_best_effort`, which swallows store errors with a
 //! `tracing::warn!` — a logging failure can never fail a memory generation.
-//! Growth is capped per session (keep-recent) in [`store::try_record`].
+//! Growth is capped per session (keep-recent) in `store::try_record`.
 //!
 //! Design source: Vanta memory engine `core/memory-generation-log/{types,store,best-effort}.ts`
 //! (277L), reduced to the fields the contract requires
@@ -79,7 +79,7 @@ impl GenerationLogEntry {
 }
 
 /// Errors surfaced by the generation-log query surface. Best-effort writes
-/// never propagate these (see [`record_best_effort`]).
+/// never propagate these (see `record_best_effort`).
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum GenLogError {

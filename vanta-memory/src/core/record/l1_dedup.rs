@@ -4,7 +4,7 @@
 //! 1. **Phase 1 — candidate recall (LLM-free):** for each new memory, recall a
 //!    top-k pool of existing records via keyword overlap (see `l1_reader`).
 //! 2. **Phase 2 — batch LLM judgment:** ONE `LlmRunner` call judges every new
-//!    memory against its candidate pool and returns one [`DedupDecision`] per
+//!    memory against its candidate pool and returns one `DedupDecision` per
 //!    memory (`store|update|merge|skip`). MEMG-01: a decision may also carry
 //!    `contradicts` — explicit negations flagged as superseded on write
 //!    (`mark_contradiction`), still inside this same call (no second LLM
@@ -258,7 +258,7 @@ fn store_decision(record_id: &str) -> DedupDecision {
     }
 }
 
-/// Build a [`DedupDecision`] from a raw JSON object, tolerantly. Invalid
+/// Build a `DedupDecision` from a raw JSON object, tolerantly. Invalid
 /// actions become `store`; invalid `merged_type` becomes `None` (keeps the
 /// original type — never fails the batch). `pub(crate)` for the MEM-69 batch
 /// path (reuses the exact dedup tolerance instead of a second parser).

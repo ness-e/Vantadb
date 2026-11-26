@@ -3,7 +3,7 @@
 //!
 //! Pull-based (zero threads): the owner polls [`AutoSyncScheduler::tick`] from
 //! its own loop; the deadline lives in a [`ManagedTimer`] driven by the
-//! injected [`Clock`], so tests use [`FakeClock`] and never sleep.
+//! injected [`Clock`], so tests use `FakeClock` and never sleep.
 //!
 //! Change detection is a plain per-file FNV-1a hash of every scanned source —
 //! no FS watcher (stop condition: watchers require new dependencies).

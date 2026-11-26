@@ -6,12 +6,12 @@
 //! Concurrency decision (D1: sync crate): merges run **serially per page** —
 //! Vanta memory engine's `commitCandidates` also iterates pages serially; its `pLimit(5)`
 //! exists only because multiple *sources* are extracted concurrently in JS.
-//! The configurable global LLM limit ([`IngestConfig::global_llm_concurrency`],
+//! The configurable global LLM limit (`IngestConfig::global_llm_concurrency`,
 //! default 5, clamped 1..=20) is an upper bound honored trivially by the
 //! single-threaded worker; a semaphore would only pay off with concurrent
 //! source extraction (deferred).
 //!
-//! LLM optional (P4): without a runner (or with [`LlmError::NotConfigured`])
+//! LLM optional (P4): without a runner (or with `LlmError::NotConfigured`)
 //! extraction yields no candidates and commit writes new pages verbatim while
 //! recording skips for pages needing real merging. It never blocks and never
 //! loses data.

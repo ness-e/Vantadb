@@ -1,5 +1,5 @@
 //! L1 extraction response parser — turns the LLM's JSON array of scene
-//! segments into typed [`SceneSegment`]s (autonomous memory pipeline
+//! segments into typed `SceneSegment`s (autonomous memory pipeline
 //! `l1-extractor.ts:parseExtractionResult` + `normalizeType`).
 //!
 //! Tolerant by design: a malformed item or an unknown/legacy type drops only

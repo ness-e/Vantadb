@@ -4,7 +4,7 @@
 //!
 //! Round-trip guarantee: re-importing the same directory is a no-op
 //! (projection-stable, all records report `unchanged`). This matches the
-//! pattern in [`super::mod::apply_skill`].
+//! pattern in `super::mod::apply_skill`.
 //!
 //! Schema v2 (VER-06): the importer accepts `1..=2`. v2 frontmatter carries the
 //! ADR-046 semantics (validity window, confidence class/score, derivation,

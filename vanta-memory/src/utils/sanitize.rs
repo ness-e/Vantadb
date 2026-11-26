@@ -77,7 +77,7 @@ pub fn sanitize_text(text: &str) -> String {
 
 /// Permissive L0 capture filter (autonomous memory pipeline `sanitize.ts:shouldCaptureL0`):
 /// rejects only structurally useless input — empty text, framework noise,
-/// slash commands. Content-quality gates live in [`should_extract_l1`].
+/// slash commands. Content-quality gates live in `should_extract_l1`.
 pub fn should_capture_l0(text: &str) -> bool {
     let trimmed = text.trim();
     if trimmed.is_empty() {
@@ -96,7 +96,7 @@ pub fn should_capture_l0(text: &str) -> bool {
 /// role hijack, system-prompt probing, XML/tag injection against our context
 /// boundaries, tool-invocation tricks, and two Chinese variants. Whitespace
 /// is normalized before matching to defeat trivial obfuscation. Not wired
-/// into [`should_extract_l1`] — Vanta memory engine keeps it disabled there too
+/// into `should_extract_l1` — Vanta memory engine keeps it disabled there too
 /// (sanitize.ts:153).
 pub fn looks_like_prompt_injection(text: &str) -> bool {
     let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");

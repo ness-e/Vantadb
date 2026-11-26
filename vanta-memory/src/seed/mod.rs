@@ -7,10 +7,10 @@
 //! actually did (`created` / `updated` / `unchanged`).
 //!
 //! Persistence parity:
-//! - skills → `skills_extract/<sanitized scope>` with the exact [`StoredSkill`]
+//! - skills → `skills_extract/<sanitized scope>` with the exact `StoredSkill`
 //!   payload shape written by MEM-06's sink, so existing readers see them.
 //! - persona → `persona/<sanitized session_key>` / key `persona.md` as a
-//!   [`PersonaRecord`], readable by [`get_persona`].
+//!   `PersonaRecord`, readable by `get_persona`.
 //!
 //! Note: seeded persona content is operator-provided (trusted file), so it
 //! bypasses the LLM-output XML escaping of the generator.

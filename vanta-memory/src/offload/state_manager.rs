@@ -1,13 +1,13 @@
 //! Persistent per-session offload state (autonomous memory pipeline
 //! `MC/offload/state-manager.ts`, MEM-20).
 //!
-//! Vanta memory engine keeps an in-memory [`PluginState`] mirrored to a per-agent
+//! Vanta memory engine keeps an in-memory `PluginState` mirrored to a per-agent
 //! `state.json`. Here the single source of truth is the VantaDB store: the
 //! state is one JSON record under `offload_state/<session>` keyed `__state`
 //! (same pattern as the L0 cursor of MEM-09). A missing or corrupt record
 //! falls back to the default state — never fatal, never blocking.
 //!
-//! The F4 cursor [`PluginState::last_offloaded_tool_call_id`] marks how far
+//! The F4 cursor `PluginState::last_offloaded_tool_call_id` marks how far
 //! the compact context has summarized; re-processing the same tool call must
 //! never duplicate work (D19).
 

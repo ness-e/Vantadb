@@ -2,15 +2,15 @@
 //! tools (MEM-13) + strategy extractor (MEM-14, F4) + local-first
 //! auto-consolidation (MCP-41, no LLM key).
 //!
-//! The scene is the L2 memory unit: the block format ([`scene_format`]) and
-//! the per-session index ([`scene_index`]) that anchors scene navigation
+//! The scene is the L2 memory unit: the block format (`scene_format`) and
+//! the per-session index (`scene_index`) that anchors scene navigation
 //! without an LLM call (Principio 4). The core graph node
 //! (`vantadb::entity::scene::SceneNodeStore`) is the persisted anchor; the
 //! index here is the SDK-side companion used by the L2 strategy (MEM-14).
-//! [`scene_tools`] is the sandboxed tool layer (read/write/edit) the L2
-//! strategy drives the store through (MEM-13), and [`scene_extractor`] is the
+//! `scene_tools` is the sandboxed tool layer (read/write/edit) the L2
+//! strategy drives the store through (MEM-13), and `scene_extractor` is the
 //! UPDATE>MERGE>CREATE strategy with heat + soft-delete (MEM-14).
-//! [`filename_normalizer`] canonicalizes LLM-emitted scene names before they
+//! `filename_normalizer` canonicalizes LLM-emitted scene names before they
 //! hit the store (MEM-14).
 
 pub mod auto_consolidate;

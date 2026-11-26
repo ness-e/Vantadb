@@ -13,21 +13,21 @@
 //! ## Invariants (Regla 0 + Pre-mortem)
 //!
 //! 1. **The consolidation path never mutates `l1/<session>`.** Reads via
-//!    [`scan_session_records`], [`consolidate_session`] and [`plan_promotion`]
+//!    `scan_session_records`, `consolidate_session` and `plan_promotion`
 //!    are strictly read-only. The integration test `tests/dreaming.rs`
 //!    verifies L1 byte-identity for both consolidation and dry-run.
 //! 2. **All consolidation writes go to `dream/<session>/<run_id>`.** The
 //!    `run_id` is a unique 16-char hex (uuid-v7 truncated, deterministic in
 //!    tests).
-//! 3. **LLM tiering is opt-in via the [`Dreamer`] trait.** With no runner
+//! 3. **LLM tiering is opt-in via the `Dreamer` trait.** With no runner
 //!    configured the module degrades to LLM-free operations (hash dedup,
 //!    relative-date table, deterministic contradiction resolution via
 //!    priority+timestamp). Nothing blocks.
-//! 4. **Promotion is the only mutating entry point.** [`promote_dream_run`]
+//! 4. **Promotion is the only mutating entry point.** `promote_dream_run`
 //!    applies a run's consolidated view to `l1/<session>` after a dry-run
-//!    ([`plan_promotion`]; the MCP tool defaults to `dry_run: true`), is
+//!    (`plan_promotion`; the MCP tool defaults to `dry_run: true`), is
 //!    idempotent (re-promote → all NOOP) and fails closed behind a quality
-//!    gate on supersedes. [`discard_dream_run`] is a real store delete of the
+//!    gate on supersedes. `discard_dream_run` is a real store delete of the
 //!    run namespace.
 //!
 //! ## Pipeline integration
@@ -75,8 +75,8 @@ fn memory_type_key(mt: MemoryType) -> &'static str {
 /// Configuration of a dreaming consolidation pass.
 ///
 /// Ponytail: plain struct with builder-style overrides, no env vars.
-/// Hosts construct one explicitly and hand it to [`consolidate_session`].
-/// `Debug` is intentionally hand-rolled — [`Dreamer`] is a trait object
+/// Hosts construct one explicitly and hand it to `consolidate_session`.
+/// `Debug` is intentionally hand-rolled — `Dreamer` is a trait object
 /// (no auto `Debug`); `Clone` requires manual implementation (we just share
 /// `Arc<dyn Dreamer>` semantics — see [`DreamConfig::with_dreamer`]).
 pub struct DreamConfig {
@@ -246,7 +246,7 @@ pub struct NormalizedDate {
     pub absolute: String,
 }
 
-/// Context handed to the [`Dreamer`] trait when the host runs an LLM-driven
+/// Context handed to the `Dreamer` trait when the host runs an LLM-driven
 /// consolidation pass.
 #[derive(Debug, Clone)]
 pub struct DreamContext {
@@ -273,7 +273,7 @@ pub enum ConsolidationError {
 // ── Public trait (LLM extension point) ────────────────────────────────
 
 /// Host-extensible consolidation runner. Default implementations live in
-/// [`consolidate_session`] (LLM-free path). Hosts that want sleep-time tiering
+/// `consolidate_session` (LLM-free path). Hosts that want sleep-time tiering
 /// inject a runner via [`DreamConfig::with_dreamer`] — `MockDreamer` is
 /// available under `cfg(test)` for deterministic testing.
 pub trait Dreamer: Send + Sync {
@@ -348,14 +348,14 @@ fn bucket_key(scene: &str, content: &str) -> String {
 ///      meaningfully-different `priority` *and* the newer record wins the
 ///      "current truth" test (priority > loser's, or equal priority + newer
 ///      `created_at`), mark the loser as superseded via MEM-60's
-///      [`mark_contradiction`]. **We never mutate the caller's `Vec`; we
+///      `mark_contradiction`. **We never mutate the caller's `Vec`; we
 ///      emit provenance records.** The caller persists the loser's updated
 ///      `superseded_by` field, NOT this function.
 ///
-/// Why pass-through provenance only: [`mark_contradiction`] is applied to a
-/// transient clone here. [`consolidate_session`] then stamps the dream-side
+/// Why pass-through provenance only: `mark_contradiction` is applied to a
+/// transient clone here. `consolidate_session` then stamps the dream-side
 /// copies (see its "contradiction stamping" step) — `run.json` is the target
-/// state, so [`promote_dream_run`] can apply it verbatim (idempotent). The
+/// state, so `promote_dream_run` can apply it verbatim (idempotent). The
 /// originals in `l1/<s>` keep `superseded_by = None` until an explicit
 /// promotion.
 pub fn resolve_contradictions(
@@ -520,7 +520,7 @@ fn millis_to_iso8601(ms: u64) -> String {
 /// affect the store. This is the only function in the dream module that
 /// *reads* `l1/<session>` (via the canonical [`read_session_records`] reader,
 /// MEM-11; paged + skips corrupt records); the only *writer* is
-/// [`promote_dream_run`], behind an explicit plan + quality gate.
+/// `promote_dream_run`, behind an explicit plan + quality gate.
 pub fn scan_session_records(
     db: &vantadb::sdk::Embedded,
     session_id: &str,
@@ -571,7 +571,7 @@ pub fn write_dream_run(
 /// demand via [`load_dream_run`]).
 ///
 /// Each run lives in its own namespace `dream/<session>/<run_id>`. We
-/// enumerate via [`Embedded::list_namespaces`] (canonical scanner) and
+/// enumerate via `Embedded::list_namespaces` (canonical scanner) and
 /// load each `run.json` key. Corrupt entries are skipped (best-effort,
 /// mirrors `load_active` from context_engine).
 pub fn list_dream_runs(
@@ -710,8 +710,8 @@ impl PromotionCounts {
 }
 
 /// Deterministic, record-level diff between a dream run and the current
-/// `l1/<session>` state. Produced by [`plan_promotion`] (dry-run) and applied
-/// by [`promote_dream_run`].
+/// `l1/<session>` state. Produced by `plan_promotion` (dry-run) and applied
+/// by `promote_dream_run`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PromotionPlan {
     pub session_id: String,
@@ -915,7 +915,7 @@ fn classify_update(
 
 /// Apply a run's consolidated view to `l1/<session>` — the real promotion.
 ///
-/// Computes the same plan as [`plan_promotion`] (quality gate included), then
+/// Computes the same plan as `plan_promotion` (quality gate included), then
 /// applies it op by op: `ADD`/`UPDATE` are upserts by key (the record is
 /// written verbatim — `run.json` is the target state; an `UPDATE` keeps the
 /// node's current vector when the run copy carries none), `DELETE` removes
@@ -1030,7 +1030,7 @@ pub fn promote_dream_run(
 /// returned run is the promotion target: relative dates are normalized and
 /// contradiction losers are stamped with `superseded_by` **on the dream-side
 /// copies only** — `l1/<session>` stays byte-identical until an explicit
-/// [`promote_dream_run`].
+/// `promote_dream_run`.
 pub fn consolidate_session(
     db: &vantadb::sdk::Embedded,
     session_id: &str,

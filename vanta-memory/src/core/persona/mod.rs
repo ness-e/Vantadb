@@ -2,8 +2,8 @@
 //! F4).
 //!
 //! The persona is the distilled L3 document the host prepends to its system
-//! prompt. [`persona_trigger`] decides WHEN to regenerate (LLM-free
-//! heuristics, Vanta memory engine priorities P1-P4); [`persona_generator`] decides HOW —
+//! prompt. `persona_trigger` decides WHEN to regenerate (LLM-free
+//! heuristics, Vanta memory engine priorities P1-P4); `persona_generator` decides HOW —
 //! mode First/Incremental derived from the store, LLM output validated,
 //! escaped and persisted under the `persona/<session>` namespace.
 //!

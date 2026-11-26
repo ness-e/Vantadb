@@ -5,7 +5,7 @@
 //! distributed locks. Here persistence is the VantaDB store itself
 //! (Principio 2): one JSON record under namespace `pipeline_checkpoint`.
 //! Single-record read-modify-write keeps mutations atomic in-process —
-//! serialized through [`CHECKPOINT_RMW_LOCK`] (MEMG-28).
+//! serialized through `CHECKPOINT_RMW_LOCK` (MEMG-28).
 //!
 //! This module pays the MEM-15 debt: [`Checkpoint`] exposes the counters that
 //! [`crate::core::persona::evaluate_persona_trigger`] consumes as pure input

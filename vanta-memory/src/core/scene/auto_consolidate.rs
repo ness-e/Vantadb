@@ -2,10 +2,10 @@
 //! turns, applied through the existing L2 strategy — no LLM key required.
 //!
 //! This closes the mem0/graphiti gap at the `extract` link: `consolidate`
-//! ([`decide_strategy`]/[`apply_strategy`]/[`extract_scenes`], MEM-14) and
+//! (`decide_strategy`/`apply_strategy`/[`extract_scenes`], MEM-14) and
 //! `recall` (`scene_list`/`scene_query` keyword mode, MEM-21) were already
 //! LLM-free. Only the turn→[`SceneExtraction`] mapping needed an LLM
-//! ([`extract_scenes_with_llm`]); [`extract_local`] replaces it with a
+//! (`extract_scenes_with_llm`); [`extract_local`] replaces it with a
 //! deterministic heuristic, and [`auto_consolidate`] is the one-shot
 //! extract→store entry point. Recall stays where it is (gateway + MCP
 //! `scene_*` tools) by design.

@@ -7,7 +7,7 @@
 //! 3. ONE LLM call (`task_id: "l1-extraction"`) producing a JSON array of
 //!    scene segments.
 //! 4. Tolerant parse + type normalization.
-//! 5. Build [`L1ExtractionResult`].
+//! 5. Build `L1ExtractionResult`.
 //!
 //! Writing + dedup live in MEM-11 (`records`/`stored_count` stay empty here).
 //! LLM failure degrades to `success: false` with no data loss — L0 messages

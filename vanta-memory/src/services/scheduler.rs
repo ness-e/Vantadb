@@ -4,8 +4,8 @@
 //! pipeline logic — and the host contributes the *driver*. This module ships
 //! both pieces the host needs:
 //!
-//! - [`run_pass`]: one pull-based pass = expired timers dispatched into queue
-//!   tasks + one [`PipelineWorker`] pass + stale-claim reclaim. Always
+//! - `run_pass`: one pull-based pass = expired timers dispatched into queue
+//!   tasks + one `PipelineWorker` pass + stale-claim reclaim. Always
 //!   available (no Tokio): the default build stays pull-based and thread-free.
 //! - `spawn_memory_scheduler` (feature `http-server`): the loop helper the
 //!   host starts and owns — interval ticks + graceful stop — mirroring the
@@ -29,7 +29,7 @@
 //!
 //! The scheduler runs in the process that owns the DB (the writer). The
 //! queue, timers and leases live in process-local memory
-//! ([`LocalStateBackend`]); running two loops over the same DB is a host bug —
+//! (`LocalStateBackend`); running two loops over the same DB is a host bug —
 //! spawn one per process.
 
 use crate::core::abstractions::LlmRunner;
@@ -48,8 +48,8 @@ use std::sync::Arc;
 
 /// L3 persona trigger cadence for scheduler passes: regenerate the persona
 /// after this many new memories (mirrors the D19 e2e full-pass cadence).
-/// Hosts needing a different cadence construct their own [`PipelineWorker`] +
-/// [`MemoryTaskHandler`] over the same queue (`PipelineWorker::run_once` drives
+/// Hosts needing a different cadence construct their own `PipelineWorker` +
+/// `MemoryTaskHandler` over the same queue (`PipelineWorker::run_once` drives
 /// the batch; the handler wiring shape is in `tests/e2e_flow.rs`). There is no
 /// second pass to configure.
 ///
@@ -58,7 +58,7 @@ use std::sync::Arc;
 /// ships a "persona never fires" sentinel like `usize::MAX`.
 pub const PERSONA_TRIGGER_EVERY_N: usize = 50;
 
-/// Statistics of one [`run_pass`].
+/// Statistics of one `run_pass`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PassStats {
     /// Expired timers consumed from the backend — dispatched into queue tasks
@@ -79,8 +79,8 @@ pub struct PassStats {
 ///    consumed and skipped with a debug log (forward-compatible: L2/Dream
 ///    timers arrive with their producer).
 /// 2. One [`PipelineWorker::run_once`] pass runs queued tasks through the
-///    L0→L3 [`MemoryTaskHandler`] with the given `runner`.
-/// 3. [`PipelineWorker::reclaim_stale`] recovers claims whose lease expired
+///    L0→L3 `MemoryTaskHandler` with the given `runner`.
+/// 3. `PipelineWorker::reclaim_stale` recovers claims whose lease expired
 ///    (a dead worker's tasks), using the worker defaults for lease and limit.
 ///
 /// LLM failures inside the worker take its existing retry/dead-letter path
@@ -266,7 +266,7 @@ impl Drop for MemoryScheduler {
     }
 }
 
-/// Spawn the background scheduler loop: every `interval`, run ONE [`run_pass`]
+/// Spawn the background scheduler loop: every `interval`, run ONE `run_pass`
 /// on a blocking thread (the pass is sync engine work — concurrency-async R1)
 /// with a runner built by `runner_factory`.
 ///

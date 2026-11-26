@@ -3,7 +3,7 @@
 //!
 //! Vanta memory engine runs a background interval that polls Redis for expired timers. Here
 //! the owner calls [`TimerScanner::run_once`] whenever it wants due timers
-//! dispatched (worker loop tick, test step). With a [`FakeClock`] this makes
+//! dispatched (worker loop tick, test step). With a `FakeClock` this makes
 //! timer firing fully deterministic.
 
 use crate::core::state::TimerEntry;

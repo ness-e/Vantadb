@@ -14,7 +14,7 @@
 //! hook AND the pool carries vectors (D38 dual-pool ranking): records with a
 //! usable vector rank by cosine similarity, records without one keep the
 //! keyword-overlap gate — a legacy record is never dropped. With the
-//! `embed-local` feature compiled and a working [`LocalOnnxProvider`]
+//! `embed-local` feature compiled and a working `LocalOnnxProvider`
 //! available, [`crate::core::record::L1DedupConfig::default`] now wires
 //! `local_embedding_hook()` automatically (MEM-63 auto-on), so callers no
 //! longer need to call `.with_local_provider()` explicitly. Without the
@@ -48,7 +48,7 @@ use crate::core::scene::scene_navigation::{generate_scene_navigation, strip_scen
 pub struct RecalledMemory {
     pub content: String,
     pub score: usize,
-    /// Serialized [`MemoryType`] tag (`persona`, `episodic`, ...).
+    /// Serialized `MemoryType` tag (`persona`, `episodic`, ...).
     #[serde(rename = "type")]
     pub memory_type: String,
     /// VER-04: source namespace the memory was read from (`l1/<session>`),
@@ -257,7 +257,7 @@ pub enum RecallMode {
     /// Without a hook, the call falls back to [`RecallMode::Keyword`] and a
     /// legacy record is never dropped (it still passes the keyword gate).
     /// With the `embed-local` feature compiled and a working
-    /// [`LocalOnnxProvider`] available, [`crate::core::record::L1DedupConfig::default`]
+    /// `LocalOnnxProvider` available, [`crate::core::record::L1DedupConfig::default`]
     /// wires `local_embedding_hook()` automatically (MEM-63 auto-on), so
     /// callers no longer need `.with_local_provider()` for the dual-pool path
     /// to engage.

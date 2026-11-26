@@ -3,7 +3,7 @@
 //! [`IngestRunnerProvider::Local`](super::runner_config::IngestRunnerProvider)
 //! (the default) builds
 //! [`ConcreteRunner::None`](super::runner_config::ConcreteRunner), whose every
-//! `run` is [`LlmError::NotConfigured`](crate::core::abstractions::LlmError).
+//! `run` is `LlmError::NotConfigured`.
 //! From the outside "running and extracting nothing" and "running with no
 //! engine" look identical: the scheduler pass skips and the queue never
 //! drains. This module keeps a process-wide, fixed-size snapshot of *why*

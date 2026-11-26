@@ -98,14 +98,14 @@ impl<C: Clock> vantadb::cli_server::ConversationTrigger for HttpCaptureBridge<C>
 ///
 /// This is [`crate::services::scheduler::run_pass`] (one implementation, one
 /// behavior): expired timers dispatched into queue tasks, one
-/// [`PipelineWorker`](crate::services::pipeline_worker::PipelineWorker) batch —
+/// `PipelineWorker` batch —
 /// whose L1 → L2 → L3 cascade is enqueued through this same queue — and
 /// stale-claim reclaim. The L3 persona regenerates at
 /// [`PERSONA_TRIGGER_EVERY_N`](crate::services::scheduler::PERSONA_TRIGGER_EVERY_N)
 /// memories, plus the cold-start / recovery / first-scene triggers. A host
 /// wanting a different cadence builds its own
-/// [`MemoryTaskHandler`](crate::services::pipeline_worker::MemoryTaskHandler)
-/// and [`PipelineWorker`](crate::services::pipeline_worker::PipelineWorker)
+/// `MemoryTaskHandler`
+/// and `PipelineWorker`
 /// over the same queue.
 ///
 /// One pass per process (ADR-0054): a host that already runs

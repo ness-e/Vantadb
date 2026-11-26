@@ -8,7 +8,7 @@
 //! a static (spec FIND-112 §(b)+§(c), decisions S1-S3).
 //!
 //! Default (no env, no TOML, no model) degrades exactly like `NoLlm`
-//! ([`LlmError::NotConfigured`] per chunk → `sources_skipped`, never a hard
+//! (`LlmError::NotConfigured` per chunk → `sources_skipped`, never a hard
 //! error — contract P4 §(e)).
 
 use std::path::Path;
@@ -33,7 +33,7 @@ pub const MAX_MAX_TOKENS: u32 = 8000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum IngestRunnerProvider {
     /// Zero network, zero secrets. S1 has no local chat engine, so this
-    /// always degrades to [`LlmError::NotConfigured`] — bit-for-bit the
+    /// always degrades to `LlmError::NotConfigured` — bit-for-bit the
     /// current `NoLlm` behaviour (contract §(e)).
     #[default]
     Local,
@@ -92,7 +92,7 @@ pub enum ConcreteRunner {
     Ollama(StandaloneLlmRunner),
     OpenAi(StandaloneLlmRunner),
     /// Explicit LLM-free (S4: `NoLlm` lives on as a variant + as the facade
-    /// struct for tests). `run` = [`LlmError::NotConfigured`].
+    /// struct for tests). `run` = `LlmError::NotConfigured`.
     None,
 }
 

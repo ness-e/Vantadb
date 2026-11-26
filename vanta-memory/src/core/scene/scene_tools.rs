@@ -9,7 +9,7 @@
 //! store as:
 //!
 //! - **Session confinement** — no tool accepts a namespace. Every operation
-//!   derives `scene/<session>` through [`scene_index`] (the namespace is as
+//!   derives `scene/<session>` through `scene_index` (the namespace is as
 //!   invisible to the caller as Vanta memory engine's system files).
 //! - **No destructive tool** — there is no delete; the L2 soft-delete
 //!   strategy belongs to MEM-14.

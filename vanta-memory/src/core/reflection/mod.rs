@@ -10,10 +10,10 @@
 //! (arXiv:2304.03442v2 §4.2) — reflections are generated periodically,
 //! synthesize higher-level insights from recent observations and cite the
 //! records that served as evidence. The in-crate precedent is
-//! [`crate::core::dream`]: an optional LLM runner ([`Reflector`]) with an
+//! [`crate::core::dream`]: an optional LLM runner (`Reflector`) with an
 //! LLM-free deterministic degradation (P4) — without a runner the pass emits
 //! a digest lesson per scene (top-priority episodes, declared
-//! [`DIGEST_TOP`]); nothing blocks and nothing is lost.
+//! `DIGEST_TOP`); nothing blocks and nothing is lost.
 //!
 //! ## Invariants
 //!
@@ -23,9 +23,9 @@
 //!    class as the FIND-277 L2 fix), writes only to
 //!    `reflection/<session>/<run_id>`.
 //! 2. **LLM-free by default** — deterministic lessons; a host may inject a
-//!    [`Reflector`] for true synthesis.
-//! 3. **Explicit precondition** — fewer than [`ReflectionConfig::min_episodic`]
-//!    episodes → [`ReflectionError::NotEnoughMaterial`] (skip is observable,
+//!    `Reflector` for true synthesis.
+//! 3. **Explicit precondition** — fewer than `ReflectionConfig::min_episodic`
+//!    episodes → `ReflectionError::NotEnoughMaterial` (skip is observable,
 //!    never silent).
 
 use std::collections::hash_map::DefaultHasher;
@@ -50,7 +50,7 @@ pub const DIGEST_TOP: usize = 3;
 ///
 /// Ponytail: plain struct with builder-style overrides, no env vars — hosts
 /// construct one explicitly and hand it to [`reflect_session`]. `Debug` /
-/// `Clone` are hand-rolled: [`Reflector`] is a trait object (no auto
+/// `Clone` are hand-rolled: `Reflector` is a trait object (no auto
 /// `Debug`; `Clone` deliberately drops the runner, same choice as
 /// `DreamConfig`).
 pub struct ReflectionConfig {
@@ -132,7 +132,7 @@ pub trait Reflector: Send + Sync {
     ) -> Result<Vec<MemoryRecord>, String>;
 }
 
-/// Context handed to a [`Reflector`] when a host runs an LLM-driven pass.
+/// Context handed to a `Reflector` when a host runs an LLM-driven pass.
 #[derive(Debug, Clone)]
 pub struct ReflectionContext {
     pub session_id: String,
@@ -197,12 +197,12 @@ impl From<L1Error> for ReflectionError {
 // ── LLM-free digest (deterministic degradation, P4) ──
 
 /// Deterministic LLM-free reflection: one `WorkMethod` lesson per scene,
-/// built from the top-[`DIGEST_TOP`] episodes (priority desc, then
+/// built from the top-`DIGEST_TOP` episodes (priority desc, then
 /// `updated_at` desc) and citing **every** source id of the scene in
 /// `metadata.reflection.source_ids`.
 ///
 /// Pure function (no I/O): the digest is the P4 degradation of Park's
-/// synthesis — nothing blocks, nothing is lost; the [`Reflector`] runner
+/// synthesis — nothing blocks, nothing is lost; the `Reflector` runner
 /// replaces it with true synthesis when configured.
 pub fn reflect_episodic(
     records: &[MemoryRecord],
@@ -344,7 +344,7 @@ pub fn load_reflection_run(
 /// superseded episodes are invalidated facts kept for audit lineage, and
 /// must never feed lesson synthesis (same gate as the recall-facing
 /// readers, FIND-277) — filters the episodic records, enforces the
-/// declared [`ReflectionConfig::min_episodic`] precondition, produces lessons
+/// declared `ReflectionConfig::min_episodic` precondition, produces lessons
 /// (runner when configured, deterministic digest otherwise) and persists the
 /// [`ReflectionRun`] under `reflection/<session>/<run_id>`. Pull-based — the
 /// owner calls it (same shape as `run_decay_pass` / `TimerScanner::run_once`).

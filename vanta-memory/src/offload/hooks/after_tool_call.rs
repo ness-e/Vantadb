@@ -5,9 +5,9 @@
 //! Vanta memory engine buffers every pair and lets an LLM (L1) summarize it later; the L3
 //! compression loop then replaces in-context results with those summaries.
 //! The LLM-free equivalent here: when the serialized result exceeds a size
-//! threshold, persist an [`OffloadEntry`] whose `summary` is a deterministic
+//! threshold, persist an `OffloadEntry` whose `summary` is a deterministic
 //! truncated placeholder (L1 upgrades it later) and advance the persistent
-//! cursor [`PluginState::last_offloaded_tool_call_id`].
+//! cursor `PluginState::last_offloaded_tool_call_id`.
 //!
 //! Idempotency (D19): re-processing the same tool call is a no-op — guarded
 //! by both the cursor and storage-level dedup by `tool_call_id`.

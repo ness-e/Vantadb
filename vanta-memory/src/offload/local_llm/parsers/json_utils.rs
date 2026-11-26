@@ -3,7 +3,7 @@
 //!
 //! LLMs frequently wrap JSON in markdown code fences, surround it with prose,
 //! emit trailing commas, or leak raw control characters (newlines/tabs) into
-//! string values. [`extract_json`] walks cheap repair strategies in order and
+//! string values. `extract_json` walks cheap repair strategies in order and
 //! returns the first that deserializes.
 
 use serde::de::DeserializeOwned;

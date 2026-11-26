@@ -84,7 +84,7 @@ pub trait SpillSink {
 /// 1. Ratio gate: `tokens/budget < cfg.compaction_ratio` → untouched.
 /// 2. Mild cascade: replace top-score unit contents with `[compacted N chars]`
 ///    stubs until under budget (thresholds INITIAL→FLOOR, max
-///    [`MIN_REPLACEMENTS_PER_PASS`] replacements).
+///    `MIN_REPLACEMENTS_PER_PASS` replacements).
 /// 3. Aggressive one-shot: delete leading whole units until under budget.
 /// 4. Emergency: [`emergency_truncate`] fallback.
 ///

@@ -7,7 +7,7 @@
 //!   port (no dependency on real OpenClaw).
 //! - `mock` (feature `mock`) — deterministic fake for tests (D19).
 //!
-//! [`OpenClawHost`]: openclaw::llm_runner::OpenClawHost
+//! [`OpenClawHost`]: crate::adapters::openclaw::llm_runner::OpenClawHost
 
 pub mod openclaw;
 pub mod standalone;

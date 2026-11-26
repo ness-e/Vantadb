@@ -46,7 +46,7 @@ const DEFAULT_SCENE: &str = "unknown-scene";
 ///
 /// Returns `(result, pending, decisions)` mirroring [`extract_l1_segments`](crate::core::record::l1_extractor::extract_l1_segments)
 /// (`records` empty, `stored_count` 0 — writing lives in the caller) plus one
-/// [`DedupDecision`] per memory (alignment by construction). `now_ms` is a
+/// `DedupDecision` per memory (alignment by construction). `now_ms` is a
 /// parameter so transient ids stay deterministic in tests.
 pub fn extract_dedup_batch<R: LlmRunner>(
     runner: &R,

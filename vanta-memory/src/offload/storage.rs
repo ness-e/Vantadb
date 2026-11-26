@@ -2,7 +2,7 @@
 //! Vanta memory engine `MC/offload/storage.ts`, MEM-20).
 //!
 //! Vanta memory engine appends JSONL lines with write-time dedup by `tool_call_id`. Here
-//! each [`OffloadEntry`] is one store record under `offload/<session>`,
+//! each `OffloadEntry` is one store record under `offload/<session>`,
 //! keyed by its sanitized `tool_call_id` — SDK upsert + get-before-put give
 //! the same dedup guarantee without a file rewrite. The refs/MMD/registry
 //! layers of Vanta memory engine are not ported: VantaDB records replace files, and text

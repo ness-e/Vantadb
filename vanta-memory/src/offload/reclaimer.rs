@@ -5,13 +5,13 @@
 //! (JSONL, refs, MMDs, logs, registry). Here the only artifact class is the
 //! per-session offload records of [`crate::offload::storage::OffloadStorage`],
 //! so the port collapses to one step over store records. Age comes from each
-//! [`OffloadEntry::timestamp`] (ISO string inherited from the tool result) —
+//! `OffloadEntry::timestamp` (ISO string inherited from the tool result) —
 //! record-store mtimes do not exist.
 //!
 //! Safety rules (D19):
 //! - Only *strictly pre-cursor* entries are reclaimed: an entry qualifies only
 //!   when its timestamp is strictly older than the timestamp of the entry the
-//!   L3 cursor ([`PluginState::last_offloaded_tool_call_id`]) points at. The
+//!   L3 cursor (`PluginState::last_offloaded_tool_call_id`) points at. The
 //!   cursor target itself therefore always survives — the cursor can never
 //!   dangle into GC-ed data.
 //! - `retention_days < 3` disables the reclaimer entirely (engine parity).

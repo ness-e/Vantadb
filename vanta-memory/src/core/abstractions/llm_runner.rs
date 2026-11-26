@@ -51,7 +51,7 @@ impl LlmRunParams {
 /// Errors surfaced by [`LlmRunner::run`]. Callers degrade per layer
 /// (store-all, heuristic dedup) — an LLM failure never loses data.
 ///
-/// `Clone` is needed by the scripted [`crate::adapters::MockLlmRunner`]
+/// `Clone` is needed by the scripted `crate::adapters::MockLlmRunner`
 /// (`mock` feature) so tests can pre-load errors.
 #[derive(Debug, Clone, Error)]
 pub enum LlmError {
@@ -83,7 +83,7 @@ pub enum LlmError {
 ///   OpenAI-compatible HTTP (host-less), wired under the `llm-driver` feature.
 /// - [`crate::adapters::openclaw::llm_runner::OpenClawLlmRunner`] — delegates
 ///   to an OpenClaw-style host via [`crate::adapters::openclaw::llm_runner::OpenClawHost`].
-/// - [`crate::adapters::mock::MockLlmRunner`] — deterministic fake for tests
+/// - `crate::adapters::mock::MockLlmRunner` — deterministic fake for tests
 ///   (`mock` feature).
 ///
 /// Returns the model's text output. Errors are reported as [`LlmError`]; the

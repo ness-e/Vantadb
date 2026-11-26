@@ -9,7 +9,7 @@
 //!
 //! Persistence goes through the VantaDB SDK (Principio 2): records live under
 //! the `l1/<session>` namespace, key = sanitized record id, payload = the
-//! serialized [`MemoryRecord`].
+//! serialized `MemoryRecord`.
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -90,7 +90,7 @@ pub fn is_active_record(record: &MemoryRecord) -> bool {
         .is_none_or(|s| s.trim().is_empty())
 }
 
-/// Why an L1 payload could not be decoded as a [`MemoryRecord`] (FIND-259).
+/// Why an L1 payload could not be decoded as a `MemoryRecord` (FIND-259).
 ///
 /// The reader has two silent layers: the `serde_json` decode and the
 /// [`sdk_to_memory_record`] fallback that reinterprets whatever did not decode.
@@ -300,7 +300,7 @@ pub fn vanta_to_json_value(v: &vantadb::sdk::Value) -> serde_json::Value {
 
 /// Run the L1 forgetting-curve pass over one session (MEMG-07).
 ///
-/// Composes [`read_session_records`] + [`scan_decay`] — **read-only**: the
+/// Composes [`read_session_records`] + `scan_decay` — **read-only**: the
 /// curve deprioritizes records (effective heat); it never mutates or deletes
 /// them, and the discard gate stays explicit
 /// ([`crate::core::record::lifecycle::PRUNE_HEAT_THRESHOLD`]). Pull-based

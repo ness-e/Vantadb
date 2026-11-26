@@ -45,7 +45,7 @@ fn default_scope() -> String {
     DEFAULT_SCOPE.to_string()
 }
 
-/// A single seeded skill (parity with MEM-06 [`StoredSkill`] inputs).
+/// A single seeded skill (parity with MEM-06 `StoredSkill` inputs).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct SeedSkill {

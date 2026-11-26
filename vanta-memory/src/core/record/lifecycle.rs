@@ -3,22 +3,22 @@
 //!
 //! Primitives on `MemoryRecord`:
 //!
-//! - [`bump_heat`]: increment heat on every successful read/access (signal of
+//! - `bump_heat`: increment heat on every successful read/access (signal of
 //!   usefulness). Saturating; never overflows.
-//! - [`decay_heat`]: halve heat (shift right) per maintenance pass. After
+//! - `decay_heat`: halve heat (shift right) per maintenance pass. After
 //!   enough passes heat hits 0 — that record is a candidate for pruning
 //!   (the prune decision lives in the periodic maintenance job, not here).
-//! - [`retention_factor`] / [`effective_heat`]: MEMG-07 forgetting curve —
-//!   `2^(−age/half_life)` over [`DecayPolicy`], age measured from the last
+//! - `retention_factor` / `effective_heat`: MEMG-07 forgetting curve —
+//!   `2^(−age/half_life)` over `DecayPolicy`, age measured from the last
 //!   touch (`updated_at`). Read-side: the curve deprioritizes (effective
-//!   heat), it never mutates or deletes; [`scan_decay`] reports how much
+//!   heat), it never mutates or deletes; `scan_decay` reports how much
 //!   decays and what crosses the explicit prune threshold.
-//! - [`mark_contradiction`]: set `superseded_by` on the OLD record to the new
+//! - `mark_contradiction`: set `superseded_by` on the OLD record to the new
 //!   key. The old record is **preserved** (provenance chain) — we never
 //!   silently delete, only invalidate trackably.
 //!
 //! Ponytail: the primitive decay stays integer saturating arithmetic (no
-//! async, no LLM); the float curve lives in the declared [`DecayPolicy`]
+//! async, no LLM); the float curve lives in the declared `DecayPolicy`
 //! layer (MEMG-07) — policy, not calibration (N-09). Contradiction detection
 //! here is caller-supplied (the writer sees the dedup signal and calls this
 //! with both keys); heuristic detection belongs to the L1 dedup pipeline
@@ -49,7 +49,7 @@ pub const DEFAULT_HEAT: u32 = 0;
 /// accessed since creation or its last decay round.
 pub const PRUNE_HEAT_THRESHOLD: u32 = 1;
 
-/// Outcome of [`mark_contradiction`] — returned to the caller so the
+/// Outcome of `mark_contradiction` — returned to the caller so the
 /// maintenance log can record what happened (in addition to the `tracing`
 /// event the function itself emits).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -128,7 +128,7 @@ pub fn is_prune_eligible(record: &MemoryRecord) -> bool {
 ///
 /// **Policy, not calibration.** N-09 records that no canonical decay formula
 /// for semantic memory has been validated; the defaults below are round,
-/// tunable values declared for [`retention_factor`]. The full Ebbinghaus
+/// tunable values declared for `retention_factor`. The full Ebbinghaus
 /// vision (access frequency, importance, confirmations, salience — FUT-10)
 /// lands in the composite-scoring work (MEMG-21): [`crate::core::record::scoring`]
 /// consumes this curve as the recency signal and adds relevance + declared
@@ -185,7 +185,7 @@ impl DecayPolicy {
 /// `R = 2^(−age/half_life)` — the half-life parametrization of the
 /// exponential forgetting form `R = e^(−t/S)` (Wikipedia, *Forgetting
 /// curve* §Equations). `age` = time since the record's last touch
-/// (`updated_at`, which [`bump_heat`] refreshes on every access — use resets
+/// (`updated_at`, which `bump_heat` refreshes on every access — use resets
 /// retention, Ebbinghaus-style). Policy, not calibration: the same source
 /// notes the simple exponential "was not found to provide a good fit" — tune
 /// half-lives per deployment.
@@ -251,7 +251,7 @@ impl DecayReport {
 /// Apply the forgetting curve over `records` as of `now_ms` (pure, MEMG-07).
 ///
 /// Read-only by construction: computes the report and mutates nothing — the
-/// curve deprioritizes (via [`effective_heat`]), it never purges.
+/// curve deprioritizes (via `effective_heat`), it never purges.
 pub fn scan_decay(records: &[MemoryRecord], policy: &DecayPolicy, now_ms: u64) -> DecayReport {
     let mut report = DecayReport::default();
     for record in records {

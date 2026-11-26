@@ -1,10 +1,10 @@
 //! MEM-68: optional capture-approval gate (Cursor pattern).
 //!
 //! Default off: [`should_gate`] returns `false` and hosts call
-//! [`apply_dedup_batch`](super::l1_writer::apply_dedup_batch) directly —
+//! [`apply_dedup_batch`] directly —
 //! byte-identical to pre-MEM-68 (never-block, gap #6 research). Gate on:
-//! extracted memories wait in [`CaptureApprovalQueue`] until [`approve`]
-//! (persists with default `Store` decisions) or [`reject`] (drops them).
+//! extracted memories wait in [`CaptureApprovalQueue`] until `approve`
+//! (persists with default `Store` decisions) or `reject` (drops them).
 //!
 //! Scope: one in-memory queue (no threads, no persistence — pre-mortem #2).
 
