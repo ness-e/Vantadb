@@ -785,12 +785,6 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
 
-## Media 2026-11-25 - Sin backfill L0→cola tras restart (derivada de MCP-43)
-
-| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
-|---|---|---|---|---|---|---|---|---|---|
-| `FIND-745` | 🟡 Media | **Un turno capturado que muere antes del pass no se re-extrae nunca: la cola L1 es in-memory y no hay marcador durable de consolidación** | `vantadb-mcp/src/memory_scheduler.rs` · `vanta-memory/src/core/conversation/**` | 🟡 ~1d | 🟡 Media | 🟡 Pendiente (2026-11-25) | Decisión explícita de `MCP-43` (opción b, con techo declarado): sin backfill. La cola es in-memory (`ADR-0054`), así que matar `--mcp` entre `thread_send` y el pass deja ese turno **capturado en `l0/` pero nunca consolidado**. Lo capturado no se pierde (sigue en el thread store y en `l0/`), y por eso la opción b fue defendible; lo que se difiere es la extracción automática. Un backfill **correcto** exige un marcador durable de consolidación en el camino L0 (qué turno ya se extrajo), que estaba fuera del scope de escritura de `MCP-43`; la variante acotada por N/mtime sin ese marcador degenera en re-encolar en cada arranque turnos ya extraídos → **duplicación masiva de llamadas LLM**. Contrato: matar `--mcp` entre `thread_send` y el pass → un `--mcp` nuevo consolida **ese** turno y `memory_recall` lo devuelve sin `memory_put`, **sin duplicar** la extracción de los ya consolidados (verificado con dos turnos: uno consolidado antes del kill, uno después — el conteo de extracciones no sube para el primero). | Origen: `MCP-43` (2026-11-25) | Ver: `MCP-43`, `MCP-44`, `ADR-0054` |
-
 ## Media 2026-11-26 - `HOME` vacío da rutas relativas al CWD (derivada de FIND-738)
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
