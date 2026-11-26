@@ -51,7 +51,14 @@ impl StorageEngine {
                 // class as the insert-side `ShreddedRowStore::put` (SDK,
                 // post-commit): the WAL tombstone is the commit point, so a
                 // shred purge failure must never fail the delete.
-                let _ = crate::shred::ShreddedRowStore::delete(id, &*self.backend);
+                // FIND-758: "must never fail the delete" is not "must never be
+                // reported" — the failure is logged (warn) and counted instead
+                // of discarded with `let _ =`.
+                //
+                // Deliberately still inside `insert_lock`: a purge that ran
+                // after the guard was dropped could delete the *fresh*
+                // `shred::{id}` row of a concurrent re-insert of the same id.
+                crate::shred::ShreddedRowStore::delete_reporting(id, &*self.backend);
             }
             res
         };

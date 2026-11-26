@@ -260,6 +260,12 @@ pub(crate) fn has_omitted_fields(shredded: &HashMap<String, ShreddedField>) -> b
 /// `BackendPartition::InternalMetadata` with key `shred::{node_id}`.
 pub struct ShreddedRowStore;
 
+/// Shredded-row purges that failed and were reported instead of propagated
+/// (`FIND-758`). Process-wide and monotonic — see
+/// [`ShreddedRowStore::delete_reporting`] and
+/// [`ShreddedRowStore::purge_failure_count`].
+static PURGE_FAILURES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 impl ShreddedRowStore {
     /// Backend key under which a node's shredded fields are stored
     /// (`BackendPartition::InternalMetadata`).
@@ -480,6 +486,39 @@ impl ShreddedRowStore {
             partition: BackendPartition::InternalMetadata,
             key: Self::store_key(node_id),
         }
+    }
+
+    /// Purge a node's shredded row, **reporting** — never propagating — a
+    /// failure (`FIND-758`).
+    ///
+    /// The WAL tombstone is the commit point of a delete, so a purge failure
+    /// must not fail the delete: the row is derived data, not the record.
+    /// "Must not fail" is not "must not be reported", though — a discarded
+    /// `Result` left the residue (`shred::{node_id}` outliving its node)
+    /// invisible until someone ran the *a posteriori* purge certification
+    /// (`src/attestation.rs`, surface `shred`). Here the failure is logged
+    /// with its node id and counted at the moment it happens.
+    pub(crate) fn delete_reporting(node_id: u128, backend: &dyn StorageBackend) {
+        if let Err(error) = Self::delete(node_id, backend) {
+            let purge_failures_total =
+                PURGE_FAILURES.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            tracing::warn!(
+                node_id = %node_id,
+                error = %error,
+                purge_failures_total,
+                "shredded-row purge failed: the row survives the delete \
+                 (WAL tombstone already committed) — FIND-758"
+            );
+        }
+    }
+
+    /// Shredded-row purges that failed since process start, as reported by
+    /// [`Self::delete_reporting`] (`FIND-758`).
+    // Reason: read by the FIND-758 test today; an operator gets the running
+    // total from the `warn!` above without any extra plumbing.
+    #[allow(dead_code)]
+    pub(crate) fn purge_failure_count() -> u64 {
+        PURGE_FAILURES.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 

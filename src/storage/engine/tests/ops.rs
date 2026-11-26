@@ -2,7 +2,7 @@
 
 use super::super::*;
 use super::{in_memory_engine, sample_node};
-use crate::backend::BackendPartition;
+use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::node::{NodeTier, UnifiedNode};
 
 // ─── Transactions ─────────────────────────────────────────────
@@ -1721,4 +1721,136 @@ fn test_commit_flush_interleaving() {
             );
         }
     }
+}
+
+// ─── FIND-758: the shred purge failure is reported, never swallowed ───────
+
+/// Delegates every call to the wrapped backend except `delete` on
+/// [`BackendPartition::InternalMetadata`] — the partition holding the shredded
+/// row (`shred::{node_id}`) — which always fails.
+///
+/// `attempts` counts the attempted purges so the test can prove the failing
+/// path was actually exercised: asserting only "delete returned Ok" would pass
+/// even if the purge had been removed entirely (pre-mortem c of `FIND-758`).
+struct FailingShredDelete {
+    inner: std::sync::Arc<dyn crate::backend::StorageBackend>,
+    attempts: std::sync::atomic::AtomicUsize,
+}
+
+impl FailingShredDelete {
+    fn new(inner: std::sync::Arc<dyn crate::backend::StorageBackend>) -> Self {
+        Self {
+            inner,
+            attempts: std::sync::atomic::AtomicUsize::new(0),
+        }
+    }
+
+    fn shred_delete_attempts(&self) -> usize {
+        self.attempts.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+impl crate::backend::Scannable for FailingShredDelete {
+    fn scan(&self, partition: BackendPartition) -> crate::error::Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.inner.scan(partition)
+    }
+
+    fn scan_prefix_iter<'a>(
+        &'a self,
+        partition: BackendPartition,
+        prefix: &'a [u8],
+    ) -> crate::error::Result<Box<dyn Iterator<Item = crate::error::Result<(Vec<u8>, Vec<u8>)>> + 'a>>
+    {
+        self.inner.scan_prefix_iter(partition, prefix)
+    }
+}
+
+impl crate::backend::StorageBackend for FailingShredDelete {
+    fn put(
+        &self,
+        partition: BackendPartition,
+        key: &[u8],
+        value: &[u8],
+    ) -> crate::error::Result<()> {
+        self.inner.put(partition, key, value)
+    }
+
+    fn get(
+        &self,
+        partition: BackendPartition,
+        key: &[u8],
+    ) -> crate::error::Result<Option<Vec<u8>>> {
+        self.inner.get(partition, key)
+    }
+
+    fn delete(&self, partition: BackendPartition, key: &[u8]) -> crate::error::Result<()> {
+        if matches!(partition, BackendPartition::InternalMetadata) {
+            self.attempts
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            return Err(crate::error::Error::Io(std::io::Error::other(
+                "FIND-758 injected shredded-row purge failure",
+            )));
+        }
+        self.inner.delete(partition, key)
+    }
+
+    fn write_batch(&self, ops: Vec<BackendWriteOp>) -> crate::error::Result<()> {
+        self.inner.write_batch(ops)
+    }
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        self.inner.capabilities()
+    }
+}
+
+/// `FIND-758`: a failing shredded-row purge must not fail the delete (the WAL
+/// tombstone is the commit point) **and** must not vanish: the failure is
+/// counted so an operator can see it without running the purge certification.
+#[test]
+fn shred_purge_failure_is_reported_but_does_not_fail_the_delete() {
+    let id: u128 = 758;
+    let mut engine = in_memory_engine();
+    engine.insert(&sample_node(id)).expect("insert");
+
+    let failing = std::sync::Arc::new(FailingShredDelete::new(engine.backend.clone()));
+    engine.backend = failing.clone();
+
+    let before = crate::shred::ShreddedRowStore::purge_failure_count();
+
+    // (a) the delete keeps its semantics: Ok, because the tombstone is the
+    // commit point — the purge failure is a reporting concern, not an outcome.
+    engine
+        .delete(id, "FIND-758 shred purge failure")
+        .expect("a shred purge failure must never fail the delete");
+
+    // (b) the failure was actually exercised (not a vacuous green) ...
+    assert_eq!(
+        failing.shred_delete_attempts(),
+        1,
+        "the shredded-row purge was never attempted on InternalMetadata"
+    );
+    // ... and it was reported **once**: the counter counts failures, so a
+    // mutant that counted every purge attempt is not allowed to pass.
+    assert_eq!(
+        crate::shred::ShreddedRowStore::purge_failure_count(),
+        before + 1,
+        "the shredded-row purge failure was not counted exactly once (FIND-758)"
+    );
+
+    // (c) the counter means *failures*, not attempts — pinned hermetically,
+    // without an engine round-trip: a failing purge moves it, a purge that
+    // works must not.
+    let counter_after_failure = crate::shred::ShreddedRowStore::purge_failure_count();
+    crate::shred::ShreddedRowStore::delete_reporting(1001, &*failing);
+    assert_eq!(
+        crate::shred::ShreddedRowStore::purge_failure_count(),
+        counter_after_failure + 1,
+        "a second failing purge was not counted (FIND-758)"
+    );
+    crate::shred::ShreddedRowStore::delete_reporting(1002, &*failing.inner);
+    assert_eq!(
+        crate::shred::ShreddedRowStore::purge_failure_count(),
+        counter_after_failure + 1,
+        "a successful shred purge moved the failure counter (FIND-758)"
+    );
 }
