@@ -209,3 +209,56 @@ revisor confirmó por reproducción y no por reporte.
   lane (`:68`) es la clase de `FIND-764` y esta lane es la única que carga los 56 —
   merece fila propia; (2) el harness A/B/C vive en `%TEMP%` y no en el repo, porque
   `dev-tools/**` está prohibido por el ticket.
+
+## Regresión (FIND-785 — 2026-11-26)
+
+El guard que esta fila añadió **apagó la lane entera** en el push `43e41f055`: siete fases
+sin ejecutar, y ninguna por un test rojo.
+
+- **La medición que lo mató:** `01-unit-plain: nextest list exited 0 selecting 0 test(s).`
+  El artifact del mismo run lo desmiente: `01-unit-plain.listed.txt` = **5440 bytes / 42
+  líneas**. La lane no midió cero tests: midió cero con el patrón.
+- **Dos errores deterministas en una línea** — `grep -oE '^[^[:space:]]+::[^[:space:]]+ '`.
+  (1) `nextest list` imprime `vantadb accumulator::tests::test_accumulator_snapshot` —
+  **package, espacio, test** —, así que `^` ancla contra un `::` que en la primera columna
+  no existe. (2) `CARGO_TERM_COLOR: always` (`:71`) envuelve cada token en escapes ANSI, que
+  `[^[:space:]]+` absorbe. Medido sobre el artifact real: **42** líneas, **0** casan con el
+  patrón, **42** con `^\S+ \S+$` una vez pelado el ANSI.
+- **Por qué la verificación de `FIND-766` no lo cazó:** `-T auto` imprime `human` en un
+  terminal y `oneline` cuando stdout es un pipe (lo dice `cargo nextest list --help`), así
+  que el formato **depende del entorno**. Un conteo sobre la presentación no mide la
+  población: mide cómo se imprimió.
+- **El arreglo:** `--message-format json` y el conteo sobre
+  `."rust-suites"[].testcases[] | select(."filter-match".status == "matches")` — sólo los
+  tests que el `run` va a ejecutar (el `-E` de la fase ya está aplicado ahí, y un `ignored`
+  aparece como `mismatch`). `.listed.json` guarda la salida cruda; `.listed.txt` se deriva
+  del JSON (una línea `suite test`, sin ANSI) para que el artifact siga siendo legible.
+  `test-count` **no** se usa: es «tests, incluidos skipped e ignored», no la población.
+- **El fallo de diseño, que importaba más que el bug:** un gate cuya **medición** falla
+  apagaba la certificación — el modo de fallo que esta fila existía para evitar, al revés.
+  Ahora sólo aborta el caso en que no hay nada que medir (`nextest list` exit ≠ 0). Los otros
+  dos se **distinguen** y ninguno apaga la fase: `measurement=suspect` es una medición
+  **válida de cero** (exit 0, 0 tests) y `measurement=unmeasured` es el **contador roto**
+  (el JSON no se pudo leer). `listed > 0` mantiene `listed == executed` como estaba. La
+  aserción original **se conserva**: un `run` que ejecuta de menos sigue rojo, y cualquiera
+  de los dos estados no medidos es rojo si el `run` ejecuta 0.
+- **Verificación:** el `run_phase` **real, extraído del YAML** (86 líneas / 3091 B), con un
+  `cargo` falso, sobre el artifact real y fixtures con la forma real
+  (`package<space>mod::test`, con y sin ANSI): 42 → 42 verde (compacto y `json-pretty`), 0
+  contados / 7 ejecutados → **verde** con `suspect`, JSON ilegible / 7 ejecutados → **verde**
+  con `unmeasured`, 42 listados / 41 ejecutados → rojo (`population is 42 test(s) but 41
+  executed.`), lista fallida → aborta antes del `run`, run con tests rojos → rojo, y sin
+  `jq` en el `PATH` el step aborta en vez de contar 0 en las siete fases. **30/30**; el mismo
+  harness contra el `run_phase` de `HEAD` da **18 fallos / 12 aciertos**.
+- **Un segundo límite, medido acá:** `actionlint` 1.7.12 con su shellcheck embebido cuelga
+  con este `run:` en cuanto **crece una sentencia** — no es cuestión de prosa: `final.yml`
+  (bloque de 6377 B) linta en 0 s y aguanta +148 B de líneas en blanco, pero **+1 sentencia
+  (113 B) lo deja sin terminar en más de 100 s**, y quitar una línea no lo recupera si
+  quedan más. Por eso la prosa de `FIND-768`/`FIND-785` vive en comentarios YAML encima del
+  step (como en `certification.yml`, `FIND-766`), y el cuarto estado se escribió como un
+  `case` que sustituye **dos** compuestos por **uno** (6773 B de bloque) para no gastar
+  presupuesto de sentencias. Regla para el próximo que toque este `run:`: añadir código sólo
+  si se retira otro tanto, y volver a correr `actionlint` **sin** `-shellcheck=`.
+- **Lo que cambia para quien lea `listed-vs-executed.txt`:** la línea gana un quinto campo,
+  `measurement=counted|suspect|unmeasured`. Y una selección vacía deja de detectarse en el
+  `list` (`--no-tests fail` la ve en el `run`, exit ≠ 0): sigue roja, por la otra puerta.

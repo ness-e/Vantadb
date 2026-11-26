@@ -107,17 +107,55 @@ jobs:
           test "$(uname -s)" = Linux
           test "$(id -u)" -ne 0
 
+      # FIND-768 - why each phase counts its own population: a phase that never
+      # counts what it selected cannot tell "42 of 56 passed" from "56 of 56
+      # passed", which is how 14 tests stayed unexecuted behind a green lane.
+      # `coverage` says which population is meant: `scoped` counts with the
+      # phase's own -E (the filter IS the intended population); `full` counts the
+      # whole target, so a selector that narrows the run shows up as
+      # executed < listed instead of shrinking both sides.
+      #
+      # FIND-785 - why the count reads JSON and no longer the rendered list: the
+      # lane sets CARGO_TERM_COLOR, so `nextest list` wraps every token in ANSI,
+      # and it prints `package mod::test` (space, not `pkg::mod::`) on `oneline`,
+      # which `-T auto` picks whenever stdout is a pipe. The FIND-768 counter
+      # anchored `^...::` on that rendered text: it counted 0 on a 42-test
+      # artifact and the guard aborted all seven phases before a single test ran.
+      # The JSON list is the same data without the presentation: the population is
+      # every test whose `filter-match` is `matches` (the phase's -E is already
+      # applied there, and an ignored test arrives as a mismatch).
+      #
+      # FIND-785 - why a failed count never aborts a phase, and how the two ways
+      # of not having a number stay distinguishable. `nextest list` exit != 0
+      # aborts, because there is nothing to measure at all. Everything else goes
+      # on: 0 tests counted from an exit-0 list is `measurement=suspect` (a real
+      # measurement of zero), while a jq that cannot read the JSON - or a JSON
+      # that is not even that - is `measurement=unmeasured` (the counter itself
+      # broke). Both keep the phase alive with the state written into
+      # listed-vs-executed.txt, because a broken counter must not switch the
+      # certification off - that is the failure this guard exists to prevent,
+      # inverted. listed > 0 keeps the FIND-768 assertion untouched, so a run
+      # that executes a different number than it listed is still red; and any
+      # state that is not `counted` is still red when the run executes 0 tests.
+      #
+      # FIND-785 - keep this `run:` block statement-tight. actionlint's embedded
+      # shellcheck stops returning on this script as soon as it gains one
+      # statement: a 6377 B block lints in 0 s and tolerates +148 B of blank
+      # lines, but +1 statement (113 B) never finished in 100 s, and removing a
+      # line does not recover it while more remain. That is why the state is a
+      # `case` (one compound replacing two) and why all prose lives up here, the
+      # same ceiling FIND-766 recorded for certification.yml.
       - name: Certify core snapshots, native RocksDB and their callers
         run: |
           out=artifacts/snapshot-certification
           report=target/nextest/audit/junit.xml
 
+          command -v jq > /dev/null || { echo "jq not found: cannot measure the population." >&2; exit 1; }
+
           run_phase() {
             local phase="$1" coverage="$2" selector="$3"
             shift 3
-            # Remaining args select the targets this phase covers
-            # (package, --lib/--test, --features).
-            local status listed list_status executed
+            local status listed list_status executed measurement
             local -a pipeline_status run_args expect
             touch "$out/$phase.started"
             if [[ -f "$report" ]]; then
@@ -128,31 +166,35 @@ jobs:
             expect=("$@")
             if [[ -n "$selector" ]]; then
               run_args+=(-E "$selector")
-              # scoped: the filter IS the intended population. full: the
-              # population is the whole target, so a selector that narrows it
-              # shows up as executed < listed instead of shrinking both sides.
               if [[ "$coverage" == "scoped" ]]; then
                 expect+=(-E "$selector")
               fi
             fi
 
-            # FIND-768: listed == executed, counted before running. A green
-            # that never counted its population cannot tell "42 of 56 passed"
-            # from "56 of 56 passed" - which is exactly how 14 tests stayed
-            # unexecuted behind a green lane.
             set +e
             cargo nextest list \
               --profile audit --cargo-profile ci \
               --locked --build-jobs 2 \
               --ignore-default-filter \
-              "${expect[@]}" > "$out/$phase.listed.txt" 2> "$out/$phase.list.stderr.txt"
+              --message-format json \
+              "${expect[@]}" > "$out/$phase.listed.json" 2> "$out/$phase.list.stderr.txt"
             list_status=$?
             set -e
-            listed=$(grep -oE '^[^[:space:]]+::[^[:space:]]+ ' "$out/$phase.listed.txt" | wc -l || true)
-            if [[ "$list_status" -ne 0 || "$listed" -eq 0 ]]; then
-              echo "$phase: nextest list exited $list_status selecting $listed test(s)." >&2
+            listed=$(jq -r '[ ."rust-suites"[] | .testcases[] | select(."filter-match".status == "matches") ] | length' "$out/$phase.listed.json" 2>/dev/null || true)
+            jq -r '."rust-suites" | to_entries[] as $s | $s.value.testcases | to_entries[] | select(.value."filter-match".status == "matches") | "\($s.key) \(.key)"' "$out/$phase.listed.json" > "$out/$phase.listed.txt" 2>/dev/null || true
+            case "$listed" in
+              '' | *[!0-9]*) measurement=unmeasured; listed=0 ;;
+              0) measurement=suspect ;;
+              *) measurement=counted ;;
+            esac
+
+            if [[ "$list_status" -ne 0 ]]; then
+              echo "$phase: nextest list exited $list_status; the population could not be measured." >&2
               printf '%s\n' 1 > "$out/$phase.exit-code.txt"
               return 1
+            fi
+            if [[ "$measurement" != "counted" ]]; then
+              echo "::warning title=Population not measured::$phase measurement=$measurement; continuing without the listed/executed check."
             fi
 
             set +e
@@ -171,10 +213,15 @@ jobs:
             if [[ -f "$report" ]]; then
               cp "$report" "$out/$phase.junit.xml"
               executed=$(grep -o '<testcase' "$out/$phase.junit.xml" | wc -l || true)
-              printf '%s listed=%s executed=%s coverage=%s\n' \
-                "$phase" "$listed" "$executed" "$coverage" \
+              printf '%s listed=%s executed=%s coverage=%s measurement=%s\n' \
+                "$phase" "$listed" "$executed" "$coverage" "$measurement" \
                 | tee -a "$out/listed-vs-executed.txt"
-              if [[ "$executed" -ne "$listed" ]]; then
+              if [[ "$measurement" != "counted" ]]; then
+                if [[ "$executed" -eq 0 ]]; then
+                  echo "$phase: no usable population count ($measurement) and the run executed 0 test(s)." >&2
+                  status=1
+                fi
+              elif [[ "$executed" -ne "$listed" ]]; then
                 echo "$phase: population is $listed test(s) but $executed executed." >&2
                 status=1
               fi
