@@ -283,7 +283,7 @@ skip; never a silent loss.
 | `ingest::auto_sync` | Pull-based scheduled wiki re-ingest (MEM-45): per-file FNV-1a change detection, disabled by default, interval ≥ 60 s | `ingest/auto_sync.rs:108` (`tick`), `:33-36` |
 | `services::conversation_hook` | `HttpCaptureBridge` — implements the core's `ConversationTrigger` for `POST /api/v2/conversations` (MEM-55): L0 capture + L1 task enqueue; **wired by `vantadb-server` HTTP mode** (WIRE-16). `run_bridge_pass` is one pass of the same L0→L3 planner (MEM-71) | `services/conversation_hook.rs:46-55,122-128` · `vantadb-server/src/scheduler.rs:124-146` |
 | `services::scheduler` | Pull-based pass (`run_pass` = expired timers + one worker pass + stale-claim reclaim, L3 persona at `PERSONA_TRIGGER_EVERY_N`) + feature-gated loop helper (`spawn_memory_scheduler`, `http-server`); host-driven with graceful join (WIRE-15/16) | `services/scheduler.rs:58` (cadence), `:87` (`run_pass`), `:284` (`spawn_memory_scheduler`) |
-| `ingest::observability` | Process-wide ingest status (MEM-72): runner in use, last pass outcome, queue depth; warns once per degraded episode | `ingest/observability.rs` (`status`, `note_runner`, `note_pass`, `note_skipped_pass`, `note_scheduler_started/stopped`) |
+| `ingest::observability` | Process-wide ingest status (MEM-72, ADR-0065): runner in use, last pass (with the queue sample it took), **live** queue occupancy read by the caller, derived `health`/`drain_path`; warns once per degraded episode | `ingest/observability.rs` (`status`, `status_with_queue`, `note_runner`, `note_pass`, `note_skipped_pass`, `note_backlog`, `note_scheduler_started/stopped`) |
 
 **`core::dream`** — `consolidate_session` requires the idle window (`detect_idle`,
 default 10 min) and degrades without a runner to LLM-free primitives: hash-bucket
@@ -377,37 +377,52 @@ before the discovery file drops. A plain MCP proxy starts **no** loop — the
 queue belongs to the writer — and declares it in its startup log instead of
 staying silent.
 
-**`ingest::observability`** (MEM-72) — a runner-less pipeline is a legitimate
-state (the default `Local` provider builds `ConcreteRunner::None`), and that is
-precisely why it must be *visible*: from the outside, "running and extracting
-nothing" and "running with no engine" used to look identical. The module keeps
-one process-wide snapshot and exposes it as `status()`:
+**`ingest::observability`** (MEM-72, ADR-0065) — a runner-less pipeline is a
+legitimate state (the default `Local` provider builds `ConcreteRunner::None`),
+and that is precisely why it must be *visible*: from the outside, "running and
+extracting nothing" and "running with no engine" used to look identical. The
+module keeps one process-wide record and publishes it through
+`status_with_queue(queue)` (or `status()`, which has no queue read and therefore
+reports `queue: null`):
 
 | Field | Meaning |
 |---|---|
 | `runner` | `unknown` (no runner built yet) · `none` (no engine: extraction never runs) · `ollama` · `openai` |
 | `degraded` | `runner == none` |
 | `scheduler_running` | a loop is alive in this process (`--http`, and `--mcp` writer mode since MCP-43) |
-| `queue.depth` / `queue.claimed` | waiting tasks / live leases, as of the last pass |
+| `scheduler_ever_started` | a loop ran here at least once: separates "never hosted" from "hosted and died" |
+| `queue.depth` / `queue.claimed` | waiting tasks / live leases, **read when the answer is built**; `null` = this process cannot see a queue |
+| `last_pass.queue` | occupancy **sampled by that pass** (`at_ms` dates it): history, never "now" |
 | `last_pass.skipped` | `true` = the pass never ran (no runner); `false` = it ran, with `processed`/`failed`/`timers_fired` |
+| `health` | `unknown` · `idle` · `draining` · `broken`, derived at publish time |
+| `drain_path` | `none` · `loop` · `on_demand`: who can drain here |
 | `degraded_warnings` | warnings emitted for degraded-with-backlog (proof of "once") |
 | `notice` | human-readable diagnosis, `null` when healthy |
 
 The queue is the in-process `LocalStateBackend` (ADR-0054), so the whole
-snapshot describes **one** process: a process that does not run the loop (an
-MCP *proxy* — the writer owns the queue) reports `scheduler_running: false`, its
-own empty `queue` and `last_pass: null`. Another process's queue depth is not
-observable through this surface — by design, not by omission. `capabilities`
-answers from whichever process owns the queue, because the MCP proxy forwards
-the whole call to the writer (MCP-48).
+snapshot describes **one** process: whichever one answered. A process that never
+hosts the pipeline derives `health: "unknown"` when it samples its own status —
+a read-only writer, or a writer whose loop is disabled before the first pass.
+Such a process never *answers* `capabilities` when it is in proxy mode: it
+forwards the call, so the answer is the writer's own queue and health (never a
+merged view). `queue: null` is reserved for a caller that has no queue to read at
+all — `status()` on the library surface; the MCP `capabilities` handler always
+reads its process's queue, so on that wire the field is an object. Another
+process's queue depth is not observable through this surface — by design, not by
+omission.
 
-The distinction operators need is **state + queue**, not either alone:
-`runner: none` with `queue.depth: 0` is an idle pipeline; the same `runner` with
-`queue.depth > 0` is a broken one (`IngestStatus::is_broken`). In that second
-case a `warn!` is emitted **once per episode** (a new episode starts when the
-queue drains and grows again, or the runner changes), never once per pass —
-a per-pass warning would flood the log of every host running without an engine.
-The MCP `capabilities` tool embeds this snapshot under `ingest`.
+The distinction operators need is `health`, which is derived from the live queue
+plus the evidence of hosting the pipeline, in this order: `unknown` when the
+queue cannot be read or there is no evidence of hosting; `broken` when there is
+queued work and no drainer; `draining` when there is queued work and a drainer;
+`idle` otherwise. `degraded` stays orthogonal: `runner: none` with `depth: 0` is
+`idle` with a loud `notice`, not `broken`. In a degraded episode with backlog a
+`warn!` is emitted **once per episode** (a new episode starts when the queue
+drains and grows again, or the runner changes), never once per pass — a per-pass
+warning would flood the log of every host running without an engine. An enqueue
+feeds
+only the warn latch (`note_backlog`); it never fabricates a `last_pass`. The MCP
+`capabilities` tool embeds this snapshot under `ingest`.
 
 
 ## Audit & backup (MEMG-13)

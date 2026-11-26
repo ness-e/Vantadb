@@ -449,39 +449,63 @@ after the in-flight restore or scheduling operation completes.
 
 | Tool | Description |
 |------|-------------|
-| `capabilities` | Introspects supported engine features: runtime profile, persistence, vector search, IQL queries, read-only mode. Also reports **embeddings** (`embedding`) and the **memory ingest pipeline** (`ingest`: runner in use, last pass, queue depth — see the note below). |
+| `capabilities` | Introspects supported engine features: runtime profile, persistence, vector search, IQL queries, read-only mode. Also reports **embeddings** (`embedding`) and the **memory ingest pipeline** (`ingest`: runner in use, last pass, live queue and derived `health`/`drain_path` — see the note below). |
 | `generate_snippet` | Generates a text snippet from a payload, optionally highlighting matched query terms. |
 | `vanta_scene` | *(`brain` profile exclusive in `tools/list`)* Multiplexed scene navigation and mutation gateway (`action`: `read` \| `list` \| `query` \| `write` \| `edit`). |
 | `vanta_dream` | *(`brain` profile exclusive in `tools/list`)* Multiplexed idle memory consolidation and promotion gateway (`action`: `list` \| `load` \| `discard` \| `consolidate` \| `promote`). |
 | `vanta_graph` | *(`brain` profile exclusive in `tools/list`)* Multiplexed property-graph analysis and traversal gateway (`action`: `neighbors` \| `traverse` \| `page_rank` \| `degree_centrality` \| `topological_sort` \| `is_dag` \| `remove_edge`). |
 | `vanta_dispatch` | *(`brain` profile exclusive in `tools/list`)* Universal MCP meta-tool for the `brain` profile: invokes any of the 96 defined VantaDB tools (90 listed + 6 dispatch-only `code_*`) by `{tool, arguments}` without inflating the `tools/list` schema token budget. |
 
-**The `ingest` block (MEM-72).** A memory pipeline without an LLM provider is a
-legitimate state — the default ingest provider builds no engine and every
-extraction is `NotConfigured` — which is exactly why it must not be silent.
+**The `ingest` block (MEM-72, ADR-0065).** A memory pipeline without an LLM
+provider is a legitimate state — the default ingest provider builds no engine and
+every extraction is `NotConfigured` — which is exactly why it must not be silent.
 `capabilities` therefore carries an additive `ingest` object:
 
 ```json
 "ingest": {
-  "runner": "none",              // unknown | none | ollama | openai
-  "degraded": true,              // runner == none: extraction is disabled
-  "scheduler_running": true,     // a scheduler loop is alive in this process
-  "queue": { "depth": 5, "claimed": 0 },
+  "runner": "none",               // unknown | none | ollama | openai
+  "degraded": true,               // runner == none: extraction is disabled
+  "scheduler_running": true,      // a scheduler loop is alive in this process
+  "scheduler_ever_started": true, // a loop ran here at least once (process life)
+  "queue": { "depth": 5, "claimed": 0 },  // read WHEN this answer was built
   "last_pass": { "at_ms": 1764100000000, "skipped": true,
-                 "processed": 0, "failed": 0, "timers_fired": 0 },
+                 "processed": 0, "failed": 0, "timers_fired": 0,
+                 "queue": { "depth": 5, "claimed": 0 } },  // sampled BY that pass
+  "health": "broken",             // unknown | idle | draining | broken
+  "drain_path": "none",           // none | loop | on_demand
   "degraded_warnings": 1,
   "notice": "ingest runner is none: 5 queued task(s) will never be extracted
              (the pass is skipped). Set VANTADB_INGEST_PROVIDER=ollama|openai ..."
 }
 ```
 
-Read `runner` **with** `queue.depth`: `none` + `0` is an idle pipeline, `none` +
-`> 0` is a broken one — the pass is skipped and the queue will never drain. In
-that case the process logs a single `warn!` per degraded episode (not one per
-pass) and `degraded_warnings` counts it. `last_pass: null` means no pass ran in
-this process at all, which is different from a skipped pass.
-`scheduler_running` goes back to `false` when the loop stops (graceful shutdown
-or a dropped handle), so it never claims a loop that is gone.
+`queue` is a **live probe**: it is read in this process at the moment the answer
+is built, so a turn enqueued a millisecond ago is already visible. The field is
+nullable for callers of the library surface (`ingest::observability::status()`
+has no queue to read and returns `null`); on this wire it is always an object,
+because the handler always has its process's queue to read. Guard the access
+anyway (`ingest.queue?.depth`): a client must not turn "I cannot read a queue"
+into `0` by accident.
+`health` is what a client should branch on, and it is derived, not guessed:
+
+| `health` | Meaning |
+|---|---|
+| `unknown` | `queue` is `null`, or this process has no evidence of hosting the pipeline (no runner observed, no pass, no loop) — e.g. a read-only writer, or a writer whose loop is disabled (`VANTADB_SCHEDULER_INTERVAL_MS=0`) before the first pass or enqueue. **Not** "healthy". |
+| `idle` | `queue.depth == 0`. A degraded runner with nothing queued is `idle` (with a loud `notice`), not `broken`. |
+| `draining` | `queue.depth > 0` and something here can drain it (`drain_path` is `loop` or `on_demand`). |
+| `broken` | `queue.depth > 0` and `drain_path: none` — nobody will drain it. |
+
+`drain_path` says who can drain in this process: `loop` (a scheduler loop is
+running), `on_demand` (no loop, but a host drives `run_pass` from a request hook
+and has run one), `none` (degraded, or a loop that started and stopped, or no
+loop and no pass ever observed). A **degraded** episode with backlog logs a
+single `warn!` (not one per pass) and `degraded_warnings` counts it — a "loop
+started and stopped" with a healthy runner is `broken` but logs nothing, because
+the runner itself is not the problem.
+`last_pass: null` means no pass ran in this process at all. `last_pass.queue`
+is the occupancy **sampled by that pass**, dated by its `at_ms` — history, never
+"now". `scheduler_running` goes back to `false` when the loop stops (graceful
+shutdown or a dropped handle), so it never claims a loop that is gone.
 
 **Who runs the loop (MCP-43).** The `--mcp` writer hosts the `vanta-memory`
 scheduler over the thread capture queue — the same queue `thread_send` fills
@@ -502,9 +526,14 @@ its startup log (`scheduler_running=false`, reason `proxy mode`), and
 whole to the writer — the answer comes from the process that owns the queue.
 
 The queue is the scheduler's in-process state (ADR-0054), so `ingest` describes
-**one** process: whichever process answered the call. A proxy reports the
-writer's numbers (never a merged view), and two processes never drain the same
-queue.
+**one** process: whichever process answered the call. A one-shot `mcp-call`
+spawns its own `--mcp` child, and what the caller sees depends on what that child
+became: a **writer** answers with *its own* queue and health (`idle` /
+`drain_path: loop` when it owns the database and its loop is running), and when
+another writer already holds the database the child **proxies the call**, so the
+answer is that writer's own queue and health — never a merged view, and two
+processes never drain the same queue. Read `ingest` from the process that holds
+the backlog when the answer matters (ADR-0065 § D8).
 
 
 ### Backup & Bulk Import (4)
@@ -641,20 +670,14 @@ Two boundaries worth knowing:
   `5000`), so a captured turn is consolidated by the next tick and recalled on
   the next agent turn. A degraded runner stays visible instead of silent: with
   a `none` ingest runner and a non-empty queue, `capabilities.ingest` reports
-  `degraded:true` + `queue.depth > 0` (its `is_broken()` condition) and a
-  legible `notice` — see [VANTA_MEMORY.md](./VANTA_MEMORY.md) § Operational
-  modules (`ingest::observability`). The first enqueued turn also teaches this
+  `health: "broken"` (with `drain_path: "none"`) and a legible `notice` — see
+  [VANTA_MEMORY.md](./VANTA_MEMORY.md) § Operational modules
+  (`ingest::observability`). The first enqueued turn also teaches this
   process its runner (the same config→runner mapping `wiki_ingest` uses), so a
   threads-only `--mcp` session is not stuck reporting `unknown`.
 
-Two semantics that are easy to misread:
+One semantic that is easy to misread:
 
-- **`last_pass` on a degraded pipeline.** The backlog is published through
-  `ingest::observability`'s degraded path — the only writer of `queue` depth
-  today. So in `--mcp`, `capabilities.ingest.last_pass.skipped:true` can mean
-  "a turn was enqueued while the runner is `none`" rather than "a scheduler tick
-  ran". `queue.depth` is the authoritative backlog signal; `scheduler_running`
-  says whether a loop exists at all.
 - **Deleting a thread does not delete memory.** `thread_delete` and
   `thread_purge_expired` operate on the thread store (chat history). Turns
   already captured stay in `l0/<thread_id>` and, once extracted, in
@@ -672,7 +695,7 @@ the model context under the recall-first rule.
 |---|---|
 | `session.idle` event | Reads the closed exchange with `ctx.session.context()` and posts the `user` + `assistant` turns (text parts only) to `thread_send` on a stable per-session thread (`vanta-opencode-idle-<sessionID>`, resolved from plugin storage, else `thread_list`, else `thread_create`; re-resolved if a send fails). Deduped by the assistant message id (falling back to the user id, then to the turn text). |
 | `ctx.session.hook("context")` | Calls `memory_recall` with the **verbatim** user turn (`scope: "agent"`, `top_k: 5`) once per distinct turn, and injects `prepend_context` **verbatim** only when there are hits. |
-| `ctx.session.hook("context")` | Publishes `capabilities.ingest` once per session: when `is_broken()` (`runner: none` **and** `queue.depth > 0`) it emits one legible line saying the pipeline captures but does not consolidate. |
+| `ctx.session.hook("context")` | Publishes `capabilities.ingest` once per session: when the pipeline reads `broken` (queued work and `drain_path: none`) it emits one legible line saying the pipeline captures but does not consolidate. The plugin still recomputes that predicate from `runner` + `queue.depth` instead of reading `ingest.health`; `health` is the field to consume (it also covers "a loop started and died"). |
 
 Contract details that are easy to get wrong:
 
@@ -702,12 +725,13 @@ Contract details that are easy to get wrong:
   re-posting into a brand-new thread — a new `thread_id` is a new server-side
   `session_id`, which L0 cannot dedupe.
 - **One caveat on the semaphore.** `capabilities.ingest` describes *the process
-  that answers it*, and each `mcp-call` is a new process with an empty queue —
-  so with this transport the notice is correctly silent and can only fire when
-  the surface is read from a process that actually holds the backlog (a
-  long-lived MCP session, or `--mcp` once `MCP-43` gives it a scheduler). The
-  predicate and the wording are right; the transport decides whether it can see
-  the state.
+  that answers it*, and each `mcp-call` spawns a fresh `--mcp` child. A child that
+  owns the database answers with its own empty queue as `idle`; a child that finds
+  another writer holding it proxies the call, so the answer is that writer's own
+  queue and health. `health: "unknown"` therefore never describes someone else's
+  backlog — it describes a process that cannot evidence hosting one (read-only
+  writer, loop disabled before the first pass). The transport decides which
+  process answers; the wording no longer decides what is assumed.
 - **What it does not promise.** `thread_send` *enqueues*; it does not extract.
   Until an in-process scheduler exists (`MCP-43`), a queued turn waits in L0 and
   the queue does not drain. The notice says exactly that, and it does **not**

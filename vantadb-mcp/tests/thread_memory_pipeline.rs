@@ -71,16 +71,22 @@ fn thread_send_queues_ingest_once_per_turn_and_degraded_pipeline_reads_broken() 
 
     let caps = call("capabilities", json!({}), &storage);
     assert_eq!(caps["ingest"]["runner"], json!("none"), "caps: {caps}");
+    // ADR-0065 D1: the queue is read at answer time, in this process — a turn
+    // just enqueued is visible immediately, not on the next pass.
     assert_eq!(
         caps["ingest"]["queue"]["depth"],
         json!(1),
-        "one task: {caps}"
+        "one task, read live: {caps}"
     );
-    // `IngestStatus::is_broken()`: degraded AND queued work — the contract's
-    // honest half, read from the same surface `capabilities` embeds.
-    assert!(
-        observability::status().is_broken(),
-        "a queued turn with runner `none` is a broken pipeline, not an idle one: {caps}"
+    // Derived health, not a recomputed predicate in the client.
+    assert_eq!(caps["ingest"]["health"], json!("broken"), "caps: {caps}");
+    assert_eq!(caps["ingest"]["drain_path"], json!("none"), "caps: {caps}");
+    // ADR-0065 D7: an enqueue is not a pass, so `last_pass` stays null — the
+    // document's "`skipped:true` can mean a turn was enqueued" wart is gone.
+    assert_eq!(
+        caps["ingest"]["last_pass"],
+        json!(null),
+        "an enqueue must not impersonate a pass: {caps}"
     );
 
     // Second turn → depth 2 (one per turn, never two per turn).
@@ -98,6 +104,11 @@ fn thread_send_queues_ingest_once_per_turn_and_degraded_pipeline_reads_broken() 
         caps["ingest"]["queue"]["depth"],
         json!(2),
         "one task per turn: {caps}"
+    );
+    assert_eq!(
+        caps["ingest"]["health"],
+        json!("broken"),
+        "the second turn keeps the same verdict: {caps}"
     );
     assert_eq!(
         observability::degraded_warnings(),

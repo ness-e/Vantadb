@@ -1,14 +1,20 @@
 // ponytail: one-test binary — the ingest registry is process-wide; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-//! MEM-72 (MCP surface): `capabilities` must expose the memory ingest runner,
-//! the last pass and the queue depth — and keep every pre-existing key intact
-//! (additive only). Without it, "no work queued" and "runner is `none`, nothing
-//! will ever be extracted" look identical to an agent or an operator.
+//! MEM-72 + ADR-0065 (MCP surface): `capabilities` must expose the memory
+//! ingest runner, the last pass, the **live** queue and the derived health —
+//! and keep every pre-existing key intact (additive only).
+//!
+//! Since ADR-0065 the queue block is a live read, so a test cannot inject a
+//! backlog through `observability` (that would be the photograph this ADR
+//! deleted). A queued backlog is proven through the public tool API in
+//! `thread_memory_pipeline.rs`; this file keeps the two things that are unique
+//! to it: the additive contract, and "degraded with an empty queue is idle" —
+//! the orthogonality D3 pins.
 
 use std::sync::Arc;
 
 use serde_json::json;
-use vanta_memory::ingest::observability::{self, QueueSnapshot, RunnerState};
+use vanta_memory::ingest::observability::{self, RunnerState};
 use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
 use vantadb_mcp::*;
@@ -21,15 +27,9 @@ fn capabilities_reports_a_degraded_ingest_runner_and_stays_additive() {
     );
     let executor = Executor::new(&storage);
 
-    // Degraded runner with a backlog, sampled twice (two passes): the operator
-    // must see it, once.
+    // Degraded runner, nothing queued: a legitimate idle state, not a broken
+    // pipeline (ADR-0065 D3 keeps `degraded` orthogonal to `health`).
     observability::note_runner(RunnerState::None);
-    let backlog = QueueSnapshot {
-        depth: 5,
-        claimed: 0,
-    };
-    observability::note_skipped_pass(backlog);
-    observability::note_skipped_pass(backlog);
 
     let res = handle_tools_call(
         &Some(json!({ "name": "capabilities", "arguments": {} })),
@@ -45,23 +45,31 @@ fn capabilities_reports_a_degraded_ingest_runner_and_stays_additive() {
     let ingest = &caps["ingest"];
     assert_eq!(ingest["runner"], json!("none"), "capabilities: {caps}");
     assert_eq!(ingest["degraded"], json!(true), "ingest: {ingest}");
-    assert_eq!(ingest["queue"]["depth"], json!(5), "ingest: {ingest}");
+    // ADR-0065 D1: `queue` is this process's live read — never null here (the
+    // process hosts the queue), never a photograph either.
+    assert_eq!(
+        ingest["queue"],
+        json!({ "depth": 0, "claimed": 0 }),
+        "a live read of an empty queue: {ingest}"
+    );
+    assert_eq!(ingest["health"], json!("idle"), "ingest: {ingest}");
+    assert_eq!(ingest["drain_path"], json!("none"), "ingest: {ingest}");
+    assert_eq!(
+        ingest["last_pass"],
+        json!(null),
+        "no pass ran in this process: {ingest}"
+    );
     assert_eq!(
         ingest["degraded_warnings"],
-        json!(1),
-        "one warning per degraded episode: {ingest}"
+        json!(0),
+        "nothing queued, nothing to warn about: {ingest}"
     );
     let notice = ingest["notice"]
         .as_str()
         .expect("a degraded pipeline carries a legible notice");
     assert!(
-        notice.contains("5 queued task(s)"),
-        "notice must name the backlog: {notice}"
-    );
-    assert_eq!(
-        ingest["last_pass"]["skipped"],
-        json!(true),
-        "a skipped pass must not look like a real one: {ingest}"
+        notice.contains("runner is none"),
+        "notice must name the missing runner: {notice}"
     );
 
     // Additive contract: the pre-existing payload survives untouched.

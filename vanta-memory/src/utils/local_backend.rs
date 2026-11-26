@@ -220,6 +220,17 @@ impl<C: Clock> LocalStateBackend<C> {
         (high, inner.queue.len() - high)
     }
 
+    /// `(queued, in_flight)` in ONE acquisition: the pair cannot tear, and it
+    /// cannot disagree with itself the way `queue_depth()` + `pending_count()`
+    /// can (two locks, two instants).
+    ///
+    /// ponytail: one lock, O(1) by `Vec::len`/`HashMap::len`; if a profile ever
+    /// shows it, this is already the cheap version.
+    pub fn queue_occupancy(&self) -> (usize, usize) {
+        let inner = self.lock();
+        (inner.queue.len(), inner.pending.len())
+    }
+
     /// Snapshot of queued tasks (priority order).
     pub fn list_queued_tasks(&self) -> Vec<TaskPayload> {
         self.lock().queue.clone()

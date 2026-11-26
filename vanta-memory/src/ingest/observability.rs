@@ -9,17 +9,27 @@
 //! drains. This module keeps a process-wide, fixed-size snapshot of *why*
 //! nothing happens, and warns **once per degraded episode** — not per pass.
 //!
-//! Readers: hosts and the MCP `capabilities` tool call [`status`]. Writers,
-//! all inside the pipeline: [`note_runner`] (config → runner, from
+//! Readers: hosts and the MCP `capabilities` tool call [`status_with_queue`]
+//! (or [`status`], which has no queue to read and says so). Writers, all
+//! inside the pipeline: [`note_runner`] (config → runner, from
 //! `runner_config::IngestRunnerCfg::build_runner`), [`note_scheduler_started`],
-//! [`note_pass`] and [`note_skipped_pass`] (the scheduler loop / pass).
+//! [`note_pass`], [`note_skipped_pass`] and [`note_backlog`] (the scheduler
+//! loop / pass / enqueue path).
 //!
 //! ```ignore
-//! let s = vanta_memory::ingest::observability::status();
-//! if s.degraded && s.queue.depth > 0 {
-//!     // runner is `none` and nothing will ever drain the queue
+//! let queue = QueueSnapshot { depth: 3, claimed: 0 };      // read NOW
+//! let s = vanta_memory::ingest::observability::status_with_queue(Some(queue));
+//! match s.health {
+//!     IngestHealth::Broken => { /* queued work nobody will drain */ }
+//!     IngestHealth::Unknown => { /* this process cannot see a queue */ }
+//!     _ => {}
 //! }
 //! ```
+//!
+//! ADR-0065: the queue occupancy reported by [`status_with_queue`] is read by
+//! the caller at answer time — never a photograph of the previous pass. The
+//! pass sample lives in [`PassSnapshot::queue`], next to the `at_ms` that dates
+//! it. [`IngestStatus::is_broken`] is derived from the live read only.
 //!
 //! The state is process-wide on purpose: the scheduler runs in the process
 //! that owns the DB (ADR-0054), so the same process — server today, `--mcp`
@@ -66,13 +76,52 @@ impl RunnerState {
     }
 }
 
-/// Queue depth as last sampled by a pass.
+/// Queue occupancy: waiting tasks and live leases (ADR-0065 D1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
 pub struct QueueSnapshot {
     /// Tasks waiting to be claimed.
     pub depth: usize,
     /// Claimed-but-unfinished tasks (a live worker's leases).
     pub claimed: usize,
+}
+
+/// Four-state ingest health (ADR-0065 D3). Serialized as
+/// `unknown | idle | draining | broken`.
+///
+/// `unknown` exists because a boolean cannot say "I do not know", and "I do
+/// not know" reported as `false` is the defect this module exists to delete.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum IngestHealth {
+    /// This process cannot see a queue, or has no evidence of hosting the
+    /// pipeline (a read-only writer, or a writer whose loop is disabled before
+    /// the first pass). A proxy does not answer from here — it forwards the
+    /// call, so the client reads the writer's own status.
+    #[default]
+    Unknown,
+    /// Nothing queued.
+    Idle,
+    /// Queued work **and** something in this process can drain it.
+    Draining,
+    /// Queued work and nothing in this process will drain it.
+    Broken,
+}
+
+/// Who can drain the queue in this process (ADR-0065 D4). Serialized as
+/// `none | loop | on_demand`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum DrainPath {
+    /// No drainer: degraded, a loop that started and stopped, or no loop and
+    /// no pass ever observed.
+    #[default]
+    None,
+    /// A scheduler loop is running here.
+    Loop,
+    /// No loop, but passes are driven from a request hook (`run_pass`).
+    OnDemand,
 }
 
 /// Outcome of the most recent pass (skipped or not).
@@ -88,6 +137,9 @@ pub struct PassSnapshot {
     pub failed: usize,
     /// Expired timers dispatched into queue tasks.
     pub timers_fired: usize,
+    /// Queue occupancy **sampled by this pass**. `at_ms` dates the sample:
+    /// this is history, never "now" (ADR-0065 D2).
+    pub queue: QueueSnapshot,
 }
 
 /// Public, additive view of the ingest pipeline (serde-friendly: this is the
@@ -100,10 +152,19 @@ pub struct IngestStatus {
     pub degraded: bool,
     /// A scheduler loop is running in this process.
     pub scheduler_running: bool,
-    /// Queue depth as of the last pass (`depth == 0 && claimed == 0` = idle).
-    pub queue: QueueSnapshot,
+    /// A scheduler loop ever ran in this process (separates "never hosted"
+    /// from "hosted and died" — ADR-0065 D4).
+    pub scheduler_ever_started: bool,
+    /// Queue occupancy read **when this answer was built**, in this process.
+    /// `None` = no live read: this process cannot see a queue and must not
+    /// pretend otherwise (ADR-0065 D1).
+    pub queue: Option<QueueSnapshot>,
     /// Last pass outcome; `None` = no pass observed in this process.
     pub last_pass: Option<PassSnapshot>,
+    /// Derived at publish time from the fields above (ADR-0065 D3).
+    pub health: IngestHealth,
+    /// Derived at publish time: who can drain here (ADR-0065 D4).
+    pub drain_path: DrainPath,
     /// Process-lifetime count of degraded-with-backlog warnings emitted
     /// (mechanical proof of "once per episode").
     pub degraded_warnings: u32,
@@ -117,8 +178,11 @@ impl Default for IngestStatus {
             runner: RunnerState::Unknown,
             degraded: false,
             scheduler_running: false,
-            queue: QueueSnapshot::default(),
+            scheduler_ever_started: false,
+            queue: None,
             last_pass: None,
+            health: IngestHealth::Unknown,
+            drain_path: DrainPath::None,
             degraded_warnings: 0,
             notice: None,
         }
@@ -126,10 +190,14 @@ impl Default for IngestStatus {
 }
 
 impl IngestStatus {
-    /// The distinction this whole module exists for: "nothing to ingest" vs
-    /// "the runner is `none` and nothing will ever be extracted".
+    /// `true` when queued work exists **and** nothing here will drain it.
+    ///
+    /// Reads the live queue only (ADR-0065 D5): a photograph in
+    /// [`Self::last_pass`] can never make this `false` for queued work. It
+    /// still cannot express `unknown` — `false` means "not proven broken";
+    /// read [`Self::health`] when the answer matters.
     pub fn is_broken(&self) -> bool {
-        self.degraded && self.queue.depth > 0
+        self.health == IngestHealth::Broken
     }
 }
 
@@ -168,9 +236,13 @@ pub fn note_runner(runner: RunnerState) {
     }
 }
 
-/// Record that a scheduler loop is alive in this process.
+/// Record that a scheduler loop is alive in this process. `ever_started` is
+/// the process-lifetime half: it stays `true` after the loop is gone, which is
+/// what separates "never hosted" from "hosted and died" (ADR-0065 D4).
 pub fn note_scheduler_started() {
-    state().status.scheduler_running = true;
+    let mut st = state();
+    st.status.scheduler_running = true;
+    st.status.scheduler_ever_started = true;
 }
 
 /// Record that the scheduler loop is gone. Without this the surface would keep
@@ -189,8 +261,8 @@ pub fn note_pass(processed: usize, failed: usize, timers_fired: usize, queue: Qu
         processed,
         failed,
         timers_fired,
+        queue,
     });
-    st.status.queue = queue;
     if queue.depth == 0 {
         // Drained: the episode is over, a future backlog warns again.
         st.warned = false;
@@ -200,32 +272,58 @@ pub fn note_pass(processed: usize, failed: usize, timers_fired: usize, queue: Qu
 /// Record a pass skipped because no runner was configured, and warn **once**
 /// per degraded episode (runner `none` + non-empty queue).
 pub fn note_skipped_pass(queue: QueueSnapshot) {
-    let mut st = state();
-    st.status.last_pass = Some(PassSnapshot {
-        at_ms: now_ms(),
-        skipped: true,
-        processed: 0,
-        failed: 0,
-        timers_fired: 0,
-    });
-    st.status.queue = queue;
-    // A skip *is* the evidence that no runner exists: record it even if the
-    // config path never reported (defensive, keeps `runner` and `skipped`
-    // from contradicting each other).
-    st.status.runner = RunnerState::None;
-    st.status.degraded = true;
+    let emit = {
+        let mut st = state();
+        st.status.last_pass = Some(PassSnapshot {
+            at_ms: now_ms(),
+            skipped: true,
+            processed: 0,
+            failed: 0,
+            timers_fired: 0,
+            queue,
+        });
+        // A skip *is* the evidence that no runner exists: record it even if the
+        // config path never reported (defensive, keeps `runner` and `skipped`
+        // from contradicting each other).
+        st.status.runner = RunnerState::None;
+        st.status.degraded = true;
+        latch_backlog(&mut st, queue)
+    };
+    if emit {
+        warn_backlog(queue);
+    }
+}
 
+/// Record backlog observed **without** a pass (the enqueue path).
+///
+/// ADR-0065 D7: an enqueue is not a pass and must not impersonate one, so this
+/// touches only the warn latch — never `last_pass`. "Degraded with backlog" is
+/// a broken pipeline and must read as such in the log instead of `idle`.
+pub fn note_backlog(queue: QueueSnapshot) {
+    let emit = latch_backlog(&mut state(), queue);
+    if emit {
+        warn_backlog(queue);
+    }
+}
+
+/// Set/clear the once-per-episode latch; `true` = emit the warning now.
+fn latch_backlog(st: &mut State, queue: QueueSnapshot) -> bool {
     if queue.depth == 0 {
-        // Nothing waiting: a runner-less pipeline is idle, not broken.
+        // Nothing waiting: a runner-less pipeline is idle, not broken. Draining
+        // also closes the episode, so a future backlog warns again.
         st.warned = false;
-        return;
+        return false;
     }
     if st.warned {
-        return;
+        return false;
     }
     st.warned = true;
     st.status.degraded_warnings = st.status.degraded_warnings.saturating_add(1);
-    drop(st); // never hold the lock across a log call
+    true
+}
+
+/// Callers must have dropped the state lock (never log while holding it).
+fn warn_backlog(queue: QueueSnapshot) {
     tracing::warn!(
         queue_depth = queue.depth,
         claimed = queue.claimed,
@@ -235,12 +333,70 @@ pub fn note_skipped_pass(queue: QueueSnapshot) {
     );
 }
 
-/// Current pipeline status (cheap clone; the `notice` is rendered here so the
-/// caller never has to re-derive the diagnosis).
+/// Who can drain the queue in this process (ADR-0065 D4).
+///
+/// Precedence is the ADR's: degraded wins (no engine ⇒ nothing drains), then a
+/// live loop, then an on-demand host that has run a pass at least once.
+fn derived_drain_path(s: &IngestStatus) -> DrainPath {
+    if s.degraded {
+        return DrainPath::None;
+    }
+    if s.scheduler_running {
+        return DrainPath::Loop;
+    }
+    if !s.scheduler_ever_started && s.last_pass.is_some() {
+        return DrainPath::OnDemand;
+    }
+    DrainPath::None
+}
+
+/// Health from the live queue plus the evidence of hosting the pipeline
+/// (ADR-0065 D3). Precedence, in this order:
+///
+/// ```text
+/// unknown   queue is None, OR no evidence of hosting here
+/// broken    depth > 0 and drain_path == none
+/// draining  depth > 0
+/// idle      otherwise
+/// ```
+fn derived_health(s: &IngestStatus) -> IngestHealth {
+    let Some(q) = s.queue else {
+        return IngestHealth::Unknown;
+    };
+    if s.runner == RunnerState::Unknown && !s.scheduler_running && s.last_pass.is_none() {
+        return IngestHealth::Unknown;
+    }
+    if q.depth > 0 && s.drain_path == DrainPath::None {
+        return IngestHealth::Broken;
+    }
+    if q.depth > 0 {
+        return IngestHealth::Draining;
+    }
+    IngestHealth::Idle
+}
+
+/// Fill the derived triple the ADR mandates, in its order: `queue` (caller's
+/// live read), then `drain_path`, then `health`, then `notice`.
+fn with_live_queue(mut s: IngestStatus, queue: Option<QueueSnapshot>) -> IngestStatus {
+    s.queue = queue;
+    s.drain_path = derived_drain_path(&s);
+    s.health = derived_health(&s);
+    s.notice = notice(&s);
+    s
+}
+
+/// Current pipeline status with the queue read **now** by the caller
+/// (ADR-0065 D6: the seam is additive — no registry, no second copy).
+pub fn status_with_queue(queue: Option<QueueSnapshot>) -> IngestStatus {
+    with_live_queue(state().status.clone(), queue)
+}
+
+/// Current pipeline status **without** a queue read.
+///
+/// Always reports `queue: null` / `health: unknown`: it has no queue, so it
+/// says so instead of publishing a photograph that reads as "now".
 pub fn status() -> IngestStatus {
-    let mut snapshot = state().status.clone();
-    snapshot.notice = notice(&snapshot);
-    snapshot
+    status_with_queue(None)
 }
 
 /// Process-wide warning counter (mechanical proof of "once per episode").
@@ -249,12 +405,36 @@ pub fn degraded_warnings() -> u32 {
 }
 
 fn notice(s: &IngestStatus) -> Option<String> {
-    if s.is_broken() {
+    let depth = s.queue.map(|q| q.depth).unwrap_or(0);
+    if s.health == IngestHealth::Broken {
+        if s.degraded {
+            return Some(format!(
+                "ingest runner is none: {} queued task(s) will never be extracted (the pass is \
+                 skipped). Set VANTADB_INGEST_PROVIDER=ollama|openai to enable extraction.",
+                depth
+            ));
+        }
         return Some(format!(
-            "ingest runner is none: {} queued task(s) will never be extracted (the pass is \
-             skipped). Set VANTADB_INGEST_PROVIDER=ollama|openai to enable extraction.",
-            s.queue.depth
+            "{} queued task(s) and no scheduler will drain them in this process \
+             (drain_path: none). A loop that started and stopped, or none that was ever \
+             hosted, leaves the backlog stuck: restart the host or drive a pass.",
+            depth
         ));
+    }
+    if s.health == IngestHealth::Unknown {
+        if s.queue.is_none() {
+            return Some(
+                "cannot see a queue here: this process does not host the ingest pipeline, so \
+                 its health is unknown (not idle). Read `ingest` from the process that owns \
+                 the queue."
+                    .to_string(),
+            );
+        }
+        return Some(
+            "no evidence of hosting the ingest pipeline here (no runner observed, no pass, no \
+             loop), so its health is unknown rather than idle."
+                .to_string(),
+        );
     }
     if s.degraded {
         return Some(
@@ -293,33 +473,93 @@ mod tests {
         assert!(!RunnerState::Ollama.is_degraded());
     }
 
+    /// The derived triple is only consistent when it is computed (ADR-0065
+    /// § Negative consequences), so the notice cases go through
+    /// `with_live_queue` — same path `status_with_queue` takes.
     #[test]
     fn notice_separates_idle_lack_of_work_from_a_broken_pipeline() {
-        let idle = IngestStatus {
-            runner: RunnerState::Ollama,
-            last_pass: Some(PassSnapshot {
-                at_ms: 1,
-                skipped: false,
-                processed: 0,
-                failed: 0,
-                timers_fired: 0,
-            }),
-            ..IngestStatus::default()
-        };
+        let idle = with_live_queue(
+            IngestStatus {
+                runner: RunnerState::Ollama,
+                last_pass: Some(PassSnapshot {
+                    at_ms: 1,
+                    skipped: false,
+                    processed: 0,
+                    failed: 0,
+                    timers_fired: 0,
+                    queue: QueueSnapshot::default(),
+                }),
+                ..IngestStatus::default()
+            },
+            Some(QueueSnapshot::default()),
+        );
+        assert_eq!(idle.health, IngestHealth::Idle);
         assert!(!idle.is_broken());
-        assert_eq!(notice(&idle), None);
+        assert_eq!(idle.notice, None);
 
-        let broken = IngestStatus {
-            runner: RunnerState::None,
-            degraded: true,
-            queue: QueueSnapshot {
+        // Degraded (no engine) with a backlog: broken, and the text says why.
+        let broken = with_live_queue(
+            IngestStatus {
+                runner: RunnerState::None,
+                degraded: true,
+                ..IngestStatus::default()
+            },
+            Some(QueueSnapshot {
                 depth: 3,
                 claimed: 0,
-            },
-            ..IngestStatus::default()
-        };
+            }),
+        );
+        assert_eq!(broken.health, IngestHealth::Broken);
         assert!(broken.is_broken());
         let text = notice(&broken).expect("degraded with backlog carries a notice");
         assert!(text.contains("3 queued task(s)"), "{text}");
+        assert!(text.contains("runner is none"), "{text}");
+
+        // A healthy runner with a backlog and no drainer: broken for a
+        // different reason, and the text must NOT blame the runner (ADR-0065
+        // § D3 / FIND-748 C2).
+        let no_drainer = with_live_queue(
+            IngestStatus {
+                runner: RunnerState::Ollama,
+                ..IngestStatus::default()
+            },
+            Some(QueueSnapshot {
+                depth: 2,
+                claimed: 0,
+            }),
+        );
+        assert_eq!(no_drainer.health, IngestHealth::Broken);
+        let text = notice(&no_drainer).expect("a backlog with no drainer carries a notice");
+        assert!(text.contains("2 queued task(s)"), "{text}");
+        assert!(!text.contains("runner is none"), "{text}");
+
+        // No live read => unknown, never idle.
+        let unknown = with_live_queue(
+            IngestStatus {
+                runner: RunnerState::Ollama,
+                ..IngestStatus::default()
+            },
+            None,
+        );
+        assert_eq!(unknown.health, IngestHealth::Unknown);
+        assert!(!unknown.is_broken());
+        let text = notice(&unknown).expect("unknown names its cause");
+        assert!(text.contains("cannot see a queue here"), "{text}");
+
+        // A queue read exists but this process has no evidence of hosting the
+        // pipeline (no runner, no loop, no pass): still unknown, and it says
+        // which of the two causes it is.
+        let no_evidence = with_live_queue(
+            IngestStatus::default(),
+            Some(QueueSnapshot {
+                depth: 0,
+                claimed: 0,
+            }),
+        );
+        assert_eq!(no_evidence.health, IngestHealth::Unknown);
+        assert_eq!(no_evidence.drain_path, DrainPath::None);
+        assert!(!no_evidence.is_broken());
+        let text = notice(&no_evidence).expect("unknown names its cause");
+        assert!(text.contains("no evidence of hosting"), "{text}");
     }
 }

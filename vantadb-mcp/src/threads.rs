@@ -257,6 +257,14 @@ pub(crate) fn memory_queue() -> &'static Arc<LocalStateBackend<SystemClock>> {
     QUEUE.get_or_init(|| Arc::new(LocalStateBackend::new(SystemClock)))
 }
 
+/// Live queue occupancy for the `capabilities.ingest` surface (ADR-0065 D1):
+/// read at answer time, in the process that owns the queue. Never a photograph
+/// of the last pass — `last_pass.queue` keeps that history.
+pub(crate) fn queue_snapshot() -> QueueSnapshot {
+    let (depth, claimed) = memory_queue().queue_occupancy();
+    QueueSnapshot { depth, claimed }
+}
+
 /// What `thread_send` did with the memory pipeline (additive wire fields).
 #[derive(Debug, Clone, Copy)]
 struct MemoryFeed {
@@ -362,19 +370,15 @@ pub(crate) fn ingest_runner_cfg(storage: &Arc<StorageEngine>) -> IngestRunnerCfg
 
 /// Feed the MEM-72 surface when this process already knows there is no runner:
 /// "degraded with backlog" is a broken pipeline and must read as such instead
-/// of `idle`. `note_skipped_pass` owns the once-per-episode warn; this adds no
-/// second diagnostic signal.
+/// of `idle`. `note_backlog` owns the once-per-episode warn; this adds no
+/// second diagnostic signal, and — ADR-0065 D7 — an enqueue never writes
+/// `last_pass` (only a pass does).
 fn publish_backlog_if_degraded(queue: &LocalStateBackend<SystemClock>) {
     if !observability::status().degraded {
-        // A configured runner reports depth from its own pass — an enqueue is
-        // not a pass and must not impersonate one.
         return;
     }
-    let (high, normal) = queue.queue_depth();
-    observability::note_skipped_pass(QueueSnapshot {
-        depth: high.saturating_add(normal),
-        claimed: queue.pending_count(),
-    });
+    let (depth, claimed) = queue.queue_occupancy();
+    observability::note_backlog(QueueSnapshot { depth, claimed });
 }
 
 fn thread_get_tool(

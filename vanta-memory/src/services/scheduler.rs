@@ -135,15 +135,15 @@ pub fn run_pass<C: Clock, R: LlmRunner>(
 
     // MEM-72: publish the pass outcome (and the post-pass queue depth) so a
     // host can tell "nothing to ingest" from "the pass is not running".
-    let (high, normal) = queue.queue_depth();
+    // ADR-0065: one acquisition for the pair — no torn `queue_depth` +
+    // `pending_count` reading (the sample belongs to `last_pass`, never to the
+    // published `queue`).
+    let (depth, claimed) = queue.queue_occupancy();
     observability::note_pass(
         stats.worker.processed + stats.reclaimed.processed,
         stats.worker.failed + stats.reclaimed.failed,
         stats.timers_fired,
-        QueueSnapshot {
-            depth: high.saturating_add(normal),
-            claimed: queue.pending_count(),
-        },
+        QueueSnapshot { depth, claimed },
     );
 
     stats
@@ -360,11 +360,8 @@ where
                             // MEM-72: degraded is a legitimate state, but
                             // degraded *with backlog* is a broken pipeline —
                             // the status records it and warns once per episode.
-                            let (high, normal) = probe.queue_depth();
-                            observability::note_skipped_pass(QueueSnapshot {
-                                depth: high.saturating_add(normal),
-                                claimed: probe.pending_count(),
-                            });
+                            let (depth, claimed) = probe.queue_occupancy();
+                            observability::note_skipped_pass(QueueSnapshot { depth, claimed });
                         }
                         Err(join_error) => {
                             tracing::warn!(

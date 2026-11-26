@@ -348,11 +348,11 @@ fn e2e_l0_to_l3_cycle_in_the_shipped_binary() {
     );
     let sent_at = Instant::now();
 
-    // NOTE (finding): `capabilities.ingest.queue` is the depth *as last sampled
-    // by a pass* (`ingest/observability.rs`, `note_pass`), not a live probe —
-    // right after `thread_send` it still reports the previous (empty) sample.
-    // So the enqueue is proven by its EFFECT (the drained queue + the recalled
-    // turn), not by sampling the surface here.
+    // ADR-0065: `capabilities.ingest.queue` is a live read taken when the
+    // answer is built, so the enqueued turn is visible here right away. The
+    // proof below still uses the EFFECT (the drained queue + the recalled
+    // turn) rather than a single sample, because the loop may drain between
+    // two calls.
 
     // ── the scheduled pass drains it, L1 → L2 → L3 (no manual run_pass) ──
     //
@@ -447,6 +447,11 @@ fn e2e_l0_to_l3_cycle_in_the_shipped_binary() {
         caps["ingest"]["queue"]["depth"],
         json!(0),
         "the queue must be drained: {caps}"
+    );
+    assert_eq!(
+        caps["ingest"]["health"],
+        json!("idle"),
+        "a drained pipeline with a live loop and a real runner is idle: {caps}"
     );
     assert!(
         caps["ingest"]["notice"].is_null(),

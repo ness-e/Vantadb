@@ -3193,9 +3193,12 @@ pub fn handle_tools_call(
             // MEM-72: the memory ingest pipeline is a separate (LLM) subsystem
             // whose degraded state was invisible here — "no runner" and "no
             // work" looked identical. Additive key: `ingest` reports the runner
-            // in use, the last pass and the queue depth so an operator can tell
-            // an idle pipeline from a runner that will never extract.
-            out["ingest"] = json!(vanta_memory::ingest::observability::status());
+            // in use, the last pass, the queue and the derived health.
+            // ADR-0065 D1: the queue is read NOW, in this process, at answer
+            // time — `status()` would have to report `null` (it has no queue).
+            out["ingest"] = json!(vanta_memory::ingest::observability::status_with_queue(
+                Some(crate::threads::queue_snapshot())
+            ));
             Ok(text_content(serialize_content(&out)))
         }
 
