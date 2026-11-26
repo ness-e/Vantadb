@@ -732,11 +732,15 @@ Contract details that are easy to get wrong:
   backlog — it describes a process that cannot evidence hosting one (read-only
   writer, loop disabled before the first pass). The transport decides which
   process answers; the wording no longer decides what is assumed.
-- **What it does not promise.** `thread_send` *enqueues*; it does not extract.
-  Until an in-process scheduler exists (`MCP-43`), a queued turn waits in L0 and
-  the queue does not drain. The notice says exactly that, and it does **not**
-  present `VANTADB_INGEST_PROVIDER` as the fix: setting a runner clears
-  `degraded` and silences the warning while the queue still drains nowhere.
+- **What it does not promise.** `thread_send` *enqueues*; it does not extract, so a
+  `memory_recall` in the same breath may still miss the turn. In writer mode the
+  process that owns the database **hosts the ingest loop** and drains that queue on
+  its interval (`MCP-43`), so `queued: true` means "waiting for a pass", not "will
+  never be extracted". Where no loop runs — a read-only writer, or the loop disabled
+  before the first pass — the queue does not drain, and `health: "broken"` with
+  `drain_path: "none"` is what says so. Setting `VANTADB_INGEST_PROVIDER` does not
+  change that: a runner clears `degraded` and silences the warning without giving the
+  process a loop to drain with.
 
 Configuration is environment-only (no secrets in files):
 
