@@ -197,6 +197,10 @@ observado, no un gate.
   el camino degradado** (`note_skipped_pass` sí sondea la cola); el corolario para
   este test (camino sano) no cambia.
 
+> **Cierre de esta recomendación:** [MEM-73-nightly](./MEM-73-nightly.md) — el e2e
+> dejó de vivir como `#[ignore]` + carril manual: corre en el lane programado
+> (`nightly.yml` job `memory-cycle-e2e`).
+
 ## Artefactos
 
 - `vantadb-mcp/tests/l0_l3_cycle_e2e.rs` — el e2e (ignorado) + preflight `--version`.

@@ -25,6 +25,14 @@
 # - Failure notification: auto-issue (deduped) so a red run never becomes
 #   chronic silence (F2 pre-mortem of HARD-02). Minimal permission: the
 #   `issues: write` grant lives ONLY on the notify job (RULES.md §4).
+# - MEM-73-NIGHTLY (2026-11-25): job `memory-cycle-e2e` runs the composed
+#   L0 -> L3 memory cycle e2e (`vantadb-mcp/tests/l0_l3_cycle_e2e.rs`) through
+#   its one entry point, `dev-tools/e2e-memory-cycle.ps1` (build -> FIND-741 SHA
+#   gate -> nextest `--run-ignored`). Until now that e2e was `#[ignore]` plus a
+#   manual lane: an e2e that only runs when somebody remembers it rots in
+#   silence. It stays OUT of push/PR on purpose (it spawns a child process and
+#   a scripted LLM endpoint - the FIND-727/739 class); the schedule is where it
+#   gets a signal without poisoning the fast gate.
 #
 # CI-08 Step 3 (SRV-10, 2026-10-15): this file absorbs the 4 informational
 # workflows as jobs. Origin -> job table (no job lost, none killed):
@@ -225,6 +233,55 @@ jobs:
       - name: Run text index recovery tests
         timeout-minutes: 45
         run: cargo test --release --test text_index_recovery -- --test-threads=1 --nocapture
+
+  memory-cycle-e2e:
+    name: "Nightly: memory L0 -> L3 e2e (shipped binary)"
+    # MEM-73-NIGHTLY (recommendation from the MEM-73 review): the composed
+    # cycle L0 -> L1 -> L2 -> L3 is proven in a real process, but until now it
+    # ran only when somebody remembered `dev-tools/e2e-memory-cycle.ps1`.
+    #
+    # Why NOT push/PR: it spawns `vantadb-server --mcp` plus a scripted LLM
+    # endpoint on an ephemeral port - processes and sockets, the exact class
+    # that poisons a fast gate when it flakes (FIND-727/739). Note this file's
+    # `pull_request:` trigger matches `src/**`, so without the `if:` below the
+    # job would run on every source PR.
+    #
+    # Why it reuses the script instead of inlining commands: build + SHA gate
+    # (FIND-741) + e2e live in ONE place. A copy here is a second
+    # implementation that drifts - and without the SHA gate the job would
+    # happily verify a stale binary. PowerShell 7 ships on ubuntu-latest and
+    # this workflow already relies on it (coverage-budget, check_completions).
+    #
+    # No continue-on-error, deliberately (Regla 2): if this fails, the composed
+    # cycle is broken. Fix the test, do not mask the job.
+    if: github.event_name != 'pull_request'
+    needs: ci-gate
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # 30 min. The e2e is measured (1.45 s local; MEM-73 recorded 3.5-4.2 s wall
+    # for the whole test binary). The build is NOT: 525 s is a local WARM run of
+    # this exact command (2026-11-25, Windows/MSVC) - a floor, not the CI figure.
+    # A cold checkout adds a dependency compile, so the CI number stays an
+    # estimate until the first run records it. The build half is bigger than one
+    # binary because nextest builds EVERY test target of the package before
+    # filtering: `vantadb-server` plus the 27 `vantadb-mcp/tests/*.rs` targets.
+    # 30 min is ~3.4x that floor and matches this file's ceiling for
+    # compile-heavy jobs (`failpoint-tests`: 30 min, with fewer target
+    # binaries than this one). Tighten this after the first scheduled run.
+    timeout-minutes: 30
+    steps:
+      # fetch-depth 1 (default) is enough: the SHA gate compares the binary's
+      # `--version` against `git rev-parse --short HEAD`, never against history.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-nextest: true
+      - name: Build + FIND-741 SHA gate + L0 -> L3 e2e
+        # The script fails closed: build error, stale binary (the message names
+        # both SHAs) or e2e failure all exit non-zero.
+        run: pwsh -NoProfile -File dev-tools/e2e-memory-cycle.ps1
 
   coverage-budget:
     name: "Nightly: coverage report + per-directory budget"
@@ -769,7 +826,7 @@ jobs:
     name: "Notify failure (auto-issue)"
     # CI-08: informational jobs intentionally NOT in `needs` — their findings
     # open their own issues; they never page the nightly notify (see header).
-    needs: [ci-gate, failpoint-tests, storage-persistence, hnsw-validation, hnsw-recall, text-index, coverage-budget, release-dry-run]
+    needs: [ci-gate, failpoint-tests, storage-persistence, hnsw-validation, hnsw-recall, text-index, memory-cycle-e2e, coverage-budget, release-dry-run]
     if: github.actor != 'dependabot[bot]' && (failure())
     runs-on: ubuntu-latest
     timeout-minutes: 10

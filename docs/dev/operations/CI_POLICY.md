@@ -576,6 +576,7 @@ surfaces in ≤24h instead of ≤7d:
 | `hnsw-validation` | same job | 120m |
 | `hnsw-recall` | same job (`hnsw_recall_certification`) | 40m |
 | `text-index` | same job (`text_index_recovery`) | 60m |
+| `memory-cycle-e2e` | NEW (MEM-73-NIGHTLY, 2026-11-25) — the composed L0→L3 cycle e2e (`vantadb-mcp/tests/l0_l3_cycle_e2e.rs`, `#[ignore]`) through `dev-tools/e2e-memory-cycle.ps1` | 30m |
 | `coverage-budget` | NEW (owner decision (c) 2026-09-27) — `dev-tools/coverage-budget.ps1`: coverage report + per-directory budget (see §Coverage) | 60m |
 | `release-dry-run` | NEW — `cargo publish -p vantadb --dry-run` (packaging + verify, **never uploads** — release-plz remains the only publisher) | 45m |
 
@@ -601,6 +602,42 @@ surfaces in ≤24h instead of ≤7d:
   `certification.yml` counterparts - a test-binary list change edits both
   files together (same coupling rule as `.config/nextest.toml` structural
   exclusions).
+- **Composed memory cycle (MEM-73-NIGHTLY, 2026-11-25):** job
+  `memory-cycle-e2e` runs the `#[ignore]`d L0→L3 e2e
+  (`vantadb-mcp/tests/l0_l3_cycle_e2e.rs`) — one real `vantadb-server --mcp`
+  process, JSON-RPC over stdio, a scheduler tick, then L0→L1→L2→L3 and
+  `memory_recall` without any `memory_put`. It closes the recommendation from
+  the MEM-73 review: an e2e that only runs when somebody remembers it rots in
+  silence.
+  - **Not in push/PR** (class `FIND-727`/`FIND-739`): it spawns a child process
+    and a scripted LLM endpoint on an ephemeral port, and this file's
+    `pull_request:` trigger matches `src/**` — hence
+    `if: github.event_name != 'pull_request'`.
+  - **Single entry point:** the YAML calls
+    `pwsh -NoProfile -File dev-tools/e2e-memory-cycle.ps1` (build → FIND-741 SHA
+    gate → `nextest --run-ignored`). No command is inlined, so build/gate/test
+    cannot drift between the manual lane and CI.
+  - **No `continue-on-error`** (Regla 2): a red run here means the composed
+    cycle is broken; the test gets fixed, the job is not muted.
+  - **Linux only:** the e2e is OS-agnostic (spawns the binary, `git`, a
+    loopback port); the Windows lane is the developer's local run of the same
+    script, so a second runner adds spawn/socket flake surface without new
+    signal.
+  - **The model is scripted by design** (no ollama, no key in CI): the runner
+    path (`VANTADB_INGEST_*` → `ConcreteRunner::Ollama` → HTTP → parse) is real;
+    what is proven is the composition, not model quality.
+  - **Budget:** 30 min. The e2e is measured (1.45 s local; MEM-73 recorded
+    3.5-4.2 s wall). The build is not: 525 s is a local **warm** run of the exact
+    job command (2026-11-25, Windows/MSVC) — a floor, not the CI figure. A cold
+    checkout adds a dependency compile, so the CI number stays an estimate until
+    the first run records it. The build half is larger than one binary because
+    nextest builds all 27 `vantadb-mcp` test targets before filtering. 30 min is
+    ~3.4x that floor and matches this file's ceiling for compile-heavy jobs
+    (`failpoint-tests`: 30 min, with fewer target binaries than this one).
+    Tighten after the first scheduled run.
+  - **Who looks when it fails:** it is in `notify-failure`'s `needs`, so a red
+    run opens (or comments on) the `[Nightly] Heavy certification subset
+    failed` auto-issue listing this job.
 
 ### Coverage — Report & Per-Directory Budget (nightly) + CI canonical gate (HARD-02)
 
