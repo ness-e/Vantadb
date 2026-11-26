@@ -158,11 +158,15 @@ function Get-RemovedBacklogIds {
     return $ids
 }
 
+function Test-IdMentioned([string]$haystack, [string]$id) {
+    return [regex]::IsMatch($haystack, '(?<![A-Za-z0-9-])' + [regex]::Escape($id) + '(?![A-Za-z0-9-])')
+}
+
 function Test-AvanceHasId([string]$id) {
     $dir = Join-Path $root "docs/dev/avance"
     if (-not (Test-Path $dir)) { return $false }
     return [bool](Get-ChildItem $dir -Recurse -Filter *.md |
-        Where-Object { Test-IdPresent (Read-Utf8 $_.FullName) $id } |
+        Where-Object { Test-IdMentioned (Read-Utf8 $_.FullName) $id } |
         Select-Object -First 1)
 }
 
@@ -270,9 +274,37 @@ if (Test-Path $planDir) {
         Where-Object { $s = [regex]::Match((Read-Utf8 $_.FullName), '(?m)^status:\s*([^\s#]+)'); -not $s.Success -or $s.Groups[1].Value -notmatch '^(superseded|archived|done|completed|closed)$' } |
         ForEach-Object { Read-Utf8 $_.FullName }) -join "`n"
 }
-# M4: word boundary. `FIND-90` must not be satisfied by `FIND-901` in the Backlog.
-function Test-IdPresent([string]$haystack, [string]$id) {
-    return [regex]::IsMatch($haystack, '(?<![A-Za-z0-9-])' + [regex]::Escape($id) + '(?![A-Za-z0-9-])')
+$backlogIds = Get-BacklogOwnIds $backlogText
+$planIds = Get-PlanOwnIds $planText
+# Review round 4 (B3): an ID counts only when it OWNS a row/cell. `Test-IdPresent`
+# matched `H-02-H-07` inside FIND-778's row (a mention in its `Ver:` cell), so the
+# task file was considered "queued" and two published counts were wrong.
+function Get-BacklogOwnIds([string]$text) {
+    $set = New-Object 'System.Collections.Generic.HashSet[string]'
+    foreach ($line in ($text -split "`n")) {
+        $m = [regex]::Match($line, '^\s*\|\s*`([^`]+)`\s*\|')
+        if ($m.Success) { [void]$set.Add($m.Groups[1].Value) }
+    }
+    return $set
+}
+
+function Get-PlanOwnIds([string]$text) {
+    $set = New-Object 'System.Collections.Generic.HashSet[string]'
+    $lines = $text -split "`n"
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -notmatch '^\s*\|') { continue }
+        $hdr = @($lines[$i].Split('|') | ForEach-Object { $_.Trim() })
+        $idCol = [Array]::IndexOf($hdr, 'ID')
+        if ($idCol -lt 1) { continue }
+        for ($j = $i + 2; $j -lt $lines.Count -and $lines[$j] -match '^\s*\|'; $j++) {
+            $cells = @($lines[$j].Split('|') | ForEach-Object { $_.Trim() })
+            if ($idCol -lt $cells.Count) {
+                $c = $cells[$idCol].Trim('`', ' ')
+                if ($c) { [void]$set.Add($c) }
+            }
+        }
+    }
+    return $set
 }
 
 $taskFilter = $null
@@ -319,8 +351,8 @@ foreach ($f in $taskFiles) {
     if (Test-Terminal $estado) { continue }
 
     $id = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-    if (Test-IdPresent $backlogText $id) { continue }
-    if (Test-IdPresent $planText $id) { continue }
+    if ($backlogIds.Contains($id)) { continue }
+    if ($planIds.Contains($id)) { continue }
     $orphanCount++
     $violations.Add("$id ($estado): active task file whose row is in no Backlog and in no active plan — the closure left this state behind")
 }

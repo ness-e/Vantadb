@@ -680,6 +680,37 @@ con el texto listo en `H-02-H-07.md` §"Ronda 3": (1) `FIND-587` con
 paths, reportado como fallo por el helper, mecanismo no reproducido) — con el
 guard `repo-integrity` ya cableado como detector.
 
+## D.3 — Ronda 4 (cierre de alcance: 3 ítems)
+
+| ID | Defecto | Fix |
+|---|---|---|
+| **B1** 🔴 | `claimViolations` saltaba la fila cuando el header no tenía `Hallazgo`/`Descripción`: un header `Finding/Description` desactivaba el gate **en silencio** (fail-open) | (a) `CANON_HEADER` obligatorio en `Backlog.md` y `findings.md` (exit 1 con fichero + primera línea de tabla); (b) **fail-closed por fila añadida** al Backlog bajo una tabla sin columna de claim (tablas de waves de planes exentas) |
+| **REQ** 🟠 | el fixture "literal" estaba hardcodeado (`FIND-999`, `2h`) — la misma clase de error que refutó B1 en la ronda 2 | el `--self-test` **lee** `findings.md` y usa su fila y su header reales; si el fichero cambia de forma, el fixture falla |
+| **REQ** 🟠 | los conteos publicados no se reproducían: `Test-IdPresent` contaba **menciones**, así que `H-02-H-07` "tenía fila" por aparecer en la fila de `FIND-778` | `Get-BacklogOwnIds` (primera celda) + `Get-PlanOwnIds` (columna `ID`); números corregidos abajo |
+
+**Conteos corregidos, medidos (no redondeados):**
+
+```
+pwsh dev-tools/check-closure.ps1 -All    → 3   (FIND-585, FIND-587, H-02-H-07)
+pwsh dev-tools/check-closure.ps1 -Audit  → 10  (9 task files ajenos sin Estado + H-02-H-07)
+pwsh dev-tools/check-closure.ps1 -Diff   → 1   (FIND-758.md, untracked de otro carril)
+node dev-tools/check-harness-contract.mjs --self-test → 35/35
+pwsh dev-tools/check-closure.ps1 -SelfTest            → 9/9 + 4/4
+```
+
+El delta contra lo publicado (2 y 10) y contra lo medido por el review (1 y 9):
+ambos contaban menciones. Al anclar a fila propia aparece **`FIND-585`**, que
+estaba oculto por una mención en otra fila. Vale el número que da el comando hoy.
+
+**Sondas de B1: 8/8** — literal→0, hallazgo92→1, desc92→1, desc92pct→1,
+medicionOk→0, `enHeader`→**1**, `synHeader`→**1**, fila añadida bajo tabla sin
+claim→**1**.
+
+**Abierto, como filas propuestas (no se arregla acá):** falso positivo de
+`repo-integrity` con `git rm --cached`; `HAS_MEASURE` matcheando `no medido`;
+split por `|` con pipe escapado; y la discrepancia de cifras 11/11 vs 12/12 entre
+documentos. Texto completo en `H-02-H-07.md` §"Ronda 4".
+
 ---
 
 # RESULTADO

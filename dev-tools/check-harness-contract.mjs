@@ -158,6 +158,20 @@ export function claimCellIndices(text, line) {
   return null;
 }
 
+/**
+ * H-02 (review round 4, BLOCKING): a table whose header is `Finding/Description`
+ * or `Problema/Detalle` used to make the gate SKIP the row — fail-open. Two
+ * lines close it:
+ *   (a) the canonical header must exist in the two files that govern claim rows;
+ *   (b) a row ADDED to the Backlog under a table without a claim column is a
+ *       violation, not a skip (plan wave tables stay exempt: they are not claim
+ *       rows and are added by every plan).
+ */
+const CANON_HEADER =
+  /ID\s*\|\s*Severidad\s*\|\s*Hallazgo\s*\|\s*Archivo:l[ií]nea\s*\|\s*Esfuerzo\s*\|\s*Prioridad\s*\|\s*Estado\s*\|\s*Descripci[oó]n\s*\|/;
+
+const isBacklogFile = (f) => /(^|\/)Backlog\.md$/.test(f.replace(/\\/g, "/"));
+
 export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT, f))) {
   const out = [];
   const cache = new Map();
@@ -174,7 +188,17 @@ export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT,
     const body = cache.get(file);
     if (body === null) continue;
     const idx = claimCellIndices(body, line);
-    if (!idx || !idx.length) continue; // no recognised claim column → never judged
+    if (!idx || !idx.length) {
+      if (isBacklogFile(file)) {
+        const header = (body.split(/\r?\n/)[Math.max(line - 2, 0)] || "").trim();
+        out.push(
+          `${file}:${line}: row added under a table with no "Hallazgo"/"Descripción" column (fail-closed) — header: ${
+            header.slice(0, 90) || "none"
+          }`,
+        );
+      }
+      continue; // plan wave tables: not claim rows
+    }
     const cells = text.split("|").slice(1, -1);
     const claimed = idx.map((i) => cells[i] || "").filter((c) => CLAIM.test(c));
     if (!claimed.length) continue;
@@ -540,6 +564,29 @@ function checkPlanLote() {
 
 function checkMedicion() {
   const bad = [];
+  // (a) the canonical header must exist where claim rows are defined. If it is
+  // renamed, the gate would otherwise skip every row — measured round 4.
+  for (const [p, rel0] of [
+    [join(ROOT, "docs/dev/Backlog.md"), "docs/dev/Backlog.md"],
+    [
+      join(OPENCODE, "task-system/prompts/findings.md"),
+      ".opencode/task-system/prompts/findings.md",
+    ],
+  ]) {
+    if (!exists(p)) {
+      bad.push(`${rel0}: missing — cannot verify the canonical claim header`);
+      continue;
+    }
+    const text = read(p);
+    if (!CANON_HEADER.test(text)) {
+      const firstHeader = (text.split(/\r?\n/).find((l) => /^\s*\|.*\|/.test(l)) || "").trim();
+      bad.push(
+        `${rel0}: no canonical claim header (ID | Severidad | Hallazgo | … | Descripción). First table line: ${
+          firstHeader.slice(0, 100) || "none"
+        }`,
+      );
+    }
+  }
   const markers = [
     [
       "task-system/prompts/plan.md",
@@ -690,44 +737,82 @@ function runSelfTest() {
   const free = loteViolations("**Regla del lote:** triage libre\n- **Gate Result:** 🟡 DEFER\n");
   ok("lote: free triage allows DEFER", free.length === 0);
 
-  // B1 (round 3): judge by COLUMN INDEX. The fixture is the LITERAL row from
-  // findings.md:31 — `🟡 1d` and `Origen: … commit <hash>` must not make it a
-  // claim; a number in Hallazgo/Descripción must.
-  const HEADER10 =
-    "| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |\n|---|---|---|---|---|---|---|---|---|---|";
-  const rowF = (hallazgo, desc) =>
-    `| \`FIND-999\` | 🟡 Media | ${hallazgo} | \`ruta:línea\` | 🟡 1d | 🟢 Nice-to-have | 🆕 Pendiente | ${desc} | Origen: FIND-764#T-2 · commit 9d5f1e7 | - |`;
+  // B1 (round 4): the fixture READS the real row from findings.md. Hardcoding it
+  // is what let round 2's `2h` stand in for the spec's `🟡 1d` — if the file
+  // changes shape, these fixtures go red instead of lying.
+  let findingsText = "";
+  try {
+    findingsText = read(join(OPENCODE, "task-system/prompts/findings.md"));
+  } catch {
+    findingsText = "";
+  }
+  const literalRow = (findingsText.match(/^\|\s*`FIND-<n>`[^\n]*$/m) || [null])[0];
+  const literalHeader = (findingsText.match(
+    /ID\s*\|\s*Severidad\s*\|\s*Hallazgo[^\n]*Dependencias\s*\|/,
+  ) || [null])[0];
+  ok("medicion: findings.md exposes the FIND row template", !!literalRow);
+  ok("medicion: findings.md exposes the canonical header", !!literalHeader);
+  ok(
+    "medicion: findings.md header is accepted by CANON_HEADER",
+    !!literalHeader && CANON_HEADER.test(literalHeader),
+  );
+
+  const HEADER10 = literalHeader
+    ? `| ${literalHeader
+        .split("|")
+        .map((c) => c.trim())
+        .filter(Boolean)
+        .join(" | ")} |\n|---|---|---|---|---|---|---|---|---|---|`
+    : "";
   const viol = (row) =>
     claimViolations(
       [{ file: "docs/dev/Backlog.md", line: 3, text: row }],
       () => `${HEADER10}\n${row}\n`,
     );
+  const swap = (from, to) => (literalRow || "").replace(from, to);
 
   ok(
     "medicion: literal findings.md row (1d + Origen) passes",
-    viol(rowF("**<título corto>**", "<descripción: qué se encontró + acción propuesta>")).length ===
-      0,
+    !!literalRow && viol(literalRow).length === 0,
   );
   ok(
     "medicion: claim in Hallazgo fails",
-    viol(rowF("**92 unwraps en contexto prod**", "<descripción>")).length === 1,
+    viol(swap("**<título corto>**", "**92 unwraps en contexto prod**")).length === 1,
   );
   ok(
     "medicion: single-token claim in Descripción fails (inverse hole)",
-    viol(rowF("**<título corto>**", "**92**")).length === 1,
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92**")).length === 1,
   );
   ok(
-    "medicion: universal word in Descripción fails",
-    viol(rowF("**<título corto>**", "ningún job required")).length === 1,
+    "medicion: percentage claim in Descripción fails",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**+92%**")).length === 1,
   );
   ok(
     "medicion: claim WITH Medición passes",
-    viol(rowF("**92 unwraps**", "Medición: `rg -c unwrap src/` -> 92")).length === 0,
+    viol(
+      swap(
+        "<descripción: qué se encontró + acción propuesta>",
+        "Medición: `rg -c unwrap src/` -> 92",
+      ),
+    ).length === 0,
   );
   ok(
-    "medicion: table without a claim column is never judged",
+    "medicion: non-canonical header makes an added Backlog row fail (fail-closed)",
     claimViolations(
-      [{ file: "p.md", line: 3, text: "| 1 | `A-1` | W1 | R | `src/**` | 2h |" }],
+      [
+        {
+          file: "docs/dev/Backlog.md",
+          line: 3,
+          text: "| `DEAD-AA` | Media | **92 unwraps en contexto prod** | `a.rs` | 2h | P2 | P | **92** | r | - |",
+        },
+      ],
+      () => "| ID | Severidad | Finding | Description | Esfuerzo |\n|---|---|---|---|---|\n",
+    ).length === 1,
+  );
+  ok(
+    "medicion: plan wave table is not fail-closed",
+    claimViolations(
+      [{ file: "docs/dev/plans/x.md", line: 3, text: "| 1 | `A-1` | W1 | R | `src/**` | 2h |" }],
       () =>
         "| # | ID | Wave | Carril | Ficheros / zona exclusiva | Prerequisito |\n|---|---|---|---|---|---|\n",
     ).length === 0,
