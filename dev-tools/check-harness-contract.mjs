@@ -265,6 +265,7 @@ function addedDiffRows() {
     diff = execFileSync("git", ["diff", "-U0", "--", "docs/dev/Backlog.md", "docs/dev/plans"], {
       cwd: ROOT,
       encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"], // CRLF autocrlf warnings are not findings
     });
   } catch {
     return [];

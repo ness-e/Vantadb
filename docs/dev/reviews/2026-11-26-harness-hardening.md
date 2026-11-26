@@ -576,6 +576,51 @@ correcta; lo que falta es que la fila **nazca medida** (H-02).
 
 ---
 
+---
+
+# D. Estado de aplicación (2026-11-26, `vanta-harness`)
+
+Los seis blindajes contratados (`H-02`..`H-07`) se aplicaron en el orden de
+dependencia `H-03 → H-05 → H-07 → H-02 → H-04 → H-06`. Detalle y evidencia
+`ruta:línea` por ítem: [H-02-H-07](../tasks/H-02-H-07.md).
+
+| ID | Estado | Detector que lo sostiene (falla si el contrato se rompe) |
+|---|---|---|
+| H-03 | ✅ aplicado | `check-harness-contract.mjs` → `commit-path` (0 commits desnudos; ≥1 cita a `workflow/RULES.md` §11) |
+| H-05 | ✅ aplicado | `check-harness-contract.mjs` → `plan-lote` (DEFER/SKIP sobre lote del usuario sin firma → exit 1) |
+| H-07 | ✅ aplicado | `check-harness-contract.mjs` → `premise` (scope + `PREMISA:` + rechazo del orquestador) |
+| H-02 | ✅ aplicado | `check-harness-contract.mjs` → `medicion` (markers + filas añadidas con claim sin `Medición:`) |
+| H-04 | ✅ aplicado | `check-closure.ps1` (`-Diff` gate, `-All` auditoría, `-SelfTest`) |
+| H-06 | ✅ aplicado | `check-harness-contract.mjs` → `wave-quotas` (sin `MAX_CONCURRENT=min(3`, conflictos de zona por wave) |
+
+**Verificación (comandos y salida real, no auto-reporte)**
+
+```
+$ node dev-tools/check-harness-contract.mjs
+ok commit-path (H-03) · ok plan-lote (H-05) · ok medicion (H-02) · ok premise (H-07) · ok wave-quotas (H-06)
+harness contract holds (5 checks)                                   # exit 0
+$ node dev-tools/check-harness-contract.mjs --self-test   → 18/18 fixtures (cada regla puede fallar)
+$ pwsh dev-tools/check-closure.ps1 -SelfTest              → 9/9 fixtures
+$ pwsh dev-tools/check-closure.ps1 -Diff                  → CLOSURE OK  # exit 0
+$ pwsh dev-tools/check-closure.ps1 -All                   → 1 violación viva: FIND-587 (no de esta tarea)
+```
+
+Antes de la aplicación, el mismo gate de contrato daba **13 violaciones** (una
+por contrato ausente, más las citas a `workflow/RULES.md`, que eran **0** en
+`prompts/`). Los dos gates quedaron cableados como destroyers de drift en
+`agents/vanta-harness.md` §3, con la regla de que un exit ≠ 0 es 🔴 y no admite
+un veredicto ✅.
+
+**Fuera de alcance, declarado:** `H-01`/`FIND-774` (parser del task-system,
+`task-system/mcp/**`) no se tocó — dos agentes cierran tareas con esa máquina;
+cambiarla a mitad de wave es interferencia por comportamiento. El review P2-01
+de esta aplicación queda a cargo del orquestador: la sesión que la aplicó no
+tiene tool `task` (`subagent: deny`) y no puede spawnear `vanta-review`; por eso
+el task file queda `⏳ IN PROGRESS` en lugar de `✅ COMPLETED` sin veredicto
+(HARD-07 aplicado al propio cierre).
+
+---
+
 # RESULTADO
 
 **Veredicto:** 🔴 CAMBIOS REQUERIDOS — 15 hallazgos, 6 críticos.
