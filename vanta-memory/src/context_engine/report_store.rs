@@ -1,7 +1,7 @@
 //! Per-run persistence for [`crate::context_engine::CompactionReport`] (MEM-64).
 //!
 //! The post-L3 context assembly in
-//! [`crate::services::pipeline_worker::run_context_assembly`] already writes
+//! [`crate::services::pipeline_worker::MemoryTaskHandler::run_context_assembly`] already writes
 //! the full [`crate::context_engine::IntegratedContext`] to
 //! `context/{session}/__assembled`. MEM-64 adds a sibling record under
 //! `context/{session}/compaction_reports/{run_id}` carrying just the

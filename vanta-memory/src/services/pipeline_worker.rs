@@ -625,7 +625,8 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
     }
 
     /// Idle consolidation wired to MEM-61 `consolidate_session` (FIND-86
-    /// D1). `last_active` comes from the checkpoint's [`PipelineSessionState`]
+    /// D1). `last_active` comes from the checkpoint's
+    /// [`PipelineSessionState`](crate::core::state::PipelineSessionState)
     /// (missing session → 0 = unknown → treated as idle; fail-open is safe
     /// because dream writes go to `dream/<s>/<run_id>` and L1 is never
     /// mutated). A premature Dream task (not idle yet) is a quiet `Ok` skip —

@@ -11,7 +11,7 @@ pub const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &["2025-06-18", "2024-11-05"];
 
 /// Recall-first server instructions, surfaced to the agent via the MCP
 /// `initialize` result (`instructions` field, spec 2025-06-18 — see
-/// https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle/).
+/// <https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle/>).
 /// This is what the agent reads before any tool call: recall before answering,
 /// cognitive lifecycle L0->L3, never improvise temporal ranges (see
 /// `temporal::parse_temporal_expression`), and curate through threads.

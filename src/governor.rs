@@ -99,7 +99,8 @@ impl ResourceGovernor {
     /// Estimate the peak memory cost of a logical plan (COMP-028).
     ///
     /// Delegates to the unified semantic cost estimator. Consumed by
-    /// [`Executor::execute_plan`] to budget query admission (OLD-21).
+    /// [`Executor::execute_plan`](crate::executor::Executor::execute_plan) to
+    /// budget query admission (OLD-21).
     pub(crate) fn estimate_plan_cost(
         &self,
         storage: &StorageEngine,

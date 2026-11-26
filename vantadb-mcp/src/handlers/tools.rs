@@ -4520,7 +4520,7 @@ fn check_unconsolidated_dream_hint(
 /// block, per `budget_value`'s contract).
 ///
 /// Review F2: the metadata is appended after measuring, so the measure
-/// reserves [`RECALL_ENVELOPE_META_BYTES`] of headroom — the delivered
+/// reserves `RECALL_ENVELOPE_META_BYTES` of headroom — the delivered
 /// payload stays within `byte_budget` (the string block alone can still
 /// overshoot; that oversize stays honest and flagged via `truncated`).
 /// `byte_count` reports the delivered envelope size (≤ 4 bytes off: its own

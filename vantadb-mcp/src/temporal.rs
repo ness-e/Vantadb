@@ -372,8 +372,8 @@ fn parse_hour(rest: &str) -> Option<u32> {
     }
 }
 
-/// Relative spans: "hace N días|horas|minutos|semanas", "N <unit> ago",
-/// "últimos|ultimos N <unit>", "last N <unit>". Returns (n, unit_ms).
+/// Relative spans: "hace N días|horas|minutos|semanas", "N `<unit>` ago",
+/// "últimos|ultimos N `<unit>`", "last N `<unit>`". Returns (n, unit_ms).
 fn parse_ago(words: &[&str]) -> Option<(u64, u64)> {
     let unit = |w: &str| match w {
         "minuto" | "minutos" | "minute" | "minutes" | "min" => Some(MIN_MS),

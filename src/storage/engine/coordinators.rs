@@ -1,4 +1,5 @@
-//! Specialized subsystem coordinators / facades for [`StorageEngine`].
+//! Specialized subsystem coordinators / facades for
+//! [`StorageEngine`](crate::storage::engine::StorageEngine).
 //!
 //! Provides zero-cost coordinator views over key engine subsystems:
 //! - [`IndexCoordinator`]: HNSW indexing and micro-batching operations.

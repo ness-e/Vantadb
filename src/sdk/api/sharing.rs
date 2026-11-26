@@ -1,5 +1,5 @@
 //! Shared-memory facade (MEMG-16): scopes, grants, and revocation over the
-//! existing [`PermissionChecker`](crate::entity::checker::PermissionChecker)
+//! existing [`PermissionChecker`]
 //! and entity ACL machinery.
 //!
 //! # Scope model (declared)

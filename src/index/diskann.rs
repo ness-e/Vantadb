@@ -16,7 +16,8 @@
 //! pruning) but stores all vectors and edges in RAM. A real DiskANN would
 //! spill nodes to disk and load on demand; that is future work.
 //!
-//! This module is `pub(crate)`; the public [`IndexType::DiskAnn`] variant
+//! This module is `pub(crate)`; the public
+//! [`IndexType::DiskAnn`](crate::index::IndexType::DiskAnn) variant
 //! (in `crate::index`) keeps its name for API/serde stability but is
 //! documented as in-memory.
 

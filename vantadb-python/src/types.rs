@@ -18,7 +18,7 @@ use crate::vector::Vector;
 
 /// A zero-copy view over a 2D PyBuffer (NumPy ndarray) of f32 data.
 ///
-/// Avoids the intermediate Vec<f32> allocation that `to_vec()` creates.
+/// Avoids the intermediate `Vec<f32>` allocation that `to_vec()` creates.
 /// The view borrows from the underlying Python buffer object — the caller
 /// must ensure the buffer outlives the view.
 pub struct FlatBufferView<'a> {
@@ -32,8 +32,8 @@ impl<'a> FlatBufferView<'a> {
         Self { data, ndims }
     }
 
-    /// Read the i-th row into an owned Vec<f32> by copying each element.
-    /// Skips the intermediate full-buffer Vec<f32> from `to_vec()`.
+    /// Read the i-th row into an owned `Vec<f32>` by copying each element.
+    /// Skips the intermediate full-buffer `Vec<f32>` from `to_vec()`.
     // ponytail: P2-10 row_to_vec() copia por fila (inherente — necesitás Vec<f32> individual por record).
     // No hay zero-copy alternativo para put_batch() con PyBuffer. No aplicar en search().
     pub fn row_to_vec(&self, index: usize) -> Vec<f32> {

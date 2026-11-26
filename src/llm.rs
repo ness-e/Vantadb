@@ -505,7 +505,7 @@ impl LocalOnnxProvider {
         Self::from_llm_cfg(&crate::config::LlmCfg::for_local_model(model_dir))
     }
 
-    /// Create a new provider from [`LlmCfg`] (uses `local_model_path`).
+    /// Create a new provider from [`LlmCfg`](crate::config::LlmCfg) (uses `local_model_path`).
     pub fn from_llm_cfg(cfg: &crate::config::LlmCfg) -> Result<Self> {
         // FIND-697: resolve a relative `local_model_path` against the cwd, the
         // executable dir and the data dir — the provider must find an installed
@@ -1243,7 +1243,7 @@ pub struct OllamaProvider {
 
 #[cfg(feature = "remote-inference")]
 impl OllamaProvider {
-    /// Create a new Ollama provider from [`LlmCfg`].
+    /// Create a new Ollama provider from [`LlmCfg`](crate::config::LlmCfg).
     pub fn new(cfg: &crate::config::LlmCfg) -> Self {
         Self {
             client: Client::builder()
@@ -1325,7 +1325,7 @@ pub struct OpenAIProvider {
 
 #[cfg(feature = "remote-inference")]
 impl OpenAIProvider {
-    /// Create a new OpenAI provider from [`LlmCfg`].
+    /// Create a new OpenAI provider from [`LlmCfg`](crate::config::LlmCfg).
     ///
     /// A missing `VANTADB_OPENAI_API_KEY` does NOT panic: it is reported as
     /// [`Error::InvalidInput`] from [`EmbeddingProvider::embed`] instead.
@@ -1439,7 +1439,7 @@ impl Default for LlmClient {
 
 #[cfg(feature = "remote-inference")]
 impl LlmClient {
-    /// Create a new client from [`LlmCfg`].
+    /// Create a new client from [`LlmCfg`](crate::config::LlmCfg).
     pub fn new(cfg: &crate::config::LlmCfg) -> Self {
         Self {
             client: Client::builder()

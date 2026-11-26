@@ -789,7 +789,8 @@ impl StorageEngine {
         self.existing_meta(id)
     }
 
-    /// Batch variant of [`Self::existing_for_batch`] that amortizes lock
+    /// Batch variant of `existing_for_batch` (the `#[cfg(not(feature = "rayon"))]`
+    /// sibling, which does not exist under this cfg) that amortizes lock
     /// acquisition across a chunk of ids.
     ///
     /// ERR-037 follow-up: the per-node probe acquired `active_txns` + `cache`

@@ -91,7 +91,8 @@ pub(crate) fn cmp_int_float(i: i64, f: f64) -> Option<std::cmp::Ordering> {
     }
 }
 
-/// Apply a [`crate::query::RelOp`] to an [`Ordering`] (FIND-157): shared by
+/// Apply a [`crate::query::RelOp`] to an [`Ordering`](std::cmp::Ordering)
+/// (FIND-157): shared by
 /// `filter` and `join` so `Gte`/`Lte` semantics can't drift between the two
 /// comparison paths.
 pub(crate) fn rel_op_matches(ord: std::cmp::Ordering, op: &crate::query::RelOp) -> bool {

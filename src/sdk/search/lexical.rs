@@ -171,7 +171,8 @@ impl Embedded {
     /// Build a `FilterBitset` query mask from the given namespace and equality filters.
     ///
     /// Constructs a Bloom-like filter bitset in O(filters.len()) by projecting
-    /// `("__ns__", namespace)` and each exact equality filter using [`metadata_hash_bit`].
+    /// `("__ns__", namespace)` and each exact equality filter using
+    /// [`metadata_hash_bit`](crate::sdk::serialization::metadata_hash_bit).
     pub(super) fn bitset_from_filters(
         &self,
         namespace: &str,

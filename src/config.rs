@@ -2280,7 +2280,9 @@ impl Config {
     /// Only safe-to-reload fields (see [`HotReloadConfig`]) are applied.
     /// Changes to storage paths, backend, TLS, or API keys are ignored.
     ///
-    /// The thread exits when the returned [`watch::Sender`] is dropped.
+    /// The watcher thread exits when the returned
+    /// [`mpsc::Sender`](std::sync::mpsc::Sender) is dropped (it closes the
+    /// channel the thread is blocked on).
     #[cfg(feature = "hot-reload")]
     pub fn watch_config<C: Fn() + Send + 'static>(
         config: Arc<RwLock<Self>>,

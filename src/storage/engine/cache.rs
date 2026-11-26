@@ -2,7 +2,8 @@
 //!
 //! [`CacheLayer`] owns the five pure-cache fields extracted from
 //! `StorageEngine` (C2S3b, SRP): volatile LRU-ish map, the two BM25
-//! caches, the cardinality map and the predictive [`CacheWarmer`].
+//! caches, the cardinality map and the predictive
+//! [`CacheWarmer`](crate::cache_warmer::CacheWarmer).
 //! No I/O, no WAL, no backend access — unit-testable without storage.
 //! Delegation is 1:1, same lock discipline the engine used inline
 //! (`try_write` fast path with `read` fallback on contention, ERR-036).

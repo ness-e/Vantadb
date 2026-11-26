@@ -1374,7 +1374,7 @@ impl Client {
     ///         ``MAX_K`` (1000) with a warning when larger.
     ///
     /// Returns:
-    ///     list[SearchHit]: Hits ordered by similarity, each exposing
+    ///     `list[SearchHit]`: Hits ordered by similarity, each exposing
     ///     ``key``, ``payload``, ``metadata``, ``vector``, ``score``, and
     ///     ``node_id`` properties.
     ///
@@ -1438,7 +1438,7 @@ impl Client {
     ///         text-only (BM25) search.
     ///
     /// Returns:
-    ///     list[SearchHit]: Search hits ordered by relevance, each exposing
+    ///     `list[SearchHit]`: Search hits ordered by relevance, each exposing
     ///     ``key``, ``payload``, ``metadata``, ``vector``, ``score``, and
     ///     ``node_id`` properties.
     ///
@@ -1555,7 +1555,7 @@ impl Client {
     ///         weight); empty ``query_vector`` + ``text_query`` = text-only.
     ///
     /// Returns:
-    ///     list[SearchHit]: Hits ordered by descending relevance score.
+    ///     `list[SearchHit]`: Hits ordered by descending relevance score.
     ///
     /// Raises:
     ///     ValueError: If ``namespaces`` is empty, a namespace is invalid, or
@@ -2145,7 +2145,7 @@ impl Client {
     ///     top_k: Fallback `top_k` for requests that omit it (default 10).
     ///
     /// Returns:
-    ///     list[list[SearchHit]]: One hit list per request, in input order.
+    ///     `list[list[SearchHit]]`: One hit list per request, in input order.
     ///
     /// Raises:
     ///     ValueError: If a request fails engine validation (raised eagerly on
@@ -2610,7 +2610,7 @@ impl Client {
     ///     time_range: Optional inclusive (from_ms, to_ms) window for edge creation time.
     ///
     /// Returns:
-    ///     list[int]: Visited node IDs in BFS order.
+    ///     `list[int]`: Visited node IDs in BFS order.
     ///
     /// Raises:
     ///     ValueError: If direction is invalid or time_range is malformed.

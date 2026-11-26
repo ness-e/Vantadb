@@ -4,7 +4,7 @@
 //!
 //! # Message Protocol
 //!
-//! ```ignore
+//! ```text
 //! Main thread                    Worker
 //!     │                           │
 //!     ├── Read { path } ──────────┤

@@ -471,7 +471,7 @@ pub struct StorageEngine {
     /// Secondary scalar indexes.
     ///
     /// `field → value → [node_id]` hash map that turns
-    /// [`filter_field`](StorageEngine::filter_field) from a full table scan
+    /// `filter_field` from a full table scan
     /// into an O(1) lookup (PERF-08).
     pub(crate) scalar_index: Option<std::sync::Arc<crate::scalar_index::ScalarIndex>>,
     /// File handle for multi-process isolation lock

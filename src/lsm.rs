@@ -2,7 +2,8 @@
 //!
 //! Provides packed offsets (segment_id in low 6 bits, 64-aligned offset in upper bits),
 //! LSM level identifiers, per-level configuration, segment metadata, and the
-//! [`SegmentRegistry`] which manages multi-level File lifecycle.
+//! [`SegmentRegistry`](crate::lsm::SegmentRegistry) which manages multi-level
+//! File lifecycle.
 //!
 //! ponytail: tier promotion hot→warm→cold→archive (L0→L3) driven by
 //! size/tombstone thresholds; Frequency/Age heuristics are config-only for now.

@@ -43,7 +43,7 @@ impl AsyncIngestionPipeline {
     /// Opt-in group-commit batching (WIRE-06) is read from
     /// [`Config::insert_batch`](crate::config::Config::insert_batch) on the
     /// engine: when `enabled`, workers accumulate tasks into one
-    /// `batch_insert_with_opts` commit (see [`Self::worker_loop_batched`]).
+    /// `batch_insert_with_opts` commit (see `worker_loop_batched`).
     /// Default (`enabled = false`) keeps the per-record path byte-identical.
     pub fn new(engine: Arc<StorageEngine>, worker_count: Option<usize>) -> Self {
         // ponytail: single worker — engine insert path is serial (global insert_lock

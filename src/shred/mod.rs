@@ -277,7 +277,7 @@ impl ShreddedRowStore {
     }
 
     /// Serialise `fields` to the row-store binary format. `None` only when
-    /// `fields` is empty (same no-op contract as [`Self::put`]).
+    /// `fields` is empty (same no-op contract as `put`).
     ///
     /// FIND-604: non-scalar fields (`Null`, `DateTime`, lists) are written
     /// as zero-length `Null`-tag marker entries — never silently dropped,
@@ -347,7 +347,7 @@ impl ShreddedRowStore {
         )
     }
 
-    /// Batch form of [`Self::put`]: the same backend put as a
+    /// Batch form of `put`: the same backend put as a
     /// `BackendWriteOp` so live-engine callers can route it through
     /// `StorageEngine::write_backend_batch`, which acquires `insert_lock`
     /// (FIND-651 — keeps the write out of a concurrent `create_snapshot`

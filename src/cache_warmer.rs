@@ -32,7 +32,7 @@ pub const MAX_CO_ACCESS_PAIRS: usize = 1_000_000;
 
 /// Tracks co-access patterns and predicts which nodes to prefetch.
 pub(crate) struct CacheWarmer {
-    /// co_access[A][B] = number of times B was accessed together with A.
+    /// `co_access[A][B]` = number of times B was accessed together with A.
     co_access: RwLock<HashMap<u128, HashMap<u128, u32>>>,
     /// Minimum co-access count before prefetch is triggered.
     min_accesses: u32,
