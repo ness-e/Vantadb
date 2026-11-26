@@ -1,7 +1,7 @@
 ---
 title: "FIND-770 - ci-rust filtra pull_request: 10 de los 14 required de develop quedan en Pending"
 kind: task
-status: in-progress
+status: completed
 description: "`ci-rust.yml` filtra `pull_request` por 22 patrones: 1280 ficheros (54,4 %) -959 bajo `docs/`- no disparan el workflow, y 10 de los 14 contexts required de `develop` salen de ahi. Fix: `paths` fuera de `pull_request` + job `rust-scope` fail-open que omite por `if:` los jobs caros (9 saltan en cascada por `needs`). Coste medido: ~570 s frente a 5670 s de los 3 tests."
 tags: [vantadb, ci, github-actions, required-checks, paths-filter]
 ---
@@ -12,10 +12,14 @@ tags: [vantadb, ci, github-actions, required-checks, paths-filter]
 
 `FIND-765` (`49ced681e`) quitó `paths` de `on.pull_request` en `docs-gates.yml`
 y midió el coste: 16 jobs, 967 s de runner, 10m38s de pared, y los 3 required
-son 37 s. El mismo commit **declaró el residual** (`ci-cd.md:1131`): "10 de los
-14 contexts salen de `ci-rust.yml`, que conserva su `pull_request.paths` (22
-patrones) y **no** es escribible ahí por conflicto de carril". Este es ese
-carril.
+son 37 s. El mismo commit **declaró el residual** (`ci-cd.md:1131`, citado
+**verbatim**): *"**10 de los 13 contexts salen de `ci-rust.yml`**, que conserva
+su `pull_request.paths` (22 patrones) y **no** es escribible acá por conflicto
+de carril"*. Hoy son **14**, no 13: `Generate API reference (rustdoc)` entró al
+ruleset `23692587` con `FIND-763` (14 contexts, leídos por API). Y sus cifras
+(`1281`/`957`, 54,5 %) se midieron sobre **2351** ficheros tracked; hoy hay
+**2353** y el residual medido acá es **1280**/**959** (54,4 %) — el texto de
+`:1131` no se reescribe, se cita con su fecha. Este es ese carril.
 
 El ruleset `develop` (`23692587`, leído por API hoy) tiene **14** contexts
 required; **10** vienen de este fichero:
@@ -79,7 +83,7 @@ contra el run más reciente que corrió los 3 tests.
        `semver-checks`, `public-api-snapshot`. Los 9 jobs con `needs: clippy` se
        omiten por cascada, no por 9 `if:` copiados.
 4. [x] Verificar: `actionlint` + YAML parseado + 14 contexts nombre-a-nombre.
-5. [ ] Cerrar: entrada en `ci-cd.md`, fila fuera del Backlog, commit.
+5. [x] Cerrar: entrada en `ci-cd.md`, fila fuera del Backlog, commit.
 
 ## Medición (run `45821093876`, `3a7e225ad`, push a `develop`, success)
 
@@ -160,4 +164,40 @@ la primera corrida de `rust-scope` (nunca ha corrido).
 
 ## Review
 
-Pendiente de la ronda P2-01 (contexto fresco).
+**P2-01 (contexto fresco, `vanta-review`, una ronda) -> `changes-required`.**
+**0 Blocking**: no encontró ninguna puerta al deadlock ni ningún camino
+fail-closed en el YAML de `2b282eed7`; verificó **verbatim** las dos semánticas
+que el cambio usa como cimiento (`status-checks`: *"A job that is skipped will
+report its status as 'Success'… even if it is a required check"*;
+`workflow-syntax §jobs.<job_id>.needs`: *"If a job fails or is skipped, all jobs
+that need it are skipped"*), los 14 contexts con exactamente **un** job que los
+reporte, `on.push.paths` byte-idéntico (24), 0 `name:` retirados y
+`continue-on-error` 6→6. **Reprodujo los 9062 s, 1h09m35s, 5670 s, 427 s, 572 s,
+54,40 %, 959 y los 12 de 24 jobs**, sin discrepancias.
+
+Aplicado en el commit de seguimiento:
+
+- **M1** — la cita de `ci-cd.md:1131` no era verbatim (decía `14`/`ahí`; el
+  original dice `13`/`acá`) y faltaba declarar que las cifras 1281/957 se
+  midieron sobre 2351 ficheros tracked. Corregido en §Contexto, con la nota de
+  qué cambió y por qué.
+- **L1** — "9062 s en 24 jobs" → 9062 s es la suma de los **20 jobs que
+  corrieron** (4 reportaron `skipped`).
+- **L2** — el techo (2) estaba mal razonado: `pull_request.base.sha` es la punta
+  de la base y HEAD es el commit de merge de prueba, así que `diff base..HEAD`
+  trae **sólo** el cambio del PR; el sobre-corrido aparece cuando la rama del PR
+  fusionó la base dentro de sí misma. Reescrito con la causa real.
+- **L3** — tres referencias de línea ya estaban mal en el mismo commit: `fmt` no
+  está en `:187` sino en **`:208`**; `on:` es **3-61**, no 1-56; `rust-scope` es
+  **64-160**, no 64-148. Corregidas (y dicho que lo que hay que hacer es
+  `grep`, no citar números que se mueven).
+- **L4** — el extracto del YAML omitía justo las 4 líneas que un editor futuro
+  copia (here-string + `rc=2` fail-open). Ahora están en el extracto.
+
+**No aplicado, y se delega con el texto exacto (M2):** `CI_POLICY.md:803-804`
+dice *"El mismo problema **sigue abierto** en `ci-rust.yml` (`FIND-770`): sus 22
+patrones dejan fuera 1281 ficheros y 10 de los 13 contexts"* — ya es falso. **No
+lo toco**: `docs/dev/operations/CI_POLICY.md` está **fuera** de la lista de
+escritura de esta tarea (y `FIND-752` es su dueño en vuelo; `FIND-752.md` no
+menciona `770`, así que el handoff no le llega). Queda el texto de reemplazo en
+`ci-cd.md` §NOTICED BUT NOT TOUCHING para que el carril dueño lo aplique.
