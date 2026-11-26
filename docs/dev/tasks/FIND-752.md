@@ -1,8 +1,8 @@
 ---
-title: "FIND-752 - los seis binarios fuera del default-filter: 119 de 154 tests no tienen lane que los ejecute"
+title: "FIND-752 - los seis binarios fuera del default-filter: 118 de 154 tests no tienen lane que los ejecute"
 kind: task
 status: completed
-description: "Los seis binarios excluidos por nombre en .config/nextest.toml suman 154 tests. Medido contra gh: other_heavy lleva 0 exitos y 36 fallos en 30 dias y muere antes de correr los tests; security_audit no esta en ningun workflow; la lane de snapshot corre pero su selector deja 14 tests fuera. Total: 119 tests sin lane que los ejecute."
+description: "Los seis binarios excluidos por nombre en .config/nextest.toml suman 154 tests. Medido contra gh: other_heavy lleva 0 exitos y 36 fallos en 30 dias y muere antes de correr los tests; security_audit no esta en ningun workflow; la lane de snapshot corre pero su selector deja 14 tests fuera. Total: 118 tests sin lane que los ejecute."
 tags: [vantadb, ci, nextest, coverage, audit]
 ---
 
@@ -15,7 +15,7 @@ entregable es la tabla de `docs/dev/operations/CI_POLICY.md` §2c y los números
 
 - (a) cuántos tests contienen los seis binarios → **medido**, 154.
 - (b) dónde corre cada uno hoy, con último resultado real → tabla.
-- (c) cuáles no corrieron con éxito en 30 días → **119 tests sin lane**.
+- (c) cuáles no corrieron con éxito en 30 días → **118 tests sin lane**.
 - **Prohibido** cambiar el filtro o los workflows. Las propuestas quedan como texto (§Propuestas).
 
 ## Impacto mapeado (Regla 0)
@@ -49,8 +49,8 @@ cargo nextest list -p vantadb --ignore-default-filter --run-ignored all \
 |---|---:|---|
 | `benchmark_internal` | **1** | `test_benchmark_internal_10k` |
 | `benchmark_datasets` | **1** | `test_glove100_hnsw_basic` — `return` temprano si falta GloVe-100 (`tests/benchmark_datasets.rs:18`) |
-| `cli_tests` | **96** | `required-features = ["cli"]` (`Cargo.toml:605`) |
-| `concurrency_parity` | **5** | 1 `#[ignore]`: `test_triple_backend_parity_validation` |
+| `cli_tests` | **96** | `required-features = ["cli"]` (`Cargo.toml:607`) |
+| `concurrency_parity` | **5** | `test_triple_backend_parity_validation` es `#[cfg_attr(not(feature = "rocksdb"), ignore)]` (`tests/concurrency_parity.rs:32`): **no** está ignorado en la lane, que pasa `--features rocksdb` |
 | `snapshot_certification` | **45** / **56** con `--features failpoints` | la lane compila con `failpoints`: el número que importa es 56 |
 | `security_audit` | **6** | inyección IQL, auth bypass, input validation, resource exhaustion, timing attack, summary |
 | **Total** | **154** (features por defecto) | la columna suma 1+1+96+5+45+6 |
@@ -69,14 +69,15 @@ gh run list --workflow certification.yml --created ">=2026-10-27" --limit 200 --
 gh api repos/{owner}/{repo}/actions/runs/<id>/jobs --jq '.jobs[] | "\(.conclusion) \(.name)"'
 ```
 
-**39 runs programados: 37 `failure`, 2 `cancelled`, 0 `success`.**
+**39 runs programados en la ventana: 36 `failure`, 2 `cancelled`, 1 `in_progress`
+(leído 2026-11-26T07:10-04:00), 0 `success`.**
 
 Por job (agregado de los 39):
 
 | Job | success | failure | skipped |
 |---|---:|---:|---:|
 | `Certification: other_heavy` | **0** | **36** | 3 |
-| `Certification: memory_concurrency` | 35 | 0 | 3 |
+| `Certification: memory_concurrency` | 36 | 0 | 3 |
 | `Certification: mutation_test` | 0 | 36 | 3 |
 | `Light benchmarks` / `High density` | 0 | 36 | 3 |
 
@@ -96,9 +97,9 @@ descargarlo → falla siempre.
 **48 runs en 30 días: 39 `success`, 6 `failure`, 3 `cancelled`.** Último:
 `45802050950` (2026-11-26 10:30 UTC) = `success`.
 
-Pero la lane **no corre el binario entero**: `snapshot-certification.yml:148-164`
-selecciona por nombre con `-E 'test(snapshot) or test(pending_restore) or test(schedule)'`.
-Medido con las features de la lane:
+Pero la lane **no corre el binario entero**: `snapshot-certification.yml:149-167`
+selecciona por nombre con `-E 'test(snapshot) or test(pending_restore) or test(schedule)'`
+(`:157`, `:160`). Medido con las features de la lane:
 
 ```bash
 cargo nextest list -p vantadb --ignore-default-filter --run-ignored all \
@@ -124,13 +125,13 @@ del pre-push lo excluye por filtro. **Ningún lane lo ejecuta.**
 | `benchmark_internal` | 1 | `certification.yml` job `other_heavy` | run `45598671538`, 2026-11-25: **failure antes de los tests**; 0 success/36 failure en 30 d | **no corre** |
 | `benchmark_datasets` | 1 | idem | idem | **no corre** (y si corriera sin dataset, retorna en verde) |
 | `cli_tests` | 96 | idem | idem | **no corre** |
-| `concurrency_parity` | 5 (4+1 `#[ignore]`) | `certification.yml` job `memory_concurrency` | run `45598671538`: **success**; 35 success/0 failure en 30 d | **corre** 4/5; el `#[ignore]` **no corre en ningún lane** |
+| `concurrency_parity` | 5 | `certification.yml` job `memory_concurrency` | run `45598671538`: **success**; 36 success/0 failure en 30 d | **corre** 5/5 (`#[cfg_attr(not(feature = "rocksdb"), ignore)]` + lane con `--features rocksdb` → el ignore no aplica) |
 | `snapshot_certification` | 56 (`failpoints`) | `snapshot-certification.yml` fases 03/04/05 | run `45802050950`, 2026-11-26: **success**; 39/48 en 30 d | **corre parcial**: 42/56; **14 no corren** |
 | `security_audit` | 6 | ninguno | nunca | **no corre** |
 
 ## (c) El número que nadie tenía
 
-**119 de 154 tests (77 %) no tienen ningún lane que los ejecute de verdad:**
+**118 de 154 tests (77 %) no tienen ningún lane que los ejecute de verdad:**
 
 | Origen | Tests |
 |---|---:|
@@ -139,16 +140,15 @@ del pre-push lo excluye por filtro. **Ningún lane lo ejecuta.**
 | `security_audit` (ningún workflow) | 6 |
 | `benchmark_internal` (`--skip benchmark` también en local) | 1 |
 | `benchmark_datasets` (sólo corre en un verde que no mide) | 1 |
-| `concurrency_parity::test_triple_backend_parity_validation` (`#[ignore]`, sin `--include-ignored`) | 1 |
-| **Total** | **119** |
+| **Total** | **118** |
 
 ## Los tres estados, separados
 
-1. **Corre en otro lane y pasa:** `concurrency_parity` (4/5, weekly green) y
+1. **Corre en otro lane y pasa:** `concurrency_parity` (5/5, weekly green) y
    `snapshot_certification` (42/56, dedicated lane green).
 2. **Corre y falla:** ninguno de los seis — `other_heavy` falla **antes** de
    correr tests, que es distinto y es lo que hacía invisible el agujero.
-3. **No corre en ningún sitio:** los 119 de arriba.
+3. **No corre en ningún sitio:** los 118 de arriba.
 
 ## Propuestas (texto; NO registradas en Backlog)
 
@@ -166,10 +166,7 @@ del pre-push lo excluye por filtro. **Ningún lane lo ejecuta.**
 - **P-3 — `cli_tests` no necesita dataset y depende de un job que sí:** 96 tests
   atados al gate `TBH-01` de GloVe-100. Propuesta: separar `--test cli_tests` a un
   job sin dataset; `benchmark_internal`/`benchmark_datasets` sí se quedan detrás del gate.
-- **P-4 — el `#[ignore]` de `concurrency_parity`:** `test_triple_backend_parity_validation`
-  no lo ejecuta nadie (ningún workflow pasa `--include-ignored`). Propuesta:
-  `--include-ignored` en ese step o `#[ignore = "razón"]` con lane que lo corra.
-- **P-5 — la lane programada mide `main`, no `develop`:** el rojo de `other_heavy`
+- **P-4 — la lane programada mide `main`, no `develop`:** el rojo de `other_heavy`
   es la corrección de `FIND-328` sin mergear (552 commits). No es un workflow roto;
   es una lane que prueba un árbol viejo. Propuesta: registrar la regla en
   `docs/dev/workflow/RULES.md` y verificar el verde de `other_heavy` en el primer
@@ -179,10 +176,20 @@ del pre-push lo excluye por filtro. **Ningún lane lo ejecuta.**
 
 - Inventario: `cargo nextest list -p vantadb --ignore-default-filter --run-ignored all -E 'binary(...) or …'` → **154** (salida completa en `target/find752-list-all.txt`).
 - Filtro de snapshot: mismo comando con `--features failpoints --test snapshot_certification -E 'test(snapshot) or test(pending_restore) or test(schedule)'` → **42 de 56**.
-- Runs: `gh run list … --created ">=2026-10-27"` + `gh api …/runs/<id>/jobs` (agregado arriba).
+- Runs: `gh run list … --created ">=2026-10-27"` + `gh api …/runs/<id>/jobs` (agregado arriba). Base declarada: `event == schedule`, leído **2026-11-26T07:10-04:00** (39 runs: 36 failure, 2 cancelled, 1 in progress).
 - `main` vs fix: `gh api repos/{owner}/{repo}/compare/main...3f7fdd3fa` → `diverged, ahead_by 552, behind_by 1`.
-- Docs: `node scripts/docs/check-docs.mjs` · `node scripts/docs/check-links.mjs` · `node scripts/docs/gen-index.mjs --check` (drift esperado: no se regenera en este commit).
+- Docs: `node scripts/docs/check-docs.mjs` → GATING all clear · `node scripts/docs/check-links.mjs` → 0 broken.
+- **`gen-index.mjs` NO se corrió**: el contrato de esta tarea lo prohíbe explícitamente. Consecuencia declarada: `docs/index.md` no lista este task file (ni los de los otros carriles de la ola) y `gen-index --check` queda en drift hasta el cierre de wave, que es cuando se regenera (`ci-cd.md`, entrada `FIND-760`/`FIND-753`, misma decisión).
 
 ## Review
 
-_(P2-01 al cierre; ver `RESULTADO` del commit.)_
+**P2-01 — contexto fresco, `vanta-review` (sesión `ses_de8824150ffe…`), sobre el commit `e665d4cd2`. Ronda 1: `changes-required`, 1 Blocking.**
+
+- **Enfoque:** releer el commit contra las fuentes, no contra el task file; re-correr los conteos y el agregado de `gh`; buscar celdas que digan "corre" sin run detrás y celdas que digan "no corre" con lane verde detrás.
+- **Cómo se probó:** inventario de 154 verificado dos vías (conteo de `#[test]` en fuente + listado de nextest) · `42 de 56` reproducido con el comando citado · los 14 nombres del set-diferencia verificados uno a uno · `other_heavy` 0/36 exacto y el root cause a nivel de step (TBH-01 failure → download skipped → tests skipped) · `security_audit` sin lane (`git log -S` = 0) · higiene del commit (4 ficheros, 0 hunks en `.config/` y `.github/`, backlogue sin filas ajenas, link relativo resuelve).
+- **B-1 (Blocking, encontrado y corregido):** `concurrency_parity::test_triple_backend_parity_validation` **sí corre**. Es `#[cfg_attr(not(feature = "rocksdb"), ignore)]` (`tests/concurrency_parity.rs:32`) y la lane pasa `--features rocksdb`, así que el ignore no se aplica. Mi afirmación "4/5, el `#[ignore]` no corre en ningún lane" era el modo de fallo inverso al que la propia tabla denuncia: una celda diciendo "no corre" con un lane verde detrás. Consecuencias aplicadas: **119 → 118** en las cuatro superficies, `concurrency_parity` **5/5**, la propuesta P-4 (moot) borrada y P-5 renumerada a P-4.
+- **M-1 (corregido):** `memory_concurrency` es **36 success / 0 failure / 3 skipped**, no 35 — el 35 hacía 35+0+3 ≠ 39.
+- **M-2 (corregido):** la línea "37 failure, 2 cancelled" no era reproducible; hoy son **36 failure, 2 cancelled, 1 in progress**, con la fecha de lectura declarada. El claim que sostiene el veredicto (`other_heavy` 0 success) no cambia.
+- **M-3 (declinado con razón):** `gen-index.mjs --check` está en drift porque el índice no lista los task files nuevos. **No se ejecuta `gen-index.mjs`**: el contrato de la tarea lo prohíbe, y el patrón de la ola es regenerar en el cierre (`FIND-760`/`FIND-753`). Queda anotado arriba y en la entrada de `ci-cd.md`.
+- **L-1/L-2/N-1 (corregidos):** citas `snapshot-certification.yml` 148-164 → **149-167** (`:157`, `:160`); `Cargo.toml:605` (línea de `name`) → **607** (la de `required-features`); en `CI_POLICY` se explicita que los `--skip security_audit` están en el **fallback `cargo test`** y que el path primario (nextest) excluye por `default-filter`.
+- **Veredicto tras correcciones:** los conteos y el root cause resistieron la re-ejecución; el único número falso era el que sumaba de más. **Verdict de la fila: `approve` con las correcciones aplicadas** (`vanta-review` no re-emite sobre el follow-up; la tabla re-corregida es la de arriba).

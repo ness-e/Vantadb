@@ -644,16 +644,16 @@ surfaces in ≤24h instead of ≤7d:
 The `default-filter` of `.config/nextest.toml` excludes ~55 heavy binaries by name. For six of
 them the exclusion was *documented but never measured*: nobody had counted how many tests they
 hold, or whether a healthy lane runs them at all. Counted on 2026-11-26 against `gh`, the answer
-is **154 tests in the six binaries, of which 119 (77 %) have no lane that executes them**.
+is **154 tests in the six binaries, of which 118 (77 %) have no lane that executes them**.
 
 | Binary | Tests | Lane today | Last real result | Verdict |
 |---|---:|---|---|---|
 | `benchmark_internal` | 1 | `certification.yml` → job `other_heavy` (step "Run remaining heavy tests") | run `45598671538` (2026-11-25): job **failure at the TBH-01 dataset gate, before the test step** → 0 success / 36 failure in 30 d | **does not run** |
 | `benchmark_datasets` | 1 | same job | same | **does not run** — and when run locally without GloVe-100 it returns early in green (`tests/benchmark_datasets.rs:18`) |
 | `cli_tests` | 96 | same job | same | **does not run** — CI and the local nextest gate both exclude the binary |
-| `concurrency_parity` | 5 (4 + 1 `#[ignore]`) | `certification.yml` → job `memory_concurrency` | run `45598671538`: **success** → 35 success / 0 failure in 30 d | **runs** 4 of 5; `test_triple_backend_parity_validation` is `#[ignore]` and no workflow passes `--include-ignored` → **does not run** |
+| `concurrency_parity` | 5 | `certification.yml` → job `memory_concurrency` | run `45598671538`: **success** → 36 success / 0 failure / 3 skipped in 30 d | **runs** 5 of 5 — `test_triple_backend_parity_validation` is `#[cfg_attr(not(feature = "rocksdb"), ignore)]` and this lane passes `--features rocksdb`, so the ignore is not applied |
 | `snapshot_certification` | 56 with `--features failpoints` | `snapshot-certification.yml` phases 03/04/05 | run `45802050950` (2026-11-26): **success** → 39 success / 6 failure / 3 cancelled in 30 d | **runs partially** — the phase selector `test(snapshot) or test(pending_restore) or test(schedule)` matches **42 of 56**; 14 are never selected |
-| `security_audit` | 6 | **none** | never ran; `git log -S"security_audit" -- .github/workflows` → 0 commits | **does not run** — `verify.ps1:117` and `coverage-budget.ps1:79` both `--skip security_audit` |
+| `security_audit` | 6 | **none** | never ran; `git log -S"security_audit" -- .github/workflows` → 0 commits | **does not run** — `verify.ps1:117` and `coverage-budget.ps1:79` both `--skip security_audit` (the `cargo test` fallback; the primary nextest path excludes it by `default-filter`) |
 
 **How these numbers were obtained** (repeatable; the full evidence lives in
 [`docs/dev/tasks/FIND-752.md`](../tasks/FIND-752.md)):
