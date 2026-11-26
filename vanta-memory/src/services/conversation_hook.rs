@@ -27,7 +27,7 @@
 //! concurrently — they share the `worker-{pid}` claim owner.
 //!
 //! Principio 4: without a configured runner hosts simply never call
-//! [`run_bridge_pass`] — messages stay safely captured in `l0/` and queued L1
+//! `run_bridge_pass` - messages stay safely captured in `l0/` and queued L1
 //! tasks remain pending; nothing is lost, nothing blocks the HTTP response.
 
 use crate::core::abstractions::LlmRunner;

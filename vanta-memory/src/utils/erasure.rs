@@ -5,7 +5,7 @@
 //!
 //! A **scope** (caller-chosen label, e.g. an agent or tenant) registers a
 //! random 32-byte DEK (OS CSPRNG) that is stored **wrapped** with the core
-//! master [`Cipher`] (AES-256-GCM; [`Cipher::from_env`] resolves
+//! master `Cipher` (AES-256-GCM; `Cipher::from_env` resolves
 //! `VANTADB_ENCRYPTION_KEY` in production) as a record under the reserved
 //! namespace [`ERASURE_DEK_NAMESPACE`]. Payloads are sealed under the DEK
 //! ([`seal`]) and can only be opened with it ([`open`]).
@@ -110,7 +110,7 @@ pub struct ErasureReceipt {
 
 /// Register a fresh random DEK for `scope`.
 ///
-/// The scope maps to the DEK record key via [`sanitize_key`] (same rules the
+/// The scope maps to the DEK record key via `sanitize_key` (same rules the
 /// record ids use); scopes whose sanitized forms collide are the same scope,
 /// so a second `create_scope` for them is rejected.
 ///
@@ -262,7 +262,7 @@ pub struct ErasureVerification {
 /// Schema + integrity hash first, then a live re-scan of the re-checkable
 /// surfaces (`dek_record`, `version_history`). Verification is **not
 /// claim-driven**: before any verdict the receipt must be structurally valid
-/// ([`validate_schema`]) — known `status`, non-empty declared limits, all
+/// (`validate_schema`) - known `status`, non-empty declared limits, all
 /// canonical surfaces present exactly once. A surface the receipt claimed
 /// clean (`residues == 0`) that now holds an entry fails the verification
 /// (residues reappeared — e.g. the scope was re-created), and live residues
