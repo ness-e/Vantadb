@@ -1,6 +1,6 @@
 ---
-title: "Zep Cloud / Konig — extracción docs-only"
-kind: research
+title: "Zep Cloud / Konig - extracción docs-only"
+kind: index
 status: active
 description: "Índice del dossier Zep Cloud/Konig: informe de análisis y backlog de candidatas para VantaDB"
 tags: [extraccion, zep, konig, backlog]
