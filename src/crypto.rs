@@ -7,7 +7,7 @@
 
 //! AES-256-GCM primitives and envelope format for VantaDB.
 //!
-//! Provides [`Cipher`] for encrypt/decrypt operations and [`EncryptionStream`]
+//! Provides [`Cipher`](crate::crypto::Cipher) for encrypt/decrypt operations and [`EncryptionStream`](crate::crypto::EncryptionStream)
 //! for transparent Read/Write wrapping of storage streams.
 //!
 //! **Scope (2026-10-21, ADR-0057 W6):** with the `encryption` feature
@@ -35,14 +35,14 @@
 //! This module also carries the **shared infrastructure** the at-rest wiring
 //! needs:
 //!
-//! * [`registry`] — the per-artefact DEK registry (master → KEK → DEK), the
+//! * [`registry`](crate::crypto::registry) — the per-artefact DEK registry (master → KEK → DEK), the
 //!   `epoch ‖ counter` nonce allocator and the AAD builder.
-//! * [`Cipher::encrypt_with_nonce`] / [`Cipher::decrypt_with_nonce`] — AEAD
+//! * [`Cipher::encrypt_with_nonce`](crate::crypto::Cipher::encrypt_with_nonce) / [`Cipher::decrypt_with_nonce`](crate::crypto::Cipher::decrypt_with_nonce) — AEAD
 //!   with a **caller-chosen nonce** and **associated data**.
-//! * [`Cipher::derive_kek`] — HKDF-SHA256 with a **caller-supplied salt**.
-//! * [`KeySource`] — the three master-key sources (environment → file → command).
+//! * [`Cipher::derive_kek`](crate::crypto::Cipher::derive_kek) — HKDF-SHA256 with a **caller-supplied salt**.
+//! * [`KeySource`](crate::crypto::KeySource) — the three master-key sources (environment → file → command).
 //!
-//! The existing [`Cipher::encrypt`] / [`Cipher::decrypt`] keep their exact
+//! The existing [`Cipher::encrypt`](crate::crypto::Cipher::encrypt) / [`Cipher::decrypt`](crate::crypto::Cipher::decrypt) keep their exact
 //! behaviour (random nonce, empty AAD) so `vanta-proxy` and `vanta-memory` are
 //! unaffected.
 //!
@@ -765,7 +765,7 @@ impl Cipher {
     /// Derive a per-namespace cipher from this master cipher (VER-03).
     ///
     /// `key(namespace, version) = HKDF-SHA256(IKM = master, salt =
-    /// `[`NS_ENVELOPE_SALT`]`, info = "ns" ‖ namespace ‖ [version])`.
+    /// `NS_ENVELOPE_SALT`, info = "ns" ‖ namespace ‖ [version])`.
     /// Namespace and version participate in the key: a blob re-labelled with
     /// another namespace or version does not authenticate.
     ///

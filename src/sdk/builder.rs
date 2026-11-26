@@ -319,7 +319,7 @@ impl Embedded {
         pipeline.search(self, namespace, query, query_vector)
     }
 
-    /// Builds a [`SkillStore`] that shares this handle's skill write lock (FIND-605).
+    /// Builds a [`SkillStore`](crate::skills::SkillStore) that shares this handle's skill write lock (FIND-605).
     pub fn skill_store<'e>(&self, engine: &'e StorageEngine) -> crate::skills::SkillStore<'e> {
         crate::skills::SkillStore::with_shared_lock(engine, self.skill_write_lock.clone())
     }

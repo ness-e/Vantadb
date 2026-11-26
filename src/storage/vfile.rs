@@ -612,7 +612,7 @@ impl File {
     /// FIND-597: the buffer is **eagerly allocated** — real RSS, unlike
     /// the mmap'd on-disk segments whose reservation is only address
     /// space — so the initial reservation is capped by
-    /// [`crate::hardware::HardwareCapabilities::resident_default_ceiling`]
+    /// `crate::hardware::HardwareCapabilities::resident_default_ceiling`
     /// (`min(host RAM × 15 %, 256 MiB)`). Callers that need a bigger
     /// segment grow it on demand via [`File::grow_to`]; the engine
     /// derives a tighter, `Config::memory_limit`-aware reservation in
@@ -887,7 +887,7 @@ impl File {
     /// In an **encrypted** segment the header lives inside the AEAD
     /// envelope, so it has to be decrypted first. A failure (wrong key,
     /// tampered blob) is reported as "no header" here; the callers that need
-    /// the distinction use [`File::read_node`], which propagates the error.
+    /// the distinction use `File::read_node`, which propagates the error.
     pub fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
         if self.is_encrypted() {
             #[cfg(feature = "encryption")]

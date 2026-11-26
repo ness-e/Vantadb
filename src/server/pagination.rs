@@ -2,7 +2,7 @@
 //!
 //! The HTTP surface paginates with a single scheme: a `limit` plus an opaque
 //! `cursor` token, and every page response carries `next_cursor` + `has_more`.
-//! [`encode_cursor`]/[`decode_cursor`] keep the wire type a **string** and the
+//! `encode_cursor`/`decode_cursor` keep the wire type a **string** and the
 //! token opaque: clients pass a page's `next_cursor` back verbatim and must not
 //! parse it. The current encoding is an internal position (decimal — the same
 //! convention `next_cursor_to_js` uses in the WASM binding), so the encoding

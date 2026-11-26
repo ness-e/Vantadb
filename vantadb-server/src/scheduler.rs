@@ -14,7 +14,7 @@
 //! mode). The host cannot open the DB itself — a second
 //! `StorageEngine::open_with_config` on the same path fails with
 //! `DatabaseBusy` — so the wiring is attached through
-//! [`ServerHooks::on_storage_ready`], which hands the host a clone of the
+//! [`ServerHooks::on_storage_ready`](vantadb::cli_server::ServerHooks::on_storage_ready), which hands the host a clone of the
 //! server's `Embedded` handle once storage is open.
 //!
 //! # Configuration (env, R-5)

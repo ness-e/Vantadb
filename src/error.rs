@@ -10,7 +10,7 @@
 //! - `message` — human-readable `Display` output; may change without a major
 //!   bump.
 //! - `context` — whatever the variant carries: typed fields, the
-//!   [`ChainedError`] `.source()` chain, plus [`Error::is_retriable`] and
+//!   [`ChainedError`](crate::error::ChainedError) `.source()` chain, plus [`Error::is_retriable`] and
 //!   [`Error::recovery_hint`] as recovery metadata.
 //!
 //! No binding maps an error to a panic; a panic is a bug, not an error path.

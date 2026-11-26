@@ -163,7 +163,7 @@ impl<'a> PhysicalVectorSearch<'a> {
     ///
     /// `None` → no scope (every indexed row, the historical behaviour).
     /// `Some(entity)` → only the rows of that entity are returned; see
-    /// [`node_in_entity_scope`].
+    /// `node_in_entity_scope`.
     pub fn with_entity(mut self, entity: Option<String>) -> Self {
         self.entity = entity;
         self

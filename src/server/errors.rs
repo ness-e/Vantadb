@@ -116,7 +116,7 @@ fn log_error(e: &Error, status: StatusCode) {
 /// identical because `node_id`/`nodes` are `None` here and skipped.
 ///
 /// FIND-55: 5xx bodies stay generic — the internal `Display` (io paths,
-/// storage detail) goes to server-side logs via [`log_error`], and
+/// storage detail) goes to server-side logs via `log_error`, and
 /// clients branch on `code`. 4xx messages are user-input data and stay
 /// descriptive (same rule `panic_error_response` applies for panics).
 pub fn query_error_response(e: &Error) -> Response {

@@ -21,7 +21,7 @@
 //!
 //! Determinism contract: identical inputs produce identical scores and
 //! identical reports — no `HashMap` iteration order leaks into results, no
-//! floating-point reordering, no time/env inputs. [`link_entities`] never
+//! floating-point reordering, no time/env inputs. [`link_entities`](crate::entity::linking::link_entities) never
 //! mutates stored data: clusters are a derived view (reversible).
 //!
 //! Sources: Splink's *The Fellegi-Sunter Model* (UK Ministry of Justice)

@@ -67,7 +67,7 @@ pub fn truncate_for_term(s: &str, max: usize, is_terminal: bool) -> String {
     out
 }
 
-/// Convert a relational [`FieldValue`] into a plain JSON value for `--json`
+/// Convert a relational [`FieldValue`](crate::node::FieldValue) into a plain JSON value for `--json`
 /// output (no externally-tagged enum wrappers).
 pub fn field_value_to_json(value: &crate::node::FieldValue) -> serde_json::Value {
     use crate::node::FieldValue;

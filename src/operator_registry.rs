@@ -5,7 +5,7 @@
 //! `planner` / `executor` / `cost_estimator` matches. Built-in operators keep
 //! their existing match arms (zero semantic change); NEW operators register
 //! here by name and the planner's catch-all routes them through
-//! [`OperatorRegistry::compile`] instead of silently dropping them.
+//! [`OperatorRegistry::compile`](crate::operator_registry::OperatorRegistry::compile) instead of silently dropping them.
 //!
 //! Leaf discipline (M3 precedent `search_profile.rs`): this module depends
 //! only on `query` + `error` (downward). It never imports `planner`,

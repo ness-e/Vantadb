@@ -370,7 +370,7 @@ impl MigrationEngine {
     /// Plan all migrations needed to bring formats up to date.
     ///
     /// Only *plaintext* lineage below the current plaintext version is a
-    /// migration target (see [`ArtifactSpec::classify`]): current plaintext
+    /// migration target (see `ArtifactSpec::classify`): current plaintext
     /// and encrypted formats need nothing, and anything newer than this
     /// build is reported by [`Self::check_integrity`], never migrated.
     pub fn plan_all(&self) -> Result<Vec<MigrationPlan>> {
@@ -661,7 +661,7 @@ impl MigrationEngine {
     /// Check storage integrity and return a list of issues found.
     ///
     /// Per artefact the accepted *current* set is `{plaintext, encrypted}`
-    /// ([`ArtifactSpec::classify`]): an old plaintext version is reported as
+    /// (`ArtifactSpec::classify`): an old plaintext version is reported as
     /// needing migration, a version beyond everything this build knows is
     /// reported as *newer* — never silently accepted, never "corrupt".
     pub fn check_integrity(&self) -> Result<Vec<String>> {

@@ -274,7 +274,7 @@ impl StorageEngine {
 
     /// Request backend compaction.
     ///
-    /// Only backends implementing the [`Compactable`](crate::backend::Compactable) role compact; the
+    /// Only backends implementing the `Compactable` role compact; the
     /// rest skip with the same info log as before (same observable
     /// behavior: only RocksDB compacts). A typed `Result<bool>` replaces
     /// the old silent no-op, and failures warn instead of vanishing.

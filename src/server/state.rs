@@ -534,7 +534,7 @@ pub(crate) fn extract_request_id(headers: &HeaderMap) -> Option<String> {
 /// `X-Forwarded-For` is only honored when the request's peer is one of
 /// `trusted_proxies` (i.e. it actually arrived via a configured reverse proxy
 /// that sets the header). Otherwise the direct TCP socket address
-/// ([`ConnectInfo`]) is returned — so a client cannot spoof its recorded IP by
+/// ([`ConnectInfo`](axum::extract::ConnectInfo)) is returned — so a client cannot spoof its recorded IP by
 /// setting `X-Forwarded-For` itself.
 pub fn client_ip(req: &axum::extract::Request, trusted_proxies: &[std::net::IpAddr]) -> String {
     let peer = req

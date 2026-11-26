@@ -634,7 +634,7 @@ impl StorageEngine {
 
     /// Create a checkpoint (live snapshot) of the backend for backup purposes.
     ///
-    /// Only backends implementing the [`Snapshotable`](crate::backend::Snapshotable) role support this.
+    /// Only backends implementing the `Snapshotable` role support this.
     /// Others get the same honest `backend_error` as before — non-support
     /// is declared in the type (`as_snapshotable() == None`), not
     /// discovered at runtime.

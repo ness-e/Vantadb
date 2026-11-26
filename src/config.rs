@@ -184,7 +184,7 @@ impl PrefetchMode {
 
 /// Opt-in group-commit batching for the async ingestion pipeline (WIRE-06).
 ///
-/// When enabled, [`AsyncIngestionPipeline`](crate::ingestion::AsyncIngestionPipeline)
+/// When enabled, `AsyncIngestionPipeline`
 /// workers accumulate up to `max_batch_records` tasks (waiting at most
 /// `max_wait_ms` for the batch to fill) and commit them with a single
 /// `batch_insert_with_opts` call: one `insert_lock` acquisition, one WAL
@@ -612,7 +612,7 @@ fn local_model_bases() -> Vec<PathBuf> {
     bases
 }
 
-/// Resolve `local_model_path` against [`local_model_bases`].
+/// Resolve `local_model_path` against `local_model_bases`.
 ///
 /// Absolute paths are returned untouched, and so is a relative path that no
 /// candidate contains: the error message must keep naming what the user

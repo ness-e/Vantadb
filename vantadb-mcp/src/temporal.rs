@@ -4,7 +4,7 @@
 //! it is a `[from_ms, to_ms]` interval). This module is the single deterministic
 //! implementation of that mapping: pure function, no I/O, no chrono dependency
 //! (civil-date math is Hinnant's days↔civil algorithm —
-//! https://howardhinnant.github.io/date_algorithms.html — proven by the
+//! <https://howardhinnant.github.io/date_algorithms.html> — proven by the
 //! round-trip test in `tests/temporal_tests.rs`, not by authority).
 //!
 //! ## Contract

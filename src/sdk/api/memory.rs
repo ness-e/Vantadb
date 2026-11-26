@@ -2133,7 +2133,7 @@ impl Embedded {
         })
     }
 
-    /// Open an embedded VantaDB database in memory using [`Config::in_memory()`].
+    /// Open an embedded VantaDB database in memory using [`Config::in_memory()`](crate::config::Config::in_memory).
     pub fn in_memory() -> Result<Self> {
         Self::open_with_config(crate::config::Config::in_memory())
     }
@@ -2271,7 +2271,7 @@ impl Embedded {
     /// Declared policy (ADR-0055): **explicit last-write-wins over a
     /// deterministic total order** — `(updated_at_ms, canonical content
     /// bytes)` — with conflict detection at equal logical time. See
-    /// [`crate::sdk::merge`] for the full semantics, declared limits and the
+    /// `crate::sdk::merge` for the full semantics, declared limits and the
     /// upgrade path (vector clocks / CRDT-lite).
     ///
     /// `put`/`put_batch`/import are intentionally untouched: this is an

@@ -34,10 +34,10 @@
 //! The column store only represents scalars.  Fields whose value is
 //! `Null`, `DateTime`, or a list (`ListString`, `ListInt`, …) are written
 //! as a **tag-4 entry with no value bytes** instead of disappearing from
-//! the row: a decoded [`ShreddedField::Null`] therefore means *present in
+//! the row: a decoded [`ShreddedField::Null`](crate::shred::ShreddedField::Null) therefore means *present in
 //! the document but not columnar*, which is observably different from
 //! *absent*.  A filter touching such a field cannot be decided by the
-//! column store — [`filter_verdict`] reports `DelegateToDocument` so the
+//! column store — `filter_verdict` reports `DelegateToDocument` so the
 //! caller falls back to the full-document evaluator **only** in that
 //! case (filter parity between the fast path and the JSON evaluator).
 //!
@@ -60,7 +60,7 @@
 //!   route `ShreddedRowStore::put_op` through
 //!   `StorageEngine::write_backend_batch` (FIND-651).
 //! - **Filter path**: a fast-path consumer evaluates each filter field
-//!   with [`filter_verdict`] over [`ShreddedRowStore::get`] output and
+//!   with `filter_verdict` over `ShreddedRowStore::get` output and
 //!   must honour `DelegateToDocument` / `Absent` per the parity contract
 //!   documented there.
 //! - **Delete path** (VER-02, wired): `StorageEngine::delete` /

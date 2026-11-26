@@ -21,7 +21,7 @@
 //!
 //! # Write receipts (VER-10)
 //!
-//! [`WriteReceipt`] extends the same contract to writes: `put_certified`
+//! [`WriteReceipt`](crate::attestation::WriteReceipt) extends the same contract to writes: `put_certified`
 //! emits a receipt carrying a **content binding** (sha256 over the record's
 //! canonical projection) and the same VER-01 chain reference. Verification
 //! re-checks schema → integrity hash → the live record (present + binding
@@ -663,7 +663,7 @@ const WRITE_SURFACES: [&str; 2] = ["store", "wal"];
 /// Content binding of a write receipt: sha256 over the canonical content
 /// projection of the attested record (identity, version, payload, metadata,
 /// vectors and TTL). System timestamps and derived state are declared out of
-/// scope — see [`write_declared_limits`].
+/// scope — see `write_declared_limits`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContentBinding {
     /// Hash algorithm (`sha256`).

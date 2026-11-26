@@ -8,7 +8,7 @@
 //!
 //! Both documented triggers are covered:
 //!
-//! - **(a) ONNX Runtime unusable** — [`ort::init_from`] loads the dylib and
+//! - **(a) ONNX Runtime unusable** — `ort::init_from` loads the dylib and
 //!   checks its version, returning `Err` instead of panicking: the exact
 //!   pre-check `src/llm.rs:341-419` runs before building a session (FIND-100).
 //! - **(b) model files missing** (`model.onnx` + `tokenizer.json`) — the

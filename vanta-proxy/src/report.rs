@@ -54,7 +54,7 @@ pub type ReportHook = Box<dyn Fn(&TurnReport) + Send + Sync>;
 /// Cap of the in-memory recent-reports ring served by `/snapshot`.
 const RECENT_CAP: usize = 100;
 
-/// Reporter: logs each turn as one JSON line, keeps the last [`RECENT_CAP`]
+/// Reporter: logs each turn as one JSON line, keeps the last `RECENT_CAP`
 /// reports in memory (for `/snapshot`) and fans out to registered hooks.
 #[derive(Default)]
 pub struct Reporter {
@@ -102,7 +102,7 @@ impl Reporter {
         }
     }
 
-    /// Last [`RECENT_CAP`] reports, oldest first (`/snapshot` wire shape).
+    /// Last `RECENT_CAP` reports, oldest first (`/snapshot` wire shape).
     pub fn recent_reports(&self) -> Vec<TurnReport> {
         self.recent
             .lock()

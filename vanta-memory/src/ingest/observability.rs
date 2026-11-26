@@ -345,7 +345,7 @@ pub fn note_skipped_pass(queue: QueueSnapshot) {
 ///
 /// Additive on purpose: it never touches `last_pass` (a sweep is not a pass,
 /// ADR-0065 D7) and it never derives health — the single health predicate
-/// stays in [`derived_health`].
+/// stays in `derived_health`.
 pub fn note_backfill(report: crate::core::conversation::BackfillReport) {
     let reason = if report.requeued > 0 {
         BackfillReason::Requeued

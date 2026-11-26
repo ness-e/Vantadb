@@ -18,7 +18,7 @@ use crate::node::UnifiedNode;
 /// v3: adds the tamper-evident hash-chain (VER-01). Every record frame carries
 ///     `prev_hash ‖ record_hash` (32B each, SHA-256), where
 ///     `record_hash = SHA-256(prev_hash ‖ len_le ‖ payload ‖ crc_le)` and the first
-///     record of a segment chains from [`CHAIN_GENESIS`].
+///     record of a segment chains from `CHAIN_GENESIS`.
 ///     - v3 readers read v1/v2 files with their legacy framing (range-based compat).
 ///     - v1/v2 readers reject v3 files as "newer format"; downgrade requires
 ///       dump/restore (unchanged hint). Existing v1/v2 files keep legacy framing
