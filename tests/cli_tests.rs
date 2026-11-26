@@ -2078,9 +2078,17 @@ mod find98_build_identity {
             stdout.starts_with(&format!("vanta-cli {}", env!("CARGO_PKG_VERSION"))),
             "the `vanta-cli <version>` prefix is release surface and must stay, got: {stdout}"
         );
-        assert!(
-            stdout.contains("worktree clean") || stdout.contains("worktree dirty"),
-            "`--version` must say whether the build tree was dirty, got: {stdout}"
+
+        // `-V` is the same clap arg; the contract names both spellings.
+        let short = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+            .arg("-V")
+            .output()
+            .expect("spawn vanta-cli -V");
+        assert!(short.status.success(), "-V must exit 0");
+        assert_eq!(
+            stdout,
+            String::from_utf8_lossy(&short.stdout),
+            "-V and --version must print the same identity"
         );
 
         let marker = "commit ";
