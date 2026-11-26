@@ -1083,6 +1083,7 @@ pub async fn run_stdio_server_auto(
             // the writer's own, truthful, `scheduler_running`).
             tracing::info!(
                 scheduler_running = false,
+                backfill = "skipped (proxy)",
                 reason = "proxy mode: the writer owns the capture queue",
                 "MCP scheduler not started"
             );

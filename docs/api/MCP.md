@@ -474,6 +474,10 @@ every extraction is `NotConfigured` — which is exactly why it must not be sile
   "health": "broken",             // unknown | idle | draining | broken
   "drain_path": "none",           // none | loop | on_demand
   "degraded_warnings": 1,
+  "backfill": {                   // last startup sweep (FIND-745); null until one runs
+    "at_ms": 1764100000000, "sessions": 3, "requeued": 1, "messages": 1,
+    "reason": "requeued"          // nothing | requeued | marker | failed
+  },
   "notice": "ingest runner is none: 5 queued task(s) will never be extracted
              (the pass is skipped). Set VANTADB_INGEST_PROVIDER=ollama|openai ..."
 }
@@ -506,6 +510,17 @@ the runner itself is not the problem.
 is the occupancy **sampled by that pass**, dated by its `at_ms` — history, never
 "now". `scheduler_running` goes back to `false` when the loop stops (graceful
 shutdown or a dropped handle), so it never claims a loop that is gone.
+
+`backfill` is the **startup recovery sweep** (FIND-745), published on the same
+seam rather than beside it: `sessions` scanned, `requeued` L1 tasks (one per
+unconsolidated session), `messages` covered, and a `reason` that names the
+outcome — `requeued`, `marker` (every captured session was already
+consolidated, so nothing was re-queued), `nothing` (nothing captured, or the
+pending sessions were already queued) or `failed` (the sweep could not run —
+distinct from "no sweep"). `null` means no sweep ran in this process (plain
+proxy mode, a read-only writer, or the loop disabled with
+`VANTADB_SCHEDULER_INTERVAL_MS=0`). A zero backfill is therefore legible, never
+silent.
 
 **Who runs the loop (MCP-43).** The `--mcp` writer hosts the `vanta-memory`
 scheduler over the thread capture queue — the same queue `thread_send` fills
@@ -658,13 +673,21 @@ Two boundaries worth knowing:
   the database. In proxy mode this handler never runs locally: the proxy
   forwards the whole `tools/call` to the writer (MCP-48), so the enqueue happens
   in the process that can drain it. A proxy must never enqueue locally — that
-  queue has no drainer. The queue is in memory: queued turns live **for the
-  lifetime of that process**. There is no L0→queue backfill, on purpose: a
-  correct one needs a durable "consolidated" marker on the L0 path, and without
-  it every restart would re-enqueue turns that were already extracted
-  (duplicate LLM work). Captured L0 records survive a restart; what a restart
-  can lose is the automatic re-extraction of turns captured by a process that
-  died before a pass.
+  queue has no drainer. The queue is in memory: queued tasks live **for the
+  lifetime of that process**. Captured L0 records survive a restart.
+- **Restart recovery is marker-bounded (FIND-745).** Because the queue is
+  in-memory, a turn captured by a process that died before a pass has no task
+  left anywhere. The writer's startup sweep (`capabilities.ingest.backfill`)
+  re-enqueues exactly those: it compares each captured session's L0 turns
+  against a durable consolidation marker (`l0_consolidated/<session>`, written
+  only after a pass persisted its result — or deliberately stored nothing) and
+  enqueues **one** L1 task per session with turns after the marker. Re-queueing
+  is never blanket: without the marker every restart would re-extract turns
+  already consolidated (duplicate LLM work), which is why `MCP-43` deferred
+  this. A plain (unpromoted) **proxy backfills nothing** — it owns no queue; it
+  says `backfill: "skipped (proxy)"` in its startup log. A proxy promoted into
+  the writer role (MCP-48) does sweep from that moment, because it then owns
+  both the storage and the queue.
 - **The `--mcp` writer drains it (MCP-43).** A writer-mode `--mcp` process runs
   the scheduler over this very queue (`VANTADB_SCHEDULER_INTERVAL_MS`, default
   `5000`), so a captured turn is consolidated by the next tick and recalled on

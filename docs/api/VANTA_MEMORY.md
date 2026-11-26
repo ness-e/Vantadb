@@ -243,7 +243,7 @@ with `llm-driver` on: failures are loud, never a silent `NotConfigured`
 
 | Capa | Módulo | Qué hace |
 |---|---|---|
-| L0 | `core::conversation::l0_recorder`, `core::hooks::auto_capture` | Captura idempotente de turnos (cursor `l0_cursor/<session>`) |
+| L0 | `core::conversation::{l0_recorder, consolidation}`, `core::hooks::auto_capture` | Captura idempotente de turnos (cursor `l0_cursor/<session>`), marcador durable de consolidación (`l0_consolidated/<session>`) y barrido de arranque que re-encola sólo lo no consolidado (`backfill_unconsolidated`, FIND-745) |
 | L1 | `core::record::{l1_extractor,l1_dedup,l1_reader,l1_writer}` | Extracción 1-call LLM JSON con parse reparado; dedup 2 fases store/update/merge/skip; contradicción explícita en el juicio (`contradicts`) → flag `superseded_by` (MEMG-01, nunca delete) |
 | L2 | `core::scene::{scene_index,scene_format,scene_extractor,scene_tools}` | Escenas con META {created,updated,summary,heat}, strategy UPDATE>MERGE>CREATE, soft-delete, tools sandboxed |
 | L3 | `core::persona::{persona_generator,persona_trigger}` | Persona first/incremental con triggers P1-P4 y escape XML |
@@ -397,6 +397,7 @@ reports `queue: null`):
 | `health` | `unknown` · `idle` · `draining` · `broken`, derived at publish time |
 | `drain_path` | `none` · `loop` · `on_demand`: who can drain here |
 | `degraded_warnings` | warnings emitted for degraded-with-backlog (proof of "once") |
+| `backfill` | last startup recovery sweep (FIND-745): `{at_ms, sessions, requeued, messages, reason}` with `reason` = `nothing` · `requeued` · `marker` · `failed`; `null` = no sweep ran here |
 | `notice` | human-readable diagnosis, `null` when healthy |
 
 The queue is the in-process `LocalStateBackend` (ADR-0054), so the whole
@@ -423,6 +424,25 @@ warning would flood the log of every host running without an engine. An enqueue
 feeds
 only the warn latch (`note_backlog`); it never fabricates a `last_pass`. The MCP
 `capabilities` tool embeds this snapshot under `ingest`.
+
+**Restart recovery (FIND-745).** The queue is process-local
+(ADR-0054), so a captured turn whose process died before a pass had nothing left
+to drain it — `MCP-43` declared that ceiling. The durable fix lives on the L0
+path: `L0Recorder::mark_consolidated` writes `l0_consolidated/<session>` with the
+highest L0 timestamp the **last successful pass** consolidated
+(records persisted, or a deliberate "nothing worth storing"). It is written
+*after* the result, never before: a marker ahead of consolidation loses turns
+instead of duplicating them, and it is monotonic, so a stale pass finishing late
+cannot rewind it. `core::conversation::consolidation::backfill_unconsolidated`
+then sweeps at host startup: it enumerates the captured sessions, compares each
+session's indexable L0 turns against its marker and enqueues **one** L1 task per
+session with pending turns — never a blanket re-queue, which is the duplicate-LLM
+pre-mortem. Today the sweep is driven only by the `--mcp` host (`memory_scheduler`,
+MCP-43), on a blocking thread (R-7/INV-003), and published as `ingest.backfill`
+(`note_backfill`, `note_backfill_failed`); the HTTP host has no sweep yet, and a
+plain (unpromoted) proxy runs none — it says `backfill: "skipped (proxy)"` in its
+startup log. A promoted proxy sweeps, because it then owns both storage and
+queue.
 
 
 ## Audit & backup (MEMG-13)
@@ -852,6 +872,7 @@ merges requeridos se registran como skipped.
 | Namespace | Contenido |
 |---|---|
 | `l0/<session>` · `l0_cursor/<session>` | turnos crudos · cursor de captura |
+| `l0_consolidated/<session>` | marcador durable de consolidación: `{"after_timestamp_ms", "at_ms"}` — qué turno ya extrajo L1 (FIND-745) |
 | `l1/<session>` | memories extraídas (+ dedup state) |
 | `scene/<session>` · `mmd/<session>/{active,history}` | escenas · memoria de tarea |
 | `persona/<session>` · `profile/{scope}` | persona · perfil sincronizado |

@@ -487,6 +487,14 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
         if messages.is_empty() {
             return Ok(());
         }
+        // FIND-745: the pass's high-water mark. Written to the durable
+        // consolidation marker only once the pass persisted its result, so a
+        // restart re-enqueues what no pass reached and nothing else.
+        let up_to_ms = messages
+            .iter()
+            .map(|m| m.timestamp_ms)
+            .max()
+            .unwrap_or_default();
 
         let checkpoints = CheckpointManager::new(&self.db);
         let checkpoint = checkpoints.read().map_err(|e| e.to_string())?;
@@ -501,7 +509,15 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
         let (stored_count, last_scene_name) = if self.use_batch {
             match self.run_l1_batch(session_id, &messages, previous_scene.as_deref())? {
                 Some(out) => out,
-                None => return Ok(()), // nothing passed the quality gate — no-op
+                None => {
+                    // The LLM call succeeded and nothing was worth storing —
+                    // consolidated (FIND-745). An unparsable response is
+                    // indistinguishable from "nothing storable" here (the
+                    // extractor reports `success: true` after parsing), so the
+                    // marker advances; §Deuda of FIND-745 names that ceiling.
+                    mark_l0_consolidated(&recorder, session_id, up_to_ms)?;
+                    return Ok(());
+                }
             }
         } else {
             let (result, memories) = extract_l1_segments(
@@ -514,7 +530,10 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
                 return Err("L1 extraction failed".to_string());
             }
             if memories.is_empty() {
-                return Ok(()); // nothing passed the quality gate — no-op
+                // The LLM call succeeded and nothing was worth storing —
+                // consolidated (FIND-745). Same parse caveat as the batch path.
+                mark_l0_consolidated(&recorder, session_id, up_to_ms)?;
+                return Ok(());
             }
 
             let records = run_l1_dedup(
@@ -552,6 +571,10 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
                 attempts: 0,
             });
         }
+
+        // FIND-745: last write of a successful pass — the marker can only move
+        // forward over turns this pass already consolidated.
+        mark_l0_consolidated(&recorder, session_id, up_to_ms)?;
 
         Ok(())
     }
@@ -927,6 +950,22 @@ impl<'a, R: LlmRunner> TaskHandler for MemoryTaskHandler<'a, R> {
             }
         }
     }
+}
+
+/// FIND-745: advance the durable L0 consolidation marker for `session_id`.
+///
+/// Only ever called **after** the pass persisted its result (records, or a
+/// deliberate "the LLM judged nothing worth storing"). A marker that moves
+/// ahead of consolidation makes the next boot skip turns that were never
+/// extracted — losing them instead of duplicating them (pre-mortem c).
+fn mark_l0_consolidated(
+    recorder: &L0Recorder,
+    session_id: &str,
+    up_to_ms: u64,
+) -> Result<(), String> {
+    recorder
+        .mark_consolidated(session_id, up_to_ms)
+        .map_err(|e| format!("L0 consolidation marker write failed: {e}"))
 }
 
 /// Assembled-context record key inside `context/<session>`.

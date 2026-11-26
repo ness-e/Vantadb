@@ -13,8 +13,9 @@
 //! (or [`status`], which has no queue to read and says so). Writers, all
 //! inside the pipeline: [`note_runner`] (config → runner, from
 //! `runner_config::IngestRunnerCfg::build_runner`), [`note_scheduler_started`],
-//! [`note_pass`], [`note_skipped_pass`] and [`note_backlog`] (the scheduler
-//! loop / pass / enqueue path).
+//! [`note_pass`], [`note_skipped_pass`], [`note_backlog`] (the scheduler
+//! loop / pass / enqueue path) and [`note_backfill`] (FIND-745's startup sweep
+//! of captured-but-unconsolidated L0 turns).
 //!
 //! ```ignore
 //! let queue = QueueSnapshot { depth: 3, claimed: 0 };      // read NOW
@@ -142,6 +143,48 @@ pub struct PassSnapshot {
     pub queue: QueueSnapshot,
 }
 
+/// Why a startup backfill sweep enqueued nothing (FIND-745). Serialized as
+/// `nothing | requeued | marker`.
+///
+/// A sweep that re-queues nothing has three honest readings, and "silent" is
+/// not one of them: nothing was captured, the marker already covers every
+/// captured turn, or the turns were already queued.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum BackfillReason {
+    /// Nothing captured, or every pending session was already queued.
+    #[default]
+    Nothing,
+    /// At least one session was re-enqueued.
+    Requeued,
+    /// Every captured session is already consolidated (the marker did it).
+    Marker,
+    /// The sweep could not run (storage/read error). Distinct from `nothing`:
+    /// "no sweep" and "a sweep that failed" are different facts.
+    Failed,
+}
+
+/// Outcome of the last startup backfill sweep (FIND-745).
+///
+/// Published inside `ingest` on purpose (ADR-0065 D6: additive seam, no second
+/// registry): a backfill that re-queues turns must be visible, with its count,
+/// in the same place the queue is read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct BackfillSnapshot {
+    /// Wall clock of the sweep (ms since the Unix epoch).
+    pub at_ms: u64,
+    /// Captured sessions scanned.
+    pub sessions: usize,
+    /// L1 tasks re-enqueued (one per unconsolidated session).
+    pub requeued: usize,
+    /// Unconsolidated L0 **messages** covered by those tasks (a turn is one
+    /// `L0Capture`, which may carry several messages).
+    pub messages: usize,
+    /// What the sweep concluded.
+    pub reason: BackfillReason,
+}
+
 /// Public, additive view of the ingest pipeline (serde-friendly: this is the
 /// shape the MCP `capabilities` tool embeds under `ingest`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -168,6 +211,9 @@ pub struct IngestStatus {
     /// Process-lifetime count of degraded-with-backlog warnings emitted
     /// (mechanical proof of "once per episode").
     pub degraded_warnings: u32,
+    /// Last startup backfill sweep (FIND-745); `None` = no sweep attempted in
+    /// this process (proxy mode, read-only writer, or loop disabled).
+    pub backfill: Option<BackfillSnapshot>,
     /// Human-readable diagnosis, `None` when the pipeline is healthy.
     pub notice: Option<String>,
 }
@@ -184,6 +230,7 @@ impl Default for IngestStatus {
             health: IngestHealth::Unknown,
             drain_path: DrainPath::None,
             degraded_warnings: 0,
+            backfill: None,
             notice: None,
         }
     }
@@ -292,6 +339,42 @@ pub fn note_skipped_pass(queue: QueueSnapshot) {
     if emit {
         warn_backlog(queue);
     }
+}
+
+/// Record the outcome of a startup backfill sweep (FIND-745).
+///
+/// Additive on purpose: it never touches `last_pass` (a sweep is not a pass,
+/// ADR-0065 D7) and it never derives health — the single health predicate
+/// stays in [`derived_health`].
+pub fn note_backfill(report: crate::core::conversation::BackfillReport) {
+    let reason = if report.requeued > 0 {
+        BackfillReason::Requeued
+    } else if report.consolidated > 0 {
+        BackfillReason::Marker
+    } else {
+        BackfillReason::Nothing
+    };
+    state().status.backfill = Some(BackfillSnapshot {
+        at_ms: now_ms(),
+        sessions: report.sessions,
+        requeued: report.requeued,
+        messages: report.messages,
+        reason,
+    });
+}
+
+/// Record a sweep that could not run (FIND-745).
+///
+/// `backfill: null` means "no sweep was attempted here"; a failed sweep must
+/// not hide behind that, so it publishes `reason: "failed"` with zero counts.
+pub fn note_backfill_failed() {
+    state().status.backfill = Some(BackfillSnapshot {
+        at_ms: now_ms(),
+        sessions: 0,
+        requeued: 0,
+        messages: 0,
+        reason: BackfillReason::Failed,
+    });
 }
 
 /// Record backlog observed **without** a pass (the enqueue path).

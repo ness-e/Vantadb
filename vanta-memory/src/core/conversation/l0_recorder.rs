@@ -6,6 +6,12 @@
 //! `{"after_timestamp_ms": u64}` so replaying the same turn never duplicates
 //! records (MEM-09 contract, D19).
 //!
+//! FIND-745 adds a third namespace, `l0_consolidated/<session>`: the **durable
+//! consolidation marker**. It is the same `__cursor` shape as the capture
+//! cursor, but it records what L1 already extracted (write-after-pass, never
+//! before), which is what lets a restarted host re-enqueue only the turns that
+//! no pass ever reached. See [`L0Recorder::mark_consolidated`].
+//!
 //! The recorder is deliberately LLM-free (Principle 4): it never blocks and
 //! never loses data regardless of LLM availability.
 
@@ -231,6 +237,15 @@ pub fn is_trivial_noise(text: &str) -> bool {
 /// Cursor record key and namespace prefix.
 const CURSOR_KEY: &str = "__cursor";
 
+/// `l0/<session>` — message records.
+pub(crate) const L0_NAMESPACE_PREFIX: &str = "l0/";
+/// `l0_cursor/<session>` — capture cursor (what has been recorded).
+pub(crate) const CAPTURE_CURSOR_NAMESPACE_PREFIX: &str = "l0_cursor/";
+/// `l0_consolidated/<session>` — consolidation marker (FIND-745): what L1 has
+/// already extracted. Separate from the capture cursor on purpose — "recorded"
+/// and "extracted" advance at different times and by different actors.
+pub(crate) const CONSOLIDATED_NAMESPACE_PREFIX: &str = "l0_consolidated/";
+
 /// Character set allowed in VantaDB namespaces: `[A-Za-z0-9._/-]`, ≤128 bytes.
 pub(crate) fn sanitize_component(s: &str, max_bytes: usize, allow_slash: bool) -> String {
     let mut out = String::with_capacity(s.len());
@@ -417,6 +432,59 @@ impl L0Recorder {
             .collect())
     }
 
+    // ── FIND-745: durable consolidation marker ────────────────────────────
+
+    /// Highest L0 timestamp a successful L1 pass has consolidated for this
+    /// session. `None` = no pass ever reached this session.
+    pub fn consolidated_ms(&self, session_id: &str) -> Result<Option<u64>, L0Error> {
+        match self
+            .db
+            .get(&consolidated_namespace(session_id), CURSOR_KEY)?
+        {
+            Some(record) => {
+                let value: serde_json::Value = serde_json::from_str(&record.payload)?;
+                Ok(value
+                    .get("after_timestamp_ms")
+                    .and_then(serde_json::Value::as_u64))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Advance the durable consolidation marker to `up_to_ms`.
+    ///
+    /// **Call this only after the pass persisted its result** (FIND-745
+    /// pre-mortem c): a marker written before consolidation makes the next boot
+    /// skip turns that were never extracted — losing them instead of
+    /// duplicating them. The read-compare-write is monotonic in practice
+    /// because passes are serialized per session (the worker's session lock);
+    /// two concurrent writers could at worst rewind it, which duplicates an
+    /// extraction — never loses a turn.
+    pub fn mark_consolidated(&self, session_id: &str, up_to_ms: u64) -> Result<(), L0Error> {
+        if self
+            .consolidated_ms(session_id)?
+            .is_some_and(|prev| prev >= up_to_ms)
+        {
+            return Ok(());
+        }
+        let payload = serde_json::json!({
+            "after_timestamp_ms": up_to_ms,
+            "at_ms": now_ms(),
+        })
+        .to_string();
+        self.db.put(MemoryInput {
+            namespace: consolidated_namespace(session_id),
+            key: CURSOR_KEY.into(),
+            payload,
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+            ..Default::default()
+        })?;
+        Ok(())
+    }
+
     /// Read the persisted cursor for a session (if any).
     fn read_cursor(&self, cursor_ns: &str) -> Result<Option<u64>, L0Error> {
         match self.db.get(cursor_ns, CURSOR_KEY)? {
@@ -486,12 +554,26 @@ impl L0Recorder {
 
 /// `l0/<sanitized-session>` — message records namespace.
 fn l0_namespace(session_id: &str) -> String {
-    format!("l0/{}", sanitize_component(session_id, 128, false))
+    format!(
+        "{L0_NAMESPACE_PREFIX}{}",
+        sanitize_component(session_id, 128, false)
+    )
 }
 
 /// `l0_cursor/<sanitized-session>` — cursor records namespace.
 fn cursor_namespace(session_id: &str) -> String {
-    format!("l0_cursor/{}", sanitize_component(session_id, 128, false))
+    format!(
+        "{CAPTURE_CURSOR_NAMESPACE_PREFIX}{}",
+        sanitize_component(session_id, 128, false)
+    )
+}
+
+/// `l0_consolidated/<sanitized-session>` — consolidation marker namespace.
+fn consolidated_namespace(session_id: &str) -> String {
+    format!(
+        "{CONSOLIDATED_NAMESPACE_PREFIX}{}",
+        sanitize_component(session_id, 128, false)
+    )
 }
 
 /// Rebuild an [`L0Message`] from a stored record. Records missing role or

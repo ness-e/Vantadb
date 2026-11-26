@@ -60,6 +60,11 @@ fn capabilities_reports_a_degraded_ingest_runner_and_stays_additive() {
         "no pass ran in this process: {ingest}"
     );
     assert_eq!(
+        ingest["backfill"],
+        json!(null),
+        "no startup sweep ran in this process (FIND-745): {ingest}"
+    );
+    assert_eq!(
         ingest["degraded_warnings"],
         json!(0),
         "nothing queued, nothing to warn about: {ingest}"

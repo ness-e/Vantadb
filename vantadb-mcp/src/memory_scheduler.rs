@@ -29,6 +29,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::Duration;
 
 use vanta_memory::core::abstractions::LlmRunner;
+use vanta_memory::core::conversation::backfill_unconsolidated;
 use vanta_memory::ingest::observability;
 use vanta_memory::ingest::runner_config::{build_ingest_runner, ConcreteRunner};
 use vanta_memory::services::scheduler::{spawn_memory_scheduler, MemoryScheduler};
@@ -114,30 +115,89 @@ where
         );
         return false;
     }
-    let mut running = slot();
-    if stopping().load(Ordering::SeqCst) {
-        return false; // a shutdown is in progress — do not resurrect a loop
+    {
+        // The slot guard is dropped before the backfill: the sweep reads the DB
+        // and must not hold the process's loop slot across that I/O.
+        let mut running = slot();
+        if stopping().load(Ordering::SeqCst) {
+            return false; // a shutdown is in progress — do not resurrect a loop
+        }
+        if running.is_some() {
+            return false; // one loop per process — never a second consumer
+        }
+        let scheduler = spawn_memory_scheduler(
+            crate::threads::memory_queue().clone(),
+            vantadb::Embedded::from_engine(storage.clone()),
+            Duration::from_millis(interval_ms),
+            factory,
+        );
+        *running = Some(scheduler);
     }
-    if running.is_some() {
-        return false; // one loop per process — never a second consumer
-    }
-    let scheduler = spawn_memory_scheduler(
-        crate::threads::memory_queue().clone(),
-        vantadb::Embedded::from_engine(storage.clone()),
-        Duration::from_millis(interval_ms),
-        factory,
-    );
     // The loop notes itself inside its spawned task, which on a current-thread
     // runtime only runs at the next await. `capabilities` must not report
     // `scheduler_running: false` in that window — the surface exists to be
     // believed.
     observability::note_scheduler_started();
-    *running = Some(scheduler);
+    // FIND-745: the queue is in-memory (ADR-0054), so a turn captured before a
+    // pass in a previous process has no task left anywhere. Re-enqueue ONLY
+    // what the durable marker says no pass reached — never a blanket re-queue
+    // (that is the duplication pre-mortem). Runs where a loop exists: a plain
+    // (unpromoted) proxy never calls `start`, so it never backfills. A promoted
+    // proxy does, because it owns both the storage and the queue by then.
+    //
+    // R-7/INV-003: the sweep is engine I/O, so it never runs on the async
+    // thread. Nobody waits for it — the loop's first tick is independent.
+    schedule_backfill(storage);
     tracing::info!(
         interval_ms,
         "MCP scheduler started: draining the thread capture queue"
     );
     true
+}
+
+/// Run [`publish_backfill`] off the async thread (R-7/INV-003).
+fn schedule_backfill(storage: &std::sync::Arc<StorageEngine>) {
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle) => {
+            let storage = storage.clone();
+            handle.spawn_blocking(move || publish_backfill(&storage));
+        }
+        // No runtime (a sync host or a library caller): inline is the only
+        // option, and it is still correct — just not off the async thread.
+        Err(_) => publish_backfill(storage),
+    }
+}
+
+/// FIND-745: re-enqueue the L0 sessions whose turns no pass consolidated yet,
+/// and publish the sweep in `capabilities.ingest.backfill`.
+///
+/// Never fatal (P4): a failed sweep is logged, published as
+/// `backfill.reason: "failed"` (never confusable with "no sweep") and leaves the
+/// turns captured in `l0/` — the state this task exists to improve, not to
+/// worsen. It also never touches `last_pass` (a sweep is not a pass, ADR-0065
+/// D7).
+fn publish_backfill(storage: &std::sync::Arc<StorageEngine>) {
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    match backfill_unconsolidated(&db, crate::threads::memory_queue()) {
+        Ok(report) => {
+            tracing::info!(
+                sessions = report.sessions,
+                requeued = report.requeued,
+                messages = report.messages,
+                already_consolidated = report.consolidated,
+                already_queued = report.already_queued,
+                "memory backfill: re-queued only un-consolidated L0 turns"
+            );
+            observability::note_backfill(report);
+        }
+        Err(e) => {
+            observability::note_backfill_failed();
+            tracing::warn!(
+                error = %e,
+                "memory backfill failed; captured turns stay in L0 (nothing lost)"
+            );
+        }
+    }
 }
 
 /// Stop and join the loop, if this process has one. Idempotent.
@@ -206,6 +266,40 @@ mod tests {
                 _ => Ok("[]".to_string()),
             }
         }
+    }
+
+    /// FIND-745: the same scripted extraction as [`ScriptedRunner`], counting
+    /// extraction rounds — the mechanical proof that a consolidated turn is
+    /// never re-extracted after a restart.
+    struct CountingRunner(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+    impl LlmRunner for CountingRunner {
+        fn run(&self, params: &LlmRunParams) -> Result<String, LlmError> {
+            if params.task_id == "l1-extraction" {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+            ScriptedRunner.run(params)
+        }
+    }
+
+    /// The sweep runs on a blocking thread (R-7/INV-003), so its snapshot is
+    /// published asynchronously. Wait for the sweep that satisfies `cond` —
+    /// never for "any snapshot", which could be the previous boot's.
+    async fn wait_for_backfill(
+        cond: impl Fn(&observability::BackfillSnapshot) -> bool,
+    ) -> observability::BackfillSnapshot {
+        for _ in 0..200 {
+            if let Some(snapshot) = observability::status().backfill {
+                if cond(&snapshot) {
+                    return snapshot;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        panic!(
+            "the sweep was not published as expected (last: {:?})",
+            observability::status().backfill
+        );
     }
 
     #[test]
@@ -389,5 +483,182 @@ mod tests {
             "a stopped loop must not keep claiming `scheduler_running: true`"
         );
         stop().await; // idempotent
+    }
+
+    /// FIND-745 — the row this closes. The queue is in-memory (ADR-0054), so
+    /// this test's L0 records written *before* any loop stand in for a process
+    /// killed between `thread_send` and the pass. The same storage is then
+    /// re-used across three "boots" (start / stop / start), which is what a
+    /// restart looks like from the durable side.
+    ///
+    /// The heart of the ticket is phase 3: a consolidated turn is **not**
+    /// re-enqueued after the restart, so the extraction count does not move
+    /// for it — a blanket re-queue (no marker) would make it move.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn backfill_revives_a_turn_captured_before_a_kill_and_never_re_enqueues_consolidated_ones(
+    ) {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use vanta_memory::core::conversation::{L0Capture, L0Message, L0Recorder, L0Role};
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let storage = Arc::new(
+            StorageEngine::open(dir.path().to_str().expect("utf8")).expect("open storage"),
+        );
+        let executor = Executor::new(&storage);
+        let config = McpConfig {
+            profile: McpProfile::Full,
+            ..Default::default()
+        };
+        let call = |name: &str, args: Value| -> Value {
+            let res = handle_tools_call(
+                &Some(json!({ "name": name, "arguments": args })),
+                &executor,
+                &storage,
+                &config,
+            )
+            .expect("tool call must succeed");
+            serde_json::from_str(res["content"][0]["text"].as_str().expect("text content"))
+                .expect("JSON payload")
+        };
+        let capture = |thread: &str, content: &str| {
+            let db = vantadb::Embedded::from_engine(storage.clone());
+            L0Recorder::new(db)
+                .record_turn(
+                    &L0Capture {
+                        session_id: thread.to_string(),
+                        messages: vec![L0Message {
+                            id: None,
+                            role: L0Role::User,
+                            content: content.to_string(),
+                            timestamp_ms: crate::threads::memory_queue().now_ms(),
+                        }],
+                    },
+                    None,
+                )
+                .expect("L0 capture");
+        };
+        let recall_hits = |query: &str| -> usize {
+            call("memory_recall", json!({ "query": query, "scope": "agent" }))["recalled"]
+                .as_array()
+                .expect("recalled array")
+                .iter()
+                .filter(|h| h["content"].as_str().unwrap_or_default().contains("fjall"))
+                .count()
+        };
+
+        let thread = call("thread_create", json!({ "title": "backfill chat" }))["thread_id"]
+            .as_str()
+            .expect("thread id")
+            .to_string();
+
+        // ── Phase 1 — a previous process captured turn 1 and died before a
+        // pass: the record is durable, no task exists anywhere.
+        capture(
+            &thread,
+            "I prefer the fjall storage backend for this project",
+        );
+        assert!(
+            observability::status().backfill.is_none(),
+            "no sweep has run in this process yet"
+        );
+        assert_eq!(recall_hits("fjall"), 0, "capture alone is not memory");
+
+        // ── Phase 2 — a new `--mcp` boots: the sweep re-queues THAT turn and
+        // the loop's own tick consolidates it.
+        let calls = std::sync::Arc::new(AtomicUsize::new(0));
+        let counter = std::sync::Arc::clone(&calls);
+        assert!(
+            start_with(&storage, 25, move || Some(CountingRunner(
+                std::sync::Arc::clone(&counter)
+            ))),
+            "the writer's first start must spawn the loop"
+        );
+        let sweep = wait_for_backfill(|s| s.requeued == 1).await;
+        assert_eq!(sweep.sessions, 1, "one captured session: {sweep:?}");
+        assert_eq!(sweep.requeued, 1, "the orphan turn is re-queued: {sweep:?}");
+        assert_eq!(
+            sweep.messages, 1,
+            "one message, not a blanket re-queue: {sweep:?}"
+        );
+        assert_eq!(
+            call("capabilities", json!({}))["ingest"]["backfill"]["requeued"],
+            json!(1),
+            "the sweep is visible in capabilities, not only in the log"
+        );
+
+        let mut recalled = false;
+        for _ in 0..150 {
+            tokio::time::sleep(Duration::from_millis(40)).await;
+            if recall_hits("fjall") > 0 {
+                recalled = true;
+                break;
+            }
+        }
+        assert!(
+            recalled,
+            "the recovered turn must become recallable without `memory_put`"
+        );
+        let after_first = calls.load(Ordering::SeqCst);
+        assert_eq!(
+            after_first, 1,
+            "one extraction round for the recovered turn"
+        );
+
+        // ── Phase 3 — restart with the turn already consolidated: the marker
+        // keeps the sweep quiet and no LLM call is made for it again.
+        stop().await;
+        let counter = std::sync::Arc::clone(&calls);
+        assert!(start_with(&storage, 25, move || Some(CountingRunner(
+            std::sync::Arc::clone(&counter)
+        ))));
+        let second = wait_for_backfill(|s| s.reason == observability::BackfillReason::Marker).await;
+        assert_eq!(
+            second.requeued, 0,
+            "a consolidated turn must not be re-queued: {second:?}"
+        );
+        assert!(
+            matches!(second.reason, observability::BackfillReason::Marker),
+            "the skip names its cause: {second:?}"
+        );
+        tokio::time::sleep(Duration::from_millis(200)).await; // ~8 empty ticks
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            after_first,
+            "the extraction count did not rise for the consolidated turn"
+        );
+
+        // ── Phase 4 — one NEW turn captured after the restart costs exactly
+        // one new extraction round; the old one still costs nothing.
+        capture(
+            &thread,
+            "Please remember the deploy window is Friday morning",
+        );
+        stop().await;
+        let counter = std::sync::Arc::clone(&calls);
+        assert!(start_with(&storage, 25, move || Some(CountingRunner(
+            std::sync::Arc::clone(&counter)
+        ))));
+        let third = wait_for_backfill(|s| s.requeued == 1).await;
+        assert_eq!(third.requeued, 1, "the new turn comes back: {third:?}");
+        assert_eq!(
+            third.messages, 1,
+            "only the new message is pending: {third:?}"
+        );
+        let mut grew = false;
+        for _ in 0..150 {
+            tokio::time::sleep(Duration::from_millis(40)).await;
+            if calls.load(Ordering::SeqCst) > after_first {
+                grew = true;
+                break;
+            }
+        }
+        assert!(grew, "the new turn must be extracted");
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            after_first + 1,
+            "exactly one new extraction round — the consolidated turn paid nothing"
+        );
+
+        stop().await;
     }
 }
