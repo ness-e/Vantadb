@@ -27,12 +27,18 @@ import { join, relative, resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const OPENCODE = join(ROOT, ".opencode");
 const args = process.argv.slice(2);
+const ROOT = (() => {
+  const i = args.indexOf("--root");
+  return i >= 0 && args[i + 1]
+    ? resolve(args[i + 1])
+    : resolve(dirname(fileURLToPath(import.meta.url)), "..");
+})();
+const OPENCODE = join(ROOT, ".opencode");
 const has = (f) => args.includes(f);
 const verbose = has("--verbose");
 const selfTest = has("--self-test");
+const rowsOnly = has("--rows"); // M2: cheap gate a lane can run when it CREATES a FIND row
 const planArg = (() => {
   const i = args.indexOf("--plan");
   return i >= 0 && args[i + 1] ? resolve(ROOT, args[i + 1]) : null;
@@ -90,7 +96,7 @@ export function loteViolations(planText) {
     const isGateRow = /-\s*\*\*Gate Result:\*\*[^\n]*(DEFER|SKIP)/i.test(line);
     const isTableRow = /^\s*\|[^\n]*\|\s*(🟡\s*DEFER|❌\s*SKIP|DEFER|SKIP)\s*\|/i.test(line);
     if (!isGateRow && !isTableRow) return;
-    const window = lines.slice(i, i + 3).join("\n");
+    const window = lines.slice(i, i + 5).join("\n");
     if (/(Pregunta|Firma|Respuesta del usuario)\s*:/i.test(window)) return;
     out.push(
       `row defers/skips the user's batch without a recorded answer (line ${i + 1}): ${line
@@ -101,19 +107,41 @@ export function loteViolations(planText) {
   return out;
 }
 
-/** H-02: a claim without a re-runnable measurement. */
+/** H-02: a claim without a re-runnable measurement.
+ *
+ * The claim is judged on the PROSE cells only. Measured 2026-11-26 (review
+ * round 1, B1): testing the whole line made every new row a "claim" because the
+ * row number, the ID (`FIND-999`), the effort (`1h`), the priority (`P2`) and
+ * the wave (`W10`) are all digits — the gate blocked the very rows it should
+ * protect, and the code comment below contradicted what it did.
+ */
 const CLAIM = /\d|\b(ning[uú]n|ninguna|todos|todas|solo|sólo|nunca)\b/i;
 const HAS_MEASURE = /Medici[oó]n\s*:|medido\b/i;
+
+/** A cell is metadata when it carries no sentence: a bare token, a path, a date. */
+function isProse(cell) {
+  const t = cell.replace(/[*`]/g, "").trim();
+  if (!t) return false;
+  if (/^[-–—:\s|]+$/.test(t)) return false; // separator / dash
+  if (/^(#|\d+)$/.test(t)) return false; // row number
+  if (/^[A-Z][A-Z0-9]*-[A-Za-z0-9-]+$/.test(t)) return false; // ID
+  if (/^(P\d|W\d+|R|CI|A|C|T|L|D|AR)$/i.test(t)) return false; // lane / priority / wave
+  if (/^\d+(\.\d+)?\s*(h|d|min|ms|s)$/i.test(t)) return false; // effort
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return false; // date
+  if (/^[\w./\\-]+(:\d+)?$/.test(t) && /[./\\]/.test(t)) return false; // path / path:line
+  if (/^[\w./\\-]+$/.test(t)) return false; // a single bare token
+  return t.split(/\s+/).filter(Boolean).length >= 2; // needs a phrase, not a token
+}
 
 export function claimViolations(addedRowLines) {
   const out = [];
   for (const { file, line, text } of addedRowLines) {
-    if (!CLAIM.test(text)) continue;
+    if (!/^\s*\|/.test(text)) continue; // only table rows
     if (HAS_MEASURE.test(text)) continue;
-    // A row ID / date / effort cell is metadata, not a premise: only rows with
-    // prose (the "Hallazgo"/"Descripción"-like cells) are judged.
-    if (!/\|\s*[^|]{25,}\|/.test(text)) continue;
-    out.push(`${file}:${line}: claim without "Medición:" — ${text.trim().slice(0, 100)}`);
+    const cells = text.split("|").slice(1, -1);
+    const claimed = cells.filter((c) => isProse(c) && CLAIM.test(c));
+    if (!claimed.length) continue;
+    out.push(`${file}:${line}: claim without "Medición:" — ${claimed[0].trim().slice(0, 90)}`);
   }
   return out;
 }
@@ -135,7 +163,12 @@ function resourcesOf(cell) {
 }
 
 function overlaps(a, b) {
-  const strip = (s) => s.replace(/\/\*\*?$/, "").replace(/\/\*$/, "");
+  // Trailing slashes are not a different resource: `src/` and `src` are the same.
+  const strip = (s) =>
+    s
+      .replace(/\/+$/, "")
+      .replace(/\/\*\*?$/, "")
+      .replace(/\/\*$/, "");
   const A = strip(a);
   const B = strip(b);
   return A === B || A.startsWith(B + "/") || B.startsWith(A + "/");
@@ -172,7 +205,6 @@ export function parsePlanRows(md) {
         carril: iCarril >= 0 ? (cells[iCarril] || "").replace(/[*`]/g, "").trim() : "",
       });
     }
-    i = i + rows.length ? i : i; // keep scanning after the table
   }
   return rows;
 }
@@ -252,21 +284,40 @@ function activePlans() {
   const dir = join(ROOT, "docs/dev/plans");
   let files = [];
   try {
+    // Top level only: plans/archive/** is history, not a queue (B3 pre-mortem).
     files = readdirSync(dir).filter((f) => f.endsWith(".md"));
   } catch {
     return [];
   }
-  return files.map((f) => join(dir, f)).filter((p) => /^status:\s*active\b/im.test(read(p)));
+  return files.map((f) => join(dir, f)).filter((p) => isActivePlan(read(p)));
+}
+
+/**
+ * H-05 (review round 1, B3): a plan WITHOUT `status:` is active. Requiring the
+ * field made the gate blind to every plan the template produced (the template
+ * emitted no frontmatter) — the same "ignore `status:`" drift the audit
+ * condemned in `findPlanFile`. Only an explicit terminal status excludes a plan.
+ */
+export function isActivePlan(text) {
+  const m = text.match(/^status:\s*([^\s#]+)/im);
+  if (!m) return true;
+  return !/^(superseded|archived|done|completed|closed)$/i.test(m[1]);
 }
 
 function addedDiffRows() {
   let diff = "";
   try {
-    diff = execFileSync("git", ["diff", "-U0", "--", "docs/dev/Backlog.md", "docs/dev/plans"], {
-      cwd: ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"], // CRLF autocrlf warnings are not findings
-    });
+    // -HEAD: staged and unstaged both count. `git diff` alone (worktree vs
+    // index) went blind the moment a claim row was staged (review round 1, M1).
+    diff = execFileSync(
+      "git",
+      ["diff", "-U0", "HEAD", "--", "docs/dev/Backlog.md", "docs/dev/plans"],
+      {
+        cwd: ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"], // CRLF autocrlf warnings are not findings
+      },
+    );
   } catch {
     return [];
   }
@@ -297,21 +348,25 @@ function addedDiffRows() {
 
 function checkCommitPath() {
   const bad = [];
-  const scanDirs = [
+  // `.opencode/AGENTS.md` is the FIRST flow every agent reads (`:8` said
+  // "`git commit` local"): leaving it out of the scan made the gate blind to the
+  // most-read contradiction (review round 1, B2).
+  const scanFiles = [join(OPENCODE, "AGENTS.md")];
+  for (const dir of [
     join(OPENCODE, "task-system/prompts"),
     join(OPENCODE, "agents"),
     join(OPENCODE, "commands"),
-  ];
-  for (const dir of scanDirs) {
-    for (const file of walk(dir)) {
-      if (!file.endsWith(".md")) continue;
-      read(file)
-        .split(/\r?\n/)
-        .forEach((line, i) => {
-          if (isForbiddenCommitLine(line))
-            bad.push(`${rel(file)}:${i + 1}: ${line.trim().slice(0, 120)}`);
-        });
-    }
+  ]) {
+    scanFiles.push(...walk(dir).filter((f) => f.endsWith(".md")));
+  }
+  for (const file of scanFiles) {
+    if (!exists(file)) continue;
+    read(file)
+      .split(/\r?\n/)
+      .forEach((line, i) => {
+        if (isForbiddenCommitLine(line))
+          bad.push(`${rel(file)}:${i + 1}: ${line.trim().slice(0, 120)}`);
+      });
   }
   const prompts = walk(join(OPENCODE, "task-system/prompts")).filter((f) => f.endsWith(".md"));
   const cites = prompts.filter((f) => /docs\/dev\/workflow\/RULES\.md/.test(read(f)));
@@ -320,9 +375,14 @@ function checkCommitPath() {
       "no prompt cites docs/dev/workflow/RULES.md (§11 runbook) — the helper can be orphaned again",
     );
   }
+  // Citing the path is not the same as the section existing (L4).
+  const runbook = join(ROOT, "docs/dev/workflow/RULES.md");
+  if (!exists(runbook) || !/^#{2,3}\s*11\b/m.test(read(runbook))) {
+    bad.push("docs/dev/workflow/RULES.md: §11 (the commit runbook the prompts cite) is missing");
+  }
   if (verbose)
     console.log(
-      `  commit-path: ${prompts.length} prompts scanned, runbook cited by ${cites.length}`,
+      `  commit-path: ${scanFiles.length} files scanned, runbook cited by ${cites.length}`,
     );
   return bad;
 }
@@ -507,6 +567,36 @@ function runSelfTest() {
     },
   ]);
   ok("medicion: measured claim passes", measured.length === 0);
+  // B1: digits that live ONLY in metadata are not claims. This exact row is the
+  // reviewer's counter-example — it asserted no number and was blocked.
+  ok(
+    "medicion: digits only in metadata pass",
+    claimViolations([
+      {
+        file: "Backlog.md",
+        line: 9,
+        text: "| 42 | `DEAD-AA` | Media | **El boton no responde** | `web/x.ts` | 2h | P2 | 🆕 Pendiente | 2026-11-26 | W10 |",
+      },
+    ]).length === 0,
+  );
+  ok(
+    "medicion: universal word in prose fails",
+    claimViolations([
+      {
+        file: "Backlog.md",
+        line: 9,
+        text: "| `FIND-9` | x | **ningun job required** en el workflow | `.github/ci.yml` |",
+      },
+    ]).length === 1,
+  );
+
+  // B3: a plan with no frontmatter is active (the template emitted none).
+  ok(
+    "plans: status absent is active",
+    isActivePlan("# Plan de Ejecución: x\n\n> **Inicio:** 2026-11-26\n"),
+  );
+  ok("plans: status superseded is not", !isActivePlan("status: superseded\n# x"));
+  ok("plans: status active is active", isActivePlan("status: active\n# x"));
 
   const W = (id, res, pre = "") => ({
     id,
@@ -527,6 +617,10 @@ function runSelfTest() {
   ok("waves: same workflow with prereq passes", serialized.length === 0);
   const sweep = waveConflicts([W("A-1", "`src/**`"), W("A-2", "`src/storage/engine/delete.rs`")]);
   ok("waves: src sweep + src writer fails", sweep.length === 1);
+  ok(
+    "waves: trailing slash conflict fails",
+    waveConflicts([W("A-1", "`src/`"), W("A-2", "`src/index/`")]).length === 1,
+  );
 
   ok(
     "premise: review scope regex",
@@ -556,6 +650,19 @@ function runSelfTest() {
 
 if (selfTest) {
   process.exit(runSelfTest() ? 1 : 0);
+}
+
+// M2: the claim rule must run when the row is CREATED, not only in /harness
+// (a row committed inside a normal task never reaches the /harness diff).
+if (rowsOnly) {
+  const bad = claimViolations(addedDiffRows());
+  if (bad.length) {
+    for (const b of bad) console.log(`FAIL ${b}`);
+    console.log(`\n${bad.length} claim row(s) without "Medición:" — findings.md`);
+    process.exit(1);
+  }
+  console.log("ok   row claims (added Backlog/plan rows carry their Medición:)");
+  process.exit(0);
 }
 
 let violations = 0;

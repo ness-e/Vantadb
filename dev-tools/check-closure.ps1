@@ -37,13 +37,25 @@ param(
     [switch]$Diff,
     [switch]$All,
     [switch]$SelfTest,
-    [string]$Base = "HEAD",
+    [string]$Base = "",
+    [string]$Root = "",
     [string[]]$Paths = @()
 )
 $Paths = @($Paths | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 
 $ErrorActionPreference = "Continue"
-$root = Split-Path -Parent $PSScriptRoot
+$root = if ($Root) { (Resolve-Path $Root).Path } else { Split-Path -Parent $PSScriptRoot }
+
+# M3: the docstring promised origin/develop; the code used HEAD. Resolved here
+# and reported, so the real base is never a guess.
+function Resolve-Base {
+    if ($Base) { return $Base }
+    & git -C $root rev-parse --verify --quiet origin/develop *> $null
+    if ($LASTEXITCODE -eq 0) { return "origin/develop" }
+    & git -C $root rev-parse --verify --quiet HEAD~1 *> $null
+    if ($LASTEXITCODE -eq 0) { return "HEAD~1" }
+    return "HEAD"
+}
 
 # Canonical tokens, compared by code point so this file stays ASCII-safe.
 $CANON = '^(\u2B1C|\u23F3|\u2705|\u274C)\s+(PENDING|IN PROGRESS|COMPLETED|FAILED)\b'
@@ -96,6 +108,11 @@ function Get-DiffFiles([string[]]$FilePaths) {
     $out = & git -C $root diff --name-only --diff-filter=ACMR $Base -- @FilePaths 2>$null
     if ($LASTEXITCODE -ne 0) { return @() }
     $files = @($out | Where-Object { $_ })
+    # M3: a brand-new task file is untracked, so `git diff` cannot see it — and
+    # that is exactly the closure that nobody registers. Union the untracked set.
+    $untracked = & git -C $root ls-files --others --exclude-standard -- @FilePaths 2>$null
+    if ($LASTEXITCODE -eq 0) { $files += @($untracked | Where-Object { $_ }) }
+    $files = @($files | Sort-Object -Unique)
     if ($Paths.Count -gt 0) {
         $files = @($files | Where-Object { $f = $_; [bool]($Paths | Where-Object { $f.StartsWith($_) -or $f.Contains($_) }) })
     }
@@ -119,7 +136,7 @@ function Test-AvanceHasId([string]$id) {
     $dir = Join-Path $root "docs/dev/avance"
     if (-not (Test-Path $dir)) { return $false }
     return [bool](Get-ChildItem $dir -Recurse -Filter *.md |
-        Where-Object { (Read-Utf8 $_.FullName).Contains($id) } |
+        Where-Object { Test-IdPresent (Read-Utf8 $_.FullName) $id } |
         Select-Object -First 1)
 }
 
@@ -158,15 +175,62 @@ function Invoke-SelfTest {
     if ($failed -gt 0) { exit 1 }
 }
 
-if ($SelfTest) { Invoke-SelfTest; if (-not $All -and -not $Diff) { exit 0 } }
+# L1: the fixtures above test the regexes. These test the three RULES end-to-end,
+# in a throw-away git repo, by re-invoking this script with -Root.
+function Invoke-EndToEnd {
+    $scriptPath = Join-Path $PSScriptRoot "check-closure.ps1"
+    $tmp = Join-Path $env:TEMP ("closure-e2e-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $write = { param($rel, $text) $p = Join-Path $tmp $rel; New-Item -ItemType Directory -Force (Split-Path $p) | Out-Null; [System.IO.File]::WriteAllText($p, $text, $utf8) }
+    $run = { param($extra) & pwsh -NoProfile -File $scriptPath @extra *> $null; return $LASTEXITCODE }
+    $cases = @()
+
+    & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-901`` | x |`n"
+    & $write "docs/dev/avance/activo/core.md" "# core`n"
+    & git -C $tmp init -q 2>$null
+    & git -C $tmp -c user.email=t@t -c user.name=t add -A 2>$null
+    & git -C $tmp -c user.email=t@t -c user.name=t commit -qm init 2>$null
+
+    # (a) + M3 (untracked) + M4 (FIND-90 vs FIND-901): orphan active task
+    & $write "docs/dev/tasks/FIND-90.md" ("## Metadata`n- **Estado:** " + [char]0x23F3 + " IN PROGRESS`n")
+    $cases += ,@("e2e (a): untracked active orphan is a violation (FIND-90 vs FIND-901)", ((& $run @("-Diff", "-Root", $tmp)) -eq 1))
+    Remove-Item (Join-Path $tmp "docs/dev/tasks/FIND-90.md") -Force
+
+    # (b) non-canonical Estado on a touched task file
+    & $write "docs/dev/tasks/FIND-91.md" ("## Metadata`n- **Estado:** " + [char]0x2705 + " Completado (2026-11-25)`n")
+    $cases += ,@("e2e (b): non-canonical Estado is a violation", ((& $run @("-Diff", "-Root", $tmp)) -eq 1))
+    Remove-Item (Join-Path $tmp "docs/dev/tasks/FIND-91.md") -Force
+
+    # (c) a Backlog row removed with no avance entry
+    & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-901`` | x |`n| ``FIND-902`` | y |`n"
+    & git -C $tmp -c user.email=t@t -c user.name=t add -A 2>$null
+    & git -C $tmp -c user.email=t@t -c user.name=t commit -qm row 2>$null
+    & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-901`` | x |`n"
+    $cases += ,@("e2e (c): removed row without avance entry is a violation", ((& $run @("-Diff", "-Base", "HEAD", "-Root", $tmp)) -eq 1))
+
+    # (c') the same close WITH an avance entry passes (the rule is not just "always red")
+    & $write "docs/dev/avance/activo/core.md" "# core`n`n- ``FIND-902`` cerrada.`n"
+    $cases += ,@("e2e (c'): removed row with avance entry passes", ((& $run @("-Diff", "-Base", "HEAD", "-Root", $tmp)) -eq 0))
+
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+
+    $failed = 0
+    foreach ($c in $cases) {
+        Write-Host ("{0}  {1}" -f $(if ($c[1]) { "ok  " } else { "FAIL" }), $c[0])
+        if (-not $c[1]) { $failed++ }
+    }
+    Write-Host ("`n{0}/{1} end-to-end rules passed" -f ($cases.Count - $failed), $cases.Count)
+    if ($failed -gt 0) { exit 1 }
+}
+
+if ($SelfTest) { Invoke-SelfTest; Invoke-EndToEnd; if (-not $All -and -not $Diff) { exit 0 } }
 
 if ($All -and $Diff) {
     Write-Host "ERROR: -Diff and -All are mutually exclusive." -ForegroundColor Red
     exit 2
 }
 if (-not $All -and -not $Diff) { $Diff = $true }   # diff-scoped is the default
-
-$baseline = @()
+if (-not $Base) { $Base = Resolve-Base }
 
 Write-Host "=== Closure check (H-04) — $(if ($Diff) { "diff vs $Base" } else { 'whole tree' }) ===" -ForegroundColor Cyan
 
@@ -174,12 +238,17 @@ Write-Host "=== Closure check (H-04) — $(if ($Diff) { "diff vs $Base" } else {
 $backlogPath = Join-Path $root "docs/dev/Backlog.md"
 $backlogText = if (Test-Path $backlogPath) { Read-Utf8 $backlogPath } else { "" }
 # ACTIVE plans only: an archived plan mentioning the ID is history, not a queue.
+# Same rule as check-harness-contract.mjs: absence of `status:` means active.
 $planText = ""
 $planDir = Join-Path $root "docs/dev/plans"
 if (Test-Path $planDir) {
     $planText = (Get-ChildItem $planDir -Filter *.md |
-        Where-Object { (Read-Utf8 $_.FullName) -match '(?m)^status:\s*active' } |
+        Where-Object { $s = [regex]::Match((Read-Utf8 $_.FullName), '(?m)^status:\s*([^\s#]+)'); -not $s.Success -or $s.Groups[1].Value -notmatch '^(superseded|archived|done|completed|closed)$' } |
         ForEach-Object { Read-Utf8 $_.FullName }) -join "`n"
+}
+# M4: word boundary. `FIND-90` must not be satisfied by `FIND-901` in the Backlog.
+function Test-IdPresent([string]$haystack, [string]$id) {
+    return [regex]::IsMatch($haystack, '(?<![A-Za-z0-9-])' + [regex]::Escape($id) + '(?![A-Za-z0-9-])')
 }
 
 $taskFilter = $null
@@ -214,8 +283,8 @@ foreach ($f in $taskFiles) {
     if (Test-Terminal $estado) { continue }
 
     $id = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-    if ($backlogText.Contains($id)) { continue }
-    if ($planText.Contains($id)) { continue }
+    if (Test-IdPresent $backlogText $id) { continue }
+    if (Test-IdPresent $planText $id) { continue }
     $orphanCount++
     $violations.Add("$id ($estado): active task file whose row is in no Backlog and in no active plan — the closure left this state behind")
 }
