@@ -800,8 +800,14 @@ el guard de documentación de release. Corren en push/PR a `main`+`develop` que 
 scripts o workflows. **En `pull_request` ya NO hay filtro de `paths`** (`FIND-765`): un workflow
 que no dispara no reporta nada, y sus tres jobs son *required* en `develop` — un PR que sólo
 tocara ficheros fuera del filtro quedaba con esos contexts en `Expected` para siempre. El
-filtro de `push` se conserva (21 patrones). El mismo problema **sigue abierto** en
-`ci-rust.yml` (`FIND-770`): sus 22 patrones dejan fuera 1281 ficheros y 10 de los 13 contexts.
+filtro de `push` se conserva (21 patrones).
+
+**`ci-rust.yml` quedó igual** (`FIND-770`): `paths` fuera de `on.pull_request`, `on.push` con sus
+24 intactos, y el filtro **dentro** con un job `rust-scope` *fail-open* que alimenta la guarda de
+`clippy`/`semver-checks`/`public-api-snapshot`; los **9** jobs con `needs: clippy` se omiten por
+dependencia. Así los **14** contexts de `develop` se reportan siempre. Coste medido del arreglo:
+**~570 s (6,3 %)** frente a los **9062 s / 69 min** que costaría quitar el filtro sin más. El precio,
+declarado: en un PR sólo-docs, **6 de los 10** contexts de Rust quedan `skipped` **sin medir**.
 
 ### 4. Platform ops (`platform-ops.yml`)
 
