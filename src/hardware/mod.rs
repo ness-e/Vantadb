@@ -117,12 +117,15 @@ impl HardwareCapabilities {
         if let Some(custom) = crate::utils::env_value(std::env::var_os("VANTADB_PROFILE_PATH")) {
             return std::path::PathBuf::from(custom);
         }
-        if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
-            if !home.is_empty() {
-                let dir = std::path::PathBuf::from(home).join(".vanta");
-                let _ = std::fs::create_dir_all(&dir);
-                return dir.join(".vanta_profile");
-            }
+        // Empty HOME falls through to USERPROFILE instead of shadowing it, and
+        // the guard in `test_default_profile_path_resolution` reads the same
+        // predicate — otherwise the two disagree on `HOME=` (FIND-738).
+        if let Some(home) = crate::utils::env_value(std::env::var_os("HOME"))
+            .or_else(|| crate::utils::env_value(std::env::var_os("USERPROFILE")))
+        {
+            let dir = std::path::PathBuf::from(home).join(".vanta");
+            let _ = std::fs::create_dir_all(&dir);
+            return dir.join(".vanta_profile");
         }
         std::path::PathBuf::from(".vanta_profile")
     }
