@@ -25,42 +25,42 @@ metrica comun, una configuracion nueva ni resultados medidos. Las fichas
 enlazadas fijan fuentes, revisiones y rangos; sus revisiones independientes
 documentan el contraste y las limitaciones.
 
-- [Mem0](mem0.md): el wrapper puede agotar reintentos y devolver `[]` ante
+- [Mem0](../mem0/MEM0.md): el wrapper puede agotar reintentos y devolver `[]` ante
   un error operativo; el driver puede presentar ese vacio al juez como
   abstencion y obtener PASS. No equivale necesariamente a cero ni a una
   excepcion del driver. La preparacion descarga un dataset mediante
   `resolve/main`, ordena fechas, elimina `has_answer`, forma pares y omite
   contenido vacio; split/hash y backend efectivo no quedan fijados solo por
   el nombre LongMemEval. Ver [cierre](reviews/corrections-memory-closure.md#mem0).
-- [Cognee](cognee.md) y [Graphiti](graphiti.md): BEAM puede depender de un
+- [Cognee](../cognee/COGNEE.md) y [Graphiti](../graphiti/GRAPHITI.md): BEAM puede depender de un
   corpus preingerido y de configuracion efectiva distinta de la sugerida por
   argumentos; el agregado de scores numericos no es automaticamente un censo
   de intentos. Los grupos persistentes de Graphiti reutilizados sin reset
   tampoco acreditan una segunda corrida sobre corpus limpio.
-- [Graphify](graphify.md): la exclusion del sentinel no-match no excluye
+- [Graphify](../graphify/GRAPHIFY.md): la exclusion del sentinel no-match no excluye
   necesariamente el rechazo por ambiguedad. Una reduccion de longitud/ratio
   que incluya ese rechazo no demuestra entrega de contexto util.
-- [Khoj](khoj.md): en el runner inspeccionado se calcula e imprime F1 pero se
+- [Khoj](../khoj/KHOJ.md): en el runner inspeccionado se calcula e imprime F1 pero se
   devuelve recall; `None` se excluye del agregado. La preparacion puede fallar
   con batch cero para muestras pequenas. No se ejecutaron esos casos.
-- [Weaviate](weaviate.md): el limite nominal no es el numero efectivamente
+- [Weaviate](../weaviate/WEAVIATE.md): el limite nominal no es el numero efectivamente
   leido cuando se agrega antes de comprobarlo; envio, lectura y cardinalidad
   solicitada deben distinguirse. La suma de tiempos de batches concurrentes
   no es tiempo de pared de importacion ni las consultas validan vecinos contra
   ground truth en el runner SIFT inspeccionado.
-- [AutoGen](autogen.md): AgBench tabula directorios descubiertos; una tarea
+- [AutoGen](../autogen/AUTOGEN.md): AgBench tabula directorios descubiertos; una tarea
   sin directorio no aparece automaticamente en Missing/Total. Conservar esa
   poblacion observada, no presentarla como censo externo completo.
-- [Flowise](flowise.md): pass/fail/error y `passPcnt` proceden de evaluadores
+- [Flowise](../Flowise/FLOWISE.md): pass/fail/error y `passPcnt` proceden de evaluadores
   simples efectivos, no de los resultados LLM guardados en otro campo.
   La latencia cliente incluye procesamiento de metricas y awaits de coste;
   `averageLatency` divide la suma de latencias de todos los flows por filas
   del dataset, no por solicitudes individuales.
-- [Serviette](serviette.md): el reset documentado incluye `compose down -v`;
+- [Serviette](../serviette/SERVIETTE.md): el reset documentado incluye `compose down -v`;
   es una operacion destructiva leida, nunca ejecutada ni autorizada sobre
   datos compartidos. Preparacion, retrieval y respuesta tienen fronteras y
   denominadores diferentes.
-- [Chroma](chroma.md) y [Meilisearch](meilisearch.md): el `TODO: verify recall`
+- [Chroma](../chroma/CHROMA.md) y [Meilisearch](../meilisearch/MEILISEARCH.md): el `TODO: verify recall`
   del runner Criterion inspeccionado no acredita recall medido. Los workloads
   de embeddings de Meilisearch separan preparacion y captura de forma distinta;
   un default de modelo no fija por si solo su identidad efectiva. No se accede

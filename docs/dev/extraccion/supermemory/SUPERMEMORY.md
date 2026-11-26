@@ -40,7 +40,7 @@ tags: [research, memory, engineering]
 
 **Dictamen:** interesa la frontera aplicación/memoria remota: namespace explícito, perfiles separados de recuperación, caché de continuación, estados de procesamiento, borrado selectivo y provenance visible. **No es una implementación pública acreditada del motor SaaS**. El clon no permite certificar extracción, almacenamiento vectorial, transacciones, replicación, borrado físico o aislamiento de tenants.
 
-Leyenda: **[H]** hecho de fuente leída; **[D]** documentación; **[R]** reporte upstream, no reproducción propia; **[I]** inferencia; **[P]** propuesta; **[?]** laguna. Fuentes S: pin del clon; B: MemoryBench externo; V: Vanta indicado. Se aplicaron [METHOD](../agent-memory-2026-11-07/METHOD.md), [BENCHMARK-NOTES](../agent-memory-2026-11-07/BENCHMARK-NOTES.md) y [EXPANSION-CONTRACT](../agent-memory-2026-11-07/EXPANSION-CONTRACT.md). El antecedente [OpenViking](../Backlog-OpenViking-VantaDB.md) aporta diseño, no prueba del estado actual de Vanta.
+Leyenda: **[H]** hecho de fuente leída; **[D]** documentación; **[R]** reporte upstream, no reproducción propia; **[I]** inferencia; **[P]** propuesta; **[?]** laguna. Fuentes S: pin del clon; B: MemoryBench externo; V: Vanta indicado. Se aplicaron [METHOD](../agent-memory-2026-11-07/METHOD.md), [BENCHMARK-NOTES](../agent-memory-2026-11-07/BENCHMARK-NOTES.md) y [EXPANSION-CONTRACT](../agent-memory-2026-11-07/EXPANSION-CONTRACT.md). El antecedente [OpenViking](../OpenViking/OPENVIKING.md) aporta diseño, no prueba del estado actual de Vanta.
 
 ### 0.2 Mapa, stack y dependencias
 
@@ -465,3 +465,28 @@ No ejecución ni medición de calidad/latencia/coste/seguridad/visual; motor
 privado y licencias dependientes siguen lagunas explícitas. Siete mecanismos
 quedan entregados a revisión independiente; no autoaceptación ni cierre por
 cantidad de encabezados. Se mantiene el plan de separar specs de §11.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- - **No acreditado:** caché del host invalidada por policy/source generation, manifest conjunto de revisión y outcomes separados de auth/retrieval/captura.
+- No se acredita equivalencia de bytes entre ambas lecturas.
+
+### Falsos positivos y descartes registrados
+
+- - **Falso positivo:** Vanta ya tiene BM25/HNSW/RRF, provenance, dedup/supersession, sesiones, budgets, scheduler/checkpoints, erasure y Studio; ninguno se recrea por ver una API SaaS.
+
+### Limitaciones declaradas en este informe
+
+- § 0. Identidad, arquitectura y evidencia
+- § 0.1 Corte y límites
+- § 11. Cobertura, fuentes y decisiones pendientes
+- § 12. Cierre incremental: fronteras y contratos sin duplicar infraestructura
+- § 12.3 Licencia, cobertura y cierre propio

@@ -547,3 +547,27 @@ se resolvió en `eval/runner/adapters`, `_capture-filter` con guion bajo.
 autorrevisión independiente ni aceptación. Tras superar 300 líneas, futura
 separación autorizada: spec adapter A/D y lifecycle/ownership B/C; no se
 crearon specs ni se tocaron contratos/índices/backlog.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Router cargado; websearch funcionó en esta sesión; REST permitió leer sin el fallo MCP histórico. | URL / fecha / estado observado | Revisión y mecanismo reportado | Corrección y aplicabilidad | |---|---|---| | [Issue #1273](https://github.com/rohitg00/agentmemory/issues/1273), 2026-08-28, open | v0.9.29: governance find devuelve una observación, delete devuelve deleted:0; memoria errónea permanece en recall | Causa/fix no acreditados por body.
+- Limpia sandbox también si init falla, detalle antes no acreditado. [Sandbox.start:59-110](https://github.com/rohitg00/agentmemory/blob/4f758eff36c8403570e1bf2ac6d986239fcdb662/eval/runner/sandbox.ts#L59-L110) requiere build e iii instalado/pin, crea home/state temporales, lanza daemon, provider noop, auto-compress/consolidation/graph off; usa puertos aleatorios y registra procesos para limpieza.
+- Recibo [AM-1](../agent-memory-2026-11-07/reviews/memory-additions.md#agentmemory): corregida identidad de evidencia y propagada a matriz/aceptación; pendiente de closure independiente.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 5. Qué no trasladar
+- § 6. Método, licencia y límites
+- § Complemento de autoría y cierre

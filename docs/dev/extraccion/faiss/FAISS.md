@@ -37,7 +37,7 @@ tags: [research, memory, engineering]
 | Comparación propia | VantaDB `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`, `develop`, limpio al inicio; no se usa c561158 como prueba actual |
 | Ejecución | Ninguna app, test, benchmark, instalación, build o servicio; sólo lecturas y documentos |
 
-Se leyeron [EXPANSION-CONTRACT](../agent-memory-2026-11-07/EXPANSION-CONTRACT.md), [METHOD](../agent-memory-2026-11-07/METHOD.md), [BENCHMARK-NOTES](../agent-memory-2026-11-07/BENCHMARK-NOTES.md) y el [estudio OpenViking](../Backlog-OpenViking-VantaDB.md). Sus exigencias se aplican aquí; sus defectos históricos no se importan.
+Se leyeron [EXPANSION-CONTRACT](../agent-memory-2026-11-07/EXPANSION-CONTRACT.md), [METHOD](../agent-memory-2026-11-07/METHOD.md), [BENCHMARK-NOTES](../agent-memory-2026-11-07/BENCHMARK-NOTES.md) y el [estudio OpenViking](../OpenViking/OPENVIKING.md). Sus exigencias se aplican aquí; sus defectos históricos no se importan.
 
 ### 0.1 Mapa y modelo
 
@@ -561,3 +561,30 @@ benchmarks sólo tras autorización, usando METHOD sin otro protocolo.
 La revisión adversarial independiente y la validación documental por lote
 corresponden al responsable; no se declaran realizadas. No staging, commit,
 push, inventarios, servicios ni ejecución de código en este cierre documental.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Fuera de alcance: codec nuevo y autotuning. ### B.
+- **Estado, fechas y comentarios no acreditados en esta lectura**: el endpoint API devolvió `API rate limit exceeded`; fallback a la página GitHub con extracción de contenido permitió leer el cuerpo, no certificar su resolución.
+- Los tres cuerpos de issues son reportes de la familia 1.11.0, no reproducciones del SHA estudiado; sólo #4655/#4656 tienen estado y comentarios comprobados aquí.
+- No se ejecuta ningún comando del runner en esta investigación. ### 7.3 Adaptación a Vanta sin un harness nuevo Aplicar [METHOD](../agent-memory-2026-11-07/METHOD.md#protocolo-de-comparacion-de-benchmarks) y [BENCHMARK-NOTES](../agent-memory-2026-11-07/BENCHMARK-NOTES.md): éste es el carril **motor ANN**.
+
+### Falsos positivos y descartes registrados
+
+- SCANN reaparece como `None`: no atribuirle la misma persistencia de IVF. ### Falsos positivos descartados y pendientes - Hay header, versión, rechazo de imagen cifrada sin contexto y detección de lecturas insuficientes. “Vanta no valida imágenes” sería falso.
+- - **Observabilidad/mínimo:** epoch fuente/cache, motivo de invalidación, construcción descartada, duración y error agregado; nunca vectores ni payloads.
+- No hay abstenciones de QA, preguntas descartadas por un juez ni coste LLM; los errores de carga/search no forman una población QA alternativa.
+
+### Limitaciones declaradas en este informe
+
+- § 5. Qué no trasladar
+- § Fuentes, cobertura y cierre
+- § 4655 y comentario de cierre, FAQ oficial (apartados de concurrencia, ownership,

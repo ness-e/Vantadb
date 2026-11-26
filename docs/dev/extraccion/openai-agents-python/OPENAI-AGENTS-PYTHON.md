@@ -626,3 +626,29 @@ benchmarks/instalaciones/servicios, cambios de código, índices, git writes ni
 revisión independiente. >300 líneas: futura fase aprobada separaría specs
 de mutación/publicación y proyección/observabilidad; aquí no se crean.
 La aceptación documental final corresponde al responsable, no al autor.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No exagerar a pérdida de conversación ni atribuir fix; #4991 sólo draft referido | No se ejecutaron reproducciones ni se inspeccionaron todos los caminos de guardrails.
+- El validador no invoca modelos, juez remoto ni sandbox; producir el artefacto es otra fase con dependencias no acreditadas por este archivo.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 2. Evidencia y unidades mínimas independientes
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 10. UI, escritorio y evidencia externa
+- § 12. Incidencias, matriz y cierre propio
+- § 12.4 Ledger, UI y cierre de autoría

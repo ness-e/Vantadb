@@ -572,3 +572,31 @@ backends, auth HTTP completa y codigo SaaS. No se ejecutaron pruebas/servicios.
 **Division futura (>300 lineas):** separar specs de saver/replay (A/B/E/F) y
 store/serde (C/D) con evidencia comun. No crear ahora archivos adicionales,
 indices ni backlog; revision y aceptacion final corresponden al responsable.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se ejecuto ni se atribuyen scores locales.
+- Artefactos/opciones de pyperf dependen de CLI; no se ejecutaron ni descargaron datos | **Hallazgo discriminante:** 478–485 define nombres strings en `GRAPHS_FOR_1st_EVENT_LATENCY`, pero comprueba `if graph not in ...`, donde `graph` es el objeto compilado, no `name`.
+- Escritorio nativo no acreditado en estas fuentes; no afirmar ausencia global de clientes historicos.
+- LangSmith/Agent Server externo tienen terminos propios no acreditados por esas licencias.
+- No se ejecutaron pruebas/servicios.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § Ficha E: borrado de thread con alcance y cierre verificables
+- § 3. Riesgos y evidencia
+- § 5. No trasladar
+- § 6. Metodo y cobertura
+- § 11. Ledger complementario y cierre de autoria

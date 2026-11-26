@@ -889,7 +889,7 @@ sin gastar modelos; D usa identidad de A/C si se aprueba publicación;
 E modifica identidad A cuando altera inputs semánticos. B/E comparten
 gobernanza/budget existente, no nuevo pipeline. Las fichas no reservan IDs ni
 modifican backlog; se reconciliarán con familias transversales de
-[OpenViking](../Backlog-OpenViking-VantaDB.md) antes de specs.
+[OpenViking](../OpenViking/OPENVIKING.md) antes de specs.
 
 **División futura (>300 líneas):** specs de identidad/proyección A/E,
 sincronización/progreso C/D y relaciones/contexto B; conservar este dossier
@@ -942,3 +942,30 @@ del responsable. No validadores globales, commits, staging ni push.
 [V1]: https://github.com/ness-e/VantaDB/blob/c561158253bb88192590fa406c61e0a27dd7df8d/vanta-memory/src/ingest/merge.rs#L1-L65
 [V2]: https://github.com/ness-e/VantaDB/blob/c561158253bb88192590fa406c61e0a27dd7df8d/vanta-memory/src/context_engine/engine.rs#L1-L70
 [V3]: https://github.com/ness-e/VantaDB/blob/c561158253bb88192590fa406c61e0a27dd7df8d/vanta-memory/src/context_engine/types.rs#L1-L65
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No reproducir logs con extractos de memoria del usuario.
+- No se ejecutó ninguno de los evaluadores. ## 8.
+- **No acreditado:** paridad de A/C/E con todos los hosts/adaptadores.
+
+### Falsos positivos y descartes registrados
+
+- **Falsos positivos descartados:** ausencia de jobs, provenance, compactación, presupuesto, authz o UI.
+
+### Limitaciones declaradas en este informe
+
+- § 2. Evidencia y extracciones mínimas independientes
+- § Candidata D — evidencia de etapa aplicada y reconciliación de ingesta
+- § Candidata F — evidencia de copia recuperable durante compactación
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 10. UI, escritorio y evidencia externa

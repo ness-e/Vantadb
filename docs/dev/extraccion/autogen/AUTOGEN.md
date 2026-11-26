@@ -543,3 +543,29 @@ nuevos. Validaciones normales/adversas siguen manuales, no se ejecutaron.
 Por >300 líneas, futura fase aprobada separaría specs adapter/inyección y
 manifest/restore, conservando aquí investigación y fuentes. No se crean specs,
 código, contratos activos, backlog, commits o servicios.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- **Aceptación futura:** fechas/MIME roundtrip; schema desconocido no altera estado; snapshot corriendo declara consistencia no acreditada. 11.
+- No se acredita CVE ni vulnerabilidad de Studio desde estos reportes. ### 11.6 AgBench completo en la frontera de métricas Lectura adicional G17–G19: CLI `run_cli:869-962` default repeat=1/parallel=1, subsample=None, Docker por defecto; nativo advertido y rechazado en Windows.
+- No se ejecutó frontend ni se certificó su seguridad.
+- Validaciones normales/adversas siguen manuales, no se ejecutaron.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 5. No trasladar
+- § 6. Evidencia y cobertura
+- § 11. Arquitectura ampliada, contratos y cierre
+- § 11.7 UI real, matriz y ledger de cierre

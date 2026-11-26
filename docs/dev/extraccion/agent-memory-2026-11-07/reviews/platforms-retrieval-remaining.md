@@ -104,7 +104,7 @@ es propuesto cuando aparece en los informes.
 
 ## LangChain
 
-**Recibo:** [langchain.md](../langchain.md), lectura completa 1–493; pin LC.
+**Recibo:** [langchain.md](../../langchain/LANGCHAIN.md), lectura completa 1–493; pin LC.
 **Dictamen propuesto: cambios requeridos.** La separación contexto/historial/
 checkpoint es acertada; falta el recorrido material de mutación del vector store
 y el contraste temporal relevante para memoria.
@@ -179,7 +179,7 @@ y el contraste temporal relevante para memoria.
 
 ## LangGraph
 
-**Recibo:** [langgraph.md](../langgraph.md), lectura completa 1–551; pin LG.
+**Recibo:** [langgraph.md](../../langgraph/LANGGRAPH.md), lectura completa 1–551; pin LG.
 **Dictamen propuesto: cambios requeridos**, por explicitud de privacidad al
 reanudar, no porque falte memoria semántica ni porque SQLite sea el backend Vanta.
 
@@ -245,7 +245,7 @@ reanudar, no porque falte memoria semántica ni porque SQLite sea el backend Van
 
 ## CrewAI
 
-**Recibo:** [crewai.md](../crewai.md), lectura completa 1–807; pin CA.
+**Recibo:** [crewai.md](../../crewAI/CREWAI.md), lectura completa 1–807; pin CA.
 **Dictamen propuesto: sin hallazgos bloqueantes en este alcance.**
 No equivale a aceptación final, compatibilidad ejecutada ni seguridad global.
 
@@ -296,7 +296,7 @@ Esto no rellena lagunas con un resultado de runtime.
 
 ## LightRAG
 
-**Recibo:** [light-rag.md](../light-rag.md), lectura completa 1–641; pin LR.
+**Recibo:** [light-rag.md](../../LightRAG/LIGHTRAG.md), lectura completa 1–641; pin LR.
 **Dictamen propuesto: cambios requeridos**, por evidencia Studio atribuida
 a una revisión que no contiene dos de los componentes citados.
 
@@ -364,7 +364,7 @@ a una revisión que no contiene dos de los componentes citados.
 
 ## PageIndex
 
-**Recibo:** [pageindex.md](../pageindex.md), lectura completa 1–499; pin PI.
+**Recibo:** [pageindex.md](../../PageIndex/PAGEINDEX.md), lectura completa 1–499; pin PI.
 **Dictamen propuesto: cambios requeridos**, por identidad de evidencia Studio;
 no por el supuesto exploit #585, que no queda acreditado.
 
@@ -428,7 +428,7 @@ no por el supuesto exploit #585, que no queda acreditado.
 
 ## Serviette
 
-**Recibo:** [serviette.md](../serviette.md), lectura completa 1–483; pin SE.
+**Recibo:** [serviette.md](../../serviette/SERVIETTE.md), lectura completa 1–483; pin SE.
 **Dictamen propuesto: cambios requeridos**, por evidencia Studio mal atribuida.
 
 ### Ledger 0 + 10
@@ -486,7 +486,7 @@ no por el supuesto exploit #585, que no queda acreditado.
 
 ## Meilisearch
 
-**Recibo:** [meilisearch.md](../meilisearch.md), lectura completa 1–603; pin ME,
+**Recibo:** [meilisearch.md](../../meilisearch/MEILISEARCH.md), lectura completa 1–603; pin ME,
 rama main. **Dictamen propuesto: cambios requeridos**, por ME-1/ME-2.
 La prohibición de forge impide acreditar incidencias y no es defecto del producto.
 

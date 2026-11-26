@@ -48,7 +48,7 @@ No fue necesaria red pública ni carga de servidores.
 
 ## Chroma: recibo durable
 
-**Entrega contrastada:** [chroma.md](../chroma.md), 697 líneas.
+**Entrega contrastada:** [chroma.md](../../chroma/CHROMA.md), 697 líneas.
 Relectura acotada: 1–65, 139–431 y 447–697; no lectura completa nueva.
 SHA-256 de la entrega:
 `20ACE25BDD0824344697B68CFA917FE69954D6E8601107F7CC40864E4D81E171`.
@@ -147,7 +147,7 @@ Este recibo no constituye aceptación final.
 
 ## Milvus: recibo durable
 
-**Entrega contrastada:** [milvus.md](../milvus.md), 867 líneas.
+**Entrega contrastada:** [milvus.md](../../milvus/MILVUS.md), 867 líneas.
 Relectura acotada: 1–33, 171–335, 420–480, 500–737 y 755–867;
 no lectura completa nueva. SHA-256 de la entrega:
 `6829A293BAB5CD5D90F89F7955AC9811BE9D84C5FBF1303B89042106677BBE09`.

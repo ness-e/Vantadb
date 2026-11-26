@@ -507,3 +507,33 @@ propagados a C, benchmark, matriz y UI; pendiente de closure independiente.
 No ejecución ni aceptación final.
 Si se aprueba pasar a specs, separar A/D/importación, B/E/ciclo de vida,
 C/F/consulta y G/Studio; mantener este dossier con TOC como evidencia histórica.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Recibo [GF-1](../agent-memory-2026-11-07/reviews/memory-code-remaining.md#graphify): denominador/refusal propagados a C, benchmark, matriz y UI; pendiente de closure independiente.
+- No se verificaron indexación, move/rename, migración de caches viejos, interoperabilidad MCP o runtime local-only. ## 7.
+- No se localizaron ni inspeccionaron esos runners en las superficies revisadas; no se acredita reproducción end-to-end de esas tablas.
+- Interfaz y escritorio Hay fuente de exportación HTML (`export.py`), callflow/tree HTML y wiki/Obsidian; no se acredita escritorio nativo.
+- No reproducción ni garantía de todas las ramas Windows | Las cifras SWE-bench y comparación BM25 de #5051 son claims del autor, no medición propia ni equivalencia QA; sus poblaciones no autorizan reconstruir un denominador único sin runner.
+- No se verificó merge de PR correctivo alguno.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § Ficha A — Importación con evidencia por arista
+- § 3. Riesgos y evidencia negativa
+- § 5. No trasladar
+- § 7. Benchmarks reales y límites
+- § 11. Dossier ampliado de flujos y evidencia
+- § 12. Fichas operativas y cierre

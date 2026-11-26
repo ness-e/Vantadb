@@ -797,3 +797,29 @@ fuentes, índices, método ni archivos fuera de estas tres fichas.
 [V-recall]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/hooks/auto_recall.rs#L303-L334
 [V-context]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L252-L348
 [V-checkpoint]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/checkpoint.rs#L79-L116
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se ejecutaron validadores de enlaces/schema ni se regeneraron indices: propiedad y runtime lo prohiben. ## 7.
+- No consta hash/split congelado del dataset descargado; `oss` y modelos del juez no identifican extracción, embeddings ni configuración efectiva del servidor.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § Mem0: extraccion aditiva, entidades y limites del cliente alojado
+- § Licencia por superficie y límite de reutilización
+- § Corte de evidencia y decisiones prioritarias
+- § 5. Que no trasladar
+- § 6. Advertencias y cobertura
+- § Contraste real con Studio y cierre de cobertura

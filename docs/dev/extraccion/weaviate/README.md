@@ -36,7 +36,6 @@ Esta carpeta contiene el dossier del repositorio [`weaviate/weaviate`](https://g
 
 ## Documentos relacionados
 
-- Informe original de campaña: `../agent-memory-2026-11-07/weaviate.md`
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`

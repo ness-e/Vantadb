@@ -38,7 +38,7 @@ prompts, métricas, umbrales, rúbricas o configuración.
 
 ## Hindsight
 
-**Recibo:** leído íntegro [hindsight.md](../hindsight.md), líneas 1–622;
+**Recibo:** leído íntegro [hindsight.md](../../hindsight/HINDSIGHT.md), líneas 1–622;
 clon `C:\Users\Eros\hindsight`, HEAD comprobado
 `eb963cb5a929d92c081371df64c2d5c2fe3351af`.
 **Veredicto propuesto: cambios requeridos.**
@@ -130,7 +130,7 @@ clon `C:\Users\Eros\hindsight`, HEAD comprobado
 
 ## Agentmemory
 
-**Recibo:** leído íntegro [agentmemory.md](../agentmemory.md), líneas 1–535;
+**Recibo:** leído íntegro [agentmemory.md](../../agentmemory/AGENTMEMORY.md), líneas 1–535;
 HEAD del clon `C:\Users\Eros\agentmemory` comprobado
 `4f758eff36c8403570e1bf2ac6d986239fcdb662`.
 **Veredicto propuesto: cambios requeridos.** No se encontró otro hallazgo
@@ -194,7 +194,7 @@ bloqueante en los cuerpos contrastados, además de la atribución visual AM-1.
 
 ## Supermemory
 
-**Recibo:** leído íntegro [supermemory.md](../supermemory.md), líneas 1–451;
+**Recibo:** leído íntegro [supermemory.md](../../supermemory/SUPERMEMORY.md), líneas 1–451;
 clon `C:\Users\Eros\supermemory`, HEAD comprobado
 `16ed414e0e0c61c946b7687ec813b2064fe75dd4`.
 **Veredicto propuesto: sin hallazgos bloqueantes en este alcance.**
@@ -260,7 +260,7 @@ separar navegación actual de cuerpo del snapshot, sin presentar UI nueva ausent
 
 ## TencentDB Agent Memory
 
-**Recibo:** leído íntegro [tencentdb-agent-memory.md](../tencentdb-agent-memory.md),
+**Recibo:** leído íntegro [tencentdb-agent-memory.md](../../TencentDB-Agent-Memory/TENCENTDB-AGENT-MEMORY.md),
 líneas 1–688; clon `C:\Users\Eros\TencentDB-Agent-Memory`, HEAD comprobado
 `2002196f2d7c22ea267cfcaf67c5a6fa861df681`.
 **Veredicto propuesto: cambios requeridos.**
@@ -339,7 +339,7 @@ líneas 1–688; clon `C:\Users\Eros\TencentDB-Agent-Memory`, HEAD comprobado
 
 ## Letta
 
-**Recibo:** leído íntegro [letta.md](../letta.md), líneas 1–395; HEAD del clon
+**Recibo:** leído íntegro [letta.md](../../letta/LETTA.md), líneas 1–395; HEAD del clon
 `C:\Users\Eros\letta` comprobado `8816d3a8516893bfdc0fa14bfb1235226012e295`.
 Su README y AGENTS completos confirman landing y retiro de V1. Se contrastó
 fuente complementaria actual `letta-ai/letta-code` al SHA

@@ -8,7 +8,7 @@ tags: [extraccion, licenses]
 
 # Licencias del Corpus de Extracción (43 Proyectos)
 
-Auditoría legal estática (solo lectura) de los **43 repositorios** del corpus de extracción ([inventario general](./agent-memory-2026-11-07/README.md), [manifiesto base](./agent-memory-2026-11-07/clone-manifest.json), [manifiesto de adiciones](./agent-memory-2026-11-07/clone-additions-manifest.json), [informe OpenViking](./Backlog-OpenViking-VantaDB.md) e [formato canónico de backlogs](./BACKLOG-FORMAT.md)), contrastada contra los ficheros `LICENSE*`/`NOTICE*` de cada clon en `C:\Users\Eros\<proyecto>` y cruzada con las **265 candidatas `X-*`** y la licencia **Apache-2.0** de VantaDB.
+Auditoría legal estática (solo lectura) de los **43 repositorios** del corpus de extracción ([inventario general](./agent-memory-2026-11-07/README.md), [manifiesto base](./agent-memory-2026-11-07/clone-manifest.json), [manifiesto de adiciones](./agent-memory-2026-11-07/clone-additions-manifest.json), [informe OpenViking](./OpenViking/OPENVIKING.md) e [formato canónico de backlogs](./BACKLOG-FORMAT.md)), contrastada contra los ficheros `LICENSE*`/`NOTICE*` de cada clon en `C:\Users\Eros\<proyecto>` y cruzada con las **265 candidatas `X-*`** y la licencia **Apache-2.0** de VantaDB.
 
 > **Alcance normativo:** análisis técnico de ingeniería para control de provenance; no constituye asesoría jurídica formal. Reescribir código a Rust/TypeScript **no extingue** derechos de autor si existe traducción sustancial: donde rige gate *clean-room*, solo se trasladan invariantes y contratos abstractos.
 

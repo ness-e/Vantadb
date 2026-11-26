@@ -634,7 +634,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `Notion/Reviews
 
 ## 📥 Alta 2026-11-07 — Brechas Críticas de Integridad Cognitiva L1 y Deriva Estratégica Pre-`v0.10.0`
 
-> Origen: Auditoría forense cruzada contra `HEAD` (`97c9623c8`), `docs/dev/extraccion/Backlog-OpenViking-VantaDB.md`, `docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md` y `docs/dev/strategy/` durante la planificación de la ventana técnica pre-diciembre (`2026-11-07` → `2026-12-01`).
+> Origen: Auditoría forense cruzada contra `HEAD` (`97c9623c8`), `docs/dev/extraccion/OpenViking/OPENVIKING.md`, `docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md` y `docs/dev/strategy/` durante la planificación de la ventana técnica pre-diciembre (`2026-11-07` → `2026-12-01`).
 
 > *(Todas las filas de este bloque se migraron a `docs/dev/avance/activo/operaciones.md` — `DOC-24` cerrado el 2026-11-22.)*
 

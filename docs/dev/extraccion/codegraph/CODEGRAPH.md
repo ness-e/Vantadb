@@ -554,3 +554,29 @@ autor independiente y casos manuales pendientes; no validación global ni
 ejecución. Si pasa a specs activas, dividir A/frescura, B/C/importación,
 D/query y E/Studio; este dossier >300 líneas conserva TOC y trazabilidad
 sin crear archivos adicionales ni reservar backlog.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- `npm run eval` compilaría y escribiría JSON: **no se ejecutó**.
+- Es observación de esas ramas, no reproducción de pérdida ni diagnóstico del writer global.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § CodeGraph: evidencia revisionada y actualización de grafos por archivo
+- § Unidad A — evidencia de respuesta ligada a revisión verificable
+- § 3. Defectos, riesgos e issues: nivel de evidencia
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 12. Fichas adicionales y cierre

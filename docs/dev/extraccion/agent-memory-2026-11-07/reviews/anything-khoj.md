@@ -45,7 +45,7 @@ Los recibos siguientes preservan contenido comprobado, no solo IDs de herramient
 
 ### Recibo de lectura e identidad
 
-Informe [anything-llm.md](../anything-llm.md), **629 líneas leídas completas**,
+Informe [anything-llm.md](../../anything-llm/ANYTHING-LLM.md), **629 líneas leídas completas**,
 incluidas fichas A–G, cobertura y definiciones de enlaces.
 Clon `C:\Users\Eros\anything-llm`; HEAD comprobado:
 `308b27662b2f6fd4947791d61c797945c609fcbc` (en adelante SHA A).
@@ -165,7 +165,7 @@ al responsable principal y no autoriza implementar A–G.
 
 ### Recibo de lectura e identidad Khoj
 
-Informe [khoj.md](../khoj.md), **725 líneas leídas completas**, incluidas
+Informe [khoj.md](../../khoj/KHOJ.md), **725 líneas leídas completas**, incluidas
 fichas A–G, benchmark y fuentes. Clon `C:\Users\Eros\khoj`; HEAD comprobado:
 `ae229ca894c0b80ad84664afcfdde523b5e87057` (en adelante SHA K).
 `pyproject.toml` confirma Python >=3.10,<3.13, Django 5.1.15, pgvector 0.2.4,

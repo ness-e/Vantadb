@@ -41,7 +41,7 @@ universal. Los veredictos son propuestas al responsable, no aceptación final.
 
 ## Agno
 
-**Recibo durable:** informe [agno.md](../agno.md), leído íntegro, líneas
+**Recibo durable:** informe [agno.md](../../agno/AGNO.md), leído íntegro, líneas
 1–624, SHA-256
 `c34ed65266cd9d714dad3586569357c62ba5abac183f7c1429741e395f6fb00a`.
 Clon `C:\Users\Eros\agno`, HEAD verificado
@@ -129,7 +129,7 @@ en bug Vanta ni impide corregir documentalmente A-1.
 
 ## AutoGen
 
-**Recibo durable:** [autogen.md](../autogen.md), leído íntegro, líneas 1–517,
+**Recibo durable:** [autogen.md](../../autogen/AUTOGEN.md), leído íntegro, líneas 1–517,
 SHA-256 `ba3afcd302a9c10cd787ae3a69624cfe89d1996bf067e3dd174f3f6fda571831`.
 Clon `C:\Users\Eros\autogen`, HEAD verificado
 `d07c667a3239ea4ab7af62a53b0f4ff205a1f23d` (G-pin).
@@ -224,7 +224,7 @@ latencia retrieval; no scores, presupuestos pagados ni aislamiento medidos.
 
 ## OpenAI Agents Python
 
-**Recibo durable:** [openai-agents-python.md](../openai-agents-python.md),
+**Recibo durable:** [openai-agents-python.md](../../openai-agents-python/OPENAI-AGENTS-PYTHON.md),
 leído íntegro, líneas 1–632, SHA-256
 `01a093ec66b034fedabff9a455359a63dbba90ea66d3d8d37e0336bb1fbbffc5`.
 Clon `C:\Users\Eros\openai-agents-python`, HEAD verificado
@@ -317,7 +317,7 @@ ausencia ni como pruebas fallidas.
 
 ## Flowise
 
-**Recibo durable:** [flowise.md](../flowise.md), leído íntegro, líneas 1–864,
+**Recibo durable:** [flowise.md](../../Flowise/FLOWISE.md), leído íntegro, líneas 1–864,
 SHA-256 `4c622e01f98d8e3e21ba6519f86172930a513f4273351b03893f901eef269be1`.
 Clon `C:\Users\Eros\Flowise`, HEAD verificado
 `9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb` (F-pin).

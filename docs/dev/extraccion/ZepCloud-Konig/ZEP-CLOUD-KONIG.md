@@ -583,7 +583,7 @@ No conviene crear backlog nuevo para:
 Referencias:
 
 - `docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md`
-- `docs/dev/extraccion/agent-memory-2026-11-07/graphiti.md`
+- `docs/dev/extraccion/ZepCloud-Konig/ZEP-CLOUD-KONIG.md`
 - `docs/dev/extraccion/graphiti/BACKLOG.md`
 - `docs/api/MEMORY_INTERCHANGE_FORMAT.md`
 - `docs/api/EMBEDDED_SDK.md`
@@ -714,3 +714,24 @@ La investigación debería producir dos documentos separados si se continúa:
 - `konig.md`: dossier conceptual del data plane.
 
 No se ejecutó implementación ni tests. Este documento es análisis estático de documentación pública y contraste con el estado/candidatos documentados en VantaDB.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se ejecutó implementación ni tests.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 0. Identidad, evidencia y límites
+- § 5. Benchmarks, claims y límites

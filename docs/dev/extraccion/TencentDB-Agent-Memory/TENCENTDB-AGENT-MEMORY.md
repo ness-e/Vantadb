@@ -726,3 +726,28 @@ adapters/acceso/recall B/E/G/H; este dossier conserva evidencia y decisiones.
 [V5]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L52-L158
 [V6]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L228-L329
 [V7]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/erasure.rs#L191-L243
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Enlaces #1942/#1960 son propuestas no leídas, **fix no acreditado** | | [#1935](https://github.com/TencentCloud/TencentDB-Agent-Memory/issues/1935), open, creada 2026-11-03 | `DefaultAgentTemplateSection.tsx`: respuesta tardía equipo A pisa estado UI de B; sin secuencia/cancelación según reportante | B exige identidad/revisión en UI y backend; no afirmar fuga servidor ni bug Studio. #1941 enlazada no acredita merge | No son reproducciones ni prueba de que todo el snapshot…
+- T17/T19 eran menciones de la ampliación previa sin ledger: aquí se remiten a ruta BFF T16, **no se acredita un guard universal por esos alias**.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 3. Defectos, riesgos e issues con evidencia diferenciada
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 11. Cobertura, relaciones y cierre de autoría
+- § F — TTL, retención y cierre de referencias

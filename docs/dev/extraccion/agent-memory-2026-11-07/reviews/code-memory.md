@@ -26,7 +26,7 @@ laguna material del contrato; baja: precisión documental. No hay score agregado
 
 ## codebase-memory-mcp
 
-**Informe:** [codebase-memory-mcp.md](../codebase-memory-mcp.md), leído íntegro,
+**Informe:** [codebase-memory-mcp.md](../../codebase-memory-mcp/CODEBASE-MEMORY-MCP.md), leído íntegro,
 líneas 1–498. **Veredicto propuesto: cambios requeridos.**
 SHA contrastado: `612eee2518ef84cc573e491fdee5fa5c90264cb5`;
 clon `C:\Users\Eros\codebase-memory-mcp`.

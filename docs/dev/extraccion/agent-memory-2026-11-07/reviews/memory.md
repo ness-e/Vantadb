@@ -49,7 +49,7 @@ clon `C:\Users\Eros\mem0`, SHA
 ### Hallazgos
 
 1. **M1 — Alta — fallo de búsqueda convertido en vacío evaluable.**
-   [mem0.md L635-652](../mem0.md#cómo-funciona-realmente-el-runner-longmemeval-fijado)
+   [mem0.md L635-652](../../mem0/MEM0.md#cómo-funciona-realmente-el-runner-longmemeval-fijado)
    sigue excepciones del driver, pero no el resultado efectivo del wrapper.
    En el gitlink `4b61c5d31b9c668a12b4f5e78064248a02c82d2b`,
    [`mem0_client.py L254-312,314-343`](https://github.com/mem0ai/memory-benchmarks/blob/4b61c5d31b9c668a12b4f5e78064248a02c82d2b/benchmarks/common/mem0_client.py#L254-L343)

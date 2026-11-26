@@ -545,3 +545,30 @@ del pin y cuerpos Studio incorporados; propagados a E/matriz/UI y pendientes.
 No aceptación ni certificación universal de una versión publicada.
 
 **Plan de división si se aprueban specs:** separar publicación/proyección (A/B), repair/compactación (C/D), recall/linaje (F/G) y producto/medición (E/§7), manteniendo aquí identidad, límites y fuentes. Este archivo supera 300 líneas por cobertura de mecanismos, no autoriza crear esos documentos ahora. La autoría trata los diez ejes con las lagunas anteriores abiertas; no constituye revisión independiente ni aceptación final.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Los tests localizados no se ejecutaron ni se presentaron como aprobados.
+- No se ejecutaron los tests, herramientas Git de las trazas, CLI ni benchmark.
+- Sigue sin acreditarse: API de bloques core autoeditada **en letta-code** (acreditada solo en V1 — en el producto actual la edición es de archivos MemFS, no una API de bloques homónima), colección archival **en el harness actual** (acreditada solo en V1 como `Archive`+`ArchivalPassage`), tools de edición MemFS completas, revisión «delivered» separada del artefacto compilado en V1, y cualquier garantía del servidor remoto detrás de `/v1/*`.
+
+### Falsos positivos y descartes registrados
+
+- - **Falso positivo descartado:** Vanta no carece de personas, compactación, scheduler, checkpoints ni Studio.
+
+### Limitaciones declaradas en este informe
+
+- § Letta: memoria versionada, publicación de contexto y límites del clon
+- § Matriz mecanismo → evidencia (hecho / inferencia / no acreditado)
+- § F. Contrato de recall que declara backend y cobertura
+- § 5. Qué no trasladar
+- § 11. Fuentes, cobertura y pendientes
+- § Evidencia fijada

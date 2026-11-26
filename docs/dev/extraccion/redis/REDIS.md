@@ -572,3 +572,27 @@ archivos ahora ni dividir para ocultar lagunas.
 [VWORK]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/services/pipeline_worker.rs#L265-L390
 [VQUEUE]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/local_backend.rs#L220-L290
 [VCP]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/checkpoint.rs#L112-L117
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Los tres flujos son lectura estática, no reproducciones.
+- - **Contrato propuesto:** `inspect_recovery(scope) -> Result<RecoveryAssessment, RecoveryError>` con último tramo válido, categoría de daño, bytes no acreditados y acciones permitidas.
+- Se leyeron cuerpos completos y comentarios por REST GitHub; no se ejecutaron reproducciones. | Incidencia leída | Estado observado y mecanismo | Aplicación discriminante | |---|---|---| | [#13956 — XAUTOCLAIM concurrent access duplicates messages][RISSUE1], creada 2025-04-18 | Abierta; el reporte atribuye duplicados a varios workers. [Respuesta 2025-04-19](https://github.com/redis/redis/issues/13956#issuecomment-2816596033): claim atómico resetea idle; revisar…
+
+### Falsos positivos y descartes registrados
+
+- **Falsos positivos descartados:** no faltan TTL, presupuestos, scheduler, dedup, índices híbridos ni Studio.
+- Una ficha queda descartada si el inventario actual acredita el contrato completo. ## 2.
+
+### Limitaciones declaradas en este informe
+
+- § 5. Qué no trasladar
+- § 11. Evidencias, cobertura y handoff

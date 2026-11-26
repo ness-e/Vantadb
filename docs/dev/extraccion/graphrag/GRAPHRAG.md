@@ -28,7 +28,7 @@ tags: [research, memory, engineering]
 
 Ampliación estática del **2026-11-07**, conforme al [contrato completo](../agent-memory-2026-11-07/EXPANSION-CONTRACT.md),
 [METHOD](../agent-memory-2026-11-07/METHOD.md) y [BENCHMARK-NOTES](../agent-memory-2026-11-07/BENCHMARK-NOTES.md), con
-[OpenViking](../Backlog-OpenViking-VantaDB.md) como referencia de profundidad, no de algoritmo.
+[OpenViking](../OpenViking/OPENVIKING.md) como referencia de profundidad, no de algoritmo.
 Se conserva el SHA del manifiesto; no se actualizó ningún clon. Los hallazgos anteriores
 válidos se mantienen; se corrigen su baseline Vanta histórico y el eje de issues no leído.
 No se afirma lectura total, reproducción de incidencias ni superioridad medida.
@@ -596,3 +596,30 @@ manteniendo este dossier y sus evidencias; no se crean esos archivos ahora.
 [V4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/services/pipeline_worker.rs#L795-L849
 [V5]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/wiki/ingestors.rs#L45-L89
 [G16]: https://github.com/microsoft/graphrag/blob/34b2b67ae4601ad0b47bcd179fbe3f2a23aa0857/packages/graphrag/graphrag/index/run/run_pipeline.py#L54-L157
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se verificaron despliegue, todos los motores soportados por esa UI ni escritorio nativo.
+- Para UI, Studio **existe** en el worktree descrito por [VANTA-REFERENCE](../agent-memory-2026-11-07/VANTA-REFERENCE.md); el inspector de comunidades A/B sigue **no acreditado**.
+- Quedan sin acreditar runner QA congelado dentro de la búsqueda acotada, equivalencia con memoria longitudinal, erasure en todos los almacenes/backups, coherencia tras crash y autorización completa de derivados.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 6. Advertencias metodológicas y evidencia
+- § 10. Escritorio, interfaz e inspección; ledger de cobertura
+- § Cierre: fuentes complementarias y dependencias
+- § Memoria durable, costes y límites finales
+- § Cierre complementario: prioridades, UI y trazabilidad Vanta
+- § Cobertura de cierre y lagunas conservadas

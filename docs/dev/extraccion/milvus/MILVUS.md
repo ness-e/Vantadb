@@ -896,3 +896,28 @@ preguntas, scoring, umbrales ni harnesses.
 - Comprobación documental acotada: anclas propias y rutas de fuentes fijadas
   presentes; `git diff --check` de los dos informes sin observaciones.
   No se ejecutó un validador global ni se tocaron archivos concurrentes.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se acredita un editor general de memorias, cancelación de todos los jobs desde UI ni una aplicación desktop nativa desde esa muestra.
+- No se ejecutó un validador global ni se tocaron archivos concurrentes.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § Ficha candidata F — motivo de cierre/mantenimiento separado de readiness
+- § 5. Qué no trasladar
+- § 6. Método, licencia y límites
+- § 11. Fuentes, cobertura y cierre de autoría
+- § 11.3 Cobertura leída/no leída y red pública

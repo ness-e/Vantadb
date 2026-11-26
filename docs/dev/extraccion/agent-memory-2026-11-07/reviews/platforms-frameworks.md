@@ -48,7 +48,7 @@ declarados en ese recibo.
 
 ## Dify
 
-**Informe:** [dify.md](../dify.md), leído íntegro, líneas 1–690.
+**Informe:** [dify.md](../../dify/DIFY.md), leído íntegro, líneas 1–690.
 **Pin:** `65b4e17d6ebeff39c7e66c832649afff01666adf`,
 clon `C:\Users\Eros\dify`. **Veredicto propuesto: cambios requeridos**,
 por concreción de integración, no por una vulnerabilidad demostrada.
@@ -125,7 +125,7 @@ por concreción de integración, no por una vulnerabilidad demostrada.
 
 ## Langflow
 
-**Informe:** [langflow.md](../langflow.md), leído íntegro, líneas 1–590.
+**Informe:** [langflow.md](../../langflow/LANGFLOW.md), leído íntegro, líneas 1–590.
 **Pin:** `60999cc9a7350e44dde3ef641baae864e10861f0`,
 clon `C:\Users\Eros\langflow`. **Veredicto propuesto: cambios requeridos.**
 Hay sustancia técnica contrastable; el problema no es su longitud sino una

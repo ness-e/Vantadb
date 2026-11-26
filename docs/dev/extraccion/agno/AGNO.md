@@ -651,3 +651,29 @@ dedup inexistente y WriteReceipt como firma. Sin auditoría exhaustiva de
 providers, UI SaaS, auth transport completa ni crash físico. Por superar 300
 líneas, una futura fase aprobada separaría specs de scope, publicación y
 propuestas; aquí no se crean specs/backlog ni archivos de producto.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Comentario menciona PR #11154: no se acredita merge/fix | | [#9983](https://github.com/agno-agi/agno/issues/9983), abierta 2026-09-05, Open | Reporte en v3.0.6 `d1a388446e1b44b20498c772e91303588e2734cf`; manager tool global coincide con [A10/A11] en pin estudiado | B/E: destructive scope externo al modelo. #9986 es corrección propuesta referida en hilo, no merge acreditado | Se leyó cuerpo y conversación visible, no sólo título.
+- La propiedad en update queda condicionada al wrapper/backend concretos, no acreditada por pasar user al DTO.
+- Sin auditoría exhaustiva de providers, UI SaaS, auth transport completa ni crash físico.
+
+### Falsos positivos y descartes registrados
+
+- Excluidos falsos positivos: budgets inexistentes, IAM ausente,
+
+### Limitaciones declaradas en este informe
+
+- § Ficha D: directorio de entidades con cobertura explicita
+- § 5. No trasladar
+- § 6. Evidencia y cobertura
+- § 11. Cierre de contratos y evidencia
+- § 11.5 Matriz auditada, fuentes y cierre propio

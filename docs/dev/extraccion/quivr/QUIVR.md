@@ -860,3 +860,28 @@ No crear esos documentos, harnesses ni tareas activas sin aprobación.
 [VASSEMBLY]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L252-L325
 [VSTUDIO]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/activity/ActivityPanel.tsx#L1-L90
 [VRETRIEVAL]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/lens/retrieval/RetrievalLens.tsx#L1-L85
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- **No acreditado, no inexistente:** fence absorbente de fuente, invalidación de todas sus proyecciones, retractación de notice ya consumido y resolver E en todas las rutas/bindings.
+
+### Falsos positivos y descartes registrados
+
+- El muestreador exige positivo y que quepan todos los positivos bajo `max_source_bytes` del perfil de ingesta; conserva documentos juzgados, añade hard negatives y distractores con semilla, y registra juicios descartados por ausencia/tamaño.
+- **Falsos positivos descartados:** ausencia de híbrido, dedup, governance, cuotas, scheduler, checkpoints, compaction o UI.
+- **FMEA:** perder notice → alerta obsoleta; detectar secuencia/checkpoint; regla vieja sigue activa → falso positivo, comparar revisión al commit.
+
+### Limitaciones declaradas en este informe
+
+- § Recuperación, filtros y evidencia: no basta con un score
+- § 5. Qué no trasladar
+- § 6. Método y límites
+- § Cobertura y cierre

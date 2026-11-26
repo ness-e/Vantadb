@@ -866,3 +866,33 @@ existente de Vanta, no a un nuevo router de bases.
 **Recibo de corrección:** [GI-1/GI-2](../agent-memory-2026-11-07/reviews/memory-code-remaining.md#graphiti)
 propagados a eval, matriz, seam y aceptación UI. Pendiente de closure
 independiente; no aceptación ni resultado runtime.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- auth y lifecycle completo de MCP/cache de drivers, transacciones por driver, carreras reales de remove_episode, precisión de extracción natural y coste de modelos, datos completos del eval, clientes Zep y UI de bases externas.
+- Quedan manuales los casos adversos de las fichas, los validadores documentales acotados y cualquier medición del protocolo.
+- No se ejecutó ningún runner, prueba, build, instalación ni servicio; no se actualizaron clones, metadata, contratos o backlog ni se hizo git add/commit/push.
+- No se ejecutaron ni se “corrigieron”.
+- No se acredita ventaja de calidad/latencia por adoptar grafos ni necesidad de reemplazar las primitivas Rust existentes.
+- No hubo reproducción, revisión independiente ni aceptación final.
+- Pendiente de closure independiente; no aceptación ni resultado runtime.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 0. Identidad, evidencia y arquitectura
+- § 0.1 Revisión y límites del dictamen
+- § 0.4 Features verificadas y límites de configuración
+- § 9. Cobertura, fuentes y cierre
+- § 9.2 Cobertura de los diez ejes y división futura

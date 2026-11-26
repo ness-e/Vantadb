@@ -28,22 +28,22 @@ tags: [extraccion, audit]
 | `f7eafc3e6` | `docs(index): regenerate llms.txt missed from extraccion gate fix` | Sincroniza `llms.txt` tras el cierre de gates documentales |
 | `8b4ff7fbc` | `docs(extraccion): close docs-gates — frontmatter kinds, markdownlint, internal links` | Ajusta frontmatter/lint/links en 43 archivos y regenera `docs/index.md` |
 | `b76bd1a1e` | `docs(extraccion): cerrar Meilisearch E3, Milvus X-MIL-07 y cobertura` | Pasa [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) a `42 con límites` y regenera índices |
-| `6b80d2e05` | `docs(extraccion): letta-code acreditado en checkout local 17436c8e4...` | Acredita `letta-code` y servidor V1 archive en [letta.md](letta.md) y su backlog |
+| `6b80d2e05` | `docs(extraccion): letta-code acreditado en checkout local 17436c8e4...` | Acredita `letta-code` y servidor V1 archive en [letta.md](../letta/LETTA.md) y su backlog |
 | `1a4d91fb7` | `docs(extraccion): acreditar mecanismos del servidor Letta V1 archive...` | Amplía evidencia V1 archive en informe y backlog de Letta |
-| `0405f4aa7` | `docs(extraccion): acreditar eje E3 de incidencias de forge en informe Meilisearch` | Incorpora §12.1 en [meilisearch.md](meilisearch.md) y actualiza backlog |
+| `0405f4aa7` | `docs(extraccion): acreditar eje E3 de incidencias de forge en informe Meilisearch` | Incorpora §12.1 en [meilisearch.md](../meilisearch/MEILISEARCH.md) y actualiza backlog |
 | `ca7400f9d` | `docs(extraccion): fichas completas en backlogs restantes (lotes A, D, E)` | Completa 21 backlogs en `docs/dev/extraccion/backlogs/` |
 | `466726e70` | `docs(extraccion): fichas completas en 8 backlogs (...)` | Completa 8 backlogs (incluido `openviking.md`) |
 | `83218f1e4` | `docs(extraccion): fichas completas en 7 backlogs (...)` | Completa 7 backlogs |
 | `81623ec33` | `docs(extraccion): fichas completas en 7 backlogs (...)` | Completa 7 backlogs |
 | `4a1656b6a` | `docs(index): regenerar llms.txt con la carpeta extraccion incluida` | Primera inclusión del árbol `extraccion/` en `llms.txt` |
 | `a1812a793` | `docs(extraccion): completar revisiones profundas y backlogs por proyecto` | Crea los 43 backlogs, [../README.md](../README.md) y la negación `!docs/dev/extraccion/backlogs/` en `.gitignore` |
-| `5724b70e4` | `docs(extraccion): agrupar investigacion comparativa y backlog OpenViking` | Mueve `docs/dev/research/agent-memory-2026-11-07/` y [../Backlog-OpenViking-VantaDB.md](../Backlog-OpenViking-VantaDB.md) a `docs/dev/extraccion/` |
+| `5724b70e4` | `docs(extraccion): agrupar investigacion comparativa y backlog OpenViking` | Mueve `docs/dev/research/agent-memory-2026-11-07/` y [../Backlog-OpenViking-VantaDB.md](../OpenViking/OPENVIKING.md) a `docs/dev/extraccion/` |
 
 ## 3. Verificación de índices generados (`docs/index.md` y `llms.txt`)
 
 El inventario físico y en Git bajo `docs/dev/extraccion/` suma **115 documentos Markdown**:
 
-- `2` en raíz ([../README.md](../README.md), [../Backlog-OpenViking-VantaDB.md](../Backlog-OpenViking-VantaDB.md)).
+- `2` en raíz ([../README.md](../README.md), [../Backlog-OpenViking-VantaDB.md](../OpenViking/OPENVIKING.md)).
 - `50` en `agent-memory-2026-11-07/` (`8` documentos de control + `42` informes de proyectos).
 - `19` en `agent-memory-2026-11-07/reviews/`.
 - `44` en `backlogs/` ([../BACKLOG-FORMAT.md](../BACKLOG-FORMAT.md) + `43` backlogs por proyecto/OpenViking).
@@ -68,7 +68,7 @@ El inventario físico y en Git bajo `docs/dev/extraccion/` suma **115 documentos
 
 ## 5. Auditoría de enlaces internos y referencias legacy
 
-- **`docs/dev/research/agent-memory` y `../../Backlog-OpenViking`:** **0 coincidencias** en todo `docs/dev/extraccion/`. Todas las referencias al estudio central usan `[../Backlog-OpenViking-VantaDB.md](../Backlog-OpenViking-VantaDB.md)` o `Backlog-OpenViking-VantaDB.md` según el nivel del archivo.
+- **`docs/dev/research/agent-memory` y `../../Backlog-OpenViking`:** **0 coincidencias** en todo `docs/dev/extraccion/`. Todas las referencias al estudio central usan `[../Backlog-OpenViking-VantaDB.md](../OpenViking/OPENVIKING.md)` o `Backlog-OpenViking-VantaDB.md` según el nivel del archivo.
 - **Wikilinks `[[...]]`:** **0 coincidencias** en todo `docs/dev/extraccion/`.
 - **Enlaces `../../` hacia código y docs del repositorio:** verificados (47 ocurrencias hacia `src/`, `vanta-memory/`, `vantadb-mcp/`, `evals/` y `docs/user/operations/BENCHMARKS.md`), todos con profundidad relativa exacta (`../../../` desde la raíz de `extraccion/` y `../../../../` desde `agent-memory-2026-11-07/`).
 - **Caso `../../avance/investigaciones.md`:**
@@ -78,12 +78,12 @@ El inventario físico y en Git bajo `docs/dev/extraccion/` suma **115 documentos
 
 ## 6. Desincronización de cobertura: `41+1` vs `42/42`
 
-Tras los commits `0405f4aa7` (acreditación del eje E3 de incidencias en [meilisearch.md](meilisearch.md) L45–48 y §12.1) y `b76bd1a1e`, el estado real del corpus pasó a **42/42 informes aceptados con límites**, pero cuatro documentos no se actualizaron:
+Tras los commits `0405f4aa7` (acreditación del eje E3 de incidencias en [meilisearch.md](../meilisearch/MEILISEARCH.md) L45–48 y §12.1) y `b76bd1a1e`, el estado real del corpus pasó a **42/42 informes aceptados con límites**, pero cuatro documentos no se actualizaron:
 
 | Archivo y líneas | Estado declarado actualmente | Estado real acreditado | Acción requerida |
 |---|---|---|---|
 | [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) L19–25, L97, L123–125 | **42 aceptados con límites** (Meilisearch E3 acreditado 2026-11-20) | Vigente (fuente actualizada en `b76bd1a1e`) | Mantener; revisar nota colateral de `codebase-memory-mcp` en L89/L130 frente a §11.5 (`7764b490b`) |
 | [README.md](README.md) L13, L111, L119 | **41 con límites + 1 limitado** (Meilisearch E3 no acreditado por prohibición de forge) | Desactualizado | Actualizar a 42 aceptados con límites (E3 acreditado 2026-11-20 con alcance residual en §12.1) y corregir nota `.gitignore` de L120 |
 | [EXPANSION-STATUS.md](EXPANSION-STATUS.md) L18–21 (y referencias L40, L45) | **41 con límites y 1 limitado** en bloque `Estado vigente` | Desactualizado | Añadir bloque vigente 2026-11-20 (`42 con límites`) reclasificando Tanda 8 (`41+1`) como antecedente |
-| [CONSOLIDATED.md](CONSOLIDATED.md) L11, L213 | **41 aceptados con límites** y Meilisearch E3 **NO acreditado** | Desactualizado | Sincronizar cabecera L11 y fila Meilisearch de la tabla §3 (L213) con §12.1 de [meilisearch.md](meilisearch.md) |
+| [CONSOLIDATED.md](CONSOLIDATED.md) L11, L213 | **41 aceptados con límites** y Meilisearch E3 **NO acreditado** | Desactualizado | Sincronizar cabecera L11 y fila Meilisearch de la tabla §3 (L213) con §12.1 de [meilisearch.md](../meilisearch/MEILISEARCH.md) |
 | `docs/dev/avance/investigaciones.md` L229 | **41 aceptados con límites** + Meilisearch E3 **NO acreditado** | Desactualizado | Sincronizar cierre documental (y resolver su condición `tracked-but-ignored` en `.gitignore`) |

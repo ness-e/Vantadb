@@ -489,3 +489,30 @@ SE-1 propagado a C, matriz y UI; revisión independiente posterior, no autoacept
 [SV2]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/ingest/worker.rs#L35-L110
 [SV3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/attestation.rs#L654-L738
 [SS1]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/memory/MemoryLens.tsx#L57-L412
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se acreditan CVEs, merge ni arreglos desde estado Open/Closed.
+- Negativos propios: no bug nuevo acreditado; fingerprint/retraction integral y separación de errores por todos los ingestors quedan no acreditados, no ausentes.
+- `main.py:717–721` sirve HTML same-origin, frontend standalone es opción de despliegue; no se acredita app desktop/SaaS.
+- Durabilidad del registro UI no acreditada.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 3. Defectos, riesgos e issues transferibles, con su nivel de evidencia.
+- § 11. Cierre de autoría: servidor, materialización y contratos completos
+- § 11.2. A/B: cierre de los once campos de §2
+- § 11.4. D — evidencia documental parcial con presupuesto compartido
+- § 12.4. Interfaz real, Studio y cierre

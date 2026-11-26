@@ -940,3 +940,32 @@ No staging, commits, push o validadores globales: cierre de autoría únicamente
 [CV-reflection]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/reflection/mod.rs#L134-L319
 [CV-recall]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/hooks/auto_recall.rs#L116-L335
 [CV-assembly]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L197-L348
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- PR causal de cierres, adaptador Postgres completo, todos los handlers de ACL, implementación completa de cada etapa/modelo de merge, recovery multiproceso, conectores, derechos de datasets/pesos y SBOM.
+- BEAM Modal no publicado y selección sobre preguntas reportadas siguen siendo límites; no se crean protocolos alternativos para cubrirlos artificialmente.
+- - **Pruebas futuras:** las aceptaciones por ficha y §10 siguen sin ejecutarse.
+- Autorización, crash safety, ahorro y mejora de calidad no están certificados.
+- Diez ejes documentados no equivalen a aceptación independiente.
+- - **Partición futura:** por superar 300 líneas, mantener esta comparación como principal; si se aprueba implementación, separar specs de readiness/recibos, ownership/update/locks, promoción y contexto/UI.
+- No crear esos archivos ahora.
+- **FMEA/aceptación CO-1:** corpus residual/config desconocida → ejecución no reproducible; conteo de entradas presentado como juzgadas → denominador falso.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 5. Que no trasladar
+- § 6. Advertencias y cobertura
+- § Cierre de autoría y cobertura remanente

@@ -542,3 +542,33 @@ independiente; “sin bloqueantes” en la revisión no es aceptación final.
 [V-derived-input]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/sdk/types/record.rs#L184-L224
 Si se aprueba implementación, separar specs A/E/importación, B/F/frescura e
 identidad y C/D/Studio/guías; este dossier >300 líneas conserva TOC y evidencias.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Son observación de código e hipótesis discriminante, respectivamente, **no reproducciones ni bugs universales**.
+- - **Pasos/dependencias:** validar JSON/schema → conservar original y problemas de saneamiento → mapear IDs namespaced → contrastar rutas/spans contra revisión permitida → persistir explicación como derivada de evidencia → publicar relaciones con origen conocido o estado no acreditado.
+- No se ejecutó ninguno ni se reportan cifras de performance.
+- No se ejecutó el plugin ni se refrescó el clon.
+- No se acreditaron tenant/ACL/sesiones/supersession equivalentes a Vanta en este productor. [persistence/index.ts:19–144](https://github.com/Egonex-AI/Understand-Anything/blob/a6ea4024767df85ce4f99140d4f12ecfc5a81eb6/understand-anything-plugin/packages/core/src/persistence/index.ts#L19-L144) prioriza directorio legacy si existe y guarda con `writeFileSync` directo.
+- Adapter read-only evita dependencia de modelo; no fingir enriquecimiento completo si falla | | [#758](https://github.com/Egonex-AI/Understand-Anything/issues/758) | Plugin 2.9.8/macOS/Python 3.13: `script:...` termina como `file:script:...`, edges caen como missing source, layers/tours heredan IDs | Función fijada conserva la secuencia de normalización descrita; no se ejecutó repro ni se auditó toda PR.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § Understand Anything: semántica y exploración sobre evidencia canónica
+- § Ficha C — Adaptador visual y contexto acotado por evidencia
+- § 5. Componentes que no trasladar
+- § 133 no se leyó: su cierre mencionado en #739 no demuestra solución de este
+- § 12. Contratos de adopción y cierre
+- § 12.5 UI, matriz revisada, negativos y cobertura

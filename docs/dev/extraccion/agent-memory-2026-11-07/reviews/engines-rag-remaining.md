@@ -38,7 +38,7 @@ Toda aceptación de propuestas sigue reservada al responsable principal.
 
 ## Redis
 
-**Recibo guardado:** lectura íntegra de [redis.md](../redis.md), líneas 1–570;
+**Recibo guardado:** lectura íntegra de [redis.md](../../redis/REDIS.md), líneas 1–570;
 SHA upstream `5b69ba2ce91fea8e9fc70ebac8ce341b37e75533`, HEAD del clon contrastado.
 **Veredicto propuesto: cambios requeridos**, localizados en identidad Studio;
 sin hallazgo bloqueante adicional en los mecanismos contrastados.
@@ -94,7 +94,7 @@ sin hallazgo bloqueante adicional en los mecanismos contrastados.
 
 ## TiDB
 
-**Recibo guardado:** [tidb.md](../tidb.md) leído completo, 1–550.
+**Recibo guardado:** [tidb.md](../../tidb/TIDB.md) leído completo, 1–550.
 HEAD del clon `41efd866c3801a637ab2d6712b86d8b2cd77ac5b` contrastado.
 **Veredicto propuesto: cambios requeridos**, de precisión de trazado e identidad;
 la selección de mecanismos locales no exige adoptar una plataforma distribuida.
@@ -153,7 +153,7 @@ la selección de mecanismos locales no exige adoptar una plataforma distribuida.
 
 ## SurrealDB
 
-**Recibo guardado:** [surrealdb.md](../surrealdb.md) leído íntegro, 1–552;
+**Recibo guardado:** [surrealdb.md](../../surrealdb/SURREALDB.md) leído íntegro, 1–552;
 HEAD upstream `9577ac5f0caa60a39d5a334e9352aed0e232f9e6` contrastado.
 **Veredicto propuesto: cambios requeridos.** La ampliación contiene mecanismos
 útiles, pero su cierre anuncia evidencia que no está entregada en este archivo.
@@ -227,7 +227,7 @@ HEAD upstream `9577ac5f0caa60a39d5a334e9352aed0e232f9e6` contrastado.
 
 ## LlamaIndex
 
-**Recibo guardado:** [llama-index.md](../llama-index.md), lectura completa 1–916;
+**Recibo guardado:** [llama-index.md](../../llama_index/LLAMA_INDEX.md), lectura completa 1–916;
 HEAD del clon `444fdf0684707de62ebb447d658dba137dd9cb99` contrastado.
 **Veredicto propuesto: cambios requeridos.** Los defectos del adapter que
 identifica el autor son hechos estáticos válidos; falta hacer reproducible
@@ -296,7 +296,7 @@ parte sustancial de la ampliación con referencias y revisión bien enlazadas.
 
 ## GraphRAG
 
-**Recibo guardado:** [graphrag.md](../graphrag.md) íntegro, 1–574;
+**Recibo guardado:** [graphrag.md](../../graphrag/GRAPHRAG.md) íntegro, 1–574;
 HEAD `34b2b67ae4601ad0b47bcd179fbe3f2a23aa0857` contrastado.
 **Veredicto propuesto: cambios requeridos**, puntuales de trazabilidad/adaptación.
 No se encontró contradicción bloqueante en los mecanismos estáticos contrastados.
@@ -362,7 +362,7 @@ No se encontró contradicción bloqueante en los mecanismos estáticos contrasta
 
 ## RAGFlow
 
-**Recibo guardado:** [ragflow.md](../ragflow.md) completo, 1–470;
+**Recibo guardado:** [ragflow.md](../../ragflow/RAGFLOW.md) completo, 1–470;
 HEAD `3c6d2255af06164f0818d0959af10de0afd8b8fa` contrastado.
 **Veredicto propuesto: cambios requeridos**, de trazabilidad Studio y
 contrato de observaciones; el informe identifica correctamente el snapshot Go.
@@ -425,7 +425,7 @@ contrato de observaciones; el informe identifica correctamente el snapshot Go.
 
 ## Quivr
 
-**Recibo guardado:** [quivr.md](../quivr.md) íntegro, 1–509;
+**Recibo guardado:** [quivr.md](../../quivr/QUIVR.md) íntegro, 1–509;
 HEAD `bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f` contrastado.
 **Veredicto propuesto: cambios requeridos.** El archivo termina en §6:
 no contiene los ejes 7–10 ni el cierre anunciados por su TOC.

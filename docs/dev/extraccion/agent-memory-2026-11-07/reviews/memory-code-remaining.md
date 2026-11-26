@@ -43,7 +43,7 @@ de runtime, git, índices, contratos o evaluadores.
 
 ## Cognee
 
-**Informe íntegro:** [cognee.md](../cognee.md), L1–905.
+**Informe íntegro:** [cognee.md](../../cognee/COGNEE.md), L1–905.
 **Veredicto propuesto: cambios requeridos.**
 Clon `C:\Users\Eros\cognee`, HEAD comprobado
 `8853378eae5366addb064e758e560a456146ae1a` (en adelante C).
@@ -112,7 +112,7 @@ Clon `C:\Users\Eros\cognee`, HEAD comprobado
 
 ## Graphiti
 
-**Informe íntegro:** [graphiti.md](../graphiti.md), L1–834.
+**Informe íntegro:** [graphiti.md](../../graphiti/GRAPHITI.md), L1–834.
 **Veredicto propuesto: cambios requeridos.**
 Clon `C:\Users\Eros\graphiti`, HEAD comprobado
 `747b480ec6b12ecb718f1e2bc588b20ee36ea9c2` (G).
@@ -181,7 +181,7 @@ Clon `C:\Users\Eros\graphiti`, HEAD comprobado
 
 ## MemPalace
 
-**Informe íntegro:** [mempalace.md](../mempalace.md), L1–737.
+**Informe íntegro:** [mempalace.md](../../mempalace/MEMPALACE.md), L1–737.
 **Veredicto propuesto: cambios requeridos.**
 Clon `C:\Users\Eros\mempalace`, HEAD comprobado
 `f8e35362189bd0a5abf4c0df1dd5bf90ba059176` (M).
@@ -242,7 +242,7 @@ Clon `C:\Users\Eros\mempalace`, HEAD comprobado
 
 ## CodeGraph
 
-**Informe íntegro:** [codegraph.md](../codegraph.md), L1–556.
+**Informe íntegro:** [codegraph.md](../../codegraph/CODEGRAPH.md), L1–556.
 **Veredicto propuesto: sin hallazgos bloqueantes en este alcance.**
 No es aceptación final. Clon `C:\Users\Eros\codegraph`, HEAD comprobado
 `f72c9d2efb14454ff4f9fd7b8460abd82f19a287` (CG).
@@ -299,7 +299,7 @@ auditoría de seguridad, conformance de todos los extractores o rendimiento.
 
 ## Graphify
 
-**Informe íntegro:** [graphify.md](../graphify.md), L1–482.
+**Informe íntegro:** [graphify.md](../../graphify/GRAPHIFY.md), L1–482.
 **Veredicto propuesto: cambios requeridos.**
 Clon `C:\Users\Eros\graphify`, HEAD comprobado
 `16218bfc80d4ca2799734d045039f7ed1a5fa9fb` (GF).
@@ -357,7 +357,7 @@ Clon `C:\Users\Eros\graphify`, HEAD comprobado
 
 ## Understand Anything
 
-**Informe íntegro:** [understand-anything.md](../understand-anything.md), L1–520.
+**Informe íntegro:** [understand-anything.md](../../Understand-Anything/UNDERSTAND-ANYTHING.md), L1–520.
 **Veredicto propuesto: sin hallazgos bloqueantes en este alcance.**
 No es aceptación final. Clon `C:\Users\Eros\Understand-Anything`, HEAD comprobado
 `a6ea4024767df85ce4f99140d4f12ecfc5a81eb6` (UA).

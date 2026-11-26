@@ -985,3 +985,30 @@ los límites residuales se enumeran arriba, no se ocultan.
 [MS1]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/memory/MemoryLens.tsx#L57-L412
 [MD1]: https://cdn.jsdelivr.net/gh/meilisearch/mini-dashboard@v0.4.2/package.json
 [MD2]: https://cdn.jsdelivr.net/gh/meilisearch/mini-dashboard@v0.4.2/src/App.jsx
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se acredita qué descargas acertaron caché ni cache fría de kernel/modelo.
+- Null/ausencia no deben publicarse como identidad efectiva sin verificar resolución de settings, estado persistido y bytes del modelo.
+- No acreditados end-to-end: uniformidad de outcome/visibilidad en todos los bindings y reporte de brazos omitidos por todas las rutas.
+- `build.rs:19–76` descarga zip, compara SHA1 y genera recursos; **no se ejecutó**.
+- No se acreditan cuerpos dirty ni se atribuye a ese SHA cancel/repoll/IDs parciales; MS2/MS3 retirados.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 3. Riesgos, issues y límites de seguridad
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 11. Cierre contractual: estados, visibilidad y settings

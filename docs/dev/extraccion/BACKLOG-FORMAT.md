@@ -35,7 +35,7 @@ Cabecera:
 # Backlog de extracción — <Proyecto>
 
 > **Origen:** informe `docs/dev/extraccion/agent-memory-2026-11-07/<slug>.md`
-> (o `docs/dev/extraccion/Backlog-OpenViking-VantaDB.md` para OpenViking).
+> (o `docs/dev/extraccion/OpenViking/OPENVIKING.md` para OpenViking).
 > **Estado:** candidatas documentales — ninguna está implementada ni aprobada.
 > Requiere revalidación contra HEAD antes de especificar.
 ```

@@ -887,3 +887,27 @@ grafo Vanta; sin índices/código/contratos activos/backlog, apps/tests/builds/
 benchmarks/instalaciones/servicios ni git writes. Runtime: nada iniciar/parar.
 Por >300 líneas, una fase aprobada separaría specs de adapter/receipts,
 binding/autorización y reporte de observación; aquí no se crean esos archivos.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se ejecutó ningún benchmark ni se compara un claim con medición propia.
+- No se ejecutó UI ni se evaluó interacción visual.
+
+### Falsos positivos y descartes registrados
+
+- No versión/SHA exactos del entorno | **Falso positivo descartado como bug**.
+
+### Limitaciones declaradas en este informe
+
+- § 5. No trasladar
+- § 6. Límites, licencia, método y ledger
+- § 11. Dependencias, cobertura y separación futura
+- § 11.8 Ledger nuevo y cierre propio

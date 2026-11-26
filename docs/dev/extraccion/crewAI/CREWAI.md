@@ -804,3 +804,28 @@ del adapter y aceptación A-E; revisión independiente y aceptación final pendi
 [CV6]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/crewai/vantadb_crewai/memory.py#L91-L245
 [CV7]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/crewai/vantadb_crewai/vectorstore.py#L23-L105
 [CV8]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/integrations/crewai/pyproject.toml#L5-L28
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se acredita pérdida de private/source en Vanta.
+- No se acredita ejecución, soporte del adapter ni revisión adversarial independiente final.
+- **Frontend de ese servicio no examinado**; no se acredita aplicación desktop OSS ni CRUD de memoria por esa URL.
+
+### Falsos positivos y descartes registrados
+
+- Falso positivo descartado: proponer dedup, cuotas, ACL por segmentos, scoring compuesto, assembler o scheduler «desde cero» contradice la referencia fijada. ## 10.
+
+### Limitaciones declaradas en este informe
+
+- § 5. No trasladar
+- § 6. Evidencia y cobertura
+- § Fuentes adicionales y cierre
+- § Precisiones de cierre: updates, metadata y visibilidad

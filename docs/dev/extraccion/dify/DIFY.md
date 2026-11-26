@@ -750,3 +750,29 @@ No se reinició ningún MCP, servicio o aplicación ante esos fallos.
 [V13]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/sdk/serialization/mod.rs#L252-L266
 [VS1]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/lens/retrieval/RetrievalLens.tsx#L1-L130
 [VS2]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/ConnectionPanel.tsx#L1-L75
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se acredita un shell desktop nativo en las superficies inspeccionadas.
+- La web usa React/TypeScript y tiene scripts Next/vinext; no se ejecutaron.
+- No se acredita que una llamada de SDK ya iniciada se interrumpa; el coste residual es hipótesis.
+- Son reportes, no reproducciones propias. | Fuente y estado observado | Síntoma/versión reportada | Mecanismo y discriminación | |---|---|---| | [#45638: non-numeric metadata](https://github.com/langgenius/dify/issues/45638), open; creada 2026-11-05 | Dify 1.18.0 Docker: update acepta `abc` como number; retrieval retorna 500 | N7/N9 corroboran escritura no tipada + cast.
+- No se ejecutó ni se corrigió el runner. ## 4.
+- Los tests localizados no se ejecutaron.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 5. No trasladar
+- § 11. Cobertura, dependencias y validación pendiente

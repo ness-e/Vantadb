@@ -550,25 +550,25 @@ límites, propagación ficha/matriz/FMEA/UI y dictamen propuesto.
 
 | Finding / revisión previa | Estado propuesto | Informe y puntos de cierre contrastados |
 |---|---|---|
-| M1 — [memory](memory.md#mem0) | cerrado documentalmente | [Mem0](../mem0.md):648–655,680–685,698,752–754; error→vacío→posible PASS no se oculta |
-| M2 — [memory](memory.md#mem0) | cerrado documentalmente | [Mem0](../mem0.md):624–629,669–685,698; preparación/población/backend y corpus mutable |
-| M3 — [memory](memory.md#mem0) | cerrado | [Mem0](../mem0.md):166; RecallConfig real, core_search opt-in |
-| CO-1 — [remaining](memory-code-remaining.md#cognee) | cerrado documentalmente | [Cognee](../cognee.md):685–764; BEAM local/preingerido, questions_path y denominador por métrica |
-| CO-2 — [remaining](memory-code-remaining.md#cognee) | cerrado | [Cognee](../cognee.md):805–842; cuerpos S y aceptación/matriz no atribuyen bytes dirty |
-| GI-1 — [remaining](memory-code-remaining.md#graphiti) | cerrado | [Graphiti](../graphiti.md):732–768,798,864; App/WorkspaceShell, sin routes.ts/codec del pin inventados |
-| GI-2 — [remaining](memory-code-remaining.md#graphiti) | cerrado documentalmente | [Graphiti](../graphiti.md):616–626,654–667,697; acumulación/reset/UUID y AddEpisodeResults no portable |
-| MP-1 — [remaining](memory-code-remaining.md#mempalace) | cerrado documentalmente | [MemPalace](../mempalace.md):247–291,438–492,663–666,708–720; wiki ≠ publicación de fuentes/grafo |
-| H-1 — [additions](memory-additions.md#hindsight) | cerrado documentalmente | [Hindsight](../hindsight.md):383–389,522–548,595–596,619–623; tags actuales y fuentes distintas, fix/cancelación acotados |
-| H-2 — [additions](memory-additions.md#hindsight) | cerrado | [Hindsight](../hindsight.md):610–627; cuerpos/rutas S y semántica de error |
-| AM-1 — [additions](memory-additions.md#agentmemory) | cerrado | [Agentmemory](../agentmemory.md):509,517–539; genlog no entrega/lease, proyección A/C propuesta |
-| T-1 — [additions](memory-additions.md#tencentdb-agent-memory) | cerrado documentalmente | [Tencent](../tencentdb-agent-memory.md):216–227,299–300,455–491,641–643,654–655,678–681; cursor L0/callers ≠ task checkpoint |
-| T-2 — [additions](memory-additions.md#tencentdb-agent-memory) | cerrado | [Tencent](../tencentdb-agent-memory.md):669–686; cuerpos S y tres estados captura/cursor/progreso |
-| L-1 — [additions](memory-additions.md#letta) | cerrado documentalmente | [Letta](../letta.md):201–205,242–252,333,420–424; seguimiento y fetch autenticado LC, no fix universal |
-| L-2 — [additions](memory-additions.md#letta) | cerrado | [Letta](../letta.md):351–367; S por cuerpos, GraphScene solo localizado |
-| CM-1 — [code-memory](code-memory.md#codebase-memory-mcp) | cerrado documentalmente | [Codebase Memory MCP](../codebase-memory-mcp.md):111–113,355–371,459–461,534–539; query/delete/ADR/unwatch y errores |
-| CM-2 — [code-memory](code-memory.md#codebase-memory-mcp) | cerrado documentalmente | [Codebase Memory MCP](../codebase-memory-mcp.md):342–353,484–517,534–539; ACK real y E nueva no acreditada, sin job inventado |
-| GF-1 — [remaining](memory-code-remaining.md#graphify) | cerrado documentalmente | [Graphify](../graphify.md):126–133,209–212,235,365–381,479–487; refusal incluido en longitud, no utilidad |
-| UA-1 — [remaining](memory-code-remaining.md#understand-anything) | cerrado (era no bloqueante) | [Understand Anything](../understand-anything.md):161–164,432–450,518,537–542; struct/campos reales y rechazo de linaje |
+| M1 — [memory](memory.md#mem0) | cerrado documentalmente | [Mem0](../../mem0/MEM0.md):648–655,680–685,698,752–754; error→vacío→posible PASS no se oculta |
+| M2 — [memory](memory.md#mem0) | cerrado documentalmente | [Mem0](../../mem0/MEM0.md):624–629,669–685,698; preparación/población/backend y corpus mutable |
+| M3 — [memory](memory.md#mem0) | cerrado | [Mem0](../../mem0/MEM0.md):166; RecallConfig real, core_search opt-in |
+| CO-1 — [remaining](memory-code-remaining.md#cognee) | cerrado documentalmente | [Cognee](../../cognee/COGNEE.md):685–764; BEAM local/preingerido, questions_path y denominador por métrica |
+| CO-2 — [remaining](memory-code-remaining.md#cognee) | cerrado | [Cognee](../../cognee/COGNEE.md):805–842; cuerpos S y aceptación/matriz no atribuyen bytes dirty |
+| GI-1 — [remaining](memory-code-remaining.md#graphiti) | cerrado | [Graphiti](../../graphiti/GRAPHITI.md):732–768,798,864; App/WorkspaceShell, sin routes.ts/codec del pin inventados |
+| GI-2 — [remaining](memory-code-remaining.md#graphiti) | cerrado documentalmente | [Graphiti](../../graphiti/GRAPHITI.md):616–626,654–667,697; acumulación/reset/UUID y AddEpisodeResults no portable |
+| MP-1 — [remaining](memory-code-remaining.md#mempalace) | cerrado documentalmente | [MemPalace](../../mempalace/MEMPALACE.md):247–291,438–492,663–666,708–720; wiki ≠ publicación de fuentes/grafo |
+| H-1 — [additions](memory-additions.md#hindsight) | cerrado documentalmente | [Hindsight](../../hindsight/HINDSIGHT.md):383–389,522–548,595–596,619–623; tags actuales y fuentes distintas, fix/cancelación acotados |
+| H-2 — [additions](memory-additions.md#hindsight) | cerrado | [Hindsight](../../hindsight/HINDSIGHT.md):610–627; cuerpos/rutas S y semántica de error |
+| AM-1 — [additions](memory-additions.md#agentmemory) | cerrado | [Agentmemory](../../agentmemory/AGENTMEMORY.md):509,517–539; genlog no entrega/lease, proyección A/C propuesta |
+| T-1 — [additions](memory-additions.md#tencentdb-agent-memory) | cerrado documentalmente | [Tencent](../../TencentDB-Agent-Memory/TENCENTDB-AGENT-MEMORY.md):216–227,299–300,455–491,641–643,654–655,678–681; cursor L0/callers ≠ task checkpoint |
+| T-2 — [additions](memory-additions.md#tencentdb-agent-memory) | cerrado | [Tencent](../../TencentDB-Agent-Memory/TENCENTDB-AGENT-MEMORY.md):669–686; cuerpos S y tres estados captura/cursor/progreso |
+| L-1 — [additions](memory-additions.md#letta) | cerrado documentalmente | [Letta](../../letta/LETTA.md):201–205,242–252,333,420–424; seguimiento y fetch autenticado LC, no fix universal |
+| L-2 — [additions](memory-additions.md#letta) | cerrado | [Letta](../../letta/LETTA.md):351–367; S por cuerpos, GraphScene solo localizado |
+| CM-1 — [code-memory](code-memory.md#codebase-memory-mcp) | cerrado documentalmente | [Codebase Memory MCP](../../codebase-memory-mcp/CODEBASE-MEMORY-MCP.md):111–113,355–371,459–461,534–539; query/delete/ADR/unwatch y errores |
+| CM-2 — [code-memory](code-memory.md#codebase-memory-mcp) | cerrado documentalmente | [Codebase Memory MCP](../../codebase-memory-mcp/CODEBASE-MEMORY-MCP.md):342–353,484–517,534–539; ACK real y E nueva no acreditada, sin job inventado |
+| GF-1 — [remaining](memory-code-remaining.md#graphify) | cerrado documentalmente | [Graphify](../../graphify/GRAPHIFY.md):126–133,209–212,235,365–381,479–487; refusal incluido en longitud, no utilidad |
+| UA-1 — [remaining](memory-code-remaining.md#understand-anything) | cerrado (era no bloqueante) | [Understand Anything](../../Understand-Anything/UNDERSTAND-ANYTHING.md):161–164,432–450,518,537–542; struct/campos reales y rechazo de linaje |
 
 **Balance propuesto:** diecinueve correcciones examinadas y cerradas en
 sentido documental; ninguna de esas diecinueve queda «no resuelta».

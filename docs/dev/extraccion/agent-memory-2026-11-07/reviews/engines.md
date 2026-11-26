@@ -40,7 +40,7 @@ durabilidad física, calidad, rendimiento o paridad de bindings.
 
 ## Qdrant
 
-**Informe:** [qdrant.md](../qdrant.md), 654 líneas leídas.
+**Informe:** [qdrant.md](../../qdrant/QDRANT.md), 654 líneas leídas.
 **SHA:** `222b2e44ab1c3f17e8246396ead6558e45041df7`.
 **Veredicto propuesto: cambios requeridos.**
 
@@ -119,7 +119,7 @@ durabilidad física, calidad, rendimiento o paridad de bindings.
 
 ## Faiss
 
-**Informe:** [faiss.md](../faiss.md), 563 líneas leídas.
+**Informe:** [faiss.md](../../faiss/FAISS.md), 563 líneas leídas.
 **SHA:** `277b3c76b7a1507915eb8f5010dcb367cbc95494`.
 **Veredicto propuesto: sin hallazgos bloqueantes en este alcance.**
 No es aceptación definitiva ni validación dinámica del negativo CPIndex.

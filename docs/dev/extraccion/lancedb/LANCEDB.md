@@ -618,7 +618,7 @@ laguna total en ese tramo, no acredita una auditoría Cloud.
 
 ### 11.2 Dependencias, validaciones y división futura
 
-Relaciones: A habilita hidratación compuesta D; B necesita identidad de origen y usa C para publicar con revisión esperada, pero auditoría B read-only puede adelantarse; E amplía explain sin requerir reemplazo. C exige resolver garantías propias de escritura si se pretende all-or-nothing. Coinciden con familias transversales de identidad/derivados/auditoría/pipeline del [modelo OpenViking](../Backlog-OpenViking-VantaDB.md), no candidatos de backlog duplicados.
+Relaciones: A habilita hidratación compuesta D; B necesita identidad de origen y usa C para publicar con revisión esperada, pero auditoría B read-only puede adelantarse; E amplía explain sin requerir reemplazo. C exige resolver garantías propias de escritura si se pretende all-or-nothing. Coinciden con familias transversales de identidad/derivados/auditoría/pipeline del [modelo OpenViking](../OpenViking/OPENVIKING.md), no candidatos de backlog duplicados.
 
 Pendiente manual: reproducción #4844 en versión aislada, fallos por fase de C, concurrencia A/B/checkpoint, comportamiento de cancelación D, consumo de memoria efectivo y equivalencia de datos/metricas de §7. No se ejecutó ninguno. Una futura aprobación se divide en specs de contrato de escritura, frescura de artefactos, lectura/proyección y diagnóstico Studio; no se crean specs ni IDs ahora.
 
@@ -682,3 +682,28 @@ ausencias globales ni en tareas aprobadas; no staging, commit o push.
 [LAA]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/remote/table.rs#L772-L812
 [LAB]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/rust/lancedb/src/remote/table.rs#L3676-L3743
 [LAC]: https://github.com/lancedb/lancedb/blob/bff93ff314eee34f625d05bd92b73d95867fe787/python/python/lancedb/remote/table.py#L1057-L1105
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Procedencia de pools y separación dev/holdout no acreditadas | | Pipeline | Construye tabla Arrow de textos, posición y distancia cero; llama `TypeSafeReranker.rerank_vector`.
+- El docstring identifica candidatos de investigación GooAQ; origen, licencia, split y generación del archivo externo siguen sin verificarse.
+- No se ejecutó inyección de fallo, ni se demuestra desde esto un bug de WAL/crash recovery.
+- **No acreditado:** snapshot compuesto expuesto y sello de derivado con definición.
+- No se ejecutaron validadores globales.
+
+### Falsos positivos y descartes registrados
+
+- **Falsos positivos descartados:** «falta híbrido/RRF», «no hay chunks», «no hay explain/auditoría/jobs/Studio» contradicen [V1]–[V7] [S1]–[S2].
+
+### Limitaciones declaradas en este informe
+
+- § 6. Método y límites específicos
+- § 11. Fuentes, cobertura y cierre

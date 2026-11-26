@@ -552,3 +552,27 @@ mantener dossier como fuente. No crear archivos nuevos ahora.
 [V2]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/executor.rs#L1-L65
 [V3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/services/mod.rs#L1-L16
 [VCP]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/checkpoint.rs#L112-L117
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Pendientes manuales: contratos de bindings y cancelación, balances reales de reservas, callbacks concurrentes y comparabilidad de medición; no se ejecutó ninguno.
+- No reproducciones ni CVEs atribuidas.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 2. Evidencia y extracciones mínimas independientes
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 11. Cobertura y cierre

@@ -36,7 +36,6 @@ Esta carpeta contiene el dossier del repositorio [`khoj-ai/khoj`](https://github
 
 ## Documentos relacionados
 
-- Informe original de campaña: `../agent-memory-2026-11-07/khoj.md`
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`

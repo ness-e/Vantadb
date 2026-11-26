@@ -35,7 +35,7 @@ Los veredictos son propuestas al responsable principal, nunca aceptación.
 
 ## LanceDB
 
-Informe leído íntegro: [lancedb.md](../lancedb.md), líneas 1–684.
+Informe leído íntegro: [lancedb.md](../../lancedb/LANCEDB.md), líneas 1–684.
 Clon de contraste: `C:\Users\Eros\lancedb`, SHA del manifiesto
 `bff93ff314eee34f625d05bd92b73d95867fe787`; incorporación expresa separada
 del filtro original, correctamente indicada en §0.1.

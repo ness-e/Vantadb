@@ -644,3 +644,31 @@ informe sigue autónomo y pendiente de revisión, sin crear esas specs.
 [LM5]: https://github.com/HKUDS/LightRAG/blob/aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a/lightrag_webui/src/api/lightrag.ts#L879-L1145
 [LVR]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/attestation.rs#L654-L738
 [LS1]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/memory/MemoryLens.tsx#L57-L412
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Autorización completa, todos los adaptadores, parsers y estados post-crash siguen no acreditados; comentario completo de issues truncados no leído.
+- Se retiran sus enlaces y garantías atribuidas; no se acreditan sus cuerpos dirty en esta corrección.
+- **Cobertura/lagunas restantes:** parsers completos, todas las ramas de roles, backend recovery y autorización extremo a extremo no auditados; PRs y comentarios truncados de issues no acreditados; no métricas propias ni SBOM transitivo de parsers/modelos. §7 conserva runners/defaults/denominadores y adapter Vanta; no se diseñó harness.
+- Frente a §11, se amplió la lectura multimodal y MemoryLens de Studio; jobs quedan sin acreditar al pin, no “UI ausente”.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § Incidencias públicas leídas en este cierre
+- § 6. Advertencias metodológicas y evidencia
+- § 10. Escritorio, interfaz e inspección; ledger de cobertura
+- § Cierre contractual A–D
+- § Contraste concreto, UI y cobertura final de autoría
+- § 12. Cierre de autoría: multimodalidad, contratos y Studio

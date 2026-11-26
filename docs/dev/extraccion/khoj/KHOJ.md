@@ -759,3 +759,26 @@ ni aceptación**; decisiones y validación posteriores corresponden a otra fase.
 Al superar 300 líneas, futura fase autorizada podría separar specs de sync/
 parser (B/E), consulta/política/evidencia (A/C/D/F) y adapters Studio (G).
 No se crean otros documentos ahora; este informe conserva autonomía.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Es inferencia del flujo, no reproducción.
+- No se ejecutó UI, backend, empaquetado, red ni navegación nativa.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 6. Que no trasladar
+- § 12. Fuentes y cobertura
+- § 12.2. Cobertura por eje y límites pendientes

@@ -498,3 +498,26 @@ no se crean archivos ni specs activas en esta tarea.
 sin ejecución. Pendientes aceptación manual de cada ficha, seguimiento PR/fix,
 auditoría de rutas no cubiertas y **revisión adversarial independiente**.
 No se declara certificación del contrato ni aprobación de implementación.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Se usaron contratos, Vanta snapshot, fuente local y issues públicos; no se ejecutó código upstream.
+
+### Falsos positivos y descartes registrados
+
+- **Descartados:** «Vanta no tiene híbrido», «no tiene presupuesto», «no tiene tenancy ni scheduler», «todo RAGFlow requiere Python»: contradicen evidencia.
+
+### Limitaciones declaradas en este informe
+
+- § RAGFlow: compilación revisionada, publicación y evidencia servida
+- § B. Recibo de entrega de evidencia por turno
+- § 5. Qué no trasladar
+- § Fuentes, cobertura y cierre

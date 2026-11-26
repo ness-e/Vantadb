@@ -16,9 +16,9 @@ carpeta propia por repositorio: `docs/dev/extraccion/<repositorio>/BACKLOG.md`.
 
 | Documento / carpeta | Qué contiene |
 |---|---|
-| [AUDIT-REPORT.md](AUDIT-REPORT.md) | Auditoría integral consolidada de los 5 ejes (licencias, estado del repo, trazabilidad de los 43 backlogs Lotes A/B/C y cruce contra `HEAD`) |
-| [Backlog-OpenViking-VantaDB.md](Backlog-OpenViking-VantaDB.md) | Informe central histórico de OpenViking; su dossier canónico está en [OpenViking/](OpenViking/) |
-| [agent-memory-2026-11-07/](agent-memory-2026-11-07/) | 42 informes de proyectos + documentos de control (CONSOLIDATED, REVIEW-COVERAGE, METHOD, BENCHMARK-NOTES, VANTA-REFERENCE, AUDIT-REPO, manifiestos, revisiones) |
+| [agent-memory-2026-11-07/AUDIT-REPORT.md](agent-memory-2026-11-07/AUDIT-REPORT.md) | Acta histórica de la ola de consolidación W1–W5 (licencias, integridad del repo, trazabilidad de los 43 backlogs) — documento de corte, no operativo |
+| [OpenViking/](OpenViking/) | Dossier canónico de OpenViking: incluye `OPENVIKING.md`, el informe central original (`b8e8895`) con los diez ejes en profundidad |
+| [agent-memory-2026-11-07/](agent-memory-2026-11-07/) | Documentos de control de la campaña (CONSOLIDATED, REVIEW-COVERAGE, METHOD, BENCHMARK-NOTES, VANTA-REFERENCE, AUDIT-REPO/REPORT, manifiestos, evidencia cruda, revisiones); los informes de proyecto viven en los dossiers |
 | [BACKLOG-FORMAT.md](BACKLOG-FORMAT.md) | Formato canónico obligatorio de los `BACKLOG.md` por proyecto (10 columnas, reglas, gate legal) |
 | [LICENSES.md](LICENSES.md) | Matriz legal verificada de los 43 clones y gate previo a especificar cualquier fila `X-*` |
 

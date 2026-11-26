@@ -1,23 +1,29 @@
 ---
 title: "Auditoría Integral Consolidada — Campaña de Extracción (Ola 4)"
 kind: research
-status: active
+status: archived
 description: "Resumen consolidado de los cinco ejes de cierre: licencias, integridad del repo, trazabilidad de los 43 backlogs, cobertura 42/42 y estado de la ola de correcciones"
 tags: [extraccion, audit, licenses, backlogs]
 ---
 
 # Auditoría Integral Consolidada — Campaña de Extracción (Ola 4)
 
-Resumen de cierre de la ola de consolidación documental (workers W1–W5). Este
-documento **no re-deriva** datos: remite a las fuentes verificadas
-[LICENSES.md](LICENSES.md) (matriz legal),
-[agent-memory-2026-11-07/AUDIT-REPO.md](agent-memory-2026-11-07/AUDIT-REPO.md)
+Resumen de cierre de la ola de consolidación documental (workers W1–W5).
+
+> **Estado:** acta histórica de corte (2026-11-23). Las cifras y rutas descritas
+> reflejan el momento de la auditoría; las fuentes operativas vigentes son
+> [LICENSES.md](../LICENSES.md), [BACKLOG-FORMAT.md](../BACKLOG-FORMAT.md),
+> [REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) y los dossiers por proyecto.
+
+Este documento **no re-deriva** datos: remite a las fuentes verificadas
+[LICENSES.md](../LICENSES.md) (matriz legal),
+[agent-memory-2026-11-07/AUDIT-REPO.md](AUDIT-REPO.md)
 (integridad de árbol, índices, `.gitignore`, enlaces y cobertura) y al `git diff`
 de la ola (corrección de backlogs y nuevos documentos).
 
 ## 1. Licencias del corpus (43 proyectos)
 
-Fuente: [LICENSES.md](LICENSES.md) — verificación local de los
+Fuente: [LICENSES.md](../LICENSES.md) — verificación local de los
 `LICENSE*`/`NOTICE*` en los clones fijados por SHA, cruzada con las 265 filas
 `X-*` frente a la licencia `Apache-2.0` de VantaDB.
 
@@ -38,7 +44,7 @@ general permisiva para las 209 restantes.
 
 ## 2. Integridad del repositorio
 
-Fuente: [AUDIT-REPO.md](agent-memory-2026-11-07/AUDIT-REPO.md). En el corte
+Fuente: [AUDIT-REPO.md](AUDIT-REPO.md). En el corte
 auditado el árbol `docs/dev/extraccion/` contaba 124 archivos trackeados (115
 `.md` + 9 `.json`), con `docs/index.md` y `llms.txt` al 115/115, `0` enlaces
 rotos, `0` wikilinks y la excepción `!docs/dev/extraccion/backlogs/` correcta.
@@ -60,7 +66,7 @@ Hallazgos resueltos en esta ola:
 
 - **43 backlogs** por proyecto bajo `<repositorio>/BACKLOG.md` en el formato
   canónico de 10 columnas de `docs/dev/Backlog.md` (convenciones en
-  [BACKLOG-FORMAT.md](BACKLOG-FORMAT.md)).
+  [BACKLOG-FORMAT.md](../BACKLOG-FORMAT.md)).
 - **265 filas `X-*`** con **265 fichas 1:1** completadas en los lotes A/B/C
   (`ca7400f9d`, `466726e70`, `83218f1e4`, `81623ec33`), cada una con evidencia
   `archivo:líneas` sobre el clon fijado por SHA.
@@ -73,8 +79,8 @@ Hallazgos resueltos en esta ola:
 
 Estado vigente: **42/42 informes aceptados con límites** (Meilisearch E3
 acreditado 2026-11-20 en `0405f4aa7`/`b76bd1a1e`), según
-[REVIEW-COVERAGE.md](agent-memory-2026-11-07/REVIEW-COVERAGE.md) y
-[EXPANSION-STATUS.md](agent-memory-2026-11-07/EXPANSION-STATUS.md). La
+[REVIEW-COVERAGE.md](REVIEW-COVERAGE.md) y
+[EXPANSION-STATUS.md](EXPANSION-STATUS.md). La
 aceptación es documental: las 265 filas `X-*` permanecen `⬜ Candidata` y
 requieren revalidación contra `HEAD` antes de especificar; nada de lo aquí
 propuesto está implementado ni aprobado.
@@ -83,6 +89,6 @@ propuesto está implementado ni aprobado.
 
 | Documento | Rol |
 |---|---|
-| [LICENSES.md](LICENSES.md) | Matriz legal verificada de los 43 proyectos y gate previo a spec |
-| [agent-memory-2026-11-07/AUDIT-REPO.md](agent-memory-2026-11-07/AUDIT-REPO.md) | Auditoría de árbol, índices, `.gitignore` y enlaces |
+| [LICENSES.md](../LICENSES.md) | Matriz legal verificada de los 43 proyectos y gate previo a spec |
+| [agent-memory-2026-11-07/AUDIT-REPO.md](AUDIT-REPO.md) | Auditoría de árbol, índices, `.gitignore` y enlaces |
 | Este documento | Resumen consolidado de los cinco ejes para cierre de la ola |

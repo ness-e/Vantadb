@@ -630,3 +630,30 @@ Propuestas no implementadas; **no revisión independiente ni aceptación**.
 Por superar 300 líneas, una futura fase autorizada puede separar especificaciones
 de ingesta/freshness (A/B/G), gobernanza/entrega (C/D/E) y extracción (F);
 este informe permanece autónomo y no crea esos documentos ahora.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se ejecutó el runner. ### 8.2.
+- `MemoryScope` no se acredita como tipo existente.
+- Comentario 2025-06-29 **no reproduce delete**, sí `skipCache` invertido; cierre refiere `d1d68af`.
+
+### Falsos positivos y descartes registrados
+
+- Rutas concretas frontend sí leídas; queda descartada la afirmación previa «frontend solo estructura».
+- Cita vieja tras refresh → detectar mismatch y mostrar no disponible; fuente recuperada pero descartada por presupuesto → no mostrarla como prueba usada.
+
+### Limitaciones declaradas en este informe
+
+- § 1.1. Producto, despliegue y límites de licencia
+- § D — Cita de evidencia frente a contexto efectivamente entregado
+- § 6. Que no trasladar
+- § 12. Fuentes, cobertura y continuidad
+- § 12.2. Cobertura por eje y lagunas durables

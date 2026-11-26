@@ -36,7 +36,6 @@ Esta carpeta contiene el dossier del repositorio [`The-Vibe-Company/quivr`](http
 
 ## Documentos relacionados
 
-- Informe original de campaña: `../agent-memory-2026-11-07/quivr.md`
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`

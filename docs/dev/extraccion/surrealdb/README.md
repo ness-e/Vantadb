@@ -36,7 +36,6 @@ Esta carpeta contiene el dossier del repositorio [`surrealdb/surrealdb`](https:/
 
 ## Documentos relacionados
 
-- Informe original de campaña: `../agent-memory-2026-11-07/surrealdb.md`
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`

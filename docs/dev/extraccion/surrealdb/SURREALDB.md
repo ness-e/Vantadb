@@ -694,3 +694,29 @@ al dossier. No se crean esas tareas, harnesses o archivos ahora.
 [SUIEXEC]: https://github.com/surrealdb/surrealist/blob/65b7b95109177deb486cc6254ed203fce257fddf/src/editor/query.tsx#L43-L78
 [SUICONN]: https://github.com/surrealdb/surrealist/blob/65b7b95109177deb486cc6254ed203fce257fddf/src/screens/surrealist/pages/Connection/connection/connection.tsx#L331-L550
 [SUISTRATEGY]: https://github.com/surrealdb/surrealist/blob/65b7b95109177deb486cc6254ed203fce257fddf/src/screens/surrealist/pages/Connection/views/query/QueryView/strategy.tsx#L13-L80
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se acredita distribución firmada ni runtime desktop. [SUIVIEW] traza QueryView: intent `run-query` → `executeEditorQuery`, editor activo/selección → ResultPane. [SUIEXEC] selecciona texto y delega; [SUICONN] acumula frames/resultados por sentencia, distingue error y libera estado activo en finally.
+- El comentario describe lecturas que combinan estado materializado y deltas; su corrección completa y coste no se verificaron recorriendo todos los lectores ANN/fulltext.
+- - **Aceptación propuesta:** informe no modifica bytes, no repara ni promete downgrade; distingue «abre», «sólo lectura» y «no acreditado» donde proceda.
+- A aporta prueba de frontera, pero C puede reportar «cobertura no acreditada» antes de implementar A.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 2. Evidencia y extracciones mínimas independientes
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 11. Cierre de autoría, cobertura y lagunas

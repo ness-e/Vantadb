@@ -695,3 +695,26 @@ por backend. No se proponen aquí comandos de ejecución ni umbrales nuevos.
   **ignorado/no trackeado** por `.gitignore:268` (`docs/dev/research/`).
   El responsable debe decidir su inclusión durable en git; no se hizo staging
   forzado ni se modificó `.gitignore`.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- El informe no declara una lista consolidada de lagunas; las limitaciones puntuales aparecen en las secciones citadas abajo.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § C — Plan de filtros y cobertura de log/índice declarado
+- § 6. Que no trasladar
+- § 12. Fuentes, cobertura y cierre de autoría
+- § Cobertura y lagunas

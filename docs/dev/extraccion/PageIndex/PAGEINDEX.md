@@ -502,3 +502,30 @@ garantías de código dirty que aquí no se ha incorporado como evidencia.
 [P14]: https://github.com/VectifyAI/PageIndex/blob/2ac8694bf8fe89a3840dda9bdb88db5119b77fc4/pageindex/local_chat.py#L1434-L1501
 [PV4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/src/attestation.rs#L654-L738
 [PS1]: https://github.com/ness-e/VantaDB/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/feature-freez/desktop/src/components/memory/MemoryLens.tsx#L57-L412
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Pin leído tiene max_turns y cancel de stream | D distingue timeout request/run/turnos; no reproducido ni transferido como bug Vanta | | [#585](https://github.com/VectifyAI/PageIndex/issues/585), Open, 2026-10-14 | Reporta ejecución vía default de schema.
+- No se acredita persistencia de jobs ni render.
+- **Negativos Vanta:** no hay bug nuevo probado; quedan no acreditados end-to-end spans exactos y publicación de todos los derivados.
+
+### Falsos positivos y descartes registrados
+
+- No hay cadena demostrada documento→schema hostil | **Hipótesis de exploit descartada con esta evidencia**, no CVE.
+
+### Limitaciones declaradas en este informe
+
+- § 2. Evidencia y extracciones independientes
+- § Candidata A — intervalo de fuente versionado y cobertura de introducción
+- § 3. Riesgos y defectos: nivel de evidencia
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 11. Ampliación de cierre: flujos, contratos y fuentes públicas

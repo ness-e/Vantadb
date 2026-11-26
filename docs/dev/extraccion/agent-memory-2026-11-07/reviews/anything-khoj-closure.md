@@ -52,7 +52,7 @@ objeto de esas conclusiones y no se afirma un estado remoto más reciente.
 
 ## AnythingLLM: recibo durable
 
-**Informe:** [anything-llm.md](../anything-llm.md). Evidencia anterior reutilizada:
+**Informe:** [anything-llm.md](../../anything-llm/ANYTHING-LLM.md). Evidencia anterior reutilizada:
 [revisión previa](anything-khoj.md), ledger L57-73, fuentes locales L97-135,
 recibos públicos L137-152 y límites/veredicto L154-162.
 Se mantienen la distinción SPA/shell Desktop, los gitlinks no materializados,
@@ -96,7 +96,7 @@ gitlinks, auditoría legal transitiva, crash, calidad, coste y rendimiento.
 
 ## Khoj: recibo durable
 
-**Informe:** [khoj.md](../khoj.md). Evidencia anterior reutilizada:
+**Informe:** [khoj.md](../../khoj/KHOJ.md). Evidencia anterior reutilizada:
 [revisión previa](anything-khoj.md), ledger L176-190, hallazgos L192-247,
 fuentes locales L249-303, recibos públicos L305-321 y límites L323-332.
 No se repiten indexación→consulta→update/delete completos, ni se convierte la

@@ -77,48 +77,48 @@ las correcciones y sus evidencias.
 
 | Proyecto / informe | Estado | Revision y correcciones |
 |---|---|---|
-| [mem0](mem0.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory: Mem0](reviews/memory.md#mem0), M1/M2/M3; recibo Temp `vantadb-fix-memory.md`  |
-| [cognee](cognee.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: Cognee](reviews/memory-code-remaining.md#cognee), CO-1/CO-2; recibo Temp A  |
-| [hindsight](hindsight.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-additions: Hindsight](reviews/memory-additions.md#hindsight), H-1/H-2; recibo Temp A  |
-| [graphiti](graphiti.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: Graphiti](reviews/memory-code-remaining.md#graphiti), GI-1/GI-2; recibo Temp A  |
-| [mempalace](mempalace.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: MemPalace](reviews/memory-code-remaining.md#mempalace), MP-1; recibo Temp A  |
-| [tencentdb-agent-memory](tencentdb-agent-memory.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-additions: TencentDB](reviews/memory-additions.md#tencentdb-agent-memory), T-1/T-2; recibo Temp A  |
-| [supermemory](supermemory.md) — enmienda residual del lead (dirty/pin) incorporada | Aceptado con limites | Lead; [memory-additions: Supermemory](reviews/memory-additions.md#supermemory); fuera del rework A |
-| [agentmemory](agentmemory.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-additions: Agentmemory](reviews/memory-additions.md#agentmemory), AM-1; recibo Temp A  |
-| [letta](letta.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-additions: Letta](reviews/memory-additions.md#letta), L-1/L-2; recibo Temp A  |
-| [codebase-memory-mcp](codebase-memory-mcp.md) — enmienda residual del lead (UI); E integración code-index caller/ACK/recovery **sigue no acreditada**; no crear scheduler | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [code-memory](reviews/code-memory.md#codebase-memory-mcp), CM-1/CM-2; recibo Temp A  |
-| [codegraph](codegraph.md) | Aceptado con limites | Lead; [memory-code-remaining: CodeGraph](reviews/memory-code-remaining.md#codegraph); fuera del rework A |
-| [graphify](graphify.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: Graphify](reviews/memory-code-remaining.md#graphify), GF-1; recibo Temp A  |
-| [understand-anything](understand-anything.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: UA](reviews/memory-code-remaining.md#understand-anything), UA-1; no convertir veredicto no bloqueante en aceptación  |
-| [qdrant](qdrant.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines: Qdrant](reviews/engines.md#qdrant); grupo B, sin cierre acreditado aquí  |
-| [milvus](milvus.md) | Aceptado con limites | Lead; [closure Chroma/Milvus](reviews/chroma-milvus-closure.md) |
-| [weaviate](weaviate.md) | Aceptado con limites | Lead cerro W1/W2 y redacciones; [review W/P](reviews/weaviate-pgvector.md) |
-| [faiss](faiss.md) | Aceptado con limites | Lead; [engines: Faiss](reviews/engines.md#faiss) |
-| [meilisearch](meilisearch.md) | Aceptado con limites — **E3 acreditado 2026-11-20** tras levantar la restricción de forge (~20 incidencias leídas, §12.1); alcance residual: discussions solo listado, Actions/CI no inspeccionado | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: Meilisearch](reviews/platforms-retrieval-remaining.md#meilisearch); §12.1 del informe |
-| [pgvector](pgvector.md) | Aceptado con limites | Lead cerro P1 y redacciones; [review W/P](reviews/weaviate-pgvector.md) |
-| [redis](redis.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: Redis](reviews/engines-rag-remaining.md#redis); grupo B  |
-| [tidb](tidb.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: TiDB](reviews/engines-rag-remaining.md#tidb); grupo B  |
-| [surrealdb](surrealdb.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: SurrealDB](reviews/engines-rag-remaining.md#surrealdb); grupo B  |
-| [lancedb](lancedb.md) — enmienda residual del lead (§0.7) incorporada | Aceptado con limites | Lead; [rag-ingestion: LanceDB](reviews/rag-ingestion.md#lancedb) |
-| [chroma](chroma.md) | Aceptado con limites | Lead; [closure Chroma/Milvus](reviews/chroma-milvus-closure.md) |
-| [llama-index](llama-index.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: LlamaIndex](reviews/engines-rag-remaining.md#llamaindex); grupo B  |
-| [graphrag](graphrag.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: GraphRAG](reviews/engines-rag-remaining.md#graphrag); grupo B  |
-| [light-rag](light-rag.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: LightRAG](reviews/platforms-retrieval-remaining.md#lightrag); grupo C  |
-| [pageindex](pageindex.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: PageIndex](reviews/platforms-retrieval-remaining.md#pageindex); grupo C  |
-| [serviette](serviette.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: Serviette](reviews/platforms-retrieval-remaining.md#serviette); grupo C  |
-| [ragflow](ragflow.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: RAGFlow](reviews/engines-rag-remaining.md#ragflow); grupo B  |
-| [quivr](quivr.md) — hydrate principal→policy→resolver **sigue no acreditado** | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: Quivr](reviews/engines-rag-remaining.md#quivr); grupo B  |
-| [anything-llm](anything-llm.md) | Aceptado con limites | Lead; [closure Anything/Khoj](reviews/anything-khoj-closure.md) |
-| [khoj](khoj.md) | Aceptado con limites | Lead; [closure Anything/Khoj](reviews/anything-khoj-closure.md) |
-| [dify](dify.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-frameworks: Dify](reviews/platforms-frameworks.md#dify); grupo C  |
-| [langflow](langflow.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-frameworks: Langflow](reviews/platforms-frameworks.md#langflow); grupo C  |
-| [flowise](flowise.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [frameworks-additions: Flowise](reviews/frameworks-additions.md#flowise); grupo C  |
-| [langchain](langchain.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: LangChain](reviews/platforms-retrieval-remaining.md#langchain); grupo C  |
-| [langgraph](langgraph.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: LangGraph](reviews/platforms-retrieval-remaining.md#langgraph); grupo C  |
-| [agno](agno.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [frameworks-additions: Agno](reviews/frameworks-additions.md#agno); grupo C  |
-| [crewai](crewai.md) | Aceptado con limites | Lead; [platforms-retrieval-remaining: CrewAI](reviews/platforms-retrieval-remaining.md#crewai) |
-| [autogen](autogen.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [frameworks-additions: AutoGen](reviews/frameworks-additions.md#autogen); grupo C  |
-| [openai-agents-python](openai-agents-python.md) | Aceptado con limites | Lead; [frameworks-additions: OpenAI Agents Python](reviews/frameworks-additions.md#openai-agents-python) |
+| [mem0](../mem0/MEM0.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory: Mem0](reviews/memory.md#mem0), M1/M2/M3; recibo Temp `vantadb-fix-memory.md`  |
+| [cognee](../cognee/COGNEE.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: Cognee](reviews/memory-code-remaining.md#cognee), CO-1/CO-2; recibo Temp A  |
+| [hindsight](../hindsight/HINDSIGHT.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-additions: Hindsight](reviews/memory-additions.md#hindsight), H-1/H-2; recibo Temp A  |
+| [graphiti](../graphiti/GRAPHITI.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: Graphiti](reviews/memory-code-remaining.md#graphiti), GI-1/GI-2; recibo Temp A  |
+| [mempalace](../mempalace/MEMPALACE.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: MemPalace](reviews/memory-code-remaining.md#mempalace), MP-1; recibo Temp A  |
+| [tencentdb-agent-memory](../TencentDB-Agent-Memory/TENCENTDB-AGENT-MEMORY.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-additions: TencentDB](reviews/memory-additions.md#tencentdb-agent-memory), T-1/T-2; recibo Temp A  |
+| [supermemory](../supermemory/SUPERMEMORY.md) — enmienda residual del lead (dirty/pin) incorporada | Aceptado con limites | Lead; [memory-additions: Supermemory](reviews/memory-additions.md#supermemory); fuera del rework A |
+| [agentmemory](../agentmemory/AGENTMEMORY.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-additions: Agentmemory](reviews/memory-additions.md#agentmemory), AM-1; recibo Temp A  |
+| [letta](../letta/LETTA.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-additions: Letta](reviews/memory-additions.md#letta), L-1/L-2; recibo Temp A  |
+| [codebase-memory-mcp](../codebase-memory-mcp/CODEBASE-MEMORY-MCP.md) — enmienda residual del lead (UI); E integración code-index caller/ACK/recovery **sigue no acreditada**; no crear scheduler | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [code-memory](reviews/code-memory.md#codebase-memory-mcp), CM-1/CM-2; recibo Temp A  |
+| [codegraph](../codegraph/CODEGRAPH.md) | Aceptado con limites | Lead; [memory-code-remaining: CodeGraph](reviews/memory-code-remaining.md#codegraph); fuera del rework A |
+| [graphify](../graphify/GRAPHIFY.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: Graphify](reviews/memory-code-remaining.md#graphify), GF-1; recibo Temp A  |
+| [understand-anything](../Understand-Anything/UNDERSTAND-ANYTHING.md) | Aceptado con limites | [closure memoria](reviews/corrections-memory-closure.md); [memory-code-remaining: UA](reviews/memory-code-remaining.md#understand-anything), UA-1; no convertir veredicto no bloqueante en aceptación  |
+| [qdrant](../qdrant/QDRANT.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines: Qdrant](reviews/engines.md#qdrant); grupo B, sin cierre acreditado aquí  |
+| [milvus](../milvus/MILVUS.md) | Aceptado con limites | Lead; [closure Chroma/Milvus](reviews/chroma-milvus-closure.md) |
+| [weaviate](../weaviate/WEAVIATE.md) | Aceptado con limites | Lead cerro W1/W2 y redacciones; [review W/P](reviews/weaviate-pgvector.md) |
+| [faiss](../faiss/FAISS.md) | Aceptado con limites | Lead; [engines: Faiss](reviews/engines.md#faiss) |
+| [meilisearch](../meilisearch/MEILISEARCH.md) | Aceptado con limites — **E3 acreditado 2026-11-20** tras levantar la restricción de forge (~20 incidencias leídas, §12.1); alcance residual: discussions solo listado, Actions/CI no inspeccionado | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: Meilisearch](reviews/platforms-retrieval-remaining.md#meilisearch); §12.1 del informe |
+| [pgvector](../pgvector/PGVECTOR.md) | Aceptado con limites | Lead cerro P1 y redacciones; [review W/P](reviews/weaviate-pgvector.md) |
+| [redis](../redis/REDIS.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: Redis](reviews/engines-rag-remaining.md#redis); grupo B  |
+| [tidb](../tidb/TIDB.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: TiDB](reviews/engines-rag-remaining.md#tidb); grupo B  |
+| [surrealdb](../surrealdb/SURREALDB.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: SurrealDB](reviews/engines-rag-remaining.md#surrealdb); grupo B  |
+| [lancedb](../lancedb/LANCEDB.md) — enmienda residual del lead (§0.7) incorporada | Aceptado con limites | Lead; [rag-ingestion: LanceDB](reviews/rag-ingestion.md#lancedb) |
+| [chroma](../chroma/CHROMA.md) | Aceptado con limites | Lead; [closure Chroma/Milvus](reviews/chroma-milvus-closure.md) |
+| [llama-index](../llama_index/LLAMA_INDEX.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: LlamaIndex](reviews/engines-rag-remaining.md#llamaindex); grupo B  |
+| [graphrag](../graphrag/GRAPHRAG.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: GraphRAG](reviews/engines-rag-remaining.md#graphrag); grupo B  |
+| [light-rag](../LightRAG/LIGHTRAG.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: LightRAG](reviews/platforms-retrieval-remaining.md#lightrag); grupo C  |
+| [pageindex](../PageIndex/PAGEINDEX.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: PageIndex](reviews/platforms-retrieval-remaining.md#pageindex); grupo C  |
+| [serviette](../serviette/SERVIETTE.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: Serviette](reviews/platforms-retrieval-remaining.md#serviette); grupo C  |
+| [ragflow](../ragflow/RAGFLOW.md) | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: RAGFlow](reviews/engines-rag-remaining.md#ragflow); grupo B  |
+| [quivr](../quivr/QUIVR.md) — hydrate principal→policy→resolver **sigue no acreditado** | Aceptado con limites | [closure engines](reviews/corrections-engines-closure.md); [engines-rag-remaining: Quivr](reviews/engines-rag-remaining.md#quivr); grupo B  |
+| [anything-llm](../anything-llm/ANYTHING-LLM.md) | Aceptado con limites | Lead; [closure Anything/Khoj](reviews/anything-khoj-closure.md) |
+| [khoj](../khoj/KHOJ.md) | Aceptado con limites | Lead; [closure Anything/Khoj](reviews/anything-khoj-closure.md) |
+| [dify](../dify/DIFY.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-frameworks: Dify](reviews/platforms-frameworks.md#dify); grupo C  |
+| [langflow](../langflow/LANGFLOW.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-frameworks: Langflow](reviews/platforms-frameworks.md#langflow); grupo C  |
+| [flowise](../Flowise/FLOWISE.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [frameworks-additions: Flowise](reviews/frameworks-additions.md#flowise); grupo C  |
+| [langchain](../langchain/LANGCHAIN.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: LangChain](reviews/platforms-retrieval-remaining.md#langchain); grupo C  |
+| [langgraph](../langgraph/LANGGRAPH.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [platforms-retrieval-remaining: LangGraph](reviews/platforms-retrieval-remaining.md#langgraph); grupo C  |
+| [agno](../agno/AGNO.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [frameworks-additions: Agno](reviews/frameworks-additions.md#agno); grupo C  |
+| [crewai](../crewAI/CREWAI.md) | Aceptado con limites | Lead; [platforms-retrieval-remaining: CrewAI](reviews/platforms-retrieval-remaining.md#crewai) |
+| [autogen](../autogen/AUTOGEN.md) | Aceptado con limites | [closure plataformas](reviews/corrections-platforms-closure.md); [frameworks-additions: AutoGen](reviews/frameworks-additions.md#autogen); grupo C  |
+| [openai-agents-python](../openai-agents-python/OPENAI-AGENTS-PYTHON.md) | Aceptado con limites | Lead; [frameworks-additions: OpenAI Agents Python](reviews/frameworks-additions.md#openai-agents-python) |
 
 La tabla refleja la autoridad congelada del lead (Tanda 8) más la
 actualización 2026-11-20: **42 informes revisados**, **42 aceptaciones

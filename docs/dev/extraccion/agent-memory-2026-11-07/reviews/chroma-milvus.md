@@ -26,7 +26,7 @@ No hay resultados de runtime, seguridad, rendimiento ni calidad medidos.
 
 ## Chroma — recibo persistente de revisión
 
-**Informe leído completo:** [chroma.md](../chroma.md), líneas 1–672.
+**Informe leído completo:** [chroma.md](../../chroma/CHROMA.md), líneas 1–672.
 **Pin comprobado:** clon `C:\Users\Eros\chroma`, HEAD
 `1a3ac2c7c623adbd03ed2508dc27b98cdf26016d`; no fetch.
 **Vanta:** lecturas `git show` de
@@ -155,7 +155,7 @@ de ejecución. Solo lecturas y este Markdown; sin aplicaciones ni git writes.
 
 ## Milvus — recibo persistente de revisión
 
-**Informe leído completo:** [milvus.md](../milvus.md), líneas 1–846.
+**Informe leído completo:** [milvus.md](../../milvus/MILVUS.md), líneas 1–846.
 **Pin comprobado:** `C:\Users\Eros\milvus`, HEAD
 `eba8be50f84776210d3946d83840dea18924846f`; no fetch.
 **Vanta:** mismo snapshot `97c9623c8ef5a70fdb51aff215bfbb3b05b15612`.

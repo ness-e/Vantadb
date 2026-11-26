@@ -778,3 +778,32 @@ exactly-once siguen no acreditados. Esta ampliación no ejecuta validadores,
 tests, apps, benchmarks, servicios ni commits. Al aprobar: separar specs de
 importación/resolución (A/D), consulta (B), asesoría (C), refresco (E) y UI;
 ninguna necesita reservar IDs de backlog durante esta investigación.
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- Los segmentos que siguen **no acreditados** son: recibo durable/persistente del ACK, journal de intención recuperable tras reinicio (la convergencia es por re-detección, no por ledger), restore automático de `.corrupt`, exactly-once publish↔ACK, y cualquier integración equivalente en VantaDB — allí ni el caller del job de code-index ni el ACK están conectados. ## 12.
+- No se acredita un caller/job de code-index ni ACK persistente conectado.
+- Integrar E en el coordinador existente es **trabajo nuevo no acreditado**, no construir otro scheduler/WAL.
+- Ampliación 2026-11-20: cadena extremo a extremo verificada en §11.5 — la brecha caller→trabajo→ACK→persistencia→recovery queda cerrada para el lado upstream dentro de una ejecución de daemon; no acreditados el recibo durable, el journal de pendientes tras reinicio ni el lado Vanta.
+- Crash consistency quedó caracterizada en §11.5 sin ejecución: atomicidad del swap acreditada en código, journal durable de intención y exactly-once siguen no acreditados.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § codebase-memory-mcp: evidencia estructural para memoria canónica
+- § Ficha A — Importar evidencia de resolución, no IDs internos
+- § Ficha C — Separar vecindario visual de cierre para selección de tests
+- § 5. Qué no trasladar
+- § 6. Método y ledger de evidencia
+- § 11.5.8 Ejes reforzados (identidad, evidencia, invalidación, frescura)

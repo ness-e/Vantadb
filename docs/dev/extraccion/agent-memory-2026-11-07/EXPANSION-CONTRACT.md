@@ -14,7 +14,7 @@ El propietario rechazo las 37 fichas iniciales: tener diez encabezados y dos
 unidades extraibles no replica el estudio de OpenViking. Esta ampliacion exige
 investigacion especifica y profundidad comparable, no inflar longitud ni
 renombrar recomendaciones genericas. El informe de referencia es
-[OpenViking-VantaDB](../Backlog-OpenViking-VantaDB.md).
+[OpenViking-VantaDB](../OpenViking/OPENVIKING.md).
 
 Se rehacen los **37 informes existentes** y se agregan **cinco**:
 Weaviate, pgvector, Letta, LanceDB y Chroma. Son excepciones explicitas al filtro

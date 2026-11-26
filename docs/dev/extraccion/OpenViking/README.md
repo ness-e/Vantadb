@@ -36,7 +36,7 @@ Esta carpeta contiene el dossier del repositorio [`volcengine/OpenViking`](https
 
 ## Documentos relacionados
 
-- Informe original de campaña: `../Backlog-OpenViking-VantaDB.md`
+- Informe canónico: `OPENVIKING.md` (es el informe central original de la campaña, antes en la raíz de `extraccion/`)
 - Backlog canónico del dossier: `BACKLOG.md`
 - Consolidado general: `../agent-memory-2026-11-07/CONSOLIDATED.md`
 - Método de extracción: `../agent-memory-2026-11-07/METHOD.md`

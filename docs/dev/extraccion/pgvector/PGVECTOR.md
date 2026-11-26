@@ -496,3 +496,43 @@ Antes de implementación quedan por resolver:
 [V-WAL]: ../../../../src/wal.rs
 [V-REPORT]: ../../../../src/sdk/types/search.rs
 [V-INSERT]: ../../../../src/storage/engine/insert.rs
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se ejecutaron apps, tests, builds, benchmarks, installs, servicios, validadores globales o cambios git.
+- Invariantes: fases no se ejecutan en paralelo; `Completed` requiere resultado de etapa y publicación correspondiente; `success` global solo si todas terminaron.
+- Snapshot vivo cambia durante audit → cifras mutuamente incompatibles → certificado falso de exhaustividad → generación/corte no acreditado → `Unknown/GenerationChanged`.
+- **Hecho estático ≠ ejecución.** Las cinco pasadas de vacuum y los tests de concurrencia existen; no se ejecutaron.
+- **No ausencia global.** “No acreditado” se limita a las fuentes concretas.
+- Los comandos documentados upstream son `make installcheck` y `make prove_installcheck`, o `PROVE_TESTS=test/t/012_hnsw_vector_build_recall.pl` para uno; **solo se transcriben para revisión manual posterior, no se ejecutaron ni se solicita ejecutarlos durante esta investigación**.
+- No se conoce cache efectiva o CPU/RAM del resultado porque no se ejecutó.
+- Hay instrumentación de tiempo explícita, que el borrador omitía: | Entrada/configuración existente | Qué mide y qué excluye | |---|---| | [README:1339-1355][PG-DEV] documenta compilación con `-DHNSW_BENCH -DIVFFLAT_BENCH`, y variantes MEMORY/KMEANS_DEBUG. | Requiere limpiar/compilar/instalar; **no se ejecutó**.
+- Matriz pgvector vs VantaDB Estado V = **existe**, **parcial**, **no acreditado en muestra** o **no aplicable**.
+
+### Falsos positivos y descartes registrados
+
+- **Falsos positivos descartados:** Vanta ya tiene índices, pre/in/postfilter, ef adaptativo, fallback exacto, validación dimensional, cuantización/governor, bulk modes, rebuild, auditoría textual, write receipts y purge certificates.
+- No se ha probado cancelación/crash aquí. ### 2.2 Consulta: candidatos ANN, filtro SQL y visibilidad **HNSW**, [hnswscan.c][PG-HS]: `hnswbeginscan:136-167` reserva estado/contexto y presupuesto `work_mem * scan_mem_multiplier * 1024 + 256`; `hnswrescan:175-190` resetea visitados, descartados, contador y distancia previa.
+- Si pide más TIDs, `ResumeScanItems:67-91` reutiliza descartados/visitados en lotes `ef_search`; **no es una inserción**.
+- Al alcanzar `max_scan_tuples` o memoria no expande más, pero puede devolver descartados restantes (`:265-272`): es límite aproximado de exploración, no garantía de contar exactamente N filas devueltas.
+- **Upstream/unidad mínima.** [hnswscan.c en P:26-91,197-337][PG-HS], `GetScanItems`, `ResumeScanItems`, `hnswgettuple`: mantiene visitados/descartados y vuelve a explorar capa cero al pedir el executor más TIDs; termina por candidatos, coste o consumo del caller. [ivfscan.c en P:48-187,256-332,364-416][PG-IS] conserva listas y ordena lotes de probes.
+- Bloom falso positivo → pasa poda pero no filtro exacto → fila de otro scope si se omite el recheck → detección por contraste de namespace/filtro antes de emitir → mantener `matches_memory_filters`.
+- Verificar que namespace/Bloom falso positivo nunca salen como hits y que budgets no cambian por introducir reporte.
+- Ensayo futuro distingue formato aceptado de indexable y error antes de escritura. | | [#678 — Iterative index scans](https://github.com/pgvector/pgvector/issues/678) | Creado 2024-09-22; cerrado 2024-10-30; actualizado 2024-10-30; `closed`. | Cuerpo presenta **ramas de trabajo** hnsw-streaming/ivfflat-streaming, nombres históricos `hnsw.streaming`/`ef_stream`; explica descartados en capa cero, lotes ef/probes y problema de cuándo parar con filtro de distancia y solo nueve…
+
+### Limitaciones declaradas en este informe
+
+- § 4.1 C7 — Filtro efectivo y exploración iterativa con cobertura observable
+- § 4.5 C13 condicionado — Evidencia de aplicación de proyecciones en Vanta
+- § 7. Qué no trasladar
+- § 12.2 Superficies reales de Vanta Studio, con límites de revisión
+- § 13. Fuentes, cobertura y cierre de autoría
+- § 13.1 Inventario y calidad de evidencia

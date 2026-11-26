@@ -680,3 +680,28 @@ en Qdrant. No se afirma ese defecto en Vanta ni rollback por timeout postdispatc
 No se ejecutaron tests/builds/benchmarks/apps, validadores globales ni servicios;
 no staging, commit o push por el límite explícito del brief. **Cierre de autoría
 con límites, no revisión independiente ni aceptación final.**
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- `vanta-memory`, `vantadb-mcp` en el snapshot: **tipo C13 no acreditado como implementado en esas superficies**.
+- No se ejecutaron tests/builds/benchmarks/apps, validadores globales ni servicios; no staging, commit o push por el límite explícito del brief.
+
+### Falsos positivos y descartes registrados
+
+- **Falsos positivos descartados:** no faltan filtros, HNSW/RRF/BM25, budgets, provenance, delete, certificados, rebuild ni Studio.
+
+### Limitaciones declaradas en este informe
+
+- § 1.2 Flujos seguidos y límites de confirmación
+- § 2. Evidencia y unidades extraíbles
+- § 5. Qué no trasladar
+- § 6. Método, licencia y cobertura
+- § 11. Cierre de autoría y separación futura

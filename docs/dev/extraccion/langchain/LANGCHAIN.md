@@ -26,7 +26,7 @@ tags: [research, memory, engineering]
 ## 0. Identidad, mapa y fronteras
 
 Investigacion estatica del 2026-11-07. El archivo estaba ausente del worktree:
-se recupero su evidencia mediante `git show HEAD:docs/dev/extraccion/agent-memory-2026-11-07/langchain.md`,
+se recupero su evidencia mediante `git show HEAD:docs/dev/extraccion/langchain/LANGCHAIN.md`,
 sin checkout/reset. Se conservan las tres oportunidades previas —compactacion
 causal, scores y aprobacion— y se desarrollan historial y limites/retry.
 No se ejecutaron aplicaciones, tests, benchmarks ni servicios.
@@ -560,3 +560,30 @@ con ledger comun de evidencia; no crear ahora archivos ni indices adicionales.
 [V3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/utils/task_checkpoint.rs#L122-L188
 [V4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/approval.rs#L1-L168
 [V5]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L176-L420
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- resto de proveedores, model_call_limit/PII y otros middleware, fabrica completa, sockets/cancelacion de cada proveedor, suite de conformidad, transacciones backend y frontend SaaS.
+- No se aprueba seguridad global.
+- Cobertura de los diez ejes: recomendaciones/fichas 1–2; issues 3; prerequisitos 4; alternativas 5; metodo 6; benchmark 7; matriz 8; negativos 9; UI 10.
+- Validaciones funcionales de cada ficha quedan manuales, sin ejecutar aqui.
+- Revision adversarial independiente pendiente del responsable.
+- LC-1/LC-2 propagados a flujo/F, FMEA, aceptación y matriz: la conformidad de mutación y touch permanece futura; no hay nuevo bug global ni aprobación.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § 5. Alternativas y no trasladar
+- § 6. Metodo y limites
+- § 11. Fuentes, cobertura y division futura

@@ -57,7 +57,7 @@ No se impone runtime a todas las propuestas ni se aprueban sus contratos.
 
 ## Qdrant
 
-**Recibo:** [qdrant.md](../qdrant.md), leído completo, 1–682;
+**Recibo:** [qdrant.md](../../qdrant/QDRANT.md), leído completo, 1–682;
 diff real 1–107. Pin `222b2e44ab1c3f17e8246396ead6558e45041df7`.
 **Veredicto propuesto: cerrar Q-R1 y Q-R2 documentalmente.**
 No requiere reproducir el caso para cerrar la omisión narrativa; sí conservar
@@ -100,7 +100,7 @@ exigencia de fsync de índices reconstruibles.
 
 ## Redis
 
-**Recibo:** [redis.md](../redis.md), leído completo, 1–574; diff 108–124.
+**Recibo:** [redis.md](../../redis/REDIS.md), leído completo, 1–574; diff 108–124.
 Pin `5b69ba2ce91fea8e9fc70ebac8ce341b37e75533`.
 **Veredicto propuesto: cerrar el hallazgo Studio; conservar límites de UI
 externa, no convertirlos en certificación ni bloqueo runtime universal.**
@@ -142,7 +142,7 @@ documentación, no fuente funcional de su browser. No se solicita código nuevo.
 
 ## TiDB
 
-**Recibo:** [tidb.md](../tidb.md), leído completo, 1–556; diff 125–169.
+**Recibo:** [tidb.md](../../tidb/TIDB.md), leído completo, 1–556; diff 125–169.
 Pin `41efd866c3801a637ab2d6712b86d8b2cd77ac5b`.
 **Veredicto propuesto: cerrar los dos P2 previos documentalmente.**
 
@@ -180,7 +180,7 @@ prueba de ausencia de UI ni condición universal para A/B/C.
 
 ## SurrealDB
 
-**Recibo:** [surrealdb.md](../surrealdb.md), leído completo, 1–698;
+**Recibo:** [surrealdb.md](../../surrealdb/SURREALDB.md), leído completo, 1–698;
 diff 170–407. Pin `9577ac5f0caa60a39d5a334e9352aed0e232f9e6`.
 **Veredicto propuesto: cerrar documentalmente los cuatro hallazgos previos.**
 La restitución no se acepta por tener enlaces: se contrastaron cuerpos de
@@ -245,7 +245,7 @@ UI. §11 los conserva; no impiden cerrar las omisiones documentales corregidas.
 
 ## LlamaIndex
 
-**Recibo:** [llama-index.md](../llama-index.md), leído completo, 1–944;
+**Recibo:** [llama-index.md](../../llama_index/LLAMA_INDEX.md), leído completo, 1–944;
 diff 408–565. Pin `444fdf0684707de62ebb447d658dba137dd9cb99`.
 **Veredicto propuesto: cerrar los tres hallazgos documentales previos.**
 Los negativos estáticos del adapter siguen siendo negativos del producto
@@ -305,7 +305,7 @@ resueltos mediante documentación ni impiden cerrar los enlaces/contratos repara
 
 ## GraphRAG
 
-**Recibo:** [graphrag.md](../graphrag.md), leído completo, 1–598;
+**Recibo:** [graphrag.md](../../graphrag/GRAPHRAG.md), leído completo, 1–598;
 diff 566–642. Pin `34b2b67ae4601ad0b47bcd179fbe3f2a23aa0857`.
 **Veredicto propuesto: cerrar ambos P2 documentales previos.**
 
@@ -353,7 +353,7 @@ semántica/QA no demostradas. No cambian el cierre selectivo de G16/G14.
 
 ## RAGFlow
 
-**Recibo:** [ragflow.md](../ragflow.md), leído completo, 1–500;
+**Recibo:** [ragflow.md](../../ragflow/RAGFLOW.md), leído completo, 1–500;
 diff 643–726. Pin `3c6d2255af06164f0818d0959af10de0afd8b8fa`.
 **Veredicto propuesto: cerrar ambos P2 y el seguimiento documental de PR.**
 
@@ -403,7 +403,7 @@ purga integral y PR/release posterior. Cerrar modal no ACKea cancelación del wo
 
 ## Quivr
 
-**Recibo:** [quivr.md](../quivr.md), leído completo, 1–764;
+**Recibo:** [quivr.md](../../quivr/QUIVR.md), leído completo, 1–764;
 diff 727–1028. Pin `bb1b19ecf4094dbd1e309e521ce8b5fed4fb539f`.
 **Veredicto propuesto: cerrar los tres hallazgos documentales previos,
 con residual explícito de integración autorizada.**

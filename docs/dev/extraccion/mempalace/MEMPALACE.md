@@ -774,3 +774,29 @@ independiente permanece a cargo de la fase posterior.
 [M13]: https://github.com/MemPalace/mempalace/blob/f8e35362189bd0a5abf4c0df1dd5bf90ba059176/benchmarks/longmemeval_bench.py#L2907-L3441
 [V1]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/record/l1_writer.rs#L112-L620
 [V5]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/ingest/merge.rs#L16-L49
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se acredita cierre/cleanup completo ni clasificación exhaustiva de errores de todos los modos.
+- No se ejecutaron tests, builds, servicios, benchmarks ni validadores documentales; tampoco commits. ### Flujo Studio propuesto, no aplicación MemPalace inventada Extender `memorias`/`indices`/`actividad`/`retrieval` del Studio existente (rutas acreditadas en [VANTA-REFERENCE](../agent-memory-2026-11-07/VANTA-REFERENCE.md), worktree `develop-desktop`, snapshot `0ad38c542`), no la landing Vue: seleccionar conexión+namespace+handle → backend resuelve revisión y chunks…
+- No se ejecutó frontend ni se aprobaron acciones mutantes.
+- Corrección [MP-1](../agent-memory-2026-11-07/reviews/memory-code-remaining.md#mempalace) aplicada, pendiente de closure independiente.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § MemPalace: corpus literal, contratos de backend y limites de recall
+- § Ledger de cobertura
+- § 3. Defectos, riesgos e issues transferibles, con su nivel de evidencia
+- § Cierre de lectura del runner: defaults, población y coste

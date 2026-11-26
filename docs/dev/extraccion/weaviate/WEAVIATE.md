@@ -1039,3 +1039,27 @@ lectura en §5; no se presentan como blobs inmutables.
 [studio-api]: https://github.com/ness-e/Vantadb/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/desktop/src/vanta.ts#L566-L579
 [studio-command]: https://github.com/ness-e/Vantadb/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/desktop/src-tauri/src/commands/data.rs#L147-L159
 [studio-native]: https://github.com/ness-e/Vantadb/blob/0ad38c542b39a589035b0e17fdedb4c09dca24b9/desktop/src-tauri/src/connections/native.rs#L657-L672
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se ejecutó import ni se generaron datos.
+- Metadata, contratos, índices, JSON, backlog y otros informes permanecen fuera de alcance. ### 13.3 Enlaces inmutables y públicos Los identificadores de fuente usados arriba fijan **SHA completo + archivo + rango**.
+
+### Falsos positivos y descartes registrados
+
+- Filtro artificial `modulo_100 > FilterObjectPercentage` no equivale por sí solo a ese porcentaje exacto de documentos descartados.
+- C16 debe conservar esa cobertura limitada, no prometer detectar cualquier pérdida ni asumir que ese símbolo crate-private es API pública de SDK. ### Falsos positivos descartados No se sostienen «sin híbrido», «sin filtros pre-ANN», «sin cuotas/scheduler», «sin dedup/provenance», «sin checkpoint», «sin auditoría», «sin recibos» ni «sin Studio».
+
+### Limitaciones declaradas en este informe
+
+- § 5.2 Cascada de acceso y límites
+- § 7. Que no trasladar
+- § 13. Fuentes, cobertura y cierre de autoria

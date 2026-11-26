@@ -651,3 +651,28 @@ esas specs dentro de esta tarea.
 [V2]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/hooks/auto_recall.rs#L302-L335
 [V3]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/core/reflection/mod.rs#L118-L186
 [V4]: https://github.com/ness-e/VantaDB/blob/97c9623c8ef5a70fdb51aff215bfbb3b05b15612/vanta-memory/src/context_engine/engine.rs#L228-L329
+
+## Apéndice — Incógnitas, lagunas de evidencia y falsos positivos descartados
+
+> Consolidación transversal del patrón «Apéndice E» del estudio OpenViking.
+> Esta sección no añade análisis nuevo: reúne lo que el propio informe ya
+> declara como no acreditado o pendiente y los callejones ya descartados,
+> para que una re-auditoría no repita trabajo. Las secciones originales
+> citadas siguen siendo la fuente detallada.
+
+### Incógnitas y lagunas de evidencia
+
+- No se verificó artefacto de release ni cancelación inmediata de CPU/proveedor; G no supone el bug histórico vigente | Son reportes upstream, no reproducciones propias; sus cifras operativas no se usan como benchmarks.
+- `ObservationHistoryView` [H11] inspecciona revisiones, no se acredita aquí desktop nativo.
+- No se ejecutó nada del producto, no hay medición ni aceptación independiente.
+
+### Falsos positivos y descartes registrados
+
+- No se registraron falsos positivos formales en el cierre de este informe.
+
+### Limitaciones declaradas en este informe
+
+- § Hindsight: consolidacion con evidencia y recuperacion multifuente
+- § Registro de cobertura
+- § 3. Defectos, riesgos e issues transferibles, con su nivel de evidencia
+- § Complemento de autoría: contratos completos y evidencia discriminante

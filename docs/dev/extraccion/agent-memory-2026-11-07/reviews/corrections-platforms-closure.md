@@ -58,7 +58,7 @@ seguridad certificada, adopción aprobada ni aceptación final del responsable.
 
 ## Dify
 
-**Recibo:** [dify.md](../dify.md), cuerpo actual 1–752 y delta contra BASE;
+**Recibo:** [dify.md](../../dify/DIFY.md), cuerpo actual 1–752 y delta contra BASE;
 pin `65b4e17d6ebeff39c7e66c832649afff01666adf`.
 **Veredicto propuesto:** sin bloqueantes documentales de los dos hallazgos
 históricos en la muestra; propuestas C/D aún no son garantías implementadas.
@@ -106,7 +106,7 @@ documentales.
 
 ## Langflow
 
-**Recibo:** [langflow.md](../langflow.md), cuerpo 1–688 y delta BASE;
+**Recibo:** [langflow.md](../../langflow/LANGFLOW.md), cuerpo 1–688 y delta BASE;
 pin `60999cc9a7350e44dde3ef641baae864e10861f0`.
 **Veredicto propuesto:** sin bloqueantes documentales de LF-1/LF-2 en la
 muestra, sin certificar backends, UI ejecutada ni adopción de A–E.
@@ -156,7 +156,7 @@ estas correcciones documentales.
 
 ## LangChain
 
-**Recibo:** [langchain.md](../langchain.md), cuerpo 1–562 y delta BASE;
+**Recibo:** [langchain.md](../../langchain/LANGCHAIN.md), cuerpo 1–562 y delta BASE;
 pin `d9caf083577c43a91c5bf6bd1f7dfc289581184d`.
 **Veredicto propuesto:** LC-1/LC-2 corregidos documentalmente; conformidad
 de la combinación de versiones y garantías de mutación siguen por validar,
@@ -207,7 +207,7 @@ conformidad universal, y cerrar LC-2 no adopta scoring ni nuevos parámetros.
 
 ## LangGraph
 
-**Recibo:** [langgraph.md](../langgraph.md), cuerpo 1–574 y delta BASE;
+**Recibo:** [langgraph.md](../../langgraph/LANGGRAPH.md), cuerpo 1–574 y delta BASE;
 pin `e5e37b5d70dbfd93c7006bd90a658c6179a95946`.
 **Veredicto propuesto:** LG-1 cerrado como especificación documental futura;
 autorización efectiva end-to-end continúa **no acreditada**, no vulnerabilidad
@@ -250,7 +250,7 @@ crash safety, codec seguro universal o auth de todos los transports.
 
 ## Agno
 
-**Recibo:** [agno.md](../agno.md), cuerpo 1–653 y delta BASE;
+**Recibo:** [agno.md](../../agno/AGNO.md), cuerpo 1–653 y delta BASE;
 pin `f45ccee83dcd332c6a2cf46b0a0add3e7f7d3e68`.
 **Veredicto propuesto:** A-1 cerrado documentalmente, sin certificar
 aislamiento REST/todos los drivers ni aprobar A–E.
@@ -290,7 +290,7 @@ la frontera para diseñar un adapter Vanta autorizado, si se aprueba.
 
 ## AutoGen
 
-**Recibo:** [autogen.md](../autogen.md), cuerpo 1–545 y delta BASE;
+**Recibo:** [autogen.md](../../autogen/AUTOGEN.md), cuerpo 1–545 y delta BASE;
 pin `d07c667a3239ea4ab7af62a53b0f4ff205a1f23d`.
 **Veredicto propuesto:** G-1/G-2 cerrados documentalmente; sin certificar
 runtime, restore o cobertura de intentos externos a runlogs.
@@ -335,7 +335,7 @@ no prueba aislamiento de gold en cada escenario.
 
 ## Flowise
 
-**Recibo:** [flowise.md](../flowise.md), cuerpo 1–889 y delta BASE;
+**Recibo:** [flowise.md](../../Flowise/FLOWISE.md), cuerpo 1–889 y delta BASE;
 pin `9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb`.
 **Veredicto propuesto:** F-1/F-2 cerrados documentalmente; no se corrige
 código/scoring ni se certifica el juez LLM, el runtime o la seguridad enterprise.
@@ -382,7 +382,7 @@ por cerrar dos errores de descripción de métricas; no hay medición propia.
 
 ## LightRAG
 
-**Recibo:** [light-rag.md](../light-rag.md), cuerpo 1–647 y delta BASE;
+**Recibo:** [light-rag.md](../../LightRAG/LIGHTRAG.md), cuerpo 1–647 y delta BASE;
 pin `aaebfe1bb8d55deb6a4304d357a3bf4c92fcd40a`.
 **Veredicto propuesto:** LR-1 cerrado documentalmente; jobs/cancel/progreso
 atribuibles a Studio al pin siguen no acreditados, no “Studio ausente”.
@@ -422,7 +422,7 @@ RAGAS no se convierten en éxito de memoria longitudinal.
 
 ## PageIndex
 
-**Recibo:** [pageindex.md](../pageindex.md), cuerpo 1–508 y delta BASE;
+**Recibo:** [pageindex.md](../../PageIndex/PAGEINDEX.md), cuerpo 1–508 y delta BASE;
 pin `2ac8694bf8fe89a3840dda9bdb88db5119b77fc4`.
 **Veredicto propuesto:** PI-1 cerrado documentalmente; spans/publicación
 end-to-end y jobs UI no certificados.
@@ -460,7 +460,7 @@ propio ni baseline NumPy equivalente al híbrido actual.
 
 ## Serviette
 
-**Recibo:** [serviette.md](../serviette.md), cuerpo 1–491 y delta BASE;
+**Recibo:** [serviette.md](../../serviette/SERVIETTE.md), cuerpo 1–491 y delta BASE;
 pin `84e92a33728cf843026f4011d86568b403e38fb4`.
 **Veredicto propuesto:** SE-1 cerrado documentalmente, no certificación
 de retraction de todos los sinks ni durabilidad del registro UI.
@@ -498,7 +498,7 @@ factual del answerer.
 
 ## Meilisearch
 
-**Recibo:** [meilisearch.md](../meilisearch.md), cuerpo 1–661 y delta BASE;
+**Recibo:** [meilisearch.md](../../meilisearch/MEILISEARCH.md), cuerpo 1–661 y delta BASE;
 pin `c18c81973ad5d3e126f4583cdd16a9ec1719aa4a`.
 **Veredicto propuesto:** ME-1/ME-2 cerrados documentalmente; E3 **no
 acreditado por prohibición expresa**, sin bloqueo del resto ni acceso a forge.

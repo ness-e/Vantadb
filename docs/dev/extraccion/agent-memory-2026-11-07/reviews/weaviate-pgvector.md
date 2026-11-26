@@ -17,8 +17,8 @@ tags: [research, review, vector]
 
 ## Alcance y recibo
 
-Revisión independiente de [Weaviate](../weaviate.md) y
-[pgvector](../pgvector.md), con fecha de consulta pública 2026-11-07.
+Revisión independiente de [Weaviate](../../weaviate/WEAVIATE.md) y
+[pgvector](../../pgvector/PGVECTOR.md), con fecha de consulta pública 2026-11-07.
 No soy autor de esos informes. No hay aceptación final: los dictámenes
 propuestos corresponden exclusivamente a esta revisión documental.
 
