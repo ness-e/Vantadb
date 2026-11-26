@@ -584,7 +584,7 @@ Referencias:
 
 - `docs/dev/extraccion/agent-memory-2026-11-07/CONSOLIDATED.md`
 - `docs/dev/extraccion/agent-memory-2026-11-07/graphiti.md`
-- `docs/dev/extraccion/backlogs/graphiti.md`
+- `docs/dev/extraccion/graphiti/BACKLOG.md`
 - `docs/api/MEMORY_INTERCHANGE_FORMAT.md`
 - `docs/api/EMBEDDED_SDK.md`
 

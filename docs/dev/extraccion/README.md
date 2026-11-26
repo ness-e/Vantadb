@@ -2,25 +2,73 @@
 title: "Extracción — investigación comparativa de memoria/contexto para agentes"
 kind: index
 status: active
-description: "Índice de la carpeta de extracción: informe central OpenViking, 42 informes de proyectos, revisiones y backlogs por proyecto en formato universal"
+description: "Índice de la carpeta de extracción: informes, documentos de control y dossiers por proyecto con backlog canónico"
 tags: [extraccion, research, index]
 ---
 
 # Extracción — investigación comparativa para VantaDB
 
 Todo el material de la campaña de extracción (OpenViking + 42 proyectos
-comparados) vive en esta carpeta.
+comparados) vive en esta carpeta. Los backlogs canónicos están migrados a una
+carpeta propia por repositorio: `docs/dev/extraccion/<repositorio>/BACKLOG.md`.
 
 ## Contenido
 
 | Documento / carpeta | Qué contiene |
 |---|---|
 | [AUDIT-REPORT.md](AUDIT-REPORT.md) | Auditoría integral consolidada de los 5 ejes (licencias, estado del repo, trazabilidad de los 43 backlogs Lotes A/B/C y cruce contra `HEAD`) |
-| [Backlog-OpenViking-VantaDB.md](Backlog-OpenViking-VantaDB.md) | Informe central de OpenViking: los diez ejes en profundidad, fichas F1–F10, benchmarks, escritorio |
+| [Backlog-OpenViking-VantaDB.md](Backlog-OpenViking-VantaDB.md) | Informe central histórico de OpenViking; su dossier canónico está en [OpenViking/](OpenViking/) |
 | [agent-memory-2026-11-07/](agent-memory-2026-11-07/) | 42 informes de proyectos + documentos de control (CONSOLIDATED, REVIEW-COVERAGE, METHOD, BENCHMARK-NOTES, VANTA-REFERENCE, AUDIT-REPO, manifiestos, revisiones) |
-| [backlogs/](backlogs/) | Un backlog por proyecto en el formato canónico de `docs/dev/Backlog.md` (10 columnas), matriz legal [LICENSES.md](backlogs/LICENSES.md) y trazabilidad `archivo:líneas` |
-| [ZepCloud-Konig/](ZepCloud-Konig/) | Dossier docs-only de Zep Cloud/Konig con informe de retrieval, Context Block, governance, Agent Skills, Konig, benchmarks y backlog `X-ZEP-*` |
-| [agentmemory/](agentmemory/) | Dossier de `rohitg00/agentmemory` con informe de captura, leases, invalidación/privacidad y backlog `X-AGM-*` |
+| [backlogs/](backlogs/) | Formato canónico de backlogs y matriz legal [LICENSES.md](backlogs/LICENSES.md); los `BACKLOG.md` viven en las carpetas por proyecto |
+
+## Dossiers por proyecto
+
+| Carpeta | Backlog | Contenido |
+|---|---|---|
+| [agentmemory/](agentmemory/) | `agentmemory/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [agno/](agno/) | `agno/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [anything-llm/](anything-llm/) | `anything-llm/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [autogen/](autogen/) | `autogen/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [chroma/](chroma/) | `chroma/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [codebase-memory-mcp/](codebase-memory-mcp/) | `codebase-memory-mcp/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [codegraph/](codegraph/) | `codegraph/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [cognee/](cognee/) | `cognee/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [crewAI/](crewAI/) | `crewAI/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [dify/](dify/) | `dify/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [faiss/](faiss/) | `faiss/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [Flowise/](Flowise/) | `Flowise/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [graphify/](graphify/) | `graphify/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [graphiti/](graphiti/) | `graphiti/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [graphrag/](graphrag/) | `graphrag/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [hindsight/](hindsight/) | `hindsight/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [khoj/](khoj/) | `khoj/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [lancedb/](lancedb/) | `lancedb/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [langchain/](langchain/) | `langchain/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [langflow/](langflow/) | `langflow/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [langgraph/](langgraph/) | `langgraph/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [letta/](letta/) | `letta/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [LightRAG/](LightRAG/) | `LightRAG/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [llama_index/](llama_index/) | `llama_index/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [meilisearch/](meilisearch/) | `meilisearch/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [mem0/](mem0/) | `mem0/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [mempalace/](mempalace/) | `mempalace/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [milvus/](milvus/) | `milvus/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [openai-agents-python/](openai-agents-python/) | `openai-agents-python/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [OpenViking/](OpenViking/) | `OpenViking/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [PageIndex/](PageIndex/) | `PageIndex/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [pgvector/](pgvector/) | `pgvector/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [qdrant/](qdrant/) | `qdrant/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [quivr/](quivr/) | `quivr/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [ragflow/](ragflow/) | `ragflow/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [redis/](redis/) | `redis/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [serviette/](serviette/) | `serviette/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [supermemory/](supermemory/) | `supermemory/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [surrealdb/](surrealdb/) | `surrealdb/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [TencentDB-Agent-Memory/](TencentDB-Agent-Memory/) | `TencentDB-Agent-Memory/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [tidb/](tidb/) | `tidb/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [Understand-Anything/](Understand-Anything/) | `Understand-Anything/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [weaviate/](weaviate/) | `weaviate/BACKLOG.md` | Informe + backlog canónico del proyecto |
+| [ZepCloud-Konig/](ZepCloud-Konig/) | `ZepCloud-Konig/BACKLOG.md` | Informe + backlog canónico del proyecto |
 
 ## Lectura recomendada
 
@@ -29,6 +77,8 @@ comparados) vive en esta carpeta.
 2. [REVIEW-COVERAGE](agent-memory-2026-11-07/REVIEW-COVERAGE.md) — qué está
    acreditado, parcial o no acreditado por proyecto.
 3. [backlogs/](backlogs/README.md) — formato y convenciones de las filas.
+4. [LICENSES](backlogs/LICENSES.md) — gate legal antes de especificar cualquier
+   fila `X-*`.
 
 ## Estado
 

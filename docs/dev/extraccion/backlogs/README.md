@@ -2,15 +2,18 @@
 title: "Backlogs de extracción — índice y formato"
 kind: index
 status: active
-description: "Un backlog por proyecto estudiado, en formato universal de Backlog.md y voz VantaDB, con trazabilidad a la evidencia del informe de extracción"
+description: "Formato canónico de backlogs de extracción y matriz legal; los backlogs por proyecto viven en carpetas propias bajo docs/dev/extraccion"
 tags: [extraccion, backlog, index]
 ---
 
 # Backlogs de extracción
 
-Un archivo por proyecto estudiado. Cada backlog convierte las candidatas del
-informe de extracción en filas ejecutables con el **esquema canónico de 10
-columnas** de `docs/dev/Backlog.md`.
+Los backlogs canónicos por proyecto viven ahora en una carpeta propia dentro de
+`docs/dev/extraccion/<repositorio>/BACKLOG.md`. Esta carpeta conserva el
+formato obligatorio y la matriz legal [LICENSES.md](LICENSES.md).
+
+Cada backlog convierte las candidatas del informe de extracción en filas
+ejecutables con el **esquema canónico de 10 columnas** de `docs/dev/Backlog.md`.
 
 ## Formato obligatorio por archivo
 
