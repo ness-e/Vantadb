@@ -85,26 +85,28 @@ No aplica: el diff **no** agrega símbolos públicos, endpoints, tools MCP ni m�
 
 ### Step 2: Medir el reparto del reloj (antes de elegir el número)
 - **Acción:** instrumentación temporal del `elapsed` y corridas con/sin carga.
-- **Resultado:** con `file_lock_timeout_ms: 50` → **1,93–2,10 s** (6 corridas, 6 CPU burners). El delta contra el default (1000 ms) confirma el reparto: ~1,0 s de paciencia de lock + ~1,9 s de sondas. Instrumentación **eliminada** del código final.
+- **Resultado:** con `file_lock_timeout_ms: 50` → **1.931 / 1.944 / 1.971 / 2.001 / 2.061 / 2.098 ms** (6 corridas con 6 jobs quemando CPU). El delta contra el default (1000 ms) confirma el reparto: ~1,0 s de paciencia de lock + ~1,9 s de sondas (cada sonda paga dos `is_pid_alive` a ~300 ms en Windows). Instrumentación **eliminada** del código final.
 - **Estado:** ✅ DONE
 
 ### Step 3: 20 corridas consecutivas bajo carga
 - **Verify:** bucle de 20 con 6 `Start-Job` quemando CPU.
-- **Estado:** ✅ DONE — ver §Resultado
+- **Resultado:** **20/20 sin fallo de test** — 19 ejecutadas verdes + 1 corrida (`run 3`) que **no llegó a ejecutar**: `vantadb-mcp/tests/l0_l3_cycle_e2e.rs` (otro carril, a medio escribir) rompió el build con `error[E0425] cannot find type Arc`; al compilar de nuevo, el mismo filtro siguió verde. Sumadas 4 corridas extra de confirmación (`run 21-24`): **23 ejecuciones verdes, 0 fallos**.
+- **Estado:** ✅ DONE
 
 ### Step 4: Falsabilidad (mutante de escenario)
-- **Acción:** quitar el `StorageEngine::open(&path)` del setup (el escritor deja de tener el lock) y correr el filtro: las aserciones de mecanismo deben caer. Revertir después.
-- **Resultado:** ver §Resultado — cae en `role()`/`resolve_failures()`/`DatabaseBusy`, es decir **no** son tautológicas.
+- **Acción:** apuntar el `StorageEngine` del setup a `{path}-nolock` (el escritor deja de retener el lock) y correr el filtro; revertir después.
+- **Resultado:** el test **cae** con `unreachable writer must surface an error, not a promotion: Object {...}` — la llamada **promueve** en vez de fallar cerrado. Muere en la aserción pre-existente de BUSY (`expect_err`), no en las nuevas: el mutante prueba que el **escenario** es falsable, y el complemento de las aserciones nuevas (rol `writer-promoted`, `reconnects()==1`) lo fija `proxy_re_elects_writer_without_restart` en el mismo archivo. No se sobrevende: no hay contador por sonda que mutar (ver §Incógnitas).
 - **Estado:** ✅ DONE (revertido; `git diff` del archivo = solo el cambio intencional)
 
 ### Step 5: Archivo de test completo + cierre
-- **Verify:** `cargo nextest run --profile audit -p vantadb-mcp --test mcp_proxy_reconnect --build-jobs 2` (4 tests) · fmt/clippy del crate · `check-docs`/`check-links`
-- **Estado:** ✅ DONE — ver §Resultado
+- **Verify:** `cargo nextest run --profile audit -p vantadb-mcp --test mcp_proxy_reconnect --build-jobs 2` → **4 tests run: 4 passed** [6.438 s] · `rustfmt --edition 2021 --check` → exit 0 · `cargo clippy -p vantadb-mcp --tests -- -D warnings` → exit 0 · `check-docs` → `GATING: all clear` · `check-links` → 0 markdown roto
+- **Estado:** ✅ DONE — commits locales `f097c5f78` (test) + `81e7143ac` (cierre docs)
 
 ## Resultado
 
-- **20/20 corridas bajo carga, 0 fallos.** (números y resumen pegados en la entrada de `avance/activo/bindings.md`)
-- **Mecanismo elegido:** conteo de resoluciones (`resolve_failures() == 1`) + estado final (rol `proxy`, `reconnects() == 0`, `connected() == false`, `DatabaseBusy` en un segundo `open`) + pinche del reloj que el test no controlaba (`file_lock_timeout_ms: 50`). La red temporal queda en **10 s** porque el peor número *con carga* observado para esta clase es 5,05 s (`MCP-44`, que además pagaba los 1000 ms de paciencia que este test ya no paga) y la regresión que la red protege es 11,17 s.
+- **20/20 corridas del bucle sin un fallo de test** (+4 extra = 23 ejecuciones verdes, 0 fallos), con 6 jobs de CPU en paralelo. Detalle y la única corrida que no ejecutó (build ajeno) en §Step 3.
+- **Mecanismo elegido:** (a) conteo de resoluciones (`resolve_failures() == 1`, el observable que dejó `MCP-48`) + (b) estado final (rol `proxy`, `reconnects() == 0`, `connected() == false`, `DatabaseBusy` en un segundo `open`) + pinche del reloj que el test no controlaba (`file_lock_timeout_ms: 50` en vez del default 1000 ms).
+- **Por qué conserva la cota:** la red sigue ahí, pero gruesa y **justificada por medición** — `5 s → 10 s`. Medido 1,93-2,10 s con carga (×~5 de margen); el peor número *con carga* de esta clase es 5,05 s (`MCP-44`, que además pagaba los 1000 ms que este test ya no paga) y la regresión que la red protege es 11,17 s. Sin la red, la clase `System::new_all()` quedaría en verde.
 
 ## Dependencias
 - `MCP-48` ✅ (`d38975eb9`: introdujo `reconnects()`/`resolve_failures()`) · `MCP-44` ✅ (`2fb20c728`: midió el fallo) · `FIND-724` ✅ (patrón señal-vs-reloj). Carril R (1 de 2 slots).
