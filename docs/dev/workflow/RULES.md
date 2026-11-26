@@ -220,13 +220,16 @@ review: { mode: "degraded", verdict: "approve", waiver: { owner: "Eros", ref: "2
 # BAD: measures the tree — another lane's WIP decides whether you can push
 cargo fmt --all -- --check
 
-# GOOD (.githooks/pre-push): measures what travels
-git diff --name-only '@{u}..HEAD' | grep '\.rs$' | while IFS= read -r f; do
-    rustfmt --check --edition 2021 --config skip_children=true "$f" || exit 1
+# GOOD (.githooks/pre-push): measures what travels — the hook feeds the shas git
+# gives it on stdin, which is right for new branches and multi-ref pushes too.
+printf '%s\n' "$local_sha" | while IFS= read -r s; do
+    git diff --name-only "$base..$s" | grep '\.rs$' | while IFS= read -r f; do
+        rustfmt --check --edition 2021 --config skip_children=true "$f" || exit 1
+    done
 done
 ```
 
-- **Verify:** `bash -n .githooks/pre-push` → 0; two-sided proof — (a) an unformatted `.rs` **outside** the range in the working tree → hook exits 0; (b) an unformatted `.rs` **inside** the range → hook exits ≠ 0 and names the file.
+- **Verify:** `bash -n .githooks/pre-push` → 0; two-sided proof — (a) an unformatted `.rs` **outside** the range in the working tree → hook exits 0; (b) an unformatted `.rs` **inside** the range → hook exits ≠ 0 and names the file. `SKIP=<id>[,<id>…] git push` widens: a **single** id and a **comma list** must both name the skipped gate (a comma list that silently matches nothing is the same bug as no waiver at all — measured and fixed 2026-11-26).
 - **Rollout:** `FIND-760` (2026-11-26).
 
 ### 11 — Commits go through a private index and are proven by content

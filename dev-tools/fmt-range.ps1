@@ -24,7 +24,7 @@ if (-not $rustfmt) {
     exit 2
 }
 
-$files = @(Get-Content -LiteralPath $ListFile | Where-Object { $_ -and (Test-Path -LiteralPath $_) })
+$files = @(Get-Content -LiteralPath $ListFile -Encoding utf8 | Where-Object { $_ -and (Test-Path -LiteralPath $_) })
 if ($files.Count -eq 0) {
     Write-Host "fmt-range: no existing .rs files in the range — nothing to check." -ForegroundColor DarkYellow
     exit 0

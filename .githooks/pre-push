@@ -20,8 +20,11 @@
 # Skips (mismo idioma que .githooks/pre-commit → pre-commit's native SKIP):
 #   SKIP=<id>[,<id>...] git push
 #   ids: cargo-fmt cargo-check cargo-clippy cargo-audit cargo-deny nextest
-#        docs-coverage cli-probes consumo-guard unix-check wasm-types npm ts
-#        ruff markdownlint providers-fmt actionlint
+#        docs-coverage cli-probes consumo-guard backup-verification unix-check
+#        wasm-types npm ts ruff markdownlint providers-fmt actionlint
+#   (verify.ps1 -Skip usa los NOMBRES DE STEP: fmt check clippy audit deny
+#    nextest coverage-budget docs-coverage cli-probes consumo-guard
+#    backup-verification — el hook traduce sus ids a esos nombres.)
 #   El gate saltado SE NOMBRA en el output — nunca en silencio. Con `CI` definido
 #   (no vacío) SKIP se ignora: un gate no se puede waivear en CI.
 #   git push --no-verify   # salta TODO (solo emergencias, AGENTS.md Regla 1)
@@ -39,7 +42,14 @@ if [ -n "$SKIP_LIST" ] && [ -n "${CI:-}" ]; then
 fi
 is_skipped() {
     [ -n "$SKIP_LIST" ] || return 1
-    printf '%s' "$SKIP_LIST" | tr ',' '\n' | tr -d '[:space:]' | grep -qxF -- "$1"
+    # [:blank:] = space+tab, NOT [:space:]: [:space:] includes '\n' and would
+    # concatenate the split list into one token (measured: every gate NOMATCHED
+    # while `SKIP=cargo-fmt,…` looked accepted — a silent no-op).
+    _skip_list=$(printf '%s' "$SKIP_LIST" | tr -d '[:blank:]')
+    case ",$_skip_list," in
+        *",$1,"*) return 0 ;;
+    esac
+    return 1
 }
 skip_gate() {
     echo "pre-push: SKIP: gate '$1' skipped (requested via SKIP=$SKIP_LIST) — NOT verified."
@@ -102,6 +112,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     fi
     # Un diff que falla (sha inventado, ref desconocida) dejaba el rango VACÍO y
     # el hook pasaba midiendo nada. Fail closed: no se puede medir → se bloquea.
+    # Un `base` vacío daría `git diff "..sha"` = HEAD..HEAD, válido y vacío: se usa
+    # el propio sha para que el rango nunca sea un artefacto del parseo.
+    [ -n "$base" ] || base=$local_sha
     RANGE_FILES=$(git diff --name-only "$base..$local_sha" 2>/dev/null) || {
         echo "pre-push: ERROR — cannot diff $base..$local_sha. Push BLOCKED." >&2
         exit 1
@@ -173,7 +186,7 @@ VERIFY_PS1_WIN="$(winpath "$VERIFY_SCRIPT")"
 #     (slow-timeout de nextest, abort, SIGKILL) deja su TempDir en %TEMP%; en un
 #     dia son GB. Advisory: reclama lo huerfano y NUNCA bloquea el push. ---
 if [ -f "$REPO_ROOT/dev-tools/temp-collector.ps1" ]; then
-    "$PS_EXE" -NoProfile -File "$(winpath "$REPO_ROOT/dev-tools/temp-collector.ps1")" -Quiet || true
+    "$PS_EXE" -NoProfile -ExecutionPolicy Bypass -File "$(winpath "$REPO_ROOT/dev-tools/temp-collector.ps1")" -Quiet || true
 fi
 
 PS_SKIP="fmt"   # el fmt del árbol ya no corre acá: lo cubre el gate por rango de arriba + CI

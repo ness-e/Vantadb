@@ -55,6 +55,13 @@ param(
     [string[]]$ExpectPresent = @()
 )
 
+# `pwsh -File script.ps1 -Paths a,b,c` cannot bind an array (it expands values
+# into positional args), so accept the comma-joined form too — same as
+# verify.ps1 -Skip. Repeatable flags work as well.
+$Paths = @($Paths | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+$ExpectAbsent = @($ExpectAbsent | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+$ExpectPresent = @($ExpectPresent | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+
 $ErrorActionPreference = "Stop"
 
 $repo = (& git rev-parse --show-toplevel 2>$null)
@@ -102,7 +109,16 @@ Write-Host "committed: $commit"
 # (or `git commit -a`) would have reverted it. Re-adding only these paths (whose
 # worktree content is exactly what was committed) syncs them without touching
 # another lane's staged entries.
-& git add -- @Paths | Out-Null
+& git add -- @Paths 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    # Never report success here: if the shared index keeps the OLD HEAD, any lane's
+    # bare `git commit` reverts this commit (FIND-753 / `Unable to create
+    # .git/index.lock`, measured 8 consecutive times with 4 lanes).
+    Write-Host "commit ok but the SHARED INDEX REFRESH FAILED (git add exit $LASTEXITCODE)." -ForegroundColor Red
+    Write-Host "  fix now: git add -- $($Paths -join ' ')" -ForegroundColor Red
+    Write-Host "  until then a bare 'git commit' from any lane can revert $commit." -ForegroundColor Red
+    exit 3
+}
 Write-Host "shared index refreshed for: $($Paths -join ', ')"
 
 # ── Verification BY CONTENT ─────────────────────────────────────────────────
