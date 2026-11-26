@@ -148,4 +148,19 @@ primera versión y lo cazó la prueba E2E; ahora lo fija
 
 ## Cierre de la fila
 
-_(se completa al cerrar)_
+- Fila `FIND-751` retirada de `docs/dev/Backlog.md` junto con su sección
+  (`## Media 2026-11-26 - HOME vacío da rutas relativas al CWD`), que quedaba con
+  **una sola fila** (verificado antes de borrar: el chequeo del script abortaba si
+  la sección traía ≠1 fila). Comprobado **por contenido** después del commit:
+  `git show HEAD:docs/dev/Backlog.md | Select-String 'FIND-751'` → vacío; la
+  hermana `FIND-754` sigue presente.
+- **Nota de proceso (árbol compartido):** el borrado de la fila viajó en el commit
+  de **otro** carril (`fc318912b`, que registraba `FIND-766..768`), porque commitea
+  sobre el mismo checkout. El estado final es el correcto — `FIND-751` no está en
+  `HEAD` — pero mi commit (`40c7407d7`) no muestra ese cambio de `Backlog.md`. Es
+  exactamente la clase de `FIND-753`, mitigada a medias por
+  `dev-tools/git-commit-isolated.ps1` (paths y expectativas verificadas, índice
+  privado) pero no evitable cuando otro carril hornea el árbol de trabajo.
+- Entrada agregada al final de `docs/dev/avance/activo/bindings.md` (misma sección
+  que `FIND-738`, para no partir la clase).
+- `gen-index.mjs` **no** se corrió (se regenera en el cierre de wave).
