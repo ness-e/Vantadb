@@ -644,14 +644,19 @@ surfaces in ≤24h instead of ≤7d:
 The `default-filter` of `.config/nextest.toml` excludes ~55 heavy binaries by name. For six of
 them the exclusion was *documented but never measured*: nobody had counted how many tests they
 hold, or whether a healthy lane runs them at all. Counted on 2026-11-26 against `gh`, the answer
-is **154 tests in the six binaries, of which 118 (77 %) had no lane that executes them** — **104
-after `FIND-768`** recovered the 14 that `snapshot_certification`'s selector silently skipped.
+is **154 tests in the six binaries, of which 118 (77 %) had no lane that executes them** — **0
+after `FIND-766`**, in three steps: `FIND-768` recovered the 14 that `snapshot_certification`'s
+selector silently skipped, `FIND-767` wired the 6 of `security_audit`, and `FIND-766` took the
+remaining 98 (96 `cli_tests` + 2 benchmarks) out from behind a dataset gate they never consumed.
+"Wired", not "measured": none of the three has produced a run at the time of writing, so the
+three rows below state what the lane now selects, and the task file of each one says what is
+still unproven. No row says "does not run" any more — that is the whole point of the ledger.
 
 | Binary | Tests | Lane today | Last real result | Verdict |
 |---|---:|---|---|---|
-| `benchmark_internal` | 1 | `certification.yml` → job `other_heavy` (step "Run remaining heavy tests") | run `45598671538` (2026-11-25): job **failure at the TBH-01 dataset gate, before the test step** → 0 success / 36 failure in 30 d | **does not run** |
-| `benchmark_datasets` | 1 | same job | same | **does not run** — and when run locally without GloVe-100 it returns early in green (`tests/benchmark_datasets.rs:18`) |
-| `cli_tests` | 96 | same job | same | **does not run** — CI and the local nextest gate both exclude the binary |
+| `benchmark_internal` | 1 | `certification.yml` → job `other-heavy`, phase `02-vantadb-dataset-free` (since `FIND-766`) | run `45800950632` (2026-11-26): **failure at the TBH-01 dataset gate, both test steps `skipped`** → 0 success / 37 failure over 39 scheduled runs | **wired to run** 1 of 1 — **no run yet** (this lane has never produced one). It never needed the dataset it was gated on: it builds its own 10k synthetic corpus (`tests/benchmark_internal.rs:40`, zero references to `data/benchmark`) |
+| `benchmark_datasets` | 1 | `certification.yml` → job `benchmark-datasets`, **own job and own `name:`** (since `FIND-766`) | same run: never executed | **wired to run** 1 of 1 — **no run yet**. It is the only test that reads `data/benchmark`. A missing GloVe now reds a job named after the dataset instead of the job that owns every other test; without the dataset it returns early in green (`tests/benchmark_datasets.rs:18`), which is why the TBH-01 gate sits in front of it |
+| `cli_tests` | 96 | `certification.yml` → job `other-heavy`, phase `01-vantadb-cli-tests` — **its own phase, one count, since `FIND-766`** | same run: never executed | **wired to run** 96 of 96 — **no run yet**. When it runs it proves itself: the phase counts its population with `nextest list` and compares it against its JUnit (`listed == executed`, the `FIND-768` pattern), and the phase exists for this binary alone so emptying it cannot hide behind ten siblings. CI and the local nextest gate still exclude the binary, which is why this lane is its only home |
 | `concurrency_parity` | 5 | `certification.yml` → job `memory_concurrency` | run `45598671538`: **success** → 36 success / 0 failure / 3 skipped in 30 d | **runs** 5 of 5 — `test_triple_backend_parity_validation` is `#[cfg_attr(not(feature = "rocksdb"), ignore)]` and this lane passes `--features rocksdb`, so the ignore is not applied |
 | `snapshot_certification` | 56 with `--features failpoints` (59 in phase 04, which adds 3 `encryption`-gated tests) | `snapshot-certification.yml` phases 03/04/05 | run `45802050950` (2026-11-26): **success** → 39 success / 6 failure / 3 cancelled in 30 d | **runs the whole binary** since `FIND-768` (2026-11-26): phases 03/04 select `binary(snapshot_certification)` instead of `test(snapshot) or test(pending_restore) or test(schedule)`, which matched only 42 of 56 and left 14 unexecuted (4 `export_format_*`, `find319_child_flag_ignores_empty_values`, 5 `vantafile_*`, 4 `wal_*`). `run_phase` now counts the **target** with `nextest list` before running and fails when the phase's JUnit reports a different number (`listed == executed`, one line per phase in `listed-vs-executed.txt` — that file, not this cell, is the authoritative per-phase count); `--no-tests fail` only ever covered the empty selection |
 | `security_audit` | 6 | `certification.yml` → job `security-audit` (`FIND-767`) | new lane, weekly (Sun 03:00) + dispatch; first run pending | **runs** 6 of 6 - own job at the end of the file, isolated from `other-heavy`; `--ignore-default-filter` cancels the exclusion and `--no-tests fail` turns an empty selection **red**. Measured 63-89 s, which is why it is not a per-PR lane |
@@ -684,7 +689,14 @@ run anywhere. Only (3) is the hole. `other_heavy` is the reason the distinction 
 not produced a single green run in 30 days, and it fails **before** the test step, so its three
 binaries are not "failing tests" — they are tests nothing executes. The immediate cause is
 `FIND-328`'s fix (download before the dataset gate) sitting in `develop` 552 commits ahead of
-`main`, which is the tree the schedule actually runs.
+`main`, which is the tree the schedule actually runs. `FIND-766` closed that hole on
+2026-11-26: the dataset moved to its own job, the tests no longer sit behind it, and **those
+two jobs** now check out `develop` on `schedule` (the other ~20 jobs of that workflow still
+measure `main` — declared as debt in that task file). No run has confirmed any of it yet: the
+scheduled lane runs the YAML of the default branch, so until this lands on `main` the cron
+keeps executing the single-job version, and only a `workflow_dispatch` on `develop` can
+exercise it. The sentence above therefore records the state that motivated this ledger, not
+its current one.
 
 **Rule for the next exclusion:** a binary added to `default-filter` must appear in this table with
 the lane that runs it and the command that counts it. An exclusion without a named green lane is

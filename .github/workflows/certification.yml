@@ -293,17 +293,246 @@ jobs:
           --test fuzz_proptest
           --
           --test-threads=1
+  # FIND-766 — this job used to be ONE step that started with a GloVe download
+  # and the TBH-01 dataset gate, so the dataset decided whether every test below
+  # ran at all. Measured by FIND-752 over 39 scheduled runs: 0 success / 36
+  # failure / 3 skipped in 30 days, and in all 36 the `Download benchmark
+  # datasets` and `Run remaining heavy tests` steps are `skipped` — no test ever
+  # executed behind the red. Two changes, in that order of value:
+  #   1. the dataset and its ONLY consumer (benchmark_datasets.rs) moved to the
+  #      `benchmark-datasets` job below. `benchmark_internal.rs` looked
+  #      dataset-bound and never was: it builds its own 10k synthetic corpus
+  #      (tests/benchmark_internal.rs:40), so it belongs here. A missing dataset
+  #      is now a red job NAMED after the dataset instead of a red job that also
+  #      owns every test;
+  #   2. `listed == executed` (the FIND-768 pattern): each phase counts its
+  #      population with `nextest list` before running and fails when the phase's
+  #      JUnit reports a different number. Without it this lane can be green
+  #      having executed nothing — `--no-tests fail` only covers an EMPTY
+  #      selection, not a partial one (FIND-738).
+  # No `needs: ci-gate`: this is the only lane that runs these binaries, and
+  # `needs:` turns them `skipped` — which GitHub reports as success — whenever
+  # main CI is red. Same decision and reasoning as `security-audit` (FIND-767).
   other-heavy:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0')
 
-    name: "Certification: other_heavy"
-    needs: ci-gate
+    name: "Certification: other_heavy (tests, dataset-free)"
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # FIND-766(c): `schedule` only ever fires on the DEFAULT branch, so a
+          # weekly lane that leaves `ref` alone measures `main` — 552 commits
+          # behind `develop`, where the FIND-328 fix itself lives. That is
+          # FIND-741's class (verifying against a stale artifact) with a
+          # calendar attached: the cron cannot target a branch, so the checkout
+          # does. push/PR/dispatch keep the ref that triggered them.
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+      - name: Assert which tree this lane measures (FIND-766c)
+        # The `ref:` above is an expression, so it can be wrong silently. This
+        # step turns "the scheduled lane measured main and nobody noticed" into
+        # a red run instead of into 30 more days of measuring the wrong tree.
+        run: |
+          set -euo pipefail
+          ref=$(git rev-parse --abbrev-ref HEAD)
+          printf 'measured tree: %s @ %s (event: %s)\n' \
+            "$ref" "$(git rev-parse --short HEAD)" "${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$ref" != "develop" ]; then
+            echo "::error::the scheduled lane checked out '$ref', not 'develop' — a weekly lane on main verifies a stale tree (FIND-741). Fix the checkout ref: expression, do not re-run until then."
+            exit 1
+          fi
       - uses: ./.github/actions/rust-setup
         with:
+          install-nextest: true
+          swap-mb: 4096
+          free-disk: true
+      # FIND-766 - the tests half of what used to be ONE job. It runs every
+      # binary that needs no dataset, and it proves it: each phase counts its
+      # population with `nextest list` before running and fails when the phase's
+      # JUnit reports a different number (`listed == executed`, the FIND-768
+      # pattern). `--no-tests fail` only covers an EMPTY selection, never a
+      # partial one (FIND-738) - that is why the count exists.
+      #
+      # Review H1: `cli_tests` - 96 of the 98 tests this task is about - has its
+      # OWN phase. Aggregated with ten siblings, emptying it would still leave
+      # listed == executed for the rest and the phase would stay green.
+      #
+      # Review H2: `--profile audit` in `.config/nextest.toml` carries
+      # `slow-timeout = 60s terminate-after 3` (a test is KILLED at 180 s) and
+      # `leak-timeout = 500ms result = fail`. Neither was ever measured on these
+      # binaries - they have never run under nextest - so a killed test would red
+      # the lane for a reason that is not the test. `.config/nextest.toml` is out
+      # of this ticket's scope, so the profile is re-declared here through
+      # `--config-file`: 600 s (a hang, not a slow runner; the step timeout backs
+      # it up) and no leak-timeout (unmeasured, and `result = "warn"` is not a
+      # valid value - the enum is fail|pass - so "declare it and keep going" is
+      # not expressible; it is omitted and named as debt).
+      #
+      # Review B1: the lib test path is `index::core::tests::...`, NOT
+      # `index::tests::...`. The old `cargo test --lib index::tests::...` was a
+      # SUBSTRING filter that matched ZERO tests and exited 0, so that test has
+      # never run anywhere either (FIND-734 saw the same shape).
+      #
+      # Review L1: `structured_api_v2` keeps its `#[ignore]`d `ollama_integration`
+      # (needs an external Ollama) out of BOTH sides for free - nextest excludes
+      # ignored tests from `list` and from the JUnit (report-skipped = none) - so
+      # no selector is needed for it.
+      #
+      # The shell script below carries NO `#` comments ON PURPOSE: actionlint's
+      # bundled shellcheck crashes (exit -1, no message) on this script when the
+      # prose is inside `run:`; the same code with the prose here is clean.
+      # Measured 2026-11-26: 136 script lines with comments -> crash, 101 without
+      # -> exit 0. Keep the prose in YAML.
+      - name: Run the dataset-free heavy tests (listed == executed)
+        # Cold release compile of the vantadb test binaries + the server and mcp
+        # targets (~60 min) plus the tests themselves (~18 min, measured by the
+        # previous 75-min step budget for the same set).
+        timeout-minutes: 100
+        run: |
+          set -euo pipefail
+          out=target/nextest/other-heavy
+          report=target/nextest/audit/junit.xml
+          mkdir -p "$out"
+
+          cat > "$out/nextest.toml" <<'NEXTEST_EOF'
+          [profile.audit]
+          fail-fast = false
+          slow-timeout = { period = "600s", terminate-after = 1 }
+          [profile.audit.junit]
+          path = "junit.xml"
+          NEXTEST_EOF
+          cfg=(--config-file "$out/nextest.toml")
+
+          run_phase() {
+            local phase="$1" coverage="$2" selector="$3"
+            shift 3
+            local status listed list_status executed
+            local -a pipeline_status run_args expect
+            if [[ -f "$report" ]]; then
+              mv "$report" "$out/$phase.prior-report.txt"
+            fi
+
+            run_args=("$@")
+            expect=("$@")
+            if [[ -n "$selector" ]]; then
+              run_args+=(-E "$selector")
+              if [[ "$coverage" == "scoped" ]]; then
+                expect+=(-E "$selector")
+              fi
+            fi
+
+            set +e
+            cargo nextest list \
+              --profile audit --cargo-profile release \
+              --locked --build-jobs 2 \
+              --ignore-default-filter \
+              "${cfg[@]}" \
+              "${expect[@]}" > "$out/$phase.listed.txt" 2> "$out/$phase.list.stderr.txt"
+            list_status=$?
+            set -e
+            listed=$(grep -oE '^[^[:space:]]+::[^[:space:]]+ ' "$out/$phase.listed.txt" | wc -l || true)
+            if [[ "$list_status" -ne 0 || "$listed" -eq 0 ]]; then
+              echo "$phase: nextest list exited $list_status selecting $listed test(s) with a full selector." >&2
+              return 1
+            fi
+
+            set +e
+            cargo nextest run \
+              --profile audit --cargo-profile release \
+              --locked --build-jobs 2 --test-threads 1 \
+              --ignore-default-filter --no-tests fail \
+              "${cfg[@]}" \
+              "${run_args[@]}" 2>&1 | tee "$out/$phase.txt"
+            pipeline_status=("${PIPESTATUS[@]}")
+            set -e
+            status="${pipeline_status[0]}"
+            if [[ "${pipeline_status[1]}" -ne 0 ]]; then
+              status=1
+            fi
+
+            if [[ -f "$report" ]]; then
+              cp "$report" "$out/$phase.junit.xml"
+              executed=$(grep -o '<testcase' "$out/$phase.junit.xml" | wc -l || true)
+              printf '%s listed=%s executed=%s coverage=%s\n' \
+                "$phase" "$listed" "$executed" "$coverage" \
+                | tee -a "$out/listed-vs-executed.txt"
+              if [[ "$executed" -ne "$listed" ]]; then
+                echo "$phase: population is $listed test(s) but $executed executed." >&2
+                status=1
+              fi
+            elif [[ "$status" -eq 0 ]]; then
+              echo "Successful phase did not produce a fresh JUnit report." >&2
+              status=1
+            fi
+
+            return "$status"
+          }
+
+          run_phase 01-vantadb-cli-tests full '' \
+            -p vantadb --features cli,arrow --test cli_tests
+          run_phase 02-vantadb-dataset-free full '' \
+            -p vantadb --features cli,arrow \
+            --test structured_api_v2 \
+            --test python_sdk_boundary \
+            --test hybrid_ranking_metrics \
+            --test hybrid_retrieval_quality \
+            --test basic_node \
+            --test hardware_profiles \
+            --test vector_scale_check \
+            --test integration \
+            --test multilingual_tokenizer_integration \
+            --test columnar \
+            --test benchmark_internal
+          run_phase 03-vantadb-lib-hnsw scoped 'test(index::core::tests::concurrent_insert_preserves_hnsw_invariants)' \
+            -p vantadb --lib
+          run_phase 04-server full '' \
+            -p vantadb-server --features prometheus \
+            --test mcp_integration --test e2e --test benchmarks --test server
+          run_phase 05-mcp full '' -p vantadb-mcp --test mcp_tests
+      - name: Upload execution logs, JUnit reports and the counts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: other-heavy-listed-vs-executed
+          # `listed-vs-executed.txt` is the authoritative per-phase count: one
+          # line per phase, written by the run that measured it. Any number
+          # quoted in CI_POLICY or in the task file is the source count, not this.
+          path: target/nextest/other-heavy/
+          if-no-files-found: warn
+          retention-days: 30
+  # FIND-766(b) — the dataset gets its own job so "the download failed" and "a
+  # test failed" stop looking identical in the run summary. `benchmark_datasets`
+  # is the ONLY test that reads data/benchmark (9 path references in
+  # tests/benchmark_datasets.rs); it returns early in green when the file is
+  # absent (tests/benchmark_datasets.rs:18), which is why the TBH-01 gate sits
+  # in front of it and why losing this job is honest red instead of quiet skip.
+  # No `needs:` on `other-heavy` and vice versa: a `needs:` here would make the
+  # tests `skipped` — reported as success — exactly when the dataset is missing.
+  benchmark-datasets:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0')
+
+    name: "Certification: benchmark_datasets (GloVe-100 + its consumer)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Same expression and same reason as `other-heavy` (FIND-766c).
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+      - name: Assert which tree this lane measures (FIND-766c)
+        run: |
+          set -euo pipefail
+          ref=$(git rev-parse --abbrev-ref HEAD)
+          printf 'measured tree: %s @ %s (event: %s)\n' \
+            "$ref" "$(git rev-parse --short HEAD)" "${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$ref" != "develop" ]; then
+            echo "::error::the scheduled lane checked out '$ref', not 'develop' — a weekly lane on main verifies a stale tree (FIND-741). Fix the checkout ref: expression, do not re-run until then."
+            exit 1
+          fi
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-nextest: true
           swap-mb: 4096
           free-disk: true
       - name: Cache benchmark dataset (GloVe 100d)
@@ -336,46 +565,29 @@ jobs:
             echo "::error::GloVe-100 truncated: $VEC_COUNT lines (expected 400000) — same guard as scripts/download_benchmark_datasets.sh"
             exit 1
           fi
-      - name: Run remaining heavy tests
-        # ponytail: 45 min fit cached runs; bump to 60 so a cold release
-        # compile (~40 min) + tests (~18 min) fits within the job window.
-        timeout-minutes: 75
+      - name: Run benchmark_datasets (the only dataset consumer)
+        # Same declared profile as the sibling job, same reason (review H2):
+        # this test has never run under nextest, so inheriting `slow-timeout 180 s`
+        # and `leak-timeout fail` would red a job *named after the dataset* for a
+        # reason that is not the dataset. 90 min: ~40-60 min cold release compile
+        # (the sibling job's measured comment) plus one short test.
+        timeout-minutes: 90
         run: |
-          cargo test --release --features cli,arrow \
-            --test benchmark_internal \
-            --test benchmark_datasets \
-            --test cli_tests \
-            --test structured_api_v2 \
-            --test python_sdk_boundary \
-            --test hybrid_ranking_metrics \
-            --test hybrid_retrieval_quality \
-            --test basic_node \
-            --test hardware_profiles \
-            --test vector_scale_check \
-            --test integration \
-            --test multilingual_tokenizer_integration \
-            --test columnar \
-            -- \
-            --test-threads=1
-          cargo test --release \
-            --package vantadb-server \
-            --features prometheus \
-            --test mcp_integration \
-            --test e2e \
-            --test benchmarks \
-            --test server \
-            -- \
-            --test-threads=1
-          cargo test --release \
-            --package vantadb-mcp \
-            --test mcp_tests \
-            -- \
-            --test-threads=1
-          cargo test --release \
-            --package vantadb \
-            --lib index::tests::concurrent_insert_preserves_hnsw_invariants \
-            -- \
-            --nocapture
+          set -euo pipefail
+          mkdir -p target/nextest/benchmark-datasets
+          cat > target/nextest/benchmark-datasets/nextest.toml <<'NEXTEST_EOF'
+          [profile.audit]
+          fail-fast = false
+          slow-timeout = { period = "600s", terminate-after = 1 }
+          [profile.audit.junit]
+          path = "junit.xml"
+          NEXTEST_EOF
+          cargo nextest run \
+            -p vantadb --features cli,arrow --test benchmark_datasets \
+            --profile audit --cargo-profile release \
+            --locked --build-jobs 2 --test-threads 1 \
+            --ignore-default-filter --no-tests fail \
+            --config-file target/nextest/benchmark-datasets/nextest.toml
   mutation-test:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0')
 
