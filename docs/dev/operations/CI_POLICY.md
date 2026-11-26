@@ -653,7 +653,7 @@ is **154 tests in the six binaries, of which 118 (77 %) have no lane that execut
 | `cli_tests` | 96 | same job | same | **does not run** — CI and the local nextest gate both exclude the binary |
 | `concurrency_parity` | 5 | `certification.yml` → job `memory_concurrency` | run `45598671538`: **success** → 36 success / 0 failure / 3 skipped in 30 d | **runs** 5 of 5 — `test_triple_backend_parity_validation` is `#[cfg_attr(not(feature = "rocksdb"), ignore)]` and this lane passes `--features rocksdb`, so the ignore is not applied |
 | `snapshot_certification` | 56 with `--features failpoints` | `snapshot-certification.yml` phases 03/04/05 | run `45802050950` (2026-11-26): **success** → 39 success / 6 failure / 3 cancelled in 30 d | **runs partially** — the phase selector `test(snapshot) or test(pending_restore) or test(schedule)` matches **42 of 56**; 14 are never selected |
-| `security_audit` | 6 | **none** | never ran; `git log -S"security_audit" -- .github/workflows` → 0 commits | **does not run** — `verify.ps1:117` and `coverage-budget.ps1:79` both `--skip security_audit` (the `cargo test` fallback; the primary nextest path excludes it by `default-filter`) |
+| `security_audit` | 6 | `certification.yml` → job `security-audit` (`FIND-767`) | new lane, weekly (Sun 03:00) + dispatch; first run pending | **runs** 6 of 6 - own job at the end of the file, isolated from `other-heavy`; `--ignore-default-filter` cancels the exclusion and `--no-tests fail` turns an empty selection **red**. Measured 63-89 s, which is why it is not a per-PR lane |
 
 **How these numbers were obtained** (repeatable; the full evidence lives in
 [`docs/dev/tasks/FIND-752.md`](../tasks/FIND-752.md)):
