@@ -4,8 +4,12 @@
 # avoiding hours of wasted heavy runs that would fail anyway.
 # Re-checked 2026-09-24 (EST-03): measures main HEAD; skipped/neutral pass;
 # checks with no completed runs on main are tolerated with a WARN.
-# REQUIRED mirrors the main branch ruleset 1:1 (verified 2026-10-29) — when the
-# ruleset changes, update this list in the same commit.
+# REQUIRED mirrors the main branch ruleset 1:1 (verified 2026-11-26: 18 checks)
+# plus one entry that is not a merge gate: "Generate API reference (rustdoc)"
+# (FIND-763) measures main's docs build and must keep measuring, so the heavy
+# runs abort on a red doc gate too. When the ruleset changes, update this list in
+# the same commit — and keep the name identical to the job's `name:` in
+# `docs-gates.yml`: a context that matches no check-run never resolves.
 
 name: CI Gate
 
@@ -51,6 +55,7 @@ jobs:
             "Frontmatter schema, kind agreement, orphans"
             "Generated indexes are current"
             "actionlint (workflows lint + inventory gate)"
+            "Generate API reference (rustdoc)"
             "Cross-language conformance (Py/Node/WASM)"
           )
           # Miri omitted: required on develop, not on main (this gate measures main).

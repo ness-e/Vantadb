@@ -550,10 +550,27 @@ jobs:
           install-system-deps: true
           swap-mb: 0
 
+      # FIND-763: el step del artefacto de abajo NO mide. Corre `cargo doc` sin
+      # `RUSTDOCFLAGS`, así que genera el tarball y no juzga nada (medido
+      # 2026-11-26: exit 0 con 36 warnings). Este step es el gate de la
+      # superficie PÚBLICA, con el comando que FIND-755 dejó en verde, sin
+      # `--all-features` ni `--document-private-items`: la vista privada es OTRA
+      # superficie (los 36 lints, cerrados en FIND-761) y el artefacto conserva
+      # su semántica. Sin `continue-on-error`, mismo criterio que clippy.
+      # `env:` va en el step, no en el job: en el job contaminaría el build del
+      # artefacto. Va antes porque no comparte fingerprint (default vs
+      # --all-features).
+      - name: Deny rustdoc warnings (doc gate)
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --no-deps --workspace --keep-going
+
       # `--no-deps` evita descargar/parsear crates externos (la doc de dependencias
       # la sirve docs.rs). `--workspace` cubre core + vantadb-*/providers.
       # `--all-features` consistente con cargo clippy --all-features del job clippy.
-      # Falla por defecto en docstrings con links rotos / markdown inválido (gate de calidad).
+      # OJO: este step documenta la vista privada para el artefacto; no niega
+      # warnings (el gate es el step de arriba). Negar aquí NO sustituye a ese
+      # gate: son dos superficies distintas (FIND-761/FIND-763).
       - name: Generate rustdoc
         run: cargo doc --no-deps --workspace --all-features --document-private-items
 
