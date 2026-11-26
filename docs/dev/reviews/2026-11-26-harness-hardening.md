@@ -729,6 +729,21 @@ lee un índice vacío → commitea el árbol vacío.
 split por `|` con pipe escapado; y la discrepancia de cifras 11/11 vs 12/12 entre
 documentos. Texto completo en `H-02-H-07.md` §"Ronda 4".
 
+## D.4 — Ronda 5
+
+La ronda 4 dejó una **regresión**: su fix de conteos era código muerto en runtime.
+
+| ID | Defecto | Fix |
+|---|---|---|
+| **B1′** 🔴 | `Get-BacklogOwnIds`/`Get-PlanOwnIds` llamadas antes de definirse (PowerShell no hoistea) → `.Contains()` sobre `$null` → **todo** task file activo reportado huérfano (`MEMG-03` con fila propia: `FAIL`). Al instrumentar apareció un segundo defecto: `return $set` **desenrolla el `HashSet`**, y con un solo elemento queda un `string` → `.Contains()` vuelve a ser substring | funciones antes de las llamadas + `return ,$set`; e2e nuevo **"task file con fila propia → exit 0"** (el caso que faltaba: los 4 e2e anteriores pasaban con el bug vivo) y `*> $null` reemplazado por captura que imprime la salida al fallar |
+| **R1** 🟠 | el fail-closed era ancho en el Backlog: dashboard `Phase / Dimensión` (`:27`) y tablas `Brecha / Tarea` (`:602,:613,:626`) fallaban con filas legítimas | la tabla debe tener columna `ID` y sólo se juzgan columnas de **nombre** prose-ish; `enHeader`/`synHeader` **siguen** en exit 1 |
+| **R2** 🟠 | la regla del pipe no estaba en `RULES.md` §11 (0 hits) — sólo en este informe y en un task file que se cierra | `Must not` en §11, con los 3 incidentes medidos y el patrón correcto. **El fix estructural (`commit-tree`+`update-ref`) NO se hace acá:** el helper y `dev-tools/tests/` son WIP sin commitear de `FIND-778`; tocarlos es colisión de propiedad. Declarado |
+| **N1** 🔵 | el mensaje imprimía el separador como "header" | `governingHeader()` devuelve las celdas reales |
+
+**Verificación:** 9/9 sondas (8 de B1 + `MEMG-03` con fila propia → exit 0);
+`--self-test` **38/38**; `-SelfTest` **9/9 + 5/5**; `-All` **3**, `-Audit` **10**,
+`-Diff` **1**.
+
 ---
 
 # RESULTADO

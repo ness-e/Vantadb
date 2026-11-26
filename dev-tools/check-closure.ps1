@@ -212,7 +212,7 @@ function Invoke-EndToEnd {
     $tmp = Join-Path $env:TEMP ("closure-e2e-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     $write = { param($rel, $text) $p = Join-Path $tmp $rel; New-Item -ItemType Directory -Force (Split-Path $p) | Out-Null; [System.IO.File]::WriteAllText($p, $text, $utf8) }
-    $run = { param($extra) & pwsh -NoProfile -File $scriptPath @extra *> $null; return $LASTEXITCODE }
+    $run = { param($extra) $o = & pwsh -NoProfile -File $scriptPath @extra 2>&1; $script:lastOut = ($o -join "`n"); return $LASTEXITCODE }
     $cases = @()
 
     & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-901`` | x |`n"
@@ -231,6 +231,13 @@ function Invoke-EndToEnd {
     $cases += ,@("e2e (b): non-canonical Estado is a violation", ((& $run @("-Diff", "-Root", $tmp)) -eq 1))
     Remove-Item (Join-Path $tmp "docs/dev/tasks/FIND-91.md") -Force
 
+    # (d) B1' (round 5): a task file that OWNS a Backlog row must pass. Without
+    # this case the functions-before-calls bug was invisible: every active file
+    # was reported orphan and the other fixtures still went green.
+    & $write "docs/dev/tasks/FIND-901.md" ("## Metadata`n- **Estado:** " + [char]0x23F3 + " IN PROGRESS`n")
+    $cases += ,@("e2e (d): task file WITH its own Backlog row passes", ((& $run @("-Diff", "-Root", $tmp)) -eq 0))
+    Remove-Item (Join-Path $tmp "docs/dev/tasks/FIND-901.md") -Force
+
     # (c) a Backlog row removed with no avance entry
     & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-901`` | x |`n| ``FIND-902`` | y |`n"
     & git -C $tmp -c user.email=t@t -c user.name=t add -A 2>$null
@@ -247,7 +254,10 @@ function Invoke-EndToEnd {
     $failed = 0
     foreach ($c in $cases) {
         Write-Host ("{0}  {1}" -f $(if ($c[1]) { "ok  " } else { "FAIL" }), $c[0])
-        if (-not $c[1]) { $failed++ }
+        if (-not $c[1]) {
+            $failed++
+            if ($script:lastOut) { Write-Host "-- output --`n$($script:lastOut)" -ForegroundColor DarkGray }
+        }
     }
     Write-Host ("`n{0}/{1} end-to-end rules passed" -f ($cases.Count - $failed), $cases.Count)
     if ($failed -gt 0) { exit 1 }
@@ -274,18 +284,20 @@ if (Test-Path $planDir) {
         Where-Object { $s = [regex]::Match((Read-Utf8 $_.FullName), '(?m)^status:\s*([^\s#]+)'); -not $s.Success -or $s.Groups[1].Value -notmatch '^(superseded|archived|done|completed|closed)$' } |
         ForEach-Object { Read-Utf8 $_.FullName }) -join "`n"
 }
-$backlogIds = Get-BacklogOwnIds $backlogText
-$planIds = Get-PlanOwnIds $planText
-# Review round 4 (B3): an ID counts only when it OWNS a row/cell. `Test-IdPresent`
-# matched `H-02-H-07` inside FIND-778's row (a mention in its `Ver:` cell), so the
-# task file was considered "queued" and two published counts were wrong.
+$backlogIds = $null
+$planIds = $null
+# Review round 4 (B3) + round 5 (B1'): an ID counts only when it OWNS a row/cell.
+# `Test-IdPresent` matched `H-02-H-07` inside FIND-778's row (a mention in its
+# `Ver:` cell). PowerShell does NOT hoist functions: these two MUST be defined
+# before the calls below, or the calls return $null and every active task file
+# is reported orphan (measured: MEMG-03, which has its own row, failed).
 function Get-BacklogOwnIds([string]$text) {
     $set = New-Object 'System.Collections.Generic.HashSet[string]'
     foreach ($line in ($text -split "`n")) {
         $m = [regex]::Match($line, '^\s*\|\s*`([^`]+)`\s*\|')
         if ($m.Success) { [void]$set.Add($m.Groups[1].Value) }
     }
-    return $set
+    return ,$set
 }
 
 function Get-PlanOwnIds([string]$text) {
@@ -304,8 +316,11 @@ function Get-PlanOwnIds([string]$text) {
             }
         }
     }
-    return $set
+    return ,$set
 }
+
+$backlogIds = Get-BacklogOwnIds $backlogText
+$planIds = Get-PlanOwnIds $planText
 
 $taskFilter = $null
 if ($Diff) {

@@ -236,7 +236,8 @@ done
 ### 11 — Commits go through a private index and are proven by content
 
 - **Must:** a commit made while other lanes work on the same checkout uses a **private index** (exact command below) — never the shared `.git/index` — and **verifies the result by content** (`git show HEAD:<file>`), not by exit code.
-- **Must not:** trust `git commit`'s exit code as evidence, or use `git commit -a` / a bare `git commit` with other lanes' work staged. Also: do **not** use the private index for `git add -p` interactive staging, for a merge commit (`MERGE_HEAD` must be in the index), or when the commit must carry what is already staged deliberately in the shared index — use `git commit -- <paths>` there. `--amend` is out of scope.
+- **Must not:** trust `git commit`'s exit code as evidence, or use `git commit -a` / a bare `git commit` with other lanes' work staged. Also: do **not** use the private index for `git add -p` interactive staging, for a merge commit (`MERGE_HEAD` must be in the index), or when the commit must carry what is already staged deliberately in the shared index - use `git commit -- <paths>` there. `--amend` is out of scope.
+- **Must not:** put `git-commit-isolated.ps1` in a pipeline that can be cut short - `... | Select-Object -First N` (or `head`) terminates the pipeline, kills the script mid-`git commit`, and its `finally` deletes the private index while git is still reading it: git then commits the **EMPTY tree** (2,365 paths deleted with the worktree intact, `HEAD` moved after your next command read it). Measured three times on 2026-11-26 (`72643d9df`, `290df23d0`, `5766654ee`), each reported as "commit failed". **Capture the output and filter afterwards:** `$out = & ./dev-tools/git-commit-isolated.ps1 ... 2>&1; $out | Select-String ...`.
 
 ```powershell
 # GOOD: private index, named paths only, then a content check, then sync the index

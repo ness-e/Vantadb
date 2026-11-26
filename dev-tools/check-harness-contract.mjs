@@ -138,24 +138,36 @@ const isSeparator = (s) => /^\s*\|[\s:|-]+\|\s*$/.test(s) && s.includes("-");
  * header that governs it. `[]` = table with no claim column (plan wave tables);
  * `null` = the line is not in a table.
  */
-export function claimCellIndices(text, line) {
+/**
+ * Normalized cells of the table header that governs 1-based `line`.
+ * `null` = the line is not inside a table. (N1: the old message indexed `line-2`,
+ * the separator, and printed `|---|---|` as "header".)
+ */
+export function governingHeader(text, line) {
   const lines = text.split(/\r?\n/);
   for (let i = Math.min(line - 2, lines.length - 1); i >= 0; i--) {
     const l = lines[i];
     if (!/^\s*\|/.test(l)) return null;
     if (isSeparator(l) && i > 0 && /^\s*\|/.test(lines[i - 1])) {
-      const idx = [];
-      lines[i - 1]
-        .split("|")
-        .slice(1, -1)
-        .map(normHeader)
-        .forEach((h, k) => {
-          if (CLAIM_COLUMNS.some((re) => re.test(h))) idx.push(k);
-        });
-      return idx;
+      return lines[i - 1].split("|").slice(1, -1).map(normHeader);
     }
   }
   return null;
+}
+
+/**
+ * Column indices to judge for the row at 1-based `line`: the `Hallazgo` /
+ * `Descripción` columns of its governing header. `[]` = table with no claim
+ * column; `null` = the line is not in a table.
+ */
+export function claimCellIndices(text, line) {
+  const header = governingHeader(text, line);
+  if (!header) return null;
+  const idx = [];
+  header.forEach((h, k) => {
+    if (CLAIM_COLUMNS.some((re) => re.test(h))) idx.push(k);
+  });
+  return idx;
 }
 
 /**
@@ -171,6 +183,8 @@ const CANON_HEADER =
   /ID\s*\|\s*Severidad\s*\|\s*Hallazgo\s*\|\s*Archivo:l[ií]nea\s*\|\s*Esfuerzo\s*\|\s*Prioridad\s*\|\s*Estado\s*\|\s*Descripci[oó]n\s*\|/;
 
 const isBacklogFile = (f) => /(^|\/)Backlog\.md$/.test(f.replace(/\\/g, "/"));
+const PROSE_HINT =
+  /hallazgo|finding|problema|brecha|tarea|descripcion|description|detalle|nota|impacto|accion/;
 
 export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT, f))) {
   const out = [];
@@ -187,19 +201,25 @@ export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT,
     }
     const body = cache.get(file);
     if (body === null) continue;
+    const header = governingHeader(body, line);
     const idx = claimCellIndices(body, line);
-    if (!idx || !idx.length) {
-      if (isBacklogFile(file)) {
-        const header = (body.split(/\r?\n/)[Math.max(line - 2, 0)] || "").trim();
-        out.push(
-          `${file}:${line}: row added under a table with no "Hallazgo"/"Descripción" column (fail-closed) — header: ${
-            header.slice(0, 90) || "none"
-          }`,
-        );
-      }
-      continue; // plan wave tables: not claim rows
-    }
     const cells = text.split("|").slice(1, -1);
+    if (!idx || !idx.length) {
+      // Round 5 (R1): only a data table (has an `ID` column) is judged, and only
+      // its prose columns — the Backlog's dashboards (`Phase / Dimensión | Items
+      // Totales | …`) and a legit row with no claim are not violations. A renamed
+      // claim header (`Finding/Description`, `Problema/Detalle`) still fails.
+      if (!isBacklogFile(file) || !header || !header.includes("id")) continue;
+      const proseCols = header.map((h, k) => (PROSE_HINT.test(h) ? k : -1)).filter((k) => k >= 0);
+      const claimed = proseCols.map((k) => cells[k] || "").filter((c) => CLAIM.test(c));
+      if (!claimed.length) continue;
+      out.push(
+        `${file}:${line}: claim under a non-canonical header (${header.join(" | ")}) — ${claimed[0]
+          .trim()
+          .slice(0, 80)}`,
+      );
+      continue;
+    }
     const claimed = idx.map((i) => cells[i] || "").filter((c) => CLAIM.test(c));
     if (!claimed.length) continue;
     out.push(`${file}:${line}: claim without "Medición:" — ${claimed[0].trim().slice(0, 90)}`);
@@ -807,6 +827,44 @@ function runSelfTest() {
         },
       ],
       () => "| ID | Severidad | Finding | Description | Esfuerzo |\n|---|---|---|---|---|\n",
+    ).length === 1,
+  );
+  // R1: the fail-closed rule must not fire on the Backlog's own dashboards nor on
+  // a legitimate row that asserts nothing.
+  ok(
+    "medicion: dashboard row without an ID column is skipped",
+    claimViolations(
+      [{ file: "docs/dev/Backlog.md", line: 3, text: "| Memory | 12 | 7 | 5 | 0 |" }],
+      () =>
+        "| Phase / Dimensión | Items Totales | Completadas | Pendientes | Diferidas |\n|---|---|---|---|---|\n",
+    ).length === 0,
+  );
+  ok(
+    "medicion: legit row in a Brecha table without a claim passes",
+    claimViolations(
+      [
+        {
+          file: "docs/dev/Backlog.md",
+          line: 3,
+          text: "| `FIND-950` | Media | **Falta el gate de docs** | `a.rs` | 1h | P2 | Abierta | añadir gate |",
+        },
+      ],
+      () =>
+        "| ID | Severidad | Brecha / Tarea | Archivos Clave Afectados | Esfuerzo | Prioridad | Estado Real | Acción Concreta |\n|---|---|---|---|---|---|---|---|\n",
+    ).length === 0,
+  );
+  ok(
+    "medicion: claim in a Brecha table still fails",
+    claimViolations(
+      [
+        {
+          file: "docs/dev/Backlog.md",
+          line: 3,
+          text: "| `FIND-950` | Media | **92 unwraps en prod** | `a.rs` | 1h | P2 | Abierta | añadir gate |",
+        },
+      ],
+      () =>
+        "| ID | Severidad | Brecha / Tarea | Archivos Clave Afectados | Esfuerzo | Prioridad | Estado Real | Acción Concreta |\n|---|---|---|---|---|---|---|---|\n",
     ).length === 1,
   );
   ok(
