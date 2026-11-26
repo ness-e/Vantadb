@@ -1,7 +1,7 @@
 ---
 title: "FIND-751 - un HOME vacío no es un home (4 sitios, rutas relativas al CWD)"
 kind: task
-status: in-progress
+status: completed
 description: "Con `HOME=` vacío, `var_os` devuelve `Some(\"\")` y cuatro sitios construían rutas relativas al CWD; uno de ellos (`mcp init`) escribía la config del cliente y reportaba éxito. Los cuatro pasan a `utils::env_value`; sin home, `mcp init` falla con error accionable (`--config`) en vez de plantar la config en el repo. Test de los tres casos por sitio, sin `set_var`."
 ---
 
