@@ -203,6 +203,26 @@ fn proxy_re_elects_writer_without_restart() {
 
 /// Pre-mortem (a): a live writer that stops answering must NOT be promoted
 /// over — the fs2 lock stays the authority and we fail closed, retriable.
+///
+/// FIND-739: the old assert was `elapsed < 5 s`, i.e. it measured the wall
+/// clock (5.05 s, 50 ms over) while claiming to verify a *bounded* retry. It
+/// conflated two different clocks: the retry mechanism (3 probes, 50/150 ms
+/// backoff, one promotion attempt — `RESOLVE_ATTEMPTS`), and the promotion's
+/// own lock patience, `Config::file_lock_timeout_ms` (1000 ms by default),
+/// which the test never configured.
+///
+/// The contract is asserted on the mechanism now:
+/// - `resolve_failures() == 1` — exactly one resolution ran, and it ended with
+///   no writer (counter observable since MCP-48);
+/// - no reconnect, no promotion, no handle installed, role still `proxy`;
+/// - a second open of the same path is `DatabaseBusy` — the fs2 lock, not the
+///   discovery file, is what makes a second writer impossible;
+/// - the live-PID discovery file survives.
+///
+/// Lock patience is pinned to 50 ms in the config this proxy promotes with, so
+/// the only clock left in the path is the probe/backoff budget. The remaining
+/// wall-clock assert is a **coarse regression net** for the MCP-48 class
+/// (`System::new_all()` made this same call take 11.17 s), not the contract.
 #[tokio::test]
 async fn live_writer_lock_blocks_promotion() {
     let dir = tempfile::tempdir().unwrap();
@@ -218,7 +238,15 @@ async fn live_writer_lock_blocks_promotion() {
     drop(dead_probe);
     write_discovery(&path, std::process::id(), dead_port);
 
-    let proxy = WriterProxy::new(&path, None, None);
+    // FIND-739: pin the lock patience instead of guessing at it. 50 ms still
+    // covers the 5/10/20/40 ms retry ladder of `acquire_db_lock`, so the
+    // promotion really walks the DatabaseBusy path; it just doesn't drag the
+    // default 1000 ms of patience into a bound that claims to measure retries.
+    let config = vantadb::config::Config {
+        file_lock_timeout_ms: 50,
+        ..Default::default()
+    };
+    let proxy = WriterProxy::new(&path, None, Some(config.clone()));
     let started = Instant::now();
     let err = proxy
         .call(
@@ -242,30 +270,57 @@ async fn live_writer_lock_blocks_promotion() {
         Some(&json!(true)),
         "client must be told it may retry: {err}"
     );
+
+    // ── The mechanism, not the clock (FIND-739) ────────────────────────────
+    // One resolution ran to completion and elected nobody. Stopping short of
+    // the probe/promotion budget would not record a failure at all, so this
+    // pins "the whole bounded sequence happened, and it said no".
+    assert_eq!(
+        proxy.resolve_failures(),
+        1,
+        "exactly one resolution, ending with no writer (elapsed {elapsed:?})"
+    );
+    assert_eq!(proxy.reconnects(), 0, "nothing was elected");
     assert_eq!(
         proxy.role().await,
         "proxy",
         "must not promote over a live lock"
     );
-    assert_eq!(proxy.reconnects(), 0);
     assert!(
-        elapsed < Duration::from_secs(5),
-        "bounded retry violated: {elapsed:?}"
+        !proxy.connected().await,
+        "a failed resolution must not leave a writer handle installed"
     );
+
     // The discovery file of a live PID survives the failed re-election.
     assert!(
         discovery_path(&path).exists(),
         "live-PID discovery must not be cleaned"
     );
 
-    // The mechanism behind "no double writer": a second open cannot take the
-    // lock, so a promotion would fail closed instead of forking a writer.
+    // Why those two writers stay impossible: the lock, not the discovery file,
+    // is the authority. Fast probe — same 50 ms patience, no second writer.
     assert!(
         matches!(
-            vantadb::storage::StorageEngine::open(&path),
+            vantadb::storage::StorageEngine::open_with_config(&path, Some(config.clone())),
             Err(vantadb::Error::DatabaseBusy(_))
         ),
         "a held fs2 lock must surface as DatabaseBusy, never as a second writer"
+    );
+
+    // ── Coarse net, not the contract (FIND-739) ────────────────────────────
+    // With the lock patience pinned, this call is dominated by 3 probes +
+    // 50/150 ms backoff. Measured: 1.93–2.10 s over 6 runs under 6 CPU
+    // burners (each probe pays two `is_pid_alive`, ~300 ms per Windows
+    // targeted refresh). The 10 s net is ~2.5x the worst *loaded* number seen
+    // for this class (MCP-44 re-ran the old shape at 5.05 s, which included
+    // the 1000 ms default lock patience this test no longer pays) and still
+    // sits below the regression it exists for: `System::new_all()` per PID
+    // check made this same call take 11.17 s. It is a net, not the contract —
+    // the mechanism asserts above are what must never go red.
+    assert!(
+        elapsed < Duration::from_secs(10),
+        "re-election regressed: {elapsed:?} for 3 probes + backoff with a 50 ms lock patience \
+         (measured 1.93-2.10 s loaded; MCP-48 measured 11.17 s with `System::new_all()`)"
     );
 
     // The writer storage is untouched and still the single writer.
