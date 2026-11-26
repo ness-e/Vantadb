@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-590 documentation pages; it deliberately omits the 272 task files,
+591 documentation pages; it deliberately omits the 272 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -483,6 +483,7 @@ is in docs/index.md in the repository.
 - [Fuentes Vivas — Catálogo de Carpetas Externas](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/fuentes-vivas.md): Propietario del pipeline: campaign-server.mjs (MCP), prompts pipeline-full.md/plan.md. Los plan files son el estado de ejecución vivo del sistema de tareas; pipeline-run.md busca el más reciente por defecto. NO mover
 - [General Progress of VantaDB Project](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/snapshot-2026-08-03.md): VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, GraphRAG, CLIP and Python/LLM ecosystem
 - [General Progress of VantaDB Project](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/snapshot-2026-08-07.md): VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNSW híbrido, GraphRAG, CLIP y el ecosistema Python/LLM
+- [Harness hardening — auditoría adversarial del sistema de ejecución de tareas y planes](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/2026-11-26-harness-hardening.md): Auditoría de .opencode/ tras una sesión de 166 commits: 15 hallazgos (6 críticos) con ruta:línea, 9 propuestas de blindaje con contrato verificable y 4 correcciones a la evidencia de partida. Causa raíz común: el formato real del plan no es el que el parser lee, y ninguna premisa numérica se re-mide al cerrar.
 - [Historial — Autopsias 2026-06-19 (AUD-01..44)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/autopsias-2026-06-19.md)
 - [Historial — No-ops / SKIPs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/no-ops.md)
 - [Historial — Sesiones Julio 2026](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/sesiones/2026-07.md): Carga completa de docs/dev/research/ (9 archivos) y docs/dev/reviews/ (12). ~150 items extraídos, verificados contra código real (codegraphexplore, grep, lectura directa). Skills: code-review-and-quality, doubt-driven-development...
