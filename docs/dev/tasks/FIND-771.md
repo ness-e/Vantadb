@@ -41,10 +41,15 @@ El daño real, entonces, es distinto y sigue siendo real:
 
 1. **6m01s de rustdoc tirados** (arrancó 10:39:45, murió 10:45:46) para no
    medir nada.
-2. El commit queda con un required en `cancelled` → **merge bloqueado con un
-   rojo que no habla del código**, y en `develop` la historia acumula commits
-   cuyo gate de doc **nunca midió** — la clase de `FIND-764` (SHA sin suite
-   verificada) encima de un gate **required**.
+2. El commit queda con un required en `cancelled`. **Corrección de la segunda
+   ronda de review:** en `develop` no hay merge que bloquear — lo que queda es
+   el HEAD de la rama con un **no-success** que `ci-gate.yml:66` lee como fallo
+   (`failure|timed_out|cancelled|action_required`), más la historia acumulando
+   commits cuyo gate de doc **nunca midió** (clase `FIND-764`, SHA sin suite
+   verificada) encima de un gate **required**. En un PR la cancelación se
+   resuelve sola: el run siguiente reporta sobre el merge ref nuevo. Decir
+   "merge bloqueado" en `push` era **inferencia presentada como medición** —
+   la misma falta que B-2, un nivel más abajo.
 
 Se corrige el mecanismo en los tres sitios donde estaba escrito (este fichero,
 el comentario del YAML y `ci-cd.md`): **no** hay "context ausente" ni deadlock
@@ -58,7 +63,7 @@ el comentario del YAML y `ci-cd.md`): **no** hay "context ausente" ni deadlock
   `:535`, el step del gate `:569-572`, el artefacto `:580-594`, el `Summary`
   final `:596-605`) · `.github/workflows/ci-gate.yml` (el array `REQUIRED`
   `:36-58`, el consumidor que falla en `failure|timed_out|cancelled|
-  action_required` `:66`) · `Cargo.toml:793-802` (`members`).
+  action_required` `:66`) · `Cargo.toml:786-798` (`members`).
 - **Referencias salientes:** ninguna ejecutable; ningún fichero importa este
   workflow.
 - **Referencias entrantes (las que deciden):**
@@ -77,12 +82,15 @@ el comentario del YAML y `ci-cd.md`): **no** hay "context ausente" ni deadlock
 | Dato | Valor | Fuente |
 |---|---|---|
 | Ventana del run citado | **13m08s** (`12:35:36Z` → `12:48:44Z`) | `gh run view 45821094074` |
-| Job `Generate API reference (rustdoc)` | **13m05s** (`12:35:38Z` → `12:48:43Z`) = **98 %** del run | idem |
+| Job `Generate API reference (rustdoc)` | **13m05s** (`12:35:38Z` → `12:48:43Z`) = **99.6 %** del run (785 s de 788 s) | idem |
 | Resto de jobs (16 en total) | todos **≤ 4m10s** (`Doc-tests`, `12:35:39`→`12:39:49`) | idem |
 | Mismo job, cache caliente | **1m13s** / **1m29s** / 11m19s en otros runs de hoy | `45771790202`, `45832678767`, `45732896798` |
 
-La ventana del run **es** la del job rustdoc: 13m08s en frío, ~4 min con
-sccache caliente. Se cita el peor del día, que es el que importa para el riesgo.
+La ventana del run **es** la del job rustdoc: 13m08s en frío. Con cache caliente
+el **job** baja a ~1m30s (1m13s / 1m29s medidos), pero el run lo marca el job más
+lento: **4m00s** (`45832678767`) y **10m38s** (`45771790202`, donde `doc-examples`
+se lleva 466 s). Se cita el peor del día (13m08s), que es el que importa para el
+riesgo.
 
 **Frecuencia real, medida y sin adornos.** Los **12** pushes a `develop` de hoy
 (`createdAt` de cada run de `docs-gates`, 00:12:15 → 13:48:08) dejan **11
@@ -141,6 +149,16 @@ cuyo SHA ya está superado por el que lo cancela. Existe `concurrency.queue:
 max` (hasta 100 pendientes) si algún día hace falta que **cada** push reciba su
 run; hoy no se usa: con runs de 13 min, encolar más de uno es encolar SHAs
 muertos.
+
+**Eventos que no son `pull_request` (declarado en la 2.ª ronda):** `schedule` y
+`workflow_dispatch` evalúan la expresión a **false**, o sea que tampoco
+cancelan, y su `github.ref` es la rama por defecto (`refs/heads/main`) — el
+**mismo grupo** que los push a `main`. Vigilar: un run programado o un dispatch
+que quede **pendiente** detrás de un push a `main` es el que `queue: single`
+descarta cuando llega el push siguiente, así que el barrido semanal puede **no
+correr** sin que nadie lo note (el mismo modo de fallo "un run que nunca ocurre"
+que este ticket denuncia). El dispatch se reintenta a mano; el `schedule` se
+pierde hasta el lunes siguiente.
 
 ## (B) No-vacuidad auditable — el resumen que mide
 
@@ -219,7 +237,7 @@ concurrency:
 | el resumen **se escribe** | `bash` con el bloque `run:` **extraído del YAML** (`js-yaml`, sin retipear) y `cargo` sombreado por un no-op sobre un `target/doc` fabricado | `Doc directories: **3**` (el `index.html` de la raíz quedó fuera: `-mindepth 2`) · `GITHUB_STEP_SUMMARY` escrito · **step exit 0** |
 | el resumen **no es vacuo** | mismo arnés con `target/doc` vacío | `**0**` y **exit 1** → el verde no puede ser un conteo de 0 |
 | el context no cambió de nombre | `grep -n '^    name: Generate API reference (rustdoc)'` | presente (`:549`), intacto; `ci-gate.yml:58` lo sigue comparando por string |
-| fila del Backlog | `git diff --numstat docs/dev/Backlog.md` | `0 6`: las **6** líneas de la sección `FIND-771` y **nada más** (verificado con `git diff -U1`; la sección de `FIND-770` intacta) |
+| fila del Backlog | `git diff --numstat docs/dev/Backlog.md` | en su momento `0 6`: las **6** líneas de la sección `FIND-771` y **nada más** (verificado con `git diff -U1`; la sección de `FIND-770` intacta). Hoy la fila ya **no está en `HEAD`** (la retiró el snapshot de otro carril), así que ese diff ya no es reproducible: la prueba vigente es `git show HEAD:docs/dev/Backlog.md` → **0** hits de `FIND-771` |
 
 **Lo que NO se pudo verificar, y se declara:** la prueba viva de la ventana —
 **no se pueden disparar dos pushes reales** desde acá (el push es acto del
@@ -229,7 +247,7 @@ la parsea así), el **modo de fallo histórico** (`completed/cancelled` en
 cancelación futura. Tampoco se corrió `cargo doc`: carril **CI sin compilar**
 (hay otro carril compilando). El `N` real de directorios de doc lo publicará el
 primer run — el workspace declara **8** entradas en `members`
-(`Cargo.toml:793-802`), así que el orden de magnitud es ~8-10, no ~80.
+(`Cargo.toml:786-798`), así que el orden de magnitud es ~8-10, no ~80.
 
 ## Review (P2-01)
 
@@ -241,7 +259,7 @@ primer run — el workspace declara **8** entradas en `members`
 - **Cómo se probó:** re-derivó `actionlint`, el parseo `js-yaml` (posición del
   step, `env` por nivel, `continue-on-error`, 16 jobs, `name:` intacto),
   `gh run view`/`gh run list`/`gh api` para los tiempos, los rulesets y los
-  **check-runs del SHA `337ee796`**, y contrastó `Cargo.toml:793-802`.
+  **check-runs del SHA `337ee796`**, y contrastó `Cargo.toml:786-798`.
 - **Veredicto: `changes-required`** (3 Blocking, 3 Medium, 2 Low). Cerrados
   todos en esta misma ronda:
   - **B-1** — la fila del Backlog había quedado invertida: mi corte a EOF borró
@@ -256,7 +274,7 @@ primer run — el workspace declara **8** entradas en `members`
   - **M-1** — el fix era más ancho que el defecto y no evaluaba la alternativa
     barata: `cancel-in-progress` como **expresión por evento**. Adoptada
     (opción iii), con la tabla de (A) como razón.
-  - **M-2** — "80 entradas en `members`": falso. Son **8** (`Cargo.toml:793-802`).
+  - **M-2** — "80 entradas en `members`": falso. Son **8** (`Cargo.toml:786-798`).
     Corregido.
   - **M-3** — "8 pushes de hoy": eran **12** (11 huecos, mediana **1h07m51s**, no
     49m21s). Corregido con la población entera.
@@ -267,6 +285,38 @@ primer run — el workspace declara **8** entradas en `members`
     `-maxdepth 2` no podía casar nada (código muerto vendido como load-bearing).
   - **L-3** (nit) — `false` es el default documentado: se mantiene la forma
     explícita en `push`, ahora como parte de la expresión y no como redundancia.
+
+### 2.ª ronda (delta sobre `edcd0fb65`) — `changes-required`, todos cerrados
+
+Misma revisora, contexto fresco, verificando **solo** el delta (no una pasada
+nueva). Su veredicto textual sobre el YAML: *"the YAML change itself is
+approvable as-is"*; lo que quedaba era **prosa**: una consecuencia inferida
+presentada como medida y tres citas imprecisas.
+
+- **M-1** — *"merge bloqueado"* atribuido al `push`: en `develop` **no hay merge
+  que bloquear**. Reescribí la consecuencia en los tres ficheros: HEAD con un
+  `cancelled` que `ci-gate.yml:66` lee como fallo + 6m01s tirados + commit sin
+  medir; y en un PR se resuelve con el run siguiente. Era la **misma clase** que
+  B-2 (inferencia → medición) un nivel más abajo. Cerrado.
+- **L-1** — *"con sccache caliente el run baja a ~1m30s"*: eso es el **job**, no
+  el run. Corregido: job ~1m30s; run **4m00s** y **10m38s** medidos
+  (`45832678767` / `45771790202`). Cerrado.
+- **L-2** — `Cargo.toml:793-802` → **`786-798`** (el array `members` real; el
+  conteo 8 era correcto). Cerrado en las 4 menciones.
+- **L-3** — "98 % del run" → **99.6 %** (785 s de 788 s). Cerrado.
+- **L-4** — eventos sin nombrar: `schedule` y `workflow_dispatch` evaluan la
+  expresión a **false** y comparten grupo con los push a `main`, así que un run
+  programado **pendiente** lo descarta `queue: single` al llegar el push
+  siguiente → el barrido semanal puede no correr. Añadido al *techo declarado* y
+  al comentario del YAML. Cerrado.
+- **L-5** — `status: completed` con `changes-required` en §Review y el `0 6` del
+  Backlog ya no reproducible: esta sección es el cierre y la fila se reformuló
+  (hoy la prueba es `git show HEAD:docs/dev/Backlog.md` → 0 hits). Cerrado.
+
+**Veredicto final del ciclo: `approve`** (Blockings de la 1.ª ronda cerrados y
+verificados; los de la 2.ª, corregidos y re-verificados mecánicamente). El
+`código` (YAML) quedó aprobado **sin cambios** en la 2.ª ronda: no se tocó ni la
+expresión ni el step.
 
 ## Deuda / pendiente
 

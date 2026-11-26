@@ -73,17 +73,21 @@ on:
 # El defecto: desde FIND-763 este workflow hospeda un check REQUIRED
 # (`Generate API reference (rustdoc)`, hoy en los rulesets de `develop` y
 # `main`), y la ventana del run es la del job mas caro del repo: 13m08s medidos
-# (run 45821094074, 12:35:36 -> 12:48:44; el job rustdoc 13m05s de esos 13m08s;
-# el resto de los 16 jobs, <=4m10s; con sccache caliente el run baja a ~1m30s).
+# (run 45821094074, 12:35:36 -> 12:48:44; el job rustdoc 13m05s de esos 13m08s,
+# o sea 99.6%; el resto de los 16 jobs, <=4m10s). Con cache caliente el JOB
+# rustdoc baja a ~1m30s, pero el run lo marca el job mas lento: 4m00s y 10m38s
+# medidos (45832678767 / 45771790202).
 # Un push dentro de la ventana cancelaba el run entero. Lo que queda NO es un
 # context ausente ni un `Expected` eterno: el check-run SI se reporta, con
 # conclusion `cancelled` (comprobado en el SHA 337ee796 del run 45802050777:
 # `completed / cancelled`, arrancado 10:39:45, matado 10:45:46 por el push de
-# las 10:45:27). El coste real es doble y es peor que un rojo: (a) son 6m01s de
-# rustdoc tirados a la basura, y (b) ese commit queda con un required en
-# `cancelled`, o sea merge bloqueado hasta que alguien pulse Re-run - y en
-# `develop` la historia acumula commits cuyo gate de doc NUNCA midio, que es la
-# clase de FIND-764 (SHA sin suite verificada) encima de un gate required.
+# las 10:45:27). El coste real, en la superficie donde se mide: (a) 6m01s de
+# rustdoc tirados a la basura; (b) ese commit queda con un required en
+# `cancelled` - en `develop` no hay merge que bloquear, pero el HEAD de la rama
+# queda con un no-success que `ci-gate.yml:66` lee como fallo, y la historia
+# acumula commits cuyo gate de doc NUNCA midio, que es la clase de FIND-764 (SHA
+# sin suite verificada) encima de un gate required. En un PR la cancelacion se
+# resuelve sola: el run siguiente reporta sobre el merge ref nuevo.
 #
 # Por que solo en `push`: el grupo es `${{ github.ref }}`, y en `pull_request`
 # ese ref es `refs/pull/N/merge`, que GitHub reconstruye en CADA push. O sea que
@@ -98,6 +102,14 @@ on:
 # cuyo SHA ya esta superado por el que lo cancela. Para que cada push de un
 # burst reciba su run existe `concurrency.queue: max` (hasta 100 pendientes);
 # hoy no se usa: con runs de 13 min, encolar mas de uno es encolar SHAs muertos.
+# Techo declarado (eventos que NO son pull_request): `schedule` y
+# `workflow_dispatch` evaluan la expresion a false, o sea que tampoco cancelan, y
+# su `github.ref` es la rama por defecto (`refs/heads/main`) - el MISMO grupo que
+# los push a main. Consecuencia a vigilar: un run programado o un dispatch que
+# quede PENDIENTE detras de un push a main es el que `queue: single` descarta
+# cuando llega el push siguiente, asi que el barrido semanal puede no correr sin
+# que nadie lo note (el mismo modo de fallo "un run que nunca ocurre"). El
+# dispatch manual se reintenta; el schedule se pierde hasta el lunes siguiente.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
