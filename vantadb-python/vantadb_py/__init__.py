@@ -2,7 +2,21 @@
 
 DEPRECATED (PY-03): the canonical import is ``import vantadb``. This package
 keeps working as an alias but warns on import.
-Timeline: removal one minor release after the warning ships (0.5.0 -> 0.6.0).
+
+Removal target: **1.0.0** — a DEFERRAL, not a constraint (registered in
+``docs/api/DEPRECATIONS.md``). The originally advertised target (0.6.0) was
+unreachable by construction: this very deprecation shipped *in* 0.6.0, and
+VERSIONING requires the deprecated name to outlive at least one MINOR.
+Removing the name today would also be legal in a 0.x MINOR (VERSIONING
+§Pre-1.0), but the removal is a rename of the native module — ``module-name`` in
+``pyproject.toml``, ``#[pymodule]`` in ``vantadb-python/src/lib.rs``, 52 import
+sites and the workflows that validate ``import vantadb_py`` — so it is deferred.
+The deferral is pending owner sign-off (FIND-118).
+
+Note for implementers: this package is not a thin shim — it holds the compiled
+extension (``vantadb_py.pyd``), the ``AsyncClient``/``SearchRequest`` wrapper and
+``migrate/``; ``vantadb/__init__.py`` re-exports from here. Removing the name is
+a rename of the native module, not the deletion of a file.
 """
 
 from __future__ import annotations
@@ -13,8 +27,8 @@ import warnings
 # suppresses this warning for its internal re-export, so only genuine
 # `import vantadb_py` / `from vantadb_py import ...` calls see it.
 warnings.warn(
-    "The 'vantadb_py' import name is deprecated and will be removed in the "
-    "next minor release (0.6.0). Use 'import vantadb' instead "
+    "The 'vantadb_py' import name is deprecated and will be removed in 1.0.0. "
+    "Use 'import vantadb' instead "
     "(same API, same distribution 'vantadb-py').",
     DeprecationWarning,
     stacklevel=2,

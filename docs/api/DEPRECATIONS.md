@@ -44,8 +44,33 @@ this page registers instances, it does not restate the policy:
 - **Changelog:** [`CHANGELOG.md`](../../CHANGELOG.md) § [0.8.0]
 - **Code/doc marker:** `#[deprecated]` attribute in `src/binary_header.rs`
 
-> Until v0.7.0 (updated 2026-09-27) no public API item was deprecated on any of
-> the [11 surfaces](VERSIONING.md#the-11-public-api-surfaces).
+### `import vantadb_py` → `import vantadb` (Python import name)
+
+- **Surface:** 2 - Python SDK (`vantadb-python`, PyPI `vantadb-py`)
+- **Deprecated in:** v0.6.0 (2026-09-20)
+- **Removal target:** v1.0.0 — a **deferral**, not a VERSIONING constraint. A
+  0.x MINOR removal is legal ([`VERSIONING.md` §Pre-1.0](VERSIONING.md#pre-1-0-stability-contract)
+  allows breaking changes in MINOR), but removing the name means renaming the
+  native module: `module-name` in `vantadb-python/pyproject.toml`, `#[pymodule]`
+  in `vantadb-python/src/lib.rs`, 52 import sites, and the workflows that
+  validate `import vantadb_py`. Deferral pending owner sign-off (FIND-118).
+  The previously advertised target (v0.6.0) was unreachable by construction:
+  the deprecation itself shipped *in* 0.6.0, a zero-release window against this
+  page's one-MINOR rule.
+- **Replacement / migration:** `import vantadb` — same objects, same
+  distribution, no code change beyond the import line. The alias keeps working
+  (and warning) until its removal target.
+- **Changelog:** [`CHANGELOG.md`](../../CHANGELOG.md) - [0.6.0]
+- **Code/doc marker:** module docstring + `warnings.warn(DeprecationWarning)`
+  in `vantadb-python/vantadb_py/__init__.py`; contract pinned by
+  `vantadb-python/tests/test_import_alias.py` (silent canonical import, warning
+  with the removal target, and `vantadb_py.Client is vantadb_py.vantadb_py.Client`)
+  and documented in [`PYTHON_SDK.md` Import name](PYTHON_SDK.md#import-name)
+
+> Before v0.7.0 the only deprecated public item was the Python import alias
+> above (PY-03, v0.6.0); it stayed unregistered until FIND-118 registered it.
+> No other item on the [11 surfaces](VERSIONING.md#the-11-public-api-surfaces)
+> was deprecated before v0.7.0.
 
 ## Entry shape (fill for every new deprecation)
 

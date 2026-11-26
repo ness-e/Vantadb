@@ -105,9 +105,14 @@ The contracts above are checked mechanically, not by convention:
 - The 9 artifact names (`vantadb`, `vantadb-py`, `vantadb-node`,
   `vantadb-ts`, `vantadb-server`, `vantadb-mcp`, `vanta-cli`, `vanta-proxy`,
   `vanta-memory`) are frozen through `1.0.0` by the naming freeze
-  [ADR-0045](../dev/architecture/adr/ADR-0045-naming-freeze.md) — renaming one is
+  [ADR-0045](../dev/architecture/adr/ADR-0045-naming-freeze.md) - renaming one is
   never silent: it ships an alias with a mandatory removal date, registered in
   `DEPRECATIONS.md` (after `1.0.0`, a breaking name change requires a MAJOR).
+  **Scope:** the freeze covers those nine *artifact* names - crate, distributions,
+  binaries. Import module names inside a distribution (for example `vantadb_py`,
+  surface 2) are API surface governed by the deprecation policy above, **not** by
+  the ADR-0045 freeze; they may be removed in a pre-1.0 MINOR once the one-MINOR
+  window has elapsed.
 
 ## Release mechanics
 

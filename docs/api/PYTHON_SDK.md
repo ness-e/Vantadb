@@ -75,6 +75,10 @@ import vantadb
 
 `import vantadb_py` remains available as a deprecated compatibility alias
 (pointing at the same compiled module and emitting a `DeprecationWarning`).
+Removal target: **v1.0.0** — a deferral, pending owner sign-off: removing the
+name means renaming the native module (`module-name` + `#[pymodule]` + 52 import
+sites), not deleting a file. A pre-1.0 MINOR would also be legal, see
+[DEPRECATIONS.md](DEPRECATIONS.md).
 The distribution on PyPI is `vantadb-py`; the canonical importable module is
 `vantadb`. See [ADR-0030](../dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md)
 for the full brand-identity decision.

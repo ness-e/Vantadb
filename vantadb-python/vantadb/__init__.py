@@ -3,7 +3,8 @@
 This package is a thin alias for the compiled ``vantadb_py`` bindings so that
 ``import vantadb`` works out of the box, matching the Rust crate and npm
 package names. ``import vantadb_py`` remains available but deprecated
-(see ``vantadb_py/__init__.py``, removal in 0.6.0).
+(see ``vantadb_py/__init__.py``; removal target 1.0.0 — a deferral, pending
+owner sign-off, registered in ``docs/api/DEPRECATIONS.md``).
 """
 
 # PY-03: suppress the alias DeprecationWarning that vantadb_py/__init__.py
