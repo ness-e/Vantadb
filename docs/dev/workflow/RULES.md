@@ -235,14 +235,24 @@ done
 - **Must not:** trust `git commit`'s exit code as evidence, or use `git commit -a` / a bare `git commit` with other lanes' work staged. Also: do **not** use the private index for `git add -p` interactive staging, for a merge commit (`MERGE_HEAD` must be in the index), or when the commit must carry what is already staged deliberately in the shared index — use `git commit -- <paths>` there. `--amend` is out of scope.
 
 ```powershell
-# GOOD: private index, named paths only, then a content check
+# GOOD: private index, named paths only, then a content check, then sync the index
 $env:GIT_INDEX_FILE = "$env:TEMP\opencode\idx-$(Get-Random)"
 git read-tree HEAD
 git add -- docs/dev/Backlog.md .githooks/pre-push
 git commit -m "fix(ci): …"
 Remove-Item Env:GIT_INDEX_FILE
 git show HEAD:docs/dev/Backlog.md | rg 'FIND-760'   # expect 0 hits, not just exit 0
-# or, one step: pwsh dev-tools/git-commit-isolated.ps1 -Message "…" -Paths … -ExpectAbsent docs/dev/Backlog.md::FIND-760
+git add -- docs/dev/Backlog.md .githooks/pre-push   # REQUIRED: sync the shared index
+# or, one step (does all of the above): pwsh dev-tools/git-commit-isolated.ps1 -Message "…" -Paths … -ExpectAbsent docs/dev/Backlog.md::FIND-760
+
+# GOOD (shared file that another lane is ALSO editing): take the content from HEAD
+# plus your edit — never the possibly-dirty working copy (that is how a stale copy
+# gets baked in).
+git show HEAD:docs/dev/Backlog.md > $env:TEMP\b.md   # edit $env:TEMP\b.md, then:
+$blob = (git hash-object -w $env:TEMP\b.md).Trim()
+$env:GIT_INDEX_FILE = "$env:TEMP\opencode\idx-$(Get-Random)"; git read-tree HEAD
+git update-index --cacheinfo "100644,$blob,docs/dev/Backlog.md"
+git commit -m "fix(ci): …"
 
 # BAD: shared index — whatever another lane staged rides along, and a concurrent
 # commit can bake a stale copy of a shared file and revert your edit WITH EXIT 0
@@ -250,7 +260,12 @@ git commit -a -m "fix(ci): …"
 ```
 
 - **Por qué:** FIND-753, measured three times in one day. (1) `Unable to create .git/index.lock` on 8 consecutive attempts with 4 lanes; (2) a concurrent commit baked a **stale** `docs/dev/Backlog.md` and a row another lane had just deleted **reappeared in HEAD** — detected by re-reading the fragment from HEAD (exit code was 0); (3) the index held another lane's pre-staged `tests/cli_tests.rs` (−92 lines), so a `git commit -a` would have deleted committed work. **The trap is the exit code:** a reverting commit succeeds.
-- **Verify:** the content check returns 0 hits for a fragment you removed and ≥1 for one you added; a deliberately wrong `-ExpectAbsent` makes `dev-tools/git-commit-isolated.ps1` exit 1.
+- **Por qué el `git add` final no es cosmético (medido al cerrar esta misma regla, `cff8fa626`):** con `GIT_INDEX_FILE`, `.git/index` **no se actualiza**; justo después del commit, `git diff --cached` mostró el commit entero como staged-para-revertirse. Cualquier `git commit` sin pathspec de otro carril lo habría revertido. Es el mismo fallo que esta regla previene, causado por la herramienta que lo previene.
+- **Un blob derivado de `HEAD` es TOCTOU — verificá el DELTA, no solo tus fragmentos (`cff8fa626`):** ese commit construyó `Backlog.md` como `HEAD` + su edición, pero otro carril commiteó entre construir y commitear: el resultado horneó la copia anterior y **borró 9 líneas ajenas** (`FIND-761`, recién creada) además de las propias. La verificación por fragmento **pasó** porque solo miraba las marcas propias. Los dos chequeos que lo cazan:
+  - `git rev-parse <commit>^` == el `HEAD` con el que construiste el blob (si no, otro carril commiteó en medio: rehacé el blob desde el nuevo `HEAD`);
+  - `git diff <base>..HEAD -- <fichero>` contiene **solo tus hunks** y **0 adiciones** cuando tu cambio es puramente de borrado. `git diff --numstat` lo dice en una línea (`0  13  docs/dev/Backlog.md`).
+  - Reparación medida en `30fdc9c42` (9 líneas restauradas, 0 adiciones). Y ojo con el inverso: `git hash-object <worktree>` == `git rev-parse HEAD:<path>` solo prueba que el worktree coincide con HEAD, **no** que tu commit no haya revertido a otro.
+- **Verify:** the content check returns 0 hits for a fragment you removed and ≥1 for one you added; a deliberately wrong `-ExpectAbsent` makes `dev-tools/git-commit-isolated.ps1` exit 1; and `git diff --cached -- <your paths>` is **empty** right after the commit (if it is not, the shared index is stale — run the `git add` above).
 - **Techo declarado:** the private index shrinks the race window to `add`+`commit` (milliseconds) and **detects** a reversal; it does not **prevent** one. Prevention needs a wave-wide lock, which does not exist. `FIND-753` (2026-11-26).
 
 ## See also

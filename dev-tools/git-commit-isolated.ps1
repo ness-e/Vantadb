@@ -18,8 +18,11 @@
   and fails if one is wrong.
 
   How: private index (`GIT_INDEX_FILE`) seeded with `read-tree HEAD`, `add` of
-  the named paths only, `commit`. The shared index is never read nor written, so
-  another lane's staged work cannot ride along.
+  the named paths only, `commit`. The shared index is never read nor written
+  DURING the commit, so another lane's staged work cannot ride along. After the
+  commit the script re-adds those same paths in the shared index — without that
+  refresh the shared index still describes the previous HEAD and any lane's bare
+  `git commit` would revert the commit (measured 2026-11-26).
 
   WHEN NOT TO USE IT: interactive staging (`git add -p`) or any commit that must
   carry what is ALREADY staged in the shared index; merge commits (MERGE_HEAD
@@ -90,6 +93,17 @@ if (-not $ok) { exit 2 }
 
 $commit = (& git rev-parse --short HEAD).Trim()
 Write-Host "committed: $commit"
+
+# ── Refresh the SHARED index for these paths ────────────────────────────────
+# Not optional and not cosmetic: the private-index commit does not update
+# `.git/index`, so after it the shared index still describes the PREVIOUS HEAD.
+# Measured 2026-11-26: right after a private-index commit, `git diff --cached`
+# showed the whole commit as staged-for-reversion — any lane's bare `git commit`
+# (or `git commit -a`) would have reverted it. Re-adding only these paths (whose
+# worktree content is exactly what was committed) syncs them without touching
+# another lane's staged entries.
+& git add -- @Paths | Out-Null
+Write-Host "shared index refreshed for: $($Paths -join ', ')"
 
 # ── Verification BY CONTENT ─────────────────────────────────────────────────
 # Deliberately not `git log`/exit-code based: a concurrent commit can bake a
