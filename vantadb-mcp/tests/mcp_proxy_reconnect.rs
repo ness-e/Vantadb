@@ -238,15 +238,16 @@ async fn live_writer_lock_blocks_promotion() {
     drop(dead_probe);
     write_discovery(&path, std::process::id(), dead_port);
 
-    // FIND-739: pin the lock patience instead of guessing at it. 50 ms still
-    // covers the 5/10/20/40 ms retry ladder of `acquire_db_lock`, so the
-    // promotion really walks the DatabaseBusy path; it just doesn't drag the
-    // default 1000 ms of patience into a bound that claims to measure retries.
+    // FIND-739: pin the lock patience instead of guessing at it. 50 ms covers
+    // the 5/10/20 ms steps of `acquire_db_lock` before it exits inside the
+    // 40 ms sleep (the ladder is 5+10+20+40 > 50), so the promotion really
+    // walks the DatabaseBusy path; it just doesn't drag the default 1000 ms of
+    // patience into a bound that claims to measure retries.
     let config = vantadb::config::Config {
         file_lock_timeout_ms: 50,
         ..Default::default()
     };
-    let proxy = WriterProxy::new(&path, None, Some(config.clone()));
+    let proxy = WriterProxy::new(&path, None, Some(config));
     let started = Instant::now();
     let err = proxy
         .call(
@@ -272,13 +273,22 @@ async fn live_writer_lock_blocks_promotion() {
     );
 
     // ── The mechanism, not the clock (FIND-739) ────────────────────────────
-    // One resolution ran to completion and elected nobody. Stopping short of
-    // the probe/promotion budget would not record a failure at all, so this
-    // pins "the whole bounded sequence happened, and it said no".
+    // One resolution ran to completion and elected nobody. `resolve_failures`
+    // counts failed *resolutions*, not probes, so it cannot pin
+    // `RESOLVE_ATTEMPTS` by itself — the lower bound below does.
     assert_eq!(
         proxy.resolve_failures(),
         1,
         "exactly one resolution, ending with no writer (elapsed {elapsed:?})"
+    );
+    // The backoff before the last probe is 50 + 100 = 150 ms (proxy.rs
+    // `BACKOFF_BASE_MS`), so any resolution that keeps its 3 probes cannot
+    // finish faster than that. Dropping to 1 probe (or 0) would still fail
+    // closed and satisfy every state assertion below — this is what catches it.
+    assert!(
+        elapsed >= Duration::from_millis(150),
+        "retry budget skipped, not bounded: {elapsed:?} is under the 150 ms of \
+         backoff that 3 probes must pay"
     );
     assert_eq!(proxy.reconnects(), 0, "nothing was elected");
     assert_eq!(
@@ -291,36 +301,48 @@ async fn live_writer_lock_blocks_promotion() {
         "a failed resolution must not leave a writer handle installed"
     );
 
-    // The discovery file of a live PID survives the failed re-election.
-    assert!(
-        discovery_path(&path).exists(),
-        "live-PID discovery must not be cleaned"
+    // The discovery file of a live PID survives the failed re-election —
+    // "intact" read back, not just "the path exists".
+    let disc: ServerInfo =
+        serde_json::from_str(&std::fs::read_to_string(discovery_path(&path)).unwrap())
+            .expect("live-PID discovery must survive, still parseable");
+    assert_eq!(
+        disc.pid,
+        std::process::id(),
+        "live writer keeps its advertisement"
     );
+    assert_eq!(disc.http_port, dead_port, "advertisement left untouched");
 
     // Why those two writers stay impossible: the lock, not the discovery file,
-    // is the authority. Fast probe — same 50 ms patience, no second writer.
+    // is the authority. This open uses the **production default** patience
+    // (1000 ms) on purpose — it runs after `elapsed` is captured, so it costs
+    // ~1 s without contaminating the bound, and keeps the default covered.
+    let probe_path = path.clone();
+    let opened =
+        tokio::task::spawn_blocking(move || vantadb::storage::StorageEngine::open(&probe_path))
+            .await
+            .expect("lock probe task");
     assert!(
-        matches!(
-            vantadb::storage::StorageEngine::open_with_config(&path, Some(config.clone())),
-            Err(vantadb::Error::DatabaseBusy(_))
-        ),
+        matches!(opened, Err(vantadb::Error::DatabaseBusy(_))),
         "a held fs2 lock must surface as DatabaseBusy, never as a second writer"
     );
 
     // ── Coarse net, not the contract (FIND-739) ────────────────────────────
     // With the lock patience pinned, this call is dominated by 3 probes +
-    // 50/150 ms backoff. Measured: 1.93–2.10 s over 6 runs under 6 CPU
+    // 50/150 ms backoff. Measured: 1.93-2.10 s over 6 runs under 6 CPU
     // burners (each probe pays two `is_pid_alive`, ~300 ms per Windows
-    // targeted refresh). The 10 s net is ~2.5x the worst *loaded* number seen
-    // for this class (MCP-44 re-ran the old shape at 5.05 s, which included
-    // the 1000 ms default lock patience this test no longer pays) and still
-    // sits below the regression it exists for: `System::new_all()` per PID
-    // check made this same call take 11.17 s. It is a net, not the contract —
-    // the mechanism asserts above are what must never go red.
+    // targeted refresh). The 10 s net is ~5x the measured worst, ~2x the
+    // loaded number reported for the old shape (MCP-44: 5.05 s, which also
+    // paid the 1000 ms of patience this test no longer pays), and ~2x below
+    // the regression it exists for: `System::new_all()` per PID check costs
+    // ~3.5 s on Windows and this path now does **six** checks per resolution
+    // (2 per probe × 3 probes) ⇒ ~21 s today, 11.17 s when MCP-48 measured it
+    // with fewer checks. It is a net, not the contract — the mechanism
+    // asserts above are what must never go red.
     assert!(
         elapsed < Duration::from_secs(10),
         "re-election regressed: {elapsed:?} for 3 probes + backoff with a 50 ms lock patience \
-         (measured 1.93-2.10 s loaded; MCP-48 measured 11.17 s with `System::new_all()`)"
+         (measured 1.93-2.10 s loaded; the `System::new_all()` class is ~21 s via 6 checks)"
     );
 
     // The writer storage is untouched and still the single writer.
