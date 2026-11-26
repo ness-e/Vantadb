@@ -2,7 +2,7 @@
 title: "FIND-755 - el gate de docs del workspace: 4 crates rojos de base, 43 links clasificados por sitio"
 kind: task
 status: completed
-description: "El gate `cargo doc -D warnings` no pasaba en 4 crates (`vantadb` 38 links, `vanta-proxy` 2, `vantadb-mcp` 1, `vantadb-server` 1) mas una regresion de `vanta-memory` (1). 43 links clasificados: 18 resueltos con la ruta real, 21 aplanados a code span por apuntar a item privado, 2 a code span por target inexistente y 1 URL desnuda. Exit 0, 0 diagnosticos."
+description: "El gate `cargo doc -D warnings` no pasaba en 4 crates (`vantadb` 38 links, `vanta-proxy` 2, `vantadb-mcp` 1, `vantadb-server` 1) mas una regresion de `vanta-memory` (1). 43 links clasificados: 19 resueltos con la ruta real, 21 aplanados a code span por apuntar a item privado, 2 a code span por target inexistente y 1 URL desnuda. Exit 0, 0 diagnosticos."
 tags: [vantadb, docs, rustdoc, gate, workspace]
 ---
 
@@ -126,7 +126,7 @@ Los 18 resueltos **se resolvieron**, no se aplanaron.
 
 ## Clasificación por sitio y evidencia
 
-### (a) Resueltos con la ruta real — 18
+### (a) Resueltos con la ruta real — 19
 
 Los 9 de `src/crypto.rs`, `src/attestation.rs:24`, `src/entity/linking.rs:24`,
 `src/error.rs:13`, `src/operator_registry.rs:8` y `src/shred/mod.rs:37` son
@@ -239,7 +239,11 @@ No tocados (respetado): `src/bin/vanta-cli.rs`, `tests/cli_tests.rs` (FIND-98),
 `src/wal_sharded.rs`, `src/schema.rs`, `src/index/serialize/file.rs`,
 `.githooks/**`, `docs/dev/workflow/RULES.md`, `dev-tools/**`,
 `docs/dev/plans/**`, `.opencode/**`, `docs/dev/extraccion/**`.
-`src/wal.rs` **sí** se tocó — ver §Desviación declarada.
+
+Sobre `src/wal.rs`: está **dentro** de la superficie que declaraba el ticket
+(`src/**`) pero **fuera** del scope de mi encargo, que lo listaba como prohibido.
+Se tocó 1 línea de doc; la contradicción de redacción que marcó el review
+(Low-1) queda resuelta acá y en §Desviación declarada.
 
 ## Impacto mapeado (Regla 0)
 
@@ -278,9 +282,12 @@ Resultados:
 |---|---|
 | `cargo doc --no-deps --workspace --keep-going` con `-D warnings` | **exit 0**, **0** `^error` |
 | mismo + `--document-private-items` (la forma que usa `docs-gates.yml`) | **exit 101**, **33** `^error` — **otra superficie**, ver §Propuesta |
-| `git diff -U0` filtrado a líneas no-doc | **vacío** |
+| `git diff -U0` filtrado a líneas no-doc | **vacío** (38 inserciones / 38 borrados, todas `///`/`//!`) |
 | `rg 'allow\(rustdoc'` en los 5 crates | **0** |
 | `cargo fmt --check` | **exit 0** |
+| `cargo check -p vantadb -p vanta-proxy -p vantadb-mcp -p vantadb-server -p vanta-memory --all-targets` | **exit 0** (1m26s) |
+| `cargo clippy -p vantadb --no-default-features --features cli,fjall,memmap2,fs2,roaring --tests -j 2 -- -D warnings` (el gate del `pre-commit`) | **exit 0** |
+| `node scripts/docs/check-links.mjs` / `check-docs.mjs` | **exit 0** / **exit 0** (2 ORPHAN informativos: `FIND-753-760.md` y `FIND-755.md`, misma clase, se cierran con `gen-index` en el cierre de wave — **no** se corrió `gen-index`) |
 
 ## Review (P2-01)
 
@@ -289,7 +296,73 @@ de `src/**`, `vanta-proxy/`, `vantadb-mcp/`, `vantadb-server/`, `vanta-memory/`
 y `docs/dev/**`; ningún path adversarial). Gate: verify mecánico + veredicto
 registrado.
 
-Pendiente de la ronda de `vanta-review` (se completa al volver).
+- **Revisor:** `vanta-review` — contexto fresco, implementó nada de esto, no
+  editó ningún fichero (report-only).
+- **Enfoque:** ¿el diff debilita el bar? Para cada uno de los 23 aplanados
+  (21 privados + 2 inexistentes), re-derivó la visibilidad por su cuenta en vez
+  de aceptar la tabla del autor, y descartó el caso que el gate no puede ver: un
+  ítem privado **con re-export público**.
+- **Cómo se probó (suyo):** re-corrió el gate por su cuenta →
+  `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --keep-going`
+  **EXIT=0**, 0 `^error`, 0 warnings, 8 targets `Documenting`, 1m48s. Re-corrió
+  `cargo fmt --all -- --check` → 0. Reprodujo la segunda medición
+  (`--document-private-items` → **EXIT=101, 33 `^error`, 28 `-->`**). Re-derivó
+  los 21 privados por visibilidad: `pub(crate) fn` (`filter_verdict`,
+  `ShreddedRowStore::get`, `read_node`, `encode/decode_cursor`,
+  `node_in_entity_scope`, `resident_default_ceiling`), `pub(crate) trait`
+  (`Snapshotable`, `Compactable`) con `pub(crate) mod backend` (`lib.rs:72`),
+  `pub(crate) const` (`CHAIN_GENESIS`, `wal.rs:69`), y `const`/`fn` sin `pub`
+  (`NS_ENVELOPE_SALT`, `write_declared_limits`, `local_model_bases`,
+  `log_error`, `derived_health`, `RECENT_CAP`, `ArtifactSpec::classify`). Re-export
+  público que las hiciera resolubles: `rg 'pub use.*(…)'` → **exit 1, ninguno**.
+  Ruta externa: `Cargo.toml:157` deja `async-ingestion` fuera de `default`.
+- **Hallazgos propios del review:** (1) el job `rustdoc` de `docs-gates.yml`
+  **construye el artefacto y no mide**, y su comentario afirma lo contrario;
+  (2) el mismo workflow **ya usa** el idioma correcto en el job `doc-tests`
+  (`:599-607`), lo que prueba que nadie lo puso en `rustdoc` por omisión, no por
+  decisión; (3) el contrato de la fila del Backlog tenía **dos mitades** y sólo
+  se cumplió una → Medium-2.
+- **Ronda 1 → `changes-required`**: 0 Blocking, 2 Medium, 3 Low. **Ninguno en
+  los 24 ficheros de código.** Aplicados todos en el commit de cierre:
+
+| # | Sev | Hallazgo | Cómo se cerró |
+|---|---|---|---|
+| M-1 | Medium | `status: completed` con esta sección vacía (contrato P2-01) | esta sección + checklist de abajo |
+| M-2 | Medium | se borró la fila del Backlog con la mitad "cablear el paso en CI" sin hacer y sin registro en `avance/` | entrada en `docs/dev/avance/activo/docs.md` **+** fila nueva `FIND-761` para la mitad no cableada |
+| L-1 | Low | el task file se contradecía sobre `src/wal.rs` (en "No tocados" y en "sí se tocó") | reformulado: está en `src/**` del ticket, fuera de mi encargo |
+| L-2 | Low | aritmética 18 vs 19 resueltos (la tabla tiene 18 filas + `scheduler.rs` en prosa) | **19**, en el heading y en `description`; 19+21+2+1 = 43 = 48−5 |
+| L-3 | Low | el aplaneo sí quita hipervínculos del artefacto `--document-private-items` | aceptado y declarado (§Incógnitas 3); es el precio del gate |
+| Nit | — | `ci-gate.yml:38-58` → el rango real es `36-55` | corregido |
+
+- **Checklist anti-hábitos tóxicos:**
+  - [x] No inventar salidas de comandos: los 9 comandos de §Verificación se
+        corrieron en este árbol y el revisor re-corrió los 4 principales.
+  - [x] No saltarse la clarificación: la ambigüedad real (2 ficheros fuera de
+        scope) se resolvió **midiendo** que sin ellos el contrato era
+        inalcanzable, y se declaró en §Desviación en vez de silenciarla.
+  - [x] No declarar done sin verificar contra los acceptance criteria: el
+        criterio era exit 0 / 0 `^error`, medido; el de CI se declaró **no
+        cableado** en vez de darlo por hecho.
+  - [x] No ignorar fallos: la primera medición de `--document-private-items` la
+        había anotado como verde por anticipación; al medirla (33 errores) se
+        **corrigió la tabla y la propuesta**, y el review lo verificó.
+  - [x] No un solo intento de búsqueda: los 5 ítems "sin localización" del
+        compilador se localizaron con `rg` por texto, no se adivinaron.
+  - [x] No copiar sin citar: cada fila de evidencia cita `file:line` de la
+        definición del target.
+  - [x] No reintentar en bucle: el bloqueo del `pre-commit` se diagnosticó
+        (contención de build con el `cargo doc` del revisor) y se re-verificó
+        con el comando exacto del hook antes de reintentar.
+  - [x] Ningún paso huérfano: los 43 sitios están mapeados a una clase y a un
+        fix.
+  - [x] Sin degradar chequeos en paths sensibles: no se tocó ninguno.
+  - [x] Paradas explícitas: `--all-features` **no** se midió y se declara.
+  - [x] Cobertura SDP: `SKILLS_CARGADAS` incluye `documentation-skill` (edita
+        `.md` bajo `docs/`) y `source-driven-development`; el SDP no devolvió
+        `pinned`.
+- **Veredicto:** ronda 1 `changes-required` (bookkeeping) → **corregido y
+  cerrado**; el contrato mecánico y la ausencia de debilitamiento del bar
+  quedaron verificados por el revisor **antes** de estas correcciones.
 
 ## Propuesta de cableado en CI (no aplicada: `.github/**` es de otro carril)
 
@@ -306,7 +379,7 @@ Corre **sin** `-D warnings`, así que **construye el artefacto y no mide nada** 
 el comentario del propio workflow dice *"Falla por defecto en docstrings con
 links rotos"* y es **falso**: sin negar warnings, un link roto no falla. Segundo
 detalle: el contexto `Generate API reference (rustdoc)` **no está** en `REQUIRED`
-(`ci-gate.yml:38-58`), así que ni siquiera su rojo actual bloquearía.
+(`ci-gate.yml:36-55`), así que ni siquiera su rojo actual bloquearía.
 
 **Y no alcanza con agregarle `-D warnings` a ese step: medido, da 33 errores**
 (exit 101, 28 sitios con `-->`):
@@ -349,12 +422,14 @@ así que el gate sólo muerde en el PR de release. Cablearlo sin resolver eso
 cambia poco; hacerlo requiere tocar la lista de required de `develop`, que es
 decisión del owner.
 
-**Fila derivada propuesta (para el lead, no creada acá — el Backlog sólo admite
-mi fila):** *"`cargo doc --document-private-items -D warnings` (la vista del
-artefacto de `docs-gates.yml`) tiene 33 lints en 4 crates, 2 de ellos no-links
-(`invalid_html_tags` ×6, `redundant explicit link target` ×1); el job `rustdoc`
-los ignora porque no niega warnings y no está en `REQUIRED`"*. Sin esa fila, el
-artefacto publicado sigue llamándose "gate de calidad" sin medir.
+**Fila derivada — creada: `FIND-761`** (`docs/dev/Backlog.md`). El contrato de
+`FIND-755` tenía **dos mitades** y esta tarea sólo cumplió la primera (medir);
+la segunda (cablear) vive ahora en `FIND-761`, con las dos piezas juntas porque
+son la misma decisión sobre el mismo job: agregar el step medido-en-verde **y**
+resolver los 33 lints de la vista del artefacto (`--document-private-items`, 4
+crates, `invalid_html_tags` ×6 y `redundant explicit link target` ×1 incluidos).
+Sin esa fila, el artefacto publicado sigue llamándose "gate de calidad" sin
+medir. *(Medium-2 de la review.)*
 
 ## Incógnitas
 
