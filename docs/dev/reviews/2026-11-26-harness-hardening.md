@@ -599,11 +599,18 @@ dependencia `H-03 → H-05 → H-07 → H-02 → H-04 → H-06`. Detalle y evide
 $ node dev-tools/check-harness-contract.mjs
 ok commit-path (H-03) · ok plan-lote (H-05) · ok medicion (H-02) · ok premise (H-07) · ok wave-quotas (H-06)
 harness contract holds (5 checks)                                   # exit 0
-$ node dev-tools/check-harness-contract.mjs --self-test   → 18/18 fixtures (cada regla puede fallar)
-$ pwsh dev-tools/check-closure.ps1 -SelfTest              → 9/9 fixtures
-$ pwsh dev-tools/check-closure.ps1 -Diff                  → CLOSURE OK  # exit 0
-$ pwsh dev-tools/check-closure.ps1 -All                   → 1 violación viva: FIND-587 (no de esta tarea)
+$ node dev-tools/check-harness-contract.mjs --self-test   → 24/24 fixtures (cada regla puede fallar)
+$ node dev-tools/check-harness-contract.mjs --rows        → exit 0 (claims de filas nuevas)
+$ pwsh dev-tools/check-closure.ps1 -SelfTest              → 13/13 (9 regex + 4 end-to-end en repo temporal)
+$ pwsh dev-tools/check-closure.ps1 -Diff -Paths <mis rutas> → CLOSURE OK  # exit 0
+$ pwsh dev-tools/check-closure.ps1 -All                   → 2 violaciones vivas: FIND-587 y H-02-H-07 (este task file, por el review pendiente)
 ```
+
+**Corrección a un auto-reporte de la ronda 1:** se informó "`-All` → 1", y son
+**2** (`FIND-587` **y** `H-02-H-07`). Además `-Diff` estaba verde *sobre ese
+huérfano* porque no veía ficheros untracked — el defecto M3 del review, ya
+corregido. `-Diff` sin scope es hoy la **auditoría del árbol** (sale el WIP de
+otros carriles); el gate de un commit se corre con `-Paths`.
 
 Antes de la aplicación, el mismo gate de contrato daba **13 violaciones** (una
 por contrato ausente, más las citas a `workflow/RULES.md`, que eran **0** en
@@ -618,6 +625,29 @@ de esta aplicación queda a cargo del orquestador: la sesión que la aplicó no
 tiene tool `task` (`subagent: deny`) y no puede spawnear `vanta-review`; por eso
 el task file queda `⏳ IN PROGRESS` en lugar de `✅ COMPLETED` sin veredicto
 (HARD-07 aplicado al propio cierre).
+
+## D.1 — Ronda 2 del review P2-01 (3 Blocking, 6 Medium, 5 Low)
+
+El review refutó la premisa de esta entrega con la razón correcta: **tres
+detectores no miraban donde vive el defecto**. Corregido y probado
+reintroduciendo cada violación con los scripts **sin modificar** (`--root` /
+`-Root` sobre repos temporales): **8/8 sondas**.
+
+| ID | Defecto real | Fix |
+|---|---|---|
+| **B1** | `H-02` juzgaba la **línea entera**: `#`, ID, `2h`, `P2`, `W10` son dígitos → toda fila nueva era "claim" y quedaba bloqueada | se juzgan **celdas de prosa** (`isProse` descarta metadatos, paths, fechas, tokens); spec alineada en `plan.md`/`findings.md` (Medición en la celda del claim) |
+| **B2** | `git commit` desnudo en `.opencode/AGENTS.md:8` y el gate **no escaneaba** `AGENTS.md` (el primer flujo que lee todo agente) | `AGENTS.md` entra al scan + línea 8 pasa al helper |
+| **B3** | `activePlans()` exigía `status: active` y la plantilla no emitía frontmatter → un plan creado por la plantilla no se escaneaba | **status ausente = activo** (sólo `superseded|archived|done|completed|closed` excluyen), top-level only, y la plantilla emite frontmatter |
+| **M1** | `git diff` sin `HEAD` → gate ciego a cambios staged | `git diff -U0 HEAD` |
+| **M2** | `H-02` sólo corría en `/harness`; una fila commiteada en una tarea normal nunca entraba al diff | modo `--rows` + `findings.md` lo exige al crear la fila |
+| **M3** | `check-closure -Diff` no veía untracked y su `$Base` real era `HEAD` | default `origin/develop` (fallback `HEAD~1`, resuelto y reportado) + unión de `git ls-files --others` |
+| **M4** | `Contains($id)` enmascaraba IDs prefijo (`FIND-90` oculto por `FIND-901`) | `Test-IdPresent` con límite de palabra |
+| **M5** | `F4` **no estaba resuelto**: 6 sitios seguían diciendo que commitea el lead | 6 ediciones de una línea; `rg` residual → **0**. **F4 / FIND-776 cerrado** |
+| **M6** | auto-reporte: `-All` da **2**, no 1 | corregido arriba |
+| **L1–L5** | self-test sólo de regex; `/` final; firma a 3 líneas; §11 no verificado; código muerto | fixtures end-to-end en repo temporal (4); `overlaps` normaliza; ventana 5; `RULES.md` debe tener §11; línea muerta fuera |
+
+**Estado:** el task file sigue `⏳ IN PROGRESS` — la ronda 2 del review la lanza
+el orquestador. No hay auto-aprobación.
 
 ---
 
