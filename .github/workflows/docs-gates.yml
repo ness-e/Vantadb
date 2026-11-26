@@ -560,6 +560,11 @@ jobs:
       # `env:` va en el step, no en el job: en el job contaminaría el build del
       # artefacto. Va antes porque no comparte fingerprint (default vs
       # --all-features).
+      # FIND-769: esta superficie NO es la de tu máquina, y no por el toolchain
+      # (1.95.0 en ambos lados): la doc de un `pub` bajo `#[cfg(unix)]` no la
+      # procesa rustdoc en Windows, y `--workspace` unifica features (vanta-proxy
+      # activa `encryption`) que un `-p vantadb` no ve. Correr SIEMPRE el comando
+      # exacto de abajo; un verde con `-p` no predice este step.
       - name: Deny rustdoc warnings (doc gate)
         env:
           RUSTDOCFLAGS: "-D warnings"

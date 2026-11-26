@@ -1585,7 +1585,7 @@ impl StorageEngine {
     /// are hard-linked (O(1) per file — kernel
     /// directory entries pointing at the same inode); files the engine keeps
     /// writing to after the snapshot (vstore segments, active WAL shards, HNSW image —
-    /// [`is_mutable_after_snapshot`]) are copied instead, so no post-snapshot
+    /// `is_mutable_after_snapshot`) are copied instead, so no post-snapshot
     /// write can reach the snapshot through a shared inode. On Windows/WASM,
     /// everything falls back to [`std::fs::copy`] (O(n) per file).
     /// Subdirectories under `data_dir`
