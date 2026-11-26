@@ -183,14 +183,38 @@ pwsh -NoProfile -File dev-tools/target-cleanup.ps1 -AutoSafe
 
 # Smaller disk, or a deliberately bigger co-batch wave:
 pwsh -NoProfile -File dev-tools/target-cleanup.ps1 -AutoSafe -MinFreeGB 25
+
+# Degraded mode: only *.pdb older than the -MinAgeMinutes window (default 30) are prunable.
+pwsh -NoProfile -File dev-tools/target-cleanup.ps1 -AutoSafe -MinAgeMinutes 45
 ```
+
+**Degraded mode when a build is in flight (`FIND-746`).** The guard used to be
+all-or-nothing: any live `cargo`/`rustc` and the gate deleted *nothing*, including
+the `*.pdb` files, which do not participate in rustc's incremental cache at all.
+On 2026-11-25 that landed on a 0-byte drive with 7.6 GB of `*.pdb` freed by hand
+in the middle of a task. Now the gate degrades: it prunes **only** `*.pdb` whose
+`LastWriteTime` is at least `-MinAgeMinutes` old (default **30**, never 0 with
+`-AutoSafe`), leaves every `incremental/` untouched, and says so:
+
+```
+DEGRADADO: 8 cargo/rustc en vuelo - incremental/ NO se toca (corrompe la cache de rustc).
+DEGRADADO: solo se podan *.pdb con antiguedad >= 30 min (-MinAgeMinutes).
+  borrando target\debug\deps\foo-1234.pdb (11,2 MB)...
+DEGRADADO: podados 121 *.pdb (2,47 GB) con antiguedad >= 30 min.
+```
+
+Age is the only proof of abandonment available for a `*.pdb`: there is no compiler
+lock to ask, and the linker writes the file while the build is "in flight". Deleting
+one that a linker is reading right now fails the link, which is why the age filter
+is mandatory and why the deletion is recounted by `Test-Path` (a file the OS refused
+to release is reported as not freed, then skipped).
 
 | Exit | Meaning |
 |---|---|
-| `0` | report only, dry-run, or the cleanup left the drive **above** the threshold |
+| `0` | report only, dry-run, or the cleanup left the drive **above** the threshold — including degraded mode that pruned at least one `*.pdb` |
 | `3` | it ran (or had nothing to prune) and the drive is **still below** the threshold — **not** green; free space by hand with `-Clean [-Full]` first |
-| `2` | `cargo`/`rustc` were running → skipped on purpose, retry between builds |
-| `1` | refused by the path safety check, incompatible flags (`-AutoSafe` with `-Clean`/`-Full`), or the repo's drive could not be determined |
+| `2` | degraded: builds were in flight and **nothing** could be pruned while the drive is still below the threshold — retry between builds. It is *also* the mid-run abort of the non-degraded path (a build appeared while `incremental/` was being deleted): in that case re-run `cargo clean -p <crate>` before trusting the cache |
+| `1` | refused by the path safety check, incompatible flags (`-AutoSafe` with `-Clean`/`-Full`, `-MinAgeMinutes 0` with `-AutoSafe`), or the repo's drive could not be determined |
 
 What `-AutoSafe` will never do: delete `target/` itself, delete anything outside
 `target/`, delete the `deps/`, `debug/` or `release/` **directories**, follow a
@@ -205,8 +229,9 @@ Deleting `incremental/` *while a build is running* leaves `.fingerprint` entries
 pointing at session directories that no longer exist; the next `rustc` that
 reuses one dies with an incremental-cache error (`could not read incremental
 cache`, or an ICE), and the failure reads like a corrupted repository. That is
-why the gate refuses to run when `cargo`/`rustc` are alive (exit `2`) instead of
-"cleaning anyway". Deleting it **between** builds costs recompilation time only —
+why the gate never touches `incremental/` while `cargo`/`rustc` are alive — it
+degrades to the `*.pdb` files instead (exit `2` only when even those are
+unprunable). Deleting it **between** builds costs recompilation time only —
 no correctness loss, no data loss. If a cache does end up inconsistent:
 
 ```powershell
@@ -218,12 +243,18 @@ cargo nextest run --profile audit -p vantadb --build-jobs 2
 
 **Self-check (the safety property is asserted, not promised).**
 `-SelfCheck` verifies the prefix ends in a separator, that `target2/`,
-`target/../src/`, `target/..` and `target/` itself are **rejected**, and that
+`target/../src/`, `target/..` and `target/` itself are **rejected**, that
 every path in the real cleanup list starts with `target\` and is either
-`incremental/` or `*.pdb`:
+`incremental/` or `*.pdb`, and — in a temp sandbox — that a simulated in-flight
+`rustc` (a real process, not a mock) plus an old `*.pdb` plus an `incremental/`
+directory prunes the `*.pdb` only, leaves `incremental/` alone, exits `0` and
+says so. It calls the same `Select-PdbItems` the gate uses (so breaking the
+wiring fails the check), refuses a sibling `*.pdb` outside the prefix and a
+junction, and re-runs the script as a child to prove `-MinAgeMinutes 0` with
+`-AutoSafe` is rejected:
 
 ```powershell
-pwsh -NoProfile -File dev-tools/target-cleanup.ps1 -SelfCheck   # SELFCHECK: PASS (16/16 asserts)
+pwsh -NoProfile -File dev-tools/target-cleanup.ps1 -SelfCheck   # SELFCHECK: PASS (40/40 asserts)
 ```
 
 ### Test runs leak their temp databases into `%TEMP%` (`FIND-732`)
