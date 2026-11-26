@@ -1,94 +1,74 @@
 ---
-title: "Batch de parciales y filas nuevas - ejecución por waves"
+title: "Batch de parciales y filas nuevas - ejecución completa por waves"
 kind: plan
 status: active
-description: "Plan de ejecución del lote de 34 IDs recibido el 2026-11-26: triage del gate aplicado, 19 tareas DO agrupadas en waves por partición de ficheros, y el resto diferido, omitido o bloqueado con razón."
+description: "Plan de ejecución de los 33 IDs recibidos el 2026-11-26. Todas las tareas entran al plan y se ejecutan; se agrupan en waves por partición de ficheros. Los prerequisitos externos (credenciales, autorización de publish) se declaran por tarea, no se usan para descartarla."
 tags: [pipeline, backlog, waves]
 ---
 
-# Batch 2026-11-26 — parciales + filas nuevas
+# Batch 2026-11-26 — 33 tareas, ejecución completa
 
 **Fuente:** lote de 34 IDs recibido en `/pipeline` (22 `🟡 Parcial` + 12 filas nuevas de la sesión).
-**Estado de partida:** `origin/develop` = `c8e73e412`; gate de docs operativo y required (14 contexts en `develop`, 19 en `main`).
-**Restricciones aprendidas y vigentes:** máximo **2 carriles Rust** compilando (RAM/disco); **1 carril CI** por workflow (`.github/workflows/*.yml` es un recurso único); commits **locales** con `GIT_INDEX_FILE` temporal + verificación por contenido; **nunca `--amend`**; **push sólo con instrucción explícita**.
+**Estado de partida:** `origin/develop` = `c8e73e412`; gate de docs operativo y **required** (14 contexts en `develop`, 19 en `main`).
+**Regla del lote:** **todas las tareas se ejecutan y se quedan en este plan.** No hay `SKIP` ni `DEFER` por criterio del orquestador. Lo que se declare son **prerequisitos** (algo que hay que tener o que un tercero debe autorizar), que se resuelven o se esperan — no descartan la tarea.
 
-## Tabla resumen del triage
+**Restricciones operativas aprendidas (no son triage):**
+- **2 carriles Rust** compilando a la vez (RAM + ~7 GB de `incremental` por agente).
+- **1 carril por fichero de workflow** (`.github/workflows/*.yml` es recurso único: `ci-rust.yml` lo edita una tarea, no dos).
+- **1 solo carril en `src/**`** cuando la tarea es un barrido ancho (`DEAD-01`, `FIND-759`).
+- Commits **locales**, `GIT_INDEX_FILE` temporal, verificación **por contenido**, nunca `--amend`, push sólo con instrucción explícita.
 
-| Veredicto | N | IDs |
-|---|---:|---|
-| ✅ **DO** | 19 | `FIND-766` `FIND-767` `FIND-770` `FIND-758` `FIND-757` `FIND-756` `FIND-759` `FIND-762` `FIND-764` `FIND-768` `FIND-771` `DEAD-01` `FIND-158` `FIND-159` `FIND-191` `FIND-215` `FIND-219` `FIND-290` `WIRE-19` |
-| 🟡 **DEFER** | 12 | `DIST-18` `FIND-320` `EGO-13` `EGO-15` `FIND-120` `FIND-121` `FIND-122` `FIND-198` `FIND-598` `FIND-607` `FIND-118` `FIND-219`* |
-| ❌ **SKIP** | 1 | `FIND-118` |
-| 🔴 **BLOQUEADO** | 3 | `NOT-06` `GTM-05` `GTM-09` |
+## Las 33 tareas y su wave
 
-\* `FIND-219` cuenta en DO; se lista arriba por error de conteo — ver Gate Justificación.
+| # | ID | Wave | Carril | Ficheros / zona exclusiva | Prerequisito declarado |
+|---:|---|---|---|---|---|
+| 1 | `FIND-758` | **W1** | R | `src/storage/engine/delete.rs` · `src/shred/**` | — |
+| 2 | `FIND-770` | **W1** | CI | `.github/workflows/ci-rust.yml` | — |
+| 3 | `FIND-756` | **W1** | A | `docs/dev/architecture/adr/**` · task file | decisión de `vanta-arch` |
+| 4 | `FIND-767` | W2 | CI | `.github/workflows/certification.yml` + `CI_POLICY.md` | tras W1 (`FIND-770` libera `ci-rust.yml`) |
+| 5 | `FIND-766` | W2 | CI | `.github/workflows/certification.yml` | después de `FIND-767` (mismo fichero) |
+| 6 | `FIND-757` | W2 | R | `vantadb-mcp/src/proxy.rs` | — |
+| 7 | `FIND-762` | W3 | CI | `.githooks/pre-push` · `ci-rust.yml` | tras W1 |
+| 8 | `FIND-764` | W3 | CI | `.github/workflows/ci-rust.yml` | tras `FIND-762` (mismo fichero) |
+| 9 | `FIND-771` | W3 | CI | `.github/workflows/docs-gates.yml` | — |
+| 10 | `FIND-768` | W3 | CI | `.github/workflows/snapshot-certification.yml` | — |
+| 11 | `FIND-191` | W4 | R | `tests/api/**` · `tests/public_api*` | — |
+| 12 | `FIND-215` | W4 | R | `Cargo.toml` (features) · medir | — |
+| 13 | `FIND-219` | W4 | C | `docs/**` (matriz) + `.github/workflows/**` | tras W3 (workflows libres) |
+| 14 | `DEAD-01` | W5 | R | `src/**` (barrido, carril único) | — |
+| 15 | `FIND-759` | W5 | R | `src/**` (`unsafe`, carril único) | tras `DEAD-01` |
+| 16 | `FIND-158` | W5 | R | deuda API W2 (ver task file) | — |
+| 17 | `FIND-159` | W5 | R | deuda API W3 (ver task file) | — |
+| 18 | `FIND-290` | W6 | A→R | `vanta-memory` reflexión + `src/**` | decisión de `vanta-arch` primero |
+| 19 | `WIRE-19` | W6 | R | `vanta-memory` + `vantadb-mcp` (según `ADR-0063`) | — |
+| 20 | `FIND-320` | W6 | A | contrato `retrieve()` trust-aware | decisión de `vanta-arch` (ADR) |
+| 21 | `EGO-13` | W6 | R | ingesta zero-copy (`PyBuffer`/`Float32Array`) | — |
+| 22 | `EGO-15` | W6 | R | `graphragSearch` (`max_degree_per_node`) | — |
+| 23 | `FIND-598` | W4 | T | perfilado p99 cifrado | herramienta de perfilado + ventana de medida |
+| 24 | `FIND-607` | W6 | R | 18 hallazgos P2 — **partir antes de ejecutar** | — |
+| 25 | `FIND-120` | W7 | — | onboarding auto-index | **spec SDD** antes de partir |
+| 26 | `FIND-121` | W7 | — | cache de embeddings con TTL | **spec SDD** |
+| 27 | `FIND-122` | W7 | — | router determinista de retrieval | **spec SDD** |
+| 28 | `FIND-198` | W7 | R | runner BEAM opcional | decisión de tamaño/dependencia |
+| 29 | `FIND-118` | W1 | C | alias legacy `vantadb_py` | **verificar estado real primero**: si la ventana 0.6.0 ya lo ejecutó, se cierra con evidencia |
+| 30 | `DIST-18` | W8 | L | publicar `vanta-proxy` | **secuencia**: post-1.0.0 + autorización de publish del owner |
+| 31 | `NOT-06` | W8 | D | 71 páginas de Notion | **credenciales/permiso del workspace del owner** |
+| 32 | `GTM-05` | W8 | D | landing `vantadb.dev` | **DNS/dominio + cuenta Vercel del owner** |
+| 33 | `GTM-09` | W8 | D | `/enterprise` + one-pager | **precio público**: decisión del owner |
 
-## Gate Justificación
+> Las filas 30–33 **se ejecutan hasta donde no requieran el clic del owner**: contenido, copy, estructura de página, plantilla de Notion, `vercel.json`, borradores listos para publicar. Lo que queda pendiente se lista explícitamente como "espera al owner" y **la tarea sigue en el plan**.
 
-| ID | Gate | Razón |
-|---|---|---|
-| `FIND-767` | ✅ DO · 🟠 | Seis tests de **seguridad** con **cero ejecuciones** en cualquier workflow. En una DB no es cosmético: es la verificación de que el cifrado hace lo que dice. **1 carril CI.** |
-| `FIND-766` | ✅ DO · 🟠 | 98 tests con un lane que nunca ejecutó uno solo (0 success / 36 failure / 30 días). Separar `cli_tests` del gate de datasets y que el rojo por dataset sea **otro job**. **Comparte fichero con 767 → misma wave, secuencial.** |
-| `FIND-770` | ✅ DO · 🟠 | 10 de los 14 required contexts quedan en `Expected` para siempre si un PR sólo toca `docs/**`. Es el 90 % del deadlock que `FIND-765` dejó medido. **Dueño exclusivo de `ci-rust.yml`** (bloquea 762 y 764 en la misma wave). |
-| `FIND-758` | ✅ DO · 🟠 | `let _ =` sobre `ShreddedRowStore::delete`: un borrado puede fallar **en silencio**. El razonamiento del sitio (el tombstone del WAL es el commit) es correcto; lo que falta es **reportar**. |
-| `FIND-757` | ✅ DO · 🟡 | Una cifra publicada (`<0,3 s` de `MCP-48`) que un carril posterior no reprodujo (~1,9 s). Puede ser redacción, no código — y hay que decirlo con medición. |
-| `FIND-756` | ✅ DO · 🟡 | Decisión de `vanta-arch` sobre la representación de ids del grafo. **No implementa**: entrega decisión + contrato. Cierra previsiblemente `FIND-296`. |
-| `FIND-759` | ✅ DO · 🟡 | 70 sitios `unsafe`, 54 `SAFETY:`. No se cierra con un recuento: requiere veredicto por sitio o declaración de política. |
-| `FIND-762` | ✅ DO · 🟡 | El `pre-push` formatea con stable 1.95.0 y CI con nightly: verde local ≠ verde CI. **Bloqueado por `FIND-770`** (mismo workflow). |
-| `FIND-764` | ✅ DO · 🟡 | Un push cancela la suite del anterior: hay SHAs en `develop` sin verificar. **Bloqueado por `FIND-770`** (mismo workflow). |
-| `FIND-768` | ✅ DO · 🟡 | La lane de snapshot **está verde** y selecciona 42 de 56: el hueco es invisible. |
-| `FIND-771` | ✅ DO · 🟡 | `docs-gates.yml` cancela en vuelo y ahora hospeda un gate **required**: un required cancelado queda ausente, no rojo. |
-| `DEAD-01` | ✅ DO · 🟡 | Auditoría de código muerto. Diff ancho en `src/**` → **wave propia**, sin otro carril en `src/`. |
-| `FIND-158` `FIND-159` | ✅ DO · 🟢/🟡 | Deuda API W2/W3 no bloqueante, acotada. |
-| `FIND-191` | ✅ DO · 🟠 | `public-api` harness: stack overflow en cold-cache y `--profile audit` sin completar. Es un gate que no mide. |
-| `FIND-215` | ✅ DO · 🟡 | jemalloc/mimalloc: las features ya existen; falta medir y decidir. |
-| `FIND-219` | ✅ DO · 🟡 | Matriz de features documentada + CI por combinación. |
-| `FIND-290` | ✅ DO · 🟡 | Reflexión sin consumidor in-repo. Necesita decisión de activación → `vanta-arch` primero. |
-| `WIRE-19` | ✅ DO · 🟡 | `ADR-0063` decidido, implementación pendiente: mover el wiring a `vanta-memory`. |
-| `DIST-18` | 🟡 DEFER | Congelado explícitamente hasta post-1.0.0. |
-| `FIND-320` `EGO-13` `EGO-15` `FIND-598` `FIND-607` | 🟡 DEFER | Semanas de esfuerzo o requieren perfilado dedicado. `FIND-607` son **18 hallazgos** agrupados: hay que partirlo antes de tocarlo. |
-| `FIND-120` `FIND-121` `FIND-122` `FIND-198` | 🟡 DEFER | Features de producto: necesitan spec (SDD) antes de partir en tareas. |
-| `FIND-118` | ❌ SKIP | La ventana era **0.6.0** y el repo va por 0.9.x con `v0.10.0` en curso: la migración temporizada ya pasó. **Verificar antes de cerrar** que el alias no sigue vivo. |
-| `NOT-06` `GTM-05` `GTM-09` | 🔴 BLOQUEADO | Requieren al owner: páginas de Notion, DNS/landing en Vercel, pricing público. No delegables. |
+## Contrato de cierre (idéntico para las 33)
 
-## Waves
-
-Partición por **fichero**, no por tarea: es la lección de las últimas horas (índice compartido, `CI_POLICY.md`, `ci-rust.yml`).
-
-### Wave 1 (en vuelo)
-| Tarea | Ruta | Ficheros exclusivos |
-|---|---|---|
-| `FIND-758` | `vanta-worker` | `src/storage/engine/delete.rs` · `src/shred/**` |
-| `FIND-770` | `vanta-worker` | `.github/workflows/ci-rust.yml` |
-| `FIND-756` | `vanta-arch` | `docs/dev/architecture/adr/**` · `docs/dev/tasks/FIND-756.md` (sin código) |
-
-### Wave 2 (tras 770)
-| Tarea | Ruta | Nota |
-|---|---|---|
-| `FIND-767` | `vanta-worker` | `.github/workflows/**` + `CI_POLICY.md`; secuencial con 766 |
-| `FIND-762` `FIND-764` | `vanta-worker` | `.githooks/pre-push` + `ci-rust.yml` — **sólo después** de que 770 libere el fichero |
-| `FIND-757` | `vanta-worker` | `vantadb-mcp/src/proxy.rs` |
-
-### Wave 3
-`FIND-766` · `FIND-768` · `FIND-771` · `FIND-191`
-
-### Wave 4 (ancha, un solo carril en `src/`)
-`DEAD-01` · `FIND-759` · `FIND-158` · `FIND-159`
-
-### Wave 5 (decisiones primero)
-`FIND-756` (si no cerró) · `FIND-290` · `WIRE-19` · `FIND-215` · `FIND-219`
-
-## Contrato de cierre (idéntico para todas)
-
-1. `pwsh dev-tools/ocr-review.ps1` + review P2-01 por agente distinto, registrado en §Review del task file.
-2. Fila fuera del Backlog + entrada en `docs/dev/avance/<dominio>.md` **con la medición**.
-3. Commit **local** con `& ./dev-tools/git-commit-isolated.ps1 … -ExpectAbsent '<path>::| \`<ID>\` |'`.
-4. **Verificación por contenido** post-commit, no por exit code (`FIND-753`).
-5. **No** `gen-index.mjs` (se regenera en el cierre de wave). **No** `--amend`. **No** `.tmp-*`.
-6. **No** push: lo agrupa el orquestador.
+1. `pwsh dev-tools/ocr-review.ps1` + review P2-01 por agente distinto, registrado en `§Review` del task file.
+2. Fila fuera del `Backlog.md` + entrada en `docs/dev/avance/<dominio>.md` **con la medición**, no con la intención.
+3. Commit **local**: `& ./dev-tools/git-commit-isolated.ps1 -Message "…" -Paths … -ExpectAbsent '<path>::| \`<ID>\` |'`.
+4. **Verificación por contenido** post-commit (exit code no basta: `FIND-753`).
+5. **No** `gen-index.mjs` por tarea (se regenera al cerrar cada wave). **No** `--amend`. **No** `.tmp-*`.
+6. **No** push: lo agrupa el orquestador al cerrar wave, y sólo con instrucción explícita.
 
 ## Riesgos declarados
 
-- **`docs/pipeline-state.json` está obsoleto** (última escritura 2026-11-24, con 4 `running` que llevan días muertos). Este plan **no** lo usa como fuente; se leerá del Backlog y de git.
-- Disco: el patrón medido hoy es **~7 GB de `incremental` por agente Rust**. `-AutoSafe` degrada a podar `*.pdb`, así que el techo real son **2 carriles Rust**.
-- Las cifras de esfuerzo son del Backlog y **no están re-medidas**: si una tarea se sale del appetite, se devuelve en vez de estirarla.
+- **`docs/pipeline-state.json` está obsoleto** (última escritura 2026-11-24, con 4 `running` muertos). No se usa como fuente: la verdad es el Backlog + git.
+- Esfuerzos del Backlog **no re-medidos**: si una tarea se sale del appetite, se reporta y se parte — no se estira ni se abandona.
+- **`FIND-607` son 18 hallazgos** en un solo ID: se parte en sub-tareas antes de ejecutar, o el cierre mentirá sobre lo hecho.
