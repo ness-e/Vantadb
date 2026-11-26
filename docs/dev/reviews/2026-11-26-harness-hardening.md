@@ -706,6 +706,24 @@ estaba oculto por una mención en otra fila. Vale el número que da el comando h
 medicionOk→0, `enHeader`→**1**, `synHeader`→**1**, fila añadida bajo tabla sin
 claim→**1**.
 
+### Incidente de los commits vacíos — causa identificada (no era el helper)
+
+Tres commits (`72643d9df`, `290df23d0`, `5766654ee`) salieron con el árbol vacío.
+La causa **era el invocador, no `git-commit-isolated.ps1`**: pipear el helper a
+`Select-Object -First N` termina el pipeline y **mata el proceso** mientras
+`git commit` está en vuelo; el `finally` del helper borra el índice privado y git
+lee un índice vacío → commitea el árbol vacío.
+
+- Síntoma característico: `git rev-parse HEAD` devuelve el hash viejo y un
+  instante después `git show HEAD` devuelve el nuevo (el commit aterriza después).
+- Regla de uso: **nunca** `& helper … | Select-Object -First N`. Capturar
+  (`$out = & helper … 2>&1`) y filtrar después.
+- Los tres se repararon sin `--amend`: `commit-tree` con el árbol del HEAD sano +
+  los blobs del worktree, `update-ref` (último: `70ae235e4`, padre `b21051b0`).
+- El guard `repo-integrity` sigue siendo correcto y necesario: detecta el
+  **síntoma** (árbol vacío / borrados con el worktree intacto) sea cual sea la
+  causa, incluido un helper interrumpido por cualquier otro motivo.
+
 **Abierto, como filas propuestas (no se arregla acá):** falso positivo de
 `repo-integrity` con `git rm --cached`; `HAS_MEASURE` matcheando `no medido`;
 split por `|` con pipe escapado; y la discrepancia de cifras 11/11 vs 12/12 entre
