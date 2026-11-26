@@ -1,0 +1,8 @@
+---
+source: tests/query_result_basic.rs
+expression: page
+---
+MemoryListPage {
+    records: [],
+    next_cursor: None,
+}

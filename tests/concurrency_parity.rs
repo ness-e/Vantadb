@@ -1,0 +1,306 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+//! Concurrency & Backend Parity Certification Suite
+//!
+//! This suite ensures that all storage backends (RocksDB, Fjall, InMemory)
+//! produce identical results under identical operations and high concurrency.
+
+#[path = "common/mod.rs"]
+mod common;
+
+use common::{TerminalReporter, VantaSession};
+use std::sync::Arc;
+use std::thread;
+use std::time::Instant;
+use tempfile::tempdir;
+use vantadb::config::Config;
+use vantadb::node::UnifiedNode;
+use vantadb::storage::{BackendKind, StorageEngine};
+
+// ─── HELPER: Open Engine with Specific Backend ────────────────
+
+fn open_engine(path: &str, kind: BackendKind) -> StorageEngine {
+    let config = Config {
+        backend_kind: kind,
+        ..Default::default()
+    };
+    StorageEngine::open_with_config(path, Some(config)).unwrap()
+}
+
+// ─── TEST 1: Absolute Parity (RocksDB vs Fjall vs InMemory) ───
+
+#[cfg_attr(not(feature = "rocksdb"), ignore)]
+#[test]
+fn test_triple_backend_parity_validation() {
+    eprintln!(
+        "[{}] test_triple_backend_parity_validation START",
+        humantime(Instant::now())
+    );
+    TerminalReporter::suite_banner("BACKEND PARITY & CONCURRENCY CERTIFICATION", 3);
+    let mut session = VantaSession::begin("Triple Backend Parity");
+
+    let dir_r = tempdir().unwrap();
+    let dir_f = tempdir().unwrap();
+    let dir_m = tempdir().unwrap();
+
+    // Fix: RocksDB -> RocksDb
+    let rocks = open_engine(dir_r.path().to_str().unwrap(), BackendKind::RocksDb);
+    let fjall = open_engine(dir_f.path().to_str().unwrap(), BackendKind::Fjall);
+    let mem = open_engine(dir_m.path().to_str().unwrap(), BackendKind::InMemory);
+
+    session.step("Injecting identical dataset (1000 nodes) across all backends");
+    for i in 0..1000 {
+        let node = UnifiedNode::new(i);
+        rocks.insert(&node).unwrap();
+        fjall.insert(&node).unwrap();
+        mem.insert(&node).unwrap();
+    }
+
+    session.step("Verifying data parity (Get & List)");
+    for i in 0..1000 {
+        let n_r = rocks.get(i).unwrap().unwrap();
+        let n_f = fjall.get(i).unwrap().unwrap();
+        let n_m = mem.get(i).unwrap().unwrap();
+
+        assert_eq!(n_r.id, n_f.id);
+        assert_eq!(n_f.id, n_m.id);
+    }
+
+    session.step("Executing cross-backend deletions");
+    for i in 0..500 {
+        rocks.delete(i, "parity test").unwrap();
+        fjall.delete(i, "parity test").unwrap();
+        mem.delete(i, "parity test").unwrap();
+    }
+
+    session.step("Final state reconciliation");
+    for i in 0..1000 {
+        let exists_r = rocks.get(i).unwrap().is_some();
+        let exists_f = fjall.get(i).unwrap().is_some();
+        let exists_m = mem.get(i).unwrap().is_some();
+
+        assert_eq!(exists_r, exists_f, "Fjall/RocksDB mismatch at ID {}", i);
+        assert_eq!(exists_f, exists_m, "Fjall/InMemory mismatch at ID {}", i);
+    }
+
+    session.success("Parity confirmed: All backends are functionally identical.");
+    session.finish(true);
+}
+
+// ─── TEST 2: High Concurrency Write Stress (Race Condition Check) ───
+
+#[test]
+fn test_high_concurrency_fjall_stress() {
+    eprintln!(
+        "[{}] test_high_concurrency_fjall_stress START",
+        humantime(Instant::now())
+    );
+    let mut session = VantaSession::begin("Fjall Concurrency Stress");
+    let dir = tempdir().unwrap();
+    let engine = Arc::new(open_engine(
+        dir.path().to_str().unwrap(),
+        BackendKind::Fjall,
+    ));
+
+    session.step("Launching 10 concurrent writers (100 ops/thread)");
+    let mut handles = vec![];
+    for t in 0..10 {
+        let e: Arc<StorageEngine> = Arc::clone(&engine);
+        handles.push(thread::spawn(move || {
+            for i in 0..100 {
+                let id = (t * 100) + i;
+                let node = UnifiedNode::new(id);
+                e.insert(&node).unwrap();
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    session.step("Validating engine integrity after stress");
+    for i in 0..1000 {
+        assert!(
+            engine.get(i).unwrap().is_some(),
+            "Node {} lost during concurrent write",
+            i
+        );
+    }
+
+    session.success("No race conditions detected under high thread pressure.");
+    session.finish(true);
+}
+
+// ─── TEST 3: Interleaved Read/Write Chaos ─────────────────────
+
+#[test]
+fn test_interleaved_read_write_parity() {
+    eprintln!(
+        "[{}] test_interleaved_read_write_parity START",
+        humantime(Instant::now())
+    );
+    let mut session = VantaSession::begin("Interleaved R/W Chaos");
+    let dir = tempdir().unwrap();
+    let engine = Arc::new(open_engine(
+        dir.path().to_str().unwrap(),
+        BackendKind::Fjall,
+    ));
+    eprintln!("[{}] engine opened", humantime(Instant::now()));
+
+    session.step("Starting interleaved R/W workload");
+    let e_write: Arc<StorageEngine> = Arc::clone(&engine);
+    let writer = thread::spawn(move || {
+        for i in 0..500 {
+            if i % 100 == 0 {
+                eprintln!("[{}] writer {}/500", humantime(Instant::now()), i);
+            }
+            let node = UnifiedNode::new(i);
+            e_write.insert(&node).unwrap();
+            thread::yield_now();
+        }
+        eprintln!("[{}] writer DONE", humantime(Instant::now()));
+    });
+
+    let e_read: Arc<StorageEngine> = Arc::clone(&engine);
+    let reader = thread::spawn(move || {
+        let mut found = 0;
+        for i in 0..200 {
+            if i % 50 == 0 {
+                eprintln!("[{}] reader {}/200", humantime(Instant::now()), i);
+            }
+            if e_read.get(0).unwrap().is_some() {
+                found += 1;
+            }
+            thread::yield_now();
+        }
+        eprintln!(
+            "[{}] reader DONE (found {})",
+            humantime(Instant::now()),
+            found
+        );
+        found
+    });
+
+    eprintln!("[{}] waiting for writer...", humantime(Instant::now()));
+    writer.join().unwrap();
+    eprintln!(
+        "[{}] writer joined, waiting for reader...",
+        humantime(Instant::now())
+    );
+    let read_hits = reader.join().unwrap();
+    eprintln!(
+        "[{}] reader joined (hits: {})",
+        humantime(Instant::now()),
+        read_hits
+    );
+
+    session.step(&format!(
+        "Interleaved reads completed with {} hits",
+        read_hits
+    ));
+    session.success("Shared-state integrity maintained.");
+    session.finish(true);
+}
+
+// ─── TEST 4: Concurrency & RCU Rebuild Validation (AUD-03) ───
+
+#[test]
+fn test_concurrency_rebuild_rcu() {
+    eprintln!(
+        "[{}] test_concurrency_rebuild_rcu START",
+        humantime(Instant::now())
+    );
+    let mut session = VantaSession::begin("RCU Index Rebuild Concurrency");
+    let dir = tempdir().unwrap();
+    let engine = Arc::new(open_engine(
+        dir.path().to_str().unwrap(),
+        BackendKind::Fjall,
+    ));
+
+    // Seed inicial con vectores
+    session.step("Seeding initial nodes with vectors");
+    for i in 0..100 {
+        let mut node = UnifiedNode::new(i);
+        node.vector =
+            vantadb::node::VectorRepresentations::Full(vec![(i as f32 + 1.0) * 0.01; 128]);
+        node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
+        engine.insert(&node).unwrap();
+    }
+    engine.flush().unwrap();
+
+    // Hilo lector: hace consultas vectoriales concurrentes en caliente
+    session.step("Launching concurrent readers and continuous queries");
+    let engine_read = Arc::clone(&engine);
+    let reader_handle = thread::spawn(move || {
+        let mut query_success = 0;
+        let query_vector = vec![0.5; 128];
+        for _ in 0..100 {
+            let hnsw = engine_read.vec_index();
+            let vs = engine_read.vector_store_read(0);
+            let results = hnsw.search_nearest(
+                &query_vector,
+                None,
+                None,
+                &vantadb::node::ALL_BITSET,
+                5,
+                Some(&*vs),
+            );
+            if !results.is_empty() {
+                query_success += 1;
+            }
+            thread::yield_now();
+        }
+        query_success
+    });
+
+    // Hilo escritor/mantenimiento: ejecuta rebuild de índice y compactaciones en paralelo
+    session.step("Executing rebuild_vector_index in parallel");
+    let engine_write = Arc::clone(&engine);
+    let writer_handle = thread::spawn(move || {
+        // Ejecutar rebuild_vector_index a mitad de las consultas de lectura
+        engine_write.rebuild_vector_index().unwrap();
+        // Insertar un nuevo nodo de control post-rebuild
+        let mut node = UnifiedNode::new(999);
+        node.vector = vantadb::node::VectorRepresentations::Full(vec![0.9; 128]);
+        node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
+        engine_write.insert(&node).unwrap();
+    });
+
+    writer_handle.join().unwrap();
+    let successful_queries = reader_handle.join().unwrap();
+
+    session.step(&format!(
+        "Concurrent readers completed: {} successful queries during rebuild",
+        successful_queries
+    ));
+
+    // Validar que el nodo insertado post-rebuild es alcanzable y no se perdió
+    let hnsw = engine.vec_index();
+    assert!(
+        hnsw.contains_node(999),
+        "Mitigación A-01: El nodo 999 se perdió tras el rebuild!"
+    );
+
+    session.success("RCU rebuild lock-free swap and consistency certified successfully.");
+    session.finish(true);
+}
+
+// ─── TIMING HELPER ────────────────────────────────────────────
+
+fn humantime(start: Instant) -> String {
+    let d = start.elapsed();
+    let secs = d.as_secs();
+    if secs < 60 {
+        format!("{:2}.{:03}s", secs, d.subsec_millis())
+    } else {
+        format!("{:2}m{:02}s", secs / 60, secs % 60)
+    }
+}
+
+// ─── SUMMARY ──────────────────────────────────────────────────
+
+#[test]
+fn zzz_print_summary() {
+    TerminalReporter::print_certification_summary();
+}

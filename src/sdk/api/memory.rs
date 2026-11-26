@@ -1,0 +1,4028 @@
+//! Memory-record operations on `Embedded`.
+//!
+//! Owns the per-record CRUD surface (put / get / delete / supersede), bulk
+//! import, version-history access, and TTL purge. Implementation was extracted
+//! from `sdk::api` (REVIEW-12, 2026-08-30) so the SDK surface can evolve per
+//! domain without 2k+-line god files.
+//!
+//! Ponytail note: helpers that crossed module boundaries (`usable_vector`,
+//! `check_read_only`, `put_one`, `put_batch_inner`) were relocated here with
+//! `pub(super)` visibility so other domain modules can reuse them when needed.
+
+use super::super::builder::Embedded;
+use super::super::serialization::{
+    memory_node_id, memory_record_from_node_include_expired, memory_record_to_node_owned, now_ms,
+    record_from_node, validate_confidence_fields, validate_key, validate_metadata,
+    validate_namespace, validate_vector_dimension, DERIVED_INDEX_SCHEMA_VERSION,
+    FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE,
+    FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS, FIELD_QUARANTINED_BY, FIELD_QUARANTINE_REASON,
+    FIELD_QUARANTINE_REVIEW_DUE_MS, FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS, FIELD_VERSION,
+    SPARSE_INDEX_SCHEMA_VERSION, SPARSE_VECTOR_EXT_KEY,
+};
+use super::super::types::*;
+use super::graph::{LABEL_DERIVED_FROM, LABEL_SUPERSEDED_BY, LABEL_SUPERSEDES_EDGE};
+use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
+use crate::error::{Error, Result};
+use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use crate::sdk::merge::{resolve_merge, MergeDecision, MergeOutcome, MergeResult};
+use crate::utils::duplicate_prevention::{
+    hash_content, normalize_content, token_jaccard_similarity, FastGateDecision,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use web_time::Instant;
+
+/// Mode of memory forgetting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForgetMode {
+    Soft,
+    Hard,
+    Certified,
+}
+
+/// Target of memory forgetting operation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForgetTarget {
+    Key(String),
+    Filter(MemoryMetadata),
+    Query {
+        text: String,
+        top_k: usize,
+        min_score: f32,
+    },
+}
+
+/// Report returned by `forget` operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForgetReport {
+    pub mode: ForgetMode,
+    pub forgotten_count: usize,
+    pub keys: Vec<String>,
+    pub certificates: Vec<crate::attestation::PurgeCertificate>,
+}
+
+/// Report returned by bulk import operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BulkImportReport {
+    /// Total number of records in the stream body.
+    pub total_records: usize,
+    /// Number of commit batches flushed to the engine.
+    pub batches_committed: usize,
+    /// Number of records that entered quarantine via the write-time flag
+    /// (T1, ADR-046 §D5; additive field, SCH-05 review F3).
+    #[serde(default)]
+    pub quarantined: u64,
+    /// Duration of the import in milliseconds.
+    pub duration_ms: u64,
+}
+
+/// Quarantine state carried across re-writes of an existing key (I2 sticky,
+/// ADR-046 §D5): a `put` never clears a quarantine.
+#[derive(Clone, Default)]
+struct QuarantineState {
+    at_ms: Option<u64>,
+    reason: Option<String>,
+    by: Option<String>,
+    review_due_ms: Option<u64>,
+}
+
+impl QuarantineState {
+    fn from_record(record: &MemoryRecord) -> Self {
+        Self {
+            at_ms: record.quarantined_at_ms,
+            reason: record.quarantine_reason.clone(),
+            by: record.quarantined_by.clone(),
+            review_due_ms: record.quarantine_review_due_ms,
+        }
+    }
+}
+
+/// Reject non-finite (`NaN`, `+Inf`, `-Inf`) components in a dense vector (FIND-535).
+pub(crate) fn validate_dense_vector_finiteness(vector: &[f32], context: &str) -> Result<()> {
+    if let Some((idx, val)) = vector.iter().enumerate().find(|(_, x)| !x.is_finite()) {
+        return Err(Error::InvalidInput(format!(
+            "{context}: dense vector contains non-finite component at index {idx} ({val})"
+        )));
+    }
+    Ok(())
+}
+
+/// Reject non-finite (`NaN`, `+Inf`, `-Inf`) weights in a sparse vector (FIND-535).
+pub(crate) fn validate_sparse_vector_finiteness(
+    sparse: &crate::node::SparseVector,
+    context: &str,
+) -> Result<()> {
+    if let Some((dim, val)) = sparse.0.iter().find(|(_, x)| !x.is_finite()) {
+        return Err(Error::InvalidInput(format!(
+            "{context}: sparse_vector contains non-finite weight at dim {dim} ({val})"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_input_vectors_finiteness(
+    vector: Option<&[f32]>,
+    sparse_vector: Option<&crate::node::SparseVector>,
+    context: &str,
+) -> Result<()> {
+    if let Some(v) = vector {
+        validate_dense_vector_finiteness(v, context)?;
+    }
+    if let Some(sv) = sparse_vector {
+        validate_sparse_vector_finiteness(sv, context)?;
+    }
+    Ok(())
+}
+
+/// Validate a quarantine reason code (ADR-046 §D2): non-empty lowercase
+/// snake_case. The stable set is `explicit_write` | `unreviewed_import` |
+/// `derived_promotion` | `policy_match` (reserved); the format check stays
+/// open so future codes don't require a schema change.
+fn validate_quarantine_reason(reason: &str) -> Result<()> {
+    let valid = !reason.is_empty()
+        && reason.len() <= 64
+        && reason
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+    if !valid {
+        return Err(Error::Validation {
+            field: "quarantine_reason".into(),
+            reason: "must be a non-empty lowercase snake_case code".into(),
+        });
+    }
+    Ok(())
+}
+
+/// MEMG-03: carry node-resident graph state that the record→node projection
+/// cannot represent — `edges` and `label_index` — from the node currently
+/// stored under `node.id` (if any) into `node` before an upsert. The record is
+/// canonical for fields (ADR-046 §D2); graph state is not, so a record rewrite
+/// must not sever the memory↔graph bridge (lineage edges, user edges).
+///
+/// ponytail: callers skip this for provably-fresh inserts (`resolve_*` already
+/// proved no node exists), so the cost is one `engine.get` per *update* —
+/// cache-hot (the node was just read). Upgrade path if a canonical bench ever
+/// shows it (MEMG-03 Step 6 timing was noise-dominated): thread `edges`
+/// through `resolve_existing_for_write`.
+fn carry_graph_state(engine: &crate::storage::StorageEngine, node: &mut UnifiedNode) -> Result<()> {
+    if let Some(existing) = engine.get(node.id)? {
+        if !existing.edges.is_empty() {
+            node.edges = existing.edges;
+        }
+        if !existing.label_index.is_empty() {
+            node.label_index = existing.label_index;
+        }
+    }
+    Ok(())
+}
+
+/// MEMG-03: reconcile lineage edges (`derived_from`, `superseded_by`) for a
+/// record rewrite — the record field is canonical; the edge is derived
+/// navigability created by the op. Forward halves (`!reverse`) whose target is
+/// no longer declared by the field are dropped from `node.edges`; the returned
+/// `(target, label)` pairs must have their counterpart half cleaned up after
+/// the insert (best-effort — the counterpart node may already be gone).
+fn reconcile_lineage_edges(
+    engine: &crate::storage::StorageEngine,
+    node: &mut UnifiedNode,
+    namespace: &str,
+    derived_from: &[String],
+    superseded_by: Option<&str>,
+) -> Vec<(u128, &'static str)> {
+    let derived_label = engine.intern_label(LABEL_DERIVED_FROM);
+    let superseded_label = engine.intern_label(LABEL_SUPERSEDED_BY);
+    let declared_derived: HashSet<u128> = derived_from
+        .iter()
+        .map(|key| memory_node_id(namespace, key))
+        .collect();
+    let declared_superseded = superseded_by.map(|key| memory_node_id(namespace, key));
+
+    let stale_derived: Vec<u128> = node
+        .edges
+        .iter()
+        .filter(|e| {
+            !e.reverse && e.label_id == derived_label && !declared_derived.contains(&e.target)
+        })
+        .map(|e| e.target)
+        .collect();
+    let stale_superseded: Vec<u128> = node
+        .edges
+        .iter()
+        .filter(|e| {
+            !e.reverse && e.label_id == superseded_label && Some(e.target) != declared_superseded
+        })
+        .map(|e| e.target)
+        .collect();
+    if !stale_derived.is_empty() || !stale_superseded.is_empty() {
+        node.edges.retain(|e| {
+            if e.reverse {
+                return true;
+            }
+            if e.label_id == derived_label {
+                return declared_derived.contains(&e.target);
+            }
+            if e.label_id == superseded_label {
+                return Some(e.target) == declared_superseded;
+            }
+            true
+        });
+    }
+    stale_derived
+        .into_iter()
+        .map(|t| (t, LABEL_DERIVED_FROM))
+        .chain(
+            stale_superseded
+                .into_iter()
+                .map(|t| (t, LABEL_SUPERSEDED_BY)),
+        )
+        .collect()
+}
+
+impl Embedded {
+    /// Review deadline for a record entering quarantine (ADR-046 §D5d):
+    /// `now + quarantine_review_default_days` (config); `None` when the
+    /// configured default is `0` (deadline disabled). Read-only signal —
+    /// never triggers promotion by itself (I1).
+    fn quarantine_review_due_ms(&self, now: u64) -> Option<u64> {
+        let days = self.config.quarantine_review_default_days;
+        (days > 0).then(|| now.saturating_add(u64::from(days) * 24 * 60 * 60 * 1000))
+    }
+
+    /// Materialize the quarantine entry (T1/T1c/T1d): sets the four state
+    /// fields from `reason` + `by` (stable `system:<op>` actor) and stamps the
+    /// review deadline. Sticky semantics live in the callers — call this only
+    /// when the record is not already quarantined (I2).
+    pub(crate) fn enter_quarantine(
+        &self,
+        record: &mut MemoryRecord,
+        reason: &str,
+        by: &str,
+        now: u64,
+    ) {
+        record.quarantined_at_ms = Some(now);
+        record.quarantine_reason = Some(reason.to_string());
+        record.quarantined_by = Some(by.to_string());
+        record.quarantine_review_due_ms = self.quarantine_review_due_ms(now);
+    }
+
+    /// F4 (SCH-05 review): metadata-only read of an existing record's
+    /// quarantine state for the raw bulk path, which replaces the node
+    /// wholesale and must not clear an existing quarantine (sticky, I2).
+    /// `Ok(None)` = node absent or not quarantined.
+    fn existing_quarantine_fields(
+        engine: &crate::storage::StorageEngine,
+        node_id: u128,
+    ) -> Result<Option<(i64, Option<String>, Option<String>, Option<i64>)>> {
+        let Some(bytes) =
+            engine.get_from_partition(BackendPartition::Default, &node_id.to_le_bytes())?
+        else {
+            return Ok(None);
+        };
+        let Ok(metadata) = crate::storage::ops::deserialize_node_payload::<
+            crate::storage::ops::NodeMetadata,
+        >(&bytes, "node metadata") else {
+            return Ok(None);
+        };
+        let fields = &metadata.relational;
+        let at = match fields.get(FIELD_QUARANTINED_AT_MS) {
+            Some(FieldValue::Int(at)) if *at > 0 => *at,
+            _ => return Ok(None),
+        };
+        let reason = match fields.get(FIELD_QUARANTINE_REASON) {
+            Some(FieldValue::String(s)) => Some(s.clone()),
+            _ => None,
+        };
+        let by = match fields.get(FIELD_QUARANTINED_BY) {
+            Some(FieldValue::String(s)) => Some(s.clone()),
+            _ => None,
+        };
+        let due = match fields.get(FIELD_QUARANTINE_REVIEW_DUE_MS) {
+            Some(FieldValue::Int(due)) if *due > 0 => Some(*due),
+            _ => None,
+        };
+        Ok(Some((at, reason, by, due)))
+    }
+}
+
+// ── MEMG-02: outcome-loop reinforcement policy (declared, not calibrated) ──
+//
+// Bump/decay are bounded (saturate at 1.0 / floor at 0.0) and the positive
+// direction is rate-limited per record so repeated signals cannot inflate the
+// score. Values are policy — empirical calibration is VER-08 (excluded here).
+
+/// Confidence bump applied by a positive reinforcement (`Used`), saturated
+/// at 1.0.
+pub(crate) const REINFORCE_CONFIDENCE_BUMP: f32 = 0.05;
+
+/// Confidence decay applied by a negative reinforcement (`Corrected`),
+/// floored at 0.0.
+pub(crate) const REINFORCE_CONFIDENCE_DECAY: f32 = 0.10;
+
+/// Minimum time between positive reinforcements of the same record (rate
+/// window, anchored on `last_validated_at_ms`). One bump per window.
+pub(crate) const REINFORCE_WINDOW_MS: u64 = 300_000; // 5 min
+
+impl Embedded {
+    /// True when a vector is entirely zeros — the HNSW core rejects
+    /// zero-norm vectors under cosine similarity (AUDREP-27), so the
+    /// SDK treats them like empty vectors: keep the document, skip the
+    /// vector index (matches `load.test.ts` seeding `[i % 10, 0, 0, 0]`).
+    pub(super) fn usable_vector(vector: &[f32]) -> bool {
+        !vector.is_empty() && vector.iter().any(|x| *x != 0.0)
+    }
+
+    pub(super) fn check_read_only(&self) -> Result<()> {
+        if self.config.read_only {
+            return Err(Error::Validation {
+                field: "read_only".into(),
+                reason: "this operation is not available when VantaDB is opened read-only".into(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Dimension of the vectors held by the vector index (`None` = the index
+    /// holds no vector yet).
+    ///
+    /// FIND-411 (R4): the **index** is the authority for the vector dimension
+    /// — it holds vectors of a single dimension, and every write and every
+    /// query vector is validated against it. The rule lives in the core
+    /// (`IndexPort::vector_dimension`) and is shared by every consumer (SDK,
+    /// MCP, server); it does not depend on the entry point, which may be
+    /// quantized to SQ8 and therefore carry no `f32` slice.
+    pub(crate) fn index_vector_dimension(
+        &self,
+        engine: &crate::storage::StorageEngine,
+    ) -> Option<usize> {
+        engine.vec_index().vector_dimension()
+    }
+
+    /// Resolve the effective TTL (ms) for a write: an explicit `ttl_ms` wins;
+    /// otherwise the namespace ("collection") default from
+    /// [`Config::memory_default_ttl_ms`](crate::config::Config) applies, if any.
+    ///
+    /// Only new writes consult this — existing records are never backfilled
+    /// when the default is configured (or changed) later.
+    fn effective_ttl_ms(&self, namespace: &str, ttl_ms: Option<u64>) -> Option<u64> {
+        ttl_ms.or_else(|| self.config.memory_default_ttl_ms.get(namespace).copied())
+    }
+
+    /// Validate + materialize the confidence fields of a write (ADR-046 §D4):
+    /// - range: finite `[0,1]`;
+    /// - V1: `derived` requires non-empty parents; `asserted` forbids them;
+    /// - D4b: `derived` + declared score ⇒ rejection;
+    /// - V3: bounded derivation depth / acyclicity;
+    /// - score: `clamp(min(parents) × DERIVATION_DISCOUNT, 0, 1)`.
+    ///
+    /// `batch_seen` (batch path only): records already processed earlier in
+    /// the same `put_batch`, keyed by `memory_node_id`. A `derived_from`
+    /// parent may resolve against either the store or an earlier batch
+    /// input — ordering semantics (`seen` only holds earlier entries) make
+    /// intra-batch derivation cycles unrepresentable for free.
+    fn materialize_confidence(
+        &self,
+        input: &MemoryInput,
+        batch_seen: Option<&HashMap<u128, (u64, QuarantineState, MemoryRecord)>>,
+    ) -> Result<(ConfidenceClass, f32, Vec<String>)> {
+        if let Some(value) = input.confidence {
+            if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                return Err(Error::Validation {
+                    field: "confidence".into(),
+                    reason: "confidence must be a finite number in [0,1]".into(),
+                });
+            }
+        }
+        let class = input.confidence_class.unwrap_or_default();
+        let parents = input.derived_from.clone().unwrap_or_default();
+
+        match class {
+            ConfidenceClass::Asserted => {
+                if !parents.is_empty() {
+                    return Err(Error::Validation {
+                        field: "derived_from".into(),
+                        reason: "asserted records cannot declare derived_from parents".into(),
+                    });
+                }
+                Ok((
+                    class,
+                    input.confidence.unwrap_or_else(default_confidence),
+                    Vec::new(),
+                ))
+            }
+            ConfidenceClass::Derived => {
+                if parents.is_empty() {
+                    return Err(Error::Validation {
+                        field: "derived_from".into(),
+                        reason: "derived records require a non-empty derived_from parent list (V1)"
+                            .into(),
+                    });
+                }
+                if input.confidence.is_some() {
+                    return Err(Error::Validation {
+                        field: "confidence".into(),
+                        reason: "derived score is computed from parents; declared scores are not allowed on derived records".into(),
+                    });
+                }
+                self.validate_derivation_chain(&input.namespace, &input.key, &parents, batch_seen)?;
+
+                let mut min_parent = f32::INFINITY;
+                for parent_key in &parents {
+                    let parent = match batch_seen
+                        .and_then(|seen| {
+                            seen.get(&memory_node_id(&input.namespace, parent_key))
+                        }) {
+                        Some((_, _, record)) => Some(record.clone()),
+                        None => self.get(&input.namespace, parent_key)?,
+                    }
+                    .ok_or_else(|| {
+                        Error::Validation {
+                            field: "derived_from".into(),
+                            reason: format!(
+                                "parent '{parent_key}' not found in namespace '{}' (or earlier in this batch)",
+                                input.namespace
+                            ),
+                        }
+                    })?;
+                    min_parent = min_parent.min(parent.confidence);
+                }
+                let score = (min_parent * DERIVATION_DISCOUNT).clamp(0.0, 1.0);
+                Ok((class, score, parents))
+            }
+        }
+    }
+
+    /// V3 (ADR-046 §D4): reject derivation cycles (including self-reference)
+    /// and chains deeper than [`MAX_DERIVATION_DEPTH`]. Ancestors resolve
+    /// against `batch_seen` ∪ store — without `batch_seen` the batch path
+    /// would walk committed records only, letting a single batch commit
+    /// cycles (`A→B ∧ B→A` via upsert) or chains deeper than the bound.
+    fn validate_derivation_chain(
+        &self,
+        namespace: &str,
+        key: &str,
+        parents: &[String],
+        batch_seen: Option<&HashMap<u128, (u64, QuarantineState, MemoryRecord)>>,
+    ) -> Result<()> {
+        // FIND-660: track the deepest depth at which each ancestor was expanded.
+        // A flat HashSet would skip a shared ancestor when re-reached via a longer
+        // branch of a diamond DAG, hiding chains that exceed MAX_DERIVATION_DEPTH.
+        let mut best_seen_depth: HashMap<String, usize> = HashMap::new();
+        // FIND-660 (residual): `visiting` mirrors the recursion stack of a
+        // recursive DFS — exactly the ancestors of the node under expansion on
+        // the CURRENT branch. A node re-entered while still `visiting` closes
+        // a directed cycle that does not pass through `key` (e.g. A↔B under an
+        // otherwise valid chain); without it the walk would follow the loop
+        // until it tripped MAX_DERIVATION_DEPTH and misreport the failure.
+        // `Step::Exit` markers pop a node off the path once its subtree is
+        // done — the iterative form of returning from the recursive call.
+        let mut visiting: HashSet<String> = HashSet::new();
+        let mut parents_cache: HashMap<String, Vec<String>> = HashMap::new();
+        enum Step {
+            Enter(String, usize),
+            Exit(String),
+        }
+        let mut frontier: Vec<Step> = parents
+            .iter()
+            .map(|p| Step::Enter(p.clone(), 1usize))
+            .collect();
+        while let Some(step) = frontier.pop() {
+            let (parent_key, depth) = match step {
+                Step::Exit(done) => {
+                    visiting.remove(&done);
+                    continue;
+                }
+                Step::Enter(parent_key, depth) => (parent_key, depth),
+            };
+            if parent_key == key {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: format!("derivation cycle detected: '{key}' is its own ancestor"),
+                });
+            }
+            if visiting.contains(&parent_key) {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: format!(
+                        "derivation cycle detected: '{parent_key}' is its own ancestor"
+                    ),
+                });
+            }
+            if depth > MAX_DERIVATION_DEPTH {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: format!(
+                        "derivation chain exceeds MAX_DERIVATION_DEPTH ({MAX_DERIVATION_DEPTH})"
+                    ),
+                });
+            }
+            if best_seen_depth
+                .get(&parent_key)
+                .is_some_and(|&prev_depth| depth <= prev_depth)
+            {
+                continue;
+            }
+            best_seen_depth.insert(parent_key.clone(), depth);
+            visiting.insert(parent_key.clone());
+            frontier.push(Step::Exit(parent_key.clone()));
+            let grandparents = if let Some(cached) = parents_cache.get(&parent_key) {
+                cached.clone()
+            } else {
+                let fetched = match batch_seen
+                    .and_then(|seen| seen.get(&memory_node_id(namespace, &parent_key)))
+                {
+                    Some((_, _, record)) => record.derived_from.clone(),
+                    None => self
+                        .get(namespace, &parent_key)?
+                        .map(|r| r.derived_from)
+                        .unwrap_or_default(),
+                };
+                parents_cache.insert(parent_key, fetched.clone());
+                fetched
+            };
+            for grandparent in grandparents {
+                frontier.push(Step::Enter(grandparent, depth + 1));
+            }
+        }
+        Ok(())
+    }
+
+    /// `valid_at_ms` materialization (ADR-046 §D8): an absent value defaults to
+    /// `created_at_ms`; `Some(0)` is rejected because `0` is the v1 "unset"
+    /// sentinel — an explicit epoch-0 validity is not representable.
+    fn materialize_valid_at(&self, input: Option<u64>, created_at_ms: u64) -> Result<u64> {
+        match input {
+            None => Ok(created_at_ms),
+            Some(0) => Err(Error::Validation {
+                field: "valid_at_ms".into(),
+                reason: "must be greater than 0; omit the field to default to created_at_ms".into(),
+            }),
+            Some(value) => Ok(value),
+        }
+    }
+
+    /// Resolve the existing record for a write to `(namespace, key)`.
+    ///
+    /// A physically present node whose record is hidden by lazy TTL eviction
+    /// (`record_from_node` → `None`) is **purged on write** (DUR-03 / H-023):
+    /// the expired record is logically absent — `get` hides it, `delete`
+    /// reports nothing, `list`/search exclude it — so a write must not
+    /// collide with it. Purging first gives the same observable outcome as
+    /// the documented `purge_expired()`-then-`put` workaround: fresh version 1
+    /// and `created_at_ms` reset (both paths remove the sparse index entries
+    /// since FIND-251).
+    ///
+    /// Returns the existing live record (if any) **plus the read guard that
+    /// stabilizes its generation**. Kept for callers that only need a
+    /// decision snapshot (`merge_record_inner`); the record-write paths
+    /// (`put_one`, `put_record_exact`) instead hold the **write** guard for
+    /// their whole read-modify-write — a concurrent purge, upsert or delete
+    /// would otherwise apply the generation's text-index decrement twice and
+    /// drive the term df negative (DUR-03 r3).
+    ///
+    /// [`Error::NodeIdCollision`] is returned when the deterministic id is
+    /// occupied by a different key or a non-memory node; inside an active
+    /// transaction the expired case keeps that same error (see
+    /// `purge_expired_record`).
+    fn resolve_existing_for_write(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+    ) -> Result<(
+        Option<MemoryRecord>,
+        Option<parking_lot::RwLockReadGuard<'_, ()>>,
+    )> {
+        let node_id = memory_node_id(namespace, key);
+        loop {
+            let Some(node) = engine.get(node_id)? else {
+                return Ok((None, None));
+            };
+            match record_from_node(&node) {
+                Some(record) if record.namespace == namespace && record.key == key => {
+                    // Live record: take the read guard and re-verify under it
+                    // (a purge may have won the race since the peek).
+                    let guard = self.purge_lock.read();
+                    let Some(node) = engine.get(node_id)? else {
+                        drop(guard);
+                        continue;
+                    };
+                    match record_from_node(&node) {
+                        Some(record) if record.namespace == namespace && record.key == key => {
+                            return Ok((Some(record), Some(guard)));
+                        }
+                        Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                        None => {
+                            // Expired between the peek and the guard: retry as
+                            // the purge-on-write case.
+                            drop(guard);
+                            if self
+                                .purge_expired_record(engine, namespace, key, node_id)?
+                                .is_none()
+                            {
+                                return Ok((None, None));
+                            }
+                            continue;
+                        }
+                    }
+                }
+                Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                None => match memory_record_from_node_include_expired(&node) {
+                    Some(expired) if expired.namespace == namespace && expired.key == key => {
+                        if self
+                            .purge_expired_record(engine, namespace, key, node_id)?
+                            .is_none()
+                        {
+                            return Ok((None, None));
+                        }
+                        continue;
+                    }
+                    _ => return Err(Error::NodeIdCollision(node_id)),
+                },
+            }
+        }
+    }
+
+    /// [`Self::resolve_existing_for_write`] variant for callers that already
+    /// hold the `purge_lock` **write** guard (`put_one`, `put_record_exact`
+    /// and `put_batch_inner` critical sections): no read guard is taken —
+    /// re-entering the non-reentrant lock would deadlock — and expired
+    /// records are purged inline through
+    /// [`Self::purge_expired_record_locked`]. Returns the live record to
+    /// upsert over (`previous`), if any, exactly like the guarded variant's
+    /// first tuple element.
+    fn resolve_existing_for_write_locked(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Option<MemoryRecord>> {
+        let node_id = memory_node_id(namespace, key);
+        loop {
+            let Some(node) = engine.get(node_id)? else {
+                return Ok(None);
+            };
+            match record_from_node(&node) {
+                Some(record) if record.namespace == namespace && record.key == key => {
+                    return Ok(Some(record));
+                }
+                Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                None => match memory_record_from_node_include_expired(&node) {
+                    Some(expired) if expired.namespace == namespace && expired.key == key => {
+                        if self
+                            .purge_expired_record_locked(engine, namespace, key, node_id)?
+                            .is_none()
+                        {
+                            return Ok(None);
+                        }
+                        continue;
+                    }
+                    _ => return Err(Error::NodeIdCollision(node_id)),
+                },
+            }
+        }
+    }
+
+    /// Physically remove one expired record and its derived entries, under the
+    /// `purge_lock` **write** guard. Uses the same primitives as `delete_inner`
+    /// — node delete (KV + HNSW + shred), derived/text/sparse index
+    /// replacement to `None`, version-history purge — plus a re-check: if a
+    /// concurrent purge already removed the node, or a concurrent write
+    /// refreshed it, the cleanup must not run again (a second stats decrement
+    /// would drive the text df negative).
+    ///
+    /// Returns `Ok(Some(record))` when the node was refreshed into a live
+    /// record of this key (the caller should upsert over it), `Ok(None)` when
+    /// the expired record was purged or the node vanished, and
+    /// [`Error::NodeIdCollision`] when the id now holds a foreign node.
+    ///
+    /// Inside an active transaction `engine.delete` only buffers the node
+    /// delete while the index cleanup would apply immediately — an abort
+    /// would leave the node present with its stats already gone — so this
+    /// refuses to purge and the caller keeps the pre-DUR-03 collision error.
+    fn purge_expired_record(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+        node_id: u128,
+    ) -> Result<Option<MemoryRecord>> {
+        let _guard = self.purge_lock.write();
+        self.purge_expired_record_locked(engine, namespace, key, node_id)
+    }
+
+    /// [`Self::purge_expired_record`] without taking the lock: the caller must
+    /// already hold the `purge_lock` **write** guard. `put_batch_inner` holds
+    /// that guard for its whole critical section (resolve + insert + index
+    /// replacement), so it must purge expired keys through this variant — the
+    /// public one would re-enter the non-reentrant lock and deadlock.
+    fn purge_expired_record_locked(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+        node_id: u128,
+    ) -> Result<Option<MemoryRecord>> {
+        if engine.txn.has_active() {
+            return Err(Error::NodeIdCollision(node_id));
+        }
+        let Some(node) = engine.get(node_id)? else {
+            return Ok(None);
+        };
+        match record_from_node(&node) {
+            Some(record) if record.namespace == namespace && record.key == key => {
+                return Ok(Some(record));
+            }
+            Some(_) => return Err(Error::NodeIdCollision(node_id)),
+            None => {}
+        }
+        let Some(current) = memory_record_from_node_include_expired(&node) else {
+            // Present but not a parseable memory record of this key: a foreign
+            // node — never silently overwrite it.
+            return Err(Error::NodeIdCollision(node_id));
+        };
+        if current.namespace != namespace || current.key != key {
+            return Err(Error::NodeIdCollision(node_id));
+        }
+        engine.delete(node_id, "ttl_rewrite")?;
+        self.replace_derived_indexes(engine, Some(&current), None)?;
+        // Best-effort class, same as `delete_inner` (VS-CORE-07).
+        let _ = super::super::version_history::purge_key(engine, &current.namespace, &current.key);
+        Ok(None)
+    }
+
+    /// MEMG-04: per-namespace record quota check for a **fresh insert**.
+    ///
+    /// Opt-in via `Config.max_records_per_namespace`; `None` (the default)
+    /// makes this a no-op with zero cost. The count comes from the
+    /// incrementally-maintained text-index namespace stats (`doc_count`,
+    /// updated +1/−1 per put/delete/purge — never recomputed by scanning),
+    /// so the check costs one cache/KV read per fresh insert.
+    ///
+    /// The quota is a resource control (best-effort under concurrent
+    /// writers), not the multi-tenant security barrier — namespace isolation
+    /// is enforced by the server RBAC.
+    /// Helper to estimate storage bytes of a record (TEC-14b).
+    fn estimate_record_bytes_parts(
+        key: &str,
+        payload: &str,
+        vector: Option<&[f32]>,
+        metadata: &MemoryMetadata,
+    ) -> u64 {
+        let mut record_bytes = payload.len() as u64 + key.len() as u64 + 64;
+        if let Some(v) = vector {
+            record_bytes += std::mem::size_of_val(v) as u64;
+        }
+        for (k, v) in metadata.iter() {
+            record_bytes += (k.len() + v.estimated_bytes()) as u64;
+        }
+        record_bytes
+    }
+
+    /// Calculate total estimated bytes stored in a namespace (TEC-14b).
+    fn current_namespace_bytes(
+        &self,
+        _engine: &crate::storage::StorageEngine,
+        namespace: &str,
+    ) -> Result<u64> {
+        let records = self.records_for_namespace(namespace, &Default::default())?;
+        let mut total = 0u64;
+        for r in &records {
+            total = total.saturating_add(Self::estimate_record_bytes_parts(
+                &r.key,
+                &r.payload,
+                r.vector.as_deref(),
+                &r.metadata,
+            ));
+        }
+        Ok(total)
+    }
+
+    /// Enforces namespace quota (record count and byte budget) on a single record write (TEC-14b).
+    fn check_namespace_write_quota(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+        payload: &str,
+        vector: Option<&[f32]>,
+        metadata: &MemoryMetadata,
+        existing: Option<&MemoryRecord>,
+    ) -> Result<()> {
+        let is_fresh = existing.is_none();
+
+        // 1. Legacy max_records_per_namespace (ResourceLimit)
+        if is_fresh {
+            if let Some(limit) = self.config.max_records_per_namespace {
+                let current = Self::load_text_namespace_stats(engine, namespace)?
+                    .map(|stats| stats.doc_count)
+                    .unwrap_or(0);
+                if current >= limit {
+                    return Err(Error::ResourceLimit(format!(
+                        "namespace '{namespace}' is at its record quota ({current}/{limit}); \
+                         delete records or raise max_records_per_namespace"
+                    )));
+                }
+            }
+        }
+
+        // 2. Hard max_namespace_records (TEC-14b, QuotaExceeded)
+        if is_fresh {
+            if let Some(limit) = self.config.max_namespace_records {
+                let current = Self::load_text_namespace_stats(engine, namespace)?
+                    .map(|stats| stats.doc_count as usize)
+                    .unwrap_or(0);
+                if current.saturating_add(1) > limit {
+                    return Err(Error::quota_exceeded(format!(
+                        "namespace '{namespace}' record quota exceeded: current {current} + 1 exceeds limit {limit}"
+                    )));
+                }
+            }
+        }
+
+        // 3. Hard max_namespace_bytes (TEC-14b, QuotaExceeded)
+        if let Some(limit) = self.config.max_namespace_bytes {
+            let new_bytes = Self::estimate_record_bytes_parts(key, payload, vector, metadata);
+            let old_bytes = existing
+                .map(|r| {
+                    Self::estimate_record_bytes_parts(
+                        &r.key,
+                        &r.payload,
+                        r.vector.as_deref(),
+                        &r.metadata,
+                    )
+                })
+                .unwrap_or(0);
+            let delta = (new_bytes as i64) - (old_bytes as i64);
+            if delta > 0 {
+                let current = self.current_namespace_bytes(engine, namespace)?;
+                if current.saturating_add(delta as u64) > limit {
+                    return Err(Error::quota_exceeded(format!(
+                        "namespace '{namespace}' storage quota exceeded: current {current} bytes + delta {delta} bytes exceeds limit {limit} bytes"
+                    )));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// MEMG-04 / TEC-14b: batch variant — checks records and bytes limits before writing.
+    fn check_batch_namespace_quota(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        inputs: &[MemoryInput],
+    ) -> Result<()> {
+        let has_legacy = self.config.max_records_per_namespace.is_some();
+        let has_records = self.config.max_namespace_records.is_some();
+        let has_bytes = self.config.max_namespace_bytes.is_some();
+        if !has_legacy && !has_records && !has_bytes {
+            return Ok(());
+        }
+
+        let mut seen: HashSet<u128> = HashSet::with_capacity(inputs.len());
+        let mut fresh_per_ns: HashMap<&str, usize> = HashMap::new();
+        let mut byte_delta_per_ns: HashMap<&str, i64> = HashMap::new();
+
+        for input in inputs {
+            let node_id = memory_node_id(&input.namespace, &input.key);
+            if !seen.insert(node_id) {
+                continue; // duplicate within batch
+            }
+            let existing_node = engine.get(node_id)?;
+            let existing_record = existing_node.as_ref().and_then(record_from_node);
+            if existing_record.is_none() {
+                *fresh_per_ns.entry(input.namespace.as_str()).or_default() += 1;
+            }
+            if has_bytes {
+                let new_bytes = Self::estimate_record_bytes_parts(
+                    &input.key,
+                    &input.payload,
+                    input.vector.as_deref(),
+                    &input.metadata,
+                );
+                let old_bytes = existing_record
+                    .as_ref()
+                    .map(|r| {
+                        Self::estimate_record_bytes_parts(
+                            &r.key,
+                            &r.payload,
+                            r.vector.as_deref(),
+                            &r.metadata,
+                        )
+                    })
+                    .unwrap_or(0);
+                let delta = (new_bytes as i64) - (old_bytes as i64);
+                *byte_delta_per_ns
+                    .entry(input.namespace.as_str())
+                    .or_default() += delta;
+            }
+        }
+
+        // Check legacy records quota
+        if let Some(limit) = self.config.max_records_per_namespace {
+            for (&namespace, &fresh) in &fresh_per_ns {
+                let current = Self::load_text_namespace_stats(engine, namespace)?
+                    .map(|stats| stats.doc_count)
+                    .unwrap_or(0);
+                if current.saturating_add(fresh as u64) > limit {
+                    return Err(Error::ResourceLimit(format!(
+                        "namespace '{namespace}' record quota exceeded: {current} existing + {fresh} new \
+                         > limit {limit}; delete records or raise max_records_per_namespace"
+                    )));
+                }
+            }
+        }
+
+        // Check hard max_namespace_records (TEC-14b)
+        if let Some(limit) = self.config.max_namespace_records {
+            for (&namespace, &fresh) in &fresh_per_ns {
+                let current = Self::load_text_namespace_stats(engine, namespace)?
+                    .map(|stats| stats.doc_count as usize)
+                    .unwrap_or(0);
+                if current.saturating_add(fresh) > limit {
+                    return Err(Error::quota_exceeded(format!(
+                        "namespace '{namespace}' record quota exceeded: current {current} + {fresh} new exceeds limit {limit}"
+                    )));
+                }
+            }
+        }
+
+        // Check hard max_namespace_bytes (TEC-14b)
+        if let Some(limit) = self.config.max_namespace_bytes {
+            for (&namespace, &delta) in &byte_delta_per_ns {
+                if delta > 0 {
+                    let current = self.current_namespace_bytes(engine, namespace)?;
+                    if current.saturating_add(delta as u64) > limit {
+                        return Err(Error::quota_exceeded(format!(
+                            "namespace '{namespace}' storage quota exceeded: current {current} bytes + delta {delta} bytes exceeds limit {limit} bytes"
+                        )));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Shared logic for inserting/updating a single memory record with FastGate deduplication.
+    /// Used by both `put()` and `put_batch()`.
+    fn put_one(&self, input: MemoryInput) -> Result<MemoryRecord> {
+        // The guard precedes ANY state mutation: `dedup_filter.check_and_mark`
+        // below *marks* the bloom — previously a read_only `put` marked the
+        // key and only then failed inside `insert_one_internal`, leaving the
+        // bloom claiming content the store never accepted (and letting the
+        // exact-match → `reinforce` fallback return `Ok` on a rejected write).
+        self.check_read_only()?;
+        let dedup_policy = input.dedup_policy.unwrap_or(self.config.dedup_policy);
+        if dedup_policy == DedupPolicy::Off {
+            return self.insert_one_internal(input);
+        }
+        validate_input_vectors_finiteness(
+            input.vector.as_deref(),
+            input.sparse_vector.as_ref(),
+            "put",
+        )?;
+
+        let exact_start = std::time::Instant::now();
+        let norm_text = normalize_content(&input.payload);
+        let norm_hash = hash_content(&norm_text);
+        let filter_key = format!("{}\0{}", input.namespace, norm_text);
+
+        let bloom_hit = self.dedup_filter.check_and_mark(filter_key.as_bytes());
+
+        // Check for exact duplicate match against real record
+        let mut exact_match_key = None;
+        if bloom_hit {
+            if let Some(cand_key) = self.dedup_filter.lookup_exact(&input.namespace, norm_hash) {
+                if let Ok(Some(rec)) = self.get(&input.namespace, &cand_key) {
+                    if normalize_content(&rec.payload) == norm_text {
+                        exact_match_key = Some(cand_key);
+                    }
+                }
+            }
+            if exact_match_key.is_none() {
+                if let Ok(Some(rec)) = self.get(&input.namespace, &input.key) {
+                    if normalize_content(&rec.payload) == norm_text {
+                        exact_match_key = Some(input.key.clone());
+                    }
+                }
+            }
+        }
+
+        let exact_elapsed = exact_start.elapsed();
+        tracing::debug!(
+            target: "fastgate",
+            elapsed_us = exact_elapsed.as_micros(),
+            bloom_hit = bloom_hit,
+            exact_match = exact_match_key.is_some(),
+            "FastGate exact dedup stage: {:.3} ms ({} ns)",
+            exact_elapsed.as_secs_f64() * 1000.0,
+            exact_elapsed.as_nanos()
+        );
+        eprintln!(
+            "[FastGate] Exact stage latency: {:.3} ms ({} ns), bloom_hit={}, exact_match={}",
+            exact_elapsed.as_secs_f64() * 1000.0,
+            exact_elapsed.as_nanos(),
+            bloom_hit,
+            exact_match_key.is_some()
+        );
+
+        if let Some(target_key) = exact_match_key {
+            // Exact duplicate confirmed! NoopReinforce
+            let reinforced =
+                match self.reinforce(&input.namespace, &target_key, ReinforceOutcome::Used) {
+                    Ok(r) => r,
+                    Err(_) => {
+                        let mut rec =
+                            self.get(&input.namespace, &target_key)?.ok_or_else(|| {
+                                Error::NotFound {
+                                    kind: "memory record".into(),
+                                    id: format!("{}/{}", input.namespace, target_key),
+                                }
+                            })?;
+                        rec.updated_at_ms = now_ms();
+                        rec
+                    }
+                };
+            return Ok(reinforced);
+        }
+
+        // Not an exact duplicate.
+        if dedup_policy == DedupPolicy::Exact {
+            let rec = self.insert_one_internal(input)?;
+            self.dedup_filter
+                .register_exact(&rec.namespace, norm_hash, &rec.key);
+            return Ok(rec);
+        }
+
+        // DedupPolicy::Semantic
+        let mut supersede_target: Option<String> = None;
+        if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+            if let Ok(hits) = self.search(MemorySearchRequest {
+                namespace: input.namespace.clone(),
+                query_vector: vector.to_vec(),
+                top_k: 5,
+                distance_metric: crate::node::DistanceMetric::Cosine,
+                ..Default::default()
+            }) {
+                let active_hits: Vec<_> = hits
+                    .into_iter()
+                    .filter(|h| h.record.superseded_by.is_none() && h.record.key != input.key)
+                    .collect();
+
+                if let Some(best) = active_hits.iter().max_by(|a, b| {
+                    a.score
+                        .partial_cmp(&b.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                }) {
+                    let cand_vec = best.record.vector.as_deref().unwrap_or(&[]);
+                    let cos = if !cand_vec.is_empty() && cand_vec.len() == vector.len() {
+                        crate::index::cosine_sim_f32(vector, cand_vec)
+                    } else {
+                        best.score
+                    };
+                    let jacc = token_jaccard_similarity(&input.payload, &best.record.payload);
+                    let decision = FastGateDecision::classify(cos, jacc);
+
+                    match decision {
+                        FastGateDecision::NoopReinforce => {
+                            let reinforced = match self.reinforce(
+                                &input.namespace,
+                                &best.record.key,
+                                ReinforceOutcome::Used,
+                            ) {
+                                Ok(r) => r,
+                                Err(_) => {
+                                    let mut rec = best.record.clone();
+                                    rec.updated_at_ms = now_ms();
+                                    rec
+                                }
+                            };
+                            return Ok(reinforced);
+                        }
+                        FastGateDecision::Supersede => {
+                            if input.merge_policy
+                                != Some(crate::sdk::merge::MergePolicy::LastWriteWins)
+                                && best.record.key != input.key
+                            {
+                                supersede_target = Some(best.record.key.clone());
+                            }
+                        }
+                        FastGateDecision::Add => {}
+                    }
+                }
+            }
+        }
+
+        let rec = self.insert_one_internal(input)?;
+        self.dedup_filter
+            .register_exact(&rec.namespace, norm_hash, &rec.key);
+
+        if let Some(old_key) = supersede_target {
+            let _ = self.supersede(&rec.namespace, &old_key, &rec.key);
+        }
+
+        Ok(rec)
+    }
+
+    /// Internal primitive for persisting one memory record without FastGate pre-filter.
+    fn insert_one_internal(&self, input: MemoryInput) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        validate_namespace(&input.namespace)?;
+        validate_key(&input.key)?;
+        validate_metadata(&input.metadata)?;
+        validate_input_vectors_finiteness(
+            input.vector.as_deref(),
+            input.sparse_vector.as_ref(),
+            "put",
+        )?;
+
+        let engine = self.engine_handle()?;
+        let node_id = memory_node_id(&input.namespace, &input.key);
+        // DUR-03 r3 (CODEX-132): hold the purge **write** guard across the
+        // whole read-modify-write — resolve + insert + index replacement —
+        // fresh inserts included. Two concurrent upserts of the same key
+        // otherwise both resolve the same generation and both apply its
+        // text-index decrement (term df goes negative); a fresh insert's
+        // stats also land after its node is already readable, so an upsert
+        // can snapshot a generation whose stats are not applied yet. Mirrors
+        // `put_batch_inner`'s critical section (same lock, locked resolver).
+        let _write_guard = self.purge_lock.write();
+        let existing =
+            self.resolve_existing_for_write_locked(&engine, &input.namespace, &input.key)?;
+        // FIND-411: a vector whose length differs from the index dimension is
+        // rejected BEFORE anything is written — the index would otherwise
+        // score it as a perfect match (distance 0.0) and the write would
+        // leave a half-applied record behind. FIND-411 (O5): the index
+        // dimension is the only authority — the same rule as
+        // `put_batch_inner`. The old fallback to the dimension of the record
+        // being replaced made the same upsert accepted by `put` and rejected
+        // by `put_batch`.
+        if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+            let expected = self.index_vector_dimension(&engine);
+            validate_vector_dimension(expected, vector.len())?;
+        }
+        // TEC-14b / MEMG-04: enforce namespace quotas (records and bytes limits)
+        self.check_namespace_write_quota(
+            &engine,
+            &input.namespace,
+            &input.key,
+            &input.payload,
+            input.vector.as_deref(),
+            &input.metadata,
+            existing.as_ref(),
+        )?;
+
+        let timestamp = now_ms();
+        let created_at_ms = existing
+            .as_ref()
+            .map(|r| r.created_at_ms)
+            .unwrap_or(timestamp);
+        let version = existing
+            .as_ref()
+            .map(|r| r.version.saturating_add(1))
+            .unwrap_or(1);
+        let expires_at_ms = self
+            .effective_ttl_ms(&input.namespace, input.ttl_ms)
+            .map(|ttl| timestamp.saturating_add(ttl));
+
+        let (confidence_class, confidence, derived_from) =
+            self.materialize_confidence(&input, None)?;
+        let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
+        let mut quarantine = existing
+            .as_ref()
+            .map(QuarantineState::from_record)
+            .unwrap_or_default();
+        // T1 (ADR-046 §D5, MGR-13 §3.2): an explicit `quarantine: true` write
+        // enters the quarantine state; sticky — an existing quarantine always
+        // wins (I2), only T2/T4 exit.
+        let quarantine_entered = quarantine.at_ms.is_none() && input.quarantine;
+        if quarantine_entered {
+            quarantine.at_ms = Some(timestamp);
+            quarantine.reason = Some("explicit_write".into());
+            quarantine.by = Some("system:put".into());
+            quarantine.review_due_ms = self.quarantine_review_due_ms(timestamp);
+        }
+
+        let record = MemoryRecord {
+            namespace: input.namespace,
+            key: input.key,
+            payload: input.payload,
+            metadata: input.metadata,
+            created_at_ms,
+            updated_at_ms: timestamp,
+            version,
+            node_id,
+            vector: input.vector.filter(|v| Self::usable_vector(v)),
+            sparse_vector: input.sparse_vector,
+            expires_at_ms,
+            superseded_by: None,
+            superseded_at_ms: None,
+            valid_at_ms,
+            invalid_at_ms: None,
+            confidence_class,
+            confidence,
+            last_validated_at_ms: None,
+            derived_from,
+            quarantined_at_ms: quarantine.at_ms,
+            quarantine_reason: quarantine.reason,
+            quarantined_by: quarantine.by,
+            quarantine_review_due_ms: quarantine.review_due_ms,
+        };
+        let (mut node, record) = memory_record_to_node_owned(record);
+
+        // MEMG-03: a rewrite must not wipe node-resident graph state (edges).
+        // Only an existing node can hold graph state — a fresh insert has
+        // nothing to preserve and skips the extra `engine.get`.
+        if existing.is_some() {
+            carry_graph_state(&engine, &mut node)?;
+        }
+        // MEMG-03: drop stale lineage edges (field = canonical; the edge is
+        // derived navigability). Covers `derived_from` and `superseded_by`
+        // (a re-put revives a superseded record: field resets to None).
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
+
+        // Persist the node first (WAL + KV + HNSW)
+        engine.insert(&node)?;
+
+        // MEMG-03: counterpart-side cleanup (best-effort) + ensure the declared
+        // derived_from lineage edges (idempotent, re-put safe).
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        for parent_key in &record.derived_from {
+            self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, parent_key),
+                LABEL_DERIVED_FROM,
+            )?;
+        }
+        if let Some(new_key) = record.superseded_by.as_deref() {
+            let _ = self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, new_key),
+                LABEL_SUPERSEDED_BY,
+            );
+            let _ = self.ensure_edge(
+                memory_node_id(&record.namespace, new_key),
+                node.id,
+                LABEL_SUPERSEDES_EDGE,
+            );
+        }
+
+        // Best-effort JSON shredding — only when enable_json_shredding is configured.
+        // AUD-CORE-03: purge stale shredded rows when replacing a record that
+        // previously had metadata with an empty-metadata record.
+        if engine.config.enable_json_shredding
+            && (!record.metadata.is_empty()
+                || existing.as_ref().is_some_and(|e| !e.metadata.is_empty()))
+        {
+            // FIND-651: route the write through `write_backend_batch`, which
+            // holds `insert_lock` — a direct `backend.put` could land in the
+            // LSM while `create_snapshot` mirrors it.
+            let op = crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
+                .unwrap_or_else(|| crate::shred::ShreddedRowStore::delete_op(record.node_id));
+            let _ = engine.write_backend_batch(vec![op]);
+        }
+
+        // Best-effort version-history snapshot (VS-CORE-07): 1 write extra,
+        // post-commit, same durability class as ShreddedRowStore.
+        let _ = super::super::version_history::write_snapshot(
+            &engine,
+            &record,
+            self.config.version_history_limit,
+        );
+
+        self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
+
+        if quarantine_entered {
+            self.audit(crate::audit::AuditEvent::new(
+                "quarantine_enter",
+                &record.namespace,
+                &record.key,
+                "ok",
+                Some("explicit_write".to_string()),
+            ));
+        }
+
+        Ok(record)
+    }
+
+    /// Insert or update a persistent memory record.
+    /// Returns the created/updated record with system-assigned timestamps and version.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryInput};
+    ///
+    /// let db = Embedded::open_with_config(Config {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// })
+    /// .expect("open in-memory database");
+    ///
+    /// let record = db
+    ///     .put(MemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    ///     .expect("put record");
+    ///
+    /// assert_eq!(record.namespace, "docs");
+    /// assert_eq!(record.key, "greeting");
+    /// assert_eq!(record.payload, "Hello, VantaDB!");
+    /// assert_eq!(record.version, 1);
+    ///
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(self, input), err)]
+    pub fn put(&self, input: MemoryInput) -> Result<MemoryRecord> {
+        let (namespace, key) = (input.namespace.clone(), input.key.clone());
+        let res = self.put_one(input);
+        // MEMG-04: a quota rejection is audited with its reason (the generic
+        // err outcome would otherwise be silent about *why*).
+        let reason = match &res {
+            Err(Error::ResourceLimit(msg)) => Some(format!("quota_rejected: {msg}")),
+            Err(Error::QuotaExceeded(msg)) => Some(format!("quota_rejected: {msg}")),
+            _ => None,
+        };
+        self.audit(crate::audit::AuditEvent::new(
+            "put",
+            &namespace,
+            &key,
+            if res.is_ok() { "ok" } else { "err" },
+            reason,
+        ));
+        res
+    }
+
+    /// Insert or update a record and emit a **write receipt** (VER-10).
+    ///
+    /// The write itself is [`Embedded::put`] (same semantics, quota and audit
+    /// trail); the receipt is built from the persisted record and carries a
+    /// content binding plus a reference to the VER-01 chained WAL
+    /// (`vanta-cli verify` is the chain authority). Attestation is **opt-in**:
+    /// plain `put` pays nothing.
+    ///
+    /// Verify the returned receipt with [`Embedded::verify_write_receipt`]
+    /// (serialize it with `serde_json` first — JSON is the verification
+    /// surface). The receipt is a point-in-time attestation: verification
+    /// fails by design once the record is updated or deleted afterwards.
+    ///
+    /// Certified writes require **finite floats** in `metadata`, `vector` and
+    /// `sparse_vector`: the content binding serializes floats through JSON,
+    /// where `NaN`/`±Inf` collapse to `null` (ambiguous) — a non-finite input
+    /// is rejected with `Error::Validation` before anything is persisted.
+    #[tracing::instrument(skip(self, input), err)]
+    pub fn put_certified(
+        &self,
+        input: MemoryInput,
+    ) -> Result<(MemoryRecord, crate::attestation::WriteReceipt)> {
+        // Reject before the write commits: a rejected certified write must
+        // not have persisted anything (see the finiteness note above).
+        if let Some(path) = crate::attestation::first_non_finite_input(&input) {
+            return Err(Error::Validation {
+                field: "input".into(),
+                reason: format!(
+                    "non-finite float at {path}: certified writes require finite floats (the content binding would be ambiguous)"
+                ),
+            });
+        }
+        let record = self.put(input)?;
+        let receipt = crate::attestation::build_write_receipt(&record)?;
+        Ok((record, receipt))
+    }
+
+    /// Insert or update multiple namespace-scoped persistent memory records.
+    ///
+    /// Uses `batch_insert_with_opts()` internally — one implicit WAL
+    /// transaction frame (`Begin`/`Prepare`/`Commit` markers) wrapping
+    /// per-chunk WAL `batch_append` + KV `write_batch` under a single
+    /// `insert_lock` hold — followed by a single netted derived/text/sparse
+    /// index commit for the WHOLE batch (`replace_derived_indexes_batch`;
+    /// MEMG-11: O(batch), no full-DB rebuild). UPSERTs bump versions like
+    /// `put()` (in-batch duplicates included).
+    ///
+    /// # Atomicity (FIND-640 — staged commit contract)
+    ///
+    /// The batch commits in three ordered stages:
+    ///
+    /// - **Stage A (staging, all-or-nothing):** shape validation
+    ///   (namespace/key/metadata), the namespace quota pre-check, the
+    ///   per-record existing-record resolution, confidence/derivation
+    ///   materialization and node building all run over the WHOLE batch
+    ///   before any record commits — a failure here leaves zero records
+    ///   behind (previously, a mid-batch failure kept earlier 1000-entry
+    ///   chunks committed).
+    /// - **Stage B (node commit, crash-atomic):** every staged node commits
+    ///   through a single `batch_insert_with_opts` call. The engine frames
+    ///   the batch in an implicit WAL transaction (`Begin` → `Insert`
+    ///   records → `Prepare` → apply → `Commit`) holding `insert_lock` for
+    ///   the whole frame; **the durable `WalRecord::Commit` is the commit
+    ///   point**. A *process crash* before it leaves zero records after
+    ///   reopen — recovery discards the uncommitted frame (open-txn
+    ///   EOF/`Abort` rule) and the undo pass purges any applied
+    ///   KV/HNSW/vstore prefix by `created_by_txn`. A crash after it is
+    ///   idempotently replayed — the whole batch survives. An in-process
+    ///   `Err` still rolls back all applied chunks (KV restore, HNSW
+    ///   removal, vstore tombstones, cache invalidation) and appends a
+    ///   best-effort `Abort`, so `Err` remains truthful: nothing committed,
+    ///   nothing resurrects.
+    /// - **Stage C (derived indexes):** namespace/payload/text/sparse index
+    ///   entries are computed with netted stats and committed in ONE
+    ///   `write_backend_batch` — atomic for the index layer.
+    ///
+    /// # Residuals (explicit trade-offs of the staged design)
+    ///
+    /// - **Upsert overwrite under crash (R3, FIND-640):** a crash before
+    ///   `Commit` on a batch overwriting a *checkpointed* (already-flushed)
+    ///   record loses the previous version — the undo pass deletes the
+    ///   batch-stamped KV entry but the WAL frame does not carry the old
+    ///   payload (same semantics as an aborted explicit transaction,
+    ///   TXN-01). Re-`put` the record to restore it. Fresh-record crashes
+    ///   are unaffected: nothing resurfaces.
+    /// - **`skip_wal` opt-in (engine API):** `batch_insert_with_opts` callers
+    ///   may pass `skip_wal: true` for regenerable bulk loads — without a
+    ///   WAL there is no frame, so mid-batch crashes can still surface a
+    ///   committed prefix. `put_batch` itself always runs `skip_wal: false`.
+    /// - **Post-commit failure in Stage C:** lineage-edge or index-state
+    ///   bookkeeping I/O can still return `Err` with the nodes already
+    ///   committed — the same exposure class as `put()`. Index entry/state
+    ///   divergence is detected and rebuilt by `ensure_indexes_current` on
+    ///   the next open (count-mismatch reconciliation). True 2PC across the
+    ///   node store and the derived partitions needs engine-level
+    ///   transactions.
+    #[tracing::instrument(skip(self, inputs), err)]
+    pub fn put_batch(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
+        let (namespace, key) = inputs
+            .first()
+            .map(|i| (i.namespace.clone(), i.key.clone()))
+            .unwrap_or_else(|| ("N/A".to_string(), "N/A".to_string()));
+        let res = self.put_batch_inner(inputs);
+        // MEMG-04: same quota-reason surfacing as `put`.
+        let reason = match &res {
+            Err(Error::ResourceLimit(msg)) => Some(format!("quota_rejected: {msg}")),
+            Err(Error::QuotaExceeded(msg)) => Some(format!("quota_rejected: {msg}")),
+            _ => None,
+        };
+        self.audit(crate::audit::AuditEvent::new(
+            "put_batch",
+            &namespace,
+            &key,
+            if res.is_ok() { "ok" } else { "err" },
+            reason,
+        ));
+        res
+    }
+
+    fn put_batch_inner(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
+        use crate::storage::engine::{BatchInsertOptions, InsertMode};
+
+        // Reject before any work: Stage A's `resolve_existing_for_write_locked`
+        // can purge expired records (a mutation via `engine.delete`) long
+        // before Stage B's `batch_insert_with_opts` reaches the engine-side
+        // `ensure_writable` — the read_only rejection must come first, with
+        // the typed `Validation{read_only}` error.
+        self.check_read_only()?;
+
+        for input in &inputs {
+            validate_namespace(&input.namespace)?;
+            validate_key(&input.key)?;
+            validate_metadata(&input.metadata)?;
+            validate_input_vectors_finiteness(
+                input.vector.as_deref(),
+                input.sparse_vector.as_ref(),
+                "put_batch",
+            )?;
+        }
+
+        let engine = self.engine_handle()?;
+        // FIND-411: dimension validation is part of the up-front, all-or-nothing
+        // validation (like the namespace/key/metadata shape checks above) — a
+        // batch carrying a vector of the wrong length leaves zero records
+        // behind. The first vector of the batch establishes the dimension when
+        // the index holds none yet.
+        let mut expected_dimension = self.index_vector_dimension(&engine);
+        for input in &inputs {
+            if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+                validate_vector_dimension(expected_dimension, vector.len())?;
+                expected_dimension.get_or_insert(vector.len());
+            }
+        }
+        // MEMG-04: all-or-nothing quota pre-check — rejects before any chunk
+        // is written, so an over-quota batch leaves no partial state.
+        self.check_batch_namespace_quota(&engine, &inputs)?;
+        let mut records: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
+        // `previous` side of `replace_derived_indexes_batch` per record
+        // (None = fresh insert), parallel to `records`.
+        let mut previous: Vec<Option<MemoryRecord>> = Vec::with_capacity(inputs.len());
+        // Track versions + quarantine state + the last record written for keys
+        // seen earlier in this batch (in-batch dedup, mirrors put_one's UPSERT
+        // semantics; the record is the `previous` side of the batch's
+        // derived/text/sparse index replacement below).
+        let mut seen: HashMap<u128, (u64, QuarantineState, MemoryRecord)> =
+            HashMap::with_capacity(inputs.len());
+        // DUR-03 (review MEMG-11 r2): hold the purge **write**-lock ONCE for
+        // the whole batch critical section (resolve + insert + index
+        // replacement). A concurrent `purge_expired` cannot interleave
+        // and double-decrement the text stats (the race `put_one` closes by
+        // holding the same write guard). A single write guard also avoids the
+        // deadlock the read-guard variant would create: expired keys are
+        // resolved through
+        // `resolve_existing_for_write_locked`/`purge_expired_record_locked`,
+        // which never re-enter the non-reentrant lock.
+        let _batch_guard = self.purge_lock.write();
+
+        // ── Stage A: stage the whole batch before any commit (FIND-640) ──
+        // Every fallible read/shape step — existing-record resolution,
+        // confidence/derivation materialization, validity/TTL resolution,
+        // node building, lineage reconciliation — runs here, before Stage B
+        // writes anything. A failure in this loop leaves zero records
+        // behind (previously a mid-batch failure kept earlier 1000-entry
+        // chunks committed).
+        let timestamp = now_ms();
+        let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(inputs.len());
+        // MEMG-03: stale lineage targets per record (counterpart-side
+        // cleanup after the batch insert), parallel to `records`.
+        let mut stale_lineage: Vec<Vec<(u128, &'static str)>> = Vec::with_capacity(inputs.len());
+        // SCH-05 review F3: T1 entries of this batch, audited post-commit.
+        let mut entered_quarantine: Vec<(String, String)> = Vec::new();
+
+        for input in &inputs {
+            let node_id = memory_node_id(&input.namespace, &input.key);
+            // Existing record: in-batch duplicate wins (already bumped), else
+            // consult the engine like put_one (pre-existing records from
+            // earlier batches should also increment, not reset to 1).
+            let (prev_version, prev_created_at_ms, mut quarantine, prev) =
+                if let Some((v, q, prev)) = seen.get(&node_id) {
+                    (Some(*v), Some(timestamp), q.clone(), Some(prev.clone()))
+                } else {
+                    // Under `_batch_guard`: no read guard is taken and
+                    // expired keys are purged inline (locked variant).
+                    match self.resolve_existing_for_write_locked(
+                        &engine,
+                        &input.namespace,
+                        &input.key,
+                    )? {
+                        Some(record) => (
+                            Some(record.version),
+                            Some(record.created_at_ms),
+                            QuarantineState::from_record(&record),
+                            Some(record),
+                        ),
+                        None => (None, None, QuarantineState::default(), None),
+                    }
+                };
+            let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
+            let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
+
+            // T1 (ADR-046 §D5): same write-time flag semantics as put_one
+            // (sticky wins; entry only when not already quarantined).
+            let quarantine_entered = quarantine.at_ms.is_none() && input.quarantine;
+            if quarantine_entered {
+                quarantine.at_ms = Some(timestamp);
+                quarantine.reason = Some("explicit_write".into());
+                quarantine.by = Some("system:put_batch".into());
+                quarantine.review_due_ms = self.quarantine_review_due_ms(timestamp);
+                entered_quarantine.push((input.namespace.clone(), input.key.clone()));
+            }
+
+            let (confidence_class, confidence, derived_from) =
+                self.materialize_confidence(input, Some(&seen))?;
+            let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
+            let quarantine_snapshot = quarantine.clone();
+
+            let record = MemoryRecord {
+                namespace: input.namespace.clone(),
+                key: input.key.clone(),
+                payload: input.payload.clone(),
+                metadata: input.metadata.clone(),
+                created_at_ms,
+                updated_at_ms: timestamp,
+                version,
+                node_id,
+                vector: input.vector.clone().filter(|v| Self::usable_vector(v)),
+                sparse_vector: input.sparse_vector.clone(),
+                expires_at_ms: self
+                    .effective_ttl_ms(&input.namespace, input.ttl_ms)
+                    .map(|ttl| timestamp.saturating_add(ttl)),
+                superseded_by: None,
+                superseded_at_ms: None,
+                valid_at_ms,
+                invalid_at_ms: None,
+                confidence_class,
+                confidence,
+                last_validated_at_ms: None,
+                derived_from,
+                quarantined_at_ms: quarantine.at_ms,
+                quarantine_reason: quarantine.reason,
+                quarantined_by: quarantine.by,
+                quarantine_review_due_ms: quarantine.review_due_ms,
+            };
+            let (mut node, record) = memory_record_to_node_owned(record);
+            // MEMG-03: a rewrite must not wipe node-resident graph state
+            // (edges) — only an existing node can hold it — and stale
+            // derived_from lineage edges are dropped (field = canonical;
+            // the edge is derived navigability).
+            if prev.is_some() {
+                carry_graph_state(&engine, &mut node)?;
+            }
+            stale_lineage.push(reconcile_lineage_edges(
+                &engine,
+                &mut node,
+                &record.namespace,
+                &record.derived_from,
+                record.superseded_by.as_deref(),
+            ));
+            seen.insert(node_id, (version, quarantine_snapshot, record.clone()));
+            nodes.push(node);
+            previous.push(prev);
+            records.push(record);
+        }
+
+        // ── Stage B: single atomic node commit (FIND-640) ──
+        // One `batch_insert_with_opts` call for the WHOLE batch: the engine
+        // frames it as an implicit WAL transaction (Begin → per-chunk Insert
+        // records → Prepare → apply → Commit) under a single insert_lock
+        // hold, so it is atomic across the batch in-process (Err → rollback
+        // of every applied chunk + best-effort Abort) AND across crashes
+        // (pre-Commit crash → recovery discards the frame + undo pass; the
+        // durable Commit is the commit point).
+        //
+        // `skip_existing_check: false` is REQUIRED for rollback safety: the
+        // engine's rollback restores `pre_existing_raw` per node — with the
+        // check skipped it would DELETE the KV entry of a pre-existing
+        // (upserted) record, silently losing the previous version.
+        //
+        // Auto mode — rebuild only if the batch exceeds the incremental
+        // threshold (default: 1000 nodes). In-memory backends (WASM,
+        // `:memory:`) have no filesystem to persist a rebuilt index to,
+        // so insert incrementally instead — rebuild_vector_index() calls
+        // fs (mmap/persist) which fails on wasm32 with "IO error:
+        // operation not supported on this platform" (load.test.ts).
+        let use_auto = self.config.backend_kind != BackendKind::InMemory;
+        let opts = BatchInsertOptions {
+            skip_existing_check: false,
+            skip_wal: false,
+            insert_mode: if use_auto {
+                InsertMode::Auto
+            } else {
+                InsertMode::Incremental
+            },
+            ..Default::default()
+        };
+        let rebuild_needed = opts.needs_rebuild(nodes.len());
+        engine.batch_insert_with_opts(&nodes, opts)?;
+
+        // ── Stage C: post-commit derived state ──
+
+        // MEMG-03: counterpart-side cleanup of stale lineage edges
+        // (best-effort) + ensure the declared derived_from edges
+        // (idempotent). In-batch duplicate keys: only the last occurrence
+        // wins (mirrors the upsert semantics of the record itself).
+        let mut last_wins: HashSet<u128> = HashSet::with_capacity(records.len());
+        for (record, stale) in records.iter().zip(stale_lineage.iter()).rev() {
+            if !last_wins.insert(record.node_id) {
+                continue;
+            }
+            for &(target, label) in stale {
+                let _ = self.remove_edge(record.node_id, target, label);
+            }
+            for parent_key in &record.derived_from {
+                self.ensure_edge(
+                    record.node_id,
+                    memory_node_id(&record.namespace, parent_key),
+                    LABEL_DERIVED_FROM,
+                )?;
+            }
+        }
+
+        // ── Derived/text/sparse indexes: single atomic commit (FIND-640) ──
+        // Mirrors `put_one`'s per-record replacement (namespace/payload/
+        // text/sparse entries replaced with the resolved previous record as
+        // the delete side for UPSERTS) but netted across the whole batch
+        // into ONE `write_backend_batch` — O(batch), no per-record backend
+        // round-trips, and no prefix-of-indexes state if the write fails.
+        self.replace_derived_indexes_batch(&engine, &previous, &records)?;
+
+        // SCH-05 review F3: audit each T1 entry post-commit (mirrors
+        // put_one; the write-time quarantine flag is a domain event).
+        for (ns, key) in &entered_quarantine {
+            self.audit(crate::audit::AuditEvent::new(
+                "quarantine_enter",
+                ns,
+                key,
+                "ok",
+                Some("explicit_write".to_string()),
+            ));
+        }
+
+        // ── Post-processing (shredding; derived/text/sparse indexes were
+        // committed above) ──
+        if engine.config.enable_json_shredding {
+            // FIND-651: batch the shred rows through `write_backend_batch`
+            // (single insert_lock acquisition + single atomic write)
+            // instead of per-record direct `backend.put`s that could land
+            // while `create_snapshot` mirrors the backend.
+            // Pre-batch disk state determines whether a final empty-metadata
+            // record in this batch needs a `delete_op` to purge stale rows.
+            let mut pre_batch_had_meta: HashMap<u128, bool> = HashMap::with_capacity(records.len());
+            for (record, prev) in records.iter().zip(previous.iter()) {
+                pre_batch_had_meta
+                    .entry(record.node_id)
+                    .or_insert_with(|| prev.as_ref().is_some_and(|p| !p.metadata.is_empty()));
+            }
+            let mut seen_shred: HashSet<u128> = HashSet::with_capacity(records.len());
+            let mut shred_ops: Vec<BackendWriteOp> = Vec::with_capacity(records.len());
+            for record in records.iter().rev() {
+                if !seen_shred.insert(record.node_id) {
+                    continue;
+                }
+                if !record.metadata.is_empty() {
+                    if let Some(op) =
+                        crate::shred::ShreddedRowStore::put_op(record.node_id, &record.metadata)
+                    {
+                        shred_ops.push(op);
+                    }
+                } else if pre_batch_had_meta
+                    .get(&record.node_id)
+                    .copied()
+                    .unwrap_or(false)
+                {
+                    shred_ops.push(crate::shred::ShreddedRowStore::delete_op(record.node_id));
+                }
+            }
+            if !shred_ops.is_empty() {
+                let _ = engine.write_backend_batch(shred_ops);
+            }
+        }
+
+        // ── Version history: 1 write_batch for the batch (best-effort,
+        // post-commit). Records already carry the final version (`seen`
+        // bump), so the snapshots mirror the exact bump sequence per key.
+        let _ = super::super::version_history::write_snapshot_batch(
+            &engine,
+            &records,
+            self.config.version_history_limit,
+        );
+
+        // ── HNSW index: rebuild from scratch when the batch used Rebuild mode ──
+        if rebuild_needed {
+            engine.rebuild_vector_index()?;
+        }
+
+        // Derived/text/sparse indexes were committed atomically above
+        // (same net effect as `put_one`'s per-record path), so no full
+        // rebuild is needed here.
+        Ok(records)
+    }
+
+    /// Retrieve a single memory record by namespace and key.
+    /// Returns `None` if the record does not exist or has expired.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryInput};
+    ///
+    /// let db = Embedded::open_with_config(Config {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// })
+    /// .expect("open in-memory database");
+    ///
+    /// db.put(MemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    ///     .expect("put record");
+    ///
+    /// let record = db
+    ///     .get("docs", "greeting")
+    ///     .expect("get record")
+    ///     .expect("record should exist");
+    /// assert_eq!(record.payload, "Hello, VantaDB!");
+    ///
+    /// // Unknown keys return `None` instead of an error.
+    /// assert!(db.get("docs", "missing").expect("get missing").is_none());
+    ///
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(self), err)]
+    pub fn get(&self, namespace: &str, key: &str) -> Result<Option<MemoryRecord>> {
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+
+        let node_id = memory_node_id(namespace, key);
+        let Some(node) = self.engine_handle()?.get(node_id)? else {
+            return Ok(None);
+        };
+
+        match record_from_node(&node) {
+            Some(record) if record.namespace == namespace && record.key == key => Ok(Some(record)),
+            Some(_record) => Err(Error::NodeIdCollision(memory_node_id(namespace, key))),
+            None => Ok(None),
+        }
+    }
+
+    /// Retrieve the record as it was at the given version (VS-CORE-07).
+    ///
+    /// Returns `None` if that version was never persisted (unknown key or a
+    /// version already purged by the retention cap or a delete). Snapshot
+    /// durability is best-effort post-commit, so a crash window can leave a
+    /// version gap — degraded but never corrupt.
+    #[tracing::instrument(skip(self), err)]
+    pub fn get_version(
+        &self,
+        namespace: &str,
+        key: &str,
+        version: u64,
+    ) -> Result<Option<MemoryRecord>> {
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+        let engine = self.engine_handle()?;
+        super::super::version_history::get_version(&engine, namespace, key, version)
+    }
+
+    /// List every retained version of a record, ascending (v1..vN) (VS-CORE-07).
+    ///
+    /// Empty if the key does not exist or has no history. Expired versions are
+    /// included as historical data until purged. `get_version(vN)` of the last
+    /// element matches the live record.
+    #[tracing::instrument(skip(self), err)]
+    pub fn versions(&self, namespace: &str, key: &str) -> Result<Vec<MemoryRecord>> {
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+        let engine = self.engine_handle()?;
+        super::super::version_history::versions(&engine, namespace, key)
+    }
+
+    /// Delete a memory record by namespace and key.
+    /// Returns `true` if a record was actually deleted, `false` if it did not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryInput};
+    ///
+    /// let db = Embedded::open_with_config(Config {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// })
+    /// .expect("open in-memory database");
+    ///
+    /// db.put(MemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    ///     .expect("put record");
+    ///
+    /// assert!(db.delete("docs", "greeting").expect("delete existing"));
+    /// // Deleting again returns `false` because the record is gone.
+    /// assert!(!db.delete("docs", "greeting").expect("delete missing"));
+    /// assert!(db.get("docs", "greeting").expect("get after delete").is_none());
+    ///
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(self), err)]
+    pub fn delete(&self, namespace: &str, key: &str) -> Result<bool> {
+        Ok(self.delete_inner(namespace, key)?.is_some())
+    }
+
+    /// Shared delete logic (VER-02): performs the delete and returns the
+    /// removed record (`None` when the key did not exist).
+    fn delete_inner(&self, namespace: &str, key: &str) -> Result<Option<MemoryRecord>> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+
+        // DUR-03 r3: same read-modify-write serialization as `put_one` — a
+        // concurrent delete/put (or delete/delete) of the same key must not
+        // both apply the replaced generation's text-index decrement.
+        let _write_guard = self.purge_lock.write();
+        let Some(existing) = self.get(namespace, key)? else {
+            return Ok(None);
+        };
+
+        let node_id = memory_node_id(namespace, key);
+        let engine = self.engine_handle()?;
+        let res = engine.delete(node_id, "memory delete");
+        if res.is_ok() {
+            self.replace_derived_indexes(&engine, Some(&existing), None)?;
+            // Purge version history (VS-CORE-07) — best-effort class.
+            let _ = super::super::version_history::purge_key(&engine, namespace, key);
+        }
+        self.audit(crate::audit::AuditEvent::new(
+            "delete",
+            namespace,
+            key,
+            if res.is_ok() { "ok" } else { "err" },
+            Some("memory delete".to_string()),
+        ));
+        res?;
+        Ok(Some(existing))
+    }
+
+    /// Delete a record and emit a **purge certificate** (VER-02).
+    ///
+    /// The certificate inventories every purge surface (store, JSON-shredded
+    /// metadata, HNSW/vector store, derived/payload, text, sparse, version
+    /// history, WAL tombstone), records the exact evidence per surface, and
+    /// carries a deterministic `sha256` integrity hash plus a reference to the
+    /// VER-01 WAL hash-chain. Declared limits (physical media, backups,
+    /// archived WAL segments, exports, audit-log retention, parametric
+    /// unlearning) are always listed — the certificate never overstates the
+    /// purge.
+    ///
+    /// When the key does not exist, the certificate still reports the keyless
+    /// surfaces and marks record-dependent ones `not-assessed` (status
+    /// `not_found`) instead of claiming a clean purge.
+    ///
+    /// # Durability (cross-process verification)
+    ///
+    /// The certificate reflects the state of this live engine handle. A
+    /// verifier that opens the database **read-only** (e.g.
+    /// `vanta-cli certificate verify`) does not replay the WAL, so callers
+    /// that intend to verify the certificate after this process exits must
+    /// persist the purge first — call [`Embedded::flush`] or
+    /// [`Embedded::close`] after this method. The CLI delete path already
+    /// closes the database before returning.
+    #[tracing::instrument(skip(self), err)]
+    pub fn delete_certified(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<crate::attestation::PurgeCertificate> {
+        let deleted = self.delete_inner(namespace, key)?;
+        let engine = self.engine_handle()?;
+        let node_id = memory_node_id(namespace, key);
+        crate::attestation::build_certificate(
+            &engine,
+            deleted.as_ref(),
+            namespace,
+            key,
+            node_id,
+            "memory delete",
+        )
+    }
+
+    /// Verify a stored purge certificate (VER-02): schema + integrity hash,
+    /// then a re-scan of the surfaces that are re-checkable without the
+    /// deleted record.
+    ///
+    /// Fails when the certificate is structurally invalid (claimless/partial
+    /// surface inventory, unknown status, empty declared limits), when it was
+    /// edited/corrupted (hash mismatch), or when a surface it claimed clean
+    /// now holds entries / live residues remain while the certificate does not
+    /// attest a `not_found` report.
+    ///
+    /// Verification runs against the **live database handle**; a certificate
+    /// emitted by an unflushed process can yield a false negative until that
+    /// process flushes/closes (see [`Embedded::delete_certified`] §Durability).
+    /// The certificate is not bound to a database instance — verification
+    /// matches by namespace/key/node_id against whichever database is opened.
+    #[tracing::instrument(skip(self, certificate_json), err)]
+    pub fn verify_purge_certificate(
+        &self,
+        certificate_json: &str,
+    ) -> Result<crate::attestation::PurgeCertificateVerification> {
+        let certificate: crate::attestation::PurgeCertificate =
+            serde_json::from_str(certificate_json).map_err(Error::serialization)?;
+        let engine = self.engine_handle()?;
+        crate::attestation::verify_certificate(&engine, &certificate)
+    }
+
+    /// Verify a stored write receipt (VER-10): schema + integrity hash, then
+    /// the live evidence — the record is re-read and its content binding
+    /// recomputed.
+    ///
+    /// Fails when the receipt is structurally invalid (claimless/partial
+    /// surface inventory, unknown status, empty declared limits), when it was
+    /// edited/corrupted (hash mismatch), when the record is no longer present
+    /// (deleted or expired since emission) or when the live content no longer
+    /// matches the attested binding (updated or re-put afterwards).
+    ///
+    /// Verification runs against the **live database handle**; a receipt
+    /// emitted by an unflushed process can yield a false negative until that
+    /// process flushes/closes (same caveat class as
+    /// [`Embedded::verify_purge_certificate`]).
+    #[tracing::instrument(skip(self, receipt_json), err)]
+    pub fn verify_write_receipt(
+        &self,
+        receipt_json: &str,
+    ) -> Result<crate::attestation::WriteReceiptVerification> {
+        let receipt: crate::attestation::WriteReceipt =
+            serde_json::from_str(receipt_json).map_err(Error::serialization)?;
+        let engine = self.engine_handle()?;
+        crate::attestation::verify_write_receipt(&engine, &receipt)
+    }
+
+    /// Unified memory forgetting API.
+    ///
+    /// Supports `Soft` (mark invalid_at_ms), `Hard` (physical delete), and
+    /// `Certified` (delete with PurgeCertificate).
+    #[tracing::instrument(skip(self), err)]
+    pub fn forget(
+        &self,
+        namespace: &str,
+        target: ForgetTarget,
+        mode: ForgetMode,
+    ) -> Result<ForgetReport> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+
+        let target_keys: Vec<String> = match target {
+            ForgetTarget::Key(key) => {
+                validate_key(&key)?;
+                vec![key]
+            }
+            ForgetTarget::Filter(filters) => {
+                validate_metadata(&filters)?;
+                if filters.is_empty() {
+                    return Err(Error::Validation {
+                        field: "filters".into(),
+                        reason: "forget filter cannot be empty".into(),
+                    });
+                }
+                self.records_for_namespace(namespace, &filters)?
+                    .into_iter()
+                    .map(|r| r.key)
+                    .collect()
+            }
+            ForgetTarget::Query {
+                text,
+                top_k,
+                min_score,
+            } => {
+                let hits = self.search(MemorySearchRequest {
+                    namespace: namespace.to_string(),
+                    text_query: Some(text),
+                    top_k,
+                    ..Default::default()
+                })?;
+                hits.into_iter()
+                    .filter(|h| h.score >= min_score)
+                    .map(|h| h.record.key)
+                    .collect()
+            }
+        };
+
+        let mut forgotten_count = 0;
+        let mut keys = Vec::new();
+        let mut certificates = Vec::new();
+
+        match mode {
+            ForgetMode::Soft => {
+                let engine = self.engine_handle()?;
+                let _supersede_guard = self.supersede_lock.lock();
+                let _write_guard = self.purge_lock.write();
+                for key in target_keys {
+                    if let Some(mut record) = self.get(namespace, &key)? {
+                        let now = now_ms();
+                        let invalid_at = now.max(record.valid_at_ms);
+                        record.invalid_at_ms = Some(invalid_at);
+                        record.version = record.version.saturating_add(1);
+                        record.updated_at_ms = now;
+
+                        let (mut node, _rec) = memory_record_to_node_owned(record);
+                        carry_graph_state(&engine, &mut node)?;
+                        engine.insert(&node)?;
+                        self.audit(crate::audit::AuditEvent::new(
+                            "forget",
+                            namespace,
+                            &key,
+                            "ok",
+                            Some("mode=soft".to_string()),
+                        ));
+                        forgotten_count += 1;
+                        keys.push(key);
+                    }
+                }
+            }
+            ForgetMode::Hard => {
+                for key in target_keys {
+                    if self.delete(namespace, &key)? {
+                        forgotten_count += 1;
+                        keys.push(key);
+                    }
+                }
+            }
+            ForgetMode::Certified => {
+                for key in target_keys {
+                    let cert = self.delete_certified(namespace, &key)?;
+                    if cert.status != "not_found" {
+                        forgotten_count += 1;
+                        keys.push(key);
+                        certificates.push(cert);
+                    }
+                }
+            }
+        }
+
+        Ok(ForgetReport {
+            mode,
+            forgotten_count,
+            keys,
+            certificates,
+        })
+    }
+
+    /// Open an embedded VantaDB database in memory using [`Config::in_memory()`](crate::config::Config::in_memory).
+    pub fn in_memory() -> Result<Self> {
+        Self::open_with_config(crate::config::Config::in_memory())
+    }
+
+    /// Insert or update a record with exact fields (used internally by import).
+    ///
+    /// Raw transport choke point (SDK Rust / HTTP `import` records / WASM
+    /// `import_records`): re-validates the confidence boundary + validity
+    /// window even though the JSONL path (`record_from_export_line`) already
+    /// validated them — a hostile `records` payload must not persist
+    /// out-of-range scores, inconsistent classes or inverted windows
+    /// (ADR-046 §D4/§D7).
+    pub(crate) fn put_record_exact(&self, mut record: MemoryRecord) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        validate_namespace(&record.namespace)?;
+        validate_key(&record.key)?;
+        validate_metadata(&record.metadata)?;
+        validate_input_vectors_finiteness(
+            record.vector.as_deref(),
+            record.sparse_vector.as_ref(),
+            "put_record_exact",
+        )?;
+        validate_confidence_fields(
+            record.confidence_class,
+            &record.derived_from,
+            record.confidence,
+        )?;
+        if let Some(invalid_at) = record.invalid_at_ms {
+            if record.valid_at_ms > invalid_at {
+                return Err(Error::Validation {
+                    field: "invalid_at_ms".into(),
+                    reason: format!(
+                        "valid_at_ms ({}) must be <= invalid_at_ms ({invalid_at})",
+                        record.valid_at_ms
+                    ),
+                });
+            }
+        }
+
+        let expected_node_id = memory_node_id(&record.namespace, &record.key);
+        if record.node_id != expected_node_id {
+            return Err(Error::Validation {
+                field: "node_id".into(),
+                reason: format!("node_id does not match deterministic namespace/key hash for namespace='{}' key='{}'", record.namespace, record.key),
+            });
+        }
+
+        let engine = self.engine_handle()?;
+        // See `put_one`: hold the purge write guard across the whole
+        // read-modify-write (resolve + insert + replace).
+        let _write_guard = self.purge_lock.write();
+        let previous =
+            self.resolve_existing_for_write_locked(&engine, &record.namespace, &record.key)?;
+        // FIND-411: the raw transport carries the vector too — validate its
+        // dimension against the index before anything is written. FIND-411
+        // (O5): the same rule as `put` and `put_batch_inner` — the index
+        // dimension is the only authority.
+        if let Some(vector) = record.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+            let expected = self.index_vector_dimension(&engine);
+            validate_vector_dimension(expected, vector.len())?;
+        }
+        // TEC-14b / MEMG-04: enforce namespace quotas (records and bytes limits)
+        self.check_namespace_write_quota(
+            &engine,
+            &record.namespace,
+            &record.key,
+            &record.payload,
+            record.vector.as_deref(),
+            &record.metadata,
+            previous.as_ref(),
+        )?;
+
+        // F4 (SCH-05 review): sticky on the raw transport — an incoming record
+        // that carries no quarantine state must not clear an existing one
+        // (closes the I2 bypass via the agent-facing `import` tool). Only the
+        // explicit T2/T4 ops leave quarantine.
+        if record.quarantined_at_ms.is_none() {
+            if let Some(prev) = previous.as_ref() {
+                if prev.quarantined_at_ms.is_some() {
+                    record.quarantined_at_ms = prev.quarantined_at_ms;
+                    record.quarantine_reason = prev.quarantine_reason.clone();
+                    record.quarantined_by = prev.quarantined_by.clone();
+                    record.quarantine_review_due_ms = prev.quarantine_review_due_ms;
+                }
+            }
+        }
+
+        let (mut node, record) = memory_record_to_node_owned(record);
+        // MEMG-03: only an existing node can hold graph state (see `put_one`).
+        if previous.is_some() {
+            carry_graph_state(&engine, &mut node)?;
+        }
+        // MEMG-03: keep lineage edges consistent with the canonical fields
+        // (covers `derived_from` and `superseded_by`).
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
+        engine.insert(&node)?;
+        // The raw transport does not validate parent existence (unlike
+        // `materialize_confidence`), so lineage edges are best-effort here — a
+        // dangling parent must not fail the import.
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        for parent_key in &record.derived_from {
+            let _ = self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, parent_key),
+                LABEL_DERIVED_FROM,
+            );
+        }
+        if let Some(new_key) = record.superseded_by.as_deref() {
+            let _ = self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, new_key),
+                LABEL_SUPERSEDED_BY,
+            );
+            let _ = self.ensure_edge(
+                memory_node_id(&record.namespace, new_key),
+                node.id,
+                LABEL_SUPERSEDES_EDGE,
+            );
+        }
+        self.replace_derived_indexes(&engine, previous.as_ref(), Some(&record))?;
+
+        Ok(record)
+    }
+
+    /// Merge an incoming multi-writer record into the store (MEMG-05 v1).
+    ///
+    /// Declared policy (ADR-0055): **explicit last-write-wins over a
+    /// deterministic total order** — `(updated_at_ms, canonical content
+    /// bytes)` — with conflict detection at equal logical time. See
+    /// `crate::sdk::merge` for the full semantics, declared limits and the
+    /// upgrade path (vector clocks / CRDT-lite).
+    ///
+    /// `put`/`put_batch`/import are intentionally untouched: this is an
+    /// opt-in path for records whose writer is another device/agent
+    /// (federation, sync, interchange). `record.updated_at_ms` carries the
+    /// writer-side clock (as in import); the deterministic identity
+    /// (`node_id`) is recomputed from `(namespace, key)`, so a transport does
+    /// not need to carry it.
+    ///
+    /// Non-silent by construction: every call returns a [`MergeResult`]
+    /// describing what won ([`MergeOutcome::Inserted`] /
+    /// [`MergeOutcome::Updated`]), what was rejected
+    /// ([`MergeOutcome::StaleRejected`]) or that nothing changed
+    /// ([`MergeOutcome::AlreadyCurrent`]), plus the `conflict` flag for
+    /// equal-time collisions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryRecord, MergeOutcome};
+    ///
+    /// let config = Config {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// };
+    /// let db = Embedded::open_with_config(config).expect("open database");
+    ///
+    /// let incoming = MemoryRecord {
+    ///     namespace: "agent/notes".into(),
+    ///     key: "topic".into(),
+    ///     payload: "from another device".into(),
+    ///     updated_at_ms: 1_000,
+    ///     version: 1,
+    ///     ..Default::default()
+    /// };
+    /// let result = db.merge_record(incoming).expect("merge");
+    /// assert_eq!(result.outcome, MergeOutcome::Inserted);
+    /// assert!(!result.conflict);
+    ///
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(self, record), err)]
+    pub fn merge_record(&self, record: MemoryRecord) -> Result<MergeResult> {
+        let (namespace, key) = (record.namespace.clone(), record.key.clone());
+        let res = self.merge_record_inner(record);
+        self.audit(crate::audit::AuditEvent::new(
+            "merge_record",
+            &namespace,
+            &key,
+            if res.is_ok() { "ok" } else { "err" },
+            None,
+        ));
+        res
+    }
+
+    /// Shared logic for [`Self::merge_record`]: resolve against the current
+    /// record under `merge_lock`, then either write through the raw transport
+    /// ([`Self::put_record_exact`]) or report the declared outcome.
+    fn merge_record_inner(&self, mut record: MemoryRecord) -> Result<MergeResult> {
+        self.check_read_only()?;
+        validate_namespace(&record.namespace)?;
+        validate_key(&record.key)?;
+        validate_metadata(&record.metadata)?;
+        validate_input_vectors_finiteness(
+            record.vector.as_deref(),
+            record.sparse_vector.as_ref(),
+            "merge_record",
+        )?;
+        // Review P2-01 R6: validate the record's invariants BEFORE deciding,
+        // so an invalid incoming record errors regardless of whether it would
+        // win or lose (the store path re-validates anyway; this keeps the
+        // merge API contract symmetric across outcomes).
+        validate_confidence_fields(
+            record.confidence_class,
+            &record.derived_from,
+            record.confidence,
+        )?;
+        if let Some(invalid_at) = record.invalid_at_ms {
+            if record.valid_at_ms > invalid_at {
+                return Err(Error::Validation {
+                    field: "invalid_at_ms".into(),
+                    reason: format!(
+                        "valid_at_ms ({}) must be <= invalid_at_ms ({invalid_at})",
+                        record.valid_at_ms
+                    ),
+                });
+            }
+        }
+
+        let engine = self.engine_handle()?;
+        // REVIEW-13 pattern: the engine's `insert_lock` only serializes the
+        // individual insert, not the SDK-level resolve + decide. Holding the
+        // merge lock across both makes the declared order scheduling-
+        // independent (two concurrent merges can no longer both decide
+        // against the same `existing` and persist the loser).
+        let _merge_guard = self.merge_lock.lock();
+
+        // The purge-lock read guard from the resolution is dropped at the end
+        // of this statement on purpose: `put_record_exact` takes its own
+        // **write** guard on the same (non-reentrant) lock — holding the read
+        // guard across that acquisition would self-deadlock.
+        let existing = self
+            .resolve_existing_for_write(&engine, &record.namespace, &record.key)?
+            .0;
+
+        match resolve_merge(existing.as_ref(), &record)? {
+            MergeDecision::Unchanged => Ok(MergeResult {
+                outcome: MergeOutcome::AlreadyCurrent,
+                conflict: false,
+                winner_updated_at_ms: existing
+                    .map(|prev| prev.updated_at_ms)
+                    .unwrap_or(record.updated_at_ms),
+            }),
+            MergeDecision::KeepExisting { conflict } => Ok(MergeResult {
+                outcome: MergeOutcome::StaleRejected,
+                conflict,
+                winner_updated_at_ms: existing
+                    .map(|prev| prev.updated_at_ms)
+                    .unwrap_or(record.updated_at_ms),
+            }),
+            MergeDecision::Store { conflict } => {
+                let inserted = existing.is_none();
+                if let Some(prev) = &existing {
+                    // Store-local bookkeeping (NOT part of the conflict
+                    // fingerprint): first-seen creation stays, and the local
+                    // version counter advances past the record it replaces.
+                    record.created_at_ms = prev.created_at_ms;
+                    record.version = prev.version.saturating_add(1).max(record.version);
+                }
+                // Deterministic identity is derived, not trusted from the
+                // transport (unlike the raw import path, which validates it).
+                record.node_id = memory_node_id(&record.namespace, &record.key);
+                let stored = self.put_record_exact(record)?;
+                Ok(MergeResult {
+                    outcome: if inserted {
+                        MergeOutcome::Inserted
+                    } else {
+                        MergeOutcome::Updated
+                    },
+                    conflict,
+                    winner_updated_at_ms: stored.updated_at_ms,
+                })
+            }
+        }
+    }
+
+    /// Mark an existing record as superseded by another existing record (ADR-028).
+    ///
+    /// Supersession is durable and first-class: the old record keeps its data
+    /// (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`,
+    /// and can be hidden from search/list with `exclude_superseded`.
+    ///
+    /// Errors if either key is missing, if `old_key == new_key`, or if the old
+    /// record is already superseded (idempotency guard).
+    #[tracing::instrument(skip(self), err)]
+    pub fn supersede(&self, namespace: &str, old_key: &str, new_key: &str) -> Result<()> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+        validate_key(old_key)?;
+        validate_key(new_key)?;
+        if old_key == new_key {
+            return Err(Error::InvalidInput(
+                "supersede: old_key and new_key must be different".into(),
+            ));
+        }
+
+        // REVIEW-13: serialize the read-modify-write below. Without this, two
+        // concurrent supersede calls can both read `old.superseded_by == None`
+        // and both pass the idempotency guard, double-marking the record (the
+        // engine's insert_lock only serializes the individual insert, not the
+        // SDK-level read + check). The guard spans every stateful step:
+        // get(old) → idempotency check → get(new) → mutate → engine.insert.
+        let _guard = self.supersede_lock.lock();
+
+        let old = self
+            .get(namespace, old_key)?
+            .ok_or_else(|| Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{old_key}"),
+            })?;
+        if old.superseded_by.is_some() {
+            return Err(Error::InvalidInput(format!(
+                "record '{old_key}' is already superseded by '{}'",
+                old.superseded_by.as_deref().unwrap_or_default()
+            )));
+        }
+        if self.get(namespace, new_key)?.is_none() {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{new_key}"),
+            });
+        }
+
+        let now = now_ms();
+        let mut record = old;
+        // O2 (ADR-046 §D3-2/§D3-3): `invalid_at = now` would invert the window
+        // (`valid_at > invalid_at`) for a record whose validity starts in the
+        // future. Guard instead of writing an inconsistent state; superseding
+        // a not-yet-valid record is rejected explicitly (no silent clamp, no
+        // D3-3 divergence).
+        if record.valid_at_ms > now {
+            return Err(Error::Validation {
+                field: "valid_at_ms".into(),
+                reason: format!(
+                    "cannot supersede a record whose validity starts in the future (valid_at_ms {} > now {now})",
+                    record.valid_at_ms
+                ),
+            });
+        }
+        record.superseded_by = Some(new_key.to_string());
+        record.superseded_at_ms = Some(now);
+        // ADR-046 §D3-3: 0.8.0 keeps the validity window aligned with the
+        // supersession event (divergence only via a retroactive setter, v1.0).
+        record.invalid_at_ms = Some(now);
+        record.updated_at_ms = now;
+        record.version = record.version.saturating_add(1);
+
+        // Reuse the put/upsert serialization path (WAL + KV + HNSW via
+        // engine.insert); payload/metadata/vector are unchanged, so the
+        // derived text/scalar indexes stay consistent with no index writes.
+        // ponytail: two WAL appends (old marked, new untouched) — not atomic;
+        // a crash between them leaves a dangling marker, which is still
+        // self-consistent (old marked, new present). Full 2PC deferred to
+        // ACID Phase 0, same as insert.
+        let engine = self.engine_handle()?;
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
+        // MEMG-03: drop stale lineage edges (legacy or previous state); the
+        // new `superseded_by` target is ensured below.
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
+        engine.insert(&node)?;
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        // MEMG-03: lineage edge old --superseded_by--> new (bidirectional,
+        // idempotent). `superseded_by` remains the canonical field; the edge is
+        // derived navigability for the graph layer.
+        self.ensure_edge(
+            node.id,
+            memory_node_id(namespace, new_key),
+            LABEL_SUPERSEDED_BY,
+        )?;
+        self.ensure_edge(
+            memory_node_id(namespace, new_key),
+            node.id,
+            LABEL_SUPERSEDES_EDGE,
+        )?;
+        // Best-effort version-history snapshot, same durability class as put_one.
+        let _ = super::super::version_history::write_snapshot(
+            &engine,
+            &record,
+            self.config.version_history_limit,
+        );
+        Ok(())
+    }
+
+    /// MEMG-02: report the outcome of a recalled memory and feed it back into
+    /// the record's confidence — the write-side of the outcome loop.
+    ///
+    /// The host declares the outcome explicitly ([`ReinforceOutcome`]); the
+    /// engine never infers it. Declared policy (see `docs/api/scores.md`
+    /// §Reinforcement):
+    ///
+    /// - `Used` — `confidence = min(1.0, confidence + 0.05)` and
+    ///   `last_validated_at_ms = now` (successful re-validation), rate-limited
+    ///   to one bump per record per 5-minute window anchored on the previous
+    ///   stamp; inside the window the call is a no-op (audited as
+    ///   `used_rate_limited`, never silent).
+    /// - `Corrected` — `confidence = max(0.0, confidence - 0.10)`; failures do
+    ///   NOT stamp `last_validated_at_ms` (success-only, MGR-12 §3.3).
+    /// - `Unused` — neutral: no score change, no stamp; the audit event is the
+    ///   record of the host's declaration.
+    ///
+    /// Interaction notes: a `Corrected` does NOT reset the positive rate-limit
+    /// anchor — a `Used` shortly after a correction is still limited by the
+    /// previous validation stamp (the window counts successful validations).
+    /// Quarantine state is not inspected: quarantined records are unreachable
+    /// through default recall/list (excluded by default), so a host can only
+    /// reinforce one by explicit key.
+    ///
+    /// Applies to `asserted` records only: a `derived` score is computed from
+    /// its parents (`min × DERIVATION_DISCOUNT`, ADR-046 §D4) and mutating it
+    /// would break determinism (V4) — derived records are rejected explicitly.
+    ///
+    /// State-only change (same class as `quarantine_apply`): `version` does not
+    /// change and no version-history snapshot is written (a reinforcement per
+    /// turn would flood the 32-entry history); `updated_at_ms` is refreshed and
+    /// the operation is audited as `memory_reinforce`. Callers that never
+    /// invoke this op observe exactly the previous behavior — `put` still
+    /// leaves `last_validated_at_ms = None`.
+    #[tracing::instrument(skip(self), err)]
+    pub fn reinforce(
+        &self,
+        namespace: &str,
+        key: &str,
+        outcome: ReinforceOutcome,
+    ) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+        // REVIEW-13 pattern: serialize the read-modify-write (the engine's
+        // insert_lock only serializes the individual insert, not the SDK-level
+        // get + mutate) — same rationale as `supersede`/`quarantine_*`.
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.confidence_class == ConfidenceClass::Derived {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is derived — its confidence is computed from its parents (min × DERIVATION_DISCOUNT) and cannot be reinforced; reinforce the parents instead"
+            )));
+        }
+
+        let now = now_ms();
+        let mut reason = outcome.as_wire_str().to_string();
+        let mut changed = false;
+        match outcome {
+            ReinforceOutcome::Used => {
+                let in_window = record
+                    .last_validated_at_ms
+                    .is_some_and(|prev| now.saturating_sub(prev) < REINFORCE_WINDOW_MS);
+                if in_window {
+                    // Rate-limited: no score change, no re-stamp. Never
+                    // silent — the audit reason distinguishes it.
+                    reason = "used_rate_limited".to_string();
+                } else {
+                    record.confidence = (record.confidence + REINFORCE_CONFIDENCE_BUMP).min(1.0);
+                    record.last_validated_at_ms = Some(now);
+                    changed = true;
+                }
+            }
+            ReinforceOutcome::Corrected => {
+                record.confidence = (record.confidence - REINFORCE_CONFIDENCE_DECAY).max(0.0);
+                changed = true;
+            }
+            ReinforceOutcome::Unused => {
+                // Neutral: nothing to write; the audit event records the
+                // explicit declaration.
+            }
+        }
+
+        if changed {
+            record.updated_at_ms = now;
+            // Same write path as the quarantine state ops: WAL + KV + HNSW via
+            // engine.insert. Payload/metadata/vector are unchanged, and the
+            // confidence fields are not indexed, so the derived text/scalar
+            // indexes stay consistent with no index writes.
+            let engine = self.engine_handle()?;
+            let (mut node, record) = memory_record_to_node_owned(record);
+            carry_graph_state(&engine, &mut node)?;
+            engine.insert(&node)?;
+            self.audit(crate::audit::AuditEvent::new(
+                "memory_reinforce",
+                namespace,
+                key,
+                "ok",
+                Some(reason),
+            ));
+            return Ok(record);
+        }
+
+        self.audit(crate::audit::AuditEvent::new(
+            "memory_reinforce",
+            namespace,
+            key,
+            "ok",
+            Some(reason),
+        ));
+        Ok(record)
+    }
+
+    /// T1d (ADR-046 §D5, MGR-13 §3.2): quarantine an existing record post-hoc
+    /// (`quarantine_apply`).
+    ///
+    /// Sets the four quarantine state fields with the caller's `reason` code
+    /// (default `explicit_write`), the `system:quarantine_apply` applier and
+    /// the review deadline (config, §D5d). Idempotent: a record already
+    /// quarantined is returned as-is (sticky, I2). The state change does not
+    /// bump `version` (state ≠ content; no history snapshot — the audit event
+    /// is the evidence) and is audited as `quarantine_enter`.
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_apply(
+        &self,
+        namespace: &str,
+        key: &str,
+        reason: Option<&str>,
+    ) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        let reason = reason.unwrap_or("explicit_write");
+        validate_quarantine_reason(reason)?;
+        // REVIEW-13 pattern: serialize the read-modify-write below (same
+        // rationale as `supersede` — the engine's insert_lock only serializes
+        // the individual insert, not the SDK-level get + mutate).
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_some() {
+            return Ok(record); // sticky: already quarantined (I2)
+        }
+        let now = now_ms();
+        self.enter_quarantine(&mut record, reason, "system:quarantine_apply", now);
+        record.updated_at_ms = now;
+
+        let engine = self.engine_handle()?;
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
+        engine.insert(&node)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_enter",
+            namespace,
+            key,
+            "ok",
+            Some(reason.to_string()),
+        ));
+        Ok(record)
+    }
+
+    /// T2 (ADR-046 §D5, MGR-13 §3.2): promote a quarantined record back to
+    /// active (`quarantine_promote`).
+    ///
+    /// Explicit, audited act — the only exits are T2 and T4 (I1: nothing
+    /// promotes by clock/TTL). Clears the four quarantine fields and bumps
+    /// `updated_at_ms`; `version` does **not** change and no version-history
+    /// snapshot is written (state ≠ content; the audit event is the evidence).
+    /// Errors when the record is missing or not quarantined.
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_promote(&self, namespace: &str, key: &str) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_none() {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is not quarantined (nothing to promote)"
+            )));
+        }
+        let now = now_ms();
+        record.quarantined_at_ms = None;
+        record.quarantine_reason = None;
+        record.quarantined_by = None;
+        record.quarantine_review_due_ms = None;
+        record.updated_at_ms = now;
+
+        let engine = self.engine_handle()?;
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
+        engine.insert(&node)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_promote",
+            namespace,
+            key,
+            "ok",
+            None,
+        ));
+        Ok(record)
+    }
+
+    /// T4 (ADR-046 §D5, MGR-13 §3.2): reject (delete) a quarantined record
+    /// (`quarantine_reject`; destructive — the call itself is the confirmation).
+    ///
+    /// Errors when the record is missing or not quarantined. The underlying
+    /// delete and the rejection are both audited (`delete` +
+    /// `quarantine_reject`).
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_reject(&self, namespace: &str, key: &str) -> Result<bool> {
+        self.check_read_only()?;
+        // F6 (SCH-05 review): serialize get→check→delete against concurrent
+        // promote/apply (same REVIEW-13 rationale as `supersede`: the engine's
+        // insert_lock only serializes individual writes, not this check-then-act).
+        let _guard = self.supersede_lock.lock();
+        let Some(record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_none() {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is not quarantined (nothing to reject)"
+            )));
+        }
+        let deleted = self.delete(namespace, key)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_reject",
+            namespace,
+            key,
+            if deleted { "ok" } else { "err" },
+            None,
+        ));
+        Ok(deleted)
+    }
+
+    /// Scan all memory records and physically delete those whose expiry deadline has passed.
+    #[tracing::instrument(skip(self), err)]
+    pub fn purge_expired(&self) -> Result<u64> {
+        self.check_read_only()?;
+        let engine = self.engine_handle()?;
+        // DUR-03: serialize against the purge-on-write path and against
+        // record writes/deletes that hold the same write guard (a second
+        // stats decrement for the same generation would drive the text df
+        // negative).
+        let _guard = self.purge_lock.write();
+        // DUR-03 review (round 2): inside an active transaction `engine.delete`
+        // only buffers the node delete while the index cleanup would apply
+        // immediately — an abort would leave the node present with its stats
+        // already gone. Skip the sweep; the next one (post-txn) purges.
+        if engine.txn.has_active() {
+            return Ok(0);
+        }
+        let now = now_ms();
+        let mut to_delete: Vec<MemoryRecord> = Vec::new();
+
+        // MOD-04: select expired candidates via the scalar index
+        // (`expires_at_ms <= now`) instead of a full O(N) engine scan that
+        // reads and clones every node's vector. The scalar index is maintained
+        // on the write path and rebuilt at open / rebuild_index. Candidates
+        // are materialized from backend metadata only (no vector, no cache) —
+        // purge needs nothing beyond the relational fields.
+        let candidates = engine.scalar_lookup_int_le(FIELD_EXPIRES_AT_MS, now as i64);
+
+        for node_id in candidates {
+            let Some(bytes) =
+                engine.get_from_partition(BackendPartition::Default, &node_id.to_le_bytes())?
+            else {
+                // Deleted while we were scanning — skip.
+                continue;
+            };
+            let Ok(metadata) = crate::storage::ops::deserialize_node_payload::<
+                crate::storage::ops::NodeMetadata,
+            >(&bytes, "node metadata") else {
+                continue;
+            };
+            let fields = &metadata.relational;
+            let get = |key: &str| fields.get(key);
+            let namespace = match get(FIELD_NAMESPACE) {
+                Some(FieldValue::String(ns)) => ns.clone(),
+                _ => continue,
+            };
+            let key = match get(FIELD_KEY) {
+                Some(FieldValue::String(k)) => k.clone(),
+                _ => continue,
+            };
+            let expires = match get(FIELD_EXPIRES_AT_MS) {
+                Some(FieldValue::Int(ms)) if *ms > 0 => *ms as u64,
+                _ => continue,
+            };
+            if now > expires {
+                let payload = match get(FIELD_PAYLOAD) {
+                    Some(FieldValue::String(p)) => p.clone(),
+                    _ => String::new(),
+                };
+                let created_at_ms = match get(FIELD_CREATED_AT_MS) {
+                    Some(FieldValue::Int(ms)) if *ms >= 0 => *ms as u64,
+                    _ => 0,
+                };
+                let updated_at_ms = match get(FIELD_UPDATED_AT_MS) {
+                    Some(FieldValue::Int(ms)) if *ms >= 0 => *ms as u64,
+                    _ => 0,
+                };
+                let version = match get(FIELD_VERSION) {
+                    Some(FieldValue::Int(v)) if *v >= 0 => *v as u64,
+                    _ => 0,
+                };
+                let mut metadata_fields = Fields::new();
+                for (fk, fv) in fields {
+                    if !fk.starts_with("__vanta_") {
+                        metadata_fields.insert(fk.clone(), fv.clone().into());
+                    }
+                }
+                to_delete.push(MemoryRecord {
+                    namespace,
+                    key,
+                    payload,
+                    metadata: metadata_fields,
+                    created_at_ms,
+                    updated_at_ms,
+                    version,
+                    node_id,
+                    // The delete loop only reads node_id/namespace/key/payload/
+                    // metadata — skip materializing the dense vector (full
+                    // Vec<f32> clone, dead allocation in this path).
+                    vector: None,
+                    // FIND-251: the sparse vector MUST be decoded for expired
+                    // records (only this `now > expires` branch reaches
+                    // `to_delete`, so non-expired candidates never pay the
+                    // parse): `sparse_delete_ops` keys the posting deletes off
+                    // it. Skipping it left stale
+                    // `BackendPartition::SparseIndex` postings behind.
+                    sparse_vector: super::super::serialization::sparse_vector_from_stored_field(
+                        fields.get(SPARSE_VECTOR_EXT_KEY),
+                        node_id,
+                    ),
+                    expires_at_ms: Some(expires),
+                    superseded_by: None,
+                    superseded_at_ms: None,
+                    ..Default::default()
+                });
+            }
+        }
+
+        let count = to_delete.len() as u64;
+        if count == 0 {
+            return Ok(0);
+        }
+
+        let mut all_ops = Vec::new();
+        let mut total_payload_entries = 0u64;
+        let mut total_posting = 0u64;
+        let mut total_sparse_postings = 0u64;
+        let mut doc_stats_delta: i64 = 0;
+        let mut term_deltas: BTreeMap<(String, String), i64> = BTreeMap::new();
+        let mut namespace_deltas: BTreeMap<String, (i64, i64)> = BTreeMap::new();
+
+        for record in &to_delete {
+            engine.delete(record.node_id, "purge_expired")?;
+            // Purge version history of the expired key (VS-CORE-07) — best-effort.
+            let _ =
+                super::super::version_history::purge_key(&engine, &record.namespace, &record.key);
+            all_ops.extend(Self::derived_delete_ops(record)?);
+            // FIND-251: drop the sparse postings too — the same helper
+            // `replace_derived_indexes` uses for the delete side of a sparse
+            // replace. Without it the SparseIndex partition kept stale
+            // postings for expired records.
+            all_ops
+                .extend(super::super::serialization::impl_sparse_index::sparse_delete_ops(record));
+            total_sparse_postings +=
+                super::super::serialization::impl_sparse_index::sparse_posting_count(record);
+            total_payload_entries += record.metadata.len() as u64;
+
+            let terms = crate::text_index::record_terms(&record.payload);
+            all_ops.extend(crate::text_index::posting_delete_ops(
+                &record.namespace,
+                &record.key,
+                &record.payload,
+            ));
+            all_ops.push(crate::text_index::doc_stats_delete_op(
+                &record.namespace,
+                &record.key,
+            ));
+            doc_stats_delta -= 1;
+            total_posting += crate::text_index::posting_count(&record.payload);
+
+            for token in terms.token_counts.keys() {
+                *term_deltas
+                    .entry((record.namespace.clone(), token.clone()))
+                    .or_default() -= 1;
+            }
+            let ns_delta = namespace_deltas
+                .entry(record.namespace.clone())
+                .or_insert((0, 0));
+            ns_delta.0 -= 1;
+            ns_delta.1 -= i64::from(terms.doc_len);
+        }
+
+        let mut term_stats_delta: i64 = 0;
+        for ((namespace, token), delta) in term_deltas {
+            if delta == 0 {
+                continue;
+            }
+            let existing = Self::load_text_term_stats(&engine, &namespace, &token)?
+                .map(|stats| stats.df)
+                .unwrap_or(0);
+            let next = Self::checked_stats_value(existing as i128 + delta as i128, "df")?;
+            match (existing == 0, next == 0) {
+                (true, false) => term_stats_delta += 1,
+                (false, true) => term_stats_delta -= 1,
+                _ => {}
+            }
+            if next == 0 {
+                all_ops.push(crate::text_index::term_stats_delete_op(&namespace, &token));
+            } else {
+                all_ops.push(crate::text_index::term_stats_put_op(
+                    &namespace, &token, next,
+                )?);
+            }
+        }
+
+        let mut namespace_stats_delta: i64 = 0;
+        for (namespace, (doc_delta, len_delta)) in namespace_deltas {
+            if doc_delta == 0 && len_delta == 0 {
+                continue;
+            }
+            let existing = Self::load_text_namespace_stats(&engine, &namespace)?.unwrap_or(
+                crate::text_index::TextNamespaceStats {
+                    doc_count: 0,
+                    total_doc_len: 0,
+                },
+            );
+            let next_doc_count = Self::checked_stats_value(
+                existing.doc_count as i128 + doc_delta as i128,
+                "doc_count",
+            )?;
+            let next_total_doc_len = Self::checked_stats_value(
+                existing.total_doc_len as i128 + len_delta as i128,
+                "total_doc_len",
+            )?;
+            match (existing.doc_count == 0, next_doc_count == 0) {
+                (true, false) => namespace_stats_delta += 1,
+                (false, true) => namespace_stats_delta -= 1,
+                _ => {}
+            }
+            if next_doc_count == 0 {
+                all_ops.push(crate::text_index::namespace_stats_delete_op(&namespace));
+            } else {
+                all_ops.push(crate::text_index::namespace_stats_put_op(
+                    &namespace,
+                    &crate::text_index::TextNamespaceStats {
+                        doc_count: next_doc_count,
+                        total_doc_len: next_total_doc_len,
+                    },
+                )?);
+            }
+        }
+
+        engine.write_backend_batch(all_ops.clone())?;
+
+        // Reflect the committed ops in the stats caches — only AFTER the
+        // batch succeeded (a failed write must not poison the cache).
+        Self::apply_text_stats_cache_updates(&engine, &all_ops);
+
+        if let Some(mut state) = Self::load_derived_index_state(&engine)? {
+            if state.schema_version == DERIVED_INDEX_SCHEMA_VERSION {
+                state.record_count = state.record_count.saturating_sub(count);
+                state.namespace_entries = state.namespace_entries.saturating_sub(count);
+                state.payload_entries = state.payload_entries.saturating_sub(total_payload_entries);
+                Self::write_derived_index_state(&engine, &state)?;
+            }
+        }
+
+        if let Some(mut state) = Self::load_text_index_state(&engine)? {
+            if Self::text_index_state_matches_spec(&state) {
+                state.record_count = state.record_count.saturating_sub(count);
+                state.posting_entries = state.posting_entries.saturating_sub(total_posting);
+                state.doc_stats_entries =
+                    Self::apply_u64_delta(state.doc_stats_entries, doc_stats_delta);
+                state.term_stats_entries =
+                    Self::apply_u64_delta(state.term_stats_entries, term_stats_delta);
+                state.namespace_stats_entries =
+                    Self::apply_u64_delta(state.namespace_stats_entries, namespace_stats_delta);
+                Self::write_text_index_state(&engine, &state)?;
+            }
+        }
+
+        // FIND-251: keep the sparse index state consistent with the postings
+        // removed above — same adjustment `replace_derived_indexes` applies
+        // for the (Some, None) delete case, batched.
+        if let Some(mut state) = Self::load_sparse_index_state(&engine)? {
+            if state.schema_version == SPARSE_INDEX_SCHEMA_VERSION {
+                state.record_count = state.record_count.saturating_sub(count);
+                state.posting_entries = state.posting_entries.saturating_sub(total_sparse_postings);
+                Self::write_sparse_index_state(&engine, &state)?;
+            }
+        }
+
+        crate::metrics::record_text_postings_written(total_posting);
+
+        Ok(count)
+    }
+
+    /// Bulk-import records from a binary stream.
+    ///
+    /// Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`,
+    /// 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`.
+    ///
+    /// Bypasses per-record validation (`validate_namespace`, `validate_key`,
+    /// `validate_metadata`) for raw throughput. Commits to the engine in batches
+    /// sized by [`Config::bulk_commit_interval`](crate::Config::bulk_commit_interval) (default: 10 000).
+    pub fn bulk_import_stream<R: std::io::Read>(&self, reader: &mut R) -> Result<BulkImportReport> {
+        self.check_read_only()?;
+        let start = Instant::now();
+
+        // ── Header ──
+        let mut magic = [0u8; 8];
+        reader.read_exact(&mut magic)?;
+        if &magic != b"VDBJSON\n" {
+            return Err(Error::Validation {
+                field: "header".into(),
+                reason: format!(
+                    "invalid magic bytes: expected VDBJSON\\n, got {:?}",
+                    std::str::from_utf8(&magic).unwrap_or("??")
+                ),
+            });
+        }
+
+        let mut version = [0u8; 1];
+        reader.read_exact(&mut version)?;
+        if version[0] != 0x01 {
+            return Err(Error::Validation {
+                field: "version".into(),
+                reason: format!("unsupported format version: {}", version[0]),
+            });
+        }
+
+        let mut raw_count = [0u8; 8];
+        reader.read_exact(&mut raw_count)?;
+        let total = u64::from_le_bytes(raw_count) as usize;
+
+        // ── Body: serde_json-serialized Vec<MemoryInput> ──
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf)?;
+
+        let records: Vec<MemoryInput> =
+            serde_json::from_slice(&buf).map_err(|e| Error::Validation {
+                field: "body".into(),
+                reason: format!("JSON deserialization failed: {}", e),
+            })?;
+
+        if records.len() != total {
+            return Err(Error::Validation {
+                field: "count".into(),
+                reason: format!("declared {} records but got {}", total, records.len()),
+            });
+        }
+
+        let engine = self.engine_handle()?;
+        let commit_interval = self.config.bulk_commit_interval.unwrap_or(10_000);
+        let mut batches = 0usize;
+        let mut quarantined = 0u64;
+        let imported_at_ms = now_ms();
+        // FIND-411: the imported vectors must share the index dimension — the
+        // first one establishes it when the index holds none yet.
+        //
+        // FIND-411 (O4): the whole `Vec` is validated **before** the chunk
+        // loop — the records are already in memory, so a mismatch in chunk N
+        // must not leave chunks 1..N-1 written.
+        let mut expected_dimension = self.index_vector_dimension(&engine);
+        for input in &records {
+            validate_input_vectors_finiteness(
+                input.vector.as_deref(),
+                input.sparse_vector.as_ref(),
+                "bulk_import",
+            )?;
+            if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+                validate_vector_dimension(expected_dimension, vector.len())?;
+                expected_dimension.get_or_insert(vector.len());
+            }
+        }
+
+        for chunk in records.chunks(commit_interval) {
+            for input in chunk {
+                let node_id = memory_node_id(&input.namespace, &input.key);
+                let mut node = UnifiedNode::new(node_id);
+                // Reserved fields (MCP-28): mirror `memory_record_to_node_owned`
+                // so bulk-imported records are addressable via get/list/delete.
+                // Without these, `record_from_node` returns None and the
+                // record is invisible to the memory API.
+                node.set_field(FIELD_NAMESPACE, FieldValue::String(input.namespace.clone()));
+                node.set_field(FIELD_KEY, FieldValue::String(input.key.clone()));
+                node.set_field(FIELD_PAYLOAD, FieldValue::String(input.payload.clone()));
+                node.set_field(FIELD_CREATED_AT_MS, FieldValue::Int(imported_at_ms as i64));
+                node.set_field(FIELD_UPDATED_AT_MS, FieldValue::Int(imported_at_ms as i64));
+                node.set_field(FIELD_VERSION, FieldValue::Int(1));
+
+                // v2 projection (ADR-046 §D2/§D6): the raw bulk path bypasses
+                // the validated put path, so declared `derived` records (which
+                // need parent lookups + score derivation) are rejected
+                // explicitly instead of being silently downgraded.
+                if input.confidence_class == Some(ConfidenceClass::Derived)
+                    || input
+                        .derived_from
+                        .as_ref()
+                        .is_some_and(|parents| !parents.is_empty())
+                {
+                    return Err(Error::Validation {
+                        field: "confidence_class".into(),
+                        reason: "derived records are not supported by bulk import; use put_batch"
+                            .into(),
+                    });
+                }
+                if let Some(value) = input.confidence {
+                    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                        return Err(Error::Validation {
+                            field: "confidence".into(),
+                            reason: "confidence must be a finite number in [0,1]".into(),
+                        });
+                    }
+                }
+                // Boundary alignment with the validated put path (N2): `Some(0)`
+                // is rejected there (`valid_at_ms` must be > 0; omit for
+                // default); the raw bulk path must not silently reinterpret it.
+                if input.valid_at_ms == Some(0) {
+                    return Err(Error::Validation {
+                        field: "valid_at_ms".into(),
+                        reason: "must be greater than 0; omit the field to default to the import timestamp"
+                            .into(),
+                    });
+                }
+                let valid_at_ms = input.valid_at_ms.unwrap_or(imported_at_ms);
+                node.set_field(FIELD_VALID_AT_MS, FieldValue::Int(valid_at_ms as i64));
+                node.set_field(
+                    FIELD_CONFIDENCE_CLASS,
+                    FieldValue::String(ConfidenceClass::Asserted.as_wire_str().to_string()),
+                );
+                node.confidence_score = input.confidence.unwrap_or_else(default_confidence);
+                // T1/F4 (ADR-046 §D5, SCH-05 review): the raw bulk path honors
+                // the write-time flag AND preserves an existing quarantine when
+                // the incoming record carries none (sticky, I2 — only T2/T4
+                // leave quarantine). The metadata-only point read per unflagged
+                // record is the price of closing the bypass;
+                // ponytail: batch the existence checks if bulk-heavy workloads
+                // ever show this read in a profile.
+                if input.quarantine {
+                    node.set_field(
+                        FIELD_QUARANTINED_AT_MS,
+                        FieldValue::Int(imported_at_ms as i64),
+                    );
+                    node.set_field(
+                        FIELD_QUARANTINE_REASON,
+                        FieldValue::String("explicit_write".to_string()),
+                    );
+                    node.set_field(
+                        FIELD_QUARANTINED_BY,
+                        FieldValue::String("system:bulk_import".to_string()),
+                    );
+                    if let Some(due) = self.quarantine_review_due_ms(imported_at_ms) {
+                        node.set_field(FIELD_QUARANTINE_REVIEW_DUE_MS, FieldValue::Int(due as i64));
+                    }
+                    quarantined += 1;
+                } else if let Some((at, reason, by, due)) =
+                    Self::existing_quarantine_fields(&engine, node_id)?
+                {
+                    node.set_field(FIELD_QUARANTINED_AT_MS, FieldValue::Int(at));
+                    if let Some(reason) = reason {
+                        node.set_field(FIELD_QUARANTINE_REASON, FieldValue::String(reason));
+                    }
+                    if let Some(by) = by {
+                        node.set_field(FIELD_QUARANTINED_BY, FieldValue::String(by));
+                    }
+                    if let Some(due) = due {
+                        node.set_field(FIELD_QUARANTINE_REVIEW_DUE_MS, FieldValue::Int(due));
+                    }
+                }
+                if let Some(ref v) = input.vector {
+                    node.vector = VectorRepresentations::Full(v.clone());
+                    node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                }
+                for (k, v) in &input.metadata {
+                    let fv = match v {
+                        Value::String(s) => FieldValue::String(s.clone()),
+                        Value::Int(i) => FieldValue::Int(*i),
+                        Value::Float(f) => FieldValue::Float(*f),
+                        Value::Bool(b) => FieldValue::Bool(*b),
+                        // DateTime and list variants are not supported in bulk import.
+                        _ => continue,
+                    };
+                    node.set_field(k, fv);
+                }
+                if let Some(ttl) = input.ttl_ms {
+                    let expires_at_ms = now_ms().saturating_add(ttl);
+                    node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at_ms as i64));
+                }
+                // MEMG-03: an overwrite must not wipe node-resident graph state
+                // (edges) — same bridge rule as the validated put path — and
+                // the bulk path declares no lineage (derived records are
+                // rejected above; `superseded_by` is never set), so stale
+                // lineage edges from a previous state are dropped:
+                // field = canonical, edge = derived navigability.
+                carry_graph_state(&engine, &mut node)?;
+                let stale_lineage =
+                    reconcile_lineage_edges(&engine, &mut node, &input.namespace, &[], None);
+                engine.insert(&node)?;
+                for (target, label) in stale_lineage {
+                    let _ = self.remove_edge(node.id, target, label);
+                }
+            }
+            batches += 1;
+        }
+
+        let duration_ms = start.elapsed().as_millis() as u64;
+        // SCH-05 review F3: import ops are audited (the bulk path was silent).
+        self.audit(crate::audit::AuditEvent::new(
+            "bulk_import",
+            "N/A",
+            "N/A",
+            "ok",
+            (quarantined > 0).then(|| format!("{quarantined} quarantined")),
+        ));
+        Ok(BulkImportReport {
+            total_records: total,
+            batches_committed: batches,
+            quarantined,
+            duration_ms,
+        })
+    }
+
+    /// Convenience: bulk-import from a binary file in bulk format.
+    ///
+    /// The path goes through the same export-base sandbox as the other
+    /// file import/export ops (WIRE-09) — the HTTP server passes a
+    /// user-supplied path here (`import_v2` with `format: "bulk"`).
+    pub fn bulk_import_file(&self, path: &str) -> Result<BulkImportReport> {
+        let resolved = self.resolve_export_path(std::path::Path::new(path))?;
+        let mut file = std::fs::File::open(&resolved)?;
+        self.bulk_import_stream(&mut file)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+    use crate::error::Error;
+
+    #[test]
+    fn test_max_namespace_records_enforced() {
+        let config = Config::in_memory().with_max_namespace_records(2);
+        let db = Embedded::open_with_config(config).expect("open db");
+
+        // First insert in ns1 succeeds
+        db.put(MemoryInput::new("ns1", "k1", "payload 1"))
+            .expect("put 1");
+        // Second insert in ns1 succeeds
+        db.put(MemoryInput::new("ns1", "k2", "payload 2"))
+            .expect("put 2");
+
+        // Third insert in ns1 with new key must fail with QuotaExceeded
+        let err = db
+            .put(MemoryInput::new("ns1", "k3", "payload 3"))
+            .expect_err("must exceed records quota");
+        match err {
+            Error::QuotaExceeded(msg) => {
+                assert!(msg.contains("record quota exceeded"));
+                assert!(msg.contains("ns1"));
+            }
+            other => panic!("expected QuotaExceeded, got {other:?}"),
+        }
+
+        // In-place update of existing key k1 in ns1 must succeed (record count doesn't increase)
+        db.put(MemoryInput::new("ns1", "k1", "payload 1 updated"))
+            .expect("in-place update should succeed");
+
+        // Insert into different namespace ns2 should succeed (per-namespace quota)
+        db.put(MemoryInput::new("ns2", "k1", "payload 1"))
+            .expect("ns2 put 1");
+    }
+
+    #[test]
+    fn test_max_namespace_bytes_enforced() {
+        // Set quota to 250 bytes.
+        let config = Config::in_memory().with_max_namespace_bytes(250);
+        let db = Embedded::open_with_config(config).expect("open db");
+
+        // First record (~75 bytes) -> total ~75 <= 250 -> OK
+        db.put(MemoryInput::new("tenant", "k1", "payload 1"))
+            .expect("put k1");
+
+        // Large record that exceeds 250 bytes limit:
+        let large_payload = "A".repeat(400);
+        let err = db
+            .put(MemoryInput::new("tenant", "k2", &large_payload))
+            .expect_err("must exceed bytes quota");
+        match err {
+            Error::QuotaExceeded(msg) => {
+                assert!(msg.contains("storage quota exceeded"));
+                assert!(msg.contains("tenant"));
+            }
+            other => panic!("expected QuotaExceeded, got {other:?}"),
+        }
+
+        // In-place update of k1 with shorter or equal payload must succeed (delta <= 0)
+        db.put(MemoryInput::new("tenant", "k1", "short"))
+            .expect("in-place smaller update must succeed");
+
+        // In-place update of k1 with huge payload exceeding budget must fail
+        let err2 = db
+            .put(MemoryInput::new("tenant", "k1", &large_payload))
+            .expect_err("in-place expansion exceeding budget must fail");
+        assert!(matches!(err2, Error::QuotaExceeded(_)));
+    }
+
+    #[test]
+    fn test_batch_namespace_quotas_enforced() {
+        let config = Config::in_memory()
+            .with_max_namespace_records(2)
+            .with_max_namespace_bytes(1000);
+        let db = Embedded::open_with_config(config).expect("open db");
+
+        // Batch of 3 new records exceeds records quota of 2
+        let batch = vec![
+            MemoryInput::new("batch_ns", "k1", "data 1"),
+            MemoryInput::new("batch_ns", "k2", "data 2"),
+            MemoryInput::new("batch_ns", "k3", "data 3"),
+        ];
+        let err = db
+            .put_batch(batch)
+            .expect_err("batch must exceed record quota");
+        assert!(matches!(err, Error::QuotaExceeded(_)));
+
+        // Batch of 2 new records within budget succeeds
+        let valid_batch = vec![
+            MemoryInput::new("batch_ns", "k1", "data 1"),
+            MemoryInput::new("batch_ns", "k2", "data 2"),
+        ];
+        let res = db
+            .put_batch(valid_batch)
+            .expect("batch within quota succeeds");
+        assert_eq!(res.len(), 2);
+    }
+
+    /// Residual (read_only × FastGate): `put` under `read_only` must be
+    /// rejected BEFORE `dedup_filter.check_and_mark` mutates the bloom —
+    /// otherwise the bloom claims content the store never accepted, and the
+    /// exact-match → `reinforce` fallback could return `Ok` on a rejected
+    /// write.
+    #[test]
+    fn put_read_only_does_not_mark_dedup_bloom() {
+        let db = Embedded::open_with_config(Config {
+            read_only: true,
+            ..Config::in_memory()
+        })
+        .expect("open read-only db");
+
+        let mut input = MemoryInput::new("ns", "k1", "payload one");
+        input.dedup_policy = Some(DedupPolicy::Semantic);
+        let err = db
+            .put(input)
+            .expect_err("put must be rejected under read_only");
+        assert!(
+            matches!(err, Error::Validation { ref field, .. } if field == "read_only"),
+            "expected Validation{{read_only}}, got {err:?}"
+        );
+
+        // The bloom must NOT hold the rejected write's key: a fresh
+        // `check_and_mark` on the same filter key still reports "new".
+        let norm_text = normalize_content("payload one");
+        let filter_key = format!("{}\0{}", "ns", norm_text);
+        assert!(
+            !db.dedup_filter.check_and_mark(filter_key.as_bytes()),
+            "a rejected put must not mark the dedup bloom filter"
+        );
+        // And no exact-registry entry was recorded for the rejected write.
+        assert!(
+            db.dedup_filter
+                .lookup_exact("ns", hash_content(&norm_text))
+                .is_none(),
+            "a rejected put must not register in the exact dedup registry"
+        );
+    }
+
+    /// Same ordering for the batch path: `put_batch` under `read_only` must
+    /// fail before Stage A's existing-record resolution can purge expired
+    /// records (a mutation) — previously only Stage B's engine-side
+    /// `ensure_writable` rejected it.
+    #[test]
+    fn put_batch_read_only_rejected_before_staging() {
+        let db = Embedded::open_with_config(Config {
+            read_only: true,
+            ..Config::in_memory()
+        })
+        .expect("open read-only db");
+
+        let err = db
+            .put_batch(vec![MemoryInput::new("ns", "k1", "payload")])
+            .expect_err("put_batch must be rejected under read_only");
+        assert!(
+            matches!(err, Error::Validation { ref field, .. } if field == "read_only"),
+            "expected Validation{{read_only}}, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn put_rejects_non_finite_dense_vectors_nan_and_inf() {
+        for policy in [DedupPolicy::Off, DedupPolicy::Semantic] {
+            let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+            // Seed an existing record so Semantic FastGate has a target to hit if not pre-validated.
+            let mut seed = MemoryInput::new("vec", "seed", "existing record");
+            seed.vector = Some(vec![1.0, 0.0, 0.0]);
+            seed.dedup_policy = Some(policy);
+            db.put(seed).expect("seed put");
+
+            for (label, bad_val) in [
+                ("nan", f32::NAN),
+                ("pos_inf", f32::INFINITY),
+                ("neg_inf", f32::NEG_INFINITY),
+            ] {
+                let mut input = MemoryInput::new("vec", label, "existing record");
+                input.vector = Some(vec![0.5, bad_val, 0.25]);
+                input.dedup_policy = Some(policy);
+                let err = db
+                    .put(input)
+                    .expect_err("non-finite dense vector must be rejected");
+                assert!(
+                    matches!(err, Error::InvalidInput(_)),
+                    "expected Error::InvalidInput for {label} ({policy:?}), got {err:?}"
+                );
+                assert!(
+                    err.to_string().contains("non-finite"),
+                    "error message must mention non-finite: {err}"
+                );
+                assert!(
+                    db.get("vec", label).expect("get").is_none(),
+                    "rejected write must not persist {label}"
+                );
+            }
+
+            // Finite zero-norm vector remains accepted as a vectorless record (Risk Register).
+            let mut zero_input = MemoryInput::new("vec", "zero_ok", "zero vector record");
+            zero_input.vector = Some(vec![0.0, 0.0, 0.0]);
+            zero_input.dedup_policy = Some(policy);
+            let zero_rec = db.put(zero_input).expect("finite zero vector accepted");
+            assert_eq!(zero_rec.vector, None);
+        }
+    }
+
+    #[test]
+    fn put_rejects_non_finite_sparse_vectors_nan_and_inf() {
+        use crate::node::SparseVector;
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        for (label, bad_val) in [
+            ("sparse_nan", f32::NAN),
+            ("sparse_pos_inf", f32::INFINITY),
+            ("sparse_neg_inf", f32::NEG_INFINITY),
+        ] {
+            let mut input = MemoryInput::new("vec", label, "payload");
+            input.sparse_vector = Some(SparseVector(BTreeMap::from([(1, 0.5), (7, bad_val)])));
+            let err = db
+                .put(input)
+                .expect_err("non-finite sparse vector must be rejected");
+            assert!(
+                matches!(err, Error::InvalidInput(_)),
+                "expected Error::InvalidInput for {label}, got {err:?}"
+            );
+            assert!(db.get("vec", label).expect("get").is_none());
+        }
+    }
+
+    #[test]
+    fn put_batch_rejects_non_finite_dense_and_sparse_vectors_all_or_nothing() {
+        use crate::node::SparseVector;
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        for (idx, (bad_dense, bad_sparse)) in [
+            (Some(vec![1.0, f32::NAN, 0.0]), None),
+            (Some(vec![1.0, f32::INFINITY, 0.0]), None),
+            (Some(vec![1.0, f32::NEG_INFINITY, 0.0]), None),
+            (None, Some(SparseVector(BTreeMap::from([(3, f32::NAN)])))),
+            (
+                None,
+                Some(SparseVector(BTreeMap::from([(3, f32::INFINITY)]))),
+            ),
+            (
+                None,
+                Some(SparseVector(BTreeMap::from([(3, f32::NEG_INFINITY)]))),
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let valid_key = format!("valid_{idx}");
+            let bad_key = format!("bad_{idx}");
+            let mut valid = MemoryInput::new("batch_nf", &valid_key, "valid payload");
+            valid.vector = Some(vec![1.0, 0.0, 0.0]);
+            let mut bad = MemoryInput::new("batch_nf", &bad_key, "bad payload");
+            bad.vector = bad_dense;
+            bad.sparse_vector = bad_sparse;
+
+            let err = db
+                .put_batch(vec![valid, bad])
+                .expect_err("batch with non-finite vector must fail");
+            assert!(
+                matches!(err, Error::InvalidInput(_)),
+                "expected Error::InvalidInput, got {err:?}"
+            );
+            assert!(
+                db.get("batch_nf", &valid_key).expect("get").is_none(),
+                "upfront validation must prevent partial commit of {valid_key}"
+            );
+            assert!(db.get("batch_nf", &bad_key).expect("get").is_none());
+        }
+    }
+
+    #[test]
+    fn search_rejects_non_finite_dense_and_sparse_queries() {
+        use crate::node::{DistanceMetric, SparseVector};
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        let mut seed = MemoryInput::new("srch", "k1", "alpha beta");
+        seed.vector = Some(vec![1.0, 0.0, 0.0]);
+        seed.sparse_vector = Some(SparseVector(BTreeMap::from([(1, 1.0)])));
+        db.put(seed).expect("seed");
+
+        for bad_val in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            for metric in [DistanceMetric::Cosine, DistanceMetric::Euclidean] {
+                let req = MemorySearchRequest {
+                    namespace: "srch".into(),
+                    query_vector: vec![bad_val, 1.0, 0.0],
+                    top_k: 5,
+                    distance_metric: metric,
+                    ..Default::default()
+                };
+                let err = db
+                    .search(req.clone())
+                    .expect_err("non-finite query_vector must fail search");
+                assert!(
+                    matches!(err, Error::InvalidInput(_)),
+                    "search({metric:?}, {bad_val}): expected InvalidInput, got {err:?}"
+                );
+                let err_page = db
+                    .search_page(req.clone())
+                    .expect_err("non-finite query_vector must fail search_page");
+                assert!(matches!(err_page, Error::InvalidInput(_)));
+                let err_method = db
+                    .search_with_method(req, Some(crate::index::IndexType::Flat))
+                    .expect_err("non-finite query_vector must fail search_with_method");
+                assert!(matches!(err_method, Error::InvalidInput(_)));
+            }
+
+            let err_sv = db
+                .search_vector(&[bad_val, 1.0, 0.0], 5)
+                .expect_err("non-finite vector must fail search_vector");
+            assert!(
+                matches!(err_sv, Error::InvalidInput(_)),
+                "search_vector({bad_val}): expected InvalidInput, got {err_sv:?}"
+            );
+
+            let req_sparse = MemorySearchRequest {
+                namespace: "srch".into(),
+                query_sparse: Some(SparseVector(BTreeMap::from([(1, bad_val)]))),
+                top_k: 5,
+                ..Default::default()
+            };
+            let err_sp = db
+                .search(req_sparse)
+                .expect_err("non-finite query_sparse must fail search");
+            assert!(
+                matches!(err_sp, Error::InvalidInput(_)),
+                "search sparse({bad_val}): expected InvalidInput, got {err_sp:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn merge_record_and_put_record_exact_reject_non_finite_vectors() {
+        use crate::node::SparseVector;
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        let rec_dense = MemoryRecord {
+            namespace: "merge_nf".into(),
+            key: "k1".into(),
+            payload: "p".into(),
+            updated_at_ms: 100,
+            version: 1,
+            vector: Some(vec![0.1, f32::NAN, 0.2]),
+            ..Default::default()
+        };
+        let err = db
+            .merge_record(rec_dense)
+            .expect_err("merge_record must reject non-finite dense vector");
+        assert!(matches!(err, Error::InvalidInput(_)));
+
+        let rec_sparse = MemoryRecord {
+            namespace: "merge_nf".into(),
+            key: "k2".into(),
+            payload: "p".into(),
+            updated_at_ms: 100,
+            version: 1,
+            sparse_vector: Some(SparseVector(BTreeMap::from([(2, f32::NEG_INFINITY)]))),
+            ..Default::default()
+        };
+        let err_sp = db
+            .merge_record(rec_sparse)
+            .expect_err("merge_record must reject non-finite sparse vector");
+        assert!(matches!(err_sp, Error::InvalidInput(_)));
+    }
+
+    #[test]
+    fn validate_derivation_chain_diamond_dag_long_branch_after_short_branch_rejected() {
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        let make_derived = |key: &str, parents: &[&str]| MemoryInput {
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(parents.iter().map(|s| (*s).to_string()).collect()),
+            ..MemoryInput::new("dag", key, key)
+        };
+
+        db.put(MemoryInput::new("dag", "d0", "base")).expect("d0");
+        let mut prev = "d0".to_string();
+        for depth in 1..=(MAX_DERIVATION_DEPTH - 2) {
+            let key = format!("d{depth}");
+            db.put(make_derived(&key, &[prev.as_str()]))
+                .expect("base chain within cap");
+            prev = key;
+        }
+        // `prev` is d14 (14 hops to d0).
+        // `short_branch -> d14`: 15 hops from short_branch to d0.
+        // `long_branch -> long_mid -> d14`: 16 hops from long_branch to d0 (still valid).
+        db.put(make_derived("short_branch", &[prev.as_str()]))
+            .expect("short_branch");
+        db.put(make_derived("long_mid", &[prev.as_str()]))
+            .expect("long_mid");
+        db.put(make_derived("long_branch", &["long_mid"]))
+            .expect("long_branch");
+
+        // A valid diamond DAG whose longest branch is exactly MAX_DERIVATION_DEPTH (16) must pass:
+        // d13 -> ... -> d0 is 13 hops; +3 hops (valid_diamond -> ok_long -> ok_mid -> d13) = 16.
+        let d13 = format!("d{}", MAX_DERIVATION_DEPTH - 3);
+        db.put(make_derived("ok_short", &[d13.as_str()]))
+            .expect("ok_short");
+        db.put(make_derived("ok_mid", &[d13.as_str()]))
+            .expect("ok_mid");
+        db.put(make_derived("ok_long", &["ok_mid"]))
+            .expect("ok_long");
+        db.put(make_derived("valid_diamond", &["ok_long", "ok_short"]))
+            .expect("diamond within MAX_DERIVATION_DEPTH must succeed");
+
+        // Diamond DAG exceeding MAX_DERIVATION_DEPTH via `long_branch` (17 hops to d0),
+        // regardless of parent order (short visited first vs long visited first):
+        for (idx, parents) in [
+            ["long_branch", "short_branch"],
+            ["short_branch", "long_branch"],
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let key = format!("diamond_too_deep_{idx}");
+            let err = db
+                .put(make_derived(&key, &parents))
+                .expect_err("diamond DAG whose long branch exceeds MAX_DERIVATION_DEPTH must fail");
+            assert!(
+                matches!(err, Error::Validation { ref reason, .. } if reason.contains("MAX_DERIVATION_DEPTH")),
+                "expected MAX_DERIVATION_DEPTH validation error for {key}, got {err:?}"
+            );
+        }
+
+        // Same diamond DAG inside a single `put_batch` (via batch_seen) must also reject.
+        let batch_err = db
+            .put_batch(vec![
+                MemoryInput::new("dag_b", "b0", "base"),
+                make_derived_in_ns("dag_b", "b1", &["b0"]),
+                make_derived_in_ns("dag_b", "b2", &["b1"]),
+                make_derived_in_ns("dag_b", "b3", &["b2"]),
+                make_derived_in_ns("dag_b", "b4", &["b3"]),
+                make_derived_in_ns("dag_b", "b5", &["b4"]),
+                make_derived_in_ns("dag_b", "b6", &["b5"]),
+                make_derived_in_ns("dag_b", "b7", &["b6"]),
+                make_derived_in_ns("dag_b", "b8", &["b7"]),
+                make_derived_in_ns("dag_b", "b9", &["b8"]),
+                make_derived_in_ns("dag_b", "b10", &["b9"]),
+                make_derived_in_ns("dag_b", "b11", &["b10"]),
+                make_derived_in_ns("dag_b", "b12", &["b11"]),
+                make_derived_in_ns("dag_b", "b13", &["b12"]),
+                make_derived_in_ns("dag_b", "b14", &["b13"]),
+                make_derived_in_ns("dag_b", "b_short", &["b14"]),
+                make_derived_in_ns("dag_b", "b_mid", &["b14"]),
+                make_derived_in_ns("dag_b", "b_long", &["b_mid"]),
+                make_derived_in_ns("dag_b", "b_deep", &["b_long", "b_short"]),
+            ])
+            .expect_err("in-batch diamond DAG exceeding MAX_DERIVATION_DEPTH must fail");
+        assert!(
+            matches!(batch_err, Error::Validation { ref reason, .. } if reason.contains("MAX_DERIVATION_DEPTH")),
+            "expected MAX_DERIVATION_DEPTH validation error in batch, got {batch_err:?}"
+        );
+    }
+
+    /// FIND-660 residual: a derivation cycle that does NOT pass through the
+    /// written key must be reported as a cycle, not misreported as an
+    /// over-depth chain. The loop is committed through `put_record_exact`
+    /// (transport-level write: local field checks only, no chain walk — the
+    /// same path a JSONL import/merge payload could take).
+    #[test]
+    fn validate_derivation_chain_off_key_cycle_reports_cycle_not_max_depth() {
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+
+        let cyclic = |key: &str, parents: &[&str]| MemoryRecord {
+            namespace: "cyc".into(),
+            key: key.into(),
+            payload: key.into(),
+            node_id: memory_node_id("cyc", key),
+            confidence_class: ConfidenceClass::Derived,
+            derived_from: parents.iter().map(|s| (*s).to_string()).collect(),
+            ..Default::default()
+        };
+        db.put_record_exact(cyclic("cyc_a", &["cyc_b"]))
+            .expect("transport write of cyc_a");
+        db.put_record_exact(cyclic("cyc_b", &["cyc_a"]))
+            .expect("transport write of cyc_b");
+
+        // victim -> cyc_a -> cyc_b -> cyc_a: the loop is off `key`.
+        let err = db
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                derived_from: Some(vec!["cyc_a".to_string()]),
+                ..MemoryInput::new("cyc", "victim", "payload")
+            })
+            .expect_err("a parent chain ending in a cycle must be rejected");
+        match err {
+            Error::Validation { ref reason, .. } => {
+                assert!(
+                    reason.contains("derivation cycle detected"),
+                    "expected a cycle error, got: {reason}"
+                );
+                assert!(
+                    !reason.contains("MAX_DERIVATION_DEPTH"),
+                    "an off-key cycle must not be misreported as over-depth: {reason}"
+                );
+            }
+            other => panic!("expected Error::Validation, got {other:?}"),
+        }
+
+        // A cycle through the written key keeps the dedicated message.
+        let self_err = db
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                derived_from: Some(vec!["victim".to_string()]),
+                ..MemoryInput::new("cyc", "victim", "payload")
+            })
+            .expect_err("self-derivation must be rejected");
+        assert!(
+            matches!(self_err, Error::Validation { ref reason, .. } if reason.contains("'victim' is its own ancestor")),
+            "expected the through-key cycle message, got {self_err:?}"
+        );
+    }
+
+    fn make_derived_in_ns(ns: &str, key: &str, parents: &[&str]) -> MemoryInput {
+        MemoryInput {
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(parents.iter().map(|s| (*s).to_string()).collect()),
+            ..MemoryInput::new(ns, key, key)
+        }
+    }
+
+    /// FIND-251: `purge_expired` must also delete the record's
+    /// `BackendPartition::SparseIndex` postings — the same cleanup
+    /// `replace_derived_indexes` applies on the delete side. A record with a
+    /// sparse vector and a lapsed deadline must leave zero postings behind.
+    #[test]
+    fn purge_expired_removes_sparse_index_postings() {
+        use crate::node::SparseVector;
+
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+        db.put_record_exact(MemoryRecord {
+            namespace: "ttl".into(),
+            key: "exp".into(),
+            payload: "expired payload".into(),
+            node_id: memory_node_id("ttl", "exp"),
+            sparse_vector: Some(SparseVector(BTreeMap::from([(3, 0.5), (9, 1.0)]))),
+            // Deadline already passed at write time (epoch + 1 ms) —
+            // deterministic expiry, no clock wait.
+            expires_at_ms: Some(1),
+            ..Default::default()
+        })
+        .expect("seed expired record");
+
+        let engine = db.engine_handle().expect("engine");
+        assert_eq!(
+            engine
+                .scan_partition(BackendPartition::SparseIndex)
+                .expect("scan sparse index")
+                .len(),
+            2,
+            "seed must write one sparse posting per dim"
+        );
+
+        // A live record in the same namespace proves the purge only removes
+        // the expired key's postings.
+        db.put(MemoryInput {
+            sparse_vector: Some(SparseVector(BTreeMap::from([(3, 0.25)]))),
+            ..MemoryInput::new("ttl", "live", "live payload")
+        })
+        .expect("seed live record");
+
+        let purged = db.purge_expired().expect("purge_expired");
+        assert_eq!(purged, 1, "exactly the expired record is purged");
+
+        let remaining = engine
+            .scan_partition(BackendPartition::SparseIndex)
+            .expect("scan sparse index after purge");
+        assert_eq!(
+            remaining.len(),
+            1,
+            "expired record postings must be gone; the live record keeps its own"
+        );
+        assert!(
+            db.get("ttl", "exp").expect("get").is_none(),
+            "expired record is physically gone"
+        );
+
+        let state = Embedded::load_sparse_index_state(&engine)
+            .expect("load sparse index state")
+            .expect("sparse index state present");
+        assert_eq!(
+            state.posting_entries, 1,
+            "state must reflect only the live record's posting"
+        );
+    }
+
+    /// FIND-640: `put_batch` stages the WHOLE batch before any commit
+    /// (Stage A) — a record that fails deep-batch materialization (here a
+    /// `Derived` record whose parent does not exist) must leave **zero**
+    /// records committed. The batch is larger than the engine's internal
+    /// 1000-node write chunk, so under the old per-chunk-commit loop the
+    /// first chunk would already be durable when the failure hit.
+    #[test]
+    fn put_batch_late_failure_commits_zero_records() {
+        let db = Embedded::open_with_config(Config::in_memory()).expect("open db");
+
+        const VALID_RECORDS: usize = 1001; // > engine BATCH_CHUNK_SIZE
+        let mut inputs: Vec<MemoryInput> = (0..VALID_RECORDS)
+            .map(|i| MemoryInput::new("atomic_ns", format!("r{i}"), format!("payload {i}")))
+            .collect();
+        // The failing record sits AFTER the first full 1000-node chunk:
+        // `Derived` requires a live parent, and `ghost` was never written.
+        inputs.push(MemoryInput {
+            namespace: "atomic_ns".into(),
+            key: "bad".into(),
+            payload: "unreachable".into(),
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(vec!["ghost".into()]),
+            ..Default::default()
+        });
+
+        let err = db
+            .put_batch(inputs)
+            .expect_err("batch must fail on the dangling parent");
+        assert!(
+            err.to_string().contains("ghost"),
+            "expected missing-parent error, got: {err}"
+        );
+
+        // Zero records committed — not a single one of the 1001 valid inputs.
+        for i in [0usize, 500, 1000] {
+            assert!(
+                db.get("atomic_ns", &format!("r{i}"))
+                    .expect("get")
+                    .is_none(),
+                "record r{i} must not be committed"
+            );
+        }
+        assert!(
+            db.search(MemorySearchRequest {
+                namespace: "atomic_ns".into(),
+                text_query: Some("payload".into()),
+                top_k: 5,
+                ..Default::default()
+            })
+            .expect("search")
+            .is_empty(),
+            "no staged record may surface through the index path"
+        );
+        assert!(
+            !db.list_namespaces()
+                .expect("list_namespaces")
+                .iter()
+                .any(|ns| ns == "atomic_ns"),
+            "the staged namespace must leave no derived-index trace"
+        );
+    }
+
+    #[test]
+    fn put_and_put_batch_empty_metadata_upsert_purges_shredded_row() {
+        let mut cfg = Config::in_memory();
+        cfg.enable_json_shredding = true;
+        let db = Embedded::open_with_config(cfg).expect("open embedded with shredding");
+        let engine = db.engine_handle().expect("engine handle");
+
+        let mut meta = MemoryMetadata::new();
+        meta.insert("env".into(), Value::String("prod".into()));
+
+        // 1. Seed two records with metadata -> both must have shredded rows.
+        db.put(MemoryInput {
+            namespace: "shred_ns".into(),
+            key: "one".into(),
+            payload: "v1".into(),
+            metadata: meta.clone(),
+            ..Default::default()
+        })
+        .expect("put one");
+        db.put_batch(vec![MemoryInput {
+            namespace: "shred_ns".into(),
+            key: "batch".into(),
+            payload: "v1".into(),
+            metadata: meta.clone(),
+            ..Default::default()
+        }])
+        .expect("put_batch seed");
+
+        let id_one = memory_node_id("shred_ns", "one");
+        let id_batch = memory_node_id("shred_ns", "batch");
+        assert!(
+            crate::shred::ShreddedRowStore::get(id_one, &*engine.backend)
+                .unwrap()
+                .is_some(),
+            "put must populate shredded row"
+        );
+        assert!(
+            crate::shred::ShreddedRowStore::get(id_batch, &*engine.backend)
+                .unwrap()
+                .is_some(),
+            "put_batch must populate shredded row"
+        );
+
+        // 2. Upsert both with empty metadata -> stale shredded rows must be purged.
+        db.put(MemoryInput {
+            namespace: "shred_ns".into(),
+            key: "one".into(),
+            payload: "v2".into(),
+            metadata: MemoryMetadata::new(),
+            ..Default::default()
+        })
+        .expect("upsert one empty meta");
+        db.put_batch(vec![
+            MemoryInput {
+                namespace: "shred_ns".into(),
+                key: "batch".into(),
+                payload: "v2_mid".into(),
+                metadata: meta,
+                ..Default::default()
+            },
+            MemoryInput {
+                namespace: "shred_ns".into(),
+                key: "batch".into(),
+                payload: "v3_empty".into(),
+                metadata: MemoryMetadata::new(),
+                ..Default::default()
+            },
+        ])
+        .expect("upsert batch empty meta");
+
+        assert!(
+            crate::shred::ShreddedRowStore::get(id_one, &*engine.backend)
+                .unwrap()
+                .is_none(),
+            "put with empty metadata must purge stale shredded row"
+        );
+        assert!(
+            crate::shred::ShreddedRowStore::get(id_batch, &*engine.backend)
+                .unwrap()
+                .is_none(),
+            "put_batch with empty metadata must purge stale shredded row"
+        );
+    }
+}

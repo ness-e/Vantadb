@@ -1,0 +1,374 @@
+#!/bin/sh
+# VantaDB pre-push — barrera multi-area. Juzga EL RANGO QUE VIAJA, no el working tree.
+# - Rust (cualquier .rs o Cargo.* DENTRO DEL RANGO): fmt sobre los .rs del rango
+#   (rustfmt --check por fichero) + verify.ps1 (check/clippy/audit/deny/tests/
+#   docs-coverage/cli-probes/consumo-guard). Sin Rust en el rango esos gates no
+#   corren: CI los cubre en cada push a develop (docs/dev/workflow/RULES.md §1).
+# - vantadb-node/vantadb-ts tocados (+node_modules presente): npm test.
+# - vantadb-python tocado: ruff check+format (scope limpio probado).
+# - skills/docs .md tocados: markdownlint docs/** (30s).
+# - .github/workflows tocados: actionlint si esta instalado.
+# - providers/* tocados: fmt --check por manifest (sin compilar).
+# - CLI instalado stale: AVISO en cada push (advisory, nunca cambia el
+#   veredicto; silencio si no hay binario y bajo `CI`) — FIND-754.
+# - fmt: el instrumento es el de CI (FIND-762). fmt-range.ps1 lee el toolchain
+#   del job `fmt` de ci-rust.yml y mide con ESE (no con uno hardcodeado); si no
+#   esta instalado, mide con el del PATH y lo dice como ADVISORY — nunca bloquea
+#   por "no tengo nightly", que no es una propiedad del commit. La version de
+#   rustfmt se imprime SIEMPRE: un verde sin instrumento no es comparable con CI.
+#
+# FIND-760 — por qué el fmt es por fichero y no por árbol: `cargo fmt --check`
+# sobre el árbol bloqueó el push de FIND-152 (2 commits fmt-clean) porque el WIP
+# sin formatear de OTRO carril (vanta-memory, vantadb-mcp) estaba sucio en el
+# working tree. `check`/`clippy`/`nextest` NO se pueden acotar a un fichero (una
+# crate compila como unidad; un test no tiene fichero dueño), así que siguen
+# siendo de árbol cuando el rango toca Rust — para el WIP ajeno está SKIP.
+#
+# Skips (mismo idioma que .githooks/pre-commit → pre-commit's native SKIP):
+#   SKIP=<id>[,<id>...] git push
+#   ids: cargo-fmt cargo-check cargo-clippy cargo-audit cargo-deny nextest
+#        docs-coverage cli-probes consumo-guard backup-verification unix-check
+#        wasm-types npm ts ruff markdownlint providers-fmt actionlint
+#   (verify.ps1 -Skip usa los NOMBRES DE STEP: fmt check clippy audit deny
+#    nextest coverage-budget docs-coverage cli-probes consumo-guard
+#    backup-verification — el hook traduce sus ids a esos nombres.)
+#   El gate saltado SE NOMBRA en el output — nunca en silencio. Con `CI` definido
+#   (no vacío) SKIP se ignora: un gate no se puede waivear en CI.
+#   git push --no-verify   # salta TODO (solo emergencias, AGENTS.md Regla 1)
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
+# ── SKIP granular (FIND-760) ────────────────────────────────────────────────
+SKIP_LIST="${SKIP:-}"
+if [ -n "$SKIP_LIST" ] && [ -n "${CI:-}" ]; then
+    echo "pre-push: SKIP='$SKIP_LIST' IGNORED — CI is set; a gate cannot be waived here." >&2
+    SKIP_LIST=""
+fi
+is_skipped() {
+    [ -n "$SKIP_LIST" ] || return 1
+    # [:blank:] = space+tab, NOT [:space:]: [:space:] includes '\n' and would
+    # concatenate the split list into one token (measured: every gate NOMATCHED
+    # while `SKIP=cargo-fmt,…` looked accepted — a silent no-op).
+    _skip_list=$(printf '%s' "$SKIP_LIST" | tr -d '[:blank:]')
+    case ",$_skip_list," in
+        *",$1,"*) return 0 ;;
+    esac
+    return 1
+}
+skip_gate() {
+    echo "pre-push: SKIP: gate '$1' skipped (requested via SKIP=$SKIP_LIST) — NOT verified."
+}
+
+# WORK_DIR bajo el git dir (visible desde Git Bash y desde WSL — /tmp de WSL no lo
+# ve pwsh de Windows), y dentro de un worktree `git rev-parse --git-dir` lo resuelve.
+GIT_DIR_PATH="$(cd "$(git rev-parse --git-dir)" && pwd)"
+WORK_DIR="$GIT_DIR_PATH/vantadb-pre-push.$$"
+mkdir -p "$WORK_DIR"
+trap 'rm -rf "$WORK_DIR"' EXIT INT TERM HUP
+
+# NOTE (Windows/Git Bash): powershell.exe cannot read /mnt-style paths —
+# convert once. Native Windows PowerShells need a Windows path even when called
+# from Git Bash/WSL (/c/... or /mnt/c/...). Pure-POSIX conversion, no deps.
+winpath() {
+    case "$1" in
+        /mnt/[a-zA-Z]/*) p=$(echo "$1" | cut -c6-); d=$(echo "$p" | cut -c1 | tr 'a-z' 'A-Z'); r=$(echo "$p" | cut -c3- | tr '/' '\\'); printf '%s:%s' "$d" "\\$r" ;;
+        /[a-zA-Z]/*) d=$(echo "$1" | cut -c2 | tr 'a-z' 'A-Z'); r=$(echo "$1" | cut -c4- | tr '/' '\\'); printf '%s:%s' "$d" "\\$r" ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
+# PowerShell: el hook ya depende de él (verify.ps1). Ni Git Bash ni WSL lo traen
+# siempre en el PATH, así que se resuelve una vez — y si no aparece, se dice UNA
+# vez con claridad en lugar de fallar con "pwsh: command not found" en el primer gate.
+find_pwsh() {
+    if command -v pwsh >/dev/null 2>&1; then printf 'pwsh'; return 0; fi
+    for c in "/c/Program Files/PowerShell/7/pwsh.exe" \
+             "/mnt/c/Program Files/PowerShell/7/pwsh.exe" \
+             "$PROGRAMFILES/PowerShell/7/pwsh.exe"; do
+        if [ -x "$c" ]; then printf '%s' "$c"; return 0; fi
+    done
+    if command -v powershell.exe >/dev/null 2>&1; then printf 'powershell.exe'; return 0; fi
+    return 1
+}
+PS_EXE="$(find_pwsh || true)"
+if [ -z "$PS_EXE" ]; then
+    echo "pre-push: ERROR — no PowerShell found (install pwsh 7+). Push BLOCKED."
+    exit 1
+fi
+
+CHANGED=""
+RS_CHANGED=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    # Strip CR: a '\r' left in a sha makes `git diff` fail silently and the hook
+    # would judge an EMPTY range (a gate that stopped measuring). Cheap, fail-safe.
+    local_sha=$(printf '%s' "$local_sha" | tr -d '\r')
+    remote_sha=$(printf '%s' "$remote_sha" | tr -d '\r')
+    [ -z "$local_sha" ] && continue
+    [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        base=$(git merge-base "$local_sha" origin/HEAD 2>/dev/null || true)
+        if [ -z "$base" ]; then
+            base=$(git rev-list --max-parents=0 "$local_sha" | tail -1)
+        fi
+    else
+        base=$remote_sha
+    fi
+    # Un diff que falla (sha inventado, ref desconocida) dejaba el rango VACÍO y
+    # el hook pasaba midiendo nada. Fail closed: no se puede medir → se bloquea.
+    # Un `base` vacío daría `git diff "..sha"` = HEAD..HEAD, válido y VACÍO: la
+    # misma forma fail-open que la guarda de abajo pretende cerrar. Si no hay base,
+    # no se puede medir el rango → se bloquea.
+    if [ -z "$base" ]; then
+        echo "pre-push: ERROR — no base commit for $local_sha; the range cannot be measured. Push BLOCKED." >&2
+        exit 1
+    fi
+    RANGE_FILES=$(git diff --name-only "$base..$local_sha" 2>/dev/null) || {
+        echo "pre-push: ERROR — cannot diff $base..$local_sha. Push BLOCKED." >&2
+        exit 1
+    }
+    CHANGED="$CHANGED
+$RANGE_FILES"
+done
+
+CHANGED=$(echo "$CHANGED" | sort -u | grep -v '^$' || true)
+RANGE_LIST="$WORK_DIR/range"
+: > "$RANGE_LIST"
+if [ -n "$CHANGED" ]; then printf '%s\n' "$CHANGED" > "$RANGE_LIST"; fi
+
+if grep -q '\.rs$' "$RANGE_LIST" 2>/dev/null; then RS_CHANGED=1; fi
+if grep -qE '(^|/)(Cargo\.toml|Cargo\.lock)$' "$RANGE_LIST" 2>/dev/null; then RS_CHANGED=1; fi
+
+echo "pre-push: $(wc -l < "$RANGE_LIST" | tr -d ' ') archivos en el rango (lo que viaja)."
+if [ "$RS_CHANGED" -eq 1 ]; then
+    echo "pre-push: archivos Rust/Cargo en el rango:"
+    grep -E '\.rs$|Cargo\.(toml|lock)$' "$RANGE_LIST" | sed 's/^/  /' | head -20
+fi
+
+# ── fmt: SOLO los .rs del rango (FIND-760) ──────────────────────────────────
+# rustfmt formatea archivo a archivo, así que este es el único gate que se puede
+# acotar con exactitud a lo que viaja. --config skip_children=true es MEDIDO, no
+# supuesto: sin él rustfmt entra en los `mod` hijos y reporta diffs de ficheros
+# fuera del rango (probado: lib.rs con `pub mod child;` también reporta child.rs).
+if is_skipped cargo-fmt; then
+    skip_gate cargo-fmt
+else
+    RANGE_RS="$WORK_DIR/range-rs"
+    : > "$RANGE_RS"
+    while IFS= read -r f; do
+        case "$f" in
+            *.rs) if [ -f "$f" ]; then printf '%s\n' "$f"; fi ;;
+        esac
+    done < "$RANGE_LIST" > "$RANGE_RS"
+
+    if [ -s "$RANGE_RS" ]; then
+        # El chequeo vive en dev-tools/fmt-range.ps1: el shell del hook (Git Bash,
+        # WSL) no tiene ~/.cargo/bin en el PATH — medido acá: `command -v rustfmt`
+        # → nada bajo WSL bash. PowerShell lo resuelve igual que verify.ps1.
+        echo "pre-push: fmt sobre $(wc -l < "$RANGE_RS" | tr -d ' ') fichero(s) .rs del rango (no el arbol):"
+        sed 's/^/  /' "$RANGE_RS"
+        FMT_STATUS=0
+        "$PS_EXE" -NoProfile -ExecutionPolicy Bypass -File "$(winpath "$REPO_ROOT/dev-tools/fmt-range.ps1")" -ListFile "$(winpath "$RANGE_RS")" || FMT_STATUS=$?
+        if [ "$FMT_STATUS" -ne 0 ]; then
+            echo "pre-push: fmt gate FAILED (exit $FMT_STATUS). Push BLOCKED."
+            exit 1
+        fi
+    else
+        echo "pre-push: no .rs files in the range — fmt gate has nothing to check."
+    fi
+fi
+
+# ── Gates de árbol que NO se pueden acotar por fichero (verify.ps1) ─────────
+# check/clippy/audit/deny/nextest juzgan una crate entera: acotarlos por fichero
+# dejaría el gate midiendo menos de lo que promete. Corren solo si el rango toca
+# Rust; para el WIP ajeno existe SKIP=<gate>. docs-coverage y la verificación del
+# runbook dependen de docs, así que se quedan aunque no haya Rust.
+VERIFY_SCRIPT="$REPO_ROOT/dev-tools/verify.ps1"
+if [ ! -f "$VERIFY_SCRIPT" ]; then
+    echo "pre-push: verify script not found at $VERIFY_SCRIPT. Push BLOCKED."
+    exit 1
+fi
+VERIFY_PS1_WIN="$(winpath "$VERIFY_SCRIPT")"
+
+# --- Residuos de test (FIND-732): un proceso de test que muere sin ejecutar Drop
+#     (slow-timeout de nextest, abort, SIGKILL) deja su TempDir en %TEMP%; en un
+#     dia son GB. Advisory: reclama lo huerfano y NUNCA bloquea el push. ---
+if [ -f "$REPO_ROOT/dev-tools/temp-collector.ps1" ]; then
+    "$PS_EXE" -NoProfile -ExecutionPolicy Bypass -File "$(winpath "$REPO_ROOT/dev-tools/temp-collector.ps1")" -Quiet || true
+fi
+
+# --- Frescura del CLI instalado (FIND-754): ADVISORY. Nunca cambia el veredicto.
+# `vanta-cli --version` declara el commit del que salió (FIND-98), así que una
+# copia stale en ~/.cargo/bin se puede NOMBRAR en vez de responder lo mismo que
+# una fresca. Va acá y NO en el gate por PR: compara contra un binario instalado
+# y un runner no tiene `~/.cargo/bin` (por eso también se calla con CI definido).
+# Advisory y no bloqueante porque el CLI stale lo sufre QUIEN LO USA, no quien
+# pushea: un rojo por «no lo instalé» frenaría pushes legítimos. `-Advisory`
+# mantiene intacta la matriz 0/1/2 del script para quien quiera el veredicto; en
+# este modo no imprime nada si no hay binario, nombra el stale y la razón de un
+# fallo, y siempre sale 0.
+CLI_CHECK="$REPO_ROOT/scripts/check-cli-fresh.ps1"
+if [ -n "${CI:-}" ]; then
+    : # corrida de CI: sin binario instalado no hay nada que comparar
+elif [ -f "$CLI_CHECK" ]; then
+    CLI_OUT=$("$PS_EXE" -NoProfile -ExecutionPolicy Bypass -File "$(winpath "$CLI_CHECK")" -Advisory 2>&1) || true
+    if [ -n "$CLI_OUT" ]; then
+        echo "pre-push: CLI freshness ADVISORY (does not block this push):"
+        # `|| true` even here: under `set -e` a closed stdout (EPIPE on `sed`)
+        # would abort the hook and block a push — an advisory cannot be allowed
+        # to block by accident.
+        printf '%s\n' "$CLI_OUT" | sed 's/^/  /' || true
+    fi
+fi
+
+PS_SKIP="fmt"   # el fmt del árbol ya no corre acá: lo cubre el gate por rango de arriba + CI
+if [ "$RS_CHANGED" -eq 0 ]; then
+    PS_SKIP="$PS_SKIP,check,clippy,audit,deny,nextest,cli-probes,consumo-guard"
+    echo "pre-push: sin Rust en el rango — gates de Rust no corren (CI los cubre en develop)."
+fi
+for pair in \
+    "cargo-check:check" "cargo-clippy:clippy" "cargo-audit:audit" "cargo-deny:deny" \
+    "nextest:nextest" "docs-coverage:docs-coverage" "cli-probes:cli-probes" \
+    "consumo-guard:consumo-guard" "backup-verification:backup-verification"; do
+    gid=${pair%%:*}
+    step=${pair#*:}
+    if is_skipped "$gid"; then
+        skip_gate "$gid"
+        PS_SKIP="$PS_SKIP,$step"
+    fi
+done
+
+echo "pre-push: running Rust gate (dev-tools/verify.ps1 -Skip $PS_SKIP)..."
+STATUS=0
+"$PS_EXE" -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_PS1_WIN" -Skip "$PS_SKIP" || STATUS=$?
+if [ $STATUS -ne 0 ]; then
+    echo ""
+    echo "pre-push: Rust gate FAILED (exit code: $STATUS). Push BLOCKED."
+    echo "pre-push: if the failure is foreign WIP (a file NOT in this range), the granular escape is"
+    echo "pre-push:   SKIP=<gate> git push      (e.g. SKIP=cargo-clippy, SKIP=nextest)"
+    exit $STATUS
+fi
+
+# --- Type-check Unix (archivos Rust o Cargo tocados) ---
+if [ "$RS_CHANGED" -eq 1 ]; then
+    if is_skipped unix-check; then
+        skip_gate unix-check
+    else
+        echo "pre-push: Rust touched — running check-unix..."
+        UNIX_STATUS=0
+        "$PS_EXE" -NoProfile -File "$(winpath "$REPO_ROOT/dev-tools/check-unix.ps1")" || UNIX_STATUS=$?
+        case "$UNIX_STATUS" in
+            0) echo "pre-push: Unix check passed." ;;
+            2) echo "pre-push: Unix check skipped (CI covers)." ;;
+            *) echo "pre-push: Unix check FAILED (exit code: $UNIX_STATUS). Push BLOCKED."; exit 1 ;;
+        esac
+    fi
+fi
+
+# --- WASM types: la fuente a mano vs el pkg generado (FIND-729) ---
+# `pkg/` es artefacto gitignored; el script copia `vantadb-wasm/src/vantadb_wasm.d.ts`
+# encima. `release-npm-wasm.yml` corre el script en write-mode, asi que la deriva
+# solo se ve en local: `tsc` falla con "no exported member" sobre tipos que ya existen.
+# El check no necesita node_modules (es node puro), si node.
+if grep -qE '^(vantadb-wasm|vantadb-ts)/' "$RANGE_LIST" 2>/dev/null; then
+    if is_skipped wasm-types; then
+        skip_gate wasm-types
+    elif [ -f "vantadb-wasm/pkg/vantadb_wasm.d.ts" ] && command -v node >/dev/null 2>&1; then
+        echo "pre-push: wasm/ts touched — pkg .d.ts in sync with the hand-written source..."
+        node dev-tools/build-wasm-types.mjs --check || {
+            echo "pre-push: vantadb-wasm/pkg/vantadb_wasm.d.ts is stale."
+            echo "pre-push:   fix: node dev-tools/build-wasm-types.mjs   (Push BLOCKED.)"
+            exit 1
+        }
+    else
+        echo "pre-push: vantadb-wasm/pkg missing — types check skipped (CI covers)."
+    fi
+fi
+
+# --- Node (solo si se toco + hay node_modules) ---
+if grep -qE '^(vantadb-node|vantadb-ts)/' "$RANGE_LIST" 2>/dev/null; then
+    if is_skipped npm; then
+        skip_gate npm
+    elif [ -d "vantadb-node/node_modules" ] && command -v npm >/dev/null 2>&1; then
+        echo "pre-push: vantadb-node touched — npm test..."
+        (cd vantadb-node && npm test) || { echo "pre-push: vantadb-node tests FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: node area touched but no node_modules — npm test skipped (CI covers)."
+    fi
+    if is_skipped ts; then
+        skip_gate ts
+    elif [ -d "vantadb-ts/node_modules" ] && command -v npm >/dev/null 2>&1; then
+        # FIND-729: el unico gate de typecheck/lint vive en release-npm-wasm.yml y
+        # ese workflow dispara solo en `pull_request` — los pushes directos a
+        # develop (el camino normal aca) lo esquivan. Los dos comandos son baratos.
+        if [ -f "vantadb-wasm/pkg/vantadb_wasm.d.ts" ]; then
+            echo "pre-push: vantadb-ts touched — tsc --noEmit..."
+            (cd vantadb-ts && npx tsc --noEmit) || { echo "pre-push: vantadb-ts typecheck FAILED. Push BLOCKED."; exit 1; }
+        else
+            echo "pre-push: vantadb-wasm/pkg missing — typecheck skipped (CI covers)."
+        fi
+        echo "pre-push: vantadb-ts touched — lint..."
+        (cd vantadb-ts && npm run lint) || { echo "pre-push: vantadb-ts lint FAILED. Push BLOCKED."; exit 1; }
+        echo "pre-push: vantadb-ts touched — npm test..."
+        (cd vantadb-ts && npm test) || { echo "pre-push: vantadb-ts tests FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: ts area touched but no node_modules — typecheck/lint/test skipped (CI covers)."
+    fi
+fi
+
+# --- Python limpio (solo scope probado) ---
+if grep -qE '^vantadb-python/.*\.pyi?$' "$RANGE_LIST" 2>/dev/null; then
+    if is_skipped ruff; then
+        skip_gate ruff
+    elif command -v ruff >/dev/null 2>&1; then
+        echo "pre-push: vantadb-python touched — ruff..."
+        ruff check vantadb-python && ruff format --check vantadb-python || { echo "pre-push: ruff FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: ruff not found, skipped (CI covers)."
+    fi
+fi
+
+# --- Docs/skills markdown ---
+if grep -qE '^((docs|skills)/.*\.mdx?)$' "$RANGE_LIST" 2>/dev/null; then
+    if is_skipped markdownlint; then
+        skip_gate markdownlint
+    elif command -v npx >/dev/null 2>&1; then
+        echo "pre-push: docs touched — markdownlint..."
+        npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml "docs/**/*.md" || { echo "pre-push: markdownlint FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: npx not found, skipped (CI covers)."
+    fi
+fi
+
+# --- Providers standalone: fmt sin compilar ---
+PROV_RS=$(grep -E '^providers/[^/]+/.*\.rs$' "$RANGE_LIST" 2>/dev/null || true)
+if [ -n "$PROV_RS" ]; then
+    if is_skipped providers-fmt; then
+        skip_gate providers-fmt
+    else
+        for p in openai ollama litellm; do
+            if echo "$PROV_RS" | grep -q "^providers/$p/"; then
+                echo "pre-push: fmt providers/$p..."
+                cargo fmt --manifest-path "providers/$p/Cargo.toml" -- --check || { echo "pre-push: fmt providers/$p FAILED. Push BLOCKED."; exit 1; }
+            fi
+        done
+    fi
+fi
+
+# --- Workflows: actionlint ---
+if grep -q '^\.github/workflows/' "$RANGE_LIST" 2>/dev/null; then
+    if is_skipped actionlint; then
+        skip_gate actionlint
+    elif command -v actionlint >/dev/null 2>&1; then
+        echo "pre-push: running actionlint..."
+        actionlint || { echo "pre-push: actionlint FAILED. Push BLOCKED."; exit 1; }
+    else
+        echo "pre-push: actionlint not found, skipped (CI covers)."
+    fi
+fi
+
+echo "pre-push: barrier passed. Push allowed."
+exit 0

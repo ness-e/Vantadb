@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vantadb-langchain"
+version = "0.9.0"
+description = "LangChain adapter for VantaDB — embedded vector memory for AI agents"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11"
+authors = [{name = "VantaDB Team"}]
+keywords = ["vantadb", "langchain", "vector-store", "rag", "ai-memory"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "vantadb-py>=0.6.1,<0.10.0",
+    # FIND-649: floor 0.3.81, not 0.3 — langgraph-checkpoint>=4.1 (inside the
+    # >=2,<5 range below) calls Reviver(allowed_objects="core") at import
+    # (langgraph/checkpoint/serde/jsonplus.py:47, since checkpoint 4.1.0) and
+    # the `allowed_objects` kwarg only exists in langchain-core>=0.3.81
+    # (verified against published wheels; upstream's declared dep stays
+    # `langchain-core>=0.2.38`, so the resolver doesn't protect us).
+    # 0.3.0–0.3.80 crash at pytest collection with
+    # `TypeError: Reviver.__init__() got an unexpected keyword argument
+    # 'allowed_objects'` — CI evidence: compat-matrix langchain/0.3 row.
+    # FIND-644: bound lifted to 1.x — 8 GHSA/PYSEC advisories on the 0.3.x
+    # line fix only at 0.3.84/0.3.85 or land exclusively on 1.2.x
+    # (GHSA-2g6r-c272-w58r →1.2.11, GHSA-qh6h-p6c9-ff54 →1.2.22,
+    # GHSA-pjwx-r37v-7724 →1.3.3). Floor 1.3.3 clears all of them; the
+    # `allowed_objects` kwarg exists throughout 1.x (verified on 1.6.2) and
+    # the adapter imports (VectorStore/Embeddings/Document/RunnableConfig)
+    # resolve cleanly on langchain-core 1.x.
+    "langchain-core>=1.3.3,<2",
+    # INTG-01: LangGraph adapters (checkpointer + BaseStore).
+    # API inestable upstream → major pineado; spec en docs/dev/tasks/INTG-01.md.
+    # FIND-644: floor 4.1.1 — 6 advisories cover <4.1.1
+    # (GHSA-fjqc-hq36-qh5p→4.1.1, GHSA-mhr3-j7m5-c7c9→4.0.0,
+    # GHSA-wwqv-p2pp-99h5→3.0.0 + PYSEC twins). checkpoint 4.1.1 requires
+    # langchain-core>=0.2.38 — the 1.x bound above satisfies it.
+    "langgraph-checkpoint>=4.1.1,<5",
+]
+
+[project.urls]
+Homepage = "https://github.com/ness-e/Vantadb"
+Repository = "https://github.com/ness-e/Vantadb"
+Documentation = "https://github.com/ness-e/Vantadb/tree/main/integrations/langchain"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vantadb_langchain"]

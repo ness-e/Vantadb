@@ -1,0 +1,2754 @@
+//! Native Node.js bindings for VantaDB via napi-rs.
+//!
+//! Additional backend to the WASM browser build (`vantadb-wasm`): the native
+//! `.node` module gives Node.js real filesystem persistence (fjall/WAL/fsync),
+//! which WASM cannot provide. The exposed API is isomorphic with the WASM
+//! wrapper (`vantadb-ts/src/vantadb.ts`) for the methods covered here.
+//!
+//! Design notes (mirrors `vantadb-python/src/lib.rs`):
+//! - `Embedded` is `Clone`; every engine operation runs on a blocking
+//!   thread via `tokio::task::spawn_blocking` with a cloned handle so the
+//!   Node.js main thread is never blocked.
+//! - I/O boundary is `serde_json::Value`: inputs are parsed manually (the SDK
+//!   input structs have no `#[serde(default)]`), outputs are serialized with
+//!   the existing `Serialize` derives.
+//! - All `Error`s map to `napi::Error` with a `"{VANTADB_CODE}: {Display}"`
+//!   message so the TS wrapper can recover the stable error code (ERR-TS-01).
+
+use napi::Error;
+use napi_derive::napi;
+use serde_json::{json, Map, Value};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::Notify;
+use vantadb::config::Config;
+use vantadb::graph::TraversalDirection;
+use vantadb::index::IndexType;
+use vantadb::node::DistanceMetric;
+use vantadb::sdk::{
+    Embedded, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryMetadata,
+    MemorySearchRequest, NodeInput, SearchExplanation, ValidWindow,
+};
+// FFI guards: single source of truth from core (WSM-09).
+use vantadb::{SparseVector, MAX_K, MAX_VEC_DIM};
+// Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
+use vantadb_ffi_core::{OpGate, OpGuard, VantaErrorCode};
+// DIST-19 S3: thin facade over vanta-memory (logic lives in the core/memory
+// crates — api-contract R-8; these imports are glue only).
+use vanta_memory::context_engine::{
+    assemble as assemble_context, AssembleConfig, ChatMessage, TokenEstimator,
+};
+use vanta_memory::core::dream::{consolidate_session, DreamConfig};
+use vanta_memory::core::hooks::auto_recall::{
+    perform_auto_recall_governed, perform_auto_recall_scored, reinforce_recalled, AutoRecallParams,
+    InjectionPolicy, RecallConfig, RecallScope, RecalledMemory,
+};
+use vanta_memory::core::profile::profile_sync::ProfileIsolation;
+use vanta_memory::core::record::CompositeScoring;
+use vantadb::ReinforceOutcome;
+
+/// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
+/// the cap so silent truncation stays observable (ERR-022). The compare→cap
+/// policy lives in `vantadb-ffi-core` (shared with python/wasm); only the
+/// warning channel (`eprintln!`, node prefix) stays here.
+fn clamp_top_k(requested: usize) -> usize {
+    let (effective, was_clamped) = vantadb_ffi_core::clamp_top_k(requested, MAX_K);
+    if was_clamped {
+        eprintln!(
+            "vantadb-node: top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)"
+        );
+    }
+    effective
+}
+
+/// DIST-20 (S4) cooperative cancellation token for long engine ops.
+///
+/// Why not the DOM `AbortSignal` (spec draft): napi's `AbortSignal` is
+/// `!Send` by construction (`Rc` internals, `napi-3.12.0/.../task.rs:57`)
+/// and only feeds `AsyncTask` (libuv thread) — it can never enter a
+/// `#[napi]` tokio future, not even as an unused param (verified with
+/// `cargo check`: the future is `!Send`). `AbortHandle` is the `Send`-safe
+/// bridge with identical detach semantics. JS ergonomics are one line:
+/// `signal.addEventListener('abort', () => handle.abort())` (the S5 suite
+/// proves this wiring). Abort = detach: the blocking op runs on, the engine
+/// is never cancelled, `close()` never blocks on a cancelled op.
+#[napi]
+pub struct AbortHandle {
+    notify: Arc<Notify>,
+}
+
+impl Default for AbortHandle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[napi]
+impl AbortHandle {
+    /// Create a fresh token (starts un-fired).
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self {
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Fire cancellation. Idempotent; safe to call before or after the op
+    /// settles. A pre-fired handle fails the next op fast with `Cancelled`.
+    #[napi]
+    pub fn abort(&self) {
+        self.notify.notify_one();
+    }
+}
+
+/// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
+/// `Embedded`; all engine methods are async to avoid blocking the JS thread.
+///
+/// EGO-06: GC safety net via `#[napi(custom_finalize)]` — explicit `close()`
+/// stays primary (timely flush + errors; GC timing is never guaranteed), but
+/// a discarded handle drains in-flight ops and closes the engine on finalize
+/// instead of relying on refcount accidents to free the Fjall lock.
+#[napi(custom_finalize)]
+pub struct VantaDB {
+    /// Mutable handle state behind one mutex (EGO-12): every method snapshots
+    /// `(gate, engine)` under a brief lock and never holds it across await,
+    /// so `close()`/`reopen()` can't deadlock against in-flight ops.
+    inner: Mutex<VantaInner>,
+}
+
+/// Replaceable state of a [`VantaDB`] handle.
+struct VantaInner {
+    engine: Embedded,
+    gate: OpGate,
+    /// This handle's registry reservation; taken exactly once by `close()`,
+    /// `reopen()` or the finalizer so a double-close can never release
+    /// someone else's reservation.
+    slot: Option<PathBuf>,
+    /// Last config that opened successfully; `reopen()` rebuilds from it.
+    config: Config,
+}
+
+impl VantaDB {
+    /// Clone the gate + engine under a brief lock. The lock is never held
+    /// across await (deadlock safety); the `OpGuard` from `enter(&gate)`
+    /// keeps the durability barrier (R-4) across the async op.
+    fn snapshot(&self) -> (OpGate, Embedded) {
+        let inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        (inner.gate.clone(), inner.engine.clone())
+    }
+}
+
+/// In-process registry of open database paths (EGO-06).
+///
+/// Fjall's lock is an OS flock (`fjall` `locked_file.rs`): it dies with the
+/// process, so a `Locked` error on reopen always means a live handle in THIS
+/// process — a forgotten `close()`, a leaked clone, or a second open of the
+/// same path. The registry turns that cryptic failure into a fail-fast
+/// `VANTADB_BUSY` naming the path.
+///
+/// Exclusion is TOTAL (one handle per path, any mode): `FjallBackend::open`
+/// ignores `read_only` (fjall 3.1.x has no read-only mode — EGO-01 Engine
+/// debt), so even a second read-only open dies in the core with `Locked`.
+/// Shared multi-handle reads arrive with Engine lock-free reads; until then
+/// the pattern is daemon/socket (EGO-09). Identical path strings are
+/// caught; different spellings of the same directory fall through to the
+/// core flock (status quo ante, no regression).
+static OPEN_PATHS: OnceLock<Mutex<HashMap<PathBuf, bool>>> = OnceLock::new();
+
+fn open_paths() -> &'static Mutex<HashMap<PathBuf, bool>> {
+    OPEN_PATHS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Lexical key for a database path. `:memory:`/empty engines hold no files
+/// and are exempt. `absolute()` needs no existence (the directory may be
+/// created by open); symlinks/`..` spellings can miss — the core flock
+/// backstops those.
+fn open_path_key(path: &str) -> Option<PathBuf> {
+    if path.is_empty() || path == ":memory:" {
+        return None;
+    }
+    std::path::absolute(path).ok()
+}
+
+/// Reserve a path before opening. Fails fast with `DatabaseBusy`
+/// (`VANTADB_BUSY`) when the path already has a live handle in this process.
+fn reserve_open_path(key: &PathBuf, read_only: bool) -> vantadb::error::Result<()> {
+    let mut map = open_paths().lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(holder_reader) = map.get(key) {
+        return Err(vantadb::error::Error::DatabaseBusy(format!(
+            "database at {} is already open in this process ({}); \
+             close the existing handle before reopening",
+            key.display(),
+            if *holder_reader { "reader" } else { "writer" },
+        )));
+    }
+    map.insert(key.clone(), read_only);
+    Ok(())
+}
+
+/// Release a reservation. Each handle takes its slot exactly once
+/// (`close()` or finalizer), so a plain `remove` can never free another
+/// handle's entry.
+fn release_open_path(key: &PathBuf) {
+    open_paths()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .remove(key);
+}
+
+impl napi::bindgen_prelude::ObjectFinalize for VantaDB {
+    /// GC safety net (EGO-06): drain in-flight ops (R-4) and close the engine
+    /// so a discarded handle flushes and frees the Fjall lock promptly.
+    /// Explicit `close()` stays primary — GC timing is never guaranteed.
+    ///
+    /// SAFETY: no JS calls, no await (GC thread); `drain`/`close` are the
+    /// same sync calls explicit `close()` makes. A panic must never unwind
+    /// across the `extern "C"` finalizer (process abort), so the body runs
+    /// under `catch_unwind` and any failure is dropped with `self`.
+    fn finalize(self, _env: napi::Env) -> napi::Result<()> {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let (gate, engine, slot) = match self.inner.lock() {
+                Ok(mut inner) => {
+                    let gate = inner.gate.clone();
+                    let engine = inner.engine.clone();
+                    let slot = inner.slot.take();
+                    (gate, engine, slot)
+                }
+                Err(_) => return,
+            };
+            // FIND-534: inline drain is correct here — the GC finalizer
+            // runs outside any tokio runtime (`drain_gate`'s no-runtime
+            // branch), so blocking this thread cannot starve the futures
+            // holding `OpGuard`s (they execute on the tokio workers).
+            gate.drain();
+            let _ = engine.close();
+            if let Some(key) = slot {
+                release_open_path(&key);
+            }
+        }));
+        Ok(())
+    }
+}
+
+#[napi]
+impl VantaDB {
+    /// Open (or create) a VantaDB database at `path`.
+    ///
+    /// `path` may be a filesystem directory (persistent, fjall backend) or
+    /// `":memory:"` for a non-persistent in-memory database.
+    ///
+    /// `options` (optional): `{ read_only?: boolean, memory_limit?: number,
+    /// reserve_bytes?: number }`.
+    ///
+    /// `reserve_bytes` is the size of ONE pre-reserved LSM segment (a store
+    /// owns 4: L0..L3), so the store reserves `4 * reserve_bytes` up front.
+    /// Default: 1 MiB per segment (4 MiB per store). It is clamped so the
+    /// total never exceeds `memory_limit` (FIND-517: the reserve used to be
+    /// a hidden 64 MiB per level — 256 MiB per empty store).
+    #[napi(factory)]
+    pub async fn connect(
+        path: String,
+        // Types overwrite: https://napi.rs/docs/concepts/types-overwrite — the
+        // public TS contract is a typed options object while runtime conversion
+        // stays on serde_json::Value with manual validation.
+        #[napi(ts_arg_type = "ConnectOptions")] options: Option<Value>,
+    ) -> napi::Result<VantaDB> {
+        let config = build_config(&path, options.as_ref())?;
+        let read_only = config.read_only;
+        // EGO-06: fail fast on a second in-process open of the same path
+        // (cryptic `FjallError: Locked` otherwise). Reserved before the first
+        // await; released if open fails so a failed connect leaves no entry.
+        let key = open_path_key(&path);
+        if let Some(ref k) = key {
+            reserve_open_path(k, read_only).map_err(map_err)?;
+        }
+        let engine = match spawn_blocking({
+            let open_config = config.clone();
+            move || Embedded::open_with_config(open_config)
+        })
+        .await
+        {
+            Ok(engine) => engine,
+            Err(e) => {
+                if let Some(k) = key {
+                    release_open_path(&k);
+                }
+                return Err(e);
+            }
+        };
+        Ok(VantaDB {
+            inner: Mutex::new(VantaInner {
+                engine,
+                gate: OpGate::new(),
+                slot: key,
+                config,
+            }),
+        })
+    }
+
+    /// Reopen the database on this same handle without rebinding consumers
+    /// (EGO-12). Drains + closes the current engine, then opens fresh —
+    /// same path by default, or `path` to switch directories.
+    ///
+    /// The gate is replaced (fresh durability barrier); in-flight ops drain
+    /// before the swap (R-4). On open failure the handle is left cleanly
+    /// closed (reservation freed) rather than half-open.
+    #[napi]
+    pub async fn reopen(
+        &self,
+        #[napi(ts_arg_type = "string | undefined | null")] path: Option<String>,
+    ) -> napi::Result<()> {
+        let (gate, engine, mut config) = {
+            let inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+            (
+                inner.gate.clone(),
+                inner.engine.clone(),
+                inner.config.clone(),
+            )
+        };
+        // FIND-534: runtime-aware drain — never blocks the only thread able
+        // to drive the guard-holding op futures (1-worker/current_thread).
+        drain_gate(gate).await;
+        spawn_blocking(move || engine.close()).await?;
+        if let Ok(mut inner) = self.inner.lock() {
+            if let Some(key) = inner.slot.take() {
+                release_open_path(&key);
+            }
+        }
+        if let Some(p) = path {
+            // Same backend selection as `connect`: explicit memory paths stay
+            // in-memory, anything else opens persistent (Fjall default).
+            config.backend_kind = if p.is_empty() || p == ":memory:" {
+                vantadb::storage::BackendKind::InMemory
+            } else {
+                vantadb::storage::BackendKind::Fjall
+            };
+            config.storage_path = p;
+        }
+        let read_only = config.read_only;
+        let key = open_path_key(&config.storage_path);
+        if let Some(ref k) = key {
+            reserve_open_path(k, read_only).map_err(map_err)?;
+        }
+        let engine = match spawn_blocking({
+            let open_config = config.clone();
+            move || Embedded::open_with_config(open_config)
+        })
+        .await
+        {
+            Ok(engine) => engine,
+            Err(e) => {
+                if let Some(k) = key {
+                    release_open_path(&k);
+                }
+                return Err(e);
+            }
+        };
+        if let Ok(mut inner) = self.inner.lock() {
+            *inner = VantaInner {
+                engine,
+                gate: OpGate::new(),
+                slot: key,
+                config,
+            };
+        }
+        Ok(())
+    }
+
+    /// Flush the WAL and memory-mapped files to disk.
+    #[napi]
+    pub async fn flush(&self) -> napi::Result<()> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        spawn_blocking(move || engine.flush()).await
+    }
+
+    /// Close the database handle. Pending writes are flushed first.
+    ///
+    /// Once closing starts, new operations are rejected (`database is
+    /// closing`). This waits for every in-flight operation to finish before
+    /// flushing, so a fire-and-forget `put` whose `spawn_blocking` had not yet
+    /// run can never write after `close()` returns and be silently lost on
+    /// process exit.
+    #[napi]
+    pub async fn close(&self) -> napi::Result<()> {
+        let (gate, engine) = self.snapshot();
+        // FIND-534: runtime-aware drain — never blocks the only thread able
+        // to drive the guard-holding op futures (1-worker/current_thread).
+        drain_gate(gate).await;
+        let out = spawn_blocking(move || engine.close()).await;
+        // EGO-06: free the path reservation on a successful close. The slot
+        // is taken (not copied) so a double-close can never release someone
+        // else's reservation.
+        if out.is_ok() {
+            if let Ok(mut inner) = self.inner.lock() {
+                if let Some(key) = inner.slot.take() {
+                    release_open_path(&key);
+                }
+            }
+        }
+        out
+    }
+
+    /// Insert or update a persistent memory record.
+    ///
+    /// `record`: `{ namespace, key, payload, metadata?, vector?, ttl_ms? }`.
+    /// Returns the created/updated record with system timestamps and version.
+    #[napi(ts_return_type = "Promise<MemoryRecord>")]
+    pub async fn put(
+        &self,
+        #[napi(ts_arg_type = "MemoryInput")] record: Value,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let input = parse_memory_input(&record)?;
+        let out = spawn_blocking(move || engine.put(input)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Insert or update multiple records. Returns the resulting records.
+    #[napi(ts_return_type = "Promise<MemoryRecord[]>")]
+    pub async fn put_batch(
+        &self,
+        #[napi(ts_arg_type = "MemoryInput[]")] records: Value,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let arr = records
+            .as_array()
+            .ok_or_else(|| Error::from_reason("records must be an array"))?;
+        let inputs = arr
+            .iter()
+            .map(parse_memory_input)
+            .collect::<napi::Result<Vec<MemoryInput>>>()?;
+        let out = spawn_blocking(move || engine.put_batch(inputs)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Retrieve a memory record by namespace and key. Returns `null` if absent.
+    #[napi(ts_return_type = "Promise<MemoryRecord | null>")]
+    pub async fn get(&self, namespace: String, key: String) -> napi::Result<Option<Value>> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let out = spawn_blocking(move || engine.get(&namespace, &key)).await?;
+        match out {
+            Some(record) => Ok(Some(serde_json::to_value(&record).map_err(serde_map_err)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Delete a memory record by namespace and key. Returns `true` if a record
+    /// was actually deleted, `false` if it did not exist.
+    #[napi]
+    pub async fn delete(&self, namespace: String, key: String) -> napi::Result<bool> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        spawn_blocking(move || engine.delete(&namespace, &key)).await
+    }
+
+    /// Forget a memory record by namespace and key (TEC-03).
+    ///
+    /// Modes:
+    /// - `"soft"` (default): marks the record's validity window as invalid (`invalid_at_ms = now`). Returns `true` if modified, `false` if not found.
+    /// - `"hard"`: physical deletion. Returns `true` if deleted, `false` if not found.
+    /// - `"certified"`: deletion with cryptographic purge certificate. Returns `PurgeCertificate`.
+    #[napi(ts_return_type = "Promise<PurgeCertificate | boolean>")]
+    pub async fn forget(
+        &self,
+        namespace: String,
+        key: String,
+        mode: Option<String>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let forget_mode = match mode
+            .as_deref()
+            .unwrap_or("soft")
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "soft" => vantadb::ForgetMode::Soft,
+            "hard" => vantadb::ForgetMode::Hard,
+            "certified" => vantadb::ForgetMode::Certified,
+            other => {
+                return Err(Error::from_reason(format!(
+                    "unknown forget mode '{other}', expected 'soft', 'hard', or 'certified'"
+                )))
+            }
+        };
+        let out = spawn_blocking(move || match forget_mode {
+            vantadb::ForgetMode::Certified => {
+                let cert = engine.delete_certified(&namespace, &key)?;
+                serde_json::to_value(&cert).map_err(vantadb::error::Error::serialization)
+            }
+            _ => {
+                let report =
+                    engine.forget(&namespace, vantadb::ForgetTarget::Key(key), forget_mode)?;
+                Ok(Value::Bool(report.forgotten_count > 0))
+            }
+        })
+        .await?;
+        Ok(out)
+    }
+
+    /// List records in a namespace with optional filters and cursor pagination.
+    ///
+    /// `options` (optional): `{ filters?: VantaMetadata, limit?: number, cursor?: number }`.
+    /// Returns `{ records: MemoryRecord[], next_cursor?: number }`.
+    #[napi(ts_return_type = "Promise<MemoryListResult>")]
+    pub async fn list(
+        &self,
+        namespace: String,
+        #[napi(ts_arg_type = "MemoryListOptions")] options: Option<Value>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let opts = parse_list_options(options.as_ref())?;
+        let out = spawn_blocking(move || engine.list(&namespace, opts)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Return all namespaces that contain at least one memory record.
+    #[napi]
+    pub async fn list_namespaces(&self) -> napi::Result<Vec<String>> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        spawn_blocking(move || engine.list_namespaces()).await
+    }
+
+    /// Hybrid memory search with optional vector / text / filter inputs.
+    ///
+    /// Returns hits ordered by **relevance** (highest score first): each hit is
+    /// `{ record: MemoryRecord, score: number, explanation?: object }`.
+    ///
+    /// # Score semantics (WSM-10 / CODE-091 cross-binding convention)
+    ///
+    /// The `score` field is a **relevance score** — it is *higher-is-better*, not
+    /// a raw distance. The exact value depends on the input mix and `distance_metric`:
+    ///
+    /// | Input                 | `distance_metric` | `score` formula / range                         |
+    /// |-----------------------|-------------------|--------------------------------------------------|
+    /// | `query_vector` only   | `"Cosine"`        | `cosine_similarity` ∈ `[-1.0, 1.0]`             |
+    /// | `query_vector` only   | `"Euclidean"`     | `-distance²` then sqrt → `(-∞, 0.0]`            |
+    /// | `text_query` only     | (n/a)             | BM25 (positive, no fixed upper bound)           |
+    /// | `query_vector` + `text_query` | any       | RRF-fused (higher = more relevant across channels) |
+    ///
+    /// This is the same convention as the Rust core (`MemorySearchHit.score`,
+    /// pinned by `src/sdk/serialization/vector_types.rs::tests`) and the Python SDK.
+    /// `vantadb-ts` uses the same `score` convention (`SearchHit.score`,
+    /// W1/API-02 — the legacy `distance` field was removed); see
+    /// `docs/api/TS_SDK.md` → "Score, not distance" for the cross-binding table.
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn search(
+        &self,
+        #[napi(ts_arg_type = "SearchRequest")] request: Value,
+        abort: Option<&AbortHandle>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let request = parse_search_request(&request)?;
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send`.
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort via `select!` against the
+        // `spawn_blocking` handle. The `Notify` stores one permit, so a fire
+        // between registration and `select!` is never missed (the remaining
+        // gap — a fire before this call — fails fast instead of hanging).
+        // Abort = detach: returning drops the `JoinHandle` (the blocking
+        // search runs on, the engine is never cancelled) and the `OpGuard`
+        // (released, so `close()` never blocks on a cancelled op). No guard
+        // or lock is held past this point (concurrency R-2; `OpGuard` is a
+        // drain permit, held across await exactly like every other method
+        // per js-ecosystem R-4).
+        let mut handle = tokio::task::spawn_blocking(move || engine.search(request));
+        let out: Vec<vantadb::sdk::MemorySearchHit> = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    biased;
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "search aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(map_err)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(map_err)?,
+        };
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Return stable runtime capabilities.
+    #[napi(ts_return_type = "Capabilities")]
+    pub fn capabilities(&self) -> Value {
+        let (_, engine) = self.snapshot();
+        let caps = engine.capabilities();
+        json!({
+            "runtime_profile": runtime_profile_label(caps.runtime_profile),
+            "persistence": caps.persistence,
+            "vector_search": caps.vector_search,
+            "iql_queries": caps.iql_queries,
+            "read_only": caps.read_only,
+        })
+    }
+
+    /// Insert or update a graph node directly.
+    ///
+    /// `input`: `{ id, content?, vector?, fields? }` — `id` is a decimal string
+    /// (or number; strings are the safe form for ids above 2^53), `fields` is an
+    /// object of tagged values (e.g. `{ "name": { "String": "Ada" } }`).
+    #[napi]
+    pub async fn insert_node(
+        &self,
+        #[napi(ts_arg_type = "GraphNodeInput")] input: Value,
+    ) -> napi::Result<()> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let input = parse_node_input(&input)?;
+        spawn_blocking(move || engine.insert_node(input)).await
+    }
+
+    /// Retrieve a graph node by id. Returns `null` if absent.
+    #[napi(ts_return_type = "Promise<GraphNodeRecord | null>")]
+    pub async fn get_node(&self, id: String) -> napi::Result<Option<Value>> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let id = parse_node_id(&id)?;
+        let out = spawn_blocking(move || engine.get_node(id)).await?;
+        match out {
+            Some(node) => Ok(Some(serde_json::to_value(&node).map_err(serde_map_err)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Delete a graph node by id. The `reason` string is recorded for auditing.
+    #[napi]
+    pub async fn delete_node(&self, id: String, reason: String) -> napi::Result<()> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let id = parse_node_id(&id)?;
+        spawn_blocking(move || engine.delete_node(id, &reason)).await
+    }
+
+    /// Add a directed edge between two graph nodes.
+    ///
+    /// Automatically creates the reverse edge on the target node, enabling
+    /// bidirectional traversal queries. `weight` defaults to 1.0 and
+    /// `created_at_ms` to the current time.
+    #[napi]
+    pub async fn add_edge(
+        &self,
+        source_id: String,
+        target_id: String,
+        label: String,
+        weight: Option<f64>,
+        created_at_ms: Option<f64>,
+    ) -> napi::Result<()> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let source_id = parse_node_id(&source_id)?;
+        let target_id = parse_node_id(&target_id)?;
+        let created_at_ms = opt_f64_to_u64(created_at_ms, "created_at_ms")?;
+        spawn_blocking(move || {
+            engine.add_edge(
+                source_id,
+                target_id,
+                &label,
+                weight.map(|w| w as f32),
+                created_at_ms,
+            )
+        })
+        .await
+    }
+
+    /// Remove all edges between two nodes with the given label (both directions).
+    #[napi]
+    pub async fn remove_edge(
+        &self,
+        source_id: String,
+        target_id: String,
+        label: String,
+    ) -> napi::Result<()> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let source_id = parse_node_id(&source_id)?;
+        let target_id = parse_node_id(&target_id)?;
+        spawn_blocking(move || engine.remove_edge(source_id, target_id, &label)).await
+    }
+
+    /// Breadth-first traversal from the given root node ids up to `max_depth`.
+    ///
+    /// `direction` is `"Forward"`, `"Reverse"`, or `"Both"`. Returns visited
+    /// node ids as decimal strings (u128 ids exceed JS safe integers).
+    #[napi]
+    pub async fn graph_bfs(
+        &self,
+        roots: Vec<String>,
+        max_depth: u32,
+        direction: String,
+    ) -> napi::Result<Vec<String>> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let dir = parse_direction(&direction)?;
+        let out = spawn_blocking(move || engine.graph_bfs(&roots, max_depth as usize, dir)).await?;
+        Ok(out.iter().map(|id| id.to_string()).collect())
+    }
+
+    /// Depth-first traversal from the given root node ids up to `max_depth`.
+    ///
+    /// `direction` is `"Forward"`, `"Reverse"`, or `"Both"`. Returns visited
+    /// node ids as decimal strings.
+    #[napi]
+    pub async fn graph_dfs(
+        &self,
+        roots: Vec<String>,
+        max_depth: u32,
+        direction: String,
+    ) -> napi::Result<Vec<String>> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let dir = parse_direction(&direction)?;
+        let out = spawn_blocking(move || engine.graph_dfs(&roots, max_depth as usize, dir)).await?;
+        Ok(out.iter().map(|id| id.to_string()).collect())
+    }
+
+    /// Topological sort of the subgraph reachable from the given root ids.
+    ///
+    /// Errors if the subgraph contains a cycle. Returns node ids as decimal strings.
+    #[napi]
+    pub async fn graph_topological_sort(&self, roots: Vec<String>) -> napi::Result<Vec<String>> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let out = spawn_blocking(move || engine.graph_topological_sort(&roots)).await?;
+        Ok(out.iter().map(|id| id.to_string()).collect())
+    }
+
+    /// Return whether the subgraph reachable from the given roots forms a DAG.
+    #[napi]
+    pub async fn graph_is_dag(&self, roots: Vec<String>) -> napi::Result<bool> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let roots = parse_node_ids(&roots)?;
+        spawn_blocking(move || engine.graph_is_dag(&roots)).await
+    }
+
+    /// Breadth-first traversal with optional edge label/time filtering.
+    ///
+    /// `filter` is `{ labels?: number[], time_range?: [number, number] }` —
+    /// only edges whose label id is in `labels` (and, when given, created
+    /// inside the inclusive `time_range` window) are followed. `null`/`undefined`
+    /// disables both filters. Returns visited node ids as decimal strings.
+    #[napi]
+    pub async fn graph_filtered_traversal(
+        &self,
+        roots: Vec<String>,
+        max_depth: u32,
+        direction: String,
+        #[napi(ts_arg_type = "GraphFilterOptions")] filter: Option<Value>,
+    ) -> napi::Result<Vec<String>> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let dir = parse_direction(&direction)?;
+        let (labels, time_range) = parse_graph_filter(filter.as_ref())?;
+        let out = spawn_blocking(move || {
+            engine.graph_bfs_filtered(&roots, max_depth as usize, dir, &labels, time_range)
+        })
+        .await?;
+        Ok(out.iter().map(|id| id.to_string()).collect())
+    }
+
+    /// Degree centrality (in/out counts) for the subgraph reachable from the roots.
+    ///
+    /// Returns an array of `{ id, in_degree, out_degree }` entries (u128 ids as
+    /// decimal strings).
+    #[napi(ts_return_type = "Promise<DegreeEntry[]>")]
+    pub async fn graph_degree(&self, roots: Vec<String>) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let degrees = spawn_blocking(move || engine.graph_degree_centrality(&roots)).await?;
+        let entries = degrees
+            .into_iter()
+            .map(|(id, (in_degree, out_degree))| {
+                json!({ "id": id.to_string(), "in_degree": in_degree, "out_degree": out_degree })
+            })
+            .collect::<Vec<_>>();
+        Ok(Value::Array(entries))
+    }
+
+    /// Explain the search plan for a memory search request without executing it.
+    ///
+    /// Same request shape as `search()`. Returns
+    /// `{ route, hits, fusion_report }` with a per-hit scoring breakdown.
+    #[napi(ts_return_type = "Promise<SearchExplanation>")]
+    pub async fn explain_search(
+        &self,
+        #[napi(ts_arg_type = "SearchRequest")] request: Value,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let request = parse_search_request(&request)?;
+        let out: SearchExplanation =
+            spawn_blocking(move || engine.explain_memory_search(request)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    // ── Lifecycle (BND-10) ───────────────────────────────────────────────────
+
+    /// List every retained version of a memory record, ascending (v1..vN).
+    /// Empty if the key does not exist or has no history.
+    #[napi(ts_return_type = "Promise<MemoryRecord[]>")]
+    pub async fn versions(&self, namespace: String, key: String) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let out = spawn_blocking(move || engine.versions(&namespace, &key)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Retrieve a specific historical version of a memory record.
+    /// Returns `null` if the version does not exist.
+    #[napi(ts_return_type = "Promise<MemoryRecord | null>")]
+    pub async fn get_version(
+        &self,
+        namespace: String,
+        key: String,
+        version: f64,
+    ) -> napi::Result<Option<Value>> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let v = opt_f64_to_u64(Some(version), "version")?
+            .ok_or_else(|| Error::from_reason("`version` must be a positive integer"))?;
+        let out = spawn_blocking(move || engine.get_version(&namespace, &key, v)).await?;
+        match out {
+            Some(record) => Ok(Some(serde_json::to_value(&record).map_err(serde_map_err)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Mark `old_key` as superseded by `new_key` (ADR-028). Both keys must
+    /// exist and differ; `old_key` must not already be superseded.
+    #[napi]
+    pub async fn supersede(
+        &self,
+        namespace: String,
+        old_key: String,
+        new_key: String,
+    ) -> napi::Result<()> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        spawn_blocking(move || engine.supersede(&namespace, &old_key, &new_key)).await
+    }
+
+    /// Purge tombstoned nodes from the HNSW index. Returns counts and timing.
+    #[napi(ts_return_type = "Promise<VacuumReport>")]
+    pub async fn vacuum(&self) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        // MOD-10: VacuumReport does not derive Serialize; build the JSON object
+        // explicitly (same field set as `src/storage/engine/mod.rs:VacuumReport`).
+        let report = spawn_blocking(move || engine.vacuum()).await?;
+        Ok(json!({
+            "scanned_nodes": report.scanned_nodes,
+            "removed_nodes": report.removed_nodes,
+            "reclaimed_bytes": report.reclaimed_bytes,
+            "duration_ms": report.duration_ms,
+            "success": report.success,
+        }))
+    }
+
+    /// Rebuild the HNSW vector index, derived indexes, text index, and scalar
+    /// index from scratch. Returns scan/index/timing counts.
+    #[napi(ts_return_type = "Promise<RebuildReport>")]
+    pub async fn rebuild_index(&self) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let out = spawn_blocking(move || engine.rebuild_index()).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Compact the vector store file (BFS grouping from the HNSW entry point).
+    /// Returns estimated bytes reclaimed.
+    #[napi(ts_return_type = "Promise<bigint>")]
+    pub async fn compact_layout(&self) -> napi::Result<u64> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        spawn_blocking(move || engine.compact_layout()).await
+    }
+
+    // ── Maintenance (BND-10) ─────────────────────────────────────────────────
+
+    /// Compact the WAL: flush, archive the current WAL file, and start fresh.
+    #[napi]
+    pub async fn compact_wal(&self) -> napi::Result<()> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        spawn_blocking(move || engine.compact_wal()).await
+    }
+
+    /// Scan every memory record and physically delete those whose TTL has
+    /// expired. Returns the number of records purged.
+    #[napi(ts_return_type = "Promise<bigint>")]
+    pub async fn purge_expired(&self) -> napi::Result<u64> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        spawn_blocking(move || engine.purge_expired()).await
+    }
+
+    // ── Search-advanced (BND-10) ─────────────────────────────────────────────
+
+    /// Delete every record in `namespace` whose metadata matches the given
+    /// filter. Filter must contain at least one item (mirrors the SDK guard).
+    #[napi(ts_return_type = "Promise<bigint>")]
+    pub async fn delete_by_filter(
+        &self,
+        namespace: String,
+        #[napi(ts_arg_type = "FilterItem[]")] filter: Value,
+    ) -> napi::Result<u64> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let items = parse_filter_items(&filter)?;
+        spawn_blocking(move || engine.delete_by_filter(&namespace, items)).await
+    }
+
+    /// Count records in a namespace, optionally filtered by metadata.
+    /// Pass `null`/`undefined` to count every record.
+    #[napi(ts_return_type = "Promise<bigint>")]
+    pub async fn count(
+        &self,
+        namespace: String,
+        #[napi(ts_arg_type = "FilterItem[] | null")] filter: Option<Value>,
+    ) -> napi::Result<u64> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let items = match filter {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(parse_filter_items(&v)?),
+        };
+        spawn_blocking(move || engine.count(&namespace, items)).await
+    }
+
+    /// Find records similar to the vector of an existing record (identified
+    /// by `namespace` + `key`). The source record is filtered out of the
+    /// results.
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn similar_to_key(
+        &self,
+        namespace: String,
+        key: String,
+        top_k: f64,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let k = clamp_top_k(
+            opt_f64_to_u64(Some(top_k), "top_k")?
+                .ok_or_else(|| Error::from_reason("`top_k` must be a positive integer"))?
+                as usize,
+        );
+        let out = spawn_blocking(move || engine.similar_to_key(&namespace, &key, k)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Same as `search()` with an explicit dense-vector index backend override.
+    /// `method` accepts `"Hnsw" | "Ivf" | "Flat" | "DiskAnn" | "Scann"` (or
+    /// `null`/`undefined` for automatic routing).
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn search_with_method(
+        &self,
+        #[napi(ts_arg_type = "SearchRequest")] request: Value,
+        method: Option<String>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let request = parse_search_request(&request)?;
+        let method_idx = match method.as_deref() {
+            None => None,
+            Some(s) => Some(parse_index_method(s)?),
+        };
+        let out = spawn_blocking(move || engine.search_with_method(request, method_idx)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Search across multiple namespaces in a single call. The `namespace`
+    /// field on `request` is ignored; every namespace in `namespaces` is
+    /// searched independently and results are merged by descending score.
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn search_multi(
+        &self,
+        #[napi(ts_arg_type = "string[]")] namespaces: Vec<String>,
+        #[napi(ts_arg_type = "SearchRequest")] request: Value,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let request = parse_search_request(&request)?;
+        let owned: Vec<String> = namespaces;
+        let out = spawn_blocking(move || {
+            let refs: Vec<&str> = owned.iter().map(String::as_str).collect();
+            engine.search_multi(&refs, request)
+        })
+        .await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Returns the canonical wire shape shared with the Python/TS/WASM
+    /// bindings: `{nodes: [{id, content, score, hop_distance}], edges:
+    /// [{source, target, label}], context_text, stats}`. u128 ids travel as
+    /// decimal strings (API-01). At least one of `query` / `queryVector`
+    /// should be provided; both may be combined (hybrid seeds).
+    #[napi(ts_return_type = "Promise<GraphRagResult>")]
+    pub async fn graphrag_search(
+        &self,
+        namespace: String,
+        query: Option<String>,
+        query_vector: Option<Vec<f64>>,
+        abort: Option<&AbortHandle>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let query_vector = match query_vector {
+            Some(v) => {
+                if v.len() > MAX_VEC_DIM {
+                    return Err(Error::from_reason(format!(
+                        "`query_vector` exceeds max vector dimension {MAX_VEC_DIM}"
+                    )));
+                }
+                let mut owned = Vec::with_capacity(v.len());
+                for f in v {
+                    let f32_val = f as f32;
+                    if !f.is_finite() || !f32_val.is_finite() {
+                        return Err(Error::from_reason("`query_vector` must be a number[]"));
+                    }
+                    owned.push(f32_val);
+                }
+                Some(owned)
+            }
+            None => None,
+        };
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send` (same as `search`).
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort, identical detach semantics to
+        // `search` — firing drops the `JoinHandle` (the blocking pipeline
+        // runs on, engine untouched) and releases the `OpGuard` so
+        // `close()` never blocks on a cancelled op.
+        let mut handle = tokio::task::spawn_blocking(move || {
+            engine.graphrag_search(&namespace, query.as_deref(), query_vector.as_deref())
+        });
+        let out = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    biased;
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "graphrag_search aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(map_err)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(map_err)?,
+        };
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Execute an IQL query string and return the structured result
+    /// (FIND-268).
+    ///
+    /// Same signature shape as `vantadb-wasm::Client::query` and
+    /// `vantadb-python::Client::query` for cross-binding parity. Returns the
+    /// core `QueryResult` enum, externally tagged (the exact wire shape the
+    /// `vantadb-ts` wrapper types): `{"Read": NodeRecord[]}` for SELECT-style
+    /// reads, `{"Write": {affected_nodes, message, node_id}}` for mutations,
+    /// `{"StaleContext": {node_id}}` when rehydration is required. All `u128`
+    /// node/edge ids serialize as **decimal strings** via `u128_serde`
+    /// (API-01 — a JS number can't hold a u128).
+    ///
+    /// `read_only` enforcement stays in the core engine (write queries on a
+    /// `read_only` handle are rejected there with the canonical
+    /// `VANTADB_*` error code, mapped by `map_err` like every other op).
+    /// `abort` (optional, last arg): `AbortHandle` — same cooperative
+    /// detach semantics as `search` (DIST-20 S4).
+    #[napi(ts_return_type = "Promise<QueryResult>")]
+    pub async fn query(&self, iql: String, abort: Option<&AbortHandle>) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send` (same as `search`).
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort — identical detach semantics to
+        // `search`: firing drops the `JoinHandle` (the query runs on,
+        // engine untouched) and releases the `OpGuard` so `close()` never
+        // blocks on a cancelled op.
+        let mut handle = tokio::task::spawn_blocking(move || engine.query(&iql));
+        let out = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    biased;
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "query aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(map_err)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(map_err)?,
+        };
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+}
+
+// ── DIST-19 S3: VantaCognitiveAPI — in-process facade over vanta-memory ─────
+// Thin wrappers (JSON boundary + guards only); behaviour lives in
+// `vanta-memory`/core (api-contract R-8). Per method: snapshot + enter
+// (OpGate, js-ecosystem R-4), engine work in `spawn_blocking` (concurrency
+// R-1, guard never held across await per R-2). `context_assemble` is pure CPU
+// (no engine state) so it skips the gate. Done: AbortHandle (S4/DIST-20),
+// Ego parity suite (S5/MEMG-24), trust-aware opt-in (S8/FIND-320 — recall
+// stays byte-identical default until then). No `dts-header`: the boundary is
+// `serde_json::Value` (→ `any`), napi default generation covers it.
+#[napi]
+impl VantaDB {
+    /// One auto-recall pass over L1/session/agent/team memory (MEMG-24).
+    /// `options`: `{user_text, session_key, scope?, max_results?, min_overlap?,
+    /// team_id?, agent_id?, allow_prefixes?, trust_aware?, now_ms?}`. Returns the recall JSON, or
+    /// `null` when there is nothing to inject (never an empty block).
+    /// `trust_aware` (default `false`) opts into the composite re-rank
+    /// (S8/FIND-320, MEMG-21 precedent); `false` keeps the legacy ordering
+    /// byte-identical. `now_ms` (epoch ms, default: wall-clock) only feeds
+    /// the opt-in path and makes it deterministic in tests.
+    #[napi]
+    pub async fn memory_recall(&self, options: Value) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let owned = MemoryRecallArgs::parse(&opts)?;
+        let out = tokio::task::spawn_blocking(move || {
+            let params = AutoRecallParams {
+                user_text: &owned.user_text,
+                session_key: &owned.session_key,
+                isolation: Some(owned.isolation),
+                config: owned.config,
+            };
+            // S8 (FIND-320): opt-in composite re-rank (MEMG-21 precedent);
+            // default path untouched → byte-identical.
+            if owned.trust_aware {
+                perform_auto_recall_scored(
+                    &engine,
+                    params,
+                    None,
+                    &owned.policy,
+                    &CompositeScoring::default(),
+                    owned.now_ms,
+                )
+                .map_err(|e| format!("memory_recall failed: {e:?}"))
+            } else {
+                perform_auto_recall_governed(&engine, params, None, &owned.policy)
+                    .map_err(|e| format!("memory_recall failed: {e:?}"))
+            }
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        match out {
+            None => Ok(Value::Null),
+            // `RecallResult` has no `Serialize` (internal type); map the
+            // fields — every part is `Serialize` (`RecalledMemory`,
+            // `RecallMode`, `RecallGovernance`).
+            Some(r) => Ok(json!({
+                "prepend_context": r.prepend_context,
+                "append_system_context": r.append_system_context,
+                "recalled_memories": serde_json::to_value(&r.recalled_memories)
+                    .map_err(serde_map_err)?,
+                "persona": r.persona,
+                "effective_mode": serde_json::to_value(r.effective_mode)
+                    .map_err(serde_map_err)?,
+                "governance": serde_json::to_value(&r.governance).map_err(serde_map_err)?,
+            })),
+        }
+    }
+
+    /// Compact a chat history under a token budget (pure function, no engine
+    /// state — works even while the database is closing). `options`:
+    /// `{messages: ChatMessage[], token_budget, protected_prefix?,
+    /// compaction_ratio?, min_keep?}`. Uses the lean chars/3 heuristic
+    /// (`TokenEstimator::default`; `precise-tokens` stays opt-in).
+    /// `abort` (optional, last arg): `AbortHandle` — same cooperative
+    /// detach semantics as `search` (DIST-20 S4).
+    #[napi]
+    pub async fn context_assemble(
+        &self,
+        options: Value,
+        abort: Option<&AbortHandle>,
+    ) -> napi::Result<Value> {
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let messages: Vec<ChatMessage> = opts
+            .get("messages")
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| Error::from_reason(format!("`messages` must be ChatMessage[]: {e}")))?
+            .unwrap_or_default();
+        let token_budget = opt_u64(&opts, "token_budget")
+            .filter(|&b| b > 0)
+            .ok_or_else(|| Error::from_reason("`token_budget` must be a positive integer"))?;
+        let protected_prefix = opt_u64(&opts, "protected_prefix").unwrap_or(0) as usize;
+        let mut cfg = AssembleConfig::default();
+        if let Some(ratio) = opts.get("compaction_ratio").and_then(Value::as_f64) {
+            if ratio > 0.0 {
+                cfg.compaction_ratio = ratio;
+            }
+        }
+        if let Some(min_keep) = opt_u64(&opts, "min_keep") {
+            cfg.min_keep = min_keep as usize;
+        }
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send` (same as `search`).
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort — same detach semantics as
+        // `search`: firing drops the `JoinHandle` (the pure-CPU compaction
+        // runs on, engine untouched; this op holds no `OpGuard`).
+        let mut handle = tokio::task::spawn_blocking(move || {
+            assemble_context(
+                messages,
+                token_budget,
+                &TokenEstimator::default(),
+                protected_prefix,
+                &cfg,
+                None,
+            )
+            .map_err(|e| format!("context_assemble failed: {e:?}"))
+        });
+        let out = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    biased;
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "context_assemble aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(Error::from_reason)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(Error::from_reason)?,
+        };
+        // `AssembleOutput` has no `Serialize`; map the fields (`ChatMessage`
+        // is `Serialize`, the report is scalars + a `Debug` mode name).
+        Ok(json!({
+            "messages": serde_json::to_value(&out.messages).map_err(serde_map_err)?,
+            "report": {
+                "mode": format!("{:?}", out.report.mode),
+                "msgs_conserved": out.report.msgs_conserved,
+                "msgs_before": out.report.msgs_before,
+                "tokens_before": out.report.tokens_before,
+                "tokens_after": out.report.tokens_after,
+            },
+            "has_boundary": out.boundary.is_some(),
+        }))
+    }
+
+    /// LLM-free consolidation pass over one session (dream primitives:
+    /// dedup, contradiction provenance, date normalization). `options`:
+    /// `{session_id, now_ms, last_active_at_ms?, idle_threshold_ms?}`.
+    /// Fail-closed: a non-idle session is an error, never a silent no-op.
+    #[napi]
+    pub async fn memory_consolidate(&self, options: Value) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let session_id = get_str(&opts, "session_id")?;
+        if session_id.trim().is_empty() {
+            return Err(Error::from_reason(
+                "`session_id` must be a non-empty string",
+            ));
+        }
+        let now_ms = opt_u64(&opts, "now_ms")
+            .ok_or_else(|| Error::from_reason("`now_ms` must be an epoch-ms integer"))?;
+        let last_active_at_ms = opt_u64(&opts, "last_active_at_ms").unwrap_or(now_ms);
+        let mut config = DreamConfig::default();
+        if let Some(t) = opt_u64(&opts, "idle_threshold_ms") {
+            config.idle_threshold_ms = t;
+        }
+        let out = tokio::task::spawn_blocking(move || {
+            consolidate_session(&engine, &session_id, now_ms, last_active_at_ms, &config)
+                .map_err(|e| format!("memory_consolidate failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Reinforce one recalled memory (`hit` = a `recalled_memories[]` item
+    /// from [`VantaDB::memory_recall`]). `outcome`: `used`|`corrected`|`unused`
+    /// (wire names of `ReinforceOutcome`; unknown tokens rejected, never
+    /// inferred). Returns the updated record.
+    #[napi]
+    pub async fn memory_reinforce(&self, hit: Value, outcome: String) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let recalled: RecalledMemory = serde_json::from_value(hit).map_err(|e| {
+            Error::from_reason(format!("`hit` must be a recalled memory object: {e}"))
+        })?;
+        let outcome = ReinforceOutcome::from_wire_str(&outcome)
+            .ok_or_else(|| Error::from_reason("`outcome` must be one of used|corrected|unused"))?;
+        let out = tokio::task::spawn_blocking(move || {
+            reinforce_recalled(&engine, &recalled, outcome)
+                .map_err(|e| format!("memory_reinforce failed: {e:?}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Full-database checkpoint: JSONL export (`export_all`) to `path`.
+    /// Backed by the core export (integrity manifest included) — this method
+    /// only moves the call across the FFI boundary.
+    #[napi]
+    pub async fn checkpoint_save(&self, path: String) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        if path.is_empty() {
+            return Err(Error::from_reason("`path` must be a non-empty file path"));
+        }
+        let out = tokio::task::spawn_blocking(move || {
+            engine
+                .export_all(&path)
+                .map_err(|e| format!("checkpoint_save failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Restore a checkpoint written by [`VantaDB::checkpoint_save`].
+    /// `quarantine` defaults to `true` (safe default: untrusted content is
+    /// quarantined unless the host opts out explicitly).
+    #[napi]
+    pub async fn checkpoint_load(
+        &self,
+        path: String,
+        quarantine: Option<bool>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        if path.is_empty() {
+            return Err(Error::from_reason("`path` must be a non-empty file path"));
+        }
+        let quarantine = quarantine.unwrap_or(true);
+        let out = tokio::task::spawn_blocking(move || {
+            engine
+                .import_file(&path, quarantine)
+                .map_err(|e| format!("checkpoint_load failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+}
+
+/// Read an optional u64 JSON option. Accepts real JSON integers AND integral
+/// doubles: JS has no int64, so epoch-ms values like `Date.now()` always
+/// arrive as f64 (napi converts small ints to u64 but big ones to f64, and
+/// `Value::as_u64` rejects f64 outright). Non-integral, negative, or
+/// out-of-range (> 2^53, exact-integer limit) doubles are rejected.
+fn opt_u64(opts: &Map<String, Value>, key: &str) -> Option<u64> {
+    opts.get(key).and_then(|v| {
+        v.as_u64().or_else(|| {
+            v.as_f64().and_then(|f| {
+                ((0.0..=9_007_199_254_740_992.0).contains(&f) && f.fract() == 0.0)
+                    .then_some(f as u64)
+            })
+        })
+    })
+}
+
+/// Owned, validated arguments for [`VantaDB::memory_recall`], built from the
+/// JSON boundary so the `spawn_blocking` closure is `'static` (concurrency
+/// R-2: no borrowed state crosses the await).
+struct MemoryRecallArgs {
+    user_text: String,
+    session_key: String,
+    isolation: ProfileIsolation,
+    config: RecallConfig,
+    policy: InjectionPolicy,
+    trust_aware: bool,
+    now_ms: u64,
+}
+
+impl MemoryRecallArgs {
+    fn parse(opts: &Map<String, Value>) -> napi::Result<Self> {
+        let user_text = get_str(opts, "user_text")?;
+        let session_key = get_str(opts, "session_key")?;
+        if session_key.trim().is_empty() {
+            return Err(Error::from_reason(
+                "`session_key` must be a non-empty string",
+            ));
+        }
+        let scope = match opts.get("scope").and_then(Value::as_str).unwrap_or("agent") {
+            "session" => RecallScope::Session,
+            "agent" => RecallScope::Agent,
+            "team" => RecallScope::Team,
+            other => {
+                return Err(Error::from_reason(format!(
+                    "`scope` must be one of session|agent|team, got `{other}`"
+                )))
+            }
+        };
+        // ERR-022 policy shared with search (`clamp_top_k` lives in
+        // `vantadb-ffi-core`); recall never takes 0 (means "inject nothing",
+        // which the core already signals with `null`).
+        let max_results = clamp_top_k(
+            opt_u64(opts, "max_results")
+                .map(|v| v as usize)
+                .unwrap_or(5),
+        )
+        .max(1);
+        let mut config = RecallConfig {
+            scope,
+            max_results,
+            ..Default::default()
+        };
+        if let Some(min_overlap) = opt_u64(opts, "min_overlap") {
+            config.min_overlap = min_overlap as usize;
+        }
+        let isolation = ProfileIsolation {
+            team_id: opts
+                .get("team_id")
+                .and_then(Value::as_str)
+                .unwrap_or("default")
+                .to_string(),
+            agent_id: opts
+                .get("agent_id")
+                .and_then(Value::as_str)
+                .unwrap_or("default")
+                .to_string(),
+        };
+        // VER-04: explicit ACL surface — `allow_prefixes` narrows injection;
+        // absent means allow-all (the `perform_auto_recall` default).
+        let policy = match opts.get("allow_prefixes") {
+            Some(Value::Array(items)) => InjectionPolicy::from_prefixes(
+                items.iter().filter_map(Value::as_str).map(str::to_string),
+            ),
+            _ => InjectionPolicy::allow_all(),
+        };
+        // S8 (FIND-320): trust-aware re-rank, opt-in (default false =
+        // byte-identical legacy ordering). `now_ms` is injectable for
+        // determinism; it defaults to wall-clock time.
+        let trust_aware = opts
+            .get("trust_aware")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let now_ms = opt_u64(opts, "now_ms").unwrap_or_else(|| {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64
+        });
+        Ok(Self {
+            user_text,
+            session_key,
+            isolation,
+            config,
+            policy,
+            trust_aware,
+            now_ms,
+        })
+    }
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+fn runtime_profile_label(profile: vantadb::sdk::RuntimeProfile) -> &'static str {
+    match profile {
+        vantadb::sdk::RuntimeProfile::Enterprise => "Enterprise",
+        vantadb::sdk::RuntimeProfile::Performance => "Performance",
+        vantadb::sdk::RuntimeProfile::LowResource => "LowResource",
+    }
+}
+
+/// Canonical mapping from core `Error` to `VantaErrorCode`.
+///
+/// Ensures `Error::Serialization` is mapped to `VantaErrorCode::Serialization`
+/// and NEVER to `Corrupt`. Also classifies quota exceeded errors as `QuotaExceeded`.
+pub fn from_engine_error(err: &vantadb::error::Error) -> VantaErrorCode {
+    match err {
+        vantadb::error::Error::Serialization(_) => VantaErrorCode::Serialization,
+        vantadb::error::Error::DimensionMismatch { .. } => VantaErrorCode::DimensionMismatch,
+        vantadb::error::Error::NodeNotFound(_) | vantadb::error::Error::NotFound { .. } => {
+            VantaErrorCode::NotFound
+        }
+        vantadb::error::Error::Io(_) | vantadb::error::Error::Wal(_) => VantaErrorCode::Io,
+        vantadb::error::Error::DatabaseBusy(_) => VantaErrorCode::TransactionConflict,
+        vantadb::error::Error::WALVersionMismatch { .. }
+        | vantadb::error::Error::IncompatibleFormat { .. }
+        | vantadb::error::Error::Schema(_)
+        | vantadb::error::Error::Restore(_)
+        | vantadb::error::Error::Backup(_) => VantaErrorCode::Corrupt,
+        vantadb::error::Error::InvalidInput(_)
+        | vantadb::error::Error::Validation { .. }
+        | vantadb::error::Error::Iql(_)
+        | vantadb::error::Error::IqlParse { .. } => VantaErrorCode::InvalidInput,
+        _ => {
+            let msg = err.to_string().to_ascii_lowercase();
+            if msg.contains("quota exceeded") || msg.contains("quota_exceeded") {
+                VantaErrorCode::QuotaExceeded
+            } else if msg.contains("serialization") {
+                VantaErrorCode::Serialization
+            } else if msg.contains("dimension mismatch") {
+                VantaErrorCode::DimensionMismatch
+            } else if msg.contains("not found") {
+                VantaErrorCode::NotFound
+            } else if msg.contains("closed") || msg.contains("closing") {
+                VantaErrorCode::Closed
+            } else if msg.contains("corrupt") {
+                VantaErrorCode::Corrupt
+            } else {
+                VantaErrorCode::from_code(err.code())
+            }
+        }
+    }
+}
+
+/// Convert a core `Error` into a `napi::Error` whose message carries the
+/// canonical structured `[ERR_CODE:<code>]` prefix and stable `VANTADB_*` code.
+fn map_err(e: vantadb::error::Error) -> napi::Error {
+    let vanta_code = from_engine_error(&e);
+    let code = e.code();
+    Error::new(
+        napi::Status::GenericFailure,
+        format!("[ERR_CODE:{}] {code}: {e}", vanta_code.as_str()),
+    )
+}
+
+fn serde_map_err(e: serde_json::Error) -> napi::Error {
+    Error::new(
+        napi::Status::GenericFailure,
+        format!("[ERR_CODE:ERR_SERIALIZATION] VANTADB_SERIALIZATION: serialization error: {e}"),
+    )
+}
+
+/// Enter the gate for an engine operation, or fail with a descriptive error
+/// if the database is closing.
+fn enter(gate: &OpGate) -> napi::Result<OpGuard> {
+    gate.try_enter().ok_or_else(|| {
+        Error::new(
+            napi::Status::GenericFailure,
+            "[ERR_CODE:ERR_CLOSED] VANTADB_CLOSED: database is closing",
+        )
+    })
+}
+
+/// FIND-534: drain the durability gate without deadlocking small runtimes.
+///
+/// [`OpGate::drain`] parks the calling thread on a `Condvar` until every
+/// in-flight [`OpGuard`] drops. Called inline from an async `#[napi]`
+/// method it blocks a runtime worker — on a `current_thread` or 1-worker
+/// `multi_thread` runtime (CI containers, 1-vCPU VMs) that is the *only*
+/// thread able to poll the op futures holding those guards to completion:
+/// a total deadlock. The strategy depends on the ambient runtime:
+///
+/// - `MultiThread` flavor: `tokio::task::block_in_place` migrates this
+///   worker's other tasks to a fresh worker, so guard-holding futures keep
+///   making progress while the wait parks here.
+/// - Any other runtime flavor (`current_thread`; `block_in_place` would
+///   panic): the wait runs on the dedicated blocking pool via
+///   `spawn_blocking`, which exists on every flavor and frees the runtime
+///   thread entirely.
+/// - No ambient runtime (e.g. the GC finalizer thread): drain inline —
+///   blocking a non-runtime thread cannot starve the futures holding
+///   `OpGuard`s, which execute on the tokio workers.
+async fn drain_gate(gate: OpGate) {
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle)
+            if matches!(
+                handle.runtime_flavor(),
+                tokio::runtime::RuntimeFlavor::MultiThread
+            ) =>
+        {
+            tokio::task::block_in_place(|| gate.drain());
+        }
+        Ok(_) => {
+            // JoinError can only mean the drain closure panicked; `drain`
+            // recovers poison internally and sets `closing` before waiting,
+            // so the barrier stays enforced either way.
+            let _ = tokio::task::spawn_blocking(move || gate.drain()).await;
+        }
+        Err(_) => gate.drain(),
+    }
+}
+
+/// Run a blocking engine operation on the tokio blocking threadpool.
+async fn spawn_blocking<F, T>(f: F) -> napi::Result<T>
+where
+    F: FnOnce() -> vantadb::error::Result<T> + Send + 'static,
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(map_err)
+}
+
+/// Number of LSM segments (levels L0..L3) a store owns. Each one is a
+/// separate file with its own pre-reserved address space, so the total
+/// reserve of a store is `LSM_SEGMENT_COUNT * reserve_bytes` (FIND-517).
+const LSM_SEGMENT_COUNT: u64 = 4;
+
+fn build_config(path: &str, options: Option<&Value>) -> napi::Result<Config> {
+    let mut config = Config {
+        storage_path: path.to_string(),
+        ..Default::default()
+    };
+    if path.is_empty() || path == ":memory:" {
+        // The SDK's `connect()` treats empty/`:memory:` as an in-memory engine;
+        // `open_with_config` alone would try to open a real directory with that
+        // name, so mirror the backend selection here.
+        config.backend_kind = vantadb::storage::BackendKind::InMemory;
+    }
+    if let Some(opts) = options {
+        let obj = opts
+            .as_object()
+            .ok_or_else(|| Error::from_reason("options must be an object"))?;
+        if let Some(read_only) = obj.get("read_only") {
+            config.read_only = read_only
+                .as_bool()
+                .ok_or_else(|| Error::from_reason("read_only must be a boolean"))?;
+        }
+        if let Some(limit) = obj.get("memory_limit") {
+            let value = limit
+                .as_u64()
+                .ok_or_else(|| Error::from_reason("memory_limit must be a number"))?;
+            config.memory_limit = (value > 0).then_some(value);
+        }
+        // FIND-517: the pre-reserve of the LSM segments is now a knob
+        // instead of a hidden 64 MiB per level. `reserve_bytes` is the size
+        // of ONE segment (a store has 4), so the store reserves
+        // `4 * reserve_bytes` up front.
+        if let Some(reserve) = obj.get("reserve_bytes") {
+            let value = reserve
+                .as_u64()
+                .ok_or_else(|| Error::from_reason("reserve_bytes must be a number"))?;
+            if value == 0 {
+                return Err(Error::from_reason("reserve_bytes must be greater than 0"));
+            }
+            config.segment_optimizer.lsm.initial_segment_bytes = value;
+        }
+    }
+    // FIND-517: the reserve is covered by `memory_limit` — the user must
+    // never end up with a pre-reservation larger than the memory budget it
+    // declared. Clamp per segment so the total (`4 * per_segment`) fits.
+    if let Some(limit) = config.memory_limit {
+        let per_segment = limit / LSM_SEGMENT_COUNT;
+        if config.segment_optimizer.lsm.initial_segment_bytes > per_segment {
+            config.segment_optimizer.lsm.initial_segment_bytes = per_segment;
+        }
+    }
+    Ok(config)
+}
+
+fn parse_memory_input(value: &Value) -> napi::Result<MemoryInput> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| Error::from_reason("record must be an object"))?;
+    Ok(MemoryInput {
+        namespace: get_str(obj, "namespace")?,
+        key: get_str(obj, "key")?,
+        payload: get_str(obj, "payload")?,
+        metadata: get_metadata(obj, "metadata")?,
+        vector: get_opt_f32_vec(obj, "vector")?,
+        ttl_ms: get_opt_u64(obj, "ttl_ms")?,
+        sparse_vector: parse_sparse_vector(obj, "sparse_vector")?,
+        // SCH-02 v2 fields (confidence/temporal/quarantine) are not exposed on
+        // the Node put door yet (SCH-07): defaults (asserted / D_a / None).
+        ..Default::default()
+    })
+}
+
+/// Parse an optional sparse vector from a JS object (`{dim: weight}`).
+///
+/// JS object keys are always strings, so numeric-string keys are coerced to
+/// `u32` dimension ids — same wire shape as the WASM adapter for
+/// `sparse_vector`. `null` / absent / `{}` means "skip sparse" (`None`).
+fn parse_sparse_vector(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<SparseVector>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(map)) => {
+            let mut out = std::collections::BTreeMap::new();
+            for (k, v) in map {
+                let dim: u32 = k.parse().map_err(|_| {
+                    Error::from_reason(format!("`{key}` key '{k}' is not a u32 dimension id"))
+                })?;
+                let weight = v.as_f64().filter(|f| f.is_finite()).ok_or_else(|| {
+                    Error::from_reason(format!("`{key}[{dim}]` must be a finite number"))
+                })?;
+                // N1 (review WIRE-03): f64 values like 1e39 overflow to `inf`
+                // when narrowed to f32 — reject instead of storing inf.
+                let weight32 = weight as f32;
+                if !weight32.is_finite() {
+                    return Err(Error::from_reason(format!(
+                        "`{key}[{dim}]` is out of range for f32 (got {weight})"
+                    )));
+                }
+                out.insert(dim, weight32);
+            }
+            Ok((!out.is_empty()).then_some(SparseVector(out)))
+        }
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be an object of dimension→weight (e.g. {{ \"7\": 1.5 }})"
+        ))),
+    }
+}
+
+fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> {
+    let mut filters = MemoryMetadata::new();
+    let mut limit = 100usize;
+    let mut cursor = None;
+    let mut as_of_ms = None;
+    let mut valid_window = None;
+    let mut include_quarantined = false;
+    let mut min_confidence = None;
+    let mut exclude_superseded = false;
+    if let Some(opts) = value {
+        let obj = opts
+            .as_object()
+            .ok_or_else(|| Error::from_reason("options must be an object"))?;
+        if let Some(f) = obj.get("filters") {
+            filters = serde_json::from_value(f.clone())
+                .map_err(|e| Error::from_reason(format!("invalid filters: {e}")))?;
+        }
+        if let Some(l) = obj.get("limit") {
+            limit = l
+                .as_u64()
+                .ok_or_else(|| Error::from_reason("limit must be a number"))?
+                as usize;
+        }
+        if let Some(c) = obj.get("cursor") {
+            // EGO-01: napi serializa `cursor: undefined` como Null; el backend
+            // WASM emite cursores como string decimal. Ambos deben aceptarse.
+            if !c.is_null() {
+                let num = c
+                    .as_u64()
+                    .or_else(|| {
+                        c.as_f64()
+                            .filter(|f| f.is_finite() && *f >= 0.0 && f.fract() == 0.0)
+                            .map(|f| f as u64)
+                    })
+                    .or_else(|| c.as_str().and_then(|s| s.trim().parse::<u64>().ok()))
+                    .ok_or_else(|| Error::from_reason("cursor must be a number"))?;
+                cursor = Some(num as usize);
+            }
+        }
+        // SCH-07: temporal + quarantine-view + confidence params (ADR-046
+        // §D2/§D3/§D5) — same wire names as the SDK.
+        as_of_ms = get_opt_u64(obj, "as_of_ms")?;
+        valid_window = get_opt_valid_window(obj, "valid_window")?;
+        include_quarantined = get_opt_bool(obj, "include_quarantined")?;
+        min_confidence = opt_min_confidence(obj, "min_confidence")?;
+        // FIND-412: ADR-028 flag — hide records replaced by a newer one.
+        // Same wire name/semantics as WASM (`ListOptions.exclude_superseded`,
+        // `#[serde(default)]` ⇒ false) and Python (`exclude_superseded=False`).
+        exclude_superseded = get_opt_bool(obj, "exclude_superseded")?;
+    }
+    Ok(MemoryListOptions {
+        #[allow(deprecated)]
+        filters,
+        filter_ops: None,
+        limit,
+        cursor,
+        exclude_superseded,
+        as_of_ms,
+        valid_window,
+        include_quarantined,
+        min_confidence,
+    })
+}
+
+fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| Error::from_reason("request must be an object"))?;
+    let query_vector = get_f32_vec(obj, "query_vector")?;
+    Ok(MemorySearchRequest {
+        namespace: get_str(obj, "namespace")?,
+        query_vector,
+        query_sparse: parse_sparse_vector(obj, "query_sparse")?,
+        filters: get_metadata(obj, "filters")?,
+        text_query: get_opt_str(obj, "text_query")?,
+        top_k: clamp_top_k(obj.get("top_k").and_then(Value::as_u64).unwrap_or(10) as usize),
+        distance_metric: match obj.get("distance_metric") {
+            Some(Value::String(s)) if s == "Euclidean" || s == "euclidean" => {
+                DistanceMetric::Euclidean
+            }
+            _ => DistanceMetric::Cosine,
+        },
+        explain: obj.get("explain").and_then(Value::as_bool).unwrap_or(false),
+        // FIND-412: ADR-028 flag — hide records replaced by a newer one.
+        // Same wire name/semantics as WASM (`SearchRequest.exclude_superseded`,
+        // `#[serde(default)]` ⇒ false) and Python (`exclude_superseded=False`).
+        exclude_superseded: get_opt_bool(obj, "exclude_superseded")?,
+        // SCH-04: opt-in confidence filter (ADR-046 §D2) — finiteness/range
+        // validated at the core boundary (`min_confidence` in the error).
+        min_confidence: opt_min_confidence(obj, "min_confidence")?,
+        // SCH-07: temporal + quarantine-view params (ADR-046 §D3/§D5).
+        as_of_ms: get_opt_u64(obj, "as_of_ms")?,
+        valid_window: get_opt_valid_window(obj, "valid_window")?,
+        include_quarantined: get_opt_bool(obj, "include_quarantined")?,
+        search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+    })
+}
+
+fn get_str(obj: &Map<String, Value>, key: &str) -> napi::Result<String> {
+    match obj.get(key) {
+        Some(Value::String(s)) => Ok(s.clone()),
+        Some(_) => Err(Error::from_reason(format!("`{key}` must be a string"))),
+        None => Err(Error::from_reason(format!(
+            "missing required field `{key}`"
+        ))),
+    }
+}
+
+fn get_opt_str(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<String>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) => Ok(Some(s.clone())),
+        Some(_) => Err(Error::from_reason(format!("`{key}` must be a string"))),
+    }
+}
+
+fn get_opt_u64(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<u64>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => {
+            // Integer form: reject negatives explicitly instead of silently
+            // mapping them to "no TTL" (mirrors `opt_f64_to_u64` below).
+            if n.is_i64() || n.is_u64() {
+                n.as_u64().map(Some).ok_or_else(|| {
+                    Error::from_reason(format!("`{key}` must be a non-negative integer"))
+                })
+            } else {
+                // Float form (e.g. `5.0`): accept exact non-negative integers.
+                match n.as_f64() {
+                    Some(f) if f.is_finite() && f >= 0.0 && f.fract() == 0.0 => Ok(Some(f as u64)),
+                    _ => Err(Error::from_reason(format!(
+                        "`{key}` must be a non-negative integer"
+                    ))),
+                }
+            }
+        }
+        Some(_) => Err(Error::from_reason(format!("`{key}` must be a number"))),
+    }
+}
+
+/// SCH-07: parse the optional `valid_window` object (`{from_ms, to_ms}`,
+/// ADR-046 §D3). Shape/type validated here; `from_ms < to_ms` is enforced by
+/// the core boundary (`SEARCH_OPTIONS_INVALID`) — never silently swapped.
+fn get_opt_valid_window(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<ValidWindow>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(map)) => {
+            let from_ms = get_opt_u64(map, "from_ms")?.ok_or_else(|| {
+                Error::from_reason(format!("`{key}.from_ms` must be a non-negative integer"))
+            })?;
+            let to_ms = get_opt_u64(map, "to_ms")?.ok_or_else(|| {
+                Error::from_reason(format!("`{key}.to_ms` must be a non-negative integer"))
+            })?;
+            Ok(Some(ValidWindow { from_ms, to_ms }))
+        }
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be an object {{from_ms, to_ms}}"
+        ))),
+    }
+}
+
+/// SCH-07: optional boolean flag (absent/`null` ⇒ `false`; a present
+/// non-boolean is rejected instead of being coerced).
+fn get_opt_bool(obj: &Map<String, Value>, key: &str) -> napi::Result<bool> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(false),
+        Some(Value::Bool(b)) => Ok(*b),
+        Some(_) => Err(Error::from_reason(format!("`{key}` must be a boolean"))),
+    }
+}
+
+/// SCH-04/SCH-07: optional `min_confidence` number; finiteness/range are
+/// validated at the core boundary (never clamped here).
+fn opt_min_confidence(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<f32>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => Ok(Some(n.as_f64().unwrap_or(f64::NAN) as f32)),
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be a number in [0, 1]"
+        ))),
+    }
+}
+
+fn get_f32_vec(obj: &Map<String, Value>, key: &str) -> napi::Result<Vec<f32>> {
+    match obj.get(key) {
+        Some(Value::Array(items)) => {
+            if items.len() > MAX_VEC_DIM {
+                return Err(Error::from_reason(format!(
+                    "`{key}` exceeds max vector dimension {MAX_VEC_DIM}"
+                )));
+            }
+            items
+                .iter()
+                .map(|v| {
+                    let f = v
+                        .as_f64()
+                        .filter(|f| f.is_finite())
+                        .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))?;
+                    let f32_val = f as f32;
+                    if !f32_val.is_finite() {
+                        return Err(Error::from_reason(format!(
+                            "`{key}` must contain finite numbers"
+                        )));
+                    }
+                    Ok(f32_val)
+                })
+                .collect()
+        }
+        Some(_) => Err(Error::from_reason(format!("`{key}` must be a number[]"))),
+        None => Err(Error::from_reason(format!(
+            "missing required field `{key}`"
+        ))),
+    }
+}
+
+fn get_opt_f32_vec(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<Vec<f32>>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Array(items)) => {
+            if items.len() > MAX_VEC_DIM {
+                return Err(Error::from_reason(format!(
+                    "`{key}` exceeds max vector dimension {MAX_VEC_DIM}"
+                )));
+            }
+            items
+                .iter()
+                .map(|v| {
+                    let f = v
+                        .as_f64()
+                        .filter(|f| f.is_finite())
+                        .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))?;
+                    let f32_val = f as f32;
+                    if !f32_val.is_finite() {
+                        return Err(Error::from_reason(format!(
+                            "`{key}` must contain finite numbers"
+                        )));
+                    }
+                    Ok(f32_val)
+                })
+                .collect::<napi::Result<Vec<f32>>>()
+                .map(Some)
+        }
+        Some(_) => Err(Error::from_reason(format!("`{key}` must be a number[]"))),
+    }
+}
+
+fn get_metadata(obj: &Map<String, Value>, key: &str) -> napi::Result<MemoryMetadata> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(MemoryMetadata::new()),
+        Some(v) => serde_json::from_value(v.clone())
+            .map_err(|e| Error::from_reason(format!("invalid `{key}`: {e}"))),
+    }
+}
+
+/// Convert an optional JS number to a u64, rejecting non-integers and negatives
+/// (napi does not accept `u64`/`Option<u64>` params, so unix-ms values arrive
+/// as `f64` and are validated here).
+fn opt_f64_to_u64(value: Option<f64>, key: &str) -> napi::Result<Option<u64>> {
+    value
+        .map(|v| {
+            if v.is_finite() && v >= 0.0 && v.fract() == 0.0 {
+                Ok(v as u64)
+            } else {
+                Err(Error::from_reason(format!(
+                    "`{key}` must be a non-negative integer"
+                )))
+            }
+        })
+        .transpose()
+}
+
+// ── graph helpers ────────────────────────────────────────────────────────────
+
+/// Parse a graph node id from a decimal string.
+///
+/// Node ids are u128 in the core SDK; JS Numbers lose precision above 2^53, so
+/// the Node API takes ids as decimal strings (strings in, strings out — same
+/// convention as the WASM binding `parse_node_id` and ERR-025/ERR-023).
+fn parse_node_id(id: &str) -> napi::Result<u128> {
+    id.trim().parse::<u128>().map_err(|_| {
+        Error::from_reason(format!(
+            "invalid node id '{id}': expected a decimal u128 string"
+        ))
+    })
+}
+
+fn parse_node_ids(ids: &[String]) -> napi::Result<Vec<u128>> {
+    ids.iter().map(|id| parse_node_id(id)).collect()
+}
+
+/// Parse a traversal direction string into the core enum.
+fn parse_direction(direction: &str) -> napi::Result<TraversalDirection> {
+    match direction {
+        "Forward" => Ok(TraversalDirection::Forward),
+        "Reverse" => Ok(TraversalDirection::Reverse),
+        "Both" => Ok(TraversalDirection::Both),
+        _ => Err(Error::from_reason(format!(
+            "invalid direction '{direction}': expected 'Forward', 'Reverse', or 'Both'"
+        ))),
+    }
+}
+
+/// Parse a `NodeInput` from a JSON object `{ id, content?, vector?, fields? }`.
+///
+/// `id` may be a decimal string or a number. `fields` uses the tagged
+/// `Value` representation (e.g. `{ "name": { "String": "Ada" } }`).
+fn parse_node_input(value: &Value) -> napi::Result<NodeInput> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| Error::from_reason("node input must be an object"))?;
+    let id = match obj.get("id") {
+        Some(Value::String(s)) => parse_node_id(s)?,
+        Some(Value::Number(n)) => n
+            .as_u64()
+            .ok_or_else(|| Error::from_reason("`id` must be a non-negative integer"))?
+            as u128,
+        Some(_) => return Err(Error::from_reason("`id` must be a string or number")),
+        None => return Err(Error::from_reason("missing required field `id`")),
+    };
+    Ok(NodeInput {
+        id,
+        content: get_opt_str(obj, "content")?,
+        vector: get_opt_f32_vec(obj, "vector")?,
+        fields: match obj.get("fields") {
+            None | Some(Value::Null) => Default::default(),
+            Some(v) => serde_json::from_value(v.clone())
+                .map_err(|e| Error::from_reason(format!("invalid `fields`: {e}")))?,
+        },
+    })
+}
+
+/// Parsed graph traversal filter: label ids plus optional inclusive time window.
+type GraphFilter = (Vec<u32>, Option<(u64, u64)>);
+
+/// Parse the optional `{ labels?, time_range? }` filter of
+/// `graph_filtered_traversal`. `labels` is an array of label ids; `time_range`
+/// is an inclusive `[from_ms, to_ms]` window on edge creation time.
+fn parse_graph_filter(filter: Option<&Value>) -> napi::Result<GraphFilter> {
+    let Some(filter) = filter else {
+        return Ok((Vec::new(), None));
+    };
+    let obj = filter
+        .as_object()
+        .ok_or_else(|| Error::from_reason("filter must be an object"))?;
+    let labels = match obj.get("labels") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(|v| {
+                v.as_u64()
+                    .and_then(|n| u32::try_from(n).ok())
+                    .ok_or_else(|| {
+                        Error::from_reason("`labels` must be an array of non-negative integers")
+                    })
+            })
+            .collect::<napi::Result<Vec<u32>>>()?,
+        Some(_) => return Err(Error::from_reason("`labels` must be an array")),
+    };
+    let time_range = match obj.get("time_range") {
+        None | Some(Value::Null) => None,
+        Some(Value::Array(items)) if items.len() == 2 => {
+            let from = items[0].as_u64().ok_or_else(|| {
+                Error::from_reason("`time_range` must be [from_ms, to_ms] of integers")
+            })?;
+            let to = items[1].as_u64().ok_or_else(|| {
+                Error::from_reason("`time_range` must be [from_ms, to_ms] of integers")
+            })?;
+            Some((from, to))
+        }
+        Some(_) => {
+            return Err(Error::from_reason(
+                "`time_range` must be [from_ms, to_ms] of integers",
+            ))
+        }
+    };
+    Ok((labels, time_range))
+}
+
+// ── filter & index-method helpers (BND-10) ──────────────────────────────────
+
+/// Parse a JSON array of `MemoryFilterItem` objects.
+///
+/// Wire shape: `[{ field: string, op: "Eq"|"Neq"|"Gt"|"Lt"|"Gte"|"Lte",
+/// value: Value }]`. The array must contain at least one item —
+/// `delete_by_filter` rejects empty filters at the SDK layer, so we mirror
+/// the guard here for an early, descriptive error instead of a generic
+/// "empty filter" string from deep inside the engine.
+fn parse_filter_items(value: &Value) -> napi::Result<Vec<MemoryFilterItem>> {
+    let arr = value
+        .as_array()
+        .ok_or_else(|| Error::from_reason("filter must be an array of filter items"))?;
+    if arr.is_empty() {
+        return Err(Error::from_reason(
+            "filter must contain at least one item (use count() with no filter to count all records)",
+        ));
+    }
+    let mut out = Vec::with_capacity(arr.len());
+    for (i, v) in arr.iter().enumerate() {
+        let obj = v
+            .as_object()
+            .ok_or_else(|| Error::from_reason(format!("filter[{i}] must be an object")))?;
+        let field = obj
+            .get("field")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::from_reason(format!("filter[{i}].field must be a string")))?
+            .to_string();
+        let op_str = obj
+            .get("op")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::from_reason(format!("filter[{i}].op must be a string")))?;
+        let op = match op_str {
+            "Eq" => vantadb::sdk::FilterOp::Eq,
+            "Neq" => vantadb::sdk::FilterOp::Neq,
+            "Gt" => vantadb::sdk::FilterOp::Gt,
+            "Lt" => vantadb::sdk::FilterOp::Lt,
+            "Gte" => vantadb::sdk::FilterOp::Gte,
+            "Lte" => vantadb::sdk::FilterOp::Lte,
+            other => {
+                return Err(Error::from_reason(format!(
+                    "filter[{i}].op '{other}' is not one of Eq|Neq|Gt|Lt|Gte|Lte"
+                )));
+            }
+        };
+        let value_json = obj
+            .get("value")
+            .ok_or_else(|| Error::from_reason(format!("filter[{i}].value is required")))?;
+        let vanta_value: vantadb::sdk::Value = serde_json::from_value(value_json.clone())
+            .map_err(|e| Error::from_reason(format!("filter[{i}].value: {e}")))?;
+        out.push(MemoryFilterItem {
+            field,
+            op,
+            value: vanta_value,
+        });
+    }
+    Ok(out)
+}
+
+/// Parse the optional dense-vector index backend override for
+/// `search_with_method`. Accepts the canonical PascalCase names from
+/// `vantadb::index::IndexType`.
+fn parse_index_method(method: &str) -> napi::Result<IndexType> {
+    match method {
+        "Hnsw" => Ok(IndexType::Hnsw),
+        "Ivf" => Ok(IndexType::Ivf),
+        "Flat" => Ok(IndexType::Flat),
+        "DiskAnn" => Ok(IndexType::DiskAnn),
+        "Scann" => Ok(IndexType::Scann),
+        other => Err(Error::from_reason(format!(
+            "invalid method '{other}': expected one of Hnsw|Ivf|Flat|DiskAnn|Scann"
+        ))),
+    }
+}
+
+// ── tests ───────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// FIND-517: `ConnectOptions.reserve_bytes` reaches the LSM segment
+    /// pre-reserve, and the reserve stays inside the caller's
+    /// `memory_limit` (the reserve is not "free" memory).
+    #[test]
+    fn build_config_maps_reserve_bytes_to_the_segment_pre_reserve() {
+        let opts = json!({ "reserve_bytes": 2 * 1024 * 1024 });
+        let Ok(config) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("config builds");
+        };
+        assert_eq!(
+            config.segment_optimizer.lsm.initial_segment_bytes,
+            2 * 1024 * 1024
+        );
+    }
+
+    /// FIND-517: the default pre-reserve is the low one (1 MiB per segment
+    /// => 4 MiB per store), not the historical 64 MiB per segment.
+    #[test]
+    fn build_config_defaults_to_a_low_pre_reserve() {
+        let Ok(config) = build_config("/tmp/find517", None) else {
+            panic!("config builds");
+        };
+        assert_eq!(
+            config.segment_optimizer.lsm.initial_segment_bytes,
+            1024 * 1024,
+            "an empty store must not reserve 64 MiB per segment"
+        );
+    }
+
+    /// FIND-517: the reserve is covered by `memory_limit` — 4 segments x
+    /// per-segment size must fit in the declared budget.
+    #[test]
+    fn build_config_clamps_the_reserve_to_the_memory_limit() {
+        let opts = json!({ "reserve_bytes": 64 * 1024 * 1024, "memory_limit": 8 * 1024 * 1024 });
+        let Ok(config) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("config builds");
+        };
+        let per_segment = config.segment_optimizer.lsm.initial_segment_bytes;
+        assert!(
+            per_segment * LSM_SEGMENT_COUNT <= 8 * 1024 * 1024,
+            "reserve {per_segment} x {LSM_SEGMENT_COUNT} exceeds the 8 MiB memory_limit"
+        );
+        assert_eq!(per_segment, 2 * 1024 * 1024);
+    }
+
+    /// FIND-517: the default reserve is clamped too — a small
+    /// `memory_limit` must not leave a 4 MiB reservation behind.
+    #[test]
+    fn build_config_clamps_the_default_reserve_to_the_memory_limit() {
+        let opts = json!({ "memory_limit": 1024 * 1024 });
+        let Ok(config) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("config builds");
+        };
+        let per_segment = config.segment_optimizer.lsm.initial_segment_bytes;
+        assert!(
+            per_segment * LSM_SEGMENT_COUNT <= 1024 * 1024,
+            "default reserve {per_segment} x {LSM_SEGMENT_COUNT} exceeds the 1 MiB memory_limit"
+        );
+    }
+
+    /// FIND-517: `reserve_bytes` is validated at the trust boundary.
+    #[test]
+    fn build_config_rejects_a_zero_reserve() {
+        let opts = json!({ "reserve_bytes": 0 });
+        let Err(err) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("zero reserve must be rejected");
+        };
+        assert!(err.reason.contains("greater than 0"), "got: {}", err.reason);
+    }
+
+    /// FIND-517: `reserve_bytes` must be an integer number of bytes.
+    #[test]
+    fn build_config_rejects_a_non_numeric_reserve() {
+        let opts = json!({ "reserve_bytes": "big" });
+        let Err(err) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("non-numeric reserve must be rejected");
+        };
+        assert!(
+            err.reason.contains("must be a number"),
+            "got: {}",
+            err.reason
+        );
+    }
+
+    /// Mirrors the JSON shape the TypeScript side emits for `Value`. We
+    /// don't load the `.node` binary in these tests — they exercise the pure
+    /// serde_json -> MemoryFilterItem conversion path that napi-rs would
+    /// otherwise route through `Python::with_gil`. Keeping them Rust-native
+    /// means `cargo test -p vantadb-node` reports ≥1 PASS without needing the
+    /// Node runtime to be installed.
+    #[test]
+    fn parse_filter_items_accepts_eq_filter() {
+        let raw = json!([{
+            "field": "env",
+            "op": "Eq",
+            "value": { "String": "prod" },
+        }]);
+        let out = parse_filter_items(&raw).expect("filter parses");
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].field, "env");
+        assert!(matches!(out[0].op, vantadb::sdk::FilterOp::Eq));
+        assert!(matches!(
+            out[0].value,
+            vantadb::sdk::Value::String(ref s) if s == "prod"
+        ));
+    }
+
+    #[test]
+    fn parse_filter_items_rejects_empty_array() {
+        let raw = json!([]);
+        let err = parse_filter_items(&raw).unwrap_err();
+        assert!(
+            err.reason.contains("at least one item"),
+            "expected empty-filter guard, got: {}",
+            err.reason
+        );
+    }
+
+    /// WIRE-03: JS object keys are strings; numeric-string keys must coerce to
+    /// u32 dims, and bad keys/weights must fail with a descriptive error.
+    #[test]
+    fn parse_sparse_vector_coerces_string_keys_and_validates() {
+        let raw = json!({ "query_sparse": { "7": 1.5, "42": 0.75 } });
+        let out = parse_sparse_vector(raw.as_object().unwrap(), "query_sparse")
+            .expect("sparse parses")
+            .expect("non-empty sparse is Some");
+        assert_eq!(out.0.get(&7), Some(&1.5_f32));
+        assert_eq!(out.0.get(&42), Some(&0.75_f32));
+
+        let bad_key = json!({ "query_sparse": { "x": 1.0 } });
+        let err = parse_sparse_vector(bad_key.as_object().unwrap(), "query_sparse").unwrap_err();
+        assert!(err.reason.contains("u32"), "got: {}", err.reason);
+
+        let bad_weight = json!({ "query_sparse": { "1": "heavy" } });
+        assert!(parse_sparse_vector(bad_weight.as_object().unwrap(), "query_sparse").is_err());
+
+        // N1 (review WIRE-03): 1e39 is finite in f64 but overflows f32 → reject.
+        let overflow = json!({ "query_sparse": { "1": 1e39 } });
+        let err = parse_sparse_vector(overflow.as_object().unwrap(), "query_sparse").unwrap_err();
+        assert!(err.reason.contains("f32"), "got: {}", err.reason);
+
+        let empty = json!({ "query_sparse": {} });
+        assert!(
+            parse_sparse_vector(empty.as_object().unwrap(), "query_sparse")
+                .expect("empty parses")
+                .is_none()
+        );
+    }
+
+    /// EGO-01: napi serializa `cursor: undefined` como Null (debe ignorarse) y
+    /// el backend WASM emite cursores como string decimal (debe aceptarse).
+    #[test]
+    fn parse_list_options_accepts_null_and_string_cursor() {
+        // Ausente y Null (undefined de JS) => sin paginar.
+        let absent = json!({ "limit": 2 });
+        assert!(parse_list_options(Some(&absent))
+            .expect("parses")
+            .cursor
+            .is_none());
+        let null = json!({ "limit": 2, "cursor": null });
+        assert!(parse_list_options(Some(&null))
+            .expect("parses")
+            .cursor
+            .is_none());
+
+        // Número entero y float integral (napi entrega f64).
+        let num = json!({ "cursor": 7 });
+        assert_eq!(
+            parse_list_options(Some(&num)).expect("parses").cursor,
+            Some(7)
+        );
+        let float = json!({ "cursor": 7.0 });
+        assert_eq!(
+            parse_list_options(Some(&float)).expect("parses").cursor,
+            Some(7)
+        );
+
+        // String decimal (WASM) => misma página que el numérico.
+        let text = json!({ "cursor": "7" });
+        assert_eq!(
+            parse_list_options(Some(&text)).expect("parses").cursor,
+            Some(7)
+        );
+
+        // Inválidos siguen fallando con el mismo mensaje.
+        for raw in [
+            json!({ "cursor": "abc" }),
+            json!({ "cursor": "" }),
+            json!({ "cursor": "-5" }),
+            json!({ "cursor": 5.5 }),
+            json!({ "cursor": true }),
+            json!({ "cursor": {} }),
+        ] {
+            let err = parse_list_options(Some(&raw)).unwrap_err();
+            assert!(
+                err.reason.contains("cursor must be a number"),
+                "got: {}",
+                err.reason
+            );
+        }
+    }
+
+    #[test]
+    fn parse_search_request_reads_query_sparse_with_empty_vector() {
+        let raw = json!({
+            "namespace": "ns",
+            "query_vector": [],
+            "text_query": "hello",
+            "query_sparse": { "3": 2.0 },
+        });
+        let req = parse_search_request(&raw).expect("request parses");
+        assert!(
+            req.query_vector.is_empty(),
+            "text-only keeps the empty vector"
+        );
+        assert_eq!(req.query_sparse.unwrap().0.get(&3), Some(&2.0_f32));
+    }
+
+    #[test]
+    fn parse_memory_input_reads_sparse_vector() {
+        let raw = json!({
+            "namespace": "ns",
+            "key": "k",
+            "payload": "p",
+            "sparse_vector": { "9": 0.5 },
+        });
+        let input = parse_memory_input(&raw).expect("record parses");
+        assert_eq!(input.sparse_vector.unwrap().0.get(&9), Some(&0.5_f32));
+    }
+
+    #[test]
+    fn parse_index_method_maps_all_backends() {
+        assert!(matches!(parse_index_method("Hnsw"), Ok(IndexType::Hnsw)));
+        assert!(matches!(parse_index_method("Ivf"), Ok(IndexType::Ivf)));
+        assert!(matches!(parse_index_method("Flat"), Ok(IndexType::Flat)));
+        assert!(matches!(
+            parse_index_method("DiskAnn"),
+            Ok(IndexType::DiskAnn)
+        ));
+        assert!(matches!(parse_index_method("Scann"), Ok(IndexType::Scann)));
+        assert!(parse_index_method("bogus").is_err());
+    }
+
+    /// ERR-TS-01 / FFI-02: `map_err` must carry the structured `[ERR_CODE:<code>]`
+    /// and canonical `VANTADB_*` code so `wrapNativeError` (vantadb-ts) can recover
+    /// `err.code` instead of collapsing every native failure into one bucket.
+    #[test]
+    fn map_err_prefixes_canonical_vantadb_code() {
+        let err = map_err(vantadb::error::Error::NodeNotFound(7));
+        assert!(
+            err.reason.contains("[ERR_CODE:ERR_NOT_FOUND]"),
+            "expected structured code prefix, got: {}",
+            err.reason
+        );
+        assert!(
+            err.reason.contains("VANTADB_NOT_FOUND: "),
+            "expected canonical code, got: {}",
+            err.reason
+        );
+        // Display text of the variant must survive after the prefix.
+        assert!(err.reason.contains("not found"), "got: {}", err.reason);
+    }
+
+    #[test]
+    fn from_engine_error_classifies_serialization_and_quota_safely() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test");
+        let ser_err = vantadb::error::Error::Serialization(Box::new(io_err));
+        assert_eq!(
+            from_engine_error(&ser_err),
+            VantaErrorCode::Serialization,
+            "Serialization must NEVER map to Corrupt"
+        );
+        let quota_err = vantadb::error::Error::Generic(vantadb::error::ChainedError::msg(
+            "storage quota exceeded for namespace",
+        ));
+        assert_eq!(from_engine_error(&quota_err), VantaErrorCode::QuotaExceeded);
+    }
+
+    fn poll_without_tokio_runtime<F: std::future::Future>(fut: F) -> F::Output {
+        struct NoopWake;
+        impl std::task::Wake for NoopWake {
+            fn wake(self: Arc<Self>) {}
+        }
+        let waker = std::task::Waker::from(Arc::new(NoopWake));
+        let mut cx = std::task::Context::from_waker(&waker);
+        let mut fut = std::pin::pin!(fut);
+        loop {
+            match fut.as_mut().poll(&mut cx) {
+                std::task::Poll::Ready(out) => return out,
+                std::task::Poll::Pending => std::thread::yield_now(),
+            }
+        }
+    }
+
+    fn unique_temp_dir(tag: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        std::env::temp_dir().join(format!(
+            "vantadb-node-unit-{tag}-{}-{nanos}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn drain_gate_drains_multi_thread_current_thread_and_no_runtime() {
+        // 1. Outside any tokio runtime (GC finalizer / plain OS thread).
+        let gate_no_rt = OpGate::new();
+        let Ok(guard_no_rt) = enter(&gate_no_rt) else {
+            panic!("gate should accept op before drain");
+        };
+        let releaser = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(15));
+            drop(guard_no_rt);
+        });
+        poll_without_tokio_runtime(drain_gate(gate_no_rt.clone()));
+        let Ok(()) = releaser.join() else {
+            panic!("releaser thread panicked");
+        };
+        assert!(
+            enter(&gate_no_rt).is_err(),
+            "gate must reject new ops after drain"
+        );
+
+        // 2. Inside a `current_thread` runtime (FIND-534: spawn_blocking prevents deadlock).
+        let Ok(ct_rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("current_thread runtime builds");
+        };
+        ct_rt.block_on(async {
+            let gate = OpGate::new();
+            let Ok(guard) = enter(&gate) else {
+                panic!("gate should accept op before drain");
+            };
+            let dropper = tokio::spawn(async move {
+                tokio::task::yield_now().await;
+                drop(guard);
+            });
+            drain_gate(gate.clone()).await;
+            let Ok(()) = dropper.await else {
+                panic!("dropper task panicked");
+            };
+            assert!(
+                enter(&gate).is_err(),
+                "current_thread gate must reject new ops after drain"
+            );
+        });
+
+        // 3. Inside a `multi_thread` runtime (`block_in_place` branch).
+        let Ok(mt_rt) = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+        else {
+            panic!("multi_thread runtime builds");
+        };
+        mt_rt.block_on(async {
+            let gate = OpGate::new();
+            let Ok(guard) = enter(&gate) else {
+                panic!("gate should accept op before drain");
+            };
+            let dropper = tokio::spawn(async move {
+                tokio::task::yield_now().await;
+                drop(guard);
+            });
+            drain_gate(gate.clone()).await;
+            let Ok(()) = dropper.await else {
+                panic!("dropper task panicked");
+            };
+            assert!(
+                enter(&gate).is_err(),
+                "multi_thread gate must reject new ops after drain"
+            );
+        });
+    }
+
+    #[test]
+    fn query_iql_preserves_u128_above_2_53_as_decimal_string() {
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("runtime builds");
+        };
+        rt.block_on(async {
+            let Ok(db) = VantaDB::connect(":memory:".to_string(), None).await else {
+                panic!("memory db connects");
+            };
+            let big_id = "9007199254740993"; // 2^53 + 1
+            let Ok(write_val) = db
+                .query(
+                    format!("INSERT NODE#{big_id} TYPE Person {{ name: \"Ada\" }}"),
+                    None,
+                )
+                .await
+            else {
+                panic!("IQL INSERT succeeds");
+            };
+            assert_eq!(
+                write_val["Write"]["node_id"].as_str(),
+                Some(big_id),
+                "u128 > 2^53 must serialize as exact decimal string, got: {write_val}"
+            );
+
+            let Ok(read_val) = db.query("SELECT * FROM Person".to_string(), None).await else {
+                panic!("IQL SELECT succeeds");
+            };
+            let Some(rows) = read_val["Read"].as_array() else {
+                panic!("expected Read array, got: {read_val}");
+            };
+            let Some(found) = rows.iter().find(|r| r["id"].as_str() == Some(big_id)) else {
+                panic!("expected node {big_id} in Read rows: {read_val}");
+            };
+            assert!(
+                found["last_accessed"].is_u64(),
+                "NodeRecord.last_accessed must be numeric u64, got: {}",
+                found["last_accessed"]
+            );
+
+            let Ok(()) = db.close().await else {
+                panic!("db closes cleanly");
+            };
+        });
+    }
+
+    #[test]
+    fn query_iql_rejects_writes_on_read_only_handle() {
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("runtime builds");
+        };
+        let dir = unique_temp_dir("ro-query");
+        let path_str = dir.to_string_lossy().into_owned();
+        rt.block_on(async {
+            let Ok(rw) = VantaDB::connect(path_str.clone(), None).await else {
+                panic!("rw db connects");
+            };
+            let Ok(_) = rw
+                .query(
+                    "INSERT NODE#1 TYPE Person { name: \"Seed\" }".to_string(),
+                    None,
+                )
+                .await
+            else {
+                panic!("seed insert succeeds");
+            };
+            let Ok(()) = rw.close().await else {
+                panic!("rw db closes");
+            };
+
+            let Ok(ro) =
+                VantaDB::connect(path_str.clone(), Some(json!({ "read_only": true }))).await
+            else {
+                panic!("ro db connects");
+            };
+            let Err(err) = ro
+                .query("INSERT NODE#2 TYPE Person {}".to_string(), None)
+                .await
+            else {
+                panic!("write IQL query must be rejected on read_only handle");
+            };
+            assert!(
+                err.reason.to_ascii_lowercase().contains("read"),
+                "expected read-only rejection, got: {}",
+                err.reason
+            );
+            let Ok(read_val) = ro.query("SELECT * FROM Person".to_string(), None).await else {
+                panic!("read IQL query still works in read_only mode");
+            };
+            assert!(read_val["Read"].is_array());
+            let Ok(()) = ro.close().await else {
+                panic!("ro db closes");
+            };
+        });
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn abort_handle_cancels_graphrag_search_and_context_assemble() {
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("runtime builds");
+        };
+        rt.block_on(async {
+            let Ok(db) = VantaDB::connect(":memory:".to_string(), None).await else {
+                panic!("memory db connects");
+            };
+
+            let graphrag_abort = AbortHandle::new();
+            graphrag_abort.abort();
+            let Err(graphrag_err) = db
+                .graphrag_search(
+                    "ns".to_string(),
+                    Some("hello".to_string()),
+                    None,
+                    Some(&graphrag_abort),
+                )
+                .await
+            else {
+                panic!("aborted graphrag_search must return Cancelled");
+            };
+            assert_eq!(graphrag_err.status, napi::Status::Cancelled);
+            assert!(
+                graphrag_err.reason.contains("graphrag_search aborted"),
+                "got: {}",
+                graphrag_err.reason
+            );
+
+            let assemble_abort = AbortHandle::new();
+            assemble_abort.abort();
+            let assemble_opts = json!({
+                "messages": [
+                    { "role": "user", "content": "hello" },
+                    { "role": "assistant", "content": "world" }
+                ],
+                "token_budget": 100
+            });
+            let Err(assemble_err) = db
+                .context_assemble(assemble_opts.clone(), Some(&assemble_abort))
+                .await
+            else {
+                panic!("aborted context_assemble must return Cancelled");
+            };
+            assert_eq!(assemble_err.status, napi::Status::Cancelled);
+            assert!(
+                assemble_err.reason.contains("context_assemble aborted"),
+                "got: {}",
+                assemble_err.reason
+            );
+
+            // Non-aborted context_assemble continues working normally.
+            let Ok(out) = db.context_assemble(assemble_opts, None).await else {
+                panic!("non-aborted context_assemble succeeds");
+            };
+            assert!(out["messages"].is_array());
+
+            let Ok(()) = db.close().await else {
+                panic!("db closes cleanly");
+            };
+        });
+    }
+}

@@ -1,0 +1,227 @@
+<#
+.SYNOPSIS
+  Valida que los métodos públicos del código fuente estén documentados.
+.DESCRIPTION
+  Compara funciones públicas de src/sdk.rs, campos de src/config.rs,
+  variantes de src/error.rs y comandos CLI contra sus respectivos docs.
+  Emite errores si encuentra métodos sin documentar.
+.EXAMPLE
+  pwsh scripts\validate-docs-coverage.ps1
+  pwsh scripts\validate-docs-coverage.ps1 -ReportOnly
+#>
+
+param(
+  [switch]$ReportOnly
+)
+
+$exitCode = 0
+$root = Resolve-Path "$PSScriptRoot\.."
+
+# ─── helpers ───
+function Test-InDoc {
+  param([string]$DocText, [string]$Name)
+  return ($DocText -match "``$Name``" -or                      # `Name`
+          $DocText -match "``$Name\b" -or                        # `Name(
+          $DocText -match "$Name\(" -or                          # Name(
+          $DocText -match "(?m)^#{2,4}\s+$Name\b" -or            # ## Name
+          $DocText -match "Error::$Name\b" -or                    # Error::Name
+          $DocText -match "``$Name\b" -or                        # `name (lowercase match)
+          $DocText -match "\b$Name\b")                            # bare word boundary
+}
+
+function Check-Methods {
+  param(
+    [string]$Label,
+    [string[]]$Methods,
+    [string]$DocRelPath,
+    [string]$DocLabel,
+    [string[]]$Exclude
+  )
+  $docPath = Join-Path $root $DocRelPath
+  if (-not (Test-Path $docPath)) {
+    Write-Host "⚠️  $Label — DOC NOT FOUND: $DocRelPath" -ForegroundColor Red
+    if (-not $ReportOnly) { $script:exitCode = 1 }
+    return
+  }
+  $doc = Get-Content $docPath -Raw
+  $undocumented = @()
+  foreach ($m in $Methods) {
+    if ($m -in $Exclude) { continue }
+    if (-not (Test-InDoc -DocText $doc -Name $m)) { $undocumented += $m }
+  }
+  if ($undocumented.Count -gt 0) {
+    Write-Host "⚠️  $Label ($($undocumented.Count)/$($Methods.Count) gaps en $DocLabel):" -ForegroundColor Yellow
+    foreach ($u in $undocumented) { Write-Host "    - $u" }
+    if (-not $ReportOnly) { $script:exitCode = 1 }
+  } else {
+    Write-Host "✅ $Label — $($Methods.Count) items ok en $DocLabel" -ForegroundColor Green
+  }
+}
+
+# ═══════════════════════════════════════
+#  1. SDK
+# ═══════════════════════════════════════
+$sdkAll = Select-String -Path "$root\src\sdk\builder.rs","$root\src\sdk\api.rs","$root\src\sdk\graph.rs","$root\src\sdk\search\mod.rs" -Pattern '^\s{4}pub (unsafe )?(async )?fn (\w+)' |
+  ForEach-Object { $_.Matches[0].Groups[3].Value } | Sort-Object -Unique
+
+$sdkNormal = $sdkAll | Where-Object { $_ -notlike 'debug_*' }
+$sdkDebug  = $sdkAll | Where-Object { $_ -like 'debug_*' }
+
+Check-Methods -Label "src/sdk.rs (públicos)" -Methods $sdkNormal -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md" -Exclude @(
+  'test_empty'
+)
+Check-Methods -Label "src/sdk.rs (debug_*)" -Methods $sdkDebug -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md" -Exclude @(
+  'debug_clear_derived_indexes_for_tests',
+  'debug_clear_text_index_for_tests',
+  'debug_corrupt_derived_index_state_for_tests',
+  'debug_corrupt_text_index_doc_stats_for_tests',
+  'debug_corrupt_text_index_posting_positions_for_tests',
+  'debug_corrupt_text_index_posting_tf_for_tests',
+  'debug_corrupt_text_index_state_for_tests',
+  'debug_corrupt_text_index_term_stats_for_tests',
+  'debug_memory_search_plan_for_tests',
+  'debug_text_index_audit_for_tests',
+  'debug_text_index_posting_for_tests',
+  'debug_text_index_posting_keys_for_tests'
+)
+
+# ═══════════════════════════════════════
+#  2. Config
+# ═══════════════════════════════════════
+$configFields = Select-String -Path "$root\src\config.rs" -Pattern '^\s+pub (\w+):' |
+  ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object -Unique
+
+Check-Methods -Label "src/config.rs" -Methods $configFields -DocRelPath "docs\user\operations\CONFIGURATION.md" -DocLabel "CONFIGURATION.md" -Exclude @(
+  'llm_model','llm_url','llm_summarize_model'
+)
+
+# ═══════════════════════════════════════
+#  3. Error variants
+# ═══════════════════════════════════════
+$errorText = Get-Content "$root\src\error.rs" -Raw
+$errorEnumBody = $errorText -split '(?<=pub enum Error \{)' | Select-Object -Skip 1 -First 1
+$allErrors = if ($errorEnumBody) {
+  [regex]::Matches($errorEnumBody, '^\s{4}(\w+)', 'Multiline') |
+    ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+} else { @() }
+
+Check-Methods -Label "src/error.rs (Error)" -Methods $allErrors -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md" -Exclude @('fn','pub','use')
+
+# ═══════════════════════════════════════
+#  4. CLI commands
+# ═══════════════════════════════════════
+$cliText = Get-Content "$root\src\cli.rs" -Raw
+$cliBody = $cliText -split '(?<=pub enum Commands \{)' | Select-Object -Skip 1 -First 1
+$cliCommands = if ($cliBody) {
+  [regex]::Matches($cliBody, '^\s{4}(\w+)', 'Multiline') |
+    ForEach-Object { $_.Groups[1].Value }
+} else { @() }
+
+$nsBody = $cliText -split '(?<=pub enum NamespaceCommand \{)' | Select-Object -Skip 1 -First 1
+$cliSub = if ($nsBody) {
+  [regex]::Matches($nsBody, '^\s{4}(\w+)', 'Multiline') |
+    ForEach-Object { $_.Groups[1].Value }
+} else { @() }
+
+$allCli = ($cliCommands + $cliSub) | Sort-Object -Unique | Where-Object { $_ -ne 'fn' }
+# Los comandos CLI se documentan en kebab-case (ej: AuditIndex → audit-index)
+$cliKebab = $allCli | ForEach-Object {
+  # PascalCase → kebab-case: "AuditIndex" → "audit-index"
+  $_ -creplace '(?<=[a-z])(?=[A-Z])', '-' -creplace '(?<=[A-Z])(?=[A-Z][a-z])', '-' | ForEach-Object { $_.ToLower() }
+}
+
+Check-Methods -Label "src/cli.rs (comandos)" -Methods $cliKebab -DocRelPath "docs\user\operations\CONFIGURATION.md" -DocLabel "CONFIGURATION.md (sección CLI)" -Exclude @(
+  'info','list','bash','zsh','fish','power-shell'
+)
+
+# ═══════════════════════════════════════
+#  5. Python bindings
+# ═══════════════════════════════════════
+$pyLib = "$root\vantadb-python\src\lib.rs"
+if (Test-Path $pyLib) {
+  $pyInternals = @(
+    'py_any_to_value','extract_vector','set_python_value',
+    'runtime_profile_label','tier_label','node_to_pydict',
+    'format_query_result','capabilities_to_pydict',
+    'memory_record_to_pydict','bm25_term_to_pydict',
+    'explanation_hit_to_pydict','hybrid_fusion_report_to_pydict',
+    'search_explanation_to_pydict','memory_hit_to_pydict',
+    'rebuild_report_to_pydict','export_report_to_pydict',
+    'import_report_to_pydict','text_index_repair_report_to_pydict',
+    'text_index_audit_report_to_pydict','operational_metrics_to_pydict',
+    'py_dict_to_metadata','search_batch','__repr__',
+    'try_enter','drain','drop',
+    'request_field','parse_search_request',
+    # PyO3 #[getter] fns renamed via #[pyo3(name = "...")]: public Python
+    # surface is db.memory/graph/system/wiki, documented in the Domain
+    # Sub-clients section of PYTHON_SDK.md (SDKB-04).
+    'memory_client','graph_client','system_client','wiki_client'
+  )
+  $pyAll = Select-String -Path $pyLib -Pattern '^\s{4}fn (\w+)' |
+    ForEach-Object { $_.Matches[0].Groups[1].Value } |
+    Where-Object { $_ -notin $pyInternals } | Sort-Object -Unique
+
+  Check-Methods -Label "vantadb-python (métodos expuestos)" -Methods $pyAll -DocRelPath "docs\api\PYTHON_SDK.md" -DocLabel "PYTHON_SDK.md"
+}
+
+# ═══════════════════════════════════════
+#  6. MCP tools (paridad tool ↔ docs/api/MCP.md)
+# ═══════════════════════════════════════
+# handle_tools_list vive en vantadb-mcp/src/handlers/tools.rs (movido desde lib.rs).
+  $mcpToolsFile = "$root\vantadb-mcp\src\handlers\tools.rs"
+  if (Test-Path $mcpToolsFile) {
+    $mcpText = Get-Content $mcpToolsFile -Raw
+    # Extrae solo el bloque handle_tools_list ("tools": [ ... ]) — todo '"name": "X"' ahí es una tool.
+    # Corta en handle_tools_call, la función que sigue al bloque JSON de tools/list.
+    $toolsBlock = $mcpText -split '(?<=pub fn handle_tools_list\(config: &McpConfig\) -> Result<Value, Value> \{)' | Select-Object -Skip 1 -First 1
+    $toolsBlock = $toolsBlock -split '(?=pub fn handle_tools_call)' | Select-Object -First 1
+    if ($toolsBlock) {
+      $mcpTools = [regex]::Matches($toolsBlock, '"name":\s*"(\w+)"') |
+        ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+      Check-Methods -Label "vantadb-mcp (tools)" -Methods $mcpTools -DocRelPath "docs\api\MCP.md" -DocLabel "MCP.md"
+    } else {
+      Write-Host "⚠️  vantadb-mcp (tools) — no se encontró el bloque handle_tools_list en $mcpToolsFile" -ForegroundColor Red
+      if (-not $ReportOnly) { $script:exitCode = 1 }
+    }
+  }
+
+# ═══════════════════════════════════════
+#  Resumen
+# ═══════════════════════════════════════
+# ═══════════════════════════════════════
+#  7. Skills mirror (FIND-83: skills/ ↔ .opencode/skills/ hash-SAME)
+# ═══════════════════════════════════════
+# Excepción: skills/vantadb-mcp/scripts/test-mcp.py owned by FIND-82 (asserts por perfil) — fuera de este gate.
+$skillsPairs = @(
+  @("skills\vantadb\SKILL.md", ".opencode\skills\vantadb\SKILL.md"),
+  @("skills\vantadb\scripts\install-vantadb.sh", ".opencode\skills\vantadb\scripts\install-vantadb.sh"),
+  @("skills\vantadb-mcp\SKILL.md", ".opencode\skills\vantadb-mcp\SKILL.md"),
+  @("skills\vantadb-mcp\references\api-reference.md", ".opencode\skills\vantadb-mcp\references\api-reference.md"),
+  @("skills\vantadb-mcp\references\configuration.md", ".opencode\skills\vantadb-mcp\references\configuration.md"),
+  @("skills\vantadb-mcp\references\mcp-protocol.md", ".opencode\skills\vantadb-mcp\references\mcp-protocol.md"),
+  @("skills\vantadb-mcp\scripts\setup-vantadb.sh", ".opencode\skills\vantadb-mcp\scripts\setup-vantadb.sh"),
+  @("skills\vantadb-mcp\assets\claude-desktop-config.json", ".opencode\skills\vantadb-mcp\assets\claude-desktop-config.json"),
+  @("skills\vantadb-mcp\assets\cursor-config.json", ".opencode\skills\vantadb-mcp\assets\cursor-config.json"),
+  @("skills\vantadb-mcp\assets\opencode-config.json", ".opencode\skills\vantadb-mcp\assets\opencode-config.json")
+)
+$skillsDrift = @()
+foreach ($p in $skillsPairs) {
+  $a = Join-Path $root $p[0]; $b = Join-Path $root $p[1]
+  if ((-not (Test-Path $a)) -or (-not (Test-Path $b))) { $skillsDrift += "$($p[0]) (missing)"; continue }
+  if ((Get-FileHash $a -Algorithm SHA256).Hash -ne (Get-FileHash $b -Algorithm SHA256).Hash) { $skillsDrift += $p[0] }
+}
+if ($skillsDrift.Count -gt 0) {
+  Write-Host "⚠️  skills mirror (FIND-83, $($skillsDrift.Count)/$($skillsPairs.Count) drift — merge, no overwrite):" -ForegroundColor Yellow
+  foreach ($d in $skillsDrift) { Write-Host "    - $d" }
+  if (-not $ReportOnly) { $script:exitCode = 1 }
+} else {
+  Write-Host "✅ skills mirror — $($skillsPairs.Count) pares hash-SAME (test-mcp.py exceptuado: FIND-82)" -ForegroundColor Green
+}
+
+if ($exitCode -eq 0) {
+  Write-Host "`n✅ Validación de cobertura completada — 0 gaps" -ForegroundColor Green
+} else {
+  Write-Host "`n⚠️  Hay métodos sin documentar. Edita el doc correspondiente y vuelve a ejecutar." -ForegroundColor Yellow
+}
+
+exit $exitCode

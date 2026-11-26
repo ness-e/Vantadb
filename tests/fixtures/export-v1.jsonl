@@ -1,0 +1,2 @@
+{"schema_version":1,"namespace":"legacy","key":"v1-alpha","payload":"legacy alpha payload","metadata":{"source":{"String":"fixture"}},"vector":null,"created_at_ms":1000,"updated_at_ms":2000,"version":1,"expires_at_ms":null}
+{"schema_version":1,"namespace":"legacy","key":"v1-superseded","payload":"legacy superseded payload","metadata":{},"vector":null,"created_at_ms":1000,"updated_at_ms":2000,"version":2,"expires_at_ms":null,"superseded_by":"v1-alpha","superseded_at_ms":1500}

@@ -1,0 +1,297 @@
+//! Checkpoint manager (autonomous memory pipeline `MC/utils/checkpoint.ts`, reimplemented
+//! over the VantaDB store — MEM-16).
+//!
+//! Vanta memory engine persists a JSON file with per-file promise locks and optional
+//! distributed locks. Here persistence is the VantaDB store itself
+//! (Principio 2): one JSON record under namespace `pipeline_checkpoint`.
+//! Single-record read-modify-write keeps mutations atomic in-process —
+//! serialized through `CHECKPOINT_RMW_LOCK` (MEMG-28).
+//!
+//! This module pays the MEM-15 debt: [`Checkpoint`] exposes the counters that
+//! [`crate::core::persona::evaluate_persona_trigger`] consumes as pure input
+//! (`request_persona_update`, `scenes_processed`,
+//! `memories_since_last_persona`, `last_persona_at`).
+
+use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
+
+use crate::core::conversation::{sanitize_component, sanitize_key};
+use crate::core::state::PipelineSessionState;
+
+/// Serializes every pipeline-checkpoint read-modify-write (MEMG-28).
+///
+/// `CheckpointManager` is built per call site (the worker constructs one per
+/// task), so an instance field could not serialize anything — and the
+/// checkpoint record is a single global key while the worker only locks per
+/// session, so concurrent tasks on different sessions could race read →
+/// mutate → write and lose each other's updates. A static mutex covers every
+/// manager instance and every `Embedded` handle in the process.
+///
+/// Contract:
+/// - Held across brief synchronous store I/O (one small JSON record). The
+///   critical section never `.await`s — `mutate` is synchronous even when
+///   called from the `http-server` Tokio driver.
+/// - Non-reentrant: `f` must not call back into checkpoint APIs (deadlock).
+///   All current closures are plain field mutations.
+/// - Leaf in the lock ordering: while held only the store's internal locks
+///   are taken (`Embedded::get`/`put`). Callers may already hold the
+///   per-session backend lock — order stays
+///   `session lock → CHECKPOINT_RMW → store-internal`, never the reverse.
+/// - Multi-process writers are out of scope: the backend's exclusive writer
+///   lock already prevents a second read-write open of the same directory.
+///
+/// ponytail: one lock for every database in the process - independent
+/// `Embedded` instances over-serialize; stripe per handle only if contention
+/// ever matters (mirrors the `supersede_lock`/`merge_lock` ponytail notes in
+/// `vantadb::sdk::Embedded`).
+static CHECKPOINT_RMW_LOCK: Mutex<()> = Mutex::new(());
+
+/// Take the RMW guard, recovering from poisoning: the payload is `()` so a
+/// panic mid-RMW leaves nothing corrupt — at worst the write never landed.
+fn checkpoint_rmw_lock() -> std::sync::MutexGuard<'static, ()> {
+    CHECKPOINT_RMW_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Per-session runner state (Vanta memory engine `RunnerSessionState`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RunnerSessionState {
+    /// Epoch ms of the newest L0 message captured for this session.
+    pub last_captured_timestamp: u64,
+    /// Epoch ms of the last message processed by L1.
+    pub last_l1_cursor: u64,
+    /// Last scene name from the most recent L1 extraction (continuity).
+    pub last_scene_name: String,
+}
+
+/// Global pipeline checkpoint (Vanta memory engine `Checkpoint`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct Checkpoint {
+    /// Total messages processed across all time.
+    pub total_processed: u64,
+    /// Epoch ms of the last persona generation (0 = never).
+    pub last_persona_at: u64,
+    /// RFC3339 of the last persona generation ("" = never).
+    pub last_persona_time: String,
+    /// The agent explicitly requested a persona update (P1 trigger input).
+    pub request_persona_update: bool,
+    /// Why the update was requested.
+    pub persona_update_reason: String,
+    /// Memories stored since the last persona generation (P4 trigger input).
+    pub memories_since_last_persona: u64,
+    /// Scenes processed so far (P2/P3 trigger input).
+    pub scenes_processed: u64,
+    /// Total L1 memories extracted across all time.
+    pub total_memories_extracted: u64,
+    /// Per-session runner state (L0/L1 cursors).
+    pub runner_states: std::collections::BTreeMap<String, RunnerSessionState>,
+    /// Per-session manager state (written via [`CheckpointManager::merge_pipeline_states`]).
+    pub pipeline_states: std::collections::BTreeMap<String, PipelineSessionState>,
+}
+
+/// Errors surfaced by the checkpoint manager.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum CheckpointError {
+    /// Underlying store error.
+    #[error("checkpoint store: {0}")]
+    Store(#[from] vantadb::error::Error),
+    /// Serialization error.
+    #[error("checkpoint serialization: {0}")]
+    Serde(#[from] serde_json::Error),
+}
+
+/// Persistent checkpoint manager over the VantaDB store.
+pub struct CheckpointManager<'a> {
+    db: &'a vantadb::sdk::Embedded,
+    namespace: String,
+    key: String,
+}
+
+impl<'a> CheckpointManager<'a> {
+    /// Open a manager over an embedded database. The namespace is sanitized
+    /// to the safe namespace set (`[A-Za-z0-9._/-]`, ≤128 bytes).
+    pub fn new(db: &'a vantadb::sdk::Embedded) -> Self {
+        Self {
+            db,
+            namespace: format!("pipeline_{}", sanitize_component("checkpoint", 128, false)),
+            key: sanitize_key("checkpoint.json"),
+        }
+    }
+
+    /// Read the checkpoint (defaults when nothing was persisted yet).
+    pub fn read(&self) -> Result<Checkpoint, CheckpointError> {
+        match self.db.get(&self.namespace, &self.key)? {
+            Some(record) => Ok(serde_json::from_str(&record.payload)?),
+            None => Ok(Checkpoint::default()),
+        }
+    }
+
+    /// Persist a full checkpoint.
+    ///
+    /// Crate-internal on purpose (MEMG-28): every read-modify-write must go
+    /// through [`Self::mutate`] so the whole read → write serializes under
+    /// [`CHECKPOINT_RMW_LOCK`]. A public bare `read` → `write` reintroduces
+    /// the lost-update race the lock closed.
+    pub(crate) fn write(&self, checkpoint: &Checkpoint) -> Result<(), CheckpointError> {
+        use vantadb::sdk::{MemoryInput, MemoryMetadata};
+        self.db.put(MemoryInput {
+            namespace: self.namespace.clone(),
+            key: self.key.clone(),
+            payload: serde_json::to_string(checkpoint)?,
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+            ..Default::default()
+        })?;
+        Ok(())
+    }
+
+    /// Read-modify-write helper. The whole read → mutate → write runs under
+    /// [`CHECKPOINT_RMW_LOCK`], so concurrent callers serialize instead of
+    /// losing each other's updates (MEMG-28). `f` must be a pure in-place
+    /// mutation — calling back into checkpoint APIs deadlocks.
+    fn mutate(&self, f: impl FnOnce(&mut Checkpoint)) -> Result<Checkpoint, CheckpointError> {
+        let _guard = checkpoint_rmw_lock();
+        let mut checkpoint = self.read()?;
+        f(&mut checkpoint);
+        self.write(&checkpoint)?;
+        Ok(checkpoint)
+    }
+
+    /// Record a persona generation and reset its counters (Vanta memory engine
+    /// `markPersonaGenerated`).
+    pub fn mark_persona_generated(
+        &self,
+        total_processed: u64,
+        now_ms: u64,
+        rfc3339: &str,
+    ) -> Result<Checkpoint, CheckpointError> {
+        self.mutate(|cp| {
+            cp.last_persona_at = now_ms;
+            cp.last_persona_time = rfc3339.to_string();
+            cp.memories_since_last_persona = 0;
+            cp.request_persona_update = false;
+            cp.persona_update_reason.clear();
+            cp.total_processed = total_processed;
+        })
+    }
+
+    /// Flag an explicit agent persona-update request (P1).
+    pub fn set_persona_update_request(&self, reason: &str) -> Result<(), CheckpointError> {
+        self.mutate(|cp| {
+            cp.request_persona_update = true;
+            cp.persona_update_reason = reason.to_string();
+        })
+        .map(|_| ())
+    }
+
+    /// Clear the explicit request flag without generating.
+    pub fn clear_persona_request(&self) -> Result<(), CheckpointError> {
+        self.mutate(|cp| {
+            cp.request_persona_update = false;
+            cp.persona_update_reason.clear();
+        })
+        .map(|_| ())
+    }
+
+    /// Count one more processed scene (P2/P3 trigger input).
+    pub fn increment_scenes_processed(&self) -> Result<u64, CheckpointError> {
+        let cp = self.mutate(|cp| cp.scenes_processed += 1)?;
+        Ok(cp.scenes_processed)
+    }
+
+    /// Add stored-memory counts after an L1 run.
+    pub fn add_memories_extracted(&self, stored_count: u64) -> Result<(), CheckpointError> {
+        self.mutate(|cp| {
+            cp.total_memories_extracted += stored_count;
+            cp.memories_since_last_persona += stored_count;
+        })
+        .map(|_| ())
+    }
+
+    /// Get (or default) the runner state of a session.
+    pub fn get_runner_state(
+        &self,
+        checkpoint: &Checkpoint,
+        session_id: &str,
+    ) -> RunnerSessionState {
+        checkpoint
+            .runner_states
+            .get(session_id)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Merge manager-owned per-session states into the checkpoint (Vanta memory engine
+    /// `mergePipelineStates`; only these fields are touched).
+    pub fn merge_pipeline_states(
+        &self,
+        states: &std::collections::BTreeMap<String, PipelineSessionState>,
+    ) -> Result<(), CheckpointError> {
+        self.mutate(|cp| {
+            for (session, state) in states {
+                cp.pipeline_states.insert(session.clone(), state.clone());
+            }
+        })
+        .map(|_| ())
+    }
+
+    /// Patch one session's runner state (L0/L1 cursors) through the
+    /// serialized RMW — the missing-session case starts from
+    /// [`RunnerSessionState::default`].
+    pub fn update_runner_state(
+        &self,
+        session_id: &str,
+        f: impl FnOnce(&mut RunnerSessionState),
+    ) -> Result<(), CheckpointError> {
+        self.mutate(|cp| {
+            f(cp.runner_states.entry(session_id.to_string()).or_default());
+        })
+        .map(|_| ())
+    }
+
+    /// Patch one session's manager-owned pipeline state.
+    pub fn merge_pipeline_states_owned(
+        &self,
+        session_id: &str,
+        f: impl FnOnce(&mut PipelineSessionState),
+    ) -> Result<(), CheckpointError> {
+        self.mutate(|cp| {
+            let state = cp
+                .pipeline_states
+                .entry(session_id.to_string())
+                .or_default();
+            f(state);
+        })
+        .map(|_| ())
+    }
+
+    /// Build the pure trigger input for
+    /// [`crate::core::persona::evaluate_persona_trigger`] from the checkpoint
+    /// plus live-store facts — the MEM-16 orchestration half of MEM-15's debt.
+    pub fn persona_trigger_input(
+        &self,
+        checkpoint: &Checkpoint,
+        has_scene_blocks: bool,
+        has_persona_body: bool,
+    ) -> crate::core::persona::PersonaTriggerInput {
+        crate::core::persona::PersonaTriggerInput {
+            request_persona_update: checkpoint.request_persona_update,
+            request_reason: if checkpoint.persona_update_reason.is_empty() {
+                None
+            } else {
+                Some(checkpoint.persona_update_reason.clone())
+            },
+            scenes_processed: checkpoint.scenes_processed as usize,
+            memories_since_last_persona: checkpoint.memories_since_last_persona as usize,
+            has_scene_blocks,
+            previously_generated: checkpoint.last_persona_at > 0,
+            has_persona_body,
+        }
+    }
+}

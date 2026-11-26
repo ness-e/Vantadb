@@ -1,0 +1,929 @@
+//! Diagnostics command handlers — doctor, inspect, stats.
+
+use console::Term;
+use std::collections::HashSet;
+use web_time::{SystemTime, UNIX_EPOCH};
+
+use crate::cli_handlers::fmt::{header_style, info_style};
+use crate::cli_handlers::{
+    create_spinner, field_value_to_json, human_readable_size, memory_node_id, open_database,
+    print_info, print_json, print_success, print_warning, stdout_is_term, truncate_for_term,
+    FIELD_EXPIRES_AT_MS, FIELD_NAMESPACE, FIELD_PAYLOAD,
+};
+use crate::error::{ChainedError, Error, Result};
+use crate::node::{FieldValue, NodeFlags, VectorRepresentations};
+
+/// A safe, non-destructive repair that `doctor --fix` can apply.
+#[derive(Debug, PartialEq, Eq)]
+struct PendingRepair {
+    /// Human-readable description (printed as `Would fix:` / `Fixed:`).
+    description: String,
+    /// Filesystem path to create (always a directory).
+    path: std::path::PathBuf,
+}
+
+/// Compute the safe repairs pending for `db_path` without mutating anything.
+///
+/// Scope is deliberately minimal and additive only:
+///
+/// - missing database directory → create it
+/// - missing `data/` subdirectory → create it
+///
+/// Everything else (lock files, WAL, schema, permissions, user data) is
+/// report-only and never touched — see stop conditions in GOV-TK1.
+fn pending_safe_repairs(db_path: &str) -> Vec<PendingRepair> {
+    let base = std::path::Path::new(db_path);
+    if !base.exists() {
+        let data_dir = base.join("data");
+        return vec![
+            PendingRepair {
+                description: format!("create missing database directory at '{db_path}'"),
+                path: base.to_path_buf(),
+            },
+            PendingRepair {
+                description: format!(
+                    "create missing data subdirectory at '{}'",
+                    data_dir.display()
+                ),
+                path: data_dir,
+            },
+        ];
+    }
+    let data_dir = base.join("data");
+    if !data_dir.exists() {
+        return vec![PendingRepair {
+            description: format!(
+                "create missing data subdirectory at '{}'",
+                data_dir.display()
+            ),
+            path: data_dir,
+        }];
+    }
+    Vec::new()
+}
+
+/// True when the open error means "empty/uninitialised", not corruption.
+///
+/// Matches `NotFound` (missing path/lock/data dir) and the missing-schema
+/// message. Anything else (bad version, invalid header, busy, IO) is a real
+/// problem and must still surface as an error.
+fn is_empty_database_state(e: &Error) -> bool {
+    match e {
+        Error::NotFound { .. } => true,
+        Error::Schema(msg) => msg.contains("no schema file"),
+        _ => false,
+    }
+}
+
+/// What `doctor --fix` should do (D2: replaces `fix`/`force` bool flags).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DoctorFix {
+    /// Check only, never propose repairs.
+    #[default]
+    Off,
+    /// List repairs without mutating (`--fix` without `--force`).
+    DryRun,
+    /// Apply additive-only repairs (`--fix --force`).
+    Apply,
+}
+
+/// Output verbosity for CLI diagnostics (D2: replaces `verbose: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Verbosity {
+    #[default]
+    Normal,
+    Verbose,
+}
+
+impl Verbosity {
+    /// Map a CLI `--verbose` flag to [`Verbosity`].
+    pub fn from_flag(verbose: bool) -> Self {
+        if verbose {
+            Self::Verbose
+        } else {
+            Self::Normal
+        }
+    }
+
+    /// True for [`Verbosity::Verbose`].
+    pub fn is_verbose(self) -> bool {
+        matches!(self, Self::Verbose)
+    }
+}
+
+/// Options for [`cmd_doctor`] (D2: replaces `fix`/`force`/`verbose` bool flags).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DoctorOptions {
+    pub fix: DoctorFix,
+    pub verbose: Verbosity,
+}
+
+/// One environment preflight check (DX-02/H-027: first-run failures).
+/// Report-only: a failing check warns, it never changes the exit code.
+#[derive(Debug)]
+struct PreflightCheck {
+    name: &'static str,
+    ok: bool,
+    detail: String,
+}
+
+/// Run `program args`, return the first stdout (else stderr) line, if any.
+fn check_cmd(program: &str, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new(program)
+        .args(args)
+        .output()
+        .ok()?;
+    let combined = if out.stdout.is_empty() {
+        out.stderr
+    } else {
+        out.stdout
+    };
+    let text = String::from_utf8(combined).ok()?;
+    let first = text.lines().next()?.trim();
+    if first.is_empty() {
+        None
+    } else {
+        Some(first.to_string())
+    }
+}
+
+/// Locate an ONNX runtime library on the search path, if any.
+fn onnxruntime_location() -> Option<String> {
+    let names: &[&str] = if cfg!(windows) {
+        &["onnxruntime.dll"]
+    } else {
+        &["libonnxruntime.so", "libonnxruntime.dylib"]
+    };
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(paths) = std::env::var_os("PATH") {
+        dirs.extend(std::env::split_paths(&paths));
+    }
+    if cfg!(windows) {
+        if let Some(root) = std::env::var_os("SystemRoot") {
+            dirs.push(std::path::PathBuf::from(root).join("System32"));
+        }
+    }
+    for dir in &dirs {
+        for name in names {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate.display().to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Active Windows console code page (e.g. `65001` = UTF-8), if readable.
+fn windows_codepage() -> Option<String> {
+    if !cfg!(windows) {
+        return None;
+    }
+    let text = check_cmd("chcp", &[])?;
+    let digits: String = text.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.is_empty() {
+        None
+    } else {
+        Some(digits)
+    }
+}
+
+#[cfg(feature = "sysinfo")]
+fn disk_free_bytes(path: &str) -> Option<u64> {
+    use sysinfo::Disks;
+    let disks = Disks::new_with_refreshed_list();
+    let target = std::path::Path::new(path);
+    // ponytail: longest-prefix mount match; fallback to first disk when the
+    // path does not exist yet (first-run) or matches nothing.
+    let mut best: Option<(usize, u64)> = None;
+    for disk in disks.list() {
+        let mount = disk.mount_point();
+        if target.starts_with(mount) {
+            let len = mount.components().count();
+            if best.is_none_or(|(bl, _)| len > bl) {
+                best = Some((len, disk.available_space()));
+            }
+        }
+    }
+    best.map(|(_, free)| free)
+        .or_else(|| disks.list().first().map(|d| d.available_space()))
+}
+
+#[cfg(not(feature = "sysinfo"))]
+fn disk_free_bytes(_path: &str) -> Option<u64> {
+    None
+}
+
+/// Environment preflight for first-run (DX-02): disk, orphan locks,
+/// onnxruntime, UTF-8 codepage, Python/Node versions. Best-effort only.
+fn environment_preflight(db_path: &str) -> Vec<PreflightCheck> {
+    let mut checks = Vec::new();
+    match disk_free_bytes(db_path) {
+        Some(free) => checks.push(PreflightCheck {
+            name: "disk",
+            ok: free > 256 * 1024 * 1024,
+            detail: format!("{} free", human_readable_size(free)),
+        }),
+        None => checks.push(PreflightCheck {
+            name: "disk",
+            ok: true,
+            detail: "free space not measured (built without sysinfo)".to_string(),
+        }),
+    }
+    let lock = std::path::Path::new(db_path).join(".vanta.lock");
+    let (lock_ok, lock_detail) = if !lock.is_file() {
+        (true, "no stale lock".to_string())
+    } else {
+        match crate::storage::lock::read_lock_metadata(&lock) {
+            Some(meta) => {
+                if crate::storage::lock::is_process_alive(meta.pid) {
+                    (
+                        false,
+                        format!(
+                            "locked by active process '{}' (PID {}) on host '{}'",
+                            meta.process_name, meta.pid, meta.hostname
+                        ),
+                    )
+                } else {
+                    (
+                        true,
+                        format!(
+                            "orphaned lock from dead process '{}' (PID {}) — auto-recoverable on start",
+                            meta.process_name, meta.pid
+                        ),
+                    )
+                }
+            }
+            None => (
+                true,
+                "unformatted lock file present — auto-recoverable on start".to_string(),
+            ),
+        }
+    };
+    checks.push(PreflightCheck {
+        name: "orphan_lock",
+        ok: lock_ok,
+        detail: lock_detail,
+    });
+    match onnxruntime_location() {
+        Some(found) => checks.push(PreflightCheck {
+            name: "onnxruntime",
+            ok: true,
+            detail: found,
+        }),
+        None => checks.push(PreflightCheck {
+            name: "onnxruntime",
+            ok: true,
+            detail: "not found (only needed for onnx embedding providers)".to_string(),
+        }),
+    }
+    if cfg!(windows) {
+        match windows_codepage() {
+            Some(cp) => checks.push(PreflightCheck {
+                name: "codepage_utf8",
+                ok: cp == "65001",
+                detail: format!("active code page {cp} (UTF-8 is 65001)"),
+            }),
+            None => checks.push(PreflightCheck {
+                name: "codepage_utf8",
+                ok: true,
+                detail: "could not read code page".to_string(),
+            }),
+        }
+    } else {
+        checks.push(PreflightCheck {
+            name: "codepage_utf8",
+            ok: true,
+            detail: "non-Windows platform".to_string(),
+        });
+    }
+    match check_cmd("python", &["--version"]).or_else(|| check_cmd("python3", &["--version"])) {
+        Some(v) => checks.push(PreflightCheck {
+            name: "python",
+            ok: true,
+            detail: v,
+        }),
+        None => checks.push(PreflightCheck {
+            name: "python",
+            ok: true,
+            detail: "not on PATH".to_string(),
+        }),
+    }
+    match check_cmd("node", &["--version"]) {
+        Some(v) => checks.push(PreflightCheck {
+            name: "node",
+            ok: true,
+            detail: v,
+        }),
+        None => checks.push(PreflightCheck {
+            name: "node",
+            ok: true,
+            detail: "not on PATH".to_string(),
+        }),
+    }
+    checks
+}
+
+fn preflight_json(checks: &[PreflightCheck]) -> serde_json::Value {
+    serde_json::Value::Array(
+        checks
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "name": c.name,
+                    "ok": c.ok,
+                    "detail": c.detail,
+                })
+            })
+            .collect(),
+    )
+}
+
+fn report_preflight(checks: &[PreflightCheck]) {
+    let bad: Vec<&PreflightCheck> = checks.iter().filter(|c| !c.ok).collect();
+    if bad.is_empty() {
+        print_info(&format!(
+            "Preflight: all {} environment checks ok",
+            checks.len()
+        ));
+    } else {
+        print_warning(&format!(
+            "Preflight: {} of {} checks need attention",
+            bad.len(),
+            checks.len()
+        ));
+        for c in bad {
+            print_warning(&format!("  [{}] {}", c.name, c.detail));
+        }
+    }
+}
+
+#[tracing::instrument]
+/// Run comprehensive health diagnostics on the database
+pub fn cmd_doctor(db_path: &str, opts: DoctorOptions, json_output: bool) -> Result<()> {
+    let mut fixes: Vec<String> = Vec::new();
+    let preflight = environment_preflight(db_path);
+    if !json_output {
+        report_preflight(&preflight);
+    }
+    if !matches!(opts.fix, DoctorFix::Off) {
+        let pending = pending_safe_repairs(db_path);
+        if !matches!(opts.fix, DoctorFix::Apply) {
+            // Dry-run by default: list, never mutate.
+            if pending.is_empty() {
+                if !json_output {
+                    print_success("doctor --fix: nothing to fix");
+                }
+            } else {
+                for repair in &pending {
+                    fixes.push(format!("would fix: {}", repair.description));
+                    if !json_output {
+                        print_warning(&format!("Would fix: {}", repair.description));
+                    }
+                }
+                if !json_output {
+                    print_info("dry-run: re-run with `doctor --fix --force` to apply");
+                }
+            }
+        } else {
+            // --force: apply additive-only repairs (create missing dirs).
+            if pending.is_empty() {
+                if !json_output {
+                    print_success("doctor --fix: nothing to fix");
+                }
+            } else {
+                for repair in &pending {
+                    std::fs::create_dir_all(&repair.path).map_err(Error::Io)?;
+                    fixes.push(format!("fixed: {}", repair.description));
+                    if !json_output {
+                        print_success(&format!("Fixed: {}", repair.description));
+                    }
+                }
+            }
+            // A freshly created (empty) database has no schema/lock yet —
+            // opening it read-only would fail with NotFound/Schema.
+            // That is the expected empty state, not an error: exit 0.
+            if !pending.is_empty() {
+                if json_output {
+                    return print_json(&serde_json::json!({
+                        "path": db_path,
+                        "fixes": fixes, "preflight": preflight_json(&preflight),
+                        "diagnostics": serde_json::Value::Null,
+                    }));
+                }
+                return Ok(());
+            }
+        }
+        // ponytail: stale `.vanta.lock` / permissions / WAL / user data are
+        // intentionally left alone — deleting them risks data loss. Report
+        // only; manual review required (GOV-TK1 stop condition).
+        if opts.verbose.is_verbose() && pending.is_empty() && !json_output {
+            print_info(
+                "Left alone (manual review if unhealthy): .vanta.lock, WAL segments, user data",
+            );
+        }
+    }
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "path": db_path,
+                "fixes": fixes, "preflight": preflight_json(&preflight),
+                "diagnostics": serde_json::Value::Null,
+            }));
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database for diagnostics...");
+    // In --fix mode an empty/uninitialised database (fresh dirs, no
+    // schema/lock yet) is the expected state after repairs — exit 0 with a
+    // warning instead of propagating NotFound/Schema. Genuine corruption
+    // (incompatible version, invalid header) still errors for manual review.
+    let engine = match open_database(db_path, true) {
+        Ok(engine) => engine,
+        Err(e) if !matches!(opts.fix, DoctorFix::Off) && is_empty_database_state(&e) => {
+            spinner.finish_and_clear();
+            if json_output {
+                return print_json(&serde_json::json!({
+                    "path": db_path,
+                    "fixes": fixes, "preflight": preflight_json(&preflight),
+                    "diagnostics": serde_json::Value::Null,
+                    "note": format!("database is empty/uninitialised ({e})"),
+                }));
+            }
+            print_warning(&format!(
+                "Database is empty/uninitialised ({e}); nothing further to diagnose."
+            ));
+            return Ok(());
+        }
+        Err(e) => {
+            spinner.finish_and_clear();
+            return Err(e);
+        }
+    };
+    spinner.set_message("Running diagnostics...");
+
+    let nodes = engine.scan_nodes()?;
+    let total_nodes = nodes.len();
+
+    let mut namespaces: Vec<String> = Vec::new();
+    let mut total_vectors = 0usize;
+    let mut total_expired = 0u64;
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+
+    for node in &nodes {
+        let ns = node.relational.get(FIELD_NAMESPACE).and_then(|v| match v {
+            FieldValue::String(s) => Some(s.clone()),
+            _ => None,
+        });
+        if let Some(ns) = ns {
+            if !namespaces.contains(&ns) {
+                namespaces.push(ns);
+            }
+        }
+
+        if node.flags.is_set(NodeFlags::HAS_VECTOR) {
+            total_vectors += 1;
+        }
+
+        if let Some(FieldValue::Int(exp)) = node.relational.get(FIELD_EXPIRES_AT_MS) {
+            if *exp < now_ms {
+                total_expired += 1;
+            }
+        }
+    }
+
+    let stats = engine.stats();
+
+    spinner.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "path": db_path,
+            "fixes": fixes, "preflight": preflight_json(&preflight),
+            "diagnostics": {
+                "total_nodes": total_nodes,
+                "namespaces": namespaces,
+                "vectors": total_vectors,
+                "expired_records": total_expired,
+                "storage": {
+                    "node_count": stats.node_count,
+                    "logical_bytes": stats.logical_bytes,
+                    "cache_entries": stats.cache_entries,
+                    "physical_rss": stats.physical_rss,
+                },
+            },
+        }));
+    }
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔══════════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("║                VantaDB Health Diagnostics                    ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╠══════════════════════════════════════════════════════════════╣")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Overview                                                 ║")
+    ));
+    let _ = term.write_line(&format!("║     Total nodes:     {:<38} ║", total_nodes));
+    let _ = term.write_line(&format!(
+        "║     Namespaces:      {:<38} ║",
+        namespaces.len()
+    ));
+    let _ = term.write_line(&format!("║     Vectors stored:  {:<38} ║", total_vectors));
+    let _ = term.write_line(&format!("║     Expired records: {:<38} ║", total_expired));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Storage                                                 ║")
+    ));
+    let _ = term.write_line(&format!(
+        "║     Node count:      {:<38} ║",
+        stats.node_count
+    ));
+    let _ = term.write_line(&format!(
+        "║     Logical size:    {:<38} ║",
+        human_readable_size(stats.logical_bytes)
+    ));
+    let _ = term.write_line(&format!(
+        "║     Cache entries:   {:<38} ║",
+        stats.cache_entries
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚══════════════════════════════════════════════════════════════╝")
+    ));
+
+    if opts.verbose.is_verbose() {
+        let _ = term.write_line("");
+        print_info("Namespaces:");
+        for ns in &namespaces {
+            print_info(&format!("  {}", ns));
+        }
+    }
+
+    if total_expired > 0 {
+        print_warning(&format!(
+            "Found {} expired record(s). Consider compacting the database.",
+            total_expired
+        ));
+    }
+
+    Ok(())
+}
+
+#[tracing::instrument]
+/// Inspect a single record showing all fields, vectors, and metadata
+pub fn cmd_inspect(
+    db_path: &str,
+    namespace: &str,
+    key: &str,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "namespace": namespace,
+                "key": key,
+                "found": false,
+            }));
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let engine = open_database(db_path, true)?;
+    spinner.set_message("Inspecting record...");
+
+    let node_id = memory_node_id(namespace, key);
+
+    match engine.get(node_id)? {
+        Some(node) => {
+            spinner.finish_and_clear();
+
+            // `--json` output is always complete (full field map + full vector).
+            if json_output {
+                let mut fields = serde_json::Map::new();
+                for (field_key, value) in node.relational.iter() {
+                    fields.insert(field_key.clone(), field_value_to_json(value));
+                }
+                let vector = match &node.vector {
+                    VectorRepresentations::Full(v) => Some(v.clone()),
+                    _ => None,
+                };
+                return print_json(&serde_json::json!({
+                    "namespace": namespace,
+                    "key": key,
+                    "node_id": node_id.to_string(),
+                    "found": true,
+                    "has_vector": node.flags.is_set(NodeFlags::HAS_VECTOR),
+                    "active": node.flags.is_set(NodeFlags::ACTIVE),
+                    "tier": format!("{:?}", node.tier),
+                    "hits": node.hits,
+                    "fields": fields,
+                    "vector": vector,
+                }));
+            }
+
+            let term = Term::stdout();
+            let _ = term.write_line("");
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("╔══════════════════════════════════════════════════════════╗")
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("║                 Record Inspection                         ║")
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("╠══════════════════════════════════════════════════════════╣")
+            ));
+            let _ = term.write_line(&format!("║  Namespace: {:<42} ║", namespace));
+            let _ = term.write_line(&format!("║  Key:       {:<42} ║", key));
+            let _ = term.write_line(&format!("║  Node ID:   {:<42} ║", node_id));
+            let _ = term.write_line(&format!(
+                "║  Has vector: {:<41} ║",
+                node.flags.is_set(NodeFlags::HAS_VECTOR)
+            ));
+            let _ = term.write_line(&format!(
+                "║  Active:    {:<41} ║",
+                node.flags.is_set(NodeFlags::ACTIVE)
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("╠══════════════════════════════════════════════════════════╣")
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                info_style()
+                    .apply_to("║  Fields (relational metadata)                           ║")
+            ));
+
+            let mut rel_keys: Vec<&String> = node.relational.keys().collect();
+            rel_keys.sort();
+            for field_key in rel_keys {
+                if let Some(val) = node.relational.get(field_key) {
+                    let val_str = match val {
+                        FieldValue::String(s) => s.clone(),
+                        FieldValue::Int(i) => i.to_string(),
+                        FieldValue::Float(f) => format!("{:.6}", f),
+                        FieldValue::Bool(b) => b.to_string(),
+                        _ => format!("{:?}", val),
+                    };
+                    let line = format!("║  {:<15} = {:<35} ║", field_key, val_str);
+                    let _ = term.write_line(&line);
+                }
+            }
+
+            if node.flags.is_set(NodeFlags::HAS_VECTOR) {
+                let _ = term.write_line(&format!(
+                    "{}",
+                    header_style()
+                        .apply_to("╠══════════════════════════════════════════════════════════╣")
+                ));
+                let _ = term.write_line(&format!(
+                    "{}",
+                    info_style()
+                        .apply_to("║  Vector Data                                              ║")
+                ));
+                match &node.vector {
+                    VectorRepresentations::Full(v) => {
+                        let dims = v.len();
+                        let preview: String = if dims > 6 {
+                            format!(
+                                "[{}, {}, {}, {}, {}, ...{} more]",
+                                v[0],
+                                v[1],
+                                v[2],
+                                v[3],
+                                v[4],
+                                dims - 5
+                            )
+                        } else {
+                            format!("{:?}", v)
+                        };
+                        let _ = term.write_line(&format!("║  Dimensions: {:<39} ║", dims));
+                        let truncated = truncate_for_term(&preview, 35, stdout_is_term());
+                        let _ = term.write_line(&format!("║  Values:     {:<39} ║", truncated));
+                    }
+                    _ => {
+                        let _ = term.write_line(
+                            "║  (compressed)                                          ║",
+                        );
+                    }
+                }
+            }
+
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("╚══════════════════════════════════════════════════════════╝")
+            ));
+
+            if verbose {
+                let _ = term.write_line("");
+                print_info(&format!(
+                    "Payload: {}",
+                    node.relational
+                        .get(FIELD_PAYLOAD)
+                        .and_then(|v| match v {
+                            FieldValue::String(s) => Some(s.as_str()),
+                            _ => None,
+                        })
+                        .unwrap_or("(none)")
+                ));
+            }
+        }
+        None => {
+            spinner.finish_and_clear();
+            if json_output {
+                return print_json(&serde_json::json!({
+                    "namespace": namespace,
+                    "key": key,
+                    "node_id": node_id.to_string(),
+                    "found": false,
+                }));
+            }
+            print_warning(&format!(
+                "Record not found: {}:{} (node_id: {})",
+                namespace, key, node_id
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+#[tracing::instrument]
+/// Display detailed database statistics in human-readable or JSON format
+pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            println!("null");
+            return Ok(());
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let engine = open_database(db_path, true)?;
+    spinner.set_message("Collecting statistics...");
+
+    let stats = engine.stats();
+    let nodes = engine.scan_nodes()?;
+    let namespaces: HashSet<String> = nodes
+        .iter()
+        .filter_map(|n| {
+            n.relational.get(FIELD_NAMESPACE).and_then(|v| match v {
+                FieldValue::String(s) => Some(s.clone()),
+                _ => None,
+            })
+        })
+        .collect();
+
+    let total_vector_nodes = nodes
+        .iter()
+        .filter(|n| n.flags.is_set(NodeFlags::HAS_VECTOR))
+        .count();
+
+    let total_payload_bytes: u64 = nodes
+        .iter()
+        .map(|n| {
+            n.relational
+                .get(FIELD_PAYLOAD)
+                .map(|v| match v {
+                    FieldValue::String(s) => s.len() as u64,
+                    _ => 0u64,
+                })
+                .unwrap_or(0u64)
+        })
+        .sum();
+
+    spinner.finish_and_clear();
+
+    if json_output {
+        let result = serde_json::json!({
+            "node_count": stats.node_count,
+            "cache_entries": stats.cache_entries,
+            "logical_bytes": stats.logical_bytes,
+            "physical_rss": stats.physical_rss,
+            "namespaces": namespaces.iter().cloned().collect::<Vec<_>>(),
+            "namespace_count": namespaces.len(),
+            "total_records": nodes.len(),
+            "total_vector_nodes": total_vector_nodes,
+            "total_payload_bytes": total_payload_bytes,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).map_err(|e| {
+                crate::error::Error::Cli(ChainedError::msg(format!(
+                    "JSON serialization error: {e}"
+                )))
+            })?
+        );
+        return Ok(());
+    }
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔══════════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style()
+            .apply_to("║                 VantaDB Database Statistics                   ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╠══════════════════════════════════════════════════════════════╣")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Overview                                                 ║")
+    ));
+    let _ = term.write_line(&format!("║     Total records:   {:<38} ║", nodes.len()));
+    let _ = term.write_line(&format!(
+        "║     Vector records:  {:<38} ║",
+        total_vector_nodes
+    ));
+    let _ = term.write_line(&format!(
+        "║     Total payload:   {:<38} ║",
+        human_readable_size(total_payload_bytes)
+    ));
+    let _ = term.write_line(&format!(
+        "║     Namespaces:      {:<38} ║",
+        namespaces.len()
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Storage                                                 ║")
+    ));
+    let _ = term.write_line(&format!(
+        "║     HNSW nodes:      {:<38} ║",
+        stats.node_count
+    ));
+    let _ = term.write_line(&format!(
+        "║     Cache entries:   {:<38} ║",
+        stats.cache_entries
+    ));
+    let _ = term.write_line(&format!(
+        "║     Logical size:    {:<38} ║",
+        human_readable_size(stats.logical_bytes)
+    ));
+    if let Some(rss) = stats.physical_rss {
+        let _ = term.write_line(&format!(
+            "║     Physical RSS:    {:<38} ║",
+            human_readable_size(rss)
+        ));
+    }
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚══════════════════════════════════════════════════════════════╝")
+    ));
+
+    if verbose {
+        let _ = term.write_line("");
+        print_info("Namespaces:");
+        let mut sorted_ns: Vec<&String> = namespaces.iter().collect();
+        sorted_ns.sort();
+        for ns in sorted_ns {
+            print_info(&format!("  {}", ns));
+        }
+    }
+
+    Ok(())
+}

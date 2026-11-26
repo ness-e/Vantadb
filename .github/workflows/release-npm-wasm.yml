@@ -1,0 +1,292 @@
+name: 'RELEASE: NPM — Publish'
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package to publish"
+        type: choice
+        options: [wasm, ts, both]
+        required: true
+        default: "both"
+      dry_run:
+        description: "Dry run (no actual publish)"
+        required: false
+        default: "false"
+  # FIND-472: sin `push.tags`. El fanout de `release.yml` ya despacha este
+  # workflow tras publicar en crates.io (`gh workflow run release-npm-wasm.yml
+  # --ref <tag> -f package=both`). Mantener ambos provocaba doble ejecucion
+  # concurrente / TOCTOU cuando release-plz pusheaba el tag con RELEASE_PLZ_TOKEN.
+  pull_request:
+    paths:
+      - "vantadb-wasm/**"
+      - "vantadb-ts/**"
+      - ".github/workflows/release-npm-wasm.yml"
+
+permissions:
+  contents: read
+  id-token: write # Required for npm trusted publishing (OIDC)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tests:
+    name: Tests (npm/TS)
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    # STABLE-06: measured 2026-09-05 on clean `npm ci` (node v26.8.1):
+    # install ~11s + build ~2s + vitest 278/278 ~16s (Duration) + eslint 0
+    # ~24s → TS portion ~58s wall, Fast Gate tier (well under the 5min
+    # Heavy threshold); runs on every PR and main push touching the SDK.
+    # NOTE: clean-CI wall adds `wasm-pack build --release` (Rust compile,
+    # unmeasured locally) — the TS gate itself stays <2min.
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Install wasm-pack (prebuilt binary, same route everywhere)
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: wasm-pack
+
+      - name: Set up Rust
+        uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: false
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build WASM package
+        run: wasm-pack build --release
+        working-directory: vantadb-wasm
+
+      # WSM-05: replace the auto-generated .d.ts (mostly `any`) with the
+      # hand-written source. The wasm-bindgen macro cannot infer JsValue
+      # shapes, so this override is required for the npm package to be
+      # usable from TypeScript without a wrapper layer. Source of truth for
+      # the hand-written .d.ts: `vantadb-wasm/src/vantadb_wasm.d.ts`.
+      - name: Override .d.ts with hand-written source (WSM-05)
+        run: node dev-tools/build-wasm-types.mjs
+
+      # WSM-06: wasm-pack omits `snippets/` from pkg `files` — run here too so
+      # the uploaded wasm-pkg artifact (reused by publish-wasm, no rebuild)
+      # matches what used to be built there.
+      - name: Include wasm-pack snippets in pkg files (WSM-06)
+        run: node dev-tools/fix-wasm-pkg-files.mjs
+
+      - name: Upload WASM build artifact (reused by publish-wasm)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wasm-pkg
+          path: vantadb-wasm/pkg
+          if-no-files-found: error
+
+      - name: Install dependencies
+        working-directory: vantadb-ts
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: vantadb-ts
+        run: npm run build
+
+      - name: Run tests
+        working-directory: vantadb-ts
+        run: npm test
+
+      - name: Lint TypeScript (STABLE-06)
+        working-directory: vantadb-ts
+        run: npm run lint
+
+      # STABLE-06: fail the Fast Gate here (not only at publish) if the
+      # tarball would ship without engines.node (TS-05 guard, mirrors the
+      # publish-ts integrity check) or if packing itself breaks.
+      - name: Verify packed manifest keeps engines (STABLE-06)
+        working-directory: vantadb-ts
+        run: |
+          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (STABLE-06)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines));"
+          npm pack --dry-run > /dev/null
+
+  # (tests-node26 retirado: duplicaba `tests` (~60 lineas, 2.º compile wasm)
+  # para un bug de Node 26 ya fixeado (DX-01/H-009). Al necesitar Node 26,
+  # reactivar como matriz sobre `tests`.)
+
+  publish-wasm:
+    name: Publish vantadb-wasm to npm
+    needs: [tests]
+    if: >
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.package != 'ts')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # OIDC trusted publishing requires npm >= 11.5.1 (Node 22 ships npm 10).
+        # Without it, `npm publish` goes out unauthenticated → 404 PUT (2026-09-22).
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11
+
+      # Reusa el artefacto wasm-pkg del job `tests` (sin recompilar: era el
+      # 3.er compile wasm identico por release).
+      - name: Download WASM build artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: wasm-pkg
+          path: vantadb-wasm/pkg
+
+      - name: Upload WASM build artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wasm-pkg
+          path: vantadb-wasm/pkg
+          if-no-files-found: error
+
+      - name: Check if version already published
+        id: check-wasm
+        working-directory: vantadb-wasm/pkg
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "vantadb-wasm@${VERSION}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::vantadb-wasm@${VERSION} already published — skipping publish. On a release tag this means the version was not bumped for the release — gate: scripts/docs/check-npm-versions.mjs, runbook: docs/dev/workflow/PUBLISH.md"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} not published — will publish"
+          fi
+
+      - name: Publish to npm
+        if: >
+          steps.check-wasm.outputs.exists != 'true' &&
+          (startsWith(github.ref, 'refs/tags/v') ||
+           github.event_name == 'workflow_dispatch')
+        working-directory: vantadb-wasm/pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: >
+          npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+  publish-ts:
+    name: Publish vantadb (TS) to npm
+    needs: [publish-wasm]
+    # GATE: corre aunque publish-wasm se haya SALTADO (dispatch package=ts);
+    # solo se bloquea si wasm FALLO (el tarball TS declara wasm@^X como dep,
+    # así que el orden wasm->ts se mantiene). Bug del backfill 0.8.0: con
+    # package=ts el run terminaba success sin publicar nada (ts=skipped).
+    if: >
+      always() &&
+      needs.publish-wasm.result != 'failure' &&
+      (startsWith(github.ref, 'refs/tags/v') ||
+       (github.event_name == 'workflow_dispatch' && inputs.package != 'wasm'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # OIDC trusted publishing requires npm >= 11.5.1 (Node 22 ships npm 10).
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11
+
+      - name: Download WASM build artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: wasm-pkg
+          path: vantadb-wasm/pkg
+
+      - name: Install dependencies
+        working-directory: vantadb-ts
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: vantadb-ts
+        run: npm run build
+
+      - name: Rewrite dependency for publish
+        working-directory: vantadb-ts
+        run: |
+          WASM_VER=$(grep -A1 '^\[workspace\.package\]' ../Cargo.toml | grep '^version' | sed 's/.*"\(.*\)"/\1/')
+          # Sanitize: allow only semver-safe characters
+          if ! echo "$WASM_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'; then
+            echo "ERROR: Invalid version extracted: '$WASM_VER'" >&2
+            exit 1
+          fi
+          npm pkg set "dependencies.vantadb-wasm=^${WASM_VER}"
+          node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); let changed = false; for (const field of ['dependencies', 'optionalDependencies', 'devDependencies']) { if (pkg[field]?.['vantadb-node']?.startsWith('file:')) { delete pkg[field]['vantadb-node']; changed = true; } } if (changed) { fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
+
+      # FIND-550: the rewrite above strips `vantadb-node` (file: dep) so
+      # `npm ci` never resolves an unpublished version (ETARGET propagation
+      # race, PUBLISH.md trap 5). Re-inject it as an optionalDependency —
+      # exact version of this release (vantadb-node tracks the workspace
+      # version from its first publish; npm skips optional deps it cannot
+      # install, so installs still succeed while it is not yet on npm —
+      # PUBLISH.md:206) — AFTER npm ci/build and BEFORE npm pack/publish.
+      # Without this, the tarball ships without the native binding and Node
+      # users silently fall back to WASM (breaks EGO-17).
+      - name: Restore vantadb-node optionalDependency (FIND-550)
+        working-directory: vantadb-ts
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          npm pkg set "optionalDependencies.vantadb-node=${VERSION}"
+          node -e "const p=require('./package.json'); const v=p.optionalDependencies && p.optionalDependencies['vantadb-node']; if(!v){console.error('ERROR: optionalDependencies[vantadb-node] missing — tarball would ship without the native binding (FIND-550)');process.exit(1);} if(v!==p.version){console.error('ERROR: optionalDependencies[vantadb-node]='+v+' != pkg.version '+p.version);process.exit(1);} if(p.dependencies && p.dependencies['vantadb-node']){console.error('ERROR: vantadb-node still present in dependencies');process.exit(1);} console.log('optionalDependencies.vantadb-node =', v);"
+
+      # TS-05 guard: a tarball without engines.node fails confusingly on
+      # Node < 22.12 (`require(esm)` syntax error). Fail the release here
+      # instead of shipping it.
+      - name: Verify package.json integrity (TS-05)
+        working-directory: vantadb-ts
+        run: |
+          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (TS-05)');process.exit(1);} const v=p.optionalDependencies&&p.optionalDependencies['vantadb-node']; if(v!==p.version){console.error('ERROR: optionalDependencies[vantadb-node] missing or != pkg.version ('+v+' vs '+p.version+') — tarball would ship without the native binding (FIND-550)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines), '| optionalDependencies.vantadb-node =', v);"
+
+      # TS-07: install the packed tarball in a clean temp dir and run a
+      # minimal quickstart against it before anything reaches npm.
+      - name: Smoke-test packed tarball (TS-07)
+        working-directory: vantadb-ts
+        run: node scripts/smoke-pack.mjs
+
+      - name: Check if version already published
+        id: check-ts
+        working-directory: vantadb-ts
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "vantadb@${VERSION}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::vantadb@${VERSION} already published — skipping publish. On a release tag this means the version was not bumped for the release — gate: scripts/docs/check-npm-versions.mjs, runbook: docs/dev/workflow/PUBLISH.md"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} not published — will publish"
+          fi
+
+      - name: Publish to npm
+        if: steps.check-ts.outputs.exists != 'true'
+        working-directory: vantadb-ts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: >
+          npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}

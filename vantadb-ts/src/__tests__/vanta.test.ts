@@ -1,0 +1,881 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { Client, DbError } from "../vantadb.js";
+import {
+  isMemoryRecord,
+  isSearchHit,
+  isNodeRecord,
+  isValidValue,
+  isMetadata,
+  isValidVector,
+  validateVector,
+} from "../guards.js";
+import type { MemoryRecord, SearchHit, NodeRecord } from "../types.js";
+
+// ---------------------------------------------------------------------------
+// Type guard unit tests (no DB required)
+// ---------------------------------------------------------------------------
+describe("Type guards: isMemoryRecord", () => {
+  const validRecord: MemoryRecord = {
+    namespace: "ns",
+    key: "k",
+    payload: "p",
+    metadata: {},
+    created_at_ms: "1000",
+    updated_at_ms: "2000",
+    version: "1",
+    node_id: "42",
+  };
+
+  it("accepts a well-formed MemoryRecord", () => {
+    expect(isMemoryRecord(validRecord)).toBe(true);
+  });
+
+  it("rejects null", () => {
+    expect(isMemoryRecord(null)).toBe(false);
+  });
+
+  it("rejects primitive values", () => {
+    expect(isMemoryRecord(42)).toBe(false);
+    expect(isMemoryRecord("string")).toBe(false);
+    expect(isMemoryRecord(true)).toBe(false);
+  });
+
+  it("rejects objects missing namespace", () => {
+    expect(isMemoryRecord({ key: "k", payload: "p" } as unknown)).toBe(false);
+  });
+
+  it("rejects objects missing key", () => {
+    expect(isMemoryRecord({ namespace: "ns", payload: "p" } as unknown)).toBe(false);
+  });
+
+  it("rejects objects missing payload", () => {
+    expect(isMemoryRecord({ namespace: "ns", key: "k" } as unknown)).toBe(false);
+  });
+
+  it("rejects objects with non-string namespace", () => {
+    expect(isMemoryRecord({ ...validRecord, namespace: 123 } as unknown)).toBe(false);
+  });
+
+  it("accepts numeric version/node_id/timestamps (WASM-returned numbers)", () => {
+    const numericRecord = {
+      ...validRecord,
+      version: 3,
+      node_id: 42,
+      created_at_ms: 1000,
+      updated_at_ms: 2000,
+    };
+    expect(isMemoryRecord(numericRecord)).toBe(true);
+  });
+
+  it("accepts mixed string/number version and node_id", () => {
+    expect(isMemoryRecord({ ...validRecord, version: "1", node_id: 7 })).toBe(true);
+    expect(isMemoryRecord({ ...validRecord, version: 2, node_id: "8" })).toBe(true);
+  });
+
+  it("still rejects invalid version/node_id/timestamps", () => {
+    expect(isMemoryRecord({ ...validRecord, version: {} } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, version: null } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, node_id: true } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, created_at_ms: [] } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, updated_at_ms: undefined } as unknown)).toBe(false);
+  });
+});
+
+describe("Type guards: isSearchHit", () => {
+  it("accepts a well-formed SearchHit", () => {
+    const hit: SearchHit = {
+      record: {
+        namespace: "ns",
+        key: "k",
+        payload: "p",
+        metadata: {},
+        created_at_ms: "0",
+        updated_at_ms: "0",
+        version: "1",
+        node_id: "1",
+      },
+      score: 0.42,
+    };
+    expect(isSearchHit(hit)).toBe(true);
+  });
+
+  it("rejects null", () => expect(isSearchHit(null)).toBe(false));
+
+  it("rejects missing score", () => {
+    const h = { record: { namespace: "ns", key: "k", payload: "p" } };
+    expect(isSearchHit(h)).toBe(false);
+  });
+});
+
+describe("Type guards: isNodeRecord", () => {
+  const validNode: NodeRecord = {
+    id: "1",
+    fields: {},
+    vector_dimensions: 3,
+    edges: [],
+    confidence_score: 0.9,
+    importance: 0.5,
+    hits: 10,
+    last_accessed: 1000,
+    epoch: 0,
+    tier: "Hot",
+    is_alive: true,
+  };
+
+  it("accepts a well-formed NodeRecord", () => {
+    expect(isNodeRecord(validNode)).toBe(true);
+  });
+
+  it("rejects string last_accessed (expects numeric u64 timestamp)", () => {
+    expect(isNodeRecord({ ...validNode, last_accessed: "1000" })).toBe(false);
+  });
+
+  it("rejects null", () => expect(isNodeRecord(null)).toBe(false));
+
+  it("rejects missing vector_dimensions", () => {
+    const { vector_dimensions, ...rest } = validNode;
+    expect(isNodeRecord(rest)).toBe(false);
+  });
+
+  it("rejects invalid tier", () => {
+    expect(isNodeRecord({ ...validNode, tier: "Warm" })).toBe(false);
+  });
+});
+
+describe("Type guards: isValidValue", () => {
+  it("accepts String", () => {
+    expect(isValidValue({ String: "hello" })).toBe(true);
+  });
+
+  it("accepts Int", () => {
+    expect(isValidValue({ Int: 42 })).toBe(true);
+  });
+
+  it("accepts Float", () => {
+    expect(isValidValue({ Float: 3.14 })).toBe(true);
+  });
+
+  it("accepts Bool", () => {
+    expect(isValidValue({ Bool: true })).toBe(true);
+  });
+
+  it("accepts Null", () => {
+    expect(isValidValue({ Null: null })).toBe(true);
+  });
+
+  it("accepts ListString", () => {
+    expect(isValidValue({ ListString: ["a", "b"] })).toBe(true);
+  });
+
+  it("rejects unknown type", () => {
+    expect(isValidValue({ Unknown: "foo" })).toBe(false);
+  });
+
+  it("rejects null", () => expect(isValidValue(null)).toBe(false));
+
+  it("rejects non-object", () => expect(isValidValue("string")).toBe(false));
+
+  it("rejects Null with extra value", () => {
+    expect(isValidValue({ Null: 1 })).toBe(false);
+  });
+});
+
+describe("Type guards: isMetadata", () => {
+  it("accepts valid metadata", () => {
+    const m = { name: { String: "test" } };
+    expect(isMetadata(m)).toBe(true);
+  });
+
+  it("rejects invalid metadata value", () => {
+    const m = { name: { Invalid: "test" } };
+    expect(isMetadata(m)).toBe(false);
+  });
+});
+
+describe("Type guards: isValidVector", () => {
+  it("accepts valid number array", () => {
+    expect(isValidVector([0.1, 0.2, 0.3])).toBe(true);
+  });
+
+  it("rejects empty array", () => {
+    expect(isValidVector([])).toBe(false);
+  });
+
+  it("rejects non-array", () => {
+    expect(isValidVector("string")).toBe(false);
+  });
+
+  it("rejects array with NaN", () => {
+    expect(isValidVector([1, NaN, 3])).toBe(false);
+  });
+
+  it("rejects array with Infinity", () => {
+    expect(isValidVector([1, Infinity, 3])).toBe(false);
+  });
+});
+
+describe("Type guards: validateVector (asserts)", () => {
+  it("passes on valid array", () => {
+    expect(() => validateVector([0.1, 0.2])).not.toThrow();
+  });
+
+  it("passes on Float32Array (zero-copy path)", () => {
+    expect(() => validateVector(new Float32Array([0.1, 0.2]))).not.toThrow();
+  });
+
+  it("throws on non-array", () => {
+    // ERR-TS-01: validateVector surfaces DbError(VANTADB_VALIDATION_ERROR)
+    // instead of the previous raw TypeError/RangeError (BREAKING documented).
+    let caught: unknown;
+    try {
+      validateVector("bad");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe("VANTADB_VALIDATION_ERROR");
+  });
+
+  it("throws on empty array", () => {
+    expect(() => validateVector([])).toThrow(DbError);
+  });
+
+  it("throws on NaN element", () => {
+    expect(() => validateVector([1, NaN])).toThrow(DbError);
+  });
+
+  it("throws on Float32Array with NaN element", () => {
+    expect(() => validateVector(new Float32Array([1, NaN]))).toThrow(DbError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DbError unit tests
+// ---------------------------------------------------------------------------
+describe("DbError", () => {
+  it("creates error with code and message", () => {
+    const err = new DbError("TEST_CODE", "something broke");
+    expect(err.code).toBe("TEST_CODE");
+    expect(err.message).toBe("something broke");
+    expect(err.name).toBe("VantaError");
+  });
+
+  it("stores optional details", () => {
+    const err = new DbError("DETAILS", "msg", { foo: 1 });
+    expect(err.details).toEqual({ foo: 1 });
+  });
+
+  it("has timestamp", () => {
+    const err = new DbError("TS", "msg");
+    expect(err.timestamp).toBeInstanceOf(Date);
+  });
+
+  it("toJSON produces structured output", () => {
+    const err = new DbError("JSON_TEST", "msg", { x: 1 });
+    const json = err.toJSON();
+    expect(json.name).toBe("VantaError");
+    expect(json.code).toBe("JSON_TEST");
+    expect(json.message).toBe("msg");
+    expect(json.details).toEqual({ x: 1 });
+    expect(typeof json.timestamp).toBe("string");
+  });
+
+  it("toJSON omits details when undefined", () => {
+    const err = new DbError("NO_DETAILS", "msg");
+    const json = err.toJSON();
+    expect(json.details).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration tests (require WASM engine)
+// ---------------------------------------------------------------------------
+describe("Client lifecycle", () => {
+  it("connect() with no args creates a working DB", () => {
+    const db = Client.connect();
+    expect(db).toBeInstanceOf(Client);
+    db.close();
+  });
+
+  it("connect(':memory:') creates a working DB", () => {
+    const db = Client.connect(":memory:");
+    expect(db.capabilities().vector_search).toBe(true);
+    db.close();
+  });
+
+  it("create() with no args creates a working DB", () => {
+    const db = Client.create();
+    expect(db.capabilities().persistence).toBeDefined();
+    db.close();
+  });
+
+  it("create() with config does not throw", () => {
+    const db = Client.create({ memory_limit: 1_073_741_824 });
+    expect(db).toBeInstanceOf(Client);
+    db.close();
+  });
+
+  it("close() is idempotent", () => {
+    const db = Client.create();
+    db.close();
+    expect(() => db.close()).not.toThrow();
+  });
+
+  it("operations after close() throw DbError with code CLOSED", () => {
+    const db = Client.create();
+    db.close();
+    expect(() => db.put({ namespace: "ns", key: "k", payload: "p" })).toThrow(DbError);
+    try {
+      db.put({ namespace: "ns", key: "k", payload: "p" });
+    } catch (e) {
+      expect(e).toBeInstanceOf(DbError);
+      expect((e as DbError).code).toBe("VANTADB_CLOSED");
+    }
+  });
+
+  it("capabilities() returns expected shape", () => {
+    const db = Client.create();
+    const caps = db.capabilities();
+    expect(caps.vector_search).toBe(true);
+    expect(typeof caps.persistence).toBe("boolean");
+    expect(typeof caps.read_only).toBe("boolean");
+    expect(typeof caps.iql_queries).toBe("boolean");
+    db.close();
+  });
+});
+
+describe("Client put / get / delete", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("put stores and returns a record", () => {
+    const r = db.put({ namespace: "test", key: "hello", payload: "world" });
+    expect(r.namespace).toBe("test");
+    expect(r.key).toBe("hello");
+    expect(r.payload).toBe("world");
+    expect(typeof r.version).toBe("string");
+    expect(typeof r.node_id).toBe("string");
+  });
+
+  it("get retrieves a stored record", () => {
+    db.put({ namespace: "test", key: "getme", payload: "found" });
+    const r = db.get({ namespace: "test", key: "getme" });
+    expect(r).not.toBeNull();
+    expect(r!.payload).toBe("found");
+  });
+
+  it("get returns null for missing record", () => {
+    const r = db.get({ namespace: "missing_ns", key: "no_key" });
+    expect(r).toBeNull();
+  });
+
+  it("delete removes a record and returns true", () => {
+    db.put({ namespace: "test", key: "delme", payload: "bye" });
+    const deleted = db.delete({ namespace: "test", key: "delme" });
+    expect(deleted).toBe(true);
+    expect(db.get({ namespace: "test", key: "delme" })).toBeNull();
+  });
+
+  it("delete on non-existent returns false", () => {
+    expect(db.delete({ namespace: "test", key: "never_existed" })).toBe(false);
+  });
+
+  it("put with vector does not error", () => {
+    const r = db.put({
+      namespace: "vec_test",
+      key: "v1",
+      payload: "vectorized",
+      vector: [0.1, 0.2, 0.3, 0.4],
+    });
+    expect(r.payload).toBe("vectorized");
+  });
+
+  it("put with metadata", () => {
+    const r = db.put({
+      namespace: "meta_test",
+      key: "m1",
+      payload: "data",
+      metadata: { source: { String: "test" } },
+    });
+    expect(r.payload).toBe("data");
+  });
+
+  it("put with empty string namespace throws", () => {
+    expect(() => db.put({ namespace: "", key: "k", payload: "v" })).toThrow();
+  });
+
+  it("put with empty string key throws", () => {
+    expect(() => db.put({ namespace: "ns", key: "", payload: "v" })).toThrow();
+  });
+});
+
+describe("Client deleteByFilter", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("deletes matching records and returns the count as bigint", () => {
+    for (let i = 0; i < 3; i++) {
+      db.put({
+        namespace: "filterdel",
+        key: `hot_${i}`,
+        payload: "x",
+        metadata: { tier: { String: "hot" } },
+      });
+    }
+    db.put({
+      namespace: "filterdel",
+      key: "keep",
+      payload: "x",
+      metadata: { tier: { String: "cold" } },
+    });
+
+    const deleted = db.deleteByFilter({
+      namespace: "filterdel",
+      filter: [{ field: "tier", op: "Eq", value: { String: "hot" } }],
+    });
+    expect(deleted).toBe(3n);
+    expect(db.get({ namespace: "filterdel", key: "keep" })).not.toBeNull();
+  });
+
+  it("propagates the empty-filter rejection", () => {
+    expect(() => db.deleteByFilter({ namespace: "filterdel", filter: [] })).toThrow();
+  });
+});
+
+describe("Client putBatch", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("putBatch with empty array returns empty array", () => {
+    const records = db.putBatch([]);
+    expect(records).toEqual([]);
+  });
+
+  it("putBatch stores 100 records", () => {
+    const inputs = Array.from({ length: 100 }, (_, i) => ({
+      namespace: "batch100",
+      key: `k${i}`,
+      payload: `v${i}`,
+    }));
+    const records = db.putBatch(inputs);
+    expect(records.length).toBe(100);
+    expect(records[0].payload).toBe("v0");
+    expect(records[99].payload).toBe("v99");
+  });
+
+  it("putBatch deduplicates last-write-wins", () => {
+    db.putBatch([
+      { namespace: "dedup", key: "same", payload: "first" },
+      { namespace: "dedup", key: "same", payload: "second" },
+    ]);
+    const r = db.get({ namespace: "dedup", key: "same" });
+    expect(r).not.toBeNull();
+    expect(r!.payload).toBe("second");
+  });
+
+  it("putBatch with vector records", () => {
+    const inputs = [
+      { namespace: "vec_batch", key: "a", payload: "pa", vector: [1, 0, 0] },
+      { namespace: "vec_batch", key: "b", payload: "pb", vector: [0, 1, 0] },
+    ];
+    const records = db.putBatch(inputs);
+    expect(records.length).toBe(2);
+  });
+});
+
+describe("Client list and namespace operations", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("listNamespaces returns created namespaces", () => {
+    db.put({ namespace: "list_ns_a", key: "k", payload: "v" });
+    db.put({ namespace: "list_ns_b", key: "k", payload: "v" });
+    const nss = db.listNamespaces();
+    expect(nss).toContain("list_ns_a");
+    expect(nss).toContain("list_ns_b");
+  });
+
+  it("list returns records in a namespace", () => {
+    for (let i = 0; i < 5; i++) {
+      db.put({ namespace: "list_records", key: `k${i}`, payload: `v${i}` });
+    }
+    const page = db.list({ namespace: "list_records", limit: 3 });
+    expect(page.records.length).toBe(3);
+    expect(page.next_cursor).toBeDefined();
+  });
+
+  it("list with no options returns all", () => {
+    const page = db.list({ namespace: "list_records" });
+    expect(page.records.length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe("Client search", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+    db.put({ namespace: "search_db", key: "a", payload: "apple", vector: [1, 0, 0, 0] });
+    db.put({ namespace: "search_db", key: "b", payload: "banana", vector: [0, 1, 0, 0] });
+    db.put({ namespace: "search_db", key: "c", payload: "cherry", vector: [0, 0, 1, 0] });
+  });
+
+  afterAll(() => {
+    db.close();
+  });
+
+  it("search exposes SearchHit.score (higher is better), not distance", () => {
+    const hits = db.search({ namespace: "search_db", query_vector: [1, 0, 0, 0], top_k: 3 });
+    expect(hits.length).toBeGreaterThan(0);
+    // W1 (API-02): the hybrid/memory wire field is a relevance SCORE.
+    expect(hits[0].score).toBeGreaterThan(0.99); // exact match => cosine 1.0
+    expect(hits[0]).not.toHaveProperty("distance");
+    for (let i = 1; i < hits.length; i++) {
+      expect(hits[i - 1].score).toBeGreaterThanOrEqual(hits[i].score);
+    }
+  });
+
+  it("search on empty namespace returns empty", () => {
+    const hits = db.search({ namespace: "empty_search", query_vector: [1, 0, 0, 0] });
+    expect(hits).toEqual([]);
+  });
+
+  it("searchVector returns node_id and distance", () => {
+    const hits = db.searchVector({ vector: [1, 0, 0, 0], topK: 5 });
+    expect(hits.length).toBeGreaterThan(0);
+    expect(typeof hits[0].node_id).toBe("string");
+    expect(typeof hits[0].distance).toBe("number");
+  });
+
+  it("searchVector with top_k > available returns all", () => {
+    const hits = db.searchVector({ vector: [0.5, 0.5, 0.5, 0.5], topK: 100 });
+    expect(hits.length).toBeLessThanOrEqual(3);
+  });
+
+  it("search with hybrid text query", () => {
+    const hits = db.search({
+      namespace: "search_db",
+      query_vector: [1, 0, 0, 0],
+      text_query: "apple",
+      top_k: 5,
+    });
+    expect(hits.length).toBeGreaterThan(0);
+  });
+
+  it("explainSearch returns route information", () => {
+    const exp = db.explainSearch({
+      namespace: "search_db",
+      query_vector: [1, 0, 0, 0],
+      text_query: "apple",
+    });
+    expect(exp).toBeDefined();
+    expect(typeof exp).toBe("object");
+  });
+});
+
+describe("Client graph operations", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("insertNode creates a node", () => {
+    expect(() => db.insertNode(1, "root")).not.toThrow();
+  });
+
+  it("getNode retrieves a node", () => {
+    db.insertNode(10, "target");
+    const node = db.getNode(10);
+    expect(node).not.toBeNull();
+    expect(node!.id).toBeDefined();
+    expect(typeof node!.last_accessed).toBe("number");
+    expect(isNodeRecord(node)).toBe(true);
+  });
+
+  it("query Read returns NodeRecord with numeric last_accessed", () => {
+    db.query("INSERT NODE#777 TYPE Probe { label: \"x\" }");
+    const res = db.query("SELECT * FROM Probe");
+    expect(Array.isArray(res.Read)).toBe(true);
+    expect(res.Read!.length).toBeGreaterThanOrEqual(1);
+    const hit = res.Read!.find((n) => n.id === "777");
+    expect(hit).toBeDefined();
+    expect(typeof hit!.last_accessed).toBe("number");
+    expect(isNodeRecord(hit)).toBe(true);
+  });
+
+  it("getNode returns null for missing node", () => {
+    expect(db.getNode(99999)).toBeNull();
+  });
+
+  it("addEdge connects nodes", () => {
+    db.insertNode(20, "source");
+    db.insertNode(21, "dest");
+    db.addEdge(20, 21, "connects", 1.0);
+    const node = db.getNode(20);
+    expect(node).not.toBeNull();
+    expect(node!.edges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("deleteNode removes a node", () => {
+    db.insertNode(30, "goner");
+    expect(() => db.deleteNode(30, "cleanup")).not.toThrow();
+  });
+
+  it("graphIsDag returns true for simple tree", () => {
+    db.insertNode(40, "grandparent");
+    db.insertNode(41, "parent");
+    db.insertNode(42, "child");
+    db.addEdge(40, 41, "parent_of");
+    db.addEdge(41, 42, "parent_of");
+    expect(db.graphIsDag([40])).toBe(true);
+  });
+
+  it("graphBfs traverses nodes", () => {
+    db.insertNode(50, "a");
+    db.insertNode(51, "b");
+    db.addEdge(50, 51, "link");
+    const result = db.graphBfs([50], 5);
+    expect(result).toBeDefined();
+  });
+
+  it("graphDfs traverses nodes", () => {
+    const result = db.graphDfs([50], 5);
+    expect(result).toBeDefined();
+  });
+
+  it("graphFilteredTraversal traverses with filter", () => {
+    db.insertNode(60, "f1");
+    db.insertNode(61, "f2");
+    db.addEdge(60, 61, "link");
+    const result = db.graphFilteredTraversal([60], 5, "Forward", { labels: [] });
+    expect(result).toBeDefined();
+  });
+
+  it("graphDegree computes centrality", () => {
+    const degrees = db.graphDegree([60]);
+    expect(Array.isArray(degrees)).toBe(true);
+  });
+
+  it("graphTopologicalSort works on DAG", () => {
+    const result = db.graphTopologicalSort([40]);
+    expect(result).toBeDefined();
+  });
+});
+
+describe("Client maintenance operations", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("flush does not throw", () => {
+    db.put({ namespace: "maint", key: "k", payload: "v" });
+    expect(() => db.flush()).not.toThrow();
+  });
+
+  it("compactWal does not throw", () => {
+    expect(() => db.compactWal()).not.toThrow();
+  });
+
+  it("purgeExpired returns a bigint", () => {
+    const purged = db.purgeExpired();
+    expect(typeof purged).toBe("bigint");
+  });
+
+  it("operationalMetrics returns expected fields", () => {
+    const m = db.operationalMetrics();
+    expect(typeof m.startup_ms).toBe("string");
+    expect(typeof m.hnsw_nodes_count).toBe("string");
+    expect(typeof m.wal_records_replayed).toBe("string");
+    expect(typeof m.records_exported).toBe("string");
+  });
+
+  it("compactLayout returns a bigint", () => {
+    const reclaimed = db.compactLayout();
+    expect(typeof reclaimed).toBe("bigint");
+  });
+});
+
+describe("Client text index", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("auditTextIndex returns result or null", () => {
+    const result = db.auditTextIndex();
+    expect(result).toBeDefined();
+  });
+
+  it("auditTextIndexDeep returns result or null", () => {
+    const result = db.auditTextIndexDeep();
+    expect(result).toBeDefined();
+  });
+
+  it("repairTextIndex does not throw", () => {
+    expect(() => db.repairTextIndex()).not.toThrow();
+  });
+});
+
+describe("Client generateSnippet", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("returns snippet with highlighting", () => {
+    const s = db.generateSnippet(
+      "VantaDB is a vector-graph database for AI agents",
+      "vector-graph",
+      true,
+    );
+    expect(s).toBeDefined();
+    expect(s!.length).toBeGreaterThan(0);
+  });
+
+  it("returns snippet without highlighting", () => {
+    const s = db.generateSnippet("Hello world", "world", false);
+    expect(s).toBeDefined();
+  });
+});
+
+describe("Client edge cases", () => {
+  let db: Client;
+
+  beforeAll(() => {
+    db = Client.create();
+  });
+  afterAll(() => {
+    db.close();
+  });
+
+  it("unicode payload round-trips", () => {
+    const payload = "Hello 世界 🌟 привет";
+    db.put({ namespace: "unicode", key: "u1", payload });
+    const r = db.get({ namespace: "unicode", key: "u1" });
+    expect(r).not.toBeNull();
+    expect(r!.payload).toBe(payload);
+  });
+
+  it("payload with special characters", () => {
+    const payload = '{"json": "data"}\nnewline\t tab\u0000null';
+    db.put({ namespace: "special", key: "s1", payload });
+    const r = db.get({ namespace: "special", key: "s1" });
+    expect(r).not.toBeNull();
+    expect(r!.payload).toBe(payload);
+  });
+
+  it("vector with single element", () => {
+    const minDb = Client.create();
+    try {
+      minDb.put({ namespace: "edge_vec", key: "min", payload: "p", vector: [0.5] });
+      const r = minDb.get({ namespace: "edge_vec", key: "min" });
+      expect(r).not.toBeNull();
+    } finally {
+      minDb.close();
+    }
+  });
+
+  it("vector with 16384 elements", () => {
+    const maxDb = Client.create();
+    try {
+      const vec = Array.from({ length: 16384 }, (_, i) => (i % 100) / 100);
+      maxDb.put({ namespace: "edge_vec", key: "max", payload: "p", vector: vec });
+      const r = maxDb.get({ namespace: "edge_vec", key: "max" });
+      expect(r).not.toBeNull();
+    } finally {
+      maxDb.close();
+    }
+  });
+
+  it("very long key (512 chars)", () => {
+    const longKey = "x".repeat(512);
+    db.put({ namespace: "long_key", key: longKey, payload: "ok" });
+    const r = db.get({ namespace: "long_key", key: longKey });
+    expect(r).not.toBeNull();
+  });
+
+  it("TTL = 0 does not crash", () => {
+    db.put({ namespace: "ttl_edge", key: "zero", payload: "p", ttl_ms: 0 });
+    const r = db.get({ namespace: "ttl_edge", key: "zero" });
+    expect(r === null || r!.payload === "p").toBe(true);
+  });
+
+  it("concurrent puts to same key", () => {
+    for (let i = 0; i < 20; i++) {
+      db.put({ namespace: "concurrent_same", key: "x", payload: `v${i}` });
+    }
+    const r = db.get({ namespace: "concurrent_same", key: "x" });
+    expect(r).not.toBeNull();
+  });
+
+  it("concurrent puts across keys", () => {
+    for (let i = 0; i < 100; i++) {
+      db.put({
+        namespace: "concurrent_multi",
+        key: `k${i}`,
+        payload: `v${i}`,
+        vector: [i % 10, 0, 0, 0],
+      });
+    }
+    const records: MemoryRecord[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = db.list({ namespace: "concurrent_multi", limit: 20, cursor });
+      records.push(...page.records);
+      cursor = page.next_cursor;
+    } while (cursor);
+    expect(records.length).toBeGreaterThanOrEqual(90);
+  });
+
+  it("list after close throws DbError", () => {
+    const tmp = Client.create();
+    tmp.close();
+    expect(() => tmp.list({ namespace: "ns" })).toThrow(DbError);
+  });
+
+  it("DbError caught instanceof Error works", () => {
+    const err = new DbError("CODE", "msg");
+    expect(err instanceof Error).toBe(true);
+  });
+});

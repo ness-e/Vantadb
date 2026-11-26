@@ -1,0 +1,2227 @@
+//! Query-language surface for HTTP, Python, CLI, MCP, and SDK `query()`.
+//!
+//! The primary typed API lives in `src/sdk/` (Embedded) — keep both stable.
+
+pub mod grammar;
+pub mod lexer;
+
+pub use grammar::*;
+pub use lexer::*;
+
+/// Current IQL language version implemented by this parser.
+///
+/// Bump when the grammar or literal semantics change in a way consumers must
+/// detect (new clause, changed literal semantics, removed syntax). Version-gated
+/// clauses document their minimum version — e.g. `PROFILE` (MEM-01) is accepted
+/// from [`IQL_VERSION_MIN_PROFILE`] onwards, `AS OF` (SCH-03) from
+/// [`IQL_VERSION_MIN_AS_OF`], `LIMIT`/`OFFSET` (WIRE-12) from
+/// [`IQL_VERSION_MIN_PAGINATION`], and aggregation (`COUNT`/`SUM`/`GROUP BY`,
+/// WIRE-13) from [`IQL_VERSION_MIN_AGGREGATION`].
+pub const IQL_VERSION: u32 = 4;
+
+/// Minimum IQL version that accepts the optional `PROFILE` clause (MEM-01).
+pub const IQL_VERSION_MIN_PROFILE: u32 = 1;
+
+/// Minimum IQL version that accepts the optional `AS OF <unix-ms>` valid-time
+/// clause (SCH-03, ADR-046 §D3).
+pub const IQL_VERSION_MIN_AS_OF: u32 = 2;
+
+/// Minimum IQL version that accepts the optional `LIMIT <n>` / `OFFSET <n>`
+/// pagination clauses (WIRE-12). Canonical order: `LIMIT` then `OFFSET`;
+/// `OFFSET` may only appear together with or after `LIMIT` (reversed order is
+/// a parse error, never a silent drop).
+pub const IQL_VERSION_MIN_PAGINATION: u32 = 3;
+
+/// Minimum IQL version that accepts aggregation in `SELECT` (WIRE-13):
+/// `COUNT(*)` / `COUNT(field)` / `SUM(field)` in the projection list plus the
+/// optional `GROUP BY <field>` clause. Unsupported combinations (`AS OF`,
+/// `LIMIT`/`OFFSET`, mixed plain fields, multi-field `GROUP BY`) are loud
+/// parse errors, never silent drops.
+pub const IQL_VERSION_MIN_AGGREGATION: u32 = 4;
+
+/// True when syntax whose minimum version is `min_version` is accepted by this
+/// parser (i.e. `min_version <= `[`IQL_VERSION`]). Consumers use it to
+/// feature-detect: a clause is guaranteed to parse when
+/// `iql_supports(<clause minimum>)` is true at the reported [`IQL_VERSION`].
+pub const fn iql_supports(min_version: u32) -> bool {
+    IQL_VERSION >= min_version
+}
+
+#[cfg(test)]
+#[allow(unused_imports, dead_code)]
+mod tests {
+    use super::grammar::*;
+    use super::lexer::*;
+    use super::*;
+    use crate::node::FieldValue;
+    use crate::query::*;
+    use crate::sdk::SearchProfileMode;
+    use nom::bytes::complete::tag;
+    use nom::number::complete::double;
+    use nom::IResult;
+
+    // ─── Helper ──────────────────────────────────────────────────
+
+    fn parse_ok<T: std::fmt::Debug>(result: IResult<&str, T>) -> T {
+        result.expect("parse should succeed").1
+    }
+
+    fn parse_err<T: std::fmt::Debug>(result: IResult<&str, T>) {
+        assert!(result.is_err(), "expected parse error, got {:?}", result);
+    }
+
+    // ─── Basic parser functions ─────────────────────────────────
+
+    #[test]
+    fn test_ws_identity() {
+        let mut parser = ws(tag::<&str, &str, nom::error::Error<&str>>("hello"));
+        assert_eq!(parser("  hello  ").unwrap(), ("", "hello"));
+        assert_eq!(parser("hello").unwrap(), ("", "hello"));
+        assert_eq!(parser("  hello world").unwrap(), ("world", "hello"));
+    }
+
+    #[test]
+    fn test_ident_simple() {
+        assert_eq!(ident("foo").unwrap().1, "foo");
+        assert_eq!(ident("_private").unwrap().1, "_private");
+        assert_eq!(ident("abc123").unwrap().1, "abc123");
+        assert_eq!(ident("foo.bar").unwrap().1, "foo.bar");
+        assert_eq!(ident("foo#bar").unwrap().1, "foo#bar");
+        assert_eq!(ident("Usuario#usr45").unwrap().1, "Usuario#usr45");
+        assert_eq!(ident("Persona.nombre").unwrap().1, "Persona.nombre");
+    }
+
+    #[test]
+    fn test_ident_fails_on_digit_start() {
+        assert!(ident("123abc").is_err());
+        assert!(ident("").is_err());
+    }
+
+    #[test]
+    fn test_ident_consumes_til_non_match() {
+        assert_eq!(
+            ident("hello world").unwrap(),
+            (" world", "hello".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_number() {
+        assert_eq!(parse_number("42").unwrap().1, 42);
+        assert_eq!(parse_number("0").unwrap().1, 0);
+        assert_eq!(parse_number("999").unwrap().1, 999);
+        assert_eq!(parse_number("42abc").unwrap().1, 42);
+        assert!(parse_number("abc").is_err());
+        assert!(parse_number("").is_err());
+    }
+
+    #[test]
+    fn test_parse_u128_id() {
+        assert_eq!(parse_u128_id("0").unwrap().1, 0u128);
+        assert_eq!(parse_u128_id("42").unwrap().1, 42u128);
+        assert_eq!(
+            parse_u128_id("12345678901234567890").unwrap().1,
+            12345678901234567890u128
+        );
+        assert!(parse_u128_id("").is_err());
+        assert!(parse_u128_id("abc").is_err());
+    }
+
+    #[test]
+    fn test_parse_i64() {
+        assert_eq!(parse_i64("42").unwrap().1, 42i64);
+        assert_eq!(parse_i64("-42").unwrap().1, -42i64);
+        assert_eq!(parse_i64("0").unwrap().1, 0i64);
+        assert!(parse_i64("").is_err());
+        assert!(parse_i64("abc").is_err());
+    }
+
+    // ─── String literal ─────────────────────────────────────────
+
+    #[test]
+    fn test_string_literal_basic() {
+        assert_eq!(string_literal(r#""hello""#).unwrap().1, "hello");
+        assert_eq!(string_literal(r#""""#).unwrap().1, "");
+        assert_eq!(string_literal(r#""hello world""#).unwrap().1, "hello world");
+    }
+
+    #[test]
+    fn test_string_literal_escapes() {
+        assert_eq!(
+            string_literal(r#""hello\nworld""#).unwrap().1,
+            "hello\nworld"
+        );
+        assert_eq!(
+            string_literal(r#""hello\tworld""#).unwrap().1,
+            "hello\tworld"
+        );
+        assert_eq!(
+            string_literal(r#""hello\rworld""#).unwrap().1,
+            "hello\rworld"
+        );
+        assert_eq!(
+            string_literal(r#""hello\\world""#).unwrap().1,
+            "hello\\world"
+        );
+        assert_eq!(
+            string_literal(r#""hello\"world""#).unwrap().1,
+            "hello\"world"
+        );
+    }
+
+    #[test]
+    fn test_string_literal_unknown_escape() {
+        // Unknown escape sequences preserve the backslash
+        assert_eq!(string_literal(r#""hello\x""#).unwrap().1, "hello\\x");
+        assert_eq!(string_literal(r#""\x""#).unwrap().1, "\\x");
+    }
+
+    #[test]
+    fn test_string_literal_unterminated() {
+        assert!(string_literal(r#""hello"#).is_err());
+        assert!(string_literal(r#""""#).is_ok()); // this is valid: empty string
+    }
+
+    #[test]
+    fn test_string_literal_no_quote() {
+        assert!(string_literal("hello").is_err());
+        assert!(string_literal("").is_err());
+    }
+
+    #[test]
+    fn test_string_literal_trailing_backslash() {
+        // Trailing backslash at end of input
+        assert!(string_literal(r#""hello\"#).is_err());
+    }
+
+    // ─── RelOp ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_rel_op_eq() {
+        assert_eq!(parse_rel_op("=").unwrap().1, RelOp::Eq);
+        assert_eq!(parse_rel_op("!=").unwrap().1, RelOp::Neq);
+        assert_eq!(parse_rel_op(">=").unwrap().1, RelOp::Gte);
+        assert_eq!(parse_rel_op(">").unwrap().1, RelOp::Gt);
+        assert_eq!(parse_rel_op("<=").unwrap().1, RelOp::Lte);
+        assert_eq!(parse_rel_op("<").unwrap().1, RelOp::Lt);
+    }
+
+    #[test]
+    fn test_parse_rel_op_unknown() {
+        // "==" is a valid Eq spelling (longest match, both chars consumed)
+        assert_eq!(parse_rel_op("==").unwrap().1, RelOp::Eq);
+        assert!(parse_rel_op("~").is_err());
+        assert!(parse_rel_op("").is_err());
+    }
+
+    #[test]
+    fn test_parse_rel_op_neq_precedence() {
+        // "!=" should match fully, not just "!"
+        assert_eq!(parse_rel_op("!= ").unwrap().1, RelOp::Neq);
+    }
+
+    #[test]
+    fn test_parse_rel_op_double_eq_consumes_both_chars() {
+        // RED (API-06): with `=` first in the alt list, "==" matches a single
+        // `=` and leaves the second one unconsumed (dangling operator).
+        assert_eq!(parse_rel_op("==").unwrap(), ("", RelOp::Eq));
+    }
+
+    // ─── Literal field values ───────────────────────────────────
+
+    #[test]
+    fn test_parse_literal_field_value_string() {
+        assert_eq!(
+            parse_literal_field_value(r#""hello""#).unwrap().1,
+            FieldValue::String("hello".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_literal_field_value_bool() {
+        assert_eq!(
+            parse_literal_field_value("true").unwrap().1,
+            FieldValue::Bool(true)
+        );
+        assert_eq!(
+            parse_literal_field_value("false").unwrap().1,
+            FieldValue::Bool(false)
+        );
+    }
+
+    #[test]
+    fn test_parse_literal_field_value_null() {
+        assert_eq!(
+            parse_literal_field_value("null").unwrap().1,
+            FieldValue::Null
+        );
+    }
+
+    #[test]
+    fn test_parse_literal_field_value_int() {
+        // API-06: unquoted integer literals parse as Int (exact across i64),
+        // not Float — `Int` is the first-class integer type (FieldValue::Int,
+        // SDK Value::Int).
+        assert_eq!(
+            parse_literal_field_value("42").unwrap().1,
+            FieldValue::Int(42)
+        );
+        assert_eq!(
+            parse_literal_field_value("-7").unwrap().1,
+            FieldValue::Int(-7)
+        );
+    }
+
+    #[test]
+    #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
+    fn test_parse_literal_field_value_float() {
+        // Float literals (decimal point or exponent) parse via double.
+        let val = parse_literal_field_value("3.14").unwrap().1;
+        assert_eq!(val, FieldValue::Float(3.14));
+
+        // A bare integer is Int; the float tail is what routes to double.
+        let val2 = parse_literal_field_value("42").unwrap().1;
+        assert_eq!(val2, FieldValue::Int(42));
+        let val3 = parse_literal_field_value("1e3").unwrap().1;
+        assert_eq!(val3, FieldValue::Float(1000.0));
+
+        // Verify the double parser works directly
+        let (remaining, f) = double::<&str, nom::error::Error<&str>>("1.5").unwrap();
+        assert!((f - 1.5).abs() < 1e-10);
+        assert_eq!(remaining, "");
+    }
+
+    #[test]
+    fn test_parse_literal_field_value_empty() {
+        assert!(parse_literal_field_value("").is_err());
+    }
+
+    #[test]
+    fn test_parse_literal_int_above_2_53_is_exact() {
+        // RED (API-06): integers beyond the f64 exact range must not lose
+        // precision — 2^53 + 1 needs the i64 path.
+        let (_, v) = parse_literal_field_value("9007199254740993").unwrap();
+        assert_eq!(v, FieldValue::Int(9_007_199_254_740_993));
+    }
+
+    #[test]
+    fn test_parse_literal_int_out_of_i64_falls_back_to_float() {
+        // Documented fallback: an integer literal beyond i64 parses as Float.
+        let (_, v) = parse_literal_field_value("9223372036854775808").unwrap(); // i64::MAX + 1
+        assert!(matches!(v, FieldValue::Float(_)), "got {v:?}");
+    }
+
+    #[test]
+    fn test_parse_literal_field_value_bool_ws() {
+        // Boolean parsing includes ws wrapper
+        assert_eq!(
+            parse_literal_field_value("  true  ").unwrap().1,
+            FieldValue::Bool(true)
+        );
+    }
+
+    // ─── Conditions ─────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_condition_relational() {
+        let (_, cond) = parse_condition(r#"pais = "VZLA""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational(
+                "pais".to_string(),
+                RelOp::Eq,
+                FieldValue::String("VZLA".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_relational_neq() {
+        let (_, cond) = parse_condition(r#"edad != "18""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational(
+                "edad".to_string(),
+                RelOp::Neq,
+                FieldValue::String("18".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_relational_numeric() {
+        // Bare number RHS parses as a typed numeric value (Int for integers),
+        // so `edad > 18` compares numerically not lexicographically
+        // ("18" > "9" order).
+        let (_, cond) = parse_condition(r#"edad > 18"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("edad".to_string(), RelOp::Gt, FieldValue::Int(18))
+        );
+        // Numeric ordering: 18 < 20, so an Int RHS of 18 compares correctly
+        // against a stored Int(20). Type is Int, matching INSERT.
+        let (_, cond2) = parse_condition(r#"edad < 20"#).unwrap();
+        match cond2 {
+            Condition::Relational(_, op, v) => {
+                assert_eq!(op, RelOp::Lt);
+                assert_eq!(v, FieldValue::Int(20));
+            }
+            _ => panic!("expected Relational"),
+        }
+    }
+
+    #[test]
+    #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
+    fn test_parse_condition_relational_float() {
+        let (_, cond) = parse_condition(r#"price <= 3.14"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("price".to_string(), RelOp::Lte, FieldValue::Float(3.14))
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_relational_quoted_string_backward_compat() {
+        // Quoted numeric strings stay String for backward compatibility — the
+        // previous parser produced FieldValue::String for the RHS.
+        let (_, cond) = parse_condition(r#"edad > "18""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational(
+                "edad".to_string(),
+                RelOp::Gt,
+                FieldValue::String("18".to_string())
+            )
+        );
+        // Quoted-string comparison against a numeric-text field still parses fine.
+        let (_, cond2) = parse_condition(r#"texto > "9""#).unwrap();
+        match cond2 {
+            Condition::Relational(_, op, v) => {
+                assert_eq!(op, RelOp::Gt);
+                assert_eq!(v, FieldValue::String("9".to_string()));
+            }
+            _ => panic!("expected Relational"),
+        }
+    }
+
+    #[test]
+    fn test_parse_condition_relational_bool_null() {
+        // parse_literal_field_value also accepts bool/null literals.
+        let (_, cond) = parse_condition(r#"activo = true"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("activo".to_string(), RelOp::Eq, FieldValue::Bool(true))
+        );
+        let (_, cond2) = parse_condition(r#"campo = null"#).unwrap();
+        assert_eq!(
+            cond2,
+            Condition::Relational("campo".to_string(), RelOp::Eq, FieldValue::Null)
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_double_eq_is_eq() {
+        // RED (API-06): `==` is accepted as an Eq spelling (longest match).
+        let (rest, cond) = parse_condition(r#"edad == 18"#).unwrap();
+        assert_eq!(rest, "");
+        assert_eq!(
+            cond,
+            Condition::Relational("edad".to_string(), RelOp::Eq, FieldValue::Int(18))
+        );
+    }
+
+    #[test]
+    fn test_parse_query_double_eq_full_statement() {
+        // RED (API-06): a statement using `==` must parse fully, not silently
+        // leave the WHERE clause unconsumed.
+        let (rest, q) = parse_query(r#"FROM Person p WHERE edad == 28 FETCH name"#).unwrap();
+        assert_eq!(rest, "");
+        let conds = q.where_clause.expect("WHERE parsed");
+        assert_eq!(
+            conds[0],
+            Condition::Relational("edad".to_string(), RelOp::Eq, FieldValue::Int(28))
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_vector_sim() {
+        let (_, cond) = parse_condition(r#"bio ~ "rust expert", min = 0.88"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::VectorSim("bio".to_string(), "rust expert".to_string(), 0.88)
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_vector_sim_trailing_ws() {
+        // ws(float) consumes trailing whitespace via multispace0
+        let (_, cond) = parse_condition(r#"bio ~ "data", min = 0.5   "#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::VectorSim("bio".to_string(), "data".to_string(), 0.5)
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_text_match_plain() {
+        let (_, cond) = parse_condition(r#"bio ~ "rust expert""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::TextMatch("bio".to_string(), "rust expert".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_text_match_quoted_phrase() {
+        let (_, cond) = parse_condition(r#"bio ~ "neural network""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::TextMatch("bio".to_string(), "neural network".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_invalid() {
+        assert!(parse_condition("").is_err());
+        assert!(parse_condition("foo").is_err());
+    }
+
+    // ─── Traversal ──────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_traversal_basic() {
+        let (_, trav) = parse_traversal(r#"SIGUE 1..3 "amigo""#).unwrap();
+        assert_eq!(
+            trav,
+            Traversal {
+                min_depth: 1,
+                max_depth: 3,
+                edge_label: "amigo".to_string(),
+                target_type: None,
+                alias: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_traversal_with_target_type() {
+        let (_, trav) = parse_traversal(r#"SIGUE 2..5 "conoce" TYPE Persona"#).unwrap();
+        assert_eq!(trav.target_type, Some("Persona".to_string()));
+        assert_eq!(trav.min_depth, 2);
+        assert_eq!(trav.max_depth, 5);
+        assert_eq!(trav.edge_label, "conoce");
+    }
+
+    #[test]
+    fn test_parse_traversal_with_alias() {
+        let (_, trav) = parse_traversal(r#"SIGUE 1..2 "edge" AS alias"#).unwrap();
+        assert_eq!(trav.alias, Some("alias".to_string()));
+    }
+
+    #[test]
+    fn test_parse_traversal_full() {
+        let (_, trav) = parse_traversal(r#"SIGUE 1..3 "friend" TYPE Person AS p"#).unwrap();
+        assert_eq!(
+            trav,
+            Traversal {
+                min_depth: 1,
+                max_depth: 3,
+                edge_label: "friend".to_string(),
+                target_type: Some("Person".to_string()),
+                alias: Some("p".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_traversal_invalid() {
+        assert!(parse_traversal("").is_err());
+        assert!(parse_traversal("SIGUE").is_err());
+        assert!(parse_traversal("NOT_SIGUE").is_err());
+    }
+
+    // ─── Field assign ───────────────────────────────────────────
+
+    #[test]
+    fn test_parse_field_assign_string() {
+        let (_, (k, v)) = parse_field_assign(r#"nombre: "Eros""#).unwrap();
+        assert_eq!(k, "nombre");
+        assert_eq!(v, FieldValue::String("Eros".to_string()));
+    }
+
+    #[test]
+    fn test_parse_field_assign_int() {
+        // Integer literal → Int (API-06; was Float before).
+        let (_, (k, v)) = parse_field_assign("edad: 28").unwrap();
+        assert_eq!(k, "edad");
+        assert_eq!(v, FieldValue::Int(28));
+    }
+
+    #[test]
+    fn test_parse_field_assign_bool() {
+        let (_, (k, v)) = parse_field_assign("activo: true").unwrap();
+        assert_eq!(k, "activo");
+        assert_eq!(v, FieldValue::Bool(true));
+    }
+
+    #[test]
+    fn test_parse_field_assign_null() {
+        let (_, (k, v)) = parse_field_assign("campo: null").unwrap();
+        assert_eq!(k, "campo");
+        assert_eq!(v, FieldValue::Null);
+    }
+
+    #[test]
+    fn test_parse_field_assign_missing_colon() {
+        assert!(parse_field_assign("nombre").is_err());
+    }
+
+    // ─── Vector literal ─────────────────────────────────────────
+
+    #[test]
+    fn test_parse_vector_lit_basic() {
+        assert_eq!(
+            parse_vector_lit("[0.1, -0.4, 0.9]").unwrap().1,
+            vec![0.1, -0.4, 0.9]
+        );
+    }
+
+    #[test]
+    fn test_parse_vector_lit_single() {
+        assert_eq!(parse_vector_lit("[0.5]").unwrap().1, vec![0.5]);
+    }
+
+    #[test]
+    fn test_parse_vector_lit_empty() {
+        assert!(parse_vector_lit("[]").is_err()); // separated_list1 requires at least one
+    }
+
+    #[test]
+    fn test_parse_vector_lit_no_brackets() {
+        assert!(parse_vector_lit("0.1, 0.2").is_err());
+    }
+
+    // ─── Parse Query ────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_query_simple_from() {
+        let (_, q) = parse_query("FROM Usuario").unwrap();
+        assert_eq!(q.from_entity, "Usuario");
+        assert_eq!(q.target_alias, "target");
+        assert!(q.traversal.is_none());
+        assert!(q.where_clause.is_none());
+        assert!(q.fetch.is_none());
+        assert!(q.rank_by.is_none());
+        assert!(q.temperature.is_none());
+        assert!(q.owner_role.is_none());
+    }
+
+    #[test]
+    fn test_parse_query_match_keyword() {
+        let (_, q) = parse_query("MATCH Node").unwrap();
+        assert_eq!(q.from_entity, "Node");
+    }
+
+    #[test]
+    fn test_parse_query_with_alias() {
+        let (_, q) = parse_query("FROM Person p").unwrap();
+        assert_eq!(q.from_entity, "Person");
+        assert_eq!(q.target_alias, "p");
+    }
+
+    #[test]
+    fn test_parse_query_with_traversal() {
+        let (_, q) = parse_query(r#"FROM Usuario SIGUE 1..3 "amigo""#).unwrap();
+        assert!(q.traversal.is_some());
+        let trav = q.traversal.unwrap();
+        assert_eq!(trav.min_depth, 1);
+        assert_eq!(trav.max_depth, 3);
+        assert_eq!(trav.edge_label, "amigo");
+    }
+
+    #[test]
+    fn test_parse_query_with_where_single() {
+        let (_, q) = parse_query(r#"FROM Person p WHERE edad = "25""#).unwrap();
+        let conds = q.where_clause.unwrap();
+        assert_eq!(conds.len(), 1);
+        assert_eq!(
+            conds[0],
+            Condition::Relational(
+                "edad".to_string(),
+                RelOp::Eq,
+                FieldValue::String("25".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_query_where_without_alias() {
+        // Sin alias explícito, `WHERE` no debe consumirse como alias (ERR-016).
+        let (_, q) = parse_query(r#"FROM Person WHERE edad = "25""#).unwrap();
+        assert_eq!(q.target_alias, "target");
+        let conds = q.where_clause.unwrap();
+        assert_eq!(conds.len(), 1);
+        assert_eq!(
+            conds[0],
+            Condition::Relational(
+                "edad".to_string(),
+                RelOp::Eq,
+                FieldValue::String("25".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_query_rank_without_alias() {
+        let (_, q) = parse_query("FROM Person RANK BY score").unwrap();
+        assert_eq!(q.target_alias, "target");
+        let rank = q.rank_by.unwrap();
+        assert_eq!(rank.field, "score");
+        assert!(!rank.desc);
+    }
+
+    #[test]
+    fn test_parse_query_with_where_multiple() {
+        let (_, q) = parse_query(r#"FROM Person p WHERE pais = "VZLA" AND edad = "30""#).unwrap();
+        let conds = q.where_clause.unwrap();
+        assert_eq!(conds.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_query_with_where_vector_sim() {
+        let (_, q) = parse_query(r#"FROM Item i WHERE bio ~ "great", min = 0.75"#).unwrap();
+        let conds = q.where_clause.unwrap();
+        assert_eq!(conds.len(), 1);
+        match &conds[0] {
+            Condition::VectorSim(field, query, min) => {
+                assert_eq!(field, "bio");
+                assert_eq!(query, "great");
+                assert!((*min - 0.75).abs() < 1e-5);
+            }
+            _ => panic!("expected VectorSim"),
+        }
+    }
+
+    #[test]
+    fn test_parse_query_with_fetch() {
+        let (_, q) = parse_query(r#"FROM Person p FETCH nombre, email"#).unwrap();
+        assert_eq!(
+            q.fetch,
+            Some(vec!["nombre".to_string(), "email".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_parse_query_with_rank_by() {
+        let (_, q) = parse_query(r#"FROM Person p RANK BY relevancia DESC"#).unwrap();
+        let rank = q.rank_by.unwrap();
+        assert_eq!(rank.field, "relevancia");
+        assert!(rank.desc);
+    }
+
+    #[test]
+    fn test_parse_query_with_rank_by_asc() {
+        let (_, q) = parse_query(r#"FROM Person p RANK BY score"#).unwrap();
+        let rank = q.rank_by.unwrap();
+        assert_eq!(rank.field, "score");
+        assert!(!rank.desc);
+    }
+
+    #[test]
+    fn test_parse_query_with_temperature() {
+        let (_, q) = parse_query(r#"FROM Person p WITH TEMPERATURE 0.5"#).unwrap();
+        assert!((q.temperature.unwrap() - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_parse_query_with_role() {
+        let (_, q) = parse_query(r#"FROM Person p ROLE "admin""#).unwrap();
+        assert_eq!(q.owner_role, Some("admin".to_string()));
+    }
+
+    #[test]
+    fn test_parse_query_profile_full() {
+        // MEM-01: cláusula PROFILE con mode + rrf_k + candidate_k (sintaxis IQL).
+        let (_, q) = parse_query(
+            r#"FROM Person WHERE bio ~ "rust" PROFILE keyword rrf_k 20 candidate_k 64"#,
+        )
+        .unwrap();
+        let profile = q.search_profile.expect("profile parseado");
+        assert_eq!(profile.mode, SearchProfileMode::Keyword);
+        assert_eq!(profile.rrf_k, Some(20));
+        assert_eq!(profile.candidate_k, Some(64));
+    }
+
+    #[test]
+    fn test_parse_query_profile_vector_defaults() {
+        // Mode solo, sin rrf_k/candidate_k → None (constantes core).
+        let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
+        let profile = q.search_profile.expect("profile parseado");
+        assert_eq!(profile.mode, SearchProfileMode::Vector);
+        assert_eq!(profile.rrf_k, None);
+        assert_eq!(profile.candidate_k, None);
+    }
+
+    #[test]
+    fn test_parse_query_profile_absent() {
+        // Retrocompat: sin cláusula PROFILE → None.
+        let (_, q) = parse_query("FROM Node").unwrap();
+        assert!(q.search_profile.is_none());
+    }
+
+    #[test]
+    fn test_parse_query_profile_invalid_mode_unconsumed() {
+        // Un mode inválido no consume la cláusula: queda unconsumed (diseño
+        // tolerante del parser, igual que extra_tokens_remain) y search_profile
+        // queda None. El caller (executor) puede rechazar tokens sobrantes.
+        let (remaining, q) = parse_query("FROM Node PROFILE bogus").unwrap();
+        assert!(q.search_profile.is_none());
+        assert_eq!(remaining.trim(), "PROFILE bogus");
+    }
+
+    #[test]
+    fn test_parse_query_full() {
+        let input = r#"
+            FROM Usuario#usr45
+            SIGUE 1..3 "amigo" Persona
+            WHERE Persona.pais = "VZLA" AND Persona.bio ~ "rust", min = 0.88
+            FETCH Persona.nombre, Persona.email
+            RANK BY Persona.relevancia DESC
+            WITH TEMPERATURE 0.5
+            ROLE "admin"
+        "#;
+        let (_, q) = parse_query(input).unwrap();
+        assert_eq!(q.from_entity, "Usuario#usr45");
+        assert!(q.traversal.is_some());
+        assert_eq!(q.where_clause.as_ref().map(|c| c.len()), Some(2));
+        assert_eq!(
+            q.fetch,
+            Some(vec![
+                "Persona.nombre".to_string(),
+                "Persona.email".to_string()
+            ])
+        );
+        assert!(q.rank_by.unwrap().desc);
+        assert!((q.temperature.unwrap() - 0.5).abs() < 1e-5);
+        assert_eq!(q.owner_role, Some("admin".to_string()));
+    }
+
+    #[test]
+    fn test_parse_query_default_alias() {
+        // When no target alias is given and no ident follows, it defaults to "target"
+        // NOTE: "WHERE" would be consumed as alias; this tests the truly-no-token case
+        let (_, q) = parse_query("FROM Node").unwrap();
+        assert_eq!(q.target_alias, "target");
+    }
+
+    #[test]
+    fn test_parse_query_invalid_keyword() {
+        assert!(parse_query("SELECT * FROM foo").is_err());
+        assert!(parse_query("FROM").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_extra_tokens_remain() {
+        // With an explicit alias, remaining tokens are left unconsumed
+        let (remaining, _) = parse_query("FROM Node p extra_stuff").unwrap();
+        assert_eq!(remaining.trim(), "extra_stuff");
+    }
+
+    // ─── Insert Statement ───────────────────────────────────────
+
+    #[test]
+    fn test_parse_insert_basic() {
+        let input = r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros", edad: 28 }"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Insert(ins) => {
+                assert_eq!(ins.node_id, 101);
+                assert_eq!(ins.node_type, "Usuario");
+                assert_eq!(ins.fields.len(), 2);
+                assert_eq!(
+                    ins.fields.get("nombre").unwrap(),
+                    &FieldValue::String("Eros".to_string())
+                );
+                // Integer literal → Int (API-06)
+                assert_eq!(ins.fields.get("edad").unwrap(), &FieldValue::Int(28));
+                assert!(ins.vector.is_none());
+            }
+            _ => panic!("expected Insert"),
+        }
+    }
+
+    #[test]
+    fn test_parse_insert_with_vector() {
+        let input =
+            r#"INSERT NODE#42 TYPE Item { name: "test", price: 99 } VECTOR [0.1, -0.4, 0.9]"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Insert(ins) => {
+                assert_eq!(ins.node_id, 42);
+                assert_eq!(ins.node_type, "Item");
+                assert_eq!(ins.fields.len(), 2);
+                let vec = ins.vector.unwrap();
+                assert!((vec[0] - 0.1).abs() < 1e-5);
+                assert!((vec[1] + 0.4).abs() < 1e-5);
+            }
+            _ => panic!("expected Insert"),
+        }
+    }
+
+    #[test]
+    fn test_parse_insert_empty_fields() {
+        let input = r#"INSERT NODE#7 TYPE Empty {}"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Insert(ins) => {
+                assert_eq!(ins.node_id, 7);
+                assert!(ins.fields.is_empty());
+            }
+            _ => panic!("expected Insert"),
+        }
+    }
+
+    #[test]
+    fn test_parse_insert_node_id_zero() {
+        let input = r#"INSERT NODE#0 TYPE Root { label: "root" }"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Insert(ins) => {
+                assert_eq!(ins.node_id, 0);
+            }
+            _ => panic!("expected Insert"),
+        }
+    }
+
+    // ─── Update Statement ───────────────────────────────────────
+
+    #[test]
+    fn test_parse_update_fields() {
+        let input = r#"UPDATE NODE#101 SET nombre = "Eros Dev", activo = true"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Update(upd) => {
+                assert_eq!(upd.node_id, 101);
+                assert_eq!(upd.fields.len(), 2);
+                assert_eq!(
+                    upd.fields.get("nombre").unwrap(),
+                    &FieldValue::String("Eros Dev".to_string())
+                );
+                assert_eq!(upd.fields.get("activo").unwrap(), &FieldValue::Bool(true));
+                assert!(upd.vector.is_none());
+            }
+            _ => panic!("expected Update"),
+        }
+    }
+
+    #[test]
+    fn test_parse_update_vector_only() {
+        let input = r#"UPDATE NODE#42 SET VECTOR [0.5, -0.2]"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Update(upd) => {
+                assert_eq!(upd.node_id, 42);
+                assert!(upd.fields.is_empty());
+                let vec = upd.vector.unwrap();
+                assert!((vec[0] - 0.5).abs() < 1e-5);
+            }
+            _ => panic!("expected Update"),
+        }
+    }
+
+    #[test]
+    fn test_parse_update_single_field() {
+        let input = r#"UPDATE NODE#5 SET name = "new""#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Update(upd) => {
+                assert_eq!(upd.node_id, 5);
+                assert_eq!(upd.fields.len(), 1);
+            }
+            _ => panic!("expected Update"),
+        }
+    }
+
+    // ─── Delete Statement ───────────────────────────────────────
+
+    #[test]
+    fn test_parse_delete() {
+        let input = "DELETE NODE#5";
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Delete(del) => {
+                assert_eq!(del.node_id, 5);
+            }
+            _ => panic!("expected Delete"),
+        }
+    }
+
+    #[test]
+    fn test_parse_delete_large_id() {
+        let input = "DELETE NODE#999999999";
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Delete(del) => {
+                assert_eq!(del.node_id, 999999999);
+            }
+            _ => panic!("expected Delete"),
+        }
+    }
+
+    // ─── Relate Statement ───────────────────────────────────────
+
+    #[test]
+    fn test_parse_relate_basic() {
+        let input = r#"RELATE NODE#1 --"amigo"--> NODE#2"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Relate(rel) => {
+                assert_eq!(rel.source_id, 1);
+                assert_eq!(rel.target_id, 2);
+                assert_eq!(rel.label, "amigo");
+                assert!(rel.weight.is_none());
+            }
+            _ => panic!("expected Relate"),
+        }
+    }
+
+    #[test]
+    fn test_parse_relate_with_weight() {
+        let input = r#"RELATE NODE#1 --"amigo"--> NODE#2 WEIGHT 0.95"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Relate(rel) => {
+                assert_eq!(rel.source_id, 1);
+                assert_eq!(rel.target_id, 2);
+                assert_eq!(rel.label, "amigo");
+                assert!((rel.weight.unwrap() - 0.95).abs() < 1e-5);
+            }
+            _ => panic!("expected Relate"),
+        }
+    }
+
+    #[test]
+    fn test_parse_relate_large_ids() {
+        let input = r#"RELATE NODE#100 --"edge"--> NODE#200 WEIGHT 0.5"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Relate(rel) => {
+                assert_eq!(rel.source_id, 100);
+                assert_eq!(rel.target_id, 200);
+            }
+            _ => panic!("expected Relate"),
+        }
+    }
+
+    // ─── Insert Message Statement ───────────────────────────────
+
+    #[test]
+    fn test_parse_insert_message_system() {
+        let input = r#"INSERT MESSAGE SYSTEM "hello world" TO THREAD#200"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::InsertMessage(msg) => {
+                assert_eq!(msg.msg_role, "system");
+                assert_eq!(msg.content, "hello world");
+                assert_eq!(msg.thread_id, 200);
+            }
+            _ => panic!("expected InsertMessage"),
+        }
+    }
+
+    #[test]
+    fn test_parse_insert_message_user() {
+        let input = r#"INSERT MESSAGE USER "what is rust?" TO THREAD#1"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::InsertMessage(msg) => {
+                assert_eq!(msg.msg_role, "user");
+                assert_eq!(msg.content, "what is rust?");
+            }
+            _ => panic!("expected InsertMessage"),
+        }
+    }
+
+    #[test]
+    fn test_parse_insert_message_assistant() {
+        let input = r#"INSERT MESSAGE ASSISTANT "I can help" TO THREAD#5"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::InsertMessage(msg) => {
+                assert_eq!(msg.msg_role, "assistant");
+            }
+            _ => panic!("expected InsertMessage"),
+        }
+    }
+
+    #[test]
+    fn test_parse_insert_message_escaped() {
+        let input = r#"INSERT MESSAGE SYSTEM "Hello \"world\" \\ test" TO THREAD#200"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::InsertMessage(msg) => {
+                assert_eq!(msg.content, "Hello \"world\" \\ test");
+            }
+            _ => panic!("expected InsertMessage"),
+        }
+    }
+
+    // ─── parse_statement dispatcher ─────────────────────────────
+
+    #[test]
+    fn test_parse_statement_insert_message_before_insert() {
+        // InsertMessage must be parsed BEFORE Insert (starts with "INSERT" too)
+        let input = r#"INSERT MESSAGE SYSTEM "hi" TO THREAD#1"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        assert!(matches!(stmt, Statement::InsertMessage(_)));
+    }
+
+    #[test]
+    fn test_parse_statement_query() {
+        let (_, stmt) = parse_statement("FROM Node").unwrap();
+        assert!(matches!(stmt, Statement::Query(_)));
+    }
+
+    #[test]
+    fn test_parse_statement_invalid() {
+        assert!(parse_statement("").is_err());
+        assert!(parse_statement("GARBAGE").is_err());
+        assert!(parse_statement("   ").is_err());
+    }
+
+    #[test]
+    fn test_lowercase_keywords_are_rejected() {
+        // API-06 decided behavior: keywords are case-sensitive UPPERCASE
+        // (also pinned in tests/api/openapi_yaml_parity.rs). Lowercase
+        // spellings are a documented parse error, not accepted aliases.
+        for q in [
+            "from Person",
+            r#"insert NODE#1 TYPE Node { a: "b" }"#,
+            "match Person",
+            "select * from Person",
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+    }
+
+    #[test]
+    fn test_single_quoted_strings_are_rejected() {
+        // API-06 decided behavior: only double quotes delimit strings
+        // (docs/api/IQL.md §String literals); single quotes are a parse error.
+        assert!(parse_literal_field_value("'hello'").is_err());
+        assert!(parse_condition("name = 'Alice'").is_err());
+        assert!(parse_statement(r#"INSERT NODE#1 TYPE N { a: 'b' }"#).is_err());
+    }
+
+    // ─── Edge cases ─────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_query_empty_string() {
+        assert!(parse_query("").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_whitespace_only() {
+        assert!(parse_query("   ").is_err());
+    }
+
+    #[test]
+    fn test_parse_condition_vs_statement() {
+        // Parsing a condition directly shouldn't consume statement-level keywords
+        let (_, cond) = parse_condition(r#"field ~ "query", min = 0.5"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::VectorSim("field".to_string(), "query".to_string(), 0.5)
+        );
+    }
+
+    #[test]
+    fn test_ws_on_empty() {
+        let mut parser = ws(tag::<&str, &str, nom::error::Error<&str>>("x"));
+        assert!(parser("").is_err());
+    }
+
+    #[test]
+    fn test_ident_with_special_chars() {
+        assert_eq!(ident("a.b.c").unwrap().1, "a.b.c");
+        assert_eq!(ident("a#b#c").unwrap().1, "a#b#c");
+        assert_eq!(ident("a_b_c").unwrap().1, "a_b_c");
+    }
+
+    #[test]
+    fn test_parse_number_zero() {
+        assert_eq!(parse_number("0abc").unwrap().1, 0);
+        assert_eq!(parse_number("0").unwrap().1, 0);
+    }
+
+    #[test]
+    fn test_parse_vector_lit_negative() {
+        let vec = parse_vector_lit("[-1.5, 0.0, 2.5]").unwrap().1;
+        assert!((vec[0] + 1.5).abs() < 1e-5);
+        assert!((vec[1] - 0.0).abs() < 1e-5);
+        assert!((vec[2] - 2.5).abs() < 1e-5);
+    }
+
+    #[test]
+    #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
+    fn test_parse_field_assign_float() {
+        // Float literals parse via double: "3.14" → Float(3.14)
+        let (_, (k, v)) = parse_field_assign("price: 3.14").unwrap();
+        assert_eq!(k, "price");
+        assert_eq!(v, FieldValue::Float(3.14));
+    }
+
+    #[test]
+    fn test_string_literal_with_spaces_and_symbols() {
+        assert_eq!(
+            string_literal(r#""hello world! @#$%""#).unwrap().1,
+            "hello world! @#$%"
+        );
+    }
+
+    #[test]
+    fn test_parse_i64_negative_zero() {
+        assert_eq!(parse_i64("-0").unwrap().1, 0i64);
+    }
+
+    #[test]
+    fn test_parse_rel_op_gte() {
+        assert_eq!(parse_rel_op(">=42").unwrap().1, RelOp::Gte);
+    }
+
+    #[test]
+    fn test_parse_rel_op_lte() {
+        assert_eq!(parse_rel_op("<=42").unwrap().1, RelOp::Lte);
+    }
+
+    #[test]
+    fn test_parse_query_mixed_conditions() {
+        let input = r#"FROM Person p WHERE name = "Alice" AND bio ~ "developer", min = 0.9"#;
+        let (_, q) = parse_query(input).unwrap();
+        let conds = q.where_clause.unwrap();
+        assert_eq!(conds.len(), 2);
+        assert!(matches!(conds[0], Condition::Relational(..)));
+        assert!(matches!(conds[1], Condition::VectorSim(..)));
+    }
+
+    #[test]
+    fn test_parse_statement_multiple_calls() {
+        // Verify parse_statement is re-usable (no internal state)
+        let stmt1 = parse_statement("DELETE NODE#1").unwrap().1;
+        let stmt2 = parse_statement("DELETE NODE#2").unwrap().1;
+        assert!(matches!(stmt1, Statement::Delete(_)));
+        assert!(matches!(stmt2, Statement::Delete(_)));
+    }
+
+    // ─── SELECT / JOIN / Subquery ──────────────────────────────
+
+    #[test]
+    fn test_parse_select_basic() {
+        let input = r#"SELECT * FROM Person"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert!(sel.projections.is_empty());
+                assert!(matches!(sel.from, crate::query::FromClause::Single { .. }));
+                assert!(sel.where_clause.is_none());
+                assert!(sel.subquery_conditions.is_empty());
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_default_alias_is_target() {
+        // API-06: default alias is identical across the read forms
+        // (FROM / MATCH / SELECT) — documented in docs/api/IQL.md.
+        let (_, stmt) = parse_statement("SELECT * FROM Person").unwrap();
+        match stmt {
+            Statement::Select(sel) => match &sel.from {
+                crate::query::FromClause::Single { alias, .. } => {
+                    assert_eq!(alias, "target");
+                }
+                _ => panic!("expected Single from clause"),
+            },
+            _ => panic!("expected Select"),
+        }
+        let (_, q) = parse_query("FROM Person").unwrap();
+        assert_eq!(q.target_alias, "target");
+    }
+
+    #[test]
+    fn test_parse_select_with_alias() {
+        let input = r#"SELECT name, age FROM Person p"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.projections, vec!["name", "age"]);
+                match &sel.from {
+                    crate::query::FromClause::Single { entity, alias } => {
+                        assert_eq!(entity, "Person");
+                        assert_eq!(alias, "p");
+                    }
+                    _ => panic!("expected Single from clause"),
+                }
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_single_field() {
+        let input = r#"SELECT name FROM Person"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.projections, vec!["name"]);
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_join() {
+        let input = r#"SELECT * FROM Person p JOIN Address a ON p.addr_id = a.id"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => match &sel.from {
+                crate::query::FromClause::Join {
+                    left,
+                    right,
+                    left_field,
+                    right_field,
+                } => {
+                    assert_eq!(left_field, "p.addr_id");
+                    assert_eq!(right_field, "a.id");
+                    match (&**left, &**right) {
+                        (
+                            crate::query::FromClause::Single {
+                                entity: e1,
+                                alias: a1,
+                            },
+                            crate::query::FromClause::Single {
+                                entity: e2,
+                                alias: a2,
+                            },
+                        ) => {
+                            assert_eq!(e1, "Person");
+                            assert_eq!(a1, "p");
+                            assert_eq!(e2, "Address");
+                            assert_eq!(a2, "a");
+                        }
+                        _ => panic!("expected Single/Single join children"),
+                    }
+                }
+                _ => panic!("expected Join from clause"),
+            },
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_where_relational() {
+        let input = r#"SELECT * FROM Person p WHERE name = "Alice""#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                let conds = sel.where_clause.expect("expected WHERE conditions");
+                assert_eq!(conds.len(), 1);
+                assert!(
+                    matches!(&conds[0], crate::query::Condition::Relational(..)),
+                    "expected relational condition"
+                );
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_where_without_alias() {
+        // Guarda ERR-016 para SELECT: el alias opcional no debe comerse WHERE.
+        let input = r#"SELECT * FROM Person WHERE name = "Alice""#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                let conds = sel.where_clause.expect("expected WHERE conditions");
+                assert_eq!(conds.len(), 1);
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_statement_select_is_dispatched() {
+        let (_, stmt) = parse_statement("SELECT * FROM Node").unwrap();
+        assert!(matches!(stmt, Statement::Select(_)));
+    }
+
+    // ─── Autocomplete (VS-CORE-06) ───────────────────────────────
+
+    #[test]
+    fn autocomplete_suggests_keywords_by_prefix() {
+        let out = autocomplete_prefix("F");
+        assert!(out.contains(&"FROM".to_string()));
+        assert!(out.contains(&"FETCH".to_string()));
+        assert!(!out.contains(&"WHERE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_is_case_insensitive() {
+        let out = autocomplete_prefix("from");
+        assert!(out.contains(&"FROM".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_offers_multiword_keywords() {
+        // Two-word clause completes as one token while typing its first word.
+        let out = autocomplete_prefix("RAN");
+        assert!(out.contains(&"RANK BY".to_string()));
+        // Mid-phrase, the last word completes on its own ("TEMPERATURE" is
+        // itself a RESERVED_KEYWORDS entry, so it is suggested too).
+        let out = autocomplete_prefix("WITH TEM");
+        assert!(out.contains(&"TEMPERATURE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_empty_prefix_offers_all_keywords() {
+        let out = autocomplete_prefix("");
+        let expected: Vec<String> = RESERVED_KEYWORDS
+            .iter()
+            .chain(EXTRA_AUTOCOMPLETE_KEYWORDS)
+            .map(|s| s.to_string())
+            .collect();
+        for kw in expected {
+            assert!(out.contains(&kw), "missing {kw}");
+        }
+    }
+
+    #[test]
+    fn autocomplete_reuses_identifiers_from_statement() {
+        // `FROM Person WHERE p` — the typed `p` should suggest the entity.
+        let out = autocomplete_prefix("FROM Person WHERE p");
+        assert!(out.contains(&"Person".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_does_not_suggest_self_or_keywords_as_identifiers() {
+        assert!(!autocomplete_prefix("FROM Per").contains(&"Per".to_string()));
+        assert!(!autocomplete_prefix("WHE").contains(&"WHE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_sorted_and_deduped() {
+        let out = autocomplete_prefix("F");
+        let mut sorted = out.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(out, sorted);
+    }
+
+    // ─── IQL version + AST JSON (API-06) ─────────────────────────
+
+    #[test]
+    fn test_iql_version_defined_and_gated() {
+        // A concrete version is defined and exposed (crate root re-export
+        // in src/lib.rs).
+        assert_eq!(IQL_VERSION, 4);
+        // The gate is the single source of truth for versioned syntax.
+        assert!(iql_supports(IQL_VERSION_MIN_PROFILE));
+        assert!(iql_supports(IQL_VERSION_MIN_AS_OF));
+        assert!(iql_supports(IQL_VERSION_MIN_PAGINATION));
+        assert!(iql_supports(IQL_VERSION_MIN_AGGREGATION));
+        assert!(
+            !iql_supports(IQL_VERSION + 1),
+            "syntax from a future version must not be silently enabled"
+        );
+        // The gated clauses parse at the current version (MEM-01, SCH-03, WIRE-12, WIRE-13).
+        let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
+        let profile = q.search_profile.expect("PROFILE parsed at IQL_VERSION");
+        assert_eq!(profile.mode, SearchProfileMode::Vector);
+        let (_, q) = parse_query("FROM Node AS OF 42").unwrap();
+        assert_eq!(q.as_of_ms, Some(42), "AS OF parsed at IQL_VERSION");
+        let (_, q) = parse_query("FROM Node LIMIT 1 OFFSET 2").unwrap();
+        assert_eq!(
+            (q.limit, q.offset),
+            (Some(1), Some(2)),
+            "pagination parsed at IQL_VERSION"
+        );
+        let (_, stmt) = parse_statement("SELECT COUNT(*) FROM Node GROUP BY n").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.aggregates, vec![AggregateFunc::Count]);
+                assert_eq!(sel.group_by.as_deref(), Some("n"));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    // ─── AS OF / valid-time clause (SCH-03) ──────────────────────
+
+    #[test]
+    fn test_parse_query_as_of_clause_after_table() {
+        let (_, q) = parse_query("FROM Person AS OF 1700000000000").unwrap();
+        assert_eq!(q.as_of_ms, Some(1_700_000_000_000));
+    }
+
+    #[test]
+    fn test_parse_query_as_of_clause_before_where() {
+        let (_, q) = parse_query(r#"FROM Person p AS OF 42 WHERE edad > 18"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(q.where_clause.as_ref().map(|c| c.len()), Some(1));
+    }
+
+    #[test]
+    fn test_parse_query_as_of_clause_after_where() {
+        let (_, q) = parse_query(r#"FROM Person WHERE edad > 18 AS OF 42"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(q.where_clause.as_ref().map(|c| c.len()), Some(1));
+    }
+
+    #[test]
+    fn test_parse_query_without_as_of_is_none() {
+        let (_, q) = parse_query("FROM Person").unwrap();
+        assert_eq!(q.as_of_ms, None);
+    }
+
+    #[test]
+    fn test_parse_query_as_of_requires_numeric_timestamp() {
+        // A malformed clause must fail the parse — never silently drop the
+        // time filter and run an unfiltered query.
+        assert!(parse_query("FROM Person AS OF abc").is_err());
+        assert!(parse_query("FROM Person AS OF").is_err());
+        assert!(parse_query("FROM Person AS OF 12.5").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_as_of_is_not_swallowed_by_traversal_alias() {
+        let (_, q) = parse_query(r#"FROM Usuario SIGUE 1..2 "amigo" AS OF 7"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(7));
+        assert_eq!(q.traversal.unwrap().alias, None);
+    }
+
+    #[test]
+    fn test_parse_select_as_of_clause() {
+        let (_, stmt) = parse_statement("SELECT * FROM ProbeNs AS OF 123").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, Some(123)),
+            other => panic!("expected Select, got {other:?}"),
+        }
+        let (_, stmt) = parse_statement("SELECT name FROM ns p WHERE x = 1 AS OF 9").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, Some(9)),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_without_as_of_is_none() {
+        let (_, stmt) = parse_statement("SELECT * FROM ProbeNs").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, None),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_subquery_with_as_of_is_a_parse_error() {
+        // Sub-plans carry no valid-time filter — AS OF inside a subquery must
+        // fail fast instead of being silently dropped.
+        let res = parse_statement(r#"SELECT * FROM ns WHERE x > (SELECT * FROM other AS OF 5)"#);
+        assert!(res.is_err(), "AS OF inside a subquery must not parse");
+    }
+
+    #[test]
+    fn test_duplicate_as_of_is_a_parse_error() {
+        // Two `AS OF` clauses would silently keep the first and drop the
+        // second (SCH-03 review Optional-2) — reject at parse time instead.
+        assert!(parse_query("FROM Person AS OF 1 AS OF 2").is_err());
+        assert!(parse_query(r#"FROM Person AS OF 1 WHERE edad > 18 AS OF 3"#).is_err());
+        assert!(parse_statement("SELECT * FROM ProbeNs AS OF 1 AS OF 2").is_err());
+        assert!(
+            parse_statement(r#"SELECT * FROM ns WHERE x > (SELECT * FROM other AS OF 1 AS OF 2)"#)
+                .is_err(),
+            "duplicate AS OF inside a subquery must not parse either"
+        );
+        // Control: a single clause in either canonical position still parses.
+        assert_eq!(
+            parse_query("FROM Person AS OF 1").unwrap().1.as_of_ms,
+            Some(1)
+        );
+        assert_eq!(
+            parse_query(r#"FROM Person WHERE edad > 18 AS OF 3"#)
+                .unwrap()
+                .1
+                .as_of_ms,
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn test_ast_json_projection_shape() {
+        // API-06: parsed statements serialize with serde's default
+        // representation (externally tagged enums, snake_case fields) — the
+        // canonical AST JSON shape documented in docs/api/IQL.md.
+        let (_, stmt) = parse_statement(r#"FROM Person p WHERE edad == 28 FETCH name"#).unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Query"]["from_entity"], "Person");
+        assert_eq!(v["Query"]["target_alias"], "p");
+        assert_eq!(v["Query"]["where_clause"][0]["Relational"][0], "edad");
+        assert_eq!(v["Query"]["where_clause"][0]["Relational"][1], "Eq");
+        assert_eq!(v["Query"]["where_clause"][0]["Relational"][2]["Int"], 28);
+        assert_eq!(v["Query"]["fetch"][0], "name");
+        assert_eq!(v["Query"]["search_profile"], serde_json::Value::Null);
+        // WIRE-12: pagination fields are additive and default to null.
+        assert_eq!(v["Query"]["limit"], serde_json::Value::Null);
+        assert_eq!(v["Query"]["offset"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn test_ast_json_projection_ids_are_decimal_strings() {
+        // ADR-0062 (FIND-723): the six `u128` id fields cross the JSON wire as
+        // decimal strings. A JSON number is an IEEE-754 double in every JS
+        // decoder, and an id must be bit-exact to be usable (it goes back into
+        // `delete`/`relate`). One case per id-bearing variant (5 variants, 6
+        // fields): dropping the attribute from any of the six fails here.
+        // This is a pin, not a structural guard — a NEW `u128` field would not
+        // be covered until a case is added for it.
+        const SOURCE: &str = "123456789012345678901234";
+        const TARGET: &str = "987654321098765432109876";
+        const THREAD: &str = "340282366920938463463374607431768211455"; // u128::MAX
+
+        fn ast_json(iql: &str) -> serde_json::Value {
+            let (_, stmt) =
+                parse_statement(iql).unwrap_or_else(|e| panic!("must parse {iql}: {e}"));
+            serde_json::to_value(&stmt).expect("statement must serialize to JSON")
+        }
+
+        // Insert / Update / Delete carry `node_id`.
+        let v = ast_json(&format!(
+            "INSERT NODE#{SOURCE} TYPE Person {{ name: \"x\" }}"
+        ));
+        assert_eq!(v["Insert"]["node_id"].as_str(), Some(SOURCE), "{v}");
+        let v = ast_json(&format!("UPDATE NODE#{SOURCE} SET name = \"x\""));
+        assert_eq!(v["Update"]["node_id"].as_str(), Some(SOURCE), "{v}");
+        let v = ast_json(&format!("DELETE NODE#{SOURCE}"));
+        assert_eq!(v["Delete"]["node_id"].as_str(), Some(SOURCE), "{v}");
+
+        // Relate carries `source_id` and `target_id`.
+        let v = ast_json(&format!(
+            "RELATE NODE#{SOURCE} --\"knows\"--> NODE#{TARGET}"
+        ));
+        assert_eq!(v["Relate"]["source_id"].as_str(), Some(SOURCE), "{v}");
+        assert_eq!(v["Relate"]["target_id"].as_str(), Some(TARGET), "{v}");
+
+        // InsertMessage carries `thread_id`.
+        let v = ast_json(&format!("INSERT MESSAGE SYSTEM \"hi\" TO THREAD#{THREAD}"));
+        assert_eq!(
+            v["InsertMessage"]["thread_id"].as_str(),
+            Some(THREAD),
+            "{v}"
+        );
+    }
+
+    // ─── LIMIT / OFFSET pagination (WIRE-12) ─────────────────────
+
+    #[test]
+    fn test_parse_query_limit_and_offset_capture_values() {
+        let (rest, q) = parse_query("FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        assert_eq!(q.limit, Some(5));
+        assert_eq!(q.offset, Some(2));
+        assert_eq!(rest.trim(), "", "pagination clauses fully consumed");
+    }
+
+    #[test]
+    fn test_parse_query_limit_only_and_offset_only() {
+        let (_, q) = parse_query("FROM Doc LIMIT 10").unwrap();
+        assert_eq!((q.limit, q.offset), (Some(10), None));
+        let (_, q) = parse_query("FROM Doc OFFSET 3").unwrap();
+        assert_eq!((q.limit, q.offset), (None, Some(3)));
+        let (_, q) = parse_query("FROM Doc").unwrap();
+        assert_eq!((q.limit, q.offset), (None, None));
+    }
+
+    #[test]
+    fn test_parse_query_limit_zero_is_valid() {
+        // SQL semantics: LIMIT 0 is a valid empty window.
+        let (_, q) = parse_query("FROM Doc LIMIT 0").unwrap();
+        assert_eq!(q.limit, Some(0));
+    }
+
+    #[test]
+    fn test_parse_query_limit_requires_numeric_count() {
+        // Strictness (same rule as AS OF): once the keyword is seen the count
+        // is required — never a silent drop.
+        assert!(parse_query("FROM Doc LIMIT").is_err());
+        assert!(parse_query("FROM Doc LIMIT abc").is_err());
+        assert!(parse_query("FROM Doc OFFSET").is_err());
+        assert!(parse_query("FROM Doc OFFSET abc").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_reversed_pagination_order_is_error() {
+        // Canonical order is LIMIT then OFFSET (SQL). Reversed or duplicated
+        // pagination keywords fail loud instead of becoming ignored trailing
+        // input.
+        assert!(parse_query("FROM Doc OFFSET 2 LIMIT 5").is_err());
+        assert!(parse_query("FROM Doc LIMIT 1 LIMIT 2").is_err());
+        assert!(parse_query("FROM Doc OFFSET 1 OFFSET 2").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_limit_offset_with_rank_by_and_as_of() {
+        // Canonical order: ... RANK BY f LIMIT n OFFSET m AS OF t
+        let (rest, q) =
+            parse_query(r#"FROM Doc RANK BY name DESC LIMIT 3 OFFSET 1 AS OF 42"#).unwrap();
+        assert_eq!(
+            q.rank_by.as_ref().map(|r| (r.field.as_str(), r.desc)),
+            Some(("name", true))
+        );
+        assert_eq!(q.limit, Some(3));
+        assert_eq!(q.offset, Some(1));
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(rest.trim(), "");
+        // AS OF before pagination still works (late position preserved).
+        let (_, q) = parse_query("FROM Doc AS OF 42 LIMIT 3").unwrap();
+        assert_eq!((q.as_of_ms, q.limit), (Some(42), Some(3)));
+        // Early AS OF position unchanged, combined with full pagination.
+        let (_, q) = parse_query("FROM Doc AS OF 42 WHERE n > 1 LIMIT 3 OFFSET 2").unwrap();
+        assert_eq!(
+            (q.as_of_ms, q.limit, q.offset),
+            (Some(42), Some(3), Some(2))
+        );
+    }
+
+    #[test]
+    fn test_parse_query_pagination_does_not_break_alias_identifiers() {
+        // Non-reserved identifiers with a keyword prefix stay valid aliases.
+        let (_, q) = parse_query("FROM Doc LIMITED").unwrap();
+        assert_eq!(q.target_alias, "LIMITED");
+        let (_, q) = parse_query("FROM Doc OFFSETX").unwrap();
+        assert_eq!(q.target_alias, "OFFSETX");
+    }
+
+    #[test]
+    fn test_parse_select_limit_offset_and_as_of() {
+        let (rest, stmt) = parse_statement("SELECT * FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.limit, Some(5));
+                assert_eq!(sel.offset, Some(2));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+        assert_eq!(rest.trim(), "");
+        // AS OF late position before pagination.
+        let (_, stmt) = parse_statement("SELECT * FROM Doc WHERE n > 1 AS OF 9 LIMIT 4").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.as_of_ms, Some(9));
+                assert_eq!(sel.limit, Some(4));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+        // AS OF after pagination (third canonical position).
+        let (_, stmt) = parse_statement("SELECT * FROM Doc LIMIT 4 AS OF 9").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!((sel.limit, sel.as_of_ms), (Some(4), Some(9))),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_reversed_pagination_is_error() {
+        assert!(parse_statement("SELECT * FROM Doc OFFSET 2 LIMIT 5").is_err());
+        assert!(parse_statement("SELECT * FROM Doc LIMIT").is_err());
+    }
+
+    #[test]
+    fn test_parse_statement_rejects_trailing_clause_after_pagination() {
+        // WIRE-12: a clause after LIMIT/OFFSET would otherwise be silently
+        // dropped by the executor (FIND-312 class) and return a page without
+        // the clause — reject loud instead.
+        assert!(parse_statement("FROM Doc LIMIT 5 WHERE n > 1").is_err());
+        assert!(parse_statement("SELECT * FROM Doc LIMIT 5 WHERE n > 1").is_err());
+        assert!(parse_statement("FROM Doc OFFSET 2 garbage").is_err());
+        // Control: pagination + AS OF in either position parses fully.
+        assert!(parse_statement("FROM Doc LIMIT 5 AS OF 9").is_ok());
+        assert!(parse_statement("FROM Doc AS OF 9 LIMIT 5").is_ok());
+        // Subqueries keep parsing — the caller consumes the closing `)`.
+        assert!(
+            parse_statement("SELECT * FROM ns WHERE x > (SELECT * FROM other LIMIT 5)").is_ok()
+        );
+        // A trailing statement terminator is tolerated (lenient, same as
+        // non-paginated statements).
+        assert!(parse_statement("FROM Doc LIMIT 5;").is_ok());
+        // FIND-518/FIND-519: the trailing-input rejection is now strict for
+        // EVERY statement (not only the paginated/aggregated ones).
+        assert!(parse_statement("FROM Doc p garbage").is_err());
+        assert!(parse_statement("FROM Doc WHERE a = 1, b = 2").is_err());
+    }
+
+    #[test]
+    fn test_ast_json_pagination_shape() {
+        let (_, stmt) = parse_statement("FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Query"]["limit"], 5);
+        assert_eq!(v["Query"]["offset"], 2);
+    }
+
+    // ─── Aggregations (WIRE-13) ──────────────────────────────────
+
+    #[test]
+    fn test_parse_select_count_star_aggregate() {
+        let (rest, stmt) = parse_statement("SELECT COUNT(*) FROM Invoice").unwrap();
+        assert_eq!(rest.trim(), "", "statement fully consumed");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.aggregates, vec![AggregateFunc::Count]);
+                assert!(sel.group_by.is_none());
+                assert!(sel.projections.is_empty());
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_count_field_and_sum() {
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(email), SUM(amount) FROM Invoice").unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(
+                    sel.aggregates,
+                    vec![
+                        AggregateFunc::CountField("email".into()),
+                        AggregateFunc::Sum("amount".into())
+                    ]
+                );
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_group_by_single_field() {
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category").unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.group_by.as_deref(), Some("category"));
+                assert_eq!(sel.aggregates.len(), 2);
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_group_by_after_where() {
+        // Canonical clause order (SQL): SELECT ... FROM ... WHERE ... GROUP BY.
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(*) FROM Invoice WHERE total > 0 GROUP BY category")
+                .unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.group_by.as_deref(), Some("category"));
+                assert_eq!(sel.where_clause.map(|c| c.len()), Some(1));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_without_aggregation_keeps_defaults() {
+        // Retrocompat: a plain SELECT keeps parsing with empty aggregate fields.
+        let (_, stmt) = parse_statement("SELECT name, age FROM Person").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert!(sel.aggregates.is_empty());
+                assert!(sel.group_by.is_none());
+                assert_eq!(sel.projections, vec!["name", "age"]);
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_rejects_mixed_fields_and_aggregates() {
+        // Group keys come from GROUP BY and are always included; mixing plain
+        // fields into the aggregate SELECT list is a loud parse error.
+        assert!(parse_statement("SELECT name, COUNT(*) FROM Person").is_err());
+        assert!(parse_statement("SELECT COUNT(*), name FROM Person").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_group_by_without_aggregate() {
+        assert!(parse_statement("SELECT * FROM Person GROUP BY name").is_err());
+        assert!(parse_statement("SELECT name FROM Person GROUP BY name").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_multi_field_group_by() {
+        // Multi-field GROUP BY is deferred (FIND-316) - reject loud instead of
+        // silently grouping by the first field only (trailing-drop class).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY a, b").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_as_of_with_aggregation() {
+        // The valid-time filter runs post-plan; over synthetic aggregate rows
+        // it would be a silent no-op -> reject loud (subquery + AS OF pattern).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice AS OF 5").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c AS OF 5").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_pagination_with_aggregation() {
+        // LIMIT/OFFSET compile post-chain (after the aggregate); applied to the
+        // input they would silently change the count -> reject loud (FIND-316).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice LIMIT 5").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice OFFSET 2").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_aggregation_rejects_trailing_clause() {
+        // WIRE-13 (review C-1): a clause after the strict aggregation surface
+        // would be silently dropped by the executor (FIND-312 class) and
+        // return wrong aggregate values — reject loud instead.
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c WHERE amount > 15").is_err()
+        );
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c ORDER BY count LIMIT 1")
+                .is_err()
+        );
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c GROUP BY d").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY").is_err());
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice WITH TEMPERATURE 1.5 GROUP BY c")
+                .is_err()
+        );
+        // Control: canonical order parses fully, and `;` is tolerated.
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice WHERE amount > 15 GROUP BY c").is_ok()
+        );
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c;").is_ok());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_group_by_colliding_with_output_name() {
+        // WIRE-13 (review M-1): the output row carries the group key plus one
+        // field per aggregate — a key colliding with an output name would
+        // silently overwrite the key.
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY count").is_err());
+        assert!(parse_statement("SELECT SUM(amount) FROM Invoice GROUP BY sum_amount").is_err());
+        // Control: a non-colliding field with the same aggregate parses.
+        assert!(parse_statement("SELECT SUM(amount) FROM Invoice GROUP BY category").is_ok());
+    }
+
+    #[test]
+    fn test_parse_query_rejects_group_by_on_from_surface() {
+        // Aggregation is a SELECT surface: FROM/MATCH + GROUP BY would become
+        // silently ignored trailing input (FIND-312 class) - reject loud.
+        assert!(parse_statement("FROM Invoice GROUP BY category").is_err());
+        assert!(parse_statement("MATCH Invoice GROUP BY category").is_err());
+        // Control: the SELECT spelling parses.
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY category").is_ok());
+    }
+
+    #[test]
+    fn test_parse_aggregate_rejects_malformed_calls() {
+        assert!(parse_statement("SELECT COUNT() FROM Invoice").is_err());
+        assert!(parse_statement("SELECT SUM(*) FROM Invoice").is_err());
+        assert!(parse_statement("SELECT COUNT(*) COUNT(*) FROM Invoice").is_err());
+    }
+
+    #[test]
+    fn test_autocomplete_suggests_group_keyword() {
+        let out = autocomplete_prefix("GRO");
+        assert!(out.contains(&"GROUP".to_string()), "got {out:?}");
+    }
+
+    // ─── FIND-518: WHERE mal formado + trailing input ───────────
+
+    /// FIND-518: un `WHERE` mal formado es un **error de parseo** — nunca una
+    /// consulta sin filtro. Antes el `opt(...)` alrededor de la clausula
+    /// devolvia `None` (en `nom`, un `opt` ante `Err::Error` restaura el
+    /// input) y el `WHERE` entero se descartaba como trailing input: la query
+    /// se ejecutaba como un escaneo completo sin filtro.
+    #[test]
+    fn test_parse_query_rejects_malformed_where_clause() {
+        assert!(parse_query("FROM Doc WHERE n =").is_err());
+        assert!(parse_query("FROM Doc WHERE").is_err());
+        assert!(parse_query("FROM Doc WHERE n = AND m = 2").is_err());
+        // El `AND` cuya condicion no parsea no puede dejar el resto como
+        // trailing input: el filtro se perderia entero.
+        assert!(parse_query("FROM Doc WHERE a = 1 AND b =").is_err());
+        assert!(parse_query("MATCH Doc WHERE n =").is_err());
+    }
+
+    /// FIND-518: el mismo contrato en la superficie `SELECT`.
+    #[test]
+    fn test_parse_select_rejects_malformed_where_clause() {
+        assert!(parse_statement("SELECT * FROM Doc WHERE n =").is_err());
+        assert!(parse_statement("SELECT * FROM Doc WHERE").is_err());
+        assert!(parse_statement("SELECT * FROM Doc WHERE a = 1 AND b =").is_err());
+    }
+
+    /// FIND-518/FIND-519: a nivel de statement, un `WHERE` mal formado y el
+    /// trailing input son errores de parseo.
+    #[test]
+    fn test_parse_statement_rejects_malformed_where_clause() {
+        assert!(parse_statement("FROM Doc WHERE n =").is_err());
+        assert!(parse_statement("FROM Doc WHERE a = 1, b = 2").is_err());
+        assert!(parse_statement("SELECT * FROM Doc WHERE a = 1, b = 2").is_err());
+    }
+
+    /// FIND-312 subcase: trailing INTERNO en subquery — el `WHERE` interno
+    /// rompe el `)` del caller, el fallback del subquery deja el `WHERE`
+    /// entero como trailing input y la query se ejecutaba sin filtro.
+    #[test]
+    fn test_parse_statement_rejects_trailing_input_inside_a_subquery() {
+        assert!(parse_statement(
+            "SELECT * FROM t WHERE x > (SELECT COUNT(*) FROM u GROUP BY g WHERE y = 1)"
+        )
+        .is_err());
+        // Control: el subquery bien formado sigue parseando.
+        assert!(
+            parse_statement("SELECT * FROM t WHERE x > (SELECT * FROM u)").is_ok(),
+            "a well-formed subquery must keep parsing"
+        );
+    }
+
+    /// FIND-519: el trailing input de cualquier statement se descartaba en
+    /// silencio (se aplicaba un filtro y se perdia el otro, `PROFILE bogus`
+    /// corria sin perfil, `INSERT ... LINK ...` inserta el nodo sin arista).
+    /// Casos de la auditoria de la gramatica IQL (2026-10-21, F-02).
+    #[test]
+    fn test_parse_statement_rejects_trailing_input_on_every_statement() {
+        // Trailing junk detras de un statement ya parseado.
+        assert!(parse_statement("FROM Doc p garbage").is_err());
+        assert!(parse_statement("SELECT * FROM Doc p garbage").is_err());
+        // La coma no es separador de condiciones (solo `AND`): la segunda
+        // condicion se perdia en silencio.
+        assert!(parse_statement("FROM Doc WHERE a = 1, b = 2").is_err());
+        // El brazo vectorial caia a match lexico cuando el `min` no parseaba.
+        assert!(parse_statement(r#"FROM Doc WHERE bio ~ "x", min >= 0.88"#).is_err());
+        assert!(parse_statement(r#"FROM Doc WHERE bio ~ "x", minimum = 0.5"#).is_err());
+        // `PROFILE bogus` / `PROFILE KEYWORD` (los modos son lowercase).
+        assert!(parse_statement("FROM Doc PROFILE bogus").is_err());
+        assert!(parse_statement("FROM Doc PROFILE KEYWORD").is_err());
+        // El nodo se insertaba sin arista.
+        assert!(parse_statement("INSERT NODE#1 TYPE N { a: 1 } LINK NODE#2").is_err());
+        assert!(parse_statement("DELETE NODE#1 garbage").is_err());
+        assert!(parse_statement("UPDATE NODE#1 SET a = 1 garbage").is_err());
+    }
+
+    /// Control: el `<alias>` de la superficie `FROM`/`MATCH` es una feature
+    /// documentada (`docs/api/IQL.md`), asi que `FROM Doc garbage` es una
+    /// statement VALIDA con alias `garbage` — no trailing input. El trailing
+    /// junk real es lo que va detras de un alias explicito.
+    #[test]
+    fn test_parse_statement_keeps_the_documented_alias() {
+        let (_, stmt) = parse_statement("FROM Doc garbage").unwrap();
+        match stmt {
+            Statement::Query(q) => assert_eq!(q.target_alias, "garbage"),
+            other => panic!("expected Query, got {other:?}"),
+        }
+    }
+
+    /// El `;` final (REPL/CLI) se sigue tolerando en todas las statements.
+    #[test]
+    fn test_parse_statement_tolerates_trailing_semicolon() {
+        assert!(parse_statement("FROM Doc;").is_ok());
+        assert!(parse_statement("FROM Doc WHERE n = 1;").is_ok());
+        assert!(parse_statement("SELECT * FROM Doc;").is_ok());
+        assert!(parse_statement("DELETE NODE#1;").is_ok());
+        assert!(parse_statement("  FROM Doc ;  ").is_ok());
+    }
+
+    /// Control: un statement valido no puede pasar a fallar.
+    #[test]
+    fn test_parse_statement_valid_statements_still_parse() {
+        for q in [
+            "FROM Doc",
+            "FROM Doc WHERE n = 1",
+            "FROM Doc WHERE a = 1 AND b = 2",
+            "FROM Doc WHERE n > 1 FETCH name RANK BY score DESC",
+            "FROM Doc LIMIT 5 OFFSET 2",
+            "FROM Doc AS OF 42",
+            "FROM Doc PROFILE hybrid rrf_k 20 candidate_k 64",
+            "SELECT * FROM Doc WHERE n = 1",
+            "SELECT COUNT(*) FROM Doc GROUP BY c",
+            "INSERT NODE#1 TYPE N { a: 1 }",
+            "UPDATE NODE#1 SET a = 1",
+            "DELETE NODE#1",
+            r#"RELATE NODE#1 --"amigo"--> NODE#2"#,
+        ] {
+            assert!(parse_statement(q).is_ok(), "must parse: {q}");
+        }
+    }
+
+    #[test]
+    fn test_ast_json_select_aggregation_shape() {
+        // WIRE-13: aggregate fields serialize additively (serde default
+        // representation, same convention as the rest of the AST).
+        let (_, stmt) =
+            parse_statement("SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Select"]["aggregates"][0], "Count");
+        assert_eq!(v["Select"]["aggregates"][1]["Sum"], "amount");
+        assert_eq!(v["Select"]["group_by"], "category");
+        // Retrocompat: plain SELECT serializes the new fields as empty/null.
+        let (_, stmt) = parse_statement("SELECT name FROM Person").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Select"]["aggregates"], serde_json::json!([]));
+        assert_eq!(v["Select"]["group_by"], serde_json::Value::Null);
+    }
+
+    // ─── FIND-522/523/525/526: IQL grammar hardening ────────────
+    //
+    // (FIND-524 y FIND-528 viven fuera del parser — sus tests adversariales
+    // están en `physical_plan/scan.rs` y `executor.rs`.)
+
+    /// `SELECT * FROM t WHERE x > (SELECT ...)` anidado `depth` veces.
+    fn nested_subquery(depth: usize) -> String {
+        let mut q = String::new();
+        for _ in 0..depth {
+            q.push_str("SELECT * FROM t WHERE x > (");
+        }
+        q.push_str("SELECT * FROM t");
+        for _ in 0..depth {
+            q.push(')');
+        }
+        q
+    }
+
+    /// FIND-522: `min = <non-finite>` se aceptaba y degradaba a "0 hits sin
+    /// error" — el mismo síntoma observable que un provider caído (F-06 del
+    /// audit de gramática IQL, 2026-10-21).
+    #[test]
+    fn test_min_score_rejects_non_finite_literals() {
+        for q in [
+            r#"FROM Doc WHERE bio ~ "x", min = nan"#,
+            r#"FROM Doc WHERE bio ~ "x", min = NaN"#,
+            r#"FROM Doc WHERE bio ~ "x", min = inf"#,
+            r#"FROM Doc WHERE bio ~ "x", min = -inf"#,
+            r#"FROM Doc WHERE bio ~ "x", min = infinity"#,
+            r#"FROM Doc WHERE bio ~ "x", min = 1e400"#, // overflow literal → inf
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+    }
+
+    /// FIND-522: `min_score` es un umbral de similitud coseno — fuera de
+    /// `[0, 1]` nunca matchea (o siempre lo hace) y nadie avisa.
+    #[test]
+    fn test_min_score_rejects_out_of_range_values() {
+        for q in [
+            r#"FROM Doc WHERE bio ~ "x", min = 1.0001"#,
+            r#"FROM Doc WHERE bio ~ "x", min = 2"#,
+            r#"FROM Doc WHERE bio ~ "x", min = -0.5"#,
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+        for q in [
+            r#"FROM Doc WHERE bio ~ "x", min = 0"#,
+            r#"FROM Doc WHERE bio ~ "x", min = 1"#,
+            r#"FROM Doc WHERE bio ~ "x", min = 0.5"#,
+        ] {
+            assert!(parse_statement(q).is_ok(), "must parse: {q}");
+        }
+    }
+
+    /// FIND-522: el rechazo de literales no finitos aplica a TODA posición
+    /// que acepta floats — no solo a `min`.
+    #[test]
+    fn test_non_finite_floats_rejected_in_all_float_positions() {
+        for q in [
+            "FROM Doc WHERE x = nan",
+            "FROM Doc WHERE x = inf",
+            r#"INSERT NODE#1 TYPE N { a: nan }"#,
+            "INSERT NODE#1 TYPE N { a: 1 } VECTOR [0.1, nan]",
+            "UPDATE NODE#1 SET VECTOR [inf, 0.0]",
+            "FROM Doc WITH TEMPERATURE nan",
+            "SELECT * FROM Doc WITH TEMPERATURE inf",
+            r#"RELATE NODE#1 --"e"--> NODE#2 WEIGHT nan"#,
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+    }
+
+    /// FIND-523: la recursión `parse_select` ↔ `parse_subquery_condition_inner`
+    /// no tenía tope — ~30k niveles cabían en el cap de 1 MiB y desbordaban el
+    /// stack (DoS de una sola query). Dentro del tope sigue parseando.
+    #[test]
+    fn test_subquery_depth_within_bound_parses() {
+        assert!(parse_statement(&nested_subquery(1)).is_ok());
+        assert!(parse_statement(&nested_subquery(MAX_SUBQUERY_DEPTH)).is_ok());
+    }
+
+    /// FIND-523: superado `MAX_SUBQUERY_DEPTH` la query es un parse error
+    /// limpio, nunca un stack overflow.
+    #[test]
+    fn test_subquery_depth_beyond_bound_is_a_parse_error() {
+        assert!(parse_statement(&nested_subquery(MAX_SUBQUERY_DEPTH + 1)).is_err());
+        assert!(parse_statement(&nested_subquery(20)).is_err());
+    }
+
+    /// FIND-523 (adversarial): ~10k niveles dentro del cap de input, sobre un
+    /// stack diminuto — el parser devuelve `Err`, el hilo no crashea.
+    #[test]
+    fn test_deeply_nested_subqueries_error_without_stack_overflow() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let q = nested_subquery(10_000);
+                assert!(
+                    parse_statement(&q).is_err(),
+                    "deep nesting must be a parse error"
+                );
+            })
+            .expect("spawn parser thread")
+            .join()
+            .expect("parser thread must finish, not crash");
+    }
+
+    /// FIND-525: un `SIGUE` presente pero mal formado (overflow de u32,
+    /// bounds invertidos, partes faltantes) se descartaba en silencio vía
+    /// `opt(...)` y la query corría como escaneo sin traversía.
+    #[test]
+    fn test_sigue_clause_fails_loud_when_malformed_or_out_of_range() {
+        for q in [
+            r#"FROM Usuario SIGUE 1..5000000000 "e""#, // max overflows u32
+            r#"FROM Usuario SIGUE 5000000000..2 "e""#, // min overflows u32
+            r#"FROM Usuario SIGUE 5..2 "e""#,          // inverted bounds
+            r#"FROM Usuario SIGUE 1.. "e""#,           // missing max
+            r#"FROM Usuario SIGUE 1..2"#,              // missing edge label
+            "FROM Usuario SIGUE",                      // keyword alone
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+        // Un SIGUE válido sigue parseando.
+        let (_, stmt) = parse_statement(r#"FROM Usuario SIGUE 1..3 "amigo""#).unwrap();
+        match stmt {
+            Statement::Query(q) => assert!(q.traversal.is_some()),
+            other => panic!("expected Query, got {other:?}"),
+        }
+    }
+
+    /// FIND-526: una keyword en minúscula se consumía como alias y la cláusula
+    /// siguiente se perdía — `FROM Doc where x = 1` devolvía TODOS los Doc.
+    /// La comparación reservada es case-insensitive desde FIND-526; estos
+    /// casos pinchan la regresión end-to-end (a nivel statement).
+    #[test]
+    fn test_lowercase_keyword_is_not_consumed_as_alias() {
+        for q in [
+            "FROM Doc where x = 1",
+            "FROM Doc limit 5",
+            "FROM Doc rank by score",
+            "SELECT * FROM Doc where x = 1",
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+    }
+}

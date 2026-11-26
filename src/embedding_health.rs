@@ -1,0 +1,501 @@
+//! DEF-08 code-follow-up — visible fallback for local embeddings.
+//!
+//! Contract: `docs/dev/strategy/DISTRIBUTION.md` §7 and `docs/specs/SPEC.md` L74 —
+//! "fallback avisado (`fallback: true`), nunca silencioso". This module is the
+//! single probe behind every *status* surface (CLI `status`, MCP
+//! `capabilities`, the `scripts/setup-embeddings.ps1` live test) so the notice text is
+//! never duplicated per binding.
+//!
+//! Both documented triggers are covered:
+//!
+//! - **(a) ONNX Runtime unusable** — `ort::init_from` loads the dylib and
+//!   checks its version, returning `Err` instead of panicking: the exact
+//!   pre-check `src/llm.rs:341-419` runs before building a session (FIND-100).
+//! - **(b) model files missing** (`model.onnx` + `tokenizer.json`) — the
+//!   provider has no real session: strict mode fails closed
+//!   (`Error::Embedding`) and non-strict inserts are stored WITHOUT a vector
+//!   (`src/executor.rs` FIND-485) — synthetic vectors are never persisted.
+//!
+//! Approximation (deliberate, documented): files present ⇒ assumed real. A
+//! present-but-corrupt model still degrades silently inside the provider;
+//! detecting that needs a real inference run, which a status probe must not do.
+//!
+//! Invariant: this module never mutates `src/llm.rs` state — it calls the same
+//! public `ort` API the provider calls and mirrors the provider's dylib
+//! resolution (`src/llm.rs:306-339`). `ort::init_from` only fills the same
+//! cached dylib handle a real provider run would fill, and its failure mode
+//! (plain `Err`, no global poisoning) is idempotent.
+
+use serde::{Deserialize, Serialize};
+
+use crate::config::Config;
+
+/// Remedy printed with every degraded notice (DISTRIBUTION §7).
+pub const REMEDY: &str =
+    "pwsh scripts/setup-embeddings.ps1, then verify: python embeddings/verify.py --check";
+
+/// Snapshot of the local-embedding setup, shaped for status surfaces.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EmbeddingHealth {
+    /// Effective provider (`VANTADB_EMBEDDING_PROVIDER`; default `ollama`).
+    pub provider: String,
+    /// `true` = local embedding setup degraded (model files missing or ONNX
+    /// Runtime unusable): embedding calls fail closed in strict mode and
+    /// non-strict inserts are stored without a vector — no synthetic
+    /// embeddings are ever served or persisted (FIND-484); `false` = local
+    /// setup verified; `null` = not applicable (remote provider, or this build
+    /// has no `embed-local` feature) — remote degradation is reported per call
+    /// (EMB-13).
+    pub fallback: Option<bool>,
+    /// Degradation trigger, from the DISTRIBUTION §6 vocabulary: `"model"` or
+    /// `"dylib"`. `null` when not degraded / not applicable.
+    pub reason: Option<String>,
+    /// Evidence: missing files or the `ort` load error.
+    pub detail: Option<String>,
+    /// Model directory probed (local provider only).
+    pub model_dir: Option<String>,
+    /// Whether `model.onnx` + `tokenizer.json` were found (local provider only).
+    pub model_present: Option<bool>,
+    /// User-facing notice — present only when `fallback == true`.
+    pub notice: Option<String>,
+    /// Diagnostic status: "Ready" (model loaded/verified), "StrictUnavailable" (model missing in strict mode),
+    /// "DegradedDummy" (model missing, non-strict — historical wire name kept
+    /// for compatibility; the engine still serves no synthetic embeddings:
+    /// nodes are stored without a vector), "NotApplicable" (no embed-local
+    /// feature or remote provider).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+impl EmbeddingHealth {
+    /// Returns true if the embedding provider is fully loaded and ready for inference.
+    pub fn is_ready(&self) -> bool {
+        self.status.as_deref() == Some("Ready")
+    }
+
+    /// Returns true if this build lacks local ONNX embedding capabilities or is using a remote provider.
+    pub fn is_not_applicable(&self) -> bool {
+        self.status.as_deref() == Some("NotApplicable")
+    }
+
+    /// Returns true if local embeddings are missing and strict mode is active (fail-closed).
+    pub fn is_strict_unavailable(&self) -> bool {
+        self.status.as_deref() == Some("StrictUnavailable")
+    }
+}
+
+/// Probe the effective embedding setup (env-aware, cheap, never panics).
+pub fn embedding_health() -> EmbeddingHealth {
+    let cfg = Config::default().llm_cfg();
+    #[cfg(feature = "embed-local")]
+    {
+        // FIND-697: same resolution the provider uses, so `capabilities`
+        // reports the model the session would actually load.
+        let model_dir = crate::config::resolve_local_model_path(&cfg.local_model_path);
+        health_for(
+            &cfg.embedding_provider,
+            &model_dir.to_string_lossy(),
+            cfg.strict_embeddings,
+        )
+    }
+    #[cfg(not(feature = "embed-local"))]
+    {
+        // Local ONNX is not compiled in: nothing to probe (no dummy provider to
+        // route to), so the status is "not applicable" rather than a guess.
+        not_applicable(
+            &cfg.embedding_provider,
+            "this build has no `embed-local` feature: local ONNX is not compiled",
+        )
+    }
+}
+
+/// Build the health snapshot for a given provider/model dir (pure routing).
+#[cfg(feature = "embed-local")]
+fn health_for(provider: &str, model_dir: &str, strict_embeddings: bool) -> EmbeddingHealth {
+    // Mirrors `get_embedding_provider()` feature routing: with `remote-inference`
+    // only `openai`/`ollama` are remote; without it, everything routes local.
+    if routes_to_local(provider) {
+        return local_health_with_strict(
+            provider,
+            model_dir,
+            model_files_present(model_dir),
+            ort_load_error(),
+            strict_embeddings,
+        );
+    }
+    not_applicable(
+        provider,
+        &format!(
+            "provider '{provider}' is remote: a failed call degrades per call (EMB-13), \
+             not to a local dummy provider"
+        ),
+    )
+}
+
+/// Routing mirror of `get_embedding_provider()` (src/llm.rs:57-111).
+///
+/// `pub(crate)`: the INSERT path (`src/executor.rs`) routes the same way to
+/// decide whether a provider vector is real or synthetic (FIND-485).
+#[cfg(feature = "embed-local")]
+pub(crate) fn routes_to_local(provider: &str) -> bool {
+    #[cfg(feature = "remote-inference")]
+    {
+        !matches!(provider, "openai" | "ollama")
+    }
+    #[cfg(not(feature = "remote-inference"))]
+    {
+        let _ = provider;
+        true
+    }
+}
+
+/// Verdict for the local ONNX path from already-probed facts (pure — testable
+/// without touching the environment).
+#[cfg(all(test, feature = "embed-local"))]
+fn local_health(
+    provider: &str,
+    model_dir: &str,
+    model_present: bool,
+    ort_err: Option<String>,
+) -> EmbeddingHealth {
+    local_health_with_strict(provider, model_dir, model_present, ort_err, false)
+}
+
+#[cfg(feature = "embed-local")]
+fn local_health_with_strict(
+    provider: &str,
+    model_dir: &str,
+    model_present: bool,
+    ort_err: Option<String>,
+    strict_embeddings: bool,
+) -> EmbeddingHealth {
+    let mut problems = Vec::new();
+    if !model_present {
+        problems.push(format!(
+            "model files missing under '{model_dir}' (model.onnx + tokenizer.json)"
+        ));
+    }
+    if let Some(err) = ort_err.as_deref() {
+        problems.push(format!("ONNX Runtime unusable: {err}"));
+    }
+    let degraded = !problems.is_empty();
+    let status = if !degraded {
+        Some("Ready".to_string())
+    } else if strict_embeddings {
+        Some("StrictUnavailable".to_string())
+    } else {
+        Some("DegradedDummy".to_string())
+    };
+    let reason = if degraded {
+        // Closed vocabulary (DISTRIBUTION §6): prefer the actionable trigger.
+        Some(if model_present { "dylib" } else { "model" }.to_string())
+    } else {
+        None
+    };
+    let detail = if degraded {
+        let base = problems.join("; ");
+        if strict_embeddings {
+            Some(format!(
+                "{base}; strict mode active (operations fail closed)"
+            ))
+        } else {
+            Some(base)
+        }
+    } else {
+        None
+    };
+    EmbeddingHealth {
+        provider: provider.to_string(),
+        fallback: Some(degraded),
+        reason,
+        detail: detail.clone(),
+        model_dir: Some(model_dir.to_string()),
+        model_present: Some(model_present),
+        notice: detail.as_ref().map(|d| build_notice(d)),
+        status,
+    }
+}
+
+/// The notice contract (DISTRIBUTION §7): machine-readable flag + consequence
+/// + remedy, in one line.
+///
+/// FIND-484: the text must describe the fail-closed reality — the engine
+/// never serves or persists synthetic embeddings (strict mode returns
+/// `Error::Embedding`; non-strict inserts are stored without a vector), so
+/// the old "serves deterministic dummy embeddings" claim was simply false.
+#[cfg(feature = "embed-local")]
+fn build_notice(detail: &str) -> String {
+    format!(
+        "[vantadb] Local embeddings degraded (fallback: true): {detail}. \
+         Recall is NOT semantic until restored — the engine fails closed \
+         (strict mode) or stores nodes without a vector; it never serves \
+         synthetic embeddings. Fix: {REMEDY}"
+    )
+}
+
+/// "Not applicable" snapshot (remote provider / no `embed-local` build).
+fn not_applicable(provider: &str, detail: &str) -> EmbeddingHealth {
+    EmbeddingHealth {
+        provider: provider.to_string(),
+        fallback: None,
+        reason: None,
+        detail: Some(detail.to_string()),
+        model_dir: None,
+        model_present: None,
+        notice: None,
+        status: Some("NotApplicable".to_string()),
+    }
+}
+
+/// `true` when `dir` looks like it can feed a real ONNX session.
+///
+/// Mirrors the candidate lists of `try_load_tokenizer` / `load_session_inner`
+/// (`src/llm.rs:272-304`, `src/llm.rs:421-466`), including their one-level scan
+/// over the model dir.
+///
+/// `pub(crate)`: the INSERT path (`src/executor.rs`) uses the same predicate to
+/// decide whether a provider vector is real or synthetic (FIND-485).
+#[cfg(feature = "embed-local")]
+pub(crate) fn model_files_present(dir: &str) -> bool {
+    // FIND-703: reuse the provider's own candidate lists instead of keeping a
+    // second copy with a different policy. A health probe that disagrees with
+    // the loader is worse than no probe (it reported Ready while strict mode
+    // failed closed).
+    let onnx_candidates = crate::llm::LocalOnnxProvider::model_path_candidates(dir);
+    let tokenizer_candidates = crate::llm::LocalOnnxProvider::tokenizer_candidates(dir);
+    let entries = entries_one_level(dir);
+    let has_onnx = onnx_candidates.iter().any(|p| p.exists())
+        || entries.iter().any(|p| {
+            matches!(p.extension().and_then(|e| e.to_str()), Some("onnx"))
+                || p.join("onnx/model.onnx").exists()
+        });
+    let has_tokenizer = tokenizer_candidates.iter().any(|p| p.exists())
+        || entries.iter().any(|p| p.join("tokenizer.json").exists());
+    has_onnx && has_tokenizer
+}
+
+#[cfg(feature = "embed-local")]
+fn entries_one_level(dir: &str) -> Vec<std::path::PathBuf> {
+    std::fs::read_dir(dir)
+        .map(|entries| entries.flatten().map(|e| e.path()).collect())
+        .unwrap_or_default()
+}
+
+/// Resolve which dylib `ort` would load — mirror of
+/// `LocalOnnxProvider::resolve_ort_dylib_path` (`src/llm.rs:306-339`).
+#[cfg(feature = "embed-local")]
+fn resolve_ort_dylib_path() -> std::path::PathBuf {
+    match std::env::var("ORT_DYLIB_PATH") {
+        Ok(s) if !s.is_empty() => std::path::PathBuf::from(s),
+        _ => {
+            #[cfg(target_os = "windows")]
+            {
+                let candidates = [
+                    std::path::Path::new(
+                        ".venv/Lib/site-packages/onnxruntime/capi/onnxruntime.dll",
+                    ),
+                    std::path::Path::new(
+                        "vantadb-python/.venv/Lib/site-packages/onnxruntime/capi/onnxruntime.dll",
+                    ),
+                ];
+                for c in candidates {
+                    if c.exists() {
+                        return c.to_path_buf();
+                    }
+                }
+                std::path::PathBuf::from("onnxruntime.dll")
+            }
+            #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+            {
+                let candidates = [
+                    std::path::Path::new(
+                        ".venv/lib/site-packages/onnxruntime/capi/libonnxruntime.so",
+                    ),
+                    std::path::Path::new(
+                        "vantadb-python/.venv/lib/site-packages/onnxruntime/capi/libonnxruntime.so",
+                    ),
+                ];
+                for c in candidates {
+                    if c.exists() {
+                        return c.to_path_buf();
+                    }
+                }
+                std::path::PathBuf::from("libonnxruntime.so")
+            }
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            {
+                let candidates = [
+                    std::path::Path::new(".venv/lib/site-packages/onnxruntime/capi/libonnxruntime.dylib"),
+                    std::path::Path::new("vantadb-python/.venv/lib/site-packages/onnxruntime/capi/libonnxruntime.dylib"),
+                ];
+                for c in candidates {
+                    if c.exists() {
+                        return c.to_path_buf();
+                    }
+                }
+                std::path::PathBuf::from("libonnxruntime.dylib")
+            }
+            #[cfg(not(any(
+                target_os = "windows",
+                target_os = "linux",
+                target_os = "android",
+                target_os = "freebsd",
+                target_os = "macos",
+                target_os = "ios"
+            )))]
+            {
+                std::path::PathBuf::from("onnxruntime")
+            }
+        }
+    }
+}
+
+/// `Some(error)` when `ort` cannot load a usable runtime from `path`.
+///
+/// Uses `ort::init_from` (public API): it loads + version-checks the dylib and
+/// returns `Err` for `Dlopen` / `MissingApi` / `BadVersion` instead of the
+/// panic `ort::api()` would raise (FIND-100).
+#[cfg(feature = "embed-local")]
+fn ort_load_error_at(path: &std::path::Path) -> Option<String> {
+    // FIND-643: on a CPU below the ISA the official dylib needs, `init_from`
+    // cannot return an `Err` — the process dies on SIGILL before that. Gate on
+    // CPU features first and surface a typed reason through the same
+    // "dylib unusable" health path.
+    if let Err(missing) = crate::llm::ort_cpu_gate() {
+        return Some(format!(
+            "CPU does not satisfy the ONNX Runtime ISA requirement (missing `{missing}`); \
+             the official binary would terminate the process with SIGILL"
+        ));
+    }
+    ort::init_from(path).err().map(|e| e.to_string())
+}
+
+#[cfg(feature = "embed-local")]
+fn ort_load_error() -> Option<String> {
+    ort_load_error_at(&resolve_ort_dylib_path())
+}
+
+#[cfg(all(test, feature = "embed-local"))]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+
+    fn no_such_dir() -> String {
+        std::env::temp_dir()
+            .join("vantadb-def08-no-such-model-dir")
+            .to_string_lossy()
+            .to_string()
+    }
+
+    // DEF-08 (b): modelo ausente → aviso presente (flag + consecuencia + remedio).
+    #[test]
+    fn def08_missing_model_reports_fallback_notice() {
+        let health = local_health("local", &no_such_dir(), false, None);
+        assert_eq!(health.fallback, Some(true));
+        assert_eq!(health.reason.as_deref(), Some("model"));
+        assert_eq!(health.model_present, Some(false));
+        let notice = health.notice.expect("degraded status must carry a notice");
+        assert!(notice.contains("fallback: true"), "notice: {notice}");
+        // FIND-484: fail-closed guidance — the engine no longer claims to
+        // serve dummy embeddings; the notice must say what actually happens.
+        assert!(notice.contains("fails closed"), "notice: {notice}");
+        assert!(
+            notice.contains("stores nodes without a vector"),
+            "notice: {notice}"
+        );
+        assert!(
+            notice.contains("never serves synthetic embeddings"),
+            "notice: {notice}"
+        );
+        assert!(notice.contains("NOT semantic"), "notice: {notice}");
+        assert!(
+            notice.contains("scripts/setup-embeddings.ps1"),
+            "notice: {notice}"
+        );
+        assert!(
+            notice.contains("embeddings/verify.py --check"),
+            "notice: {notice}"
+        );
+    }
+
+    // DEF-08 (a): ORT no usable → reason dylib + aviso (nunca silencio).
+    #[test]
+    fn def08_unusable_ort_reports_fallback_notice() {
+        let health = local_health(
+            "local",
+            "embeddings/models/multilingual-e5-small/onnx",
+            true,
+            Some("failed to load `x`: Dlopen".to_string()),
+        );
+        assert_eq!(health.fallback, Some(true));
+        assert_eq!(health.reason.as_deref(), Some("dylib"));
+        let notice = health.notice.expect("degraded status must carry a notice");
+        assert!(notice.contains("fallback: true"), "notice: {notice}");
+        assert!(notice.contains("ONNX Runtime unusable"), "notice: {notice}");
+        assert!(
+            notice.contains("scripts/setup-embeddings.ps1"),
+            "notice: {notice}"
+        );
+    }
+
+    // Setup sano → sin aviso (no false alarms).
+    #[test]
+    fn def08_healthy_setup_is_not_degraded() {
+        let health = local_health("local", "anywhere", true, None);
+        assert_eq!(health.fallback, Some(false));
+        assert!(health.reason.is_none());
+        assert!(health.notice.is_none());
+    }
+
+    // Prove-It (patrón f100): dylib inexistente → Err tipado, sin pánico.
+    #[test]
+    fn def08_ort_probe_never_panics_and_reports_error() {
+        let bad = std::path::PathBuf::from("C:/nonexistent-def08/onnxruntime.dll");
+        let probed = std::panic::catch_unwind(|| ort_load_error_at(&bad));
+        let err = probed.expect("ort probe must not panic on a bad dylib path");
+        assert!(err.is_some(), "missing dylib must report an error");
+        // Y el veredicto completo sigue siendo un aviso, nunca un pánico.
+        let health = local_health("local", &no_such_dir(), false, err);
+        assert_eq!(health.fallback, Some(true));
+        assert!(health.notice.is_some());
+    }
+
+    // Remoto → no aplicable (no se inventa un veredicto local).
+    #[test]
+    fn def08_remote_provider_is_not_applicable() {
+        let health = not_applicable("ollama", "remote provider");
+        assert_eq!(health.fallback, None);
+        assert!(health.notice.is_none());
+        assert_eq!(health.status.as_deref(), Some("NotApplicable"));
+        assert!(health.is_not_applicable());
+    }
+
+    #[test]
+    fn def08_diagnostic_status_distinguishes_modes() {
+        // 1. Ready
+        let ready = local_health_with_strict("local", "anywhere", true, None, true);
+        assert_eq!(ready.status.as_deref(), Some("Ready"));
+        assert!(ready.is_ready());
+
+        // 2. StrictUnavailable (model missing + strict mode active)
+        let strict = local_health_with_strict("local", &no_such_dir(), false, None, true);
+        assert_eq!(strict.status.as_deref(), Some("StrictUnavailable"));
+        assert!(strict.is_strict_unavailable());
+        assert!(strict
+            .detail
+            .as_ref()
+            .unwrap()
+            .contains("strict mode active"));
+
+        // 3. DegradedDummy (model missing + non-strict dummy allowed)
+        let dummy = local_health_with_strict("local", &no_such_dir(), false, None, false);
+        assert_eq!(dummy.status.as_deref(), Some("DegradedDummy"));
+        assert_eq!(dummy.fallback, Some(true));
+
+        // 4. NotApplicable
+        let na = not_applicable("openai", "remote");
+        assert_eq!(na.status.as_deref(), Some("NotApplicable"));
+        assert!(na.is_not_applicable());
+    }
+}

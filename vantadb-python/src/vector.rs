@@ -1,0 +1,120 @@
+//! Python bindings for Vector and VectorIter.
+#![warn(missing_docs)]
+#![allow(deprecated)]
+
+use pyo3::exceptions::PyIndexError;
+use pyo3::prelude::*;
+use pyo3::types::{PyBytes, PyDict, PyTuple};
+
+/// A vector wrapper that exposes f32 data to NumPy via `__array_interface__`
+/// with an *owned* buffer copy (safe under drop/mutation), while remaining
+/// sequence-iterable for pure-Python consumers.
+#[pyclass(name = "Vector")]
+pub(crate) struct Vector {
+    data: Box<[f32]>,
+}
+
+#[pymethods]
+impl Vector {
+    #[new]
+    pub(crate) fn new(data: Vec<f32>) -> Self {
+        Vector {
+            data: data.into_boxed_slice(),
+        }
+    }
+
+    fn __len__(&self) -> usize {
+        self.data.len()
+    }
+
+    fn __getitem__(&self, idx: isize) -> PyResult<f32> {
+        let len = self.data.len() as isize;
+        let idx = if idx < 0 { len + idx } else { idx };
+        if idx < 0 || idx >= len {
+            return Err(PyIndexError::new_err("vector index out of range"));
+        }
+        Ok(self.data[idx as usize])
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> VectorIter {
+        VectorIter {
+            data: slf.data.to_vec(),
+            index: 0,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        if self.data.len() <= 6 {
+            format!("Vector({:?})", &self.data[..])
+        } else {
+            format!(
+                "Vector([{:.4}, ..., {:.4}], dim={})",
+                self.data[0],
+                self.data[self.data.len() - 1],
+                self.data.len()
+            )
+        }
+    }
+
+    /// NumPy ``__array_interface__`` protocol — hands NumPy an *owned* copy of
+    /// the buffer (as `bytes`) so the resulting ndarray never aliases this
+    /// pyclass's memory.
+    ///
+    /// AUDIT-01 (UAF): this previously exposed the raw `Box<[f32]>` pointer as
+    /// `(ptr, True)`. NumPy built a zero-copy view over that memory, so when
+    /// `__setstate__` swapped `self.data` (or the pyclass was dropped and the
+    /// buffer freed) the ndarray was left pointing at freed memory and read
+    /// garbage. Passing a buffer-protocol object (`bytes`) as `data` makes
+    /// NumPy copy the buffer into the ndarray's own allocation — the ndarray
+    /// then survives any drop/mutation of this pyclass.
+    #[getter(__array_interface__)]
+    fn get_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        let shape = PyTuple::new(py, [self.data.len()])?;
+        dict.set_item("shape", shape)?;
+        dict.set_item("typestr", "<f4")?;
+        // Owned little-endian f32 bytes (host-order is irrelevant; to_le_bytes
+        // always emits "<f4" layout). NumPy copies this buffer, so the array
+        // never aliases self.data.
+        let le_bytes: Vec<u8> = self.data.iter().flat_map(|f| f.to_le_bytes()).collect();
+        dict.set_item("data", PyBytes::new(py, &le_bytes))?;
+        dict.set_item("version", 3)?;
+        Ok(dict.unbind().into())
+    }
+
+    /// Support ``__getstate__`` / ``__setstate__`` for pickle compatibility.
+    fn __getstate__(&self) -> Vec<f32> {
+        self.data.to_vec()
+    }
+
+    fn __setstate__(&mut self, state: Vec<f32>) {
+        self.data = state.into_boxed_slice();
+    }
+}
+
+/// Iterator for ``Vector`` that lets Python iterate over the elements
+/// without first converting the whole vector to a list.
+#[pyclass(name = "VectorIter")]
+pub(crate) struct VectorIter {
+    data: Vec<f32>,
+    index: usize,
+}
+
+#[pymethods]
+impl VectorIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> PyResult<Option<f32>> {
+        if self.index < self.data.len() {
+            let val = self.data[self.index];
+            self.index += 1;
+            Ok(Some(val))
+        } else {
+            Err(pyo3::exceptions::PyStopIteration::new_err(
+                "end of iteration",
+            ))
+        }
+    }
+}

@@ -1,0 +1,70 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 319 >>
+stream
+BT /F1 12 Tf 72 750 Td 14 TL
+(VantaDB es un motor de memoria embebido y persistente) Tj T*
+(para aplicaciones de IA con prioridad local.) Tj T*
+(Guarda recuerdos como registros \(namespace + key + payload\)) Tj T*
+(y los recupera con busqueda hibrida: BM25 lexical + HNSW) Tj T*
+(vectorial combinados con RRF.) Tj T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 285 >>
+stream
+BT /F1 12 Tf 72 750 Td 14 TL
+(RAG significa recuperacion aumentada por generacion:) Tj T*
+(primero se recuperan los fragmentos relevantes y despues) Tj T*
+(se genera la respuesta citando esos fragmentos.) Tj T*
+(Sin citas verificables no hay RAG, solo alucinacion con estilo.) Tj T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 291 >>
+stream
+BT /F1 12 Tf 72 750 Td 14 TL
+(El pipeline local es: extraer texto, dividir en chunks con) Tj T*
+(solapamiento, calcular embeddings sin red y guardar cada chunk) Tj T*
+(con su proveniencia \(archivo, pagina, indice\).) Tj T*
+(El chat recupera el mejor chunk y lo devuelve como cita.) Tj T*
+ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000323 00000 n 
+0000000693 00000 n 
+0000000819 00000 n 
+0000001155 00000 n 
+0000001281 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1623
+%%EOF

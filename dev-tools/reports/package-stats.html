@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VantaDB · estadísticas de paquetes</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #12151b;
+    --panel-2: #171b22;
+    --line: #232833;
+    --text: #e9ecf1;
+    --muted: #8a93a3;
+    --npm: #cb3837;
+    --pypi: #3776ab;
+    --ok: #34d399;
+    --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+  .muted { color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 28px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin: 0 0 14px; font-weight: 600; }
+  h3 { font-size: 16px; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 34px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .kpi .k { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .kpi .v { display: block; font-size: 26px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .s { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .section { margin-bottom: 38px; }
+  .chart { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .grid { stroke: #232833; stroke-width: 1; }
+  .axis { fill: #6b7484; font-size: 10px; font-family: ui-monospace, monospace; }
+  .dot { fill: var(--text); }
+  .legend { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 0 0; padding: 0; font-size: 12px; }
+  .legend li { display: flex; align-items: center; gap: 6px; }
+  .chip { width: 9px; height: 9px; border-radius: 2px; display: inline-block; flex: none; }
+  .chip-name { color: var(--text); }
+  .chip-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 10px; border-bottom: 1px solid #1a1e26; vertical-align: middle; }
+  tbody tr:hover { background: #14181f; }
+  .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #1e2430; color: var(--muted); }
+  .pill.ok { background: rgba(52,211,153,.14); color: var(--ok); }
+  .pill.warn { background: rgba(251,191,36,.16); color: var(--warn); }
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(251,191,36,.16); color: var(--warn); }
+  .spark { width: 120px; height: 24px; }
+  .spark rect { fill: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent, var(--line)); border-radius: 12px; padding: 16px 18px; }
+  .card header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .versions { text-align: right; font-size: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stats > div { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
+  .stats .k { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .stats .v { display: block; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .releases { font-size: 12px; }
+  .releases tr.latest td { color: var(--text); font-weight: 600; }
+  .empty, .errors { color: var(--muted); font-size: 13px; }
+  .errors li { margin-bottom: 6px; }
+  footer { color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 40px; }
+  code { font-family: ui-monospace, monospace; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  @media (max-width: 720px) { .cards { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Estadísticas de paquetes · VantaDB</h1>
+    <p class="sub">Generado el 2026-10-21 19:27 UTC · ventana de serie 90 días · 15 paquetes en 15 manifiestos locales</p>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi"><span class="k">Descargas 7 días</span><span class="v">2116</span><span class="s">npm 36 · PyPI 2080</span></div>
+    <div class="kpi"><span class="k">Descargas 30 días</span><span class="v">5236</span><span class="s">npm 1396 · PyPI 3840</span></div>
+    <div class="kpi"><span class="k">Descargas 365 días</span><span class="v">7841</span><span class="s">npm 2544 · PyPI 5297 (histórico disponible)</span></div>
+    <div class="kpi"><span class="k">Paquetes</span><span class="v">15</span><span class="s">4 npm · 11 PyPI</span></div>
+    <div class="kpi"><span class="k">Drift de versión</span><span class="v">0</span><span class="s">todo en línea</span></div>
+    <div class="kpi"><span class="k">Fallos</span><span class="v">0</span><span class="s">sin errores</span></div>
+  </section>
+
+  <section class="section">
+    <h2>npm · descargas diarias</h2>
+    
+    <div class="chart">
+      <svg viewBox="0 0 900 260" role="img" aria-label="Descargas diarias por paquete">
+        <defs><linearGradient id="fill-npm" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#cb3837" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#cb3837" stop-opacity="0.03"/>
+        </linearGradient></defs>
+        <line x1="46" y1="234.0" x2="888" y2="234.0" class="grid"/><text x="38" y="238.0" class="axis" text-anchor="end">0</text><line x1="46" y1="179.0" x2="888" y2="179.0" class="grid"/><text x="38" y="183.0" class="axis" text-anchor="end">76</text><line x1="46" y1="124.0" x2="888" y2="124.0" class="grid"/><text x="38" y="128.0" class="axis" text-anchor="end">152</text><line x1="46" y1="69.0" x2="888" y2="69.0" class="grid"/><text x="38" y="73.0" class="axis" text-anchor="end">228</text><line x1="46" y1="14.0" x2="888" y2="14.0" class="grid"/><text x="38" y="18.0" class="axis" text-anchor="end">304</text>
+        <path d="M46.0,229.7 L55.5,231.1 L64.9,226.0 L74.4,234.0 L83.8,231.8 L93.3,227.5 L102.8,232.6 L112.2,234.0 L121.7,231.8 L131.1,37.9 L140.6,214.5 L150.1,221.7 L159.5,224.6 L169.0,226.8 L178.4,232.6 L187.9,224.6 L197.4,231.8 L206.8,226.8 L216.3,228.2 L225.8,228.2 L235.2,230.4 L244.7,231.1 L254.1,234.0 L263.6,232.6 L273.1,233.3 L282.5,228.9 L292.0,229.7 L301.4,231.8 L310.9,231.8 L320.4,234.0 L329.8,234.0 L339.3,234.0 L348.7,231.8 L358.2,233.3 L367.7,231.1 L377.1,234.0 L386.6,233.3 L396.0,233.3 L405.5,228.9 L415.0,230.4 L424.4,231.8 L433.9,233.3 L443.3,234.0 L452.8,233.3 L462.3,233.3 L471.7,234.0 L481.2,234.0 L490.7,234.0 L500.1,233.3 L509.6,230.4 L519.0,234.0 L528.5,231.8 L538.0,229.7 L547.4,228.2 L556.9,234.0 L566.3,234.0 L575.8,227.5 L585.3,233.3 L594.7,234.0 L604.2,234.0 L613.6,233.3 L623.1,119.7 L632.6,14.0 L642.0,197.1 L651.5,30.6 L660.9,200.7 L670.4,215.2 L679.9,223.9 L689.3,223.1 L698.8,230.4 L708.2,229.7 L717.7,119.7 L727.2,74.1 L736.6,213.0 L746.1,227.5 L755.6,234.0 L765.0,228.2 L774.5,229.7 L783.9,228.9 L793.4,234.0 L802.9,223.1 L812.3,232.6 L821.8,234.0 L831.2,234.0 L840.7,234.0 L850.2,229.7 L859.6,227.5 L869.1,220.3 L878.5,234.0 L888.0,234.0 L888.0,234.0 L46.0,234.0 Z" fill="url(#fill-npm)"/>
+        <path d="M46.0,229.7 L55.5,231.1 L64.9,226.0 L74.4,234.0 L83.8,231.8 L93.3,227.5 L102.8,232.6 L112.2,234.0 L121.7,231.8 L131.1,37.9 L140.6,214.5 L150.1,221.7 L159.5,224.6 L169.0,226.8 L178.4,232.6 L187.9,224.6 L197.4,231.8 L206.8,226.8 L216.3,228.2 L225.8,228.2 L235.2,230.4 L244.7,231.1 L254.1,234.0 L263.6,232.6 L273.1,233.3 L282.5,228.9 L292.0,229.7 L301.4,231.8 L310.9,231.8 L320.4,234.0 L329.8,234.0 L339.3,234.0 L348.7,231.8 L358.2,233.3 L367.7,231.1 L377.1,234.0 L386.6,233.3 L396.0,233.3 L405.5,228.9 L415.0,230.4 L424.4,231.8 L433.9,233.3 L443.3,234.0 L452.8,233.3 L462.3,233.3 L471.7,234.0 L481.2,234.0 L490.7,234.0 L500.1,233.3 L509.6,230.4 L519.0,234.0 L528.5,231.8 L538.0,229.7 L547.4,228.2 L556.9,234.0 L566.3,234.0 L575.8,227.5 L585.3,233.3 L594.7,234.0 L604.2,234.0 L613.6,233.3 L623.1,119.7 L632.6,14.0 L642.0,197.1 L651.5,30.6 L660.9,200.7 L670.4,215.2 L679.9,223.9 L689.3,223.1 L698.8,230.4 L708.2,229.7 L717.7,119.7 L727.2,74.1 L736.6,213.0 L746.1,227.5 L755.6,234.0 L765.0,228.2 L774.5,229.7 L783.9,228.9 L793.4,234.0 L802.9,223.1 L812.3,232.6 L821.8,234.0 L831.2,234.0 L840.7,234.0 L850.2,229.7 L859.6,227.5 L869.1,220.3 L878.5,234.0 L888.0,234.0" fill="none" stroke="#cb3837" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="46.0" cy="229.7" r="2.4" class="dot"><title>2026-07-23 — 6 descargas</title></circle><circle cx="55.5" cy="231.1" r="2.4" class="dot"><title>2026-07-24 — 4 descargas</title></circle><circle cx="64.9" cy="226.0" r="2.4" class="dot"><title>2026-07-25 — 11 descargas</title></circle><circle cx="74.4" cy="234.0" r="2.4" class="dot"><title>2026-07-26 — 0 descargas</title></circle><circle cx="83.8" cy="231.8" r="2.4" class="dot"><title>2026-07-27 — 3 descargas</title></circle><circle cx="93.3" cy="227.5" r="2.4" class="dot"><title>2026-07-28 — 9 descargas</title></circle><circle cx="102.8" cy="232.6" r="2.4" class="dot"><title>2026-07-29 — 2 descargas</title></circle><circle cx="112.2" cy="234.0" r="2.4" class="dot"><title>2026-07-30 — 0 descargas</title></circle><circle cx="121.7" cy="231.8" r="2.4" class="dot"><title>2026-07-31 — 3 descargas</title></circle><circle cx="131.1" cy="37.9" r="2.4" class="dot"><title>2026-08-01 — 271 descargas</title></circle><circle cx="140.6" cy="214.5" r="2.4" class="dot"><title>2026-08-02 — 27 descargas</title></circle><circle cx="150.1" cy="221.7" r="2.4" class="dot"><title>2026-08-03 — 17 descargas</title></circle><circle cx="159.5" cy="224.6" r="2.4" class="dot"><title>2026-08-04 — 13 descargas</title></circle><circle cx="169.0" cy="226.8" r="2.4" class="dot"><title>2026-08-05 — 10 descargas</title></circle><circle cx="178.4" cy="232.6" r="2.4" class="dot"><title>2026-08-06 — 2 descargas</title></circle><circle cx="187.9" cy="224.6" r="2.4" class="dot"><title>2026-08-07 — 13 descargas</title></circle><circle cx="197.4" cy="231.8" r="2.4" class="dot"><title>2026-08-08 — 3 descargas</title></circle><circle cx="206.8" cy="226.8" r="2.4" class="dot"><title>2026-08-09 — 10 descargas</title></circle><circle cx="216.3" cy="228.2" r="2.4" class="dot"><title>2026-08-10 — 8 descargas</title></circle><circle cx="225.8" cy="228.2" r="2.4" class="dot"><title>2026-08-11 — 8 descargas</title></circle><circle cx="235.2" cy="230.4" r="2.4" class="dot"><title>2026-08-12 — 5 descargas</title></circle><circle cx="244.7" cy="231.1" r="2.4" class="dot"><title>2026-08-13 — 4 descargas</title></circle><circle cx="254.1" cy="234.0" r="2.4" class="dot"><title>2026-08-14 — 0 descargas</title></circle><circle cx="263.6" cy="232.6" r="2.4" class="dot"><title>2026-08-15 — 2 descargas</title></circle><circle cx="273.1" cy="233.3" r="2.4" class="dot"><title>2026-08-16 — 1 descargas</title></circle><circle cx="282.5" cy="228.9" r="2.4" class="dot"><title>2026-08-17 — 7 descargas</title></circle><circle cx="292.0" cy="229.7" r="2.4" class="dot"><title>2026-08-18 — 6 descargas</title></circle><circle cx="301.4" cy="231.8" r="2.4" class="dot"><title>2026-08-19 — 3 descargas</title></circle><circle cx="310.9" cy="231.8" r="2.4" class="dot"><title>2026-08-20 — 3 descargas</title></circle><circle cx="320.4" cy="234.0" r="2.4" class="dot"><title>2026-08-21 — 0 descargas</title></circle><circle cx="329.8" cy="234.0" r="2.4" class="dot"><title>2026-08-22 — 0 descargas</title></circle><circle cx="339.3" cy="234.0" r="2.4" class="dot"><title>2026-08-23 — 0 descargas</title></circle><circle cx="348.7" cy="231.8" r="2.4" class="dot"><title>2026-08-24 — 3 descargas</title></circle><circle cx="358.2" cy="233.3" r="2.4" class="dot"><title>2026-08-25 — 1 descargas</title></circle><circle cx="367.7" cy="231.1" r="2.4" class="dot"><title>2026-08-26 — 4 descargas</title></circle><circle cx="377.1" cy="234.0" r="2.4" class="dot"><title>2026-08-27 — 0 descargas</title></circle><circle cx="386.6" cy="233.3" r="2.4" class="dot"><title>2026-08-28 — 1 descargas</title></circle><circle cx="396.0" cy="233.3" r="2.4" class="dot"><title>2026-08-29 — 1 descargas</title></circle><circle cx="405.5" cy="228.9" r="2.4" class="dot"><title>2026-08-30 — 7 descargas</title></circle><circle cx="415.0" cy="230.4" r="2.4" class="dot"><title>2026-08-31 — 5 descargas</title></circle><circle cx="424.4" cy="231.8" r="2.4" class="dot"><title>2026-09-01 — 3 descargas</title></circle><circle cx="433.9" cy="233.3" r="2.4" class="dot"><title>2026-09-02 — 1 descargas</title></circle><circle cx="443.3" cy="234.0" r="2.4" class="dot"><title>2026-09-03 — 0 descargas</title></circle><circle cx="452.8" cy="233.3" r="2.4" class="dot"><title>2026-09-04 — 1 descargas</title></circle><circle cx="462.3" cy="233.3" r="2.4" class="dot"><title>2026-09-05 — 1 descargas</title></circle><circle cx="471.7" cy="234.0" r="2.4" class="dot"><title>2026-09-06 — 0 descargas</title></circle><circle cx="481.2" cy="234.0" r="2.4" class="dot"><title>2026-09-07 — 0 descargas</title></circle><circle cx="490.7" cy="234.0" r="2.4" class="dot"><title>2026-09-08 — 0 descargas</title></circle><circle cx="500.1" cy="233.3" r="2.4" class="dot"><title>2026-09-09 — 1 descargas</title></circle><circle cx="509.6" cy="230.4" r="2.4" class="dot"><title>2026-09-10 — 5 descargas</title></circle><circle cx="519.0" cy="234.0" r="2.4" class="dot"><title>2026-09-11 — 0 descargas</title></circle><circle cx="528.5" cy="231.8" r="2.4" class="dot"><title>2026-09-12 — 3 descargas</title></circle><circle cx="538.0" cy="229.7" r="2.4" class="dot"><title>2026-09-13 — 6 descargas</title></circle><circle cx="547.4" cy="228.2" r="2.4" class="dot"><title>2026-09-14 — 8 descargas</title></circle><circle cx="556.9" cy="234.0" r="2.4" class="dot"><title>2026-09-15 — 0 descargas</title></circle><circle cx="566.3" cy="234.0" r="2.4" class="dot"><title>2026-09-16 — 0 descargas</title></circle><circle cx="575.8" cy="227.5" r="2.4" class="dot"><title>2026-09-17 — 9 descargas</title></circle><circle cx="585.3" cy="233.3" r="2.4" class="dot"><title>2026-09-18 — 1 descargas</title></circle><circle cx="594.7" cy="234.0" r="2.4" class="dot"><title>2026-09-19 — 0 descargas</title></circle><circle cx="604.2" cy="234.0" r="2.4" class="dot"><title>2026-09-20 — 0 descargas</title></circle><circle cx="613.6" cy="233.3" r="2.4" class="dot"><title>2026-09-21 — 1 descargas</title></circle><circle cx="623.1" cy="119.7" r="2.4" class="dot"><title>2026-09-22 — 158 descargas</title></circle><circle cx="632.6" cy="14.0" r="2.4" class="dot"><title>2026-09-23 — 304 descargas</title></circle><circle cx="642.0" cy="197.1" r="2.4" class="dot"><title>2026-09-24 — 51 descargas</title></circle><circle cx="651.5" cy="30.6" r="2.4" class="dot"><title>2026-09-25 — 281 descargas</title></circle><circle cx="660.9" cy="200.7" r="2.4" class="dot"><title>2026-09-26 — 46 descargas</title></circle><circle cx="670.4" cy="215.2" r="2.4" class="dot"><title>2026-09-27 — 26 descargas</title></circle><circle cx="679.9" cy="223.9" r="2.4" class="dot"><title>2026-09-28 — 14 descargas</title></circle><circle cx="689.3" cy="223.1" r="2.4" class="dot"><title>2026-09-29 — 15 descargas</title></circle><circle cx="698.8" cy="230.4" r="2.4" class="dot"><title>2026-09-30 — 5 descargas</title></circle><circle cx="708.2" cy="229.7" r="2.4" class="dot"><title>2026-10-01 — 6 descargas</title></circle><circle cx="717.7" cy="119.7" r="2.4" class="dot"><title>2026-10-02 — 158 descargas</title></circle><circle cx="727.2" cy="74.1" r="2.4" class="dot"><title>2026-10-03 — 221 descargas</title></circle><circle cx="736.6" cy="213.0" r="2.4" class="dot"><title>2026-10-04 — 29 descargas</title></circle><circle cx="746.1" cy="227.5" r="2.4" class="dot"><title>2026-10-05 — 9 descargas</title></circle><circle cx="755.6" cy="234.0" r="2.4" class="dot"><title>2026-10-06 — 0 descargas</title></circle><circle cx="765.0" cy="228.2" r="2.4" class="dot"><title>2026-10-07 — 8 descargas</title></circle><circle cx="774.5" cy="229.7" r="2.4" class="dot"><title>2026-10-08 — 6 descargas</title></circle><circle cx="783.9" cy="228.9" r="2.4" class="dot"><title>2026-10-09 — 7 descargas</title></circle><circle cx="793.4" cy="234.0" r="2.4" class="dot"><title>2026-10-10 — 0 descargas</title></circle><circle cx="802.9" cy="223.1" r="2.4" class="dot"><title>2026-10-11 — 15 descargas</title></circle><circle cx="812.3" cy="232.6" r="2.4" class="dot"><title>2026-10-12 — 2 descargas</title></circle><circle cx="821.8" cy="234.0" r="2.4" class="dot"><title>2026-10-13 — 0 descargas</title></circle><circle cx="831.2" cy="234.0" r="2.4" class="dot"><title>2026-10-14 — 0 descargas</title></circle><circle cx="840.7" cy="234.0" r="2.4" class="dot"><title>2026-10-15 — 0 descargas</title></circle><circle cx="850.2" cy="229.7" r="2.4" class="dot"><title>2026-10-16 — 6 descargas</title></circle><circle cx="859.6" cy="227.5" r="2.4" class="dot"><title>2026-10-17 — 9 descargas</title></circle><circle cx="869.1" cy="220.3" r="2.4" class="dot"><title>2026-10-18 — 19 descargas</title></circle><circle cx="878.5" cy="234.0" r="2.4" class="dot"><title>2026-10-19 — 0 descargas</title></circle><circle cx="888.0" cy="234.0" r="2.4" class="dot"><title>2026-10-20 — 0 descargas</title></circle>
+        <text x="46.0" y="254" class="axis" text-anchor="middle">2026-07-23</text><text x="462.3" y="254" class="axis" text-anchor="middle">2026-09-05</text><text x="888.0" y="254" class="axis" text-anchor="middle">2026-10-20</text>
+      </svg>
+      <ul class="legend"><li><span class="chip" style="background:#5eead4"></span><span class="chip-name">vantadb-wasm</span><span class="chip-val">1028</span></li><li><span class="chip" style="background:#a78bfa"></span><span class="chip-name">vantadb</span><span class="chip-val">853</span></li><li><span class="chip" style="background:#fbbf24"></span><span class="chip-name">vanta-cli</span><span class="chip-val">27</span></li><li><span class="chip" style="background:#f472b6"></span><span class="chip-name">vantadb-node</span><span class="chip-val">0</span></li></ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>PyPI · descargas diarias (sin mirrors)</h2>
+    
+    <div class="chart">
+      <svg viewBox="0 0 900 260" role="img" aria-label="Descargas diarias por paquete">
+        <defs><linearGradient id="fill-pypi" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3776ab" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#3776ab" stop-opacity="0.03"/>
+        </linearGradient></defs>
+        <line x1="46" y1="234.0" x2="888" y2="234.0" class="grid"/><text x="38" y="238.0" class="axis" text-anchor="end">0</text><line x1="46" y1="179.0" x2="888" y2="179.0" class="grid"/><text x="38" y="183.0" class="axis" text-anchor="end">329</text><line x1="46" y1="123.9" x2="888" y2="123.9" class="grid"/><text x="38" y="127.9" class="axis" text-anchor="end">659</text><line x1="46" y1="69.0" x2="888" y2="69.0" class="grid"/><text x="38" y="73.0" class="axis" text-anchor="end">988</text><line x1="46" y1="14.0" x2="888" y2="14.0" class="grid"/><text x="38" y="18.0" class="axis" text-anchor="end">1317</text>
+        <path d="M46.0,233.3 L59.2,232.8 L72.3,232.8 L85.5,233.7 L98.6,233.5 L111.8,233.0 L124.9,216.6 L138.1,231.8 L151.3,233.5 L164.4,231.0 L177.6,232.8 L190.7,233.7 L203.9,233.2 L217.0,230.3 L230.2,232.3 L243.3,233.8 L256.5,232.5 L269.7,233.3 L282.8,233.3 L296.0,232.0 L309.1,230.2 L322.3,230.5 L335.4,233.8 L348.6,233.5 L361.8,229.8 L374.9,232.5 L388.1,233.5 L401.2,233.2 L414.4,232.8 L427.5,233.0 L440.7,233.5 L453.8,233.3 L467.0,233.5 L480.2,230.7 L493.3,228.7 L506.5,232.2 L519.6,227.3 L532.8,208.9 L545.9,224.6 L559.1,206.9 L572.3,228.0 L585.4,226.3 L598.6,233.0 L611.7,233.2 L624.9,233.5 L638.0,232.3 L651.2,201.8 L664.3,230.5 L677.5,229.3 L690.7,232.5 L703.8,230.2 L717.0,158.3 L730.1,176.4 L743.3,221.8 L756.4,227.7 L769.6,228.7 L782.8,232.7 L795.9,232.0 L809.1,232.2 L822.2,230.5 L835.4,232.7 L848.5,231.8 L861.7,146.8 L874.8,202.6 L888.0,14.0 L888.0,234.0 L46.0,234.0 Z" fill="url(#fill-pypi)"/>
+        <path d="M46.0,233.3 L59.2,232.8 L72.3,232.8 L85.5,233.7 L98.6,233.5 L111.8,233.0 L124.9,216.6 L138.1,231.8 L151.3,233.5 L164.4,231.0 L177.6,232.8 L190.7,233.7 L203.9,233.2 L217.0,230.3 L230.2,232.3 L243.3,233.8 L256.5,232.5 L269.7,233.3 L282.8,233.3 L296.0,232.0 L309.1,230.2 L322.3,230.5 L335.4,233.8 L348.6,233.5 L361.8,229.8 L374.9,232.5 L388.1,233.5 L401.2,233.2 L414.4,232.8 L427.5,233.0 L440.7,233.5 L453.8,233.3 L467.0,233.5 L480.2,230.7 L493.3,228.7 L506.5,232.2 L519.6,227.3 L532.8,208.9 L545.9,224.6 L559.1,206.9 L572.3,228.0 L585.4,226.3 L598.6,233.0 L611.7,233.2 L624.9,233.5 L638.0,232.3 L651.2,201.8 L664.3,230.5 L677.5,229.3 L690.7,232.5 L703.8,230.2 L717.0,158.3 L730.1,176.4 L743.3,221.8 L756.4,227.7 L769.6,228.7 L782.8,232.7 L795.9,232.0 L809.1,232.2 L822.2,230.5 L835.4,232.7 L848.5,231.8 L861.7,146.8 L874.8,202.6 L888.0,14.0" fill="none" stroke="#3776ab" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="46.0" cy="233.3" r="2.4" class="dot"><title>2026-07-23 — 4 descargas</title></circle><circle cx="59.2" cy="232.8" r="2.4" class="dot"><title>2026-07-25 — 7 descargas</title></circle><circle cx="72.3" cy="232.8" r="2.4" class="dot"><title>2026-07-26 — 7 descargas</title></circle><circle cx="85.5" cy="233.7" r="2.4" class="dot"><title>2026-07-28 — 2 descargas</title></circle><circle cx="98.6" cy="233.5" r="2.4" class="dot"><title>2026-07-30 — 3 descargas</title></circle><circle cx="111.8" cy="233.0" r="2.4" class="dot"><title>2026-07-31 — 6 descargas</title></circle><circle cx="124.9" cy="216.6" r="2.4" class="dot"><title>2026-08-01 — 104 descargas</title></circle><circle cx="138.1" cy="231.8" r="2.4" class="dot"><title>2026-08-02 — 13 descargas</title></circle><circle cx="151.3" cy="233.5" r="2.4" class="dot"><title>2026-08-03 — 3 descargas</title></circle><circle cx="164.4" cy="231.0" r="2.4" class="dot"><title>2026-08-04 — 18 descargas</title></circle><circle cx="177.6" cy="232.8" r="2.4" class="dot"><title>2026-08-06 — 7 descargas</title></circle><circle cx="190.7" cy="233.7" r="2.4" class="dot"><title>2026-08-07 — 2 descargas</title></circle><circle cx="203.9" cy="233.2" r="2.4" class="dot"><title>2026-08-08 — 5 descargas</title></circle><circle cx="217.0" cy="230.3" r="2.4" class="dot"><title>2026-08-09 — 22 descargas</title></circle><circle cx="230.2" cy="232.3" r="2.4" class="dot"><title>2026-08-10 — 10 descargas</title></circle><circle cx="243.3" cy="233.8" r="2.4" class="dot"><title>2026-08-12 — 1 descargas</title></circle><circle cx="256.5" cy="232.5" r="2.4" class="dot"><title>2026-08-15 — 9 descargas</title></circle><circle cx="269.7" cy="233.3" r="2.4" class="dot"><title>2026-08-16 — 4 descargas</title></circle><circle cx="282.8" cy="233.3" r="2.4" class="dot"><title>2026-08-18 — 4 descargas</title></circle><circle cx="296.0" cy="232.0" r="2.4" class="dot"><title>2026-08-21 — 12 descargas</title></circle><circle cx="309.1" cy="230.2" r="2.4" class="dot"><title>2026-08-23 — 23 descargas</title></circle><circle cx="322.3" cy="230.5" r="2.4" class="dot"><title>2026-08-27 — 21 descargas</title></circle><circle cx="335.4" cy="233.8" r="2.4" class="dot"><title>2026-08-28 — 1 descargas</title></circle><circle cx="348.6" cy="233.5" r="2.4" class="dot"><title>2026-08-30 — 3 descargas</title></circle><circle cx="361.8" cy="229.8" r="2.4" class="dot"><title>2026-08-31 — 25 descargas</title></circle><circle cx="374.9" cy="232.5" r="2.4" class="dot"><title>2026-09-04 — 9 descargas</title></circle><circle cx="388.1" cy="233.5" r="2.4" class="dot"><title>2026-09-06 — 3 descargas</title></circle><circle cx="401.2" cy="233.2" r="2.4" class="dot"><title>2026-09-07 — 5 descargas</title></circle><circle cx="414.4" cy="232.8" r="2.4" class="dot"><title>2026-09-08 — 7 descargas</title></circle><circle cx="427.5" cy="233.0" r="2.4" class="dot"><title>2026-09-12 — 6 descargas</title></circle><circle cx="440.7" cy="233.5" r="2.4" class="dot"><title>2026-09-13 — 3 descargas</title></circle><circle cx="453.8" cy="233.3" r="2.4" class="dot"><title>2026-09-14 — 4 descargas</title></circle><circle cx="467.0" cy="233.5" r="2.4" class="dot"><title>2026-09-18 — 3 descargas</title></circle><circle cx="480.2" cy="230.7" r="2.4" class="dot"><title>2026-09-19 — 20 descargas</title></circle><circle cx="493.3" cy="228.7" r="2.4" class="dot"><title>2026-09-20 — 32 descargas</title></circle><circle cx="506.5" cy="232.2" r="2.4" class="dot"><title>2026-09-21 — 11 descargas</title></circle><circle cx="519.6" cy="227.3" r="2.4" class="dot"><title>2026-09-22 — 40 descargas</title></circle><circle cx="532.8" cy="208.9" r="2.4" class="dot"><title>2026-09-23 — 150 descargas</title></circle><circle cx="545.9" cy="224.6" r="2.4" class="dot"><title>2026-09-24 — 56 descargas</title></circle><circle cx="559.1" cy="206.9" r="2.4" class="dot"><title>2026-09-25 — 162 descargas</title></circle><circle cx="572.3" cy="228.0" r="2.4" class="dot"><title>2026-09-26 — 36 descargas</title></circle><circle cx="585.4" cy="226.3" r="2.4" class="dot"><title>2026-09-27 — 46 descargas</title></circle><circle cx="598.6" cy="233.0" r="2.4" class="dot"><title>2026-09-28 — 6 descargas</title></circle><circle cx="611.7" cy="233.2" r="2.4" class="dot"><title>2026-09-29 — 5 descargas</title></circle><circle cx="624.9" cy="233.5" r="2.4" class="dot"><title>2026-09-30 — 3 descargas</title></circle><circle cx="638.0" cy="232.3" r="2.4" class="dot"><title>2026-10-01 — 10 descargas</title></circle><circle cx="651.2" cy="201.8" r="2.4" class="dot"><title>2026-10-02 — 193 descargas</title></circle><circle cx="664.3" cy="230.5" r="2.4" class="dot"><title>2026-10-03 — 21 descargas</title></circle><circle cx="677.5" cy="229.3" r="2.4" class="dot"><title>2026-10-04 — 28 descargas</title></circle><circle cx="690.7" cy="232.5" r="2.4" class="dot"><title>2026-10-05 — 9 descargas</title></circle><circle cx="703.8" cy="230.2" r="2.4" class="dot"><title>2026-10-06 — 23 descargas</title></circle><circle cx="717.0" cy="158.3" r="2.4" class="dot"><title>2026-10-07 — 453 descargas</title></circle><circle cx="730.1" cy="176.4" r="2.4" class="dot"><title>2026-10-08 — 345 descargas</title></circle><circle cx="743.3" cy="221.8" r="2.4" class="dot"><title>2026-10-09 — 73 descargas</title></circle><circle cx="756.4" cy="227.7" r="2.4" class="dot"><title>2026-10-10 — 38 descargas</title></circle><circle cx="769.6" cy="228.7" r="2.4" class="dot"><title>2026-10-11 — 32 descargas</title></circle><circle cx="782.8" cy="232.7" r="2.4" class="dot"><title>2026-10-12 — 8 descargas</title></circle><circle cx="795.9" cy="232.0" r="2.4" class="dot"><title>2026-10-13 — 12 descargas</title></circle><circle cx="809.1" cy="232.2" r="2.4" class="dot"><title>2026-10-14 — 11 descargas</title></circle><circle cx="822.2" cy="230.5" r="2.4" class="dot"><title>2026-10-15 — 21 descargas</title></circle><circle cx="835.4" cy="232.7" r="2.4" class="dot"><title>2026-10-16 — 8 descargas</title></circle><circle cx="848.5" cy="231.8" r="2.4" class="dot"><title>2026-10-17 — 13 descargas</title></circle><circle cx="861.7" cy="146.8" r="2.4" class="dot"><title>2026-10-18 — 522 descargas</title></circle><circle cx="874.8" cy="202.6" r="2.4" class="dot"><title>2026-10-19 — 188 descargas</title></circle><circle cx="888.0" cy="14.0" r="2.4" class="dot"><title>2026-10-20 — 1317 descargas</title></circle>
+        <text x="46.0" y="254" class="axis" text-anchor="middle">2026-07-23</text><text x="467.0" y="254" class="axis" text-anchor="middle">2026-09-18</text><text x="888.0" y="254" class="axis" text-anchor="middle">2026-10-20</text>
+      </svg>
+      <ul class="legend"><li><span class="chip" style="background:#60a5fa"></span><span class="chip-name">vantadb-py</span><span class="chip-val">1761</span></li><li><span class="chip" style="background:#34d399"></span><span class="chip-name">vantadb-ollama</span><span class="chip-val">332</span></li><li><span class="chip" style="background:#fb7185"></span><span class="chip-name">vantadb-openai</span><span class="chip-val">331</span></li><li><span class="chip" style="background:#c084fc"></span><span class="chip-name">vantadb-litellm</span><span class="chip-val">328</span></li><li><span class="chip" style="background:#22d3ee"></span><span class="chip-name">vantadb-llamaindex</span><span class="chip-val">225</span></li><li><span class="chip" style="background:#facc15"></span><span class="chip-name">vantadb-haystack</span><span class="chip-val">221</span></li><li><span class="chip" style="background:#f97316"></span><span class="chip-name">vantadb-langchain</span><span class="chip-val">221</span></li><li><span class="chip" style="background:#94a3b8"></span><span class="chip-name">vantadb-crewai</span><span class="chip-val">220</span></li><li><span class="chip" style="background:#5eead4"></span><span class="chip-name">vantadb-dspy</span><span class="chip-val">211</span></li><li><span class="chip" style="background:#a78bfa"></span><span class="chip-name">vantadb-mem0</span><span class="chip-val">202</span></li><li><span class="chip" style="background:#fbbf24"></span><span class="chip-name">vantadb-letta</span><span class="chip-val">196</span></li></ul>
+    </div>
+  </section>
+  <section class="section">
+    <h2>Detalle por paquete</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Paquete</th><th>Registro</th><th>Local</th><th>Publicado (v)</th><th>Estado</th>
+          <th class="num">7d</th><th class="num">30d</th><th class="num">365d</th><th class="num">Tamaño</th>
+          <th>Fecha pub.</th><th>30 días</th>
+        </tr></thead>
+        <tbody><tr>
+      <td><span class="chip" style="background:#60a5fa"></span><span class="mono">vantadb-py</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">410</td>
+      <td class="num">1353</td>
+      <td class="num">2810</td>
+      <td class="num">2.6 MB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="22.10" width="3.20" height="1.90" rx="1"><title>2026-09-19 — 20</title></rect><rect x="4.00" y="20.95" width="3.20" height="3.05" rx="1"><title>2026-09-20 — 32</title></rect><rect x="8.00" y="22.95" width="3.20" height="1.05" rx="1"><title>2026-09-21 — 11</title></rect><rect x="12.00" y="20.19" width="3.20" height="3.81" rx="1"><title>2026-09-22 — 40</title></rect><rect x="16.00" y="9.71" width="3.20" height="14.29" rx="1"><title>2026-09-23 — 150</title></rect><rect x="20.00" y="18.67" width="3.20" height="5.33" rx="1"><title>2026-09-24 — 56</title></rect><rect x="24.00" y="8.57" width="3.20" height="15.43" rx="1"><title>2026-09-25 — 162</title></rect><rect x="28.00" y="20.57" width="3.20" height="3.43" rx="1"><title>2026-09-26 — 36</title></rect><rect x="32.00" y="19.62" width="3.20" height="4.38" rx="1"><title>2026-09-27 — 46</title></rect><rect x="36.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-28 — 6</title></rect><rect x="40.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-29 — 5</title></rect><rect x="44.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-30 — 3</title></rect><rect x="48.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-01 — 10</title></rect><rect x="52.00" y="5.62" width="3.20" height="18.38" rx="1"><title>2026-10-02 — 193</title></rect><rect x="56.00" y="22.00" width="3.20" height="2.00" rx="1"><title>2026-10-03 — 21</title></rect><rect x="60.00" y="21.33" width="3.20" height="2.67" rx="1"><title>2026-10-04 — 28</title></rect><rect x="64.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-05 — 9</title></rect><rect x="68.00" y="21.81" width="3.20" height="2.19" rx="1"><title>2026-10-06 — 23</title></rect><rect x="72.00" y="19.62" width="3.20" height="4.38" rx="1"><title>2026-10-07 — 46</title></rect><rect x="76.00" y="20.00" width="3.20" height="4.00" rx="1"><title>2026-10-08 — 42</title></rect><rect x="80.00" y="21.81" width="3.20" height="2.19" rx="1"><title>2026-10-09 — 23</title></rect><rect x="84.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-10 — 7</title></rect><rect x="88.00" y="22.00" width="3.20" height="2.00" rx="1"><title>2026-10-11 — 21</title></rect><rect x="92.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-13 — 5</title></rect><rect x="96.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-14 — 1</title></rect><rect x="100.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-15 — 3</title></rect><rect x="104.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-17 — 1</title></rect><rect x="108.00" y="18.95" width="3.20" height="5.05" rx="1"><title>2026-10-18 — 53</title></rect><rect x="112.00" y="14.48" width="3.20" height="9.52" rx="1"><title>2026-10-19 — 100</title></rect><rect x="116.00" y="0.00" width="3.20" height="24.00" rx="1"><title>2026-10-20 — 252</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#5eead4"></span><span class="mono">vantadb-wasm</span></td>
+      <td class="muted">npm</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">12</td>
+      <td class="num">798</td>
+      <td class="num">1199</td>
+      <td class="num">2.0 MB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-21 — 1</title></rect><rect x="4.00" y="1.30" width="3.20" height="22.70" rx="1"><title>2026-09-22 — 157</title></rect><rect x="8.00" y="0.00" width="3.20" height="24.00" rx="1"><title>2026-09-23 — 166</title></rect><rect x="12.00" y="19.66" width="3.20" height="4.34" rx="1"><title>2026-09-24 — 30</title></rect><rect x="16.00" y="4.05" width="3.20" height="19.95" rx="1"><title>2026-09-25 — 138</title></rect><rect x="20.00" y="20.24" width="3.20" height="3.76" rx="1"><title>2026-09-26 — 26</title></rect><rect x="24.00" y="21.83" width="3.20" height="2.17" rx="1"><title>2026-09-27 — 15</title></rect><rect x="28.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-28 — 5</title></rect><rect x="32.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-29 — 5</title></rect><rect x="36.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-30 — 4</title></rect><rect x="40.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-01 — 2</title></rect><rect x="44.00" y="2.17" width="3.20" height="21.83" rx="1"><title>2026-10-02 — 151</title></rect><rect x="48.00" y="16.77" width="3.20" height="7.23" rx="1"><title>2026-10-03 — 50</title></rect><rect x="52.00" y="21.69" width="3.20" height="2.31" rx="1"><title>2026-10-04 — 16</title></rect><rect x="56.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-05 — 3</title></rect><rect x="60.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-06 — 0</title></rect><rect x="64.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-07 — 4</title></rect><rect x="68.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-08 — 3</title></rect><rect x="72.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-09 — 3</title></rect><rect x="76.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-10 — 0</title></rect><rect x="80.00" y="22.99" width="3.20" height="1.01" rx="1"><title>2026-10-11 — 7</title></rect><rect x="84.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-12 — 0</title></rect><rect x="88.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-13 — 0</title></rect><rect x="92.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-14 — 0</title></rect><rect x="96.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-15 — 0</title></rect><rect x="100.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-16 — 1</title></rect><rect x="104.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-17 — 2</title></rect><rect x="108.00" y="22.70" width="3.20" height="1.30" rx="1"><title>2026-10-18 — 9</title></rect><rect x="112.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-19 — 0</title></rect><rect x="116.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-20 — 0</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#a78bfa"></span><span class="mono">vantadb</span></td>
+      <td class="muted">npm</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">23</td>
+      <td class="num">594</td>
+      <td class="num">1115</td>
+      <td class="num">269 KB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-21 — 0</title></rect><rect x="4.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-22 — 1</title></rect><rect x="8.00" y="4.52" width="3.20" height="19.48" rx="1"><title>2026-09-23 — 138</title></rect><rect x="12.00" y="21.04" width="3.20" height="2.96" rx="1"><title>2026-09-24 — 21</title></rect><rect x="16.00" y="3.81" width="3.20" height="20.19" rx="1"><title>2026-09-25 — 143</title></rect><rect x="20.00" y="21.18" width="3.20" height="2.82" rx="1"><title>2026-09-26 — 20</title></rect><rect x="24.00" y="22.45" width="3.20" height="1.55" rx="1"><title>2026-09-27 — 11</title></rect><rect x="28.00" y="22.73" width="3.20" height="1.27" rx="1"><title>2026-09-28 — 9</title></rect><rect x="32.00" y="22.73" width="3.20" height="1.27" rx="1"><title>2026-09-29 — 9</title></rect><rect x="36.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-30 — 1</title></rect><rect x="40.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-01 — 4</title></rect><rect x="44.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-02 — 6</title></rect><rect x="48.00" y="0.00" width="3.20" height="24.00" rx="1"><title>2026-10-03 — 170</title></rect><rect x="52.00" y="22.16" width="3.20" height="1.84" rx="1"><title>2026-10-04 — 13</title></rect><rect x="56.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-05 — 6</title></rect><rect x="60.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-06 — 0</title></rect><rect x="64.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-07 — 4</title></rect><rect x="68.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-08 — 3</title></rect><rect x="72.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-09 — 4</title></rect><rect x="76.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-10 — 0</title></rect><rect x="80.00" y="22.87" width="3.20" height="1.13" rx="1"><title>2026-10-11 — 8</title></rect><rect x="84.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-12 — 2</title></rect><rect x="88.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-13 — 0</title></rect><rect x="92.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-14 — 0</title></rect><rect x="96.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-15 — 0</title></rect><rect x="100.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-16 — 4</title></rect><rect x="104.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-17 — 7</title></rect><rect x="108.00" y="22.59" width="3.20" height="1.41" rx="1"><title>2026-10-18 — 10</title></rect><rect x="112.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-19 — 0</title></rect><rect x="116.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-20 — 0</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#34d399"></span><span class="mono">vantadb-ollama</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">332</td>
+      <td class="num">332</td>
+      <td class="num">332</td>
+      <td class="num">1.9 MB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="1.07" width="39.20" height="22.93" rx="1"><title>2026-10-18 — 150</title></rect><rect x="40.00" y="20.18" width="39.20" height="3.82" rx="1"><title>2026-10-19 — 25</title></rect><rect x="80.00" y="0.00" width="39.20" height="24.00" rx="1"><title>2026-10-20 — 157</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#fb7185"></span><span class="mono">vantadb-openai</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">331</td>
+      <td class="num">331</td>
+      <td class="num">331</td>
+      <td class="num">1.9 MB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="0.00" width="39.20" height="24.00" rx="1"><title>2026-10-18 — 153</title></rect><rect x="40.00" y="20.08" width="39.20" height="3.92" rx="1"><title>2026-10-19 — 25</title></rect><rect x="80.00" y="0.00" width="39.20" height="24.00" rx="1"><title>2026-10-20 — 153</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#c084fc"></span><span class="mono">vantadb-litellm</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">328</td>
+      <td class="num">328</td>
+      <td class="num">328</td>
+      <td class="num">1.9 MB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="3.15" width="39.20" height="20.85" rx="1"><title>2026-10-18 — 139</title></rect><rect x="40.00" y="19.65" width="39.20" height="4.35" rx="1"><title>2026-10-19 — 29</title></rect><rect x="80.00" y="0.00" width="39.20" height="24.00" rx="1"><title>2026-10-20 — 160</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#22d3ee"></span><span class="mono">vantadb-llamaindex</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">105</td>
+      <td class="num">225</td>
+      <td class="num">225</td>
+      <td class="num">8.0 KB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="0.00" width="10.11" height="24.00" rx="1"><title>2026-10-08 — 92</title></rect><rect x="10.91" y="20.09" width="10.11" height="3.91" rx="1"><title>2026-10-09 — 15</title></rect><rect x="21.82" y="22.43" width="10.11" height="1.57" rx="1"><title>2026-10-10 — 6</title></rect><rect x="32.73" y="22.96" width="10.11" height="1.04" rx="1"><title>2026-10-11 — 4</title></rect><rect x="43.64" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-13 — 3</title></rect><rect x="54.55" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-15 — 2</title></rect><rect x="65.45" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-16 — 2</title></rect><rect x="76.36" y="22.70" width="10.11" height="1.30" rx="1"><title>2026-10-17 — 5</title></rect><rect x="87.27" y="22.70" width="10.11" height="1.30" rx="1"><title>2026-10-18 — 5</title></rect><rect x="98.18" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-19 — 1</title></rect><rect x="109.09" y="0.52" width="10.11" height="23.48" rx="1"><title>2026-10-20 — 90</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#facc15"></span><span class="mono">vantadb-haystack</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">92</td>
+      <td class="num">221</td>
+      <td class="num">221</td>
+      <td class="num">8.6 KB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="0.00" width="12.53" height="24.00" rx="1"><title>2026-10-07 — 111</title></rect><rect x="13.33" y="21.41" width="12.53" height="2.59" rx="1"><title>2026-10-08 — 12</title></rect><rect x="26.67" y="23.00" width="12.53" height="1.00" rx="1"><title>2026-10-10 — 4</title></rect><rect x="40.00" y="23.00" width="12.53" height="1.00" rx="1"><title>2026-10-13 — 2</title></rect><rect x="53.33" y="23.00" width="12.53" height="1.00" rx="1"><title>2026-10-14 — 2</title></rect><rect x="66.67" y="23.00" width="12.53" height="1.00" rx="1"><title>2026-10-15 — 2</title></rect><rect x="80.00" y="23.00" width="12.53" height="1.00" rx="1"><title>2026-10-18 — 2</title></rect><rect x="93.33" y="23.00" width="12.53" height="1.00" rx="1"><title>2026-10-19 — 2</title></rect><rect x="106.67" y="5.84" width="12.53" height="18.16" rx="1"><title>2026-10-20 — 84</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#f97316"></span><span class="mono">vantadb-langchain</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">99</td>
+      <td class="num">221</td>
+      <td class="num">221</td>
+      <td class="num">16 KB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="0.00" width="10.11" height="24.00" rx="1"><title>2026-10-07 — 100</title></rect><rect x="10.91" y="20.64" width="10.11" height="3.36" rx="1"><title>2026-10-08 — 14</title></rect><rect x="21.82" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-09 — 2</title></rect><rect x="32.73" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-10 — 3</title></rect><rect x="43.64" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-12 — 3</title></rect><rect x="54.55" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-14 — 2</title></rect><rect x="65.45" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-15 — 2</title></rect><rect x="76.36" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-17 — 3</title></rect><rect x="87.27" y="22.80" width="10.11" height="1.20" rx="1"><title>2026-10-18 — 5</title></rect><rect x="98.18" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-19 — 2</title></rect><rect x="109.09" y="3.60" width="10.11" height="20.40" rx="1"><title>2026-10-20 — 85</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#94a3b8"></span><span class="mono">vantadb-crewai</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">99</td>
+      <td class="num">220</td>
+      <td class="num">220</td>
+      <td class="num">10 KB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="0.00" width="10.11" height="24.00" rx="1"><title>2026-10-07 — 99</title></rect><rect x="10.91" y="21.09" width="10.11" height="2.91" rx="1"><title>2026-10-08 — 12</title></rect><rect x="21.82" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-09 — 2</title></rect><rect x="32.73" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-10 — 4</title></rect><rect x="43.64" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-12 — 4</title></rect><rect x="54.55" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-14 — 2</title></rect><rect x="65.45" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-15 — 2</title></rect><rect x="76.36" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-17 — 4</title></rect><rect x="87.27" y="21.82" width="10.11" height="2.18" rx="1"><title>2026-10-18 — 9</title></rect><rect x="98.18" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-19 — 1</title></rect><rect x="109.09" y="4.36" width="10.11" height="19.64" rx="1"><title>2026-10-20 — 81</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#5eead4"></span><span class="mono">vantadb-dspy</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">92</td>
+      <td class="num">211</td>
+      <td class="num">211</td>
+      <td class="num">5.0 KB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="0.00" width="10.11" height="24.00" rx="1"><title>2026-10-07 — 97</title></rect><rect x="10.91" y="21.03" width="10.11" height="2.97" rx="1"><title>2026-10-08 — 12</title></rect><rect x="21.82" y="22.02" width="10.11" height="1.98" rx="1"><title>2026-10-10 — 8</title></rect><rect x="32.73" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-11 — 1</title></rect><rect x="43.64" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-12 — 1</title></rect><rect x="54.55" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-14 — 2</title></rect><rect x="65.45" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-15 — 2</title></rect><rect x="76.36" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-16 — 1</title></rect><rect x="87.27" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-18 — 2</title></rect><rect x="98.18" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-19 — 1</title></rect><rect x="109.09" y="3.22" width="10.11" height="20.78" rx="1"><title>2026-10-20 — 84</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#a78bfa"></span><span class="mono">vantadb-mem0</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">93</td>
+      <td class="num">202</td>
+      <td class="num">202</td>
+      <td class="num">6.8 KB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="0.00" width="10.11" height="24.00" rx="1"><title>2026-10-08 — 85</title></rect><rect x="10.91" y="19.76" width="10.11" height="4.24" rx="1"><title>2026-10-09 — 15</title></rect><rect x="21.82" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-10 — 3</title></rect><rect x="32.73" y="22.87" width="10.11" height="1.13" rx="1"><title>2026-10-11 — 4</title></rect><rect x="43.64" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-13 — 2</title></rect><rect x="54.55" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-14 — 1</title></rect><rect x="65.45" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-15 — 2</title></rect><rect x="76.36" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-16 — 2</title></rect><rect x="87.27" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-18 — 2</title></rect><rect x="98.18" y="23.00" width="10.11" height="1.00" rx="1"><title>2026-10-19 — 1</title></rect><rect x="109.09" y="0.00" width="10.11" height="24.00" rx="1"><title>2026-10-20 — 85</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#fbbf24"></span><span class="mono">vantadb-letta</span></td>
+      <td class="muted">pypi</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">99</td>
+      <td class="num">196</td>
+      <td class="num">196</td>
+      <td class="num">5.2 KB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="2.79" width="11.20" height="21.21" rx="1"><title>2026-10-08 — 76</title></rect><rect x="12.00" y="19.53" width="11.20" height="4.47" rx="1"><title>2026-10-09 — 16</title></rect><rect x="24.00" y="23.00" width="11.20" height="1.00" rx="1"><title>2026-10-10 — 3</title></rect><rect x="36.00" y="23.00" width="11.20" height="1.00" rx="1"><title>2026-10-11 — 2</title></rect><rect x="48.00" y="23.00" width="11.20" height="1.00" rx="1"><title>2026-10-14 — 1</title></rect><rect x="60.00" y="22.33" width="11.20" height="1.67" rx="1"><title>2026-10-15 — 6</title></rect><rect x="72.00" y="23.00" width="11.20" height="1.00" rx="1"><title>2026-10-16 — 3</title></rect><rect x="84.00" y="23.00" width="11.20" height="1.00" rx="1"><title>2026-10-18 — 2</title></rect><rect x="96.00" y="23.00" width="11.20" height="1.00" rx="1"><title>2026-10-19 — 1</title></rect><rect x="108.00" y="0.00" width="11.20" height="24.00" rx="1"><title>2026-10-20 — 86</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#fbbf24"></span><span class="mono">vanta-cli</span></td>
+      <td class="muted">npm</td>
+      <td class="mono">—</td>
+      <td class="mono">0.1.0</td>
+      <td><span class="pill">—</span></td>
+      <td class="num">1</td>
+      <td class="num">4</td>
+      <td class="num">230</td>
+      <td class="num">59 KB</td>
+      <td>2026-04-10</td>
+      <td class="spark-cell"><svg class="spark" viewBox="0 0 120 24" role="img" aria-label="Descargas 30 días"><rect x="0.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-21 — 0</title></rect><rect x="4.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-22 — 0</title></rect><rect x="8.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-23 — 0</title></rect><rect x="12.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-24 — 0</title></rect><rect x="16.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-25 — 0</title></rect><rect x="20.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-26 — 0</title></rect><rect x="24.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-27 — 0</title></rect><rect x="28.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-28 — 0</title></rect><rect x="32.00" y="0.00" width="3.20" height="24.00" rx="1"><title>2026-09-29 — 1</title></rect><rect x="36.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-09-30 — 0</title></rect><rect x="40.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-01 — 0</title></rect><rect x="44.00" y="0.00" width="3.20" height="24.00" rx="1"><title>2026-10-02 — 1</title></rect><rect x="48.00" y="0.00" width="3.20" height="24.00" rx="1"><title>2026-10-03 — 1</title></rect><rect x="52.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-04 — 0</title></rect><rect x="56.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-05 — 0</title></rect><rect x="60.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-06 — 0</title></rect><rect x="64.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-07 — 0</title></rect><rect x="68.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-08 — 0</title></rect><rect x="72.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-09 — 0</title></rect><rect x="76.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-10 — 0</title></rect><rect x="80.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-11 — 0</title></rect><rect x="84.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-12 — 0</title></rect><rect x="88.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-13 — 0</title></rect><rect x="92.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-14 — 0</title></rect><rect x="96.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-15 — 0</title></rect><rect x="100.00" y="0.00" width="3.20" height="24.00" rx="1"><title>2026-10-16 — 1</title></rect><rect x="104.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-17 — 0</title></rect><rect x="108.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-18 — 0</title></rect><rect x="112.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-19 — 0</title></rect><rect x="116.00" y="23.00" width="3.20" height="1.00" rx="1"><title>2026-10-20 — 0</title></rect></svg></td>
+    </tr><tr>
+      <td><span class="chip" style="background:#f472b6"></span><span class="mono">vantadb-node</span></td>
+      <td class="muted">npm</td>
+      <td class="mono">0.9.0</td>
+      <td class="mono">0.9.0</td>
+      <td><span class="pill ok">ok</span></td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td class="num">36 MB</td>
+      <td>2026-10-20</td>
+      <td class="spark-cell"><span class="muted">—</span></td>
+    </tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Historial de versiones</h2>
+    <div class="cards">
+      
+  <article class="card" style="--accent:#fbbf24">
+    <header>
+      <div>
+        <h3>vanta-cli</h3>
+        <p class="muted">npm · CLI publicado fuera de este repo</p>
+      </div>
+      <div class="versions">
+        <span class="pill">sin local</span>
+        <span class="mono muted">local — · publicado 0.1.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">0</span></div>
+      <div><span class="k">7 días</span><span class="v">1</span></div>
+      <div><span class="k">30 días</span><span class="v">4</span></div>
+      <div><span class="k">365 días</span><span class="v">230</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-04-10</span>
+      
+      <span>Tamaño: 59 KB</span>
+      <span>sin licencia</span>
+      <span></span>
+      <span>8 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.1.0</td>
+        <td>2026-04-10</td>
+        <td class="num">59 KB</td>
+        <td class="num">18</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#a78bfa">
+    <header>
+      <div>
+        <h3>vantadb</h3>
+        <p class="muted">npm</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">10</span></div>
+      <div><span class="k">7 días</span><span class="v">23</span></div>
+      <div><span class="k">30 días</span><span class="v">594</span></div>
+      <div><span class="k">365 días</span><span class="v">1115</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      
+      <span>Tamaño: 269 KB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=22.19</span>
+      <span>1 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">269 KB</td>
+        <td class="num">20</td>
+      </tr><tr>
+        <td class="mono">0.8.0</td>
+        <td>2026-10-03</td>
+        <td class="num">209 KB</td>
+        <td class="num">20</td>
+      </tr><tr>
+        <td class="mono">0.7.0</td>
+        <td>2026-09-25</td>
+        <td class="num">186 KB</td>
+        <td class="num">20</td>
+      </tr><tr>
+        <td class="mono">0.6.1</td>
+        <td>2026-09-23</td>
+        <td class="num">186 KB</td>
+        <td class="num">20</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-08-01</td>
+        <td class="num">79 KB</td>
+        <td class="num">17</td>
+      </tr><tr>
+        <td class="mono">0.4.0</td>
+        <td>2026-07-21</td>
+        <td class="num">75 KB</td>
+        <td class="num">14</td>
+      </tr><tr>
+        <td class="mono">0.3.0</td>
+        <td>2026-07-16</td>
+        <td class="num">75 KB</td>
+        <td class="num">14</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#f472b6">
+    <header>
+      <div>
+        <h3>vantadb-node</h3>
+        <p class="muted">npm</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">0</span></div>
+      <div><span class="k">7 días</span><span class="v">0</span></div>
+      <div><span class="k">30 días</span><span class="v">0</span></div>
+      <div><span class="k">365 días</span><span class="v">0</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      
+      <span>Tamaño: 36 MB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=18</span>
+      <span>0 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">36 MB</td>
+        <td class="num">12</td>
+      </tr><tr>
+        <td class="mono">0.0.0-stage</td>
+        <td>2026-10-20</td>
+        <td class="num">334 B</td>
+        <td class="num">2</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#5eead4">
+    <header>
+      <div>
+        <h3>vantadb-wasm</h3>
+        <p class="muted">npm</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">9</span></div>
+      <div><span class="k">7 días</span><span class="v">12</span></div>
+      <div><span class="k">30 días</span><span class="v">798</span></div>
+      <div><span class="k">365 días</span><span class="v">1199</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      
+      <span>Tamaño: 2.0 MB</span>
+      <span>Apache-2.0</span>
+      <span></span>
+      <span>0 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">2.0 MB</td>
+        <td class="num">9</td>
+      </tr><tr>
+        <td class="mono">0.8.0</td>
+        <td>2026-10-02</td>
+        <td class="num">1.9 MB</td>
+        <td class="num">8</td>
+      </tr><tr>
+        <td class="mono">0.7.0</td>
+        <td>2026-09-25</td>
+        <td class="num">1.7 MB</td>
+        <td class="num">8</td>
+      </tr><tr>
+        <td class="mono">0.6.1</td>
+        <td>2026-09-23</td>
+        <td class="num">1.7 MB</td>
+        <td class="num">8</td>
+      </tr><tr>
+        <td class="mono">0.6.0 <span class="tag warn">yanked</span></td>
+        <td>2026-09-22</td>
+        <td class="num">1.7 MB</td>
+        <td class="num">7</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-08-01</td>
+        <td class="num">1.2 MB</td>
+        <td class="num">5</td>
+      </tr><tr>
+        <td class="mono">0.3.0</td>
+        <td>2026-07-16</td>
+        <td class="num">1.2 MB</td>
+        <td class="num">5</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#94a3b8">
+    <header>
+      <div>
+        <h3>vantadb-crewai</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">81</span></div>
+      <div><span class="k">7 días</span><span class="v">99</span></div>
+      <div><span class="k">30 días</span><span class="v">220</span></div>
+      <div><span class="k">365 días</span><span class="v">220</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-07 → 2026-10-20</span>
+      <span>Tamaño: 10 KB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>2 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">10 KB</td>
+        <td class="num">2</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-10-07</td>
+        <td class="num">10 KB</td>
+        <td class="num">2</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#5eead4">
+    <header>
+      <div>
+        <h3>vantadb-dspy</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">84</span></div>
+      <div><span class="k">7 días</span><span class="v">92</span></div>
+      <div><span class="k">30 días</span><span class="v">211</span></div>
+      <div><span class="k">365 días</span><span class="v">211</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-07 → 2026-10-20</span>
+      <span>Tamaño: 5.0 KB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>2 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">5.0 KB</td>
+        <td class="num">2</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-10-07</td>
+        <td class="num">5.0 KB</td>
+        <td class="num">2</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#facc15">
+    <header>
+      <div>
+        <h3>vantadb-haystack</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">84</span></div>
+      <div><span class="k">7 días</span><span class="v">92</span></div>
+      <div><span class="k">30 días</span><span class="v">221</span></div>
+      <div><span class="k">365 días</span><span class="v">221</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-07 → 2026-10-20</span>
+      <span>Tamaño: 8.6 KB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>2 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">8.6 KB</td>
+        <td class="num">2</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-10-07</td>
+        <td class="num">8.6 KB</td>
+        <td class="num">2</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#f97316">
+    <header>
+      <div>
+        <h3>vantadb-langchain</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">85</span></div>
+      <div><span class="k">7 días</span><span class="v">99</span></div>
+      <div><span class="k">30 días</span><span class="v">221</span></div>
+      <div><span class="k">365 días</span><span class="v">221</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-07 → 2026-10-20</span>
+      <span>Tamaño: 16 KB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>3 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">16 KB</td>
+        <td class="num">2</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-10-07</td>
+        <td class="num">16 KB</td>
+        <td class="num">2</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#fbbf24">
+    <header>
+      <div>
+        <h3>vantadb-letta</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">86</span></div>
+      <div><span class="k">7 días</span><span class="v">99</span></div>
+      <div><span class="k">30 días</span><span class="v">196</span></div>
+      <div><span class="k">365 días</span><span class="v">196</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-08 → 2026-10-20</span>
+      <span>Tamaño: 5.2 KB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>2 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">5.2 KB</td>
+        <td class="num">2</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-10-08</td>
+        <td class="num">5.2 KB</td>
+        <td class="num">2</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#c084fc">
+    <header>
+      <div>
+        <h3>vantadb-litellm</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">160</span></div>
+      <div><span class="k">7 días</span><span class="v">328</span></div>
+      <div><span class="k">30 días</span><span class="v">328</span></div>
+      <div><span class="k">365 días</span><span class="v">328</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-18 → 2026-10-20</span>
+      <span>Tamaño: 1.9 MB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>1 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">1.9 MB</td>
+        <td class="num">4</td>
+      </tr><tr>
+        <td class="mono">0.8.0</td>
+        <td>2026-10-18</td>
+        <td class="num">1.9 MB</td>
+        <td class="num">4</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#22d3ee">
+    <header>
+      <div>
+        <h3>vantadb-llamaindex</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">90</span></div>
+      <div><span class="k">7 días</span><span class="v">105</span></div>
+      <div><span class="k">30 días</span><span class="v">225</span></div>
+      <div><span class="k">365 días</span><span class="v">225</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-08 → 2026-10-20</span>
+      <span>Tamaño: 8.0 KB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>2 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">8.0 KB</td>
+        <td class="num">2</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-10-08</td>
+        <td class="num">8.1 KB</td>
+        <td class="num">2</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#a78bfa">
+    <header>
+      <div>
+        <h3>vantadb-mem0</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">85</span></div>
+      <div><span class="k">7 días</span><span class="v">93</span></div>
+      <div><span class="k">30 días</span><span class="v">202</span></div>
+      <div><span class="k">365 días</span><span class="v">202</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-08 → 2026-10-20</span>
+      <span>Tamaño: 6.8 KB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>2 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">6.8 KB</td>
+        <td class="num">2</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-10-08</td>
+        <td class="num">6.8 KB</td>
+        <td class="num">2</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#34d399">
+    <header>
+      <div>
+        <h3>vantadb-ollama</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">157</span></div>
+      <div><span class="k">7 días</span><span class="v">332</span></div>
+      <div><span class="k">30 días</span><span class="v">332</span></div>
+      <div><span class="k">365 días</span><span class="v">332</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-18 → 2026-10-20</span>
+      <span>Tamaño: 1.9 MB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>1 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">1.9 MB</td>
+        <td class="num">4</td>
+      </tr><tr>
+        <td class="mono">0.8.0</td>
+        <td>2026-10-18</td>
+        <td class="num">1.9 MB</td>
+        <td class="num">4</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#fb7185">
+    <header>
+      <div>
+        <h3>vantadb-openai</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">153</span></div>
+      <div><span class="k">7 días</span><span class="v">331</span></div>
+      <div><span class="k">30 días</span><span class="v">331</span></div>
+      <div><span class="k">365 días</span><span class="v">331</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-10-18 → 2026-10-20</span>
+      <span>Tamaño: 1.9 MB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>1 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">1.9 MB</td>
+        <td class="num">4</td>
+      </tr><tr>
+        <td class="mono">0.8.0</td>
+        <td>2026-10-18</td>
+        <td class="num">1.9 MB</td>
+        <td class="num">4</td>
+      </tr></tbody></table>
+  </article>
+  <article class="card" style="--accent:#60a5fa">
+    <header>
+      <div>
+        <h3>vantadb-py</h3>
+        <p class="muted">PyPI</p>
+      </div>
+      <div class="versions">
+        <span class="pill ok">✓ en línea</span>
+        <span class="mono muted">local 0.9.0 · publicado 0.9.0</span>
+      </div>
+    </header>
+    <div class="stats">
+      <div><span class="k">1 día</span><span class="v">252</span></div>
+      <div><span class="k">7 días</span><span class="v">410</span></div>
+      <div><span class="k">30 días</span><span class="v">1353</span></div>
+      <div><span class="k">365 días</span><span class="v">2810</span></div>
+    </div>
+    <div class="meta">
+      <span>Publicado: 2026-10-20</span>
+      <span>Histórico: 2026-05-25 → 2026-10-20</span>
+      <span>Tamaño: 2.6 MB</span>
+      <span>Apache-2.0</span>
+      <span>&gt;=3.11</span>
+      <span>0 deps</span>
+    </div>
+    <table class="releases"><thead><tr><th>Versión</th><th>Publicada</th><th class="num">Tamaño</th><th class="num">Ficheros</th></tr></thead><tbody><tr class="latest">
+        <td class="mono">0.9.0</td>
+        <td>2026-10-20</td>
+        <td class="num">2.6 MB</td>
+        <td class="num">4</td>
+      </tr><tr>
+        <td class="mono">0.8.0</td>
+        <td>2026-10-02</td>
+        <td class="num">2.4 MB</td>
+        <td class="num">4</td>
+      </tr><tr>
+        <td class="mono">0.7.0</td>
+        <td>2026-09-25</td>
+        <td class="num">2.3 MB</td>
+        <td class="num">4</td>
+      </tr><tr>
+        <td class="mono">0.6.1</td>
+        <td>2026-09-23</td>
+        <td class="num">2.3 MB</td>
+        <td class="num">4</td>
+      </tr><tr>
+        <td class="mono">0.5.0</td>
+        <td>2026-08-01</td>
+        <td class="num">2.0 MB</td>
+        <td class="num">3</td>
+      </tr><tr>
+        <td class="mono">0.4.0</td>
+        <td>2026-07-21</td>
+        <td class="num">1.8 MB</td>
+        <td class="num">3</td>
+      </tr><tr>
+        <td class="mono">0.2.0</td>
+        <td>2026-07-13</td>
+        <td class="num">1.8 MB</td>
+        <td class="num">3</td>
+      </tr><tr>
+        <td class="mono">0.1.5</td>
+        <td>2026-06-22</td>
+        <td class="num">1.6 MB</td>
+        <td class="num">3</td>
+      </tr><tr>
+        <td class="mono">0.1.4</td>
+        <td>2026-05-25</td>
+        <td class="num">4.5 MB</td>
+        <td class="num">3</td>
+      </tr><tr>
+        <td class="mono">0.1.3</td>
+        <td>2026-05-25</td>
+        <td class="num">4.5 MB</td>
+        <td class="num">3</td>
+      </tr><tr>
+        <td class="mono">0.1.2</td>
+        <td>2026-05-25</td>
+        <td class="num">4.5 MB</td>
+        <td class="num">3</td>
+      </tr></tbody></table>
+  </article>
+    </div>
+  </section>
+
+  
+
+  <footer>
+    Fuentes: <code>registry.npmjs.org</code> + <code>api.npmjs.org</code> (descargas npm, todos los registries)
+    · <code>pypi.org/pypi/&lt;pkg&gt;/json</code> (metadatos PyPI)
+    · <code>pypistats.org/api/packages/&lt;pkg&gt;/overall</code> (descargas PyPI, <strong>sin mirrors</strong> — no es comparable 1:1 con npm).
+    <br>Las ventanas PyPI (1d/7d/30d/365d) se calculan sobre la serie diaria de pypistats: su endpoint <code>recent</code> devuelve <code>last_month = 0</code> para varios paquetes pese a tener datos reales.
+    <br>Versiones locales leídas de los manifiestos del repo (package.json / Cargo.toml / pyproject.toml); el versionado de los bindings maturin sigue al <code>Cargo.toml</code> del crate.
+  </footer>
+</div>
+</body>
+</html>

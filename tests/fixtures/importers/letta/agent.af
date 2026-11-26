@@ -1,0 +1,88 @@
+{
+  "agents": [
+    {
+      "id": "agent-00000000-0000-4000-8000-000000000001",
+      "name": "assistant",
+      "agent_type": "letta_v1_agent",
+      "system": "<base_instructions>\nYou are a helpful assistant. Keep answers short.\n</base_instructions>",
+      "memory_blocks": [],
+      "block_ids": [
+        "block-00000000-0000-4000-8000-00000000000a",
+        "block-00000000-0000-4000-8000-00000000000b"
+      ],
+      "tool_ids": [],
+      "messages": [
+        {
+          "id": "message-00000000-0000-4000-8000-000000000001",
+          "type": "message",
+          "role": "user",
+          "content": "Hi! I'm Alice. I prefer short answers.",
+          "created_at": "2025-10-01T10:00:00+00:00",
+          "model": null
+        },
+        {
+          "id": "message-00000000-0000-4000-8000-000000000002",
+          "type": "message",
+          "role": "assistant",
+          "content": "Noted, Alice. Short answers from now on.",
+          "created_at": "2025-10-01T10:00:02+00:00",
+          "model": "gpt-4o-mini"
+        },
+        {
+          "id": "message-00000000-0000-4000-8000-000000000003",
+          "type": "message",
+          "role": "user",
+          "content": "Also, my timezone is UTC-4.",
+          "created_at": "2025-10-02T09:30:00+00:00",
+          "in_context": true
+        }
+      ],
+      "metadata": { "created_by": "sanitized-fixture" }
+    }
+  ],
+  "groups": [],
+  "blocks": [
+    {
+      "id": "block-00000000-0000-4000-8000-00000000000a",
+      "label": "persona",
+      "value": "I am a concise, friendly assistant.",
+      "limit": 5000,
+      "description": "The persona block: how the agent sees itself.",
+      "read_only": false,
+      "metadata": {},
+      "project_id": null,
+      "template_name": null,
+      "is_template": false,
+      "template_id": null,
+      "base_template_id": null,
+      "deployment_id": null,
+      "entity_id": null,
+      "preserve_on_migration": null,
+      "hidden": null
+    },
+    {
+      "id": "block-00000000-0000-4000-8000-00000000000b",
+      "label": "human",
+      "value": "Name: Alice. Preference: short answers. Timezone: UTC-4.",
+      "limit": 5000,
+      "description": "The human block: what the agent knows about the user.",
+      "read_only": false,
+      "metadata": { "agent": "assistant" },
+      "project_id": null,
+      "template_name": null,
+      "is_template": false,
+      "template_id": null,
+      "base_template_id": null,
+      "deployment_id": null,
+      "entity_id": null,
+      "preserve_on_migration": null,
+      "hidden": null
+    }
+  ],
+  "files": [],
+  "sources": [],
+  "tools": [],
+  "mcp_servers": [],
+  "metadata": { "source": "sanitized-fixture" },
+  "created_at": "2025-10-01T09:59:00+00:00"
+}

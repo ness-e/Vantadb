@@ -1,0 +1,4607 @@
+{
+ "tool": "rust-dsm",
+ "crate": {
+  "name": "vantadb",
+  "totalModules": 364,
+  "totalTypes": 456,
+  "totalFunctions": 6170,
+  "totalLines": 159389,
+  "averageInstability": 0.4847527472527472,
+  "averageAbstractness": 0.010198229089206532,
+  "averageDistance": 0.5166542730452505,
+  "cycleCount": 19,
+  "cycles": [
+   {
+    "nodes": [
+     "crate::agentic::thread::now_secs"
+    ],
+    "edges": [
+     {
+      "from": "crate::agentic::thread::now_secs",
+      "to": "crate::agentic::thread::now_secs",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\agentic\\thread.rs",
+        "line": 87,
+        "column": 8
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::agentic::thread::now_ms"
+    ],
+    "edges": [
+     {
+      "from": "crate::agentic::thread::now_ms",
+      "to": "crate::agentic::thread::now_ms",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\agentic\\thread.rs",
+        "line": 90,
+        "column": 8
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::cli_handlers::backup::walkdir_flat"
+    ],
+    "edges": [
+     {
+      "from": "crate::cli_handlers::backup::walkdir_flat",
+      "to": "crate::cli_handlers::backup::walkdir_flat",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\cli_handlers\\backup.rs",
+        "line": 91,
+        "column": 26
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::cli_handlers::backup::copy_dir"
+    ],
+    "edges": [
+     {
+      "from": "crate::cli_handlers::backup::copy_dir",
+      "to": "crate::cli_handlers::backup::copy_dir",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\cli_handlers\\backup.rs",
+        "line": 121,
+        "column": 12
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::cli_handlers::util::dir_size"
+    ],
+    "edges": [
+     {
+      "from": "crate::cli_handlers::util::dir_size",
+      "to": "crate::cli_handlers::util::dir_size",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\cli_handlers\\util.rs",
+        "line": 26,
+        "column": 25
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::query::LogicalPlan",
+     "crate::query::LogicalOperator"
+    ],
+    "edges": [
+     {
+      "from": "crate::query::LogicalPlan",
+      "to": "crate::query::LogicalOperator",
+      "depType": "field_type",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\query.rs",
+        "line": 425,
+        "column": 23
+       }
+      ]
+     },
+     {
+      "from": "crate::query::LogicalOperator",
+      "to": "crate::query::LogicalPlan",
+      "depType": "field_type",
+      "count": 3,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\query.rs",
+        "line": 402,
+        "column": 23
+       },
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\query.rs",
+        "line": 404,
+        "column": 24
+       },
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\query.rs",
+        "line": 417,
+        "column": 27
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::entity::EntityStore::set"
+    ],
+    "edges": [
+     {
+      "from": "crate::entity::EntityStore::set",
+      "to": "crate::entity::EntityStore::set",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\entity\\mod.rs",
+        "line": 212,
+        "column": 8
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::entity::EntityStore::get"
+    ],
+    "edges": [
+     {
+      "from": "crate::entity::EntityStore::get",
+      "to": "crate::entity::EntityStore::get",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\entity\\mod.rs",
+        "line": 216,
+        "column": 8
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::entity::EntityStore::delete"
+    ],
+    "edges": [
+     {
+      "from": "crate::entity::EntityStore::delete",
+      "to": "crate::entity::EntityStore::delete",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\entity\\mod.rs",
+        "line": 220,
+        "column": 8
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::entity::EntityStore::list"
+    ],
+    "edges": [
+     {
+      "from": "crate::entity::EntityStore::list",
+      "to": "crate::entity::EntityStore::list",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\entity\\mod.rs",
+        "line": 230,
+        "column": 8
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::query::SubqueryCondition",
+     "crate::query::SelectStatement"
+    ],
+    "edges": [
+     {
+      "from": "crate::query::SubqueryCondition",
+      "to": "crate::query::SelectStatement",
+      "depType": "field_type",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\query.rs",
+        "line": 183,
+        "column": 22
+       }
+      ]
+     },
+     {
+      "from": "crate::query::SelectStatement",
+      "to": "crate::query::SubqueryCondition",
+      "depType": "field_type",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\query.rs",
+        "line": 196,
+        "column": 33
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::graph::dfs_from_cache"
+    ],
+    "edges": [
+     {
+      "from": "crate::graph::dfs_from_cache",
+      "to": "crate::graph::dfs_from_cache",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\graph.rs",
+        "line": 523,
+        "column": 12
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::graph::topo_from_cache"
+    ],
+    "edges": [
+     {
+      "from": "crate::graph::topo_from_cache",
+      "to": "crate::graph::topo_from_cache",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\graph.rs",
+        "line": 544,
+        "column": 12
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::index::graph::core::CPIndex::estimate_memory_bytes"
+    ],
+    "edges": [
+     {
+      "from": "crate::index::graph::core::CPIndex::estimate_memory_bytes",
+      "to": "crate::index::graph::core::CPIndex::estimate_memory_bytes",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\index\\search\\mod.rs",
+        "line": 52,
+        "column": 8
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::index::graph::core::CPIndex::add"
+    ],
+    "edges": [
+     {
+      "from": "crate::index::graph::core::CPIndex::add",
+      "to": "crate::index::graph::core::CPIndex::add",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\index\\search\\mod.rs",
+        "line": 48,
+        "column": 8
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::planner::optimize_and_compile"
+    ],
+    "edges": [
+     {
+      "from": "crate::planner::optimize_and_compile",
+      "to": "crate::planner::optimize_and_compile",
+      "depType": "function_call",
+      "count": 3,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\planner.rs",
+        "line": 224,
+        "column": 22
+       },
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\planner.rs",
+        "line": 225,
+        "column": 23
+       },
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\planner.rs",
+        "line": 277,
+        "column": 22
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::query::SelectStatement::from_clause_to_plain_plan"
+    ],
+    "edges": [
+     {
+      "from": "crate::query::SelectStatement::from_clause_to_plain_plan",
+      "to": "crate::query::SelectStatement::from_clause_to_plain_plan",
+      "depType": "function_call",
+      "count": 2,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\query.rs",
+        "line": 307,
+        "column": 32
+       },
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\query.rs",
+        "line": 308,
+        "column": 33
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::storage::engine::mirror_data_dir"
+    ],
+    "edges": [
+     {
+      "from": "crate::storage::engine::mirror_data_dir",
+      "to": "crate::storage::engine::mirror_data_dir",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\storage\\engine\\mod.rs",
+        "line": 523,
+        "column": 12
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "nodes": [
+     "crate::wiki::sources::walk"
+    ],
+    "edges": [
+     {
+      "from": "crate::wiki::sources::walk",
+      "to": "crate::wiki::sources::walk",
+      "depType": "function_call",
+      "count": 1,
+      "locations": [
+       {
+        "file": "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\src\\wiki\\sources.rs",
+        "line": 76,
+        "column": 12
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "mostCoupled": [
+   {
+    "id": "crate::cost_estimator::in_memory_engine",
+    "name": "in_memory_engine",
+    "path": "crate::cost_estimator::in_memory_engine",
+    "kind": "function",
+    "afferentCoupling": 257,
+    "efferentCoupling": 3,
+    "instability": 0.011538461538461539,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0.9884615384615385,
+    "fanIn": 258,
+    "fanOut": 3,
+    "linesOfCode": 10,
+    "complexity": 4,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::node::unified::UnifiedNode::new",
+    "name": "new",
+    "path": "crate::node::unified::UnifiedNode::new",
+    "kind": "function",
+    "afferentCoupling": 206,
+    "efferentCoupling": 2,
+    "instability": 0.009615384615384616,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0.9903846153846154,
+    "fanIn": 239,
+    "fanOut": 2,
+    "linesOfCode": 10,
+    "complexity": 3,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::storage::engine::cache::sample_node",
+    "name": "sample_node",
+    "path": "crate::storage::engine::cache::sample_node",
+    "kind": "function",
+    "afferentCoupling": 153,
+    "efferentCoupling": 2,
+    "instability": 0.012903225806451613,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0.9870967741935484,
+    "fanIn": 196,
+    "fanOut": 2,
+    "linesOfCode": 10,
+    "complexity": 3,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::node::bitset::FilterBitset::new",
+    "name": "new",
+    "path": "crate::node::bitset::FilterBitset::new",
+    "kind": "function",
+    "afferentCoupling": 134,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 181,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::config::Config::default",
+    "name": "default",
+    "path": "crate::config::Config::default",
+    "kind": "function",
+    "afferentCoupling": 127,
+    "efferentCoupling": 6,
+    "instability": 0.045112781954887216,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0.9548872180451128,
+    "fanIn": 147,
+    "fanOut": 18,
+    "linesOfCode": 10,
+    "complexity": 19,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::backend::BackendPartition",
+    "name": "BackendPartition",
+    "path": "crate::backend::BackendPartition",
+    "kind": "enum",
+    "afferentCoupling": 125,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 141,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::node::unified::UnifiedNode",
+    "name": "UnifiedNode",
+    "path": "crate::node::unified::UnifiedNode",
+    "kind": "struct",
+    "afferentCoupling": 98,
+    "efferentCoupling": 7,
+    "instability": 0.06666666666666667,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0.9333333333333333,
+    "fanIn": 106,
+    "fanOut": 7,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::storage::vfile::File::create_in_memory",
+    "name": "create_in_memory",
+    "path": "crate::storage::vfile::File::create_in_memory",
+    "kind": "function",
+    "afferentCoupling": 86,
+    "efferentCoupling": 2,
+    "instability": 0.022727272727272728,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0.9772727272727273,
+    "fanIn": 86,
+    "fanOut": 2,
+    "linesOfCode": 10,
+    "complexity": 3,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::index::graph::core::CPIndex::new",
+    "name": "new",
+    "path": "crate::index::graph::core::CPIndex::new",
+    "kind": "function",
+    "afferentCoupling": 80,
+    "efferentCoupling": 1,
+    "instability": 0.012345679012345678,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0.9876543209876543,
+    "fanIn": 80,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 2,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::engine::InMemoryEngine::new",
+    "name": "new",
+    "path": "crate::engine::InMemoryEngine::new",
+    "kind": "function",
+    "afferentCoupling": 76,
+    "efferentCoupling": 3,
+    "instability": 0.0379746835443038,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0.9620253164556962,
+    "fanIn": 76,
+    "fanOut": 3,
+    "linesOfCode": 10,
+    "complexity": 4,
+    "inCycle": false,
+    "cycleId": null
+   }
+  ],
+  "mostUnstable": [
+   {
+    "id": "crate::crypto::EncryptionConfig",
+    "name": "EncryptionConfig",
+    "path": "crate::crypto::EncryptionConfig",
+    "kind": "struct",
+    "afferentCoupling": 0,
+    "efferentCoupling": 1,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::resolve_cipher",
+    "name": "resolve_cipher",
+    "path": "crate::crypto::resolve_cipher",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 1,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 2,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::new",
+    "name": "new",
+    "path": "crate::crypto::new",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 1,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 2,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::from_env",
+    "name": "from_env",
+    "path": "crate::crypto::from_env",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 1,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 2,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::encrypt",
+    "name": "encrypt",
+    "path": "crate::crypto::encrypt",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 2,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 2,
+    "linesOfCode": 10,
+    "complexity": 3,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::try_decrypt",
+    "name": "try_decrypt",
+    "path": "crate::crypto::try_decrypt",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 2,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 3,
+    "linesOfCode": 10,
+    "complexity": 4,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::test_encode_decode_hex",
+    "name": "test_encode_decode_hex",
+    "path": "crate::crypto::test_encode_decode_hex",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 1,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 2,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::test_decode_hex_with_0x_prefix",
+    "name": "test_decode_hex_with_0x_prefix",
+    "path": "crate::crypto::test_decode_hex_with_0x_prefix",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 1,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 2,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::test_decode_hex_odd_length",
+    "name": "test_decode_hex_odd_length",
+    "path": "crate::crypto::test_decode_hex_odd_length",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 1,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 2,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::test_decode_hex_invalid_char",
+    "name": "test_decode_hex_invalid_char",
+    "path": "crate::crypto::test_decode_hex_invalid_char",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 1,
+    "instability": 1,
+    "abstractness": 0,
+    "distanceFromMainSequence": 0,
+    "fanIn": 0,
+    "fanOut": 1,
+    "linesOfCode": 10,
+    "complexity": 2,
+    "inCycle": false,
+    "cycleId": null
+   }
+  ],
+  "highestDistance": [
+   {
+    "id": "crate::cfg_failpoint",
+    "name": "cfg_failpoint",
+    "path": "crate::cfg_failpoint",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 0,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::remove_failpoint",
+    "name": "remove_failpoint",
+    "path": "crate::remove_failpoint",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 0,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::Cipher",
+    "name": "Cipher",
+    "path": "crate::crypto::Cipher",
+    "kind": "struct",
+    "afferentCoupling": 7,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 7,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::CryptoError",
+    "name": "CryptoError",
+    "path": "crate::crypto::CryptoError",
+    "kind": "enum",
+    "afferentCoupling": 0,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 0,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::KeySource",
+    "name": "KeySource",
+    "path": "crate::crypto::KeySource",
+    "kind": "enum",
+    "afferentCoupling": 1,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 1,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::fmt",
+    "name": "fmt",
+    "path": "crate::crypto::fmt",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 0,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::default",
+    "name": "default",
+    "path": "crate::crypto::default",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 0,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::decrypt",
+    "name": "decrypt",
+    "path": "crate::crypto::decrypt",
+    "kind": "function",
+    "afferentCoupling": 0,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 0,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::cipher_from_raw",
+    "name": "cipher_from_raw",
+    "path": "crate::crypto::cipher_from_raw",
+    "kind": "function",
+    "afferentCoupling": 3,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 3,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   },
+   {
+    "id": "crate::crypto::decrypt_legacy",
+    "name": "decrypt_legacy",
+    "path": "crate::crypto::decrypt_legacy",
+    "kind": "function",
+    "afferentCoupling": 2,
+    "efferentCoupling": 0,
+    "instability": 0,
+    "abstractness": 0,
+    "distanceFromMainSequence": 1,
+    "fanIn": 4,
+    "fanOut": 0,
+    "linesOfCode": 10,
+    "complexity": 1,
+    "inCycle": false,
+    "cycleId": null
+   }
+  ]
+ },
+ "modules": {
+  "crate": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 12,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 12,
+   "linesOfCode": 215
+  },
+  "crate::crypto": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 667
+  },
+  "crate::crypto::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 667
+  },
+  "crate::accumulator": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 321
+  },
+  "crate::accumulator::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 321
+  },
+  "crate::agentic": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 16
+  },
+  "crate::agentic::thread": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0.14285714285714285,
+   "distanceFromMainSequence": 0.1428571428571428,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 416
+  },
+  "crate::api": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 7
+  },
+  "crate::api::scores": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 110
+  },
+  "crate::api::scores::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 110
+  },
+  "crate::audit": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 382
+  },
+  "crate::audit::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 382
+  },
+  "crate::backend": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0.4444444444444444,
+   "distanceFromMainSequence": 0.4444444444444444,
+   "fanIn": 0,
+   "fanOut": 14,
+   "linesOfCode": 1141
+  },
+  "crate::backend::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 14,
+   "linesOfCode": 1141
+  },
+  "crate::backends": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 9
+  },
+  "crate::backends::fjall_backend": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 6,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 8,
+   "linesOfCode": 449
+  },
+  "crate::backends::fjall_backend::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 449
+  },
+  "crate::backends::in_memory": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 6,
+   "linesOfCode": 238
+  },
+  "crate::backends::in_memory::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 238
+  },
+  "crate::backends::registry": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 5,
+   "linesOfCode": 203
+  },
+  "crate::backends::registry::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 203
+  },
+  "crate::backends::rocksdb_backend": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 8,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 10,
+   "linesOfCode": 548
+  },
+  "crate::backends::rocksdb_backend::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 548
+  },
+  "crate::binary_header": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 261
+  },
+  "crate::binary_header::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 261
+  },
+  "crate::cache_warmer": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 511
+  },
+  "crate::cache_warmer::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 511
+  },
+  "crate::circuit_breaker": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 201
+  },
+  "crate::circuit_breaker::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 201
+  },
+  "crate::cli": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 449
+  },
+  "crate::cli_handlers": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 39
+  },
+  "crate::cli_handlers::backup": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 420
+  },
+  "crate::cli_handlers::crud": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 571
+  },
+  "crate::cli_handlers::data": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 305
+  },
+  "crate::cli_handlers::db": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 35
+  },
+  "crate::cli_handlers::diagnostics": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 589
+  },
+  "crate::cli_handlers::export_md": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 310
+  },
+  "crate::cli_handlers::export_md::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 310
+  },
+  "crate::cli_handlers::fmt": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 84
+  },
+  "crate::cli_handlers::index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 251
+  },
+  "crate::cli_handlers::migrate": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 7,
+   "linesOfCode": 312
+  },
+  "crate::cli_handlers::namespace": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 133
+  },
+  "crate::cli_handlers::search": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 508
+  },
+  "crate::cli_handlers::search::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 508
+  },
+  "crate::cli_handlers::server": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 7,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 7,
+   "linesOfCode": 361
+  },
+  "crate::cli_handlers::snapshot": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 40
+  },
+  "crate::cli_handlers::util": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 34
+  },
+  "crate::cli_handlers::wal": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 127
+  },
+  "crate::cli_server": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 15
+  },
+  "crate::columnar": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 208
+  },
+  "crate::columnar::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 208
+  },
+  "crate::config": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 1799
+  },
+  "crate::config::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1799
+  },
+  "crate::connection_pool": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 160
+  },
+  "crate::connection_pool::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 160
+  },
+  "crate::console": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 336
+  },
+  "crate::cost_estimator": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 7,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 7,
+   "linesOfCode": 521
+  },
+  "crate::cost_estimator::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 521
+  },
+  "crate::edge_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 64
+  },
+  "crate::edge_index::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 64
+  },
+  "crate::engine": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 5,
+   "linesOfCode": 1116
+  },
+  "crate::engine::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1116
+  },
+  "crate::entity": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0.2,
+   "distanceFromMainSequence": 0.19999999999999996,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 315
+  },
+  "crate::entity::checker": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 344
+  },
+  "crate::entity::scene": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 192
+  },
+  "crate::entity::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 334
+  },
+  "crate::entity::scene_tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 217
+  },
+  "crate::error": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1335
+  },
+  "crate::error::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1335
+  },
+  "crate::eviction": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 312
+  },
+  "crate::eviction::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 312
+  },
+  "crate::executor": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 15,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 21,
+   "linesOfCode": 1213
+  },
+  "crate::executor::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 7,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 7,
+   "linesOfCode": 1213
+  },
+  "crate::gc": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 318
+  },
+  "crate::gc::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 318
+  },
+  "crate::gds": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 404
+  },
+  "crate::gds::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 404
+  },
+  "crate::governor": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 5,
+   "linesOfCode": 228
+  },
+  "crate::governor::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 228
+  },
+  "crate::graph": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 930
+  },
+  "crate::graph::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 930
+  },
+  "crate::graphrag": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 6
+  },
+  "crate::graphrag::context": {
+   "afferentCoupling": 1,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 1,
+   "fanOut": 0,
+   "linesOfCode": 42
+  },
+  "crate::graphrag::expand": {
+   "afferentCoupling": 1,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 1,
+   "fanOut": 0,
+   "linesOfCode": 78
+  },
+  "crate::graphrag::pipeline": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 113
+  },
+  "crate::graphrag::retrieve": {
+   "afferentCoupling": 1,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 1,
+   "fanOut": 0,
+   "linesOfCode": 104
+  },
+  "crate::graphrag::seed": {
+   "afferentCoupling": 1,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 1,
+   "fanOut": 0,
+   "linesOfCode": 33
+  },
+  "crate::hardware": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 692
+  },
+  "crate::hardware::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 692
+  },
+  "crate::index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 7,
+   "instability": 1,
+   "abstractness": 0.5,
+   "distanceFromMainSequence": 0.5,
+   "fanIn": 0,
+   "fanOut": 7,
+   "linesOfCode": 177
+  },
+  "crate::index::auto_tune": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 144
+  },
+  "crate::index::auto_tune::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 144
+  },
+  "crate::index::core": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 502
+  },
+  "crate::index::core::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 502
+  },
+  "crate::index::diskann": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 616
+  },
+  "crate::index::diskann::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 616
+  },
+  "crate::index::distance": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 67
+  },
+  "crate::index::distance::kernels": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 398
+  },
+  "crate::index::distance::kernels::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 398
+  },
+  "crate::index::distance::mapper": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 887
+  },
+  "crate::index::distance::mapper::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 887
+  },
+  "crate::index::distance::metrics": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 397
+  },
+  "crate::index::distance::metrics::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 397
+  },
+  "crate::index::distance::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 67
+  },
+  "crate::index::flat": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 357
+  },
+  "crate::index::flat::flat_tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 357
+  },
+  "crate::index::graph": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 13
+  },
+  "crate::index::graph::core": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 919
+  },
+  "crate::index::graph::prefetch": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 99
+  },
+  "crate::index::graph::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 796
+  },
+  "crate::index::graph::types": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 222
+  },
+  "crate::index::ivf": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 1019
+  },
+  "crate::index::ivf::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 1019
+  },
+  "crate::index::neighbor_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 562
+  },
+  "crate::index::neighbor_index::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 562
+  },
+  "crate::index::refresh": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 5
+  },
+  "crate::index::scann": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 555
+  },
+  "crate::index::scann::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 555
+  },
+  "crate::index::search": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 62
+  },
+  "crate::index::search::alternate": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 6,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 6,
+   "linesOfCode": 142
+  },
+  "crate::index::search::layer": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 394
+  },
+  "crate::index::search::nearest": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 208
+  },
+  "crate::index::search::neighbors": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 64
+  },
+  "crate::index::search::pool": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 17
+  },
+  "crate::index::search::profile": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 81
+  },
+  "crate::index::search::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 1422
+  },
+  "crate::index::serialize": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 71
+  },
+  "crate::index::serialize::bytes": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 1339
+  },
+  "crate::index::serialize::bytes::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1339
+  },
+  "crate::index::serialize::file": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 208
+  },
+  "crate::index::serialize::file::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 208
+  },
+  "crate::index::serialize::test_util": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 71
+  },
+  "crate::index::stats": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 132
+  },
+  "crate::index::index_type_tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 177
+  },
+  "crate::integrations": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 189
+  },
+  "crate::integrations::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 189
+  },
+  "crate::llm": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0.08333333333333333,
+   "distanceFromMainSequence": 0.08333333333333326,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 875
+  },
+  "crate::llm::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 875
+  },
+  "crate::llm::openai_provider_tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 875
+  },
+  "crate::lsm": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 324
+  },
+  "crate::lsm::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 324
+  },
+  "crate::memory_governor": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 236
+  },
+  "crate::memory_governor::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 236
+  },
+  "crate::metadata": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 89
+  },
+  "crate::metadata::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 89
+  },
+  "crate::metrics": {
+   "afferentCoupling": 4,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 4,
+   "fanOut": 0,
+   "linesOfCode": 9
+  },
+  "crate::metrics::core": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1164
+  },
+  "crate::metrics::core::registry": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1270
+  },
+  "crate::metrics::core::registry::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1270
+  },
+  "crate::metrics::core::snapshot": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 139
+  },
+  "crate::metrics::core::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1164
+  },
+  "crate::metrics::native": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 5
+  },
+  "crate::migration": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 700
+  },
+  "crate::migration::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 700
+  },
+  "crate::node": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 28
+  },
+  "crate::node::bitset": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 564
+  },
+  "crate::node::bitset::filter_bitset_serde": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 564
+  },
+  "crate::node::bitset::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 564
+  },
+  "crate::node::disk": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 78
+  },
+  "crate::node::disk::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 78
+  },
+  "crate::node::edge": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 245
+  },
+  "crate::node::edge::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 245
+  },
+  "crate::node::field": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 200
+  },
+  "crate::node::field::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 200
+  },
+  "crate::node::flags": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0.6,
+   "distanceFromMainSequence": 0.4,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 196
+  },
+  "crate::node::flags::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 196
+  },
+  "crate::node::label": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 57
+  },
+  "crate::node::unified": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 427
+  },
+  "crate::node::unified::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 427
+  },
+  "crate::node::vector_data": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 475
+  },
+  "crate::node::vector_data::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 475
+  },
+  "crate::operator_registry": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0.2222222222222222,
+   "distanceFromMainSequence": 0.22222222222222232,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 499
+  },
+  "crate::operator_registry::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 499
+  },
+  "crate::parser": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1289
+  },
+  "crate::parser::grammar": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 497
+  },
+  "crate::parser::lexer": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 154
+  },
+  "crate::parser::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1289
+  },
+  "crate::physical_plan": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 751
+  },
+  "crate::physical_plan::dedup": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 168
+  },
+  "crate::physical_plan::dedup::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 168
+  },
+  "crate::physical_plan::filter": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 152
+  },
+  "crate::physical_plan::join": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 271
+  },
+  "crate::physical_plan::project": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 95
+  },
+  "crate::physical_plan::scan": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 211
+  },
+  "crate::physical_plan::scan::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 211
+  },
+  "crate::physical_plan::sort": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 99
+  },
+  "crate::physical_plan::vector": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 192
+  },
+  "crate::physical_plan::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 751
+  },
+  "crate::planner": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 12,
+   "linesOfCode": 599
+  },
+  "crate::planner::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 10,
+   "linesOfCode": 599
+  },
+  "crate::python": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 73
+  },
+  "crate::query": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0.05263157894736842,
+   "distanceFromMainSequence": 0.05263157894736836,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 812
+  },
+  "crate::query::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 812
+  },
+  "crate::rbac": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 171
+  },
+  "crate::rbac::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 171
+  },
+  "crate::sdk": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 34
+  },
+  "crate::sdk::api": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 756
+  },
+  "crate::sdk::api::admin": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 160
+  },
+  "crate::sdk::api::graph": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 270
+  },
+  "crate::sdk::api::memory": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 978
+  },
+  "crate::sdk::api::namespaces": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 369
+  },
+  "crate::sdk::api::search": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 118
+  },
+  "crate::sdk::api::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 756
+  },
+  "crate::sdk::builder": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 6,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 6,
+   "linesOfCode": 426
+  },
+  "crate::sdk::builder::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 426
+  },
+  "crate::sdk::connect": {
+   "afferentCoupling": 4,
+   "efferentCoupling": 1,
+   "instability": 0.2,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0.8,
+   "fanIn": 4,
+   "fanOut": 1,
+   "linesOfCode": 25
+  },
+  "crate::sdk::gds": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 38
+  },
+  "crate::sdk::graph": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 235
+  },
+  "crate::sdk::graph::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 235
+  },
+  "crate::sdk::search": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 373
+  },
+  "crate::sdk::search::debug": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 181
+  },
+  "crate::sdk::search::phrase": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 209
+  },
+  "crate::sdk::search::phrase::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 209
+  },
+  "crate::sdk::search::snippet": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 351
+  },
+  "crate::sdk::search::snippet::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 351
+  },
+  "crate::sdk::search::text_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 74
+  },
+  "crate::sdk::search::audit": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 50
+  },
+  "crate::sdk::search::debug_ops": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 398
+  },
+  "crate::sdk::search::explain": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 213
+  },
+  "crate::sdk::search::fusion": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 423
+  },
+  "crate::sdk::search::fusion::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 423
+  },
+  "crate::sdk::search::hybrid": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 50
+  },
+  "crate::sdk::search::lexical": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 226
+  },
+  "crate::sdk::search::multi": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 89
+  },
+  "crate::sdk::search::sparse": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 75
+  },
+  "crate::sdk::search::vector": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 223
+  },
+  "crate::sdk::search::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 1161
+  },
+  "crate::sdk::serialization": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 1646
+  },
+  "crate::sdk::serialization::conversions": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 539
+  },
+  "crate::sdk::serialization::conversions::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 539
+  },
+  "crate::sdk::serialization::graph_types": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 299
+  },
+  "crate::sdk::serialization::graph_types::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 299
+  },
+  "crate::sdk::serialization::impl_export": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 5,
+   "linesOfCode": 753
+  },
+  "crate::sdk::serialization::impl_export::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 753
+  },
+  "crate::sdk::serialization::impl_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 7,
+   "linesOfCode": 490
+  },
+  "crate::sdk::serialization::impl_index::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 490
+  },
+  "crate::sdk::serialization::impl_rebuild": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 1003
+  },
+  "crate::sdk::serialization::impl_rebuild::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 1003
+  },
+  "crate::sdk::serialization::impl_sparse_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 422
+  },
+  "crate::sdk::serialization::impl_sparse_index::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 422
+  },
+  "crate::sdk::serialization::impl_text_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 675
+  },
+  "crate::sdk::serialization::impl_text_index::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 675
+  },
+  "crate::sdk::serialization::vector_types": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 388
+  },
+  "crate::sdk::serialization::vector_types::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 388
+  },
+  "crate::sdk::serialization::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1646
+  },
+  "crate::sdk::types": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 699
+  },
+  "crate::sdk::types::graph": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 113
+  },
+  "crate::sdk::types::graph::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 113
+  },
+  "crate::sdk::types::record": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 530
+  },
+  "crate::sdk::types::record::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 530
+  },
+  "crate::sdk::types::search": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 547
+  },
+  "crate::sdk::types::search::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 547
+  },
+  "crate::sdk::types::u128_serde": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 699
+  },
+  "crate::sdk::types::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 699
+  },
+  "crate::sdk::version_history": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 7,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 7,
+   "linesOfCode": 543
+  },
+  "crate::sdk::version_history::node_id_str": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 543
+  },
+  "crate::sdk::version_history::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 543
+  },
+  "crate::search_profile": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 61
+  },
+  "crate::serialization": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 5
+  },
+  "crate::server": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 59
+  },
+  "crate::server::bootstrap": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 8,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 9,
+   "linesOfCode": 521
+  },
+  "crate::server::bootstrap::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 521
+  },
+  "crate::server::conversation": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0.2,
+   "distanceFromMainSequence": 0.19999999999999996,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 348
+  },
+  "crate::server::conversation::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 348
+  },
+  "crate::server::errors": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 404
+  },
+  "crate::server::errors::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 404
+  },
+  "crate::server::handlers": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 22,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 22,
+   "linesOfCode": 1553
+  },
+  "crate::server::handlers::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1553
+  },
+  "crate::server::jwt": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 164
+  },
+  "crate::server::jwt::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 164
+  },
+  "crate::server::list_records": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0.16666666666666666,
+   "distanceFromMainSequence": 0.16666666666666674,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 380
+  },
+  "crate::server::list_records::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 380
+  },
+  "crate::server::middleware": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 12,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 12,
+   "linesOfCode": 392
+  },
+  "crate::server::middleware::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 392
+  },
+  "crate::server::router": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 409
+  },
+  "crate::server::router::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 409
+  },
+  "crate::server::routing": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 71,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 71,
+   "linesOfCode": 57
+  },
+  "crate::server::state": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 8,
+   "instability": 1,
+   "abstractness": 0.1,
+   "distanceFromMainSequence": 0.10000000000000009,
+   "fanIn": 0,
+   "fanOut": 8,
+   "linesOfCode": 480
+  },
+  "crate::server::telemetry": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 202
+  },
+  "crate::server::telemetry::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 202
+  },
+  "crate::shred": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 704
+  },
+  "crate::shred::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 704
+  },
+  "crate::skills": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 14,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 14,
+   "linesOfCode": 686
+  },
+  "crate::skills::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 6,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 6,
+   "linesOfCode": 518
+  },
+  "crate::sync_ext": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 1,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 121
+  },
+  "crate::sync_ext::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 121
+  },
+  "crate::scalar_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 222
+  },
+  "crate::scalar_index::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 222
+  },
+  "crate::schema": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 273
+  },
+  "crate::schema::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 273
+  },
+  "crate::storage": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 15
+  },
+  "crate::storage::archive": {
+   "afferentCoupling": 2,
+   "efferentCoupling": 2,
+   "instability": 0.5,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0.5,
+   "fanIn": 8,
+   "fanOut": 2,
+   "linesOfCode": 1113
+  },
+  "crate::storage::archive::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1113
+  },
+  "crate::storage::engine": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 9,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 12,
+   "linesOfCode": 855
+  },
+  "crate::storage::engine::cache": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 135
+  },
+  "crate::storage::engine::cache::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 135
+  },
+  "crate::storage::engine::delete": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 6,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 6,
+   "linesOfCode": 304
+  },
+  "crate::storage::engine::get": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 717
+  },
+  "crate::storage::engine::init": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 8,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 8,
+   "linesOfCode": 607
+  },
+  "crate::storage::engine::insert": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 7,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 7,
+   "linesOfCode": 939
+  },
+  "crate::storage::engine::maintenance": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 15,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 15,
+   "linesOfCode": 1298
+  },
+  "crate::storage::engine::ops": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 5,
+   "linesOfCode": 355
+  },
+  "crate::storage::engine::partition": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 64
+  },
+  "crate::storage::engine::stats": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 9,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 9,
+   "linesOfCode": 302
+  },
+  "crate::storage::engine::txn": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 7,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 9,
+   "linesOfCode": 770
+  },
+  "crate::storage::engine::txn::txn_manager_tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 770
+  },
+  "crate::storage::engine::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 62
+  },
+  "crate::storage::engine::tests::engine": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 7,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 8,
+   "linesOfCode": 1415
+  },
+  "crate::storage::engine::tests::incremental": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 3,
+   "linesOfCode": 386
+  },
+  "crate::storage::engine::tests::init": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 3,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 5,
+   "linesOfCode": 765
+  },
+  "crate::storage::engine::tests::maintenance": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 1363
+  },
+  "crate::storage::engine::tests::ops": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 1725
+  },
+  "crate::storage::engine::tests::scalar_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 94
+  },
+  "crate::storage::engine::tests::stats": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 737
+  },
+  "crate::storage::engine::tests::types": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 229
+  },
+  "crate::storage::ops": {
+   "afferentCoupling": 1,
+   "efferentCoupling": 3,
+   "instability": 0.75,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0.25,
+   "fanIn": 1,
+   "fanOut": 3,
+   "linesOfCode": 541
+  },
+  "crate::storage::ops::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 541
+  },
+  "crate::storage::vfile": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 12,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 13,
+   "linesOfCode": 864
+  },
+  "crate::storage::vfile::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 864
+  },
+  "crate::storage::vfile_mmap": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 627
+  },
+  "crate::storage::vfile_mmap::mmap_shim": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 627
+  },
+  "crate::storage::vfile_mmap::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 627
+  },
+  "crate::storage::wal": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 26
+  },
+  "crate::text_index": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 5,
+   "linesOfCode": 1007
+  },
+  "crate::text_index::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 1007
+  },
+  "crate::tokenizer": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 329
+  },
+  "crate::tokenizer::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 329
+  },
+  "crate::tui": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 91
+  },
+  "crate::tui::dashboard": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 277
+  },
+  "crate::tui::monitor": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 108
+  },
+  "crate::tui::repl": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 328
+  },
+  "crate::utils": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 11
+  },
+  "crate::utils::confidence_metrics": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 167
+  },
+  "crate::utils::confidence_metrics::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 167
+  },
+  "crate::utils::duplicate_prevention": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 160
+  },
+  "crate::utils::duplicate_prevention::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 160
+  },
+  "crate::utils::fs": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 32
+  },
+  "crate::vector": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 9
+  },
+  "crate::vector::governor": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 282
+  },
+  "crate::vector::governor::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 282
+  },
+  "crate::vector::quantization": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 744
+  },
+  "crate::vector::quantization::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 744
+  },
+  "crate::vector::transform": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 159
+  },
+  "crate::vector::transform::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 159
+  },
+  "crate::wal": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 1427
+  },
+  "crate::wal::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 1427
+  },
+  "crate::wal_sharded": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 5,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 5,
+   "linesOfCode": 856
+  },
+  "crate::wal_sharded::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 856
+  },
+  "crate::wiki": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 34
+  },
+  "crate::wiki::chunker": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 261
+  },
+  "crate::wiki::chunker::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 261
+  },
+  "crate::wiki::sources": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 267
+  },
+  "crate::wiki::sources::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 267
+  },
+  "crate::wiki::state": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 1,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 1,
+   "linesOfCode": 58
+  },
+  "crate::wiki::store": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 4,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 4,
+   "linesOfCode": 465
+  },
+  "crate::wiki::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 236
+  },
+  "crate::wal_shipping": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 6,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 6,
+   "linesOfCode": 411
+  },
+  "crate::wal_shipping::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 2,
+   "instability": 1,
+   "abstractness": 0,
+   "distanceFromMainSequence": 0,
+   "fanIn": 0,
+   "fanOut": 2,
+   "linesOfCode": 411
+  },
+  "crate::ingestion": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 146
+  },
+  "crate::ingestion::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 146
+  },
+  "crate::transcript": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 99
+  },
+  "crate::transcript::tests": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 99
+  },
+  "crate::testing": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 7
+  },
+  "crate::testing::chaos": {
+   "afferentCoupling": 0,
+   "efferentCoupling": 0,
+   "instability": 0,
+   "abstractness": 0,
+   "distanceFromMainSequence": 1,
+   "fanIn": 0,
+   "fanOut": 0,
+   "linesOfCode": 135
+  }
+ }
+}

@@ -1,0 +1,753 @@
+//! L1 memory reader + LLM-free candidate recall (MEM-11).
+//!
+//! Phase 1 of the two-phase dedup: read the persisted L1 records of a session
+//! and recall top-k candidate pools per new memory WITHOUT an LLM call
+//! (Principio 4 — recall is optional; when it yields nothing, the pipeline
+//! stores everything). MEMG-13 adds the version-history/diff audit surface
+//! ([`read_record_versions`], [`read_record_version`], [`diff_records`]) over
+//! the core `Embedded::versions`/`get_version` (VS-CORE-07).
+//!
+//! Persistence goes through the VantaDB SDK (Principio 2): records live under
+//! the `l1/<session>` namespace, key = sanitized record id, payload = the
+//! serialized `MemoryRecord`.
+
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use serde::{Deserialize, Serialize};
+
+use crate::core::abstractions::{MemoryRecord, MemoryType};
+use crate::core::conversation::{sanitize_component, sanitize_key};
+use crate::core::record::lifecycle::{scan_decay, DecayPolicy, DecayReport};
+use crate::core::record::L1Error;
+
+/// `l1/<sanitized-session>` — persisted L1 memory records namespace.
+pub fn l1_namespace(session_key: &str) -> String {
+    format!("l1/{}", sanitize_component(session_key, 128, false))
+}
+
+/// Read all persisted L1 records of a session (idempotent, paged via list).
+pub fn read_session_records(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+) -> Result<Vec<MemoryRecord>, L1Error> {
+    read_namespace_records(db, &l1_namespace(session_key))
+}
+
+/// Read all persisted L1 records from an explicit `l1/<session>` namespace
+/// (used by cross-session recall, MEM-40, where the namespace is already
+/// resolved — e.g. enumerated via `list_namespaces`).
+///
+/// **Raw reader:** returns every record, including superseded ones —
+/// write-side paths (dedup re-reads, consolidation, decay pass, GDPR
+/// cascade-forget) and audit surfaces need the full namespace content.
+/// Recall-facing callers must use [`read_active_namespace_records`] instead.
+pub fn read_namespace_records(
+    db: &vantadb::sdk::Embedded,
+    namespace: &str,
+) -> Result<Vec<MemoryRecord>, L1Error> {
+    read_namespace_records_impl(db, namespace, false)
+}
+
+/// Read all persisted L1 records of a session, **current records only**
+/// (FIND-277): the recall-facing variant of [`read_session_records`].
+/// Records carrying a non-blank `superseded_by` pointer (MEM-60/MEMG-01
+/// contradiction + dream consolidation lineage) or engine-invalidated
+/// (`superseded_by` on the node, `invalid_at_ms <= now`) are excluded — a
+/// superseded fact is audit history, not current memory, and must never
+/// reach model context. Same containment class as quarantine (SCH-05).
+pub fn read_active_session_records(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+) -> Result<Vec<MemoryRecord>, L1Error> {
+    read_active_namespace_records(db, &l1_namespace(session_key))
+}
+
+/// Active-records variant of [`read_namespace_records`] (FIND-277): the
+/// entry point every recall read path routes through
+/// (`perform_auto_recall`, cross-session `read_scoped_records`).
+///
+/// The filter runs at two levels because L1 supersession lives **inside the
+/// payload** (`mark_contradiction` re-persists the record, the engine never
+/// sees the pointer): `exclude_superseded` at the query level still drops
+/// engine-invalidated records (`invalid_at_ms <= now`, node-level
+/// `superseded_by`), and [`is_active_record`] then drops payload-level
+/// supersession after deserialization.
+pub fn read_active_namespace_records(
+    db: &vantadb::sdk::Embedded,
+    namespace: &str,
+) -> Result<Vec<MemoryRecord>, L1Error> {
+    read_namespace_records_impl(db, namespace, true)
+}
+
+/// Whether a decoded L1 record is still current (FIND-277): `superseded_by`
+/// unset or blank. A `Some("")`/whitespace-only pointer is corrupt data, not
+/// a supersession — the record stays active.
+pub fn is_active_record(record: &MemoryRecord) -> bool {
+    record
+        .superseded_by
+        .as_deref()
+        .is_none_or(|s| s.trim().is_empty())
+}
+
+/// Why an L1 payload could not be decoded as a `MemoryRecord` (FIND-259).
+///
+/// The reader has two silent layers: the `serde_json` decode and the
+/// [`sdk_to_memory_record`] fallback that reinterprets whatever did not decode.
+/// A payload whose `type` is outside [`MemoryType`] is a **write** bug (the
+/// record's declared content and type are lost: the fallback reports it as an
+/// episodic record whose content is the raw payload); a payload with no `type`
+/// at all is the documented plain-payload case (ADRs / documents, FIND-699).
+/// The two are counted separately because they have different owners.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum L1DecodeFailure {
+    /// The payload is a JSON object that declares a `type`, and that `type` is
+    /// not one of the seven [`MemoryType`] values.
+    InvalidType,
+    /// Not an L1 envelope: not JSON, not an object, or no `type` field.
+    Unparseable,
+}
+
+/// Process-wide decode-failure counters of the L1 reader (FIND-259).
+///
+/// Monotonic since process start; [`reset_decode_stats`] exists for tests and
+/// for a host that wants per-window numbers. **Additive surface:** counting
+/// never changes what the reader returns — the fallback still yields a record
+/// for every payload it yielded before.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct L1DecodeStats {
+    /// Payloads skipped by the `MemoryRecord` decode because their `type` is
+    /// outside the valid set.
+    pub invalid_type: u64,
+    /// Payloads skipped by the `MemoryRecord` decode for any other reason
+    /// (plain payload, truncated JSON, missing required field).
+    pub unparseable: u64,
+}
+
+static INVALID_TYPE_FAILURES: AtomicU64 = AtomicU64::new(0);
+static UNPARSEABLE_FAILURES: AtomicU64 = AtomicU64::new(0);
+
+/// Decode-failure counters since process start (FIND-259). Read them to tell
+/// "an L1 write used an invalid `type`" apart from "this namespace holds plain
+/// payloads" — the two look identical from `memory_recall` (nothing comes back).
+pub fn decode_stats() -> L1DecodeStats {
+    L1DecodeStats {
+        invalid_type: INVALID_TYPE_FAILURES.load(Ordering::Relaxed),
+        unparseable: UNPARSEABLE_FAILURES.load(Ordering::Relaxed),
+    }
+}
+
+/// Zero the counters returned by [`decode_stats`].
+pub fn reset_decode_stats() {
+    INVALID_TYPE_FAILURES.store(0, Ordering::Relaxed);
+    UNPARSEABLE_FAILURES.store(0, Ordering::Relaxed);
+}
+
+/// Classify a payload that failed `serde_json::from_str::<MemoryRecord>`.
+/// A `type` that is present but not a [`MemoryType`] is a type bug; everything
+/// else (plain text, document, incomplete envelope) is generic.
+fn classify_decode_failure(payload: &str) -> L1DecodeFailure {
+    match serde_json::from_str::<serde_json::Value>(payload) {
+        Ok(serde_json::Value::Object(map)) => match map.get("type") {
+            // `&Value` is its own Deserializer: classify without cloning.
+            Some(declared) if MemoryType::deserialize(declared).is_err() => {
+                L1DecodeFailure::InvalidType
+            }
+            _ => L1DecodeFailure::Unparseable,
+        },
+        _ => L1DecodeFailure::Unparseable,
+    }
+}
+
+/// Count one decode failure (see [`L1DecodeFailure`] for the split).
+fn note_decode_failure(payload: &str) {
+    let counter = match classify_decode_failure(payload) {
+        L1DecodeFailure::InvalidType => &INVALID_TYPE_FAILURES,
+        L1DecodeFailure::Unparseable => &UNPARSEABLE_FAILURES,
+    };
+    counter.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Shared paged read behind [`read_namespace_records`] (raw) and
+/// [`read_active_namespace_records`] (current-only). `active_only` adds the
+/// engine-level `exclude_superseded` filter plus the post-deserialization
+/// [`is_active_record`] gate for payload-level supersession.
+fn read_namespace_records_impl(
+    db: &vantadb::sdk::Embedded,
+    namespace: &str,
+    active_only: bool,
+) -> Result<Vec<MemoryRecord>, L1Error> {
+    use vantadb::sdk::{MemoryListOptions, MemoryListPage};
+
+    let mut records = Vec::new();
+    let mut cursor: Option<usize> = None;
+
+    loop {
+        let options = MemoryListOptions {
+            limit: 1000,
+            cursor,
+            // SCH-05 (ADR-046 §D5, MGR-13 §5.2): hard injection gate — L1
+            // reads that feed auto-recall / context assembly never return
+            // quarantined records. This is the single choke point for every
+            // recall read path (`perform_auto_recall`, `context_assemble`).
+            include_quarantined: false,
+            // FIND-277: active reads also drop engine-invalidated records
+            // (node `superseded_by` + `invalid_at_ms <= now`, ADR-046 §D3-6).
+            // Payload-level supersession is filtered below after decoding.
+            exclude_superseded: active_only,
+            ..Default::default()
+        };
+        let page: MemoryListPage = db.list(namespace, options)?;
+        for record in page.records {
+            match serde_json::from_str::<MemoryRecord>(&record.payload) {
+                Ok(mut mem) => {
+                    mem.vector = usable_vector_filter(record.vector.as_deref());
+                    if !active_only || is_active_record(&mem) {
+                        records.push(mem);
+                    }
+                }
+                Err(_) => {
+                    // FIND-259: the fallback below keeps the record, but the
+                    // declared `type` is gone — count the cause so an invalid
+                    // L1 write is visible instead of just absent from recall.
+                    note_decode_failure(&record.payload);
+                    // Fallback: construct MemoryRecord from raw SDK record (e.g. ADRs or documents)
+                    let mem = sdk_to_memory_record(record);
+                    if !active_only || is_active_record(&mem) {
+                        records.push(mem);
+                    }
+                }
+            }
+        }
+        match page.next_cursor {
+            Some(next) => cursor = Some(next),
+            None => break,
+        }
+    }
+
+    Ok(records)
+}
+
+/// Convert a core SDK `MemoryRecord` to a `vanta_memory` `MemoryRecord`.
+pub fn sdk_to_memory_record(rec: vantadb::sdk::MemoryRecord) -> MemoryRecord {
+    let meta_map: serde_json::Map<String, serde_json::Value> = rec
+        .metadata
+        .iter()
+        .map(|(k, v)| (k.clone(), vanta_to_json_value(v)))
+        .collect();
+    let superseded_by = rec
+        .superseded_by
+        .or_else(|| match rec.metadata.get("superseded_by") {
+            Some(vantadb::sdk::Value::String(s)) if !s.is_empty() => Some(s.clone()),
+            _ => None,
+        });
+    // FIND-699: a plain (non-envelope) payload still carries its scoping in
+    // metadata. Without this, a record written by any MCP client through
+    // `memory_put` was invisible to `memory_recall{scope:"agent"|"team"}` — the
+    // silent-data-loss mode that motivated the finding.
+    //
+    // Resolve the three values BEFORE the struct literal: `meta_map` is moved
+    // into `metadata` there, so a closure borrowing it cannot be called later.
+    let scoping = |key: &str| {
+        meta_map
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    let team_id = scoping("team_id");
+    let user_id = scoping("user_id");
+    let agent_id = scoping("agent_id");
+    MemoryRecord {
+        id: rec.key.clone(),
+        content: rec.payload,
+        memory_type: MemoryType::Episodic,
+        priority: 50,
+        scene_name: String::new(),
+        source_message_ids: Vec::new(),
+        metadata: serde_json::Value::Object(meta_map),
+        timestamps: Vec::new(),
+        created_at: String::new(),
+        updated_at: String::new(),
+        version: rec.version as u32,
+        session_key: rec.namespace.clone(),
+        session_id: String::new(),
+        task_id: None,
+        team_id,
+        user_id,
+        agent_id,
+        vector: usable_vector_filter(rec.vector.as_deref()),
+        heat: 0,
+        superseded_by,
+    }
+}
+
+pub fn vanta_to_json_value(v: &vantadb::sdk::Value) -> serde_json::Value {
+    match v {
+        vantadb::sdk::Value::String(s) => serde_json::Value::String(s.clone()),
+        vantadb::sdk::Value::Int(i) => serde_json::json!(i),
+        vantadb::sdk::Value::Float(f) => serde_json::json!(f),
+        vantadb::sdk::Value::Bool(b) => serde_json::Value::Bool(*b),
+        vantadb::sdk::Value::Null => serde_json::Value::Null,
+        vantadb::sdk::Value::ListString(l) => serde_json::json!(l),
+        vantadb::sdk::Value::ListInt(l) => serde_json::json!(l),
+        vantadb::sdk::Value::ListFloat(l) => serde_json::json!(l),
+        vantadb::sdk::Value::ListBool(l) => serde_json::json!(l),
+        _ => serde_json::Value::Null,
+    }
+}
+
+/// Run the L1 forgetting-curve pass over one session (MEMG-07).
+///
+/// Composes [`read_session_records`] + `scan_decay` — **read-only**: the
+/// curve deprioritizes records (effective heat); it never mutates or deletes
+/// them, and the discard gate stays explicit
+/// ([`crate::core::record::lifecycle::PRUNE_HEAT_THRESHOLD`]). Pull-based
+/// (the owner calls it), mirroring `TimerScanner::run_once`.
+pub fn run_decay_pass(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    policy: &DecayPolicy,
+    now_ms: u64,
+) -> Result<DecayReport, L1Error> {
+    let records = read_session_records(db, session_key)?;
+    Ok(scan_decay(&records, policy, now_ms))
+}
+
+/// Read a single L1 record by id, if present.
+pub fn read_record(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    record_id: &str,
+) -> Result<Option<MemoryRecord>, L1Error> {
+    let ns = l1_namespace(session_key);
+    let key = sanitize_key(record_id);
+    match db.get(&ns, &key)? {
+        Some(record) => {
+            let mut mem: MemoryRecord = serde_json::from_str(&record.payload)?;
+            mem.vector = usable_vector_filter(record.vector.as_deref());
+            Ok(Some(mem))
+        }
+        None => Ok(None),
+    }
+}
+
+/// One retained version of an L1 record: the core storage version number plus
+/// the decoded memory payload for that version (VS-CORE-07).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RecordVersion {
+    /// Core storage version (u64) — the address accepted by
+    /// [`read_record_version`].
+    pub version: u64,
+    /// Decoded L1 payload for that version.
+    pub record: MemoryRecord,
+}
+
+/// Read every retained version of an L1 record, ascending (v1..vN), mapped to
+/// the memory payload (core `Embedded::versions`, VS-CORE-07).
+///
+/// Empty when the record has no history (never written / not found / history
+/// already pruned). The history is best-effort post-commit in the core — a
+/// crash window can leave a version gap (degraded, never corrupt).
+///
+/// **Audit surface:** unlike the recall reads, this does **not** apply the
+/// quarantine gate (SCH-05) — retained versions expose quarantined state on
+/// purpose. Do not feed this history into model context; it is for audit/diff.
+pub fn read_record_versions(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    record_id: &str,
+) -> Result<Vec<RecordVersion>, L1Error> {
+    let ns = l1_namespace(session_key);
+    let key = sanitize_key(record_id);
+    let mut versions = Vec::new();
+    for stored in db.versions(&ns, &key)? {
+        versions.push(decode_version(&stored)?);
+    }
+    Ok(versions)
+}
+
+/// Read one retained version of an L1 record (core `Embedded::get_version`).
+/// `None` when the record or that version does not exist.
+pub fn read_record_version(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    record_id: &str,
+    version: u64,
+) -> Result<Option<RecordVersion>, L1Error> {
+    let ns = l1_namespace(session_key);
+    let key = sanitize_key(record_id);
+    match db.get_version(&ns, &key, version)? {
+        Some(stored) => Ok(Some(decode_version(&stored)?)),
+        None => Ok(None),
+    }
+}
+
+/// Map one stored core record (payload + node vector) to a [`RecordVersion`],
+/// mirroring [`read_record`]'s payload→record decoding.
+fn decode_version(stored: &vantadb::sdk::MemoryRecord) -> Result<RecordVersion, L1Error> {
+    let mut mem: MemoryRecord = serde_json::from_str(&stored.payload)?;
+    mem.vector = usable_vector_filter(stored.vector.as_deref());
+    Ok(RecordVersion {
+        version: stored.version,
+        record: mem,
+    })
+}
+
+/// One changed top-level field between two versions of an L1 record.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RecordFieldChange {
+    /// Payload field name (`content`, `type`, `superseded_by`, ...).
+    pub field: String,
+    /// Value in the older version; [`serde_json::Value::Null`] when the field
+    /// was absent (`skip_serializing_if` — e.g. an unset optional).
+    pub before: serde_json::Value,
+    /// Value in the newer version; `Null` when the field was absent.
+    pub after: serde_json::Value,
+}
+
+/// Field-level diff of two versions of the same L1 record — the audit view
+/// over [`read_record_versions`]: every top-level payload field whose value
+/// differs, ordered by field name.
+///
+/// The comparison runs on the serialized payload (`serde_json::to_value`), so
+/// fields skipped by `skip_serializing_if` (unset optionals like `task_id` or
+/// `superseded_by`) read as [`serde_json::Value::Null`] — a field appearing or
+/// disappearing is reported, never silent.
+pub fn diff_records(
+    older: &MemoryRecord,
+    newer: &MemoryRecord,
+) -> Result<Vec<RecordFieldChange>, L1Error> {
+    let before = serde_json::to_value(older)?;
+    let after = serde_json::to_value(newer)?;
+    let mut fields: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for value in [&before, &after] {
+        if let Some(object) = value.as_object() {
+            fields.extend(object.keys().map(String::as_str));
+        }
+    }
+    let mut changes = Vec::new();
+    for field in fields {
+        let before_value = before
+            .get(field)
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let after_value = after.get(field).cloned().unwrap_or(serde_json::Value::Null);
+        if before_value != after_value {
+            changes.push(RecordFieldChange {
+                field: field.to_string(),
+                before: before_value,
+                after: after_value,
+            });
+        }
+    }
+    Ok(changes)
+}
+
+/// Attach the node vector to a record, treating empty/all-zero vectors (how
+/// the SDK reports "no vector") as `None` (MEM-46 learning; mirrors
+/// `usable_vector` in the core SDK).
+pub(crate) fn usable_vector_filter(vector: Option<&[f32]>) -> Option<Vec<f32>> {
+    vector
+        .filter(|v| !v.is_empty() && v.iter().any(|&x| x != 0.0))
+        .map(<[f32]>::to_vec)
+}
+
+/// Tokenize content into a lowercased set of significant terms (words of ≥3
+/// chars). Stopword-free on purpose: the heuristic is a cheap recall gate, not
+/// a ranking engine — see [`recall_candidates`] for the documented ceiling.
+pub(crate) fn significant_terms(content: &str) -> HashSet<String> {
+    content
+        .split(|c: char| !c.is_alphanumeric() && c != '_')
+        .map(str::to_lowercase)
+        .filter(|t| t.chars().count() >= 3)
+        .collect()
+}
+
+/// Overlap score between two contents (count of shared significant terms).
+pub(crate) fn overlap_score(a: &str, b: &str) -> usize {
+    let a_terms = significant_terms(a);
+    let b_terms = significant_terms(b);
+    a_terms.intersection(&b_terms).count()
+}
+
+/// LLM-free candidate recall: rank existing records against the new memory's
+/// content and return the top `k` (MEM-11).
+///
+/// D38 dual-pool (MEM-47): records WITH a usable vector are scored by cosine
+/// similarity against the embedded content (semantic pool); records WITHOUT
+/// one keep the keyword-overlap gate — a legacy record is never dropped just
+/// because it has no vector. Both pools fuse via reciprocal-rank fusion, so
+/// overlap counts and cosine similarities never compete directly.
+///
+/// # ponytail: full scan per new memory
+/// O(records × dims) per call; fine at session-sized pools. Upgrade path:
+/// HNSW query via the SDK if dedup ever needs cross-session reach.
+pub fn recall_candidates(
+    records: &[MemoryRecord],
+    content: &str,
+    top_k: usize,
+    embed: Option<&crate::core::record::l1_writer::EmbedFn>,
+) -> Vec<MemoryRecord> {
+    let query_vector = embed.and_then(|hook| hook(content));
+    // FIND-277: same "active" semantics as the recall readers — a blank
+    // `superseded_by` pointer is corrupt data, not a supersession, so dedup
+    // and recall share one definition of current.
+    let non_superseded: Vec<&MemoryRecord> =
+        records.iter().filter(|r| is_active_record(r)).collect();
+
+    // Pool 1 — legacy keyword overlap (doubles as the no-vector fallback).
+    let mut keyword_pool: Vec<(usize, &MemoryRecord)> = non_superseded
+        .iter()
+        .map(|r| (overlap_score(&r.content, content), *r))
+        .filter(|(score, _)| *score > 0)
+        .collect();
+    keyword_pool.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then_with(|| b.1.updated_at.cmp(&a.1.updated_at))
+    });
+
+    // Pool 2 — semantic similarity over records that carry a usable vector.
+    let vector_pool: Vec<(f32, &MemoryRecord)> = match query_vector.as_deref() {
+        Some(query) => non_superseded
+            .iter()
+            .filter_map(|r| {
+                let record_vector = r.vector.as_deref()?;
+                cosine_similarity(record_vector, query)
+                    .filter(|sim| *sim >= MIN_COSINE_SIMILARITY)
+                    .map(|sim| (sim, *r))
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+
+    if vector_pool.is_empty() {
+        // No semantic hits: byte-identical legacy ordering (regression-safe).
+        return keyword_pool
+            .into_iter()
+            .take(top_k)
+            .map(|(_, r)| r.clone())
+            .collect();
+    }
+    let mut sorted_vector_pool = vector_pool;
+    sorted_vector_pool.sort_by(|a, b| {
+        b.0.total_cmp(&a.0)
+            .then_with(|| b.1.updated_at.cmp(&a.1.updated_at))
+    });
+
+    let keyword_ids: Vec<String> = keyword_pool.iter().map(|(_, r)| r.id.clone()).collect();
+    let vector_ids: Vec<String> = sorted_vector_pool
+        .iter()
+        .map(|(_, r)| r.id.clone())
+        .collect();
+    rrf_merge(&keyword_ids, &vector_ids, top_k)
+        .into_iter()
+        .filter_map(|id| records.iter().find(|r| r.id == id))
+        .cloned()
+        .collect()
+}
+
+/// Minimum cosine similarity for a stored vector to enter the semantic pool
+/// (D38). Below the threshold the record simply stays with its keyword score.
+pub(crate) const MIN_COSINE_SIMILARITY: f32 = 0.35;
+
+/// Cosine similarity; `None` on dimension mismatch or zero norm (mirrors the
+/// core SDK's zero-norm guard: an unusable vector never ranks).
+pub(crate) fn cosine_similarity(a: &[f32], b: &[f32]) -> Option<f32> {
+    if a.is_empty() || a.len() != b.len() {
+        return None;
+    }
+    let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
+    let norm_a = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let norm_b = b.iter().map(|y| y * y).sum::<f32>().sqrt();
+    if norm_a == 0.0 || norm_b == 0.0 {
+        return None;
+    }
+    Some(dot / (norm_a * norm_b))
+}
+
+/// Reciprocal-rank fusion (k=60, Cormack et al. 2009) of two ranked pools.
+/// Inputs are ordered ids (rank 1 first); returns the top `top_k` fused ids.
+/// Rank-based gains make heterogeneous scores (term counts vs cosine) merge
+/// without normalization. Stable sort keeps keyword-pool order on ties.
+pub(crate) fn rrf_merge(
+    keyword_ranked: &[String],
+    vector_ranked: &[String],
+    top_k: usize,
+) -> Vec<String> {
+    rrf_merge_scored(keyword_ranked, vector_ranked, top_k)
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect()
+}
+
+/// Scored variant of [`rrf_merge`]: same fusion math, returning the fused
+/// score alongside each id (best-first). MEMG-21 consumes the fused scores as
+/// the raw relevance signal when both recall arms contribute — RRF is
+/// rank-based and scale-free, so the composite re-rank never compares term
+/// counts against cosine similarities directly.
+pub(crate) fn rrf_merge_scored(
+    keyword_ranked: &[String],
+    vector_ranked: &[String],
+    top_k: usize,
+) -> Vec<(String, f32)> {
+    const RRF_K: f32 = 60.0;
+    let mut fused: Vec<(String, f32)> = Vec::new();
+    let mut bump = |ranked: &[String]| {
+        for (idx, id) in ranked.iter().enumerate() {
+            let gain = 1.0 / (RRF_K + idx as f32 + 1.0);
+            match fused.iter_mut().find(|(existing, _)| existing == id) {
+                Some((_, score)) => *score += gain,
+                None => fused.push((id.clone(), gain)),
+            }
+        }
+    };
+    bump(keyword_ranked);
+    bump(vector_ranked);
+    fused.sort_by(|a, b| b.1.total_cmp(&a.1));
+    fused.into_iter().take(top_k).collect()
+}
+
+/// Marker types so the reader surface is self-describing in docs/tests.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct L1ReaderStats {
+    pub session_key: String,
+    pub record_count: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        l1_namespace, overlap_score, recall_candidates, rrf_merge, rrf_merge_scored,
+        significant_terms,
+    };
+    use crate::core::abstractions::{MemoryRecord, MemoryType};
+
+    fn record(id: &str, content: &str, updated: &str) -> MemoryRecord {
+        MemoryRecord {
+            id: id.into(),
+            content: content.into(),
+            memory_type: MemoryType::Persona,
+            priority: 80,
+            scene_name: "s".into(),
+            source_message_ids: vec![],
+            metadata: serde_json::Value::Null,
+            timestamps: vec![updated.into()],
+            created_at: updated.into(),
+            updated_at: updated.into(),
+            version: 1,
+            session_key: "sk".into(),
+            session_id: "".into(),
+            task_id: None,
+            team_id: None,
+            user_id: None,
+            agent_id: None,
+            vector: None,
+            heat: 0,
+            superseded_by: None,
+        }
+    }
+
+    #[test]
+    fn namespace_sanitizes_session() {
+        assert_eq!(l1_namespace("session a/b"), "l1/session_a_b");
+        assert_eq!(l1_namespace("plain"), "l1/plain");
+    }
+
+    #[test]
+    fn significant_terms_ignore_short_words_and_case() {
+        let terms = significant_terms("Deploy the APP and run tests");
+        assert!(terms.contains("deploy"));
+        assert!(terms.contains("tests"));
+        assert!(terms.contains("the")); // 3 chars -> kept (>=3)
+        assert!(terms.contains("and")); // 3 chars -> kept (>=3)
+        assert!(terms.contains("app")); // 3 chars -> kept (>=3)
+        assert!(!terms.contains("to")); // 2 chars -> dropped (<3)
+    }
+
+    #[test]
+    fn overlap_scores_shared_terms() {
+        // Shared significant terms: {user, dark, mode} = 3.
+        assert_eq!(
+            overlap_score("user prefers dark mode", "user likes dark mode"),
+            3
+        );
+        assert_eq!(
+            overlap_score("completely different", "no shared words here"),
+            0
+        );
+    }
+
+    #[test]
+    fn recall_ranks_by_overlap_and_respects_top_k() {
+        let records = vec![
+            record(
+                "m1",
+                "user prefers dark mode and vim",
+                "2026-08-20T10:00:00.000Z",
+            ),
+            record("m2", "user prefers light theme", "2026-08-20T10:00:00.000Z"),
+            record("m3", "team uses postgres", "2026-08-20T10:00:00.000Z"),
+        ];
+        let candidates = recall_candidates(&records, "user prefers dark mode", 2, None);
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].id, "m1");
+        assert_eq!(candidates[1].id, "m2");
+
+        let none = recall_candidates(&records, "rust cargo build", 5, None);
+        assert!(none.is_empty());
+    }
+
+    #[test]
+    fn test_recall_excludes_superseded_records() {
+        let records = vec![
+            record(
+                "m1",
+                "user prefers dark mode and vim",
+                "2026-08-20T10:00:00.000Z",
+            ),
+            record("m2", "user prefers light theme", "2026-08-20T10:00:00.000Z"),
+            record("m3", "team uses postgres", "2026-08-20T10:00:00.000Z"),
+        ];
+        let mut rec_superseded = record(
+            "m0",
+            "user prefers dark mode always",
+            "2026-08-20T10:00:00.000Z",
+        );
+        rec_superseded.superseded_by = Some("m1".to_string());
+        let mut mixed = records.clone();
+        mixed.insert(0, rec_superseded);
+
+        let candidates = recall_candidates(&mixed, "user prefers dark mode", 5, None);
+        assert!(
+            !candidates.iter().any(|r| r.id == "m0"),
+            "superseded record m0 must be excluded from recall"
+        );
+        assert!(
+            candidates.iter().any(|r| r.id == "m1"),
+            "active record m1 must be recalled"
+        );
+    }
+
+    #[test]
+    fn rrf_merge_scored_matches_rrf_merge_ids() {
+        let keyword = vec!["a".to_string(), "b".to_string()];
+        let vector = vec!["b".to_string(), "c".to_string()];
+        let ids = rrf_merge(&keyword, &vector, 3);
+        let scored = rrf_merge_scored(&keyword, &vector, 3);
+        assert_eq!(
+            scored.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>(),
+            ids,
+            "the scored variant keeps rrf_merge's exact ordering"
+        );
+        // "b" is in both pools → top fused score, strictly above the rest.
+        assert_eq!(scored[0].0, "b");
+        assert!(scored[0].1 > scored[1].1);
+        // top_k is respected.
+        assert_eq!(rrf_merge_scored(&keyword, &vector, 2).len(), 2);
+    }
+}

@@ -1,0 +1,1 @@
+FROM Person p WHERE edad = "25"

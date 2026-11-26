@@ -1,0 +1,316 @@
+"""Type stubs for the ``vantadb_py`` wrapper package.
+
+Native signatures live in ``vantadb_py.pyi`` (the compiled extension,
+``vantadb_py.pyd``). This stub only adds what ``__init__.py`` defines:
+``SearchRequest``, ``AsyncClient`` and the re-exports — mirroring the real
+``from .vantadb_py import ...`` so the package surface stays typed without
+re-declaring native classes.
+
+``import vantadb`` (the ``vantadb/`` alias package) resolves the same
+``__all__`` transitively, so it needs no stub of its own.
+"""
+
+from typing import Any, Self
+
+from .vantadb_py import (
+    BusyError,
+    Client,
+    ConflictError,
+    CorruptError,
+    Error,
+    ListResult,
+    NotFoundError,
+    NoVectorError,
+    Record,
+    ResourceLimitError,
+    SearchHit,
+    StorageError,
+    TimeoutError,
+    UnsupportedError,
+    ValidationError,
+    Vector,
+    __version__,
+    connect,
+    memory_node_id,
+)
+
+# AST-010: rename nativo completo — sin puentes legacy.
+
+__all__ = [
+    "AsyncClient",
+    "BusyError",
+    "Client",
+    "ConflictError",
+    "CorruptError",
+    "Error",
+    "ListResult",
+    "NoVectorError",
+    "NotFoundError",
+    "Record",
+    "ResourceLimitError",
+    "SearchHit",
+    "SearchRequest",
+    "StorageError",
+    "TimeoutError",
+    "UnsupportedError",
+    "ValidationError",
+    "Vector",
+    "__version__",
+    "connect",
+    "error_to_dict",
+    "memory_node_id",
+]
+
+def error_to_dict(exc: BaseException) -> dict[str, Any]:
+    """Serialize a VantaDB error to a plain dict mirroring TS ``toJSON()``
+    (``docs/api/ERROR_HANDLING.md`` §5.2): name/code/message/retriable/hint."""
+
+class SearchRequest:
+    """Full search request for batch searches.
+
+    Mirrors the keyword arguments of ``Client.search``. Pass
+    instances (or equivalent dicts) to ``Client.search_batch_requests``.
+    """
+
+    namespace: str
+    query_vector: list[float] | None = None
+    filters: dict | None
+    text_query: str | None
+    top_k: int
+    distance_metric: str | None
+    method: str | None
+    explain: bool
+    query_sparse: dict | None
+    exclude_superseded: bool
+    min_confidence: float | None
+    as_of_ms: int | None
+    valid_window: dict | None
+    include_quarantined: bool
+    search_profile: dict | None
+
+    def __init__(
+        self,
+        namespace: str,
+        query_vector: list[float] | None = None,
+        filters: dict | None = None,
+        text_query: str | None = None,
+        top_k: int = 10,
+        distance_metric: str | None = None,
+        method: str | None = None,
+        explain: bool = False,
+        query_sparse: dict | None = None,
+        exclude_superseded: bool = False,
+        min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+        search_profile: dict | None = None,
+    ) -> None: ...
+    def asdict(self) -> dict:
+        """Return this request as a plain dict (for non-dataclass callers)."""
+
+class AsyncMemoryClient:
+    """Async view over ``db.memory`` (AST-012: short names, no surname)."""
+
+    def __init__(self, sync_db: Any, run: Any) -> None: ...
+    async def get(self, namespace: str, key: str) -> Record | None: ...
+    async def list(
+        self,
+        namespace: str,
+        *,
+        filters: dict | None = None,
+        limit: int = 100,
+        cursor: int | None = None,
+        exclude_superseded: bool = False,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+        min_confidence: float | None = None,
+    ) -> ListResult: ...
+    async def delete(self, namespace: str, key: str) -> bool: ...
+
+class AsyncClient:
+    """Async wrapper around ``Client``.
+
+    Query methods run in a thread pool via ``asyncio.to_thread()``,
+    releasing the GIL to the Rust engine (``py.allow_threads``).
+    """
+
+    def __init__(self, *args: Any, max_concurrency: int = 4, **kwargs: Any) -> None: ...
+    async def __aenter__(self) -> Self: ...
+    async def __aexit__(self, *exc: object) -> None: ...
+    async def search(
+        self,
+        namespace: str,
+        query_vector: list[float] | None = None,
+        *,
+        filters: dict | None = None,
+        text_query: str | None = None,
+        top_k: int = 10,
+        distance_metric: str | None = None,
+        method: str | None = None,
+        explain: bool = False,
+        exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
+        min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+    ) -> list[SearchHit]: ...
+    async def search_multi(
+        self,
+        namespaces: list[str],
+        query_vector: list[float],
+        *,
+        filters: dict | None = None,
+        text_query: str | None = None,
+        top_k: int = 10,
+        distance_metric: str | None = None,
+        explain: bool = False,
+        exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
+        min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+    ) -> list[SearchHit]: ...
+    async def graphrag_search(
+        self,
+        namespace: str,
+        *,
+        query: str | None = None,
+        query_vector: list[float] | None = None,
+    ) -> dict: ...
+    @property
+    def memory(self) -> AsyncMemoryClient: ...
+    # `search_vector` is the pure-ANN op (OD-2=B).
+    async def search_vector(
+        self, vector: Any, top_k: int = 10
+    ) -> list[tuple[int, float]]: ...
+    # Cognitive layer (DIST-02): vanta-memory L0 capture + recall.
+    async def memory_capture(self, session_id: str, messages: list[dict]) -> dict: ...
+    async def memory_recall(
+        self,
+        user_text: str,
+        session_key: str,
+        *,
+        scope: str | None = None,
+        max_results: int | None = None,
+    ) -> dict | None: ...
+    async def put(
+        self,
+        namespace: str,
+        key: str,
+        payload: str,
+        *,
+        metadata: dict | None = None,
+        vector: list[float] | None = None,
+        ttl_ms: int | None = None,
+        sparse_vector: dict | None = None,
+        confidence: float | None = None,
+    ) -> Record: ...
+    async def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
+    async def count(self, namespace: str, filters: dict | None = None) -> int: ...
+    async def similar_to_key(
+        self, namespace: str, key: str, top_k: int = 10
+    ) -> list[SearchHit]: ...
+    async def compact_wal(self) -> None: ...
+    async def supersede(self, namespace: str, old_key: str, new_key: str) -> None: ...
+    async def purge_expired(self) -> int: ...
+    async def flush(self) -> None: ...
+    async def close(self) -> None: ...
+    async def insert_node(
+        self, id: int, content: str, vector: Any, fields: dict | None = None
+    ) -> None: ...
+    async def put_batch(
+        self, records: list[dict], *, confidence: float | None = None
+    ) -> list[Record]: ...
+    async def put_batch_raw(
+        self,
+        vectors: Any,
+        keys: list[str],
+        *,
+        payloads: list[str] | None = None,
+        metadatas: list[dict | None] | None = None,
+        namespaces: list[str] | None = None,
+        ttls: list[int | None] | None = None,
+    ) -> list[Record]: ...
+    async def rebuild_index(self) -> dict: ...
+    async def bulk_import(self, path: str) -> dict: ...
+    async def bulk_import_bytes(self, data: bytes) -> dict: ...
+    async def reindex_hnsw_from_text(
+        self, namespace: str, *, page_size: int = 1000
+    ) -> dict: ...
+    async def export_namespace(self, path: str, namespace: str) -> dict: ...
+    async def export_all(self, path: str) -> dict: ...
+    async def import_file(self, path: str) -> dict: ...
+    async def audit_text_index(
+        self, namespace: str | None = None, deep: bool = False
+    ) -> dict: ...
+    async def repair_text_index(self) -> dict: ...
+    async def operational_metrics(self) -> dict: ...
+    async def get_node(self, id: int) -> dict | None: ...
+    async def delete_node(self, id: int, reason: str = "manual deletion") -> None: ...
+    async def search_batch(
+        self, vectors: list[Any], top_k: int = 10
+    ) -> list[list[tuple[int, float]]]: ...
+    async def search_batch_requests(
+        self, requests: list[Any], top_k: int = 10
+    ) -> list[list[SearchHit]]: ...
+    async def query(self, iql_query: str) -> str: ...
+    async def query_structured(self, iql_query: str) -> dict: ...
+    async def capabilities(self) -> dict: ...
+    async def hardware_profile(self) -> dict: ...
+    async def add_edge(
+        self,
+        source_id: int,
+        target_id: int,
+        label: str,
+        weight: float | None = None,
+        created_at_ms: int | None = None,
+    ) -> None: ...
+    async def graph_bfs(
+        self, roots: list[int], max_depth: int = 999999, direction: str = "Forward"
+    ) -> list[int]: ...
+    async def graph_bfs_filtered(
+        self,
+        roots: list[int],
+        max_depth: int = 999999,
+        direction: str = "Forward",
+        labels: list[int] | None = None,
+        time_range: tuple[int, int] | None = None,
+    ) -> list[int]: ...
+    async def graph_dfs(
+        self, roots: list[int], max_depth: int = 999999, direction: str = "Forward"
+    ) -> list[int]: ...
+    async def graph_topological_sort(self, roots: list[int]) -> list[int]: ...
+    async def graph_is_dag(self, roots: list[int]) -> bool: ...
+    async def graph_page_rank(
+        self,
+        roots: list[int],
+        max_iterations: int = 100,
+        damping: float = 0.85,
+        tolerance: float = 1e-6,
+    ) -> dict[int, float]: ...
+    async def graph_degree_centrality(
+        self, roots: list[int]
+    ) -> dict[int, tuple[int, int]]: ...
+    async def compact_layout(self) -> int: ...
+    async def list_namespaces(self) -> list[str]: ...
+    async def generate_snippet(
+        self,
+        payload: str,
+        text_query: str,
+        with_highlighting: bool = False,
+    ) -> str | None: ...
+    async def explain_memory_search(
+        self,
+        namespace: str,
+        query_vector: list[float],
+        *,
+        filters: dict | None = None,
+        text_query: str | None = None,
+        top_k: int = 10,
+        distance_metric: str | None = None,
+        query_sparse: dict | None = None,
+    ) -> dict: ...

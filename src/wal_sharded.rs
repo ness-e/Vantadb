@@ -1,0 +1,1817 @@
+use crate::error::{Error, Result};
+use crate::wal::{WalReader, WalRecord, WalWriter};
+use parking_lot::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
+/// A sharded write-ahead log that distributes writes across multiple WAL files.
+pub(crate) struct ShardedWal {
+    shards: Vec<Arc<Mutex<WalWriter>>>,
+    num_shards: usize,
+    base_path: PathBuf,
+    sync_mode: crate::config::SyncMode,
+    next_shard: AtomicUsize,
+    wal_buffer_size: usize,
+    flush_threshold: Option<usize>,
+}
+
+/// Sidecar metadata file recording the shard layout of a WAL. Lives next to
+/// the base WAL path (e.g. `vanta.wal.shards` for base `vanta.wal`).
+fn shard_meta_path(base_path: &Path) -> PathBuf {
+    let mut os = base_path.as_os_str().to_os_string();
+    os.push(".shards");
+    PathBuf::from(os)
+}
+
+/// Infer the shard count from the WAL files actually present on disk (AUDREP-16).
+///
+/// Returns `None` when no WAL exists yet (brand-new path). Detects both the
+/// single-file layout (`vanta.wal`) and the sharded layout (`vanta.shardN.wal`).
+/// This is the source of truth for recovery so reopening with any requested
+/// shard count reconciles to the real on-disk layout instead of silently
+/// misreading a differently-sharded WAL.
+pub(crate) fn detect_shard_count(base_path: &Path) -> Option<usize> {
+    if base_path.exists() {
+        return Some(1);
+    }
+    let dir = base_path.parent().unwrap_or(Path::new("."));
+    let stem = base_path.file_stem()?.to_string_lossy();
+    let ext = base_path
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+    let prefix = format!("{}.shard", stem);
+    let mut max_idx = None;
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if let Some(rest) = name.strip_prefix(&prefix) {
+                if let Some(num) = rest.strip_suffix(&ext) {
+                    if let Ok(i) = num.parse::<usize>() {
+                        max_idx = Some(max_idx.map_or(i, |m: usize| m.max(i)));
+                    }
+                }
+            }
+        }
+    }
+    max_idx.map(|m| m + 1)
+}
+
+/// Validate that per-shard record counts are consistent with round-robin
+/// distribution (ERR-011). Writes land round-robin: shard `s` receives a new
+/// record only after every shard `< s` has reached the same local position, so
+/// valid counts are non-increasing across shard index and each within one of
+/// the max. A shard whose tail was truncated (fewer durable records) violates
+/// this and would otherwise be silently replayed short — returning an error
+/// message here makes the replay surface the gap instead of a silent skip.
+/// Returns `None` when the counts are consistent.
+pub(crate) fn verify_shard_counts(shard_counts: &[u64]) -> Option<String> {
+    let max_count = shard_counts.iter().copied().max().unwrap_or(0);
+    if max_count > 1 {
+        for (i, &count) in shard_counts.iter().enumerate() {
+            if count + 1 < max_count {
+                return Some(format!(
+                    "WAL shard {i} is truncated: {count} durable records, but round-robin requires at least {}; aborting recovery instead of silently dropping data",
+                    max_count - 1
+                ));
+            }
+        }
+    }
+    if shard_counts.len() > 1 {
+        for i in 1..shard_counts.len() {
+            if shard_counts[i] > shard_counts[i - 1] {
+                return Some(format!(
+                    "WAL shard {i} has {} records, more than the {} in shard {}; round-robin order broken (truncated tail); aborting recovery instead of silently dropping data",
+                    shard_counts[i],
+                    shard_counts[i - 1],
+                    i - 1
+                ));
+            }
+        }
+    }
+    None
+}
+
+/// Read the persisted shard count from the sidecar metadata file, if any.
+pub(crate) fn read_shard_meta(base_path: &Path) -> Option<usize> {
+    std::fs::read_to_string(shard_meta_path(base_path))
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
+        .filter(|&n| n >= 1)
+}
+
+/// Persist the shard count to the sidecar metadata file.
+///
+/// Published atomically (write to a temp sibling, then rename) so a crash
+/// mid-write can never leave a truncated sidecar behind. A corrupt sidecar
+/// degrades to `read_shard_meta() == None` and recovery falls back to
+/// `detect_shard_count` — safe but avoidable.
+fn write_shard_meta(base_path: &Path, count: usize) -> Result<()> {
+    let target = shard_meta_path(base_path);
+    let mut tmp = target.as_os_str().to_os_string();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    std::fs::write(&tmp, count.to_string())?;
+    std::fs::rename(&tmp, &target)?;
+    Ok(())
+}
+
+// ─── Salvage (FIND-109, opt-in; ERR-011 guard untouched) ────────────
+// CLI-only surface (`vanta-cli wal salvage` is the sole consumer): gated so a
+// `server`-only build (cli off) does not carry dead code (WIRE-07 feature
+// decouple). `test` keeps the salvage unit tests below compiling.
+// ponytail: shard naming duplicates `new_with_buffer`; extract helper if a
+// 4th naming site emerges (init.rs has its own closure — left alone).
+
+/// Shard file path for index `idx` (same layout as `new_with_buffer`).
+#[cfg(any(feature = "cli", test))]
+pub(crate) fn salvage_shard_path(base_path: &Path, idx: usize, num_shards: usize) -> PathBuf {
+    if num_shards <= 1 {
+        return base_path.to_path_buf();
+    }
+    let dir = base_path.parent().unwrap_or(Path::new("."));
+    let stem = base_path.file_stem().unwrap_or_default().to_string_lossy();
+    let ext = base_path
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+    dir.join(format!("{}.shard{}{}", stem, idx, ext))
+}
+
+/// Largest valid prefix `p <= counts` with `verify_shard_counts(p) == None`.
+/// Scans `max` downwards; first valid wins (maximal sum). Single-shard
+/// returns counts as-is (exempt like the guard).
+#[cfg(any(feature = "cli", test))]
+pub(crate) fn coherent_prefix_for(counts: &[u64]) -> Vec<u64> {
+    if counts.len() <= 1 {
+        return counts.to_vec();
+    }
+    let top = counts.iter().copied().max().unwrap_or(0);
+    let lo = counts.iter().copied().min().unwrap_or(0);
+    for cand in (lo..=top).rev() {
+        let mut p = vec![0u64; counts.len()];
+        for (i, &c) in counts.iter().enumerate() {
+            let cap = if i == 0 { cand } else { p[i - 1] };
+            p[i] = c.min(cap);
+        }
+        if verify_shard_counts(&p).is_none() {
+            return p;
+        }
+    }
+    vec![lo; counts.len()]
+}
+
+/// Read-only per-shard durable counts via `WalReader` (never truncates).
+#[cfg(any(feature = "cli", test))]
+pub(crate) fn salvage_shard_counts(base_path: &Path, num_shards: usize) -> Result<Vec<u64>> {
+    let mut counts = vec![0u64; num_shards];
+    for (i, c) in counts.iter_mut().enumerate() {
+        let p = salvage_shard_path(base_path, i, num_shards);
+        if !p.exists() {
+            continue;
+        }
+        let mut r = WalReader::open(&p)
+            .map_err(|e| Error::wal_error(format!("salvage: cannot open shard {i}: {e}")))?;
+        while r.next_record()?.is_some() {
+            *c += 1;
+        }
+    }
+    Ok(counts)
+}
+
+/// Globals present for `counts` (`global = s + N*p`), sorted.
+#[cfg(any(feature = "cli", test))]
+fn present_globals(counts: &[u64]) -> Vec<u64> {
+    let n = counts.len() as u64;
+    let mut g = Vec::new();
+    for (s, &c) in counts.iter().enumerate() {
+        for pos in 0..c {
+            g.push(s as u64 + n * pos);
+        }
+    }
+    g.sort_unstable();
+    g
+}
+
+/// Read-only salvage preview: coherent prefix + explicit discards.
+/// Never mutates; `Ok` even when incoherent (that is the point).
+#[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub(crate) struct SalvagePreview {
+    /// Durable per-shard counts as read.
+    pub shard_counts: Vec<u64>,
+    /// Maximal coherent prefix (`verify == None`).
+    pub coherent_prefix: Vec<u64>,
+    /// True when no salvage needed.
+    pub coherent: bool,
+    /// Sum of prefix (records kept).
+    pub replayed: u64,
+    /// Durable records dropped to restore coherence.
+    pub discarded: u64,
+    /// Durable globals dropped (explicit, never silent).
+    pub discarded_global_seqs: Vec<u64>,
+}
+
+#[cfg(any(feature = "cli", test))]
+pub(crate) fn salvage_preview(base_path: &Path, num_shards: usize) -> Result<SalvagePreview> {
+    let counts = salvage_shard_counts(base_path, num_shards)?;
+    let prefix = coherent_prefix_for(&counts);
+    let coherent = verify_shard_counts(&counts).is_none();
+    let kept: std::collections::BTreeSet<u64> = present_globals(&prefix).into_iter().collect();
+    let dropped: Vec<u64> = present_globals(&counts)
+        .into_iter()
+        .filter(|g| !kept.contains(g))
+        .collect();
+    let replayed: u64 = prefix.iter().sum();
+    let discarded = dropped.len() as u64;
+    Ok(SalvagePreview {
+        shard_counts: counts,
+        coherent_prefix: prefix,
+        coherent,
+        replayed,
+        discarded,
+        discarded_global_seqs: dropped,
+    })
+}
+
+/// Byte offset just past the first `keep` *validated* records.
+/// Walks with `WalReader` (same scan-forward as counting) so the offset
+/// aligns with `salvage_shard_counts` even with mid-file corrupt gaps —
+/// raw framing walks desync there and over-truncate (FIND-109 smoke).
+#[cfg(any(feature = "cli", test))]
+fn prefix_byte_end(shard_path: &Path, keep: u64) -> Result<u64> {
+    let mut r = WalReader::open(shard_path)?;
+    for _ in 0..keep {
+        if r.next_record()?.is_none() {
+            break;
+        }
+    }
+    r.pos()
+}
+
+/// Quarantine `[valid_end, len)` to `<path>.salvage[.N]`, then truncate.
+/// Callers only invoke this when truncating (`valid_end < len`); the assert
+/// documents that contract (P2-01 follow-up — today unreachable otherwise).
+#[cfg(any(feature = "cli", test))]
+fn quarantine_and_truncate(shard_path: &Path, valid_end: u64) -> Result<PathBuf> {
+    use std::io::{Read, Seek, SeekFrom};
+    let len = std::fs::metadata(shard_path)?.len();
+    debug_assert!(valid_end < len, "quarantine with nothing to truncate");
+    let mut backup = PathBuf::from(format!("{}.salvage", shard_path.display()));
+    if backup.exists() {
+        for n in 1..1000u32 {
+            let c = PathBuf::from(format!("{}.salvage.{}", shard_path.display(), n));
+            if !c.exists() {
+                backup = c;
+                break;
+            }
+        }
+    }
+    if valid_end < len {
+        let mut src = std::fs::File::open(shard_path)?;
+        src.seek(SeekFrom::Start(valid_end))?;
+        let mut tail = vec![0u8; (len - valid_end) as usize];
+        src.read_exact(&mut tail)?;
+        std::fs::write(&backup, tail)?;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(shard_path)?
+            .set_len(valid_end)?;
+    }
+    Ok(backup)
+}
+
+/// Mutating salvage: truncate shards to the coherent prefix (quarantined).
+/// Returns the post-salvage preview (coherent) plus pre counts in `SalvageDone`.
+#[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub(crate) struct SalvageDone {
+    /// Counts before truncation.
+    pub before: Vec<u64>,
+    /// Coherent prefix applied.
+    pub prefix: Vec<u64>,
+    /// Quarantine backups written (one per truncated shard).
+    pub backups: Vec<PathBuf>,
+    /// Post-salvage preview (must be coherent).
+    pub after: SalvagePreview,
+}
+
+#[cfg(any(feature = "cli", test))]
+pub(crate) fn salvage(base_path: &Path, num_shards: usize) -> Result<SalvageDone> {
+    let before = salvage_shard_counts(base_path, num_shards)?;
+    let prefix = coherent_prefix_for(&before);
+    let mut backups = Vec::new();
+    for (i, (&c, &k)) in before.iter().zip(prefix.iter()).enumerate() {
+        if k >= c {
+            continue;
+        }
+        let p = salvage_shard_path(base_path, i, num_shards);
+        let end = prefix_byte_end(&p, k)?;
+        backups.push(quarantine_and_truncate(&p, end)?);
+    }
+    let after = salvage_preview(base_path, num_shards)?;
+    if !after.coherent {
+        return Err(Error::wal_error("salvage: prefix still incoherent"));
+    }
+    Ok(SalvageDone {
+        before,
+        prefix,
+        backups,
+        after,
+    })
+}
+
+/// Verify every on-disk shard of a (potentially sharded) WAL (VER-01).
+///
+/// Returns one report per existing shard file plus the round-robin coherence
+/// verdict (`verify_shard_counts` — reused, not duplicated). `num_shards` must
+/// come from `detect_shard_count`/`read_shard_meta` (same resolution as
+/// recovery and salvage). Read-only: never truncates, quarantines or mutates.
+#[cfg(any(feature = "cli", test))]
+#[allow(dead_code)]
+pub(crate) fn verify_shards(
+    base_path: &Path,
+    num_shards: usize,
+) -> Result<(Vec<crate::wal::WalVerifyReport>, Option<String>)> {
+    let mut reports = Vec::new();
+    let mut counts = vec![0u64; num_shards];
+    for (i, count) in counts.iter_mut().enumerate() {
+        let p = salvage_shard_path(base_path, i, num_shards);
+        if !p.exists() {
+            continue;
+        }
+        let report = crate::wal::verify_wal_file(&p)?;
+        *count = report.records;
+        reports.push(report);
+    }
+    // A whole-record tail deletion inside one shard does not break that
+    // shard's chain (documented limit); the round-robin layout guard still
+    // surfaces it for multi-shard WALs.
+    let incoherence = if num_shards > 1 {
+        verify_shard_counts(&counts)
+    } else {
+        None
+    };
+    Ok((reports, incoherence))
+}
+
+impl ShardedWal {
+    /// Create a new `ShardedWal` with the given base path, shard count, and sync mode.
+    #[allow(dead_code)]
+    pub fn new(
+        base_path: &Path,
+        num_shards: usize,
+        sync_mode: crate::config::SyncMode,
+    ) -> Result<Self> {
+        Self::new_with_buffer(base_path, num_shards, sync_mode, 64 * 1024, None)
+    }
+
+    /// Create a new `ShardedWal` with configurable buffer size and flush threshold.
+    pub fn new_with_buffer(
+        base_path: &Path,
+        num_shards: usize,
+        sync_mode: crate::config::SyncMode,
+        wal_buffer_size: usize,
+        flush_threshold: Option<usize>,
+    ) -> Result<Self> {
+        Self::new_impl(
+            base_path,
+            num_shards,
+            sync_mode,
+            wal_buffer_size,
+            flush_threshold,
+            None,
+        )
+    }
+
+    /// Create a new **encrypted** `ShardedWal` (WAL format v4, ADR-0057 W2).
+    ///
+    /// The context is **shared by every shard**: one DEK means one nonce
+    /// space, so a per-shard counter would reuse nonces. Each shard file
+    /// keeps its own frame ordinal (the AAD slot), exactly like the
+    /// monolithic WAL.
+    #[cfg(feature = "encryption")]
+    // The engine wiring that opens the encrypted WAL from the configuration
+    // lands with the activation wave (W6); until then this constructor is
+    // only exercised by the tests of this wave.
+    #[allow(dead_code)]
+    pub fn new_encrypted(
+        base_path: &Path,
+        num_shards: usize,
+        sync_mode: crate::config::SyncMode,
+        wal_buffer_size: usize,
+        flush_threshold: Option<usize>,
+        crypto: crate::wal::WalCrypto,
+    ) -> Result<Self> {
+        Self::new_impl(
+            base_path,
+            num_shards,
+            sync_mode,
+            wal_buffer_size,
+            flush_threshold,
+            Some(crypto),
+        )
+    }
+
+    #[cfg_attr(not(feature = "encryption"), allow(unused_variables))]
+    fn new_impl(
+        base_path: &Path,
+        num_shards: usize,
+        sync_mode: crate::config::SyncMode,
+        wal_buffer_size: usize,
+        flush_threshold: Option<usize>,
+        crypto: Option<crate::wal::WalCryptoSlot>,
+    ) -> Result<Self> {
+        // AUDREP-16: reconcile to the layout actually on disk. The requested
+        // `num_shards` only applies to a brand-new WAL. Opening an existing WAL
+        // with a different shard count used to recover with mismatched shard
+        // naming (`vanta.wal` ⇄ `vanta.shardN.wal`) and lose data silently.
+        // The on-disk layout (falling back to the persisted metadata, then the
+        // request) is authoritative so recovery always matches real files.
+        let num_shards = detect_shard_count(base_path)
+            .or_else(|| read_shard_meta(base_path))
+            .unwrap_or(num_shards);
+        let num_shards = num_shards.max(1);
+        let mut shards = Vec::with_capacity(num_shards);
+
+        for i in 0..num_shards {
+            let shard_path = if num_shards > 1 {
+                let dir = base_path.parent().unwrap_or(Path::new("."));
+                let stem = base_path.file_stem().unwrap_or_default().to_string_lossy();
+                let ext = base_path
+                    .extension()
+                    .map(|e| format!(".{}", e.to_string_lossy()))
+                    .unwrap_or_default();
+                let shard_name = format!("{}.shard{}{}", stem, i, ext);
+                dir.join(shard_name)
+            } else {
+                base_path.to_path_buf()
+            };
+            let writer = {
+                #[cfg(feature = "encryption")]
+                {
+                    match &crypto {
+                        Some(c) => WalWriter::open_encrypted_with_buffer(
+                            &shard_path,
+                            sync_mode,
+                            wal_buffer_size,
+                            flush_threshold,
+                            c.clone(),
+                        )?,
+                        None => WalWriter::open_with_buffer(
+                            &shard_path,
+                            sync_mode,
+                            wal_buffer_size,
+                            flush_threshold,
+                        )?,
+                    }
+                }
+                #[cfg(not(feature = "encryption"))]
+                {
+                    WalWriter::open_with_buffer(
+                        &shard_path,
+                        sync_mode,
+                        wal_buffer_size,
+                        flush_threshold,
+                    )?
+                }
+            };
+            shards.push(Arc::new(Mutex::new(writer)));
+        }
+
+        // Persist the resolved layout so future opens reconcile even if shard
+        // files are partially cleaned.
+        write_shard_meta(base_path, num_shards)?;
+
+        // ERR-050: resume round-robin where the previous process left off.
+        // Each open is a fresh ShardedWal; starting next_shard at 0 would pile
+        // every new process's writes onto shard 0, leaving the other shards
+        // behind and tripping verify_shard_counts on the next recovery
+        // (truncated-shard abort). WalWriter counts the durable on-disk records
+        // when it opens a file, so the next write continues the sequence.
+        // CRASH-01: also take into account durable records in rotated segments.
+        let durable_records: u64 = shards
+            .iter()
+            .map(|s| {
+                let live_path = s.lock().path().to_path_buf();
+                let rotated_count: u64 = enumerate_rotated_segments(&live_path)
+                    .iter()
+                    .filter_map(|p| WalReader::open(p).ok())
+                    .map(|mut r| {
+                        let mut c = 0u64;
+                        while r.next_record().ok().flatten().is_some() {
+                            c += 1;
+                        }
+                        c
+                    })
+                    .sum();
+                rotated_count + s.lock().record_count()
+            })
+            .sum();
+        let next_shard = (durable_records % num_shards as u64) as usize;
+
+        Ok(Self {
+            shards,
+            num_shards,
+            base_path: base_path.to_path_buf(),
+            sync_mode,
+            next_shard: AtomicUsize::new(next_shard),
+            wal_buffer_size,
+            flush_threshold,
+        })
+    }
+
+    /// Append a record using round-robin shard distribution.
+    /// Used when no specific key is available for shard routing.
+    pub fn append(&self, record: &WalRecord) -> Result<()> {
+        let idx = self.next_shard.fetch_add(1, Ordering::Relaxed) % self.num_shards;
+        self.shards[idx].lock().append(record)
+    }
+
+    /// Append multiple records across shards, batching per shard to reduce I/O.
+    ///
+    /// Takes the records by value so each one can be *moved* into its shard's
+    /// group instead of cloned (a `WalRecord` carries a full `UnifiedNode` —
+    /// payload, vector, fields — so cloning per record was a real allocation
+    /// cost on large batches). Groups records by their round-robin shard
+    /// assignment, then calls [`WalWriter::batch_append`] once per shard — one
+    /// lock, one `write_all`, and (at most) one `maybe_sync` per shard, instead
+    /// of per-record I/O. This yields a dramatic speedup for large batches
+    /// (3-5× on WAL writes).
+    pub fn batch_append(&self, records: Vec<WalRecord>) -> Result<()> {
+        if records.is_empty() || self.num_shards == 0 {
+            return Ok(());
+        }
+        let len = records.len();
+        let start = self.next_shard.fetch_add(len, Ordering::Relaxed) % self.num_shards;
+        // Group by shard — one Vec per shard, records moved in (no clones).
+        let mut groups: Vec<Vec<WalRecord>> = (0..self.num_shards).map(|_| Vec::new()).collect();
+        for (i, record) in records.into_iter().enumerate() {
+            let idx = (start + i) % self.num_shards;
+            groups[idx].push(record);
+        }
+        // Batch-append each shard's group — single lock + write_all + maybe_sync
+        for (i, group) in groups.iter().enumerate() {
+            if group.is_empty() {
+                continue;
+            }
+            self.shards[i].lock().batch_append(group)?;
+        }
+        Ok(())
+    }
+
+    /// Replay all records across all shards, skipping those at or below
+    /// `checkpoint_seq` (a global seq number across all shards).
+    ///
+    /// Since records are distributed round-robin across shards, each shard
+    /// skips at most `ceil(checkpoint_seq / num_shards)` of its own records,
+    /// with the first `checkpoint_seq % num_shards` shards skipping one extra.
+    #[cfg_attr(not(feature = "encryption"), allow(unused_variables))]
+    #[allow(dead_code)]
+    pub fn recover(
+        &self,
+        checkpoint_seq: u64,
+        mut f: impl FnMut(WalRecord) -> Result<()>,
+    ) -> Result<()> {
+        let skip_base = checkpoint_seq / self.num_shards as u64;
+        let extra_shards = checkpoint_seq % self.num_shards as u64;
+
+        let mut shard_counts = vec![0u64; self.num_shards];
+        let mut records = Vec::new();
+
+        for (i, shard) in self.shards.iter().enumerate() {
+            let (path, key) = {
+                let guard = shard.lock();
+                #[cfg(feature = "encryption")]
+                let key = guard.crypto().map(|c| c.key());
+                #[cfg(not(feature = "encryption"))]
+                let key = ();
+                (guard.path().to_path_buf(), key)
+            };
+            let mut seg_paths = enumerate_rotated_segments(&path);
+            if path.exists() {
+                seg_paths.push(path.clone());
+            }
+            if seg_paths.is_empty() {
+                continue;
+            }
+
+            let shard_skip = skip_base + if (i as u64) < extra_shards { 1 } else { 0 };
+            let mut current_seq = 0u64;
+            for seg_path in &seg_paths {
+                if let Ok(meta) = std::fs::metadata(seg_path) {
+                    if meta.len() < crate::wal::WalHeader::SIZE as u64 {
+                        continue;
+                    }
+                }
+                #[cfg(feature = "encryption")]
+                let reader = match &key {
+                    Some(k) => WalReader::open_with_key(seg_path, k.clone()),
+                    None => WalReader::open(seg_path),
+                };
+                #[cfg(not(feature = "encryption"))]
+                let reader = WalReader::open(seg_path);
+                let mut reader = reader.map_err(|e| {
+                    Error::wal_error(format!(
+                        "Failed to open segment {:?} of shard {} for recovery: {}",
+                        seg_path, i, e
+                    ))
+                })?;
+
+                while let Some(record) = reader.next_record()? {
+                    current_seq += 1;
+                    if current_seq <= shard_skip {
+                        continue;
+                    }
+                    records.push((current_seq, i, record));
+                }
+            }
+            shard_counts[i] = current_seq;
+        }
+        // ERR-011: round-robin only yields a coherent dataset when every shard
+        // matches its siblings' local positions; surface the gap instead of
+        // silently replaying a truncated shard short. Single-shard WALs are
+        // exempt (no round-robin layout to corrupt).
+        if self.num_shards > 1 {
+            if let Some(msg) = verify_shard_counts(&shard_counts) {
+                return Err(Error::wal_error(msg));
+            }
+        }
+
+        // FIND-354: sort records by (seq, shard_idx) to restore exact round-robin causal global order
+        // instead of replaying shard-by-shard.
+        records.sort_by_key(|(seq, shard_idx, _)| (*seq, *shard_idx));
+
+        for (_seq, _shard_idx, record) in records {
+            f(record)?;
+        }
+        Ok(())
+    }
+
+    /// Flush (sync) all shards to disk.
+    ///
+    /// Sequential: shard counts are small (2-8) and fsyncs to the same disk
+    /// serialize anyway, so a thread per shard on every flush was pure spawn
+    /// overhead. Durability contract unchanged — all shards are synced before
+    /// this returns.
+    #[allow(dead_code)]
+    pub fn flush_all(&self) -> Result<()> {
+        for shard in &self.shards {
+            shard.lock().sync()?;
+        }
+        Ok(())
+    }
+
+    /// Rotate all shards (flush, archive, and start fresh WAL files).
+    ///
+    /// The rotation itself is a re-open of the same segment (the history stays
+    /// in one file so the recovery can replay it), so this is also the place
+    /// where the **physical erasure** of the deleted payloads happens
+    /// (FIND-343): the deleted nodes' records are replaced by payload-free
+    /// tombstones before the segment is re-opened.
+    ///
+    /// The erasure is opportunistic: a failure never fails the rotation (it
+    /// is a privacy improvement, not a durability step).
+    pub fn rotate_all(&self) -> Result<()> {
+        if let Err(err) = self.redact_erased() {
+            tracing::warn!(
+                error = %err,
+                "WAL physical erasure skipped: the deleted payloads stay in the segments"
+            );
+        }
+        for shard in &self.shards {
+            // Hold the lock across sync + swap (AUDREP-15): releasing it between
+            // the two lets a concurrent append() land on the old writer after it
+            // was synced and get silently lost when the replacement replaces it.
+            let mut guard = shard.lock();
+            let path = guard.path().to_path_buf();
+            guard.sync()?;
+            // The fresh segment keeps the encryption context: an encrypted WAL
+            // stays encrypted across a rotation.
+            #[cfg(feature = "encryption")]
+            let writer = match guard.crypto() {
+                Some(c) => WalWriter::open_encrypted_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                    c.clone(),
+                )?,
+                None => WalWriter::open_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                )?,
+            };
+            #[cfg(not(feature = "encryption"))]
+            let writer = WalWriter::open_with_buffer(
+                &path,
+                self.sync_mode,
+                self.wal_buffer_size,
+                self.flush_threshold,
+            )?;
+            *guard = writer;
+        }
+        Ok(())
+    }
+
+    /// Archive current WAL segments to `<shard>.wal.<timestamp>` and start fresh WAL segments (CRASH-01).
+    #[allow(dead_code)]
+    pub fn force_rotate_to_archive(&self) -> Result<()> {
+        let now = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        for (i, shard) in self.shards.iter().enumerate() {
+            let mut guard = shard.lock();
+            let path = guard.path().to_path_buf();
+            guard.sync()?;
+            let archive_name = format!(
+                "{}.{}",
+                path.file_name().unwrap_or_default().to_string_lossy(),
+                now + i as u128
+            );
+            let archive_path = path.with_file_name(&archive_name);
+            std::fs::rename(&path, &archive_path)?;
+            crate::utils::fs::sync_parent_dir(&archive_path)?;
+
+            #[cfg(feature = "encryption")]
+            let writer = match guard.crypto() {
+                Some(c) => WalWriter::open_encrypted_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                    c.clone(),
+                )?,
+                None => WalWriter::open_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                )?,
+            };
+            #[cfg(not(feature = "encryption"))]
+            let writer = WalWriter::open_with_buffer(
+                &path,
+                self.sync_mode,
+                self.wal_buffer_size,
+                self.flush_threshold,
+            )?;
+            *guard = writer;
+        }
+        Ok(())
+    }
+
+    /// Return the total number of records across all shards.
+    pub fn total_record_count(&self) -> u64 {
+        self.shards.iter().map(|s| s.lock().record_count()).sum()
+    }
+
+    /// Physically erase the payloads of the **deleted** nodes from every WAL
+    /// segment (FIND-343).
+    ///
+    /// A node is *erased* when its **last effective** record in the global
+    /// WAL order is a `Delete`: the node does not exist any more, so the
+    /// payloads its earlier records carry are dead bytes. Every record of
+    /// such a node is replaced by a payload-free tombstone:
+    ///
+    /// * the record **count** does not change, so the `checkpoint_seq`
+    ///   semantics ("the first N records are already applied") stay exact;
+    /// * the replayed **state** does not change: a deleted node is absent
+    ///   with and without the redaction;
+    /// * the VER-01 chain is recomputed over the new frames.
+    ///
+    /// The global order is the one the recovery uses: the records are sorted
+    /// by `(per-shard index, shard index)`, and the per-shard index runs
+    /// across the rotated segments of that shard (oldest first).
+    ///
+    /// "Effective" skips the records of a transaction that was never
+    /// committed: a `Delete` inside an aborted transaction never happened, so
+    /// the node it names is **not** erased.
+    ///
+    /// The pass is opportunistic: an encrypted (v4) segment, a corrupt tail
+    /// and a segment with nothing to redact are left alone.
+    pub(crate) fn redact_erased(&self) -> Result<crate::wal::WalRedactReport> {
+        use crate::wal::{record_node_id, WalRedactReport};
+        use std::collections::HashMap;
+
+        // ponytail: the pass rewrites every segment (O(segment bytes)) and
+        // runs only in `compact_wal` — never in the insert/delete hot path.
+        // The ceiling is the auto-rotate size (256 MiB): a full-size segment
+        // costs one extra copy of itself per compaction. Split the segments
+        // or amortize the rewrite if that ever shows up in a profile.
+
+        // ── 1. Collect the segments of every shard (oldest first) ──
+        let mut segments: Vec<(usize, PathBuf)> = Vec::new();
+        for (i, shard) in self.shards.iter().enumerate() {
+            let live = shard.lock().path().to_path_buf();
+            for archive in rotated_segments(&live) {
+                segments.push((i, archive));
+            }
+            segments.push((i, live));
+        }
+
+        // ── 2. Read the records and compute the erase set ──
+        // `last[id]` = (per-shard index, shard index, is_delete) of the last
+        // **effective** record of that node.
+        let mut last: HashMap<u128, (u64, usize, bool)> = HashMap::new();
+        let mut per_shard_index: HashMap<usize, u64> = HashMap::new();
+        // The fate of every transaction: a record inside a transaction that
+        // never committed never happened. The commit/abort marker can sit in
+        // another segment than the records it closes, so the fates are read
+        // first, over every segment.
+        let mut committed: std::collections::HashSet<u64> = std::collections::HashSet::new();
+        for (_, path) in &segments {
+            let Ok(mut reader) = WalReader::open(path) else {
+                // A segment that cannot be read (an **encrypted** v4 one, or a
+                // foreign file) makes the global order unknowable: the pass
+                // is skipped rather than redacting on a partial view.
+                return Ok(crate::wal::WalRedactReport {
+                    segments: segments.len() as u64,
+                    skipped: Some("a segment is not readable (encrypted or foreign)"),
+                    ..Default::default()
+                });
+            };
+            while let Ok(Some(record)) = reader.next_record() {
+                if let WalRecord::Commit(txn) = record {
+                    committed.insert(txn);
+                }
+            }
+        }
+        for (shard_idx, path) in &segments {
+            let Ok(mut reader) = WalReader::open(path) else {
+                continue;
+            };
+            let base = *per_shard_index.entry(*shard_idx).or_insert(0);
+            let mut index = base;
+            let mut current_txn: Option<u64> = None;
+            while let Ok(Some(record)) = reader.next_record() {
+                let effective = match current_txn {
+                    None => true,
+                    Some(txn) => committed.contains(&txn),
+                };
+                if effective {
+                    if let Some(id) = record_node_id(&record) {
+                        let key = (index, *shard_idx);
+                        let replace = last
+                            .get(&id)
+                            .map(|(i, s, _)| (*i, *s) < key)
+                            .unwrap_or(true);
+                        if replace {
+                            last.insert(
+                                id,
+                                (
+                                    index,
+                                    *shard_idx,
+                                    matches!(record, WalRecord::Delete { .. }),
+                                ),
+                            );
+                        }
+                    }
+                }
+                index += 1;
+                match &record {
+                    WalRecord::Begin(txn) => current_txn = Some(*txn),
+                    WalRecord::Commit(_) | WalRecord::Abort(_) => current_txn = None,
+                    _ => {}
+                }
+            }
+            per_shard_index.insert(*shard_idx, index);
+        }
+
+        let erased: std::collections::HashSet<u128> = last
+            .iter()
+            .filter(|(_, (_, _, is_delete))| *is_delete)
+            .map(|(id, _)| *id)
+            .collect();
+
+        // ── 3. Redact every segment ──
+        let predicate =
+            |record: &WalRecord| record_node_id(record).is_some_and(|id| erased.contains(&id));
+        let mut report = WalRedactReport {
+            segments: segments.len() as u64,
+            ..Default::default()
+        };
+        let live_paths: Vec<PathBuf> = self
+            .shards
+            .iter()
+            .map(|s| s.lock().path().to_path_buf())
+            .collect();
+        for (shard_idx, path) in &segments {
+            let outcome = if live_paths.contains(path) {
+                let mut writer = self.shards[*shard_idx].lock();
+                writer.redact_erased(&predicate)?
+            } else {
+                redact_archived_segment(path, &predicate)?
+            };
+            report.scanned += outcome.scanned;
+            report.redacted += outcome.redacted;
+            report.bytes_before += outcome.bytes_before;
+            report.bytes_after += outcome.bytes_after;
+            if report.skipped.is_none() {
+                report.skipped = outcome.skipped;
+            }
+        }
+        Ok(report)
+    }
+}
+
+/// The rotated segments of a shard, oldest first (chronological order).
+///
+/// `try_auto_rotate` renames `<shard>.wal` to `<shard>.wal.<millis>`; the
+/// suffix is the rotation timestamp, so the numeric order of the
+/// suffixes is the chronological one.
+pub(crate) fn enumerate_rotated_segments(live: &Path) -> Vec<PathBuf> {
+    let dir = live.parent().unwrap_or(Path::new("."));
+    let name = live
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let prefix = format!("{name}.");
+    let mut found: Vec<(u128, PathBuf)> = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    for entry in entries.flatten() {
+        let file_name = entry.file_name().to_string_lossy().into_owned();
+        let Some(suffix) = file_name.strip_prefix(&prefix) else {
+            continue;
+        };
+        if suffix.is_empty() || !suffix.bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        if let Ok(ts) = suffix.parse::<u128>() {
+            found.push((ts, entry.path()));
+        }
+    }
+    found.sort_by_key(|(ts, _)| *ts);
+    found.into_iter().map(|(_, path)| path).collect()
+}
+
+pub(crate) fn rotated_segments(live: &Path) -> Vec<PathBuf> {
+    enumerate_rotated_segments(live)
+}
+
+/// Redact a **rotated** segment (an archive): it is not open by any writer,
+/// so the swap can be done in place.
+fn redact_archived_segment(
+    path: &Path,
+    erased: &dyn Fn(&WalRecord) -> bool,
+) -> Result<crate::wal::SegmentRedact> {
+    use crate::wal::{scratch_path, swap_segment, write_redacted_segment};
+    let tmp = scratch_path(path);
+    let outcome = write_redacted_segment(path, &tmp, erased)?;
+    if outcome.redacted == 0 {
+        let _ = std::fs::remove_file(&tmp);
+        return Ok(outcome);
+    }
+    if let Err(err) = swap_segment(&tmp, path) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(err);
+    }
+    Ok(outcome)
+}
+
+impl std::fmt::Debug for ShardedWal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ShardedWal")
+            .field("num_shards", &self.num_shards)
+            .field("base_path", &self.base_path)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+    use crate::config::SyncMode;
+    use crate::node::UnifiedNode;
+
+    /// Per-test scratch path. The returned `TempDir` **must stay bound** for the
+    /// whole test body: it owns the directory, so the shard files *and* the
+    /// `<shard>.corrupt` quarantine siblings die with the tree. `clean_shards`
+    /// only ever deleted the files it knew about, so the quarantine residue
+    /// used to survive in `%TEMP%` forever (FIND-744). Bind it first: locals
+    /// drop in reverse order, so writers/readers close before the tree goes.
+    fn test_wal_path() -> (tempfile::TempDir, PathBuf) {
+        let tmp = tempfile::tempdir().expect("create per-test temp dir");
+        // No nonce needed: the `TempDir` is already unique per test, so a fixed
+        // base name carries no collision risk (FIND-744).
+        let path = tmp.path().join("vanta_test_sharded");
+        (tmp, path)
+    }
+
+    fn make_record(id: u128) -> WalRecord {
+        WalRecord::Insert(UnifiedNode::new(id))
+    }
+
+    #[test]
+    fn test_verify_shard_counts_shapes() {
+        let accepted: &[&[u64]] = &[
+            &[],
+            &[5],
+            &[0, 0, 0, 0],
+            &[1, 0, 0, 0],
+            &[2, 1, 1],
+            &[2, 2, 2, 1],
+            &[3, 3, 3, 3],
+        ];
+        for counts in accepted {
+            assert!(
+                verify_shard_counts(counts).is_none(),
+                "coherent counts rejected: {counts:?}"
+            );
+        }
+
+        let rejected: &[(&[u64], usize)] = &[
+            (&[2, 1, 2, 2], 1),
+            (&[0, 1, 1, 1], 0),
+            (&[3, 1, 1, 1], 1),
+            (&[1, 2], 0),
+            (&[2, 2, 1, 2], 2),
+        ];
+        for (counts, shard) in rejected {
+            let message = verify_shard_counts(counts)
+                .unwrap_or_else(|| panic!("incoherent counts accepted: {counts:?}"));
+            assert!(
+                message.contains(&format!("shard {shard}")),
+                "expected shard {shard} in error for {counts:?}: {message}"
+            );
+        }
+    }
+
+    /// Helper: remove shard files for cleanup.
+    fn clean_shards(base: &Path, count: usize) {
+        for i in 0..count {
+            let shard_path = if count > 1 {
+                let dir = base.parent().unwrap_or(Path::new("."));
+                let stem = base.file_stem().unwrap_or_default().to_string_lossy();
+                let ext = base
+                    .extension()
+                    .map(|e| format!(".{}", e.to_string_lossy()))
+                    .unwrap_or_default();
+                dir.join(format!("{}.shard{}{}", stem, i, ext))
+            } else {
+                base.to_path_buf()
+            };
+            let _ = std::fs::remove_file(&shard_path);
+        }
+        let _ = std::fs::remove_file(shard_meta_path(base));
+    }
+
+    /// VER-01: extra frame bytes (`prev_hash` ‖ `record_hash`) for the
+    /// on-disk format version of a WAL byte image.
+    fn chain_extra(bytes: &[u8]) -> usize {
+        let version = u16::from_le_bytes(bytes[4..6].try_into().unwrap());
+        if version >= 3 {
+            64
+        } else {
+            0
+        }
+    }
+
+    // ─── FIND-343: physical erasure of the deleted payloads ──────────
+
+    /// A node whose payload carries the canary.
+    fn node_with_canary(id: u128, canary: &str) -> UnifiedNode {
+        let mut node = UnifiedNode::new(id);
+        node.set_field(
+            "payload",
+            crate::node::FieldValue::String(canary.to_string()),
+        );
+        node
+    }
+
+    /// Whether the file still holds the canary.
+    fn file_contains(path: &Path, canary: &str) -> bool {
+        let bytes = std::fs::read(path).unwrap_or_default();
+        bytes.windows(canary.len()).any(|w| w == canary.as_bytes())
+    }
+
+    /// FIND-343: the payload of a deleted node is erased even when the
+    /// `Insert` and the `Delete` landed in **different shards** — the erase
+    /// set is computed in the global WAL order, not per shard.
+    #[test]
+    fn redact_erased_erases_across_shards() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let canary = "FIND343-sharded-canary-7a2f";
+
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+        sw.append(&WalRecord::Insert(node_with_canary(5, canary)))
+            .unwrap();
+        sw.append(&WalRecord::Delete { id: 5 }).unwrap();
+        sw.flush_all().unwrap();
+        let count_before = sw.total_record_count();
+
+        let shard0 = dir.path().join("vanta.shard0.wal");
+        let shard1 = dir.path().join("vanta.shard1.wal");
+        assert!(
+            file_contains(&shard0, canary),
+            "the Insert must land in shard 0"
+        );
+
+        let report = sw.redact_erased().unwrap();
+        assert_eq!(report.redacted, 1, "one record carries the payload");
+        assert!(
+            !file_contains(&shard0, canary),
+            "the deleted payload survived in shard 0"
+        );
+        assert_eq!(
+            sw.total_record_count(),
+            count_before,
+            "the record count must not change: the checkpoint_seq semantics depend on it"
+        );
+        // The tombstone survives: the node stays deleted after the replay.
+        let mut reader = WalReader::open(&shard1).unwrap();
+        let mut tombstones = Vec::new();
+        while let Some(record) = reader.next_record().unwrap() {
+            if let WalRecord::Delete { id } = record {
+                tombstones.push(id);
+            }
+        }
+        assert_eq!(tombstones, vec![5], "the tombstone must survive");
+    }
+
+    /// FIND-343: the payload is erased from the **rotated** segments too —
+    /// the WAL archives are the ones an attacker reads first.
+    #[test]
+    fn redact_erased_erases_the_rotated_segments() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let canary = "FIND343-archive-canary-3e8b";
+
+        // The insert lands in a segment that is then rotated by hand (the
+        // auto-rotate only fires at 256 MiB).
+        {
+            let mut writer = WalWriter::open(&path, SyncMode::Periodic).unwrap();
+            writer
+                .append(&WalRecord::Insert(node_with_canary(6, canary)))
+                .unwrap();
+            writer.sync().unwrap();
+        }
+        let archive = dir.path().join("vanta.wal.1700000000000");
+        std::fs::rename(&path, &archive).unwrap();
+
+        // The live segment carries the tombstone.
+        let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+        sw.append(&WalRecord::Delete { id: 6 }).unwrap();
+        sw.flush_all().unwrap();
+
+        let report = sw.redact_erased().unwrap();
+        assert_eq!(report.redacted, 1, "one record carries the payload");
+        assert!(
+            !file_contains(&archive, canary),
+            "the deleted payload survived in the rotated segment"
+        );
+    }
+
+    // ─── Construction ───────────────────────────────────────────
+
+    #[test]
+    fn test_new_single_shard() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+        assert_eq!(sw.num_shards, 1);
+        assert_eq!(sw.shards.len(), 1);
+        clean_shards(&path, 1);
+    }
+
+    #[test]
+    fn test_new_multiple_shards() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        assert_eq!(sw.num_shards, 4);
+        assert_eq!(sw.shards.len(), 4);
+        clean_shards(&path, 4);
+    }
+
+    #[test]
+    fn test_new_zero_shards_defaults_to_one() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 0, SyncMode::Periodic).unwrap();
+        assert_eq!(sw.num_shards, 1);
+        assert_eq!(sw.shards.len(), 1);
+        clean_shards(&path, 1);
+    }
+
+    #[test]
+    fn test_new_with_buffer_custom_parameters() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new_with_buffer(&path, 2, SyncMode::Periodic, 128 * 1024, Some(10))
+            .unwrap();
+        assert_eq!(sw.num_shards, 2);
+        assert_eq!(sw.wal_buffer_size, 128 * 1024);
+        assert_eq!(sw.flush_threshold, Some(10));
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_debug_format() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+        let fmt = format!("{:?}", sw);
+        assert!(fmt.contains("ShardedWal"));
+        assert!(fmt.contains("num_shards: 2"));
+        clean_shards(&path, 2);
+    }
+
+    // ─── Append ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_append_single_record() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+        sw.append(&make_record(42)).unwrap();
+        assert_eq!(sw.total_record_count(), 1);
+        clean_shards(&path, 1);
+    }
+
+    #[test]
+    fn test_append_multiple_records() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+        sw.append(&make_record(1)).unwrap();
+        sw.append(&make_record(2)).unwrap();
+        sw.append(&make_record(3)).unwrap();
+        assert_eq!(sw.total_record_count(), 3);
+        clean_shards(&path, 1);
+    }
+
+    #[test]
+    fn test_append_round_robin_distribution() {
+        let (_tmp, path) = test_wal_path();
+        let num_shards = 3;
+        let sw = ShardedWal::new(&path, num_shards, SyncMode::Periodic).unwrap();
+
+        // 6 records across 3 shards = 2 per shard
+        for i in 0..6 {
+            sw.append(&make_record(i)).unwrap();
+        }
+        assert_eq!(sw.total_record_count(), 6);
+
+        for (i, shard) in sw.shards.iter().enumerate() {
+            assert_eq!(
+                shard.lock().record_count(),
+                2,
+                "shard {} should have 2 records",
+                i
+            );
+        }
+        clean_shards(&path, num_shards);
+    }
+
+    #[test]
+    fn test_append_round_robin_uneven() {
+        let (_tmp, path) = test_wal_path();
+        let num_shards = 3;
+        let sw = ShardedWal::new(&path, num_shards, SyncMode::Periodic).unwrap();
+
+        // 4 records across 3 shards: shard0=2, shard1=1, shard2=1
+        for i in 0..4 {
+            sw.append(&make_record(i)).unwrap();
+        }
+        assert_eq!(sw.total_record_count(), 4);
+
+        let counts: Vec<u64> = sw.shards.iter().map(|s| s.lock().record_count()).collect();
+        assert_eq!(counts, vec![2, 1, 1], "uneven round-robin distribution");
+        clean_shards(&path, num_shards);
+    }
+
+    #[test]
+    fn test_append_all_record_variants() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+
+        sw.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+        sw.append(&WalRecord::Update {
+            id: 1,
+            node: UnifiedNode::new(1),
+        })
+        .unwrap();
+        sw.append(&WalRecord::Delete { id: 1 }).unwrap();
+        sw.append(&WalRecord::Begin(100)).unwrap();
+        sw.append(&WalRecord::Commit(100)).unwrap();
+        sw.append(&WalRecord::Abort(100)).unwrap();
+        sw.append(&WalRecord::create_checkpoint(5, None)).unwrap();
+
+        assert_eq!(sw.total_record_count(), 7);
+        clean_shards(&path, 1);
+    }
+
+    // ─── Batch Append ───────────────────────────────────────────
+
+    #[test]
+    fn test_batch_append_multiple_records() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        let records: Vec<WalRecord> = (0..10).map(make_record).collect();
+        sw.batch_append(records).unwrap();
+        assert_eq!(sw.total_record_count(), 10);
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_batch_append_empty() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
+        sw.batch_append(vec![]).unwrap();
+        assert_eq!(sw.total_record_count(), 0);
+        clean_shards(&path, 3);
+    }
+
+    #[test]
+    fn test_batch_append_single_record() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
+        sw.batch_append(vec![make_record(99)]).unwrap();
+        assert_eq!(sw.total_record_count(), 1);
+        clean_shards(&path, 3);
+    }
+
+    // ─── Flush ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_flush_all() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        sw.append(&make_record(1)).unwrap();
+        sw.append(&make_record(2)).unwrap();
+        sw.flush_all().unwrap();
+        assert_eq!(sw.total_record_count(), 2);
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_flush_all_empty() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+        // Flush with no records should succeed
+        sw.flush_all().unwrap();
+        assert_eq!(sw.total_record_count(), 0);
+        clean_shards(&path, 2);
+    }
+
+    // ─── Total Record Count ──────────────────────────────────────
+
+    #[test]
+    fn test_total_record_count_empty() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
+        assert_eq!(sw.total_record_count(), 0);
+        clean_shards(&path, 3);
+    }
+
+    #[test]
+    fn test_total_record_count_after_ops() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        assert_eq!(sw.total_record_count(), 0);
+        sw.append(&make_record(1)).unwrap();
+        assert_eq!(sw.total_record_count(), 1);
+        sw.append(&make_record(2)).unwrap();
+        assert_eq!(sw.total_record_count(), 2);
+        sw.append(&make_record(3)).unwrap();
+        assert_eq!(sw.total_record_count(), 3);
+        clean_shards(&path, 2);
+    }
+
+    // ─── Rotate ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_rotate_all_reopens_files() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        sw.append(&make_record(1)).unwrap();
+        sw.append(&make_record(2)).unwrap();
+        sw.flush_all().unwrap();
+        let before = sw.total_record_count();
+        assert_eq!(before, 2);
+
+        // rotate_all re-opens the same files (flush + new WalWriter at same path)
+        sw.rotate_all().unwrap();
+
+        // Old records remain visible (file re-opened, not truncated)
+        assert_eq!(sw.total_record_count(), before);
+
+        // Appending after rotation works and increments count
+        sw.append(&make_record(3)).unwrap();
+        assert_eq!(sw.total_record_count(), before + 1);
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_rotate_all_empty() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        // Rotating with no records should succeed
+        sw.rotate_all().unwrap();
+        assert_eq!(sw.total_record_count(), 0);
+        clean_shards(&path, 2);
+    }
+
+    // ─── Recover ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_recover_all_records() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        sw.append(&make_record(10)).unwrap();
+        sw.append(&make_record(20)).unwrap();
+        sw.flush_all().unwrap();
+
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+
+        assert_eq!(recovered.len(), 2);
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_recover_with_checkpoint_skips_old_records() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        sw.append(&make_record(10)).unwrap();
+        sw.append(&make_record(20)).unwrap();
+        sw.flush_all().unwrap();
+
+        // checkpoint_seq=5, num_shards=2 → skip_base=2, extra=1
+        // shard0 skips 3, shard1 skips 2; both have 1 record → all skipped
+        let mut recovered = Vec::new();
+        sw.recover(5, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+
+        assert!(recovered.is_empty());
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_recover_checkpoint_global_seq_4_shards() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+
+        // Write 8 records (2 per shard via round-robin)
+        for i in 1..=8 {
+            sw.append(&make_record(i)).unwrap();
+        }
+        sw.flush_all().unwrap();
+
+        // checkpoint_seq=5 → skip globally first 5 records
+        // skip_base=5/4=1, extra=1 → shard0 skips 2, shards1-3 skip 1 each
+        // shard0: seq 1,2 → skip both (0 records recovered)
+        // shard1: seq 1 → skip, seq 2 → recover (1 record: global #6)
+        // shard2: seq 1 → skip, seq 2 → recover (1 record: global #7)
+        // shard3: seq 1 → skip, seq 2 → recover (1 record: global #8)
+        // total recovered = 3 records (global #6, #7, #8)
+        let mut recovered = Vec::new();
+        sw.recover(5, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+
+        assert_eq!(
+            recovered.len(),
+            3,
+            "checkpoint_seq=5 skips first 5 of 8 round-robin records, 3 remain"
+        );
+        clean_shards(&path, 4);
+    }
+
+    #[test]
+    fn test_recover_empty_wal() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+
+        assert!(recovered.is_empty());
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_recover_missing_shard_file_skips_gracefully() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+
+        // Write to shard 0 only (odd number of round-robins)
+        sw.append(&make_record(1)).unwrap();
+        sw.flush_all().unwrap();
+
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+
+        // At least 1 record recovered from shard 0; shard 1 may not exist
+        assert!(!recovered.is_empty());
+        clean_shards(&path, 2);
+    }
+
+    // ─── Error Handling ──────────────────────────────────────────
+
+    #[test]
+    fn test_new_with_invalid_path_errors() {
+        // Use a path that can't be created (empty string or root)
+        let result = ShardedWal::new(Path::new(""), 1, SyncMode::Periodic);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_append_to_rotated_wal_works() {
+        let (_tmp, path) = test_wal_path();
+        let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+
+        sw.append(&make_record(1)).unwrap();
+        let before = sw.total_record_count();
+        assert_eq!(before, 1);
+
+        sw.rotate_all().unwrap();
+        // Old records remain; appending after rotation increments total
+        sw.append(&make_record(2)).unwrap();
+        assert_eq!(sw.total_record_count(), before + 1);
+        clean_shards(&path, 1);
+    }
+
+    // ─── AUDREP-16: shard-count reconciliation ───────────────────
+
+    #[test]
+    fn test_meta_persists_resolved_shard_count() {
+        let (_tmp, path) = test_wal_path();
+        ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
+        assert_eq!(read_shard_meta(&path), Some(3));
+        clean_shards(&path, 3);
+    }
+
+    #[test]
+    fn test_reopen_with_different_shard_count_no_loss() {
+        let (_tmp, path) = test_wal_path();
+        {
+            let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+            for i in 0..6 {
+                sw.append(&make_record(i)).unwrap();
+            }
+            sw.flush_all().unwrap();
+        }
+
+        // Reopen requesting a different count (e.g. engine hardcoded 4).
+        // Must reconcile to the on-disk layout (2) and replay ALL records.
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        assert_eq!(sw.num_shards, 2, "must reconcile to on-disk layout");
+
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(recovered.len(), 6, "no silent data loss on reopen");
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_reopen_single_file_legacy_with_multi_shard_request() {
+        let (_tmp, path) = test_wal_path();
+        {
+            let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+            for i in 0..3 {
+                sw.append(&make_record(i)).unwrap();
+            }
+            sw.flush_all().unwrap();
+        }
+
+        // Legacy single-file layout (vanta.wal): reopening with multi-shard
+        // must detect the single-file layout and replay without loss.
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        assert_eq!(sw.num_shards, 1, "single-file legacy layout preserved");
+
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(recovered.len(), 3, "legacy single-file WAL fully recovered");
+        clean_shards(&path, 1);
+    }
+
+    // ─── ERR-050: round-robin resumes across opens ──────────────
+
+    #[test]
+    fn test_reopen_resumes_round_robin_position() {
+        let (_tmp, path) = test_wal_path();
+        {
+            let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+            sw.append(&make_record(1)).unwrap();
+            sw.append(&make_record(2)).unwrap();
+            sw.flush_all().unwrap();
+        }
+
+        // Reopen: 2 durable records sit in shards 0 and 1, so the next write
+        // must land in shard 2 — not shard 0 again (which is what tripped
+        // verify_shard_counts with counts [2,0,0,0] on a third open).
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        sw.append(&make_record(3)).unwrap();
+        let counts: Vec<u64> = sw.shards.iter().map(|s| s.lock().record_count()).collect();
+        assert_eq!(counts, vec![1, 1, 1, 0], "round-robin resumes across opens");
+
+        // And a subsequent open recovers all 3 without the ERR-011 abort.
+        drop(sw);
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            recovered.len(),
+            3,
+            "no truncation error across repeated opens"
+        );
+        clean_shards(&path, 4);
+    }
+
+    // ─── FIND-109: salvage preview (opt-in; guard untouched) ───
+
+    #[test]
+    fn test_coherent_prefix_for_fixture_counts() {
+        // Real fixture 2026-09-17: [41,39,36,38] aborts with 39-vs-40.
+        let prefix = coherent_prefix_for(&[41, 39, 36, 38]);
+        assert_eq!(prefix, vec![37, 37, 36, 36]);
+        assert!(verify_shard_counts(&prefix).is_none());
+    }
+
+    #[test]
+    fn test_coherent_prefix_for_coherent_is_identity() {
+        assert_eq!(coherent_prefix_for(&[2, 2, 2, 1]), vec![2, 2, 2, 1]);
+        assert_eq!(coherent_prefix_for(&[0, 0, 0, 0]), vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn test_salvage_preview_truncated_reports_explicit_discards() {
+        let (_tmp, path) = test_wal_path();
+        {
+            let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+            for i in 1..=4 {
+                sw.append(&make_record(i)).unwrap();
+            }
+            sw.flush_all().unwrap();
+        }
+        // Torn tail on shard 0: counts become [1,2] → order broken → abort.
+        // (Truncating shard 1 would give [2,1], still coherent.)
+        let shard0 = salvage_shard_path(&path, 0, 2);
+        let bytes = std::fs::read(&shard0).unwrap();
+        let extra = chain_extra(&bytes);
+        let mut off = 20usize;
+        let mut last = 20usize;
+        while off + 8 <= bytes.len() {
+            let len = u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap()) as usize;
+            let end = off + 4 + len + 4 + extra;
+            if end > bytes.len() {
+                break;
+            }
+            last = off;
+            off = end;
+        }
+        let cut = off - (off - last) / 2;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&shard0)
+            .unwrap()
+            .set_len(cut as u64)
+            .unwrap();
+        let preview = salvage_preview(&path, 2).unwrap();
+        assert!(!preview.coherent, "truncated WAL must not read coherent");
+        assert!(!preview.discarded_global_seqs.is_empty());
+        assert_eq!(
+            preview.replayed + preview.discarded,
+            preview.shard_counts.iter().sum::<u64>()
+        );
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_salvage_truncate_restores_coherent_recovery() {
+        // FIND-744: this is the one test in the module whose reopen quarantines
+        // a torn tail into `<shard>.corrupt` — the 54 B residue that used to
+        // land loose in `%TEMP%` (measured: +1 file per run of this test, 0 for
+        // its siblings). `close()` makes the cleanup falsable: `Drop` swallows
+        // the delete error.
+        let (tmp, path) = test_wal_path();
+        {
+            let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+            for i in 1..=4 {
+                sw.append(&make_record(i)).unwrap();
+            }
+            sw.flush_all().unwrap();
+        }
+        let shard0 = salvage_shard_path(&path, 0, 2);
+        let bytes = std::fs::read(&shard0).unwrap();
+        let extra = chain_extra(&bytes);
+        let mut off = 20usize;
+        let mut last = 20usize;
+        while off + 8 <= bytes.len() {
+            let len = u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap()) as usize;
+            let end = off + 4 + len + 4 + extra;
+            if end > bytes.len() {
+                break;
+            }
+            last = off;
+            off = end;
+        }
+        let cut = off - (off - last) / 2;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&shard0)
+            .unwrap()
+            .set_len(cut as u64)
+            .unwrap();
+        // Guard still aborts before salvage (fail-closed intact).
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+        let mut n = 0u64;
+        let res = sw.recover(0, |_| {
+            n += 1;
+            Ok(())
+        });
+        assert!(res.is_err(), "guard must abort before salvage");
+        drop(sw);
+        // Salvage mutates to the coherent prefix; recovery then succeeds.
+        let done = salvage(&path, 2).unwrap();
+        assert!(done.after.coherent);
+        assert!(!done.backups.is_empty());
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+        let mut recovered = Vec::new();
+        sw.recover(0, |r| {
+            recovered.push(r);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(recovered.len() as u64, done.after.replayed);
+        clean_shards(&path, 2);
+        for b in done.backups {
+            let _ = std::fs::remove_file(b);
+        }
+        // Drop the last writer before the tree: Windows cannot delete a
+        // directory that still holds an open handle.
+        drop(sw);
+        tmp.close().expect("per-test temp dir must be removable");
+    }
+
+    #[test]
+    fn test_find354_recover_interleaved_writes_in_strict_global_seq_order() {
+        let (_tmp, path) = test_wal_path();
+        let num_shards = 4;
+        let sw = ShardedWal::new(&path, num_shards, SyncMode::Periodic).unwrap();
+
+        // Append 8 records with IDs 1..=8 (round-robin distributed across 4 shards)
+        for i in 1..=8 {
+            sw.append(&make_record(i)).unwrap();
+        }
+        sw.flush_all().unwrap();
+
+        let mut recovered_ids = Vec::new();
+        sw.recover(0, |record| {
+            if let WalRecord::Insert(node) = record {
+                recovered_ids.push(node.id);
+            }
+            Ok(())
+        })
+        .unwrap();
+
+        // Shard 0 held [1, 5], Shard 1 held [2, 6], Shard 2 held [3, 7], Shard 3 held [4, 8].
+        // Before the fix, recover yielded [1, 5, 2, 6, 3, 7, 4, 8].
+        // In strict causal global_seq order, it must yield [1, 2, 3, 4, 5, 6, 7, 8].
+        assert_eq!(recovered_ids, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        clean_shards(&path, num_shards);
+    }
+}

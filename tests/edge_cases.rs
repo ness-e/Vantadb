@@ -1,0 +1,759 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+//! AUD-37: Edge case tests for VantaDB.
+//! Covers NaN/Inf vectors, empty inputs, zero-dim vectors,
+//! concurrent access, metadata special chars, and WAL failure.
+
+use std::sync::Arc;
+use std::thread;
+use tempfile::tempdir;
+use vantadb::config::Config;
+use vantadb::node::{DistanceMetric, FilterBitset};
+use vantadb::storage::StorageEngine;
+use vantadb::{Embedded, MemoryInput, MemorySearchRequest, UnifiedNode, Value};
+
+fn field_string(value: &str) -> Value {
+    Value::String(value.to_string())
+}
+
+// ── 1. NaN/Inf vectors ─────────────────────────────────────
+
+#[test]
+fn nan_vector_rejected() {
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
+    let node = UnifiedNode::with_vector(1, vec![f32::NAN, 0.0, 0.0]);
+    // cosine_similarity with NaN returns None, so search won't return it
+    let _ = engine.insert(&node);
+
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
+    assert!(
+        result.iter().all(|(id, _)| *id != 1),
+        "NaN vector should not match in cosine search"
+    );
+}
+
+#[test]
+fn inf_vector_rejected() {
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
+    let node = UnifiedNode::with_vector(1, vec![f32::INFINITY, 0.0, 0.0]);
+    let _ = engine.insert(&node);
+
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
+    assert!(
+        result.iter().all(|(id, _)| *id != 1),
+        "Inf vector should not match in cosine search (denom ~inf, similarity → NaN)"
+    );
+}
+
+#[test]
+fn neg_inf_vector_rejected() {
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
+    let node = UnifiedNode::with_vector(1, vec![f32::NEG_INFINITY, 0.0, 0.0]);
+    let _ = engine.insert(&node);
+
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
+    assert!(
+        result.iter().all(|(id, _)| *id != 1),
+        "Negative Inf vector should not match"
+    );
+}
+
+// ── 2. Empty key ───────────────────────────────────────────
+
+#[test]
+fn empty_key_returns_error() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let input = MemoryInput::new("test", "", "payload");
+    let err = db.put(input).expect_err("empty key must fail");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("key must not be empty"),
+        "expected key validation error, got: {msg}"
+    );
+}
+
+// ── 3. Empty batch ─────────────────────────────────────────
+
+#[test]
+fn empty_batch_succeeds() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let results = db.put_batch(vec![]).expect("empty batch must succeed");
+    assert!(
+        results.is_empty(),
+        "empty batch should return empty results"
+    );
+}
+
+// ── 4. Empty namespace search ──────────────────────────────
+
+#[test]
+fn empty_namespace_search_returns_error() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let request = MemorySearchRequest {
+        namespace: String::new(),
+        query_vector: vec![1.0, 0.0, 0.0],
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        ..Default::default()
+    };
+    let err = db.search(request).expect_err("empty namespace must fail");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("namespace must not be empty"),
+        "expected namespace validation error, got: {msg}"
+    );
+}
+
+#[test]
+fn empty_namespace_put_returns_error() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let input = MemoryInput::new("", "key", "payload");
+    let err = db.put(input).expect_err("empty namespace must fail");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("namespace must not be empty"),
+        "expected namespace validation error, got: {msg}"
+    );
+}
+
+// ── 5. Non-existent ID delete ──────────────────────────────
+
+#[test]
+fn delete_non_existent_key_returns_false() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let deleted = db
+        .delete("nonexistent", "ghost-key")
+        .expect("delete non-existent must not error");
+    assert!(!deleted, "deleting non-existent key should return false");
+}
+
+#[test]
+fn delete_non_existent_engine_id_returns_error() {
+    let db = Embedded::in_memory().unwrap();
+    let deleted = db
+        .delete("test", "unknown-id-key")
+        .expect("deleting unknown key must succeed with false");
+    assert!(!deleted, "expected false for nonexistent record");
+}
+
+// ── 6. Special characters in metadata ──────────────────────
+
+#[test]
+fn metadata_unicode_and_emoji_keys() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut input = MemoryInput::new("test", "special-meta", "payload");
+    input
+        .metadata
+        .insert("café".to_string(), field_string("value1"));
+    input
+        .metadata
+        .insert("emoji_🔥".to_string(), field_string("fire"));
+    input
+        .metadata
+        .insert("日本語".to_string(), field_string("nihongo"));
+    input
+        .metadata
+        .insert("key with spaces".to_string(), field_string("spaced"));
+    input
+        .metadata
+        .insert("newline\nkey".to_string(), field_string("nl"));
+
+    let record = db.put(input).expect("put with special metadata");
+    assert_eq!(record.metadata.get("café"), Some(&field_string("value1")));
+    assert_eq!(record.metadata.get("emoji_🔥"), Some(&field_string("fire")));
+    assert_eq!(
+        record.metadata.get("日本語"),
+        Some(&field_string("nihongo"))
+    );
+    assert_eq!(
+        record.metadata.get("key with spaces"),
+        Some(&field_string("spaced"))
+    );
+    assert_eq!(
+        record.metadata.get("newline\nkey"),
+        Some(&field_string("nl"))
+    );
+
+    let fetched = db
+        .get("test", "special-meta")
+        .expect("get")
+        .expect("record");
+    assert_eq!(fetched.metadata, record.metadata);
+}
+
+// ── 7. Zero-dimension vector ───────────────────────────────
+
+#[test]
+fn zero_dim_vector_stored_without_vector() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut input = MemoryInput::new("test", "zero-vec", "payload");
+    input.vector = Some(vec![]);
+
+    let record = db.put(input).expect("zero-dim vector should succeed");
+    assert!(
+        record.vector.is_none(),
+        "zero-dim vector should be stored as None"
+    );
+}
+
+#[test]
+fn zero_dim_vector_search_empty() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut input = MemoryInput::new("test", "zero-vec", "payload");
+    input.vector = Some(vec![]);
+    db.put(input).expect("put zero-dim vector");
+
+    let request = MemorySearchRequest {
+        namespace: "test".to_string(),
+        query_vector: vec![1.0],
+        top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        ..Default::default()
+    };
+    let results = db.search(request).expect("search with zero-dim vector");
+    assert!(
+        results.is_empty(),
+        "zero-dim vector should not be searchable"
+    );
+}
+
+// ── 8. All-zeros vector ────────────────────────────────────
+
+#[test]
+fn all_zeros_vector_insert_and_search() {
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
+    let _ = engine.insert(&UnifiedNode::with_vector(1, vec![0.0, 0.0, 0.0]));
+    engine
+        .insert(&UnifiedNode::with_vector(2, vec![1.0, 0.0, 0.0]))
+        .unwrap();
+
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
+    assert!(
+        result.iter().any(|(id, _)| *id == 2),
+        "non-zero vector should match"
+    );
+    assert!(
+        result.iter().all(|(id, _)| *id != 1),
+        "zero vector should not match (cosine of zero vector with query is undefined/invalid)"
+    );
+}
+
+/// AUDREP-27 / FIND-244: `put_one` filters vectors that are not usable
+/// (`usable_vector`: empty or zero-norm — HNSW cosine rejects zero-norm).
+/// A put of an all-zeros vector must succeed as a payload-only record; the
+/// vector is intentionally NOT stored. (This expectation went stale when the
+/// filter landed; the binary is excluded from the nextest default-filter, so
+/// only `cargo test` — the ASan job — surfaced it.)
+#[test]
+fn all_zeros_vector_put_and_list() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut input = MemoryInput::new("test", "all-zeros", "payload");
+    input.vector = Some(vec![0.0, 0.0, 0.0]);
+    let record = db.put(input).expect("put all-zeros vector");
+    assert!(
+        record.vector.is_none(),
+        "zero-norm vectors are not usable (AUDREP-27): put must filter, not store"
+    );
+
+    let fetched = db.get("test", "all-zeros").expect("get").expect("record");
+    assert_eq!(fetched.vector, None, "a filtered vector must not resurface");
+    assert_eq!(
+        fetched.payload, "payload",
+        "the record itself must round-trip"
+    );
+}
+
+// ── 10. Concurrent connections / rapid requests ────────────
+
+#[test]
+fn concurrent_rapid_inserts_no_crash() {
+    let dir = tempdir().expect("tempdir");
+    let db = Arc::new(Embedded::open(dir.path()).expect("open"));
+
+    let mut handles = Vec::new();
+    for i in 0..20 {
+        let db = Arc::clone(&db);
+        handles.push(thread::spawn(move || {
+            for j in 0..5 {
+                let input = MemoryInput::new(
+                    "concurrent",
+                    format!("key-{i}-{j}"),
+                    format!("payload-{i}-{j}"),
+                );
+                db.put(input).ok();
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+
+    // Verify all 100 records were inserted
+    let list = db
+        .list("concurrent", Default::default())
+        .expect("list concurrent");
+    assert_eq!(
+        list.records.len(),
+        100,
+        "all 100 concurrent inserts should be present"
+    );
+}
+
+#[test]
+fn concurrent_rapid_searches_no_crash() {
+    let dir = tempdir().expect("tempdir");
+    let db = Arc::new(Embedded::open(dir.path()).expect("open"));
+
+    for i in 0..50 {
+        let mut input = MemoryInput::new("search-test", format!("key-{i}"), format!("payload-{i}"));
+        input.vector = Some(vec![i as f32 * 0.1, 0.0, 0.0]);
+        db.put(input).expect("seed search data");
+    }
+
+    let mut handles = Vec::new();
+    for _ in 0..20 {
+        let db = Arc::clone(&db);
+        handles.push(thread::spawn(move || {
+            for _ in 0..5 {
+                let request = MemorySearchRequest {
+                    namespace: "search-test".to_string(),
+                    query_vector: vec![1.0, 0.0, 0.0],
+                    top_k: 5,
+                    range: None,
+                    group_by: None,
+                    mmr: None,
+                    cursor: None,
+                    ..Default::default()
+                };
+                db.search(request).ok();
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("search thread panicked");
+    }
+    // If we reach here without panic, no crash occurred
+}
+
+// ── 11. Search with unusual parameters ─────────────────────
+
+#[test]
+fn search_top_k_zero_returns_empty() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut input = MemoryInput::new("test", "key1", "payload");
+    input.vector = Some(vec![1.0, 0.0, 0.0]);
+    db.put(input).expect("put");
+
+    let request = MemorySearchRequest {
+        namespace: "test".to_string(),
+        query_vector: vec![1.0, 0.0, 0.0],
+        top_k: 0,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        ..Default::default()
+    };
+    let results = db.search(request).expect("top_k=0 search must not error");
+    assert!(results.is_empty(), "top_k=0 should return empty results");
+}
+
+#[test]
+fn search_empty_query_vector_returns_no_vector_hits() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut input = MemoryInput::new("test", "key1", "payload");
+    input.vector = Some(vec![1.0, 0.0, 0.0]);
+    db.put(input).expect("put");
+
+    let request = MemorySearchRequest {
+        namespace: "test".to_string(),
+        query_vector: vec![],
+        top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        ..Default::default()
+    };
+    let results = db
+        .search(request)
+        .expect("empty query vector search must not error");
+    assert!(
+        results.is_empty(),
+        "empty query vector should return no hits"
+    );
+}
+
+// ── 12. Vector dimension mismatch at low level ──────────────
+
+#[test]
+fn vector_dimension_mismatch_search() {
+    let engine = StorageEngine::open_with_config(":memory:", Some(Config::in_memory())).unwrap();
+    engine
+        .insert(&UnifiedNode::with_vector(1, vec![1.0, 0.0, 0.0]))
+        .unwrap();
+
+    let result = engine.vec_index().search(
+        &[1.0, 0.0, 0.0, 0.0],
+        &FilterBitset::all_set(),
+        10,
+        None,
+        DistanceMetric::Cosine,
+    );
+    assert!(
+        result.is_empty(),
+        "dimension-mismatched query should match nothing"
+    );
+}
+
+// ── 13. Extremely large metadata ───────────────────────────
+
+#[test]
+fn large_metadata_value() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut input = MemoryInput::new("test", "large-meta", "payload");
+    let large_value = "x".repeat(10_000);
+    input.metadata.insert(
+        "large_field".to_string(),
+        Value::String(large_value.clone()),
+    );
+
+    let record = db.put(input).expect("put with large metadata");
+    assert_eq!(
+        record.metadata.get("large_field"),
+        Some(&Value::String(large_value))
+    );
+}
+
+// ── 14. Delete after expired TTL ─────────────────────────
+
+#[test]
+fn delete_expired_ttl_record() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut input = MemoryInput::new("test", "ttl-record", "will-expire");
+    input.ttl_ms = Some(1);
+    db.put(input).expect("put with 1ms TTL");
+
+    // Wait for TTL to expire
+    thread::sleep(std::time::Duration::from_millis(5));
+
+    let deleted = db
+        .delete("test", "ttl-record")
+        .expect("delete after TTL expiry");
+    // TTL is enforced lazily — expired records are treated as non-existent,
+    // so delete returns false (nothing to delete from the SDK's perspective)
+    assert!(!deleted, "TTL-expired record should return false on delete");
+}
+
+// ── 14b. Re-put after expired TTL (DUR-03 / H-023) ─────────
+
+/// H-023 / DUR-03: a write over a key whose record expired but was not yet
+/// physically purged must behave like a write to a non-existent key
+/// (purge-on-write + fresh insert) instead of dying with `NodeIdCollision`.
+#[test]
+fn put_after_ttl_expiry_succeeds_as_fresh_insert() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    // v1 (no TTL) then v2 (1ms TTL): two version snapshots exist before expiry.
+    db.put(MemoryInput::new("test", "revive", "payload v1"))
+        .expect("put v1");
+    let mut v2 = MemoryInput::new("test", "revive", "payload v2");
+    v2.ttl_ms = Some(1);
+    let second = db.put(v2).expect("put v2");
+    assert_eq!(second.version, 2);
+
+    // TTL lapses: logically absent (lazy TTL) but still physically present.
+    thread::sleep(std::time::Duration::from_millis(5));
+    assert!(
+        db.get("test", "revive").expect("get expired").is_none(),
+        "expired record must be hidden before the re-put"
+    );
+
+    // Re-put must not collide: purge-on-write + fresh record (v1).
+    let revived = db
+        .put(MemoryInput::new("test", "revive", "new payload"))
+        .expect("put after expiry must succeed (H-023)");
+    assert_eq!(revived.payload, "new payload");
+    assert_eq!(
+        revived.version, 1,
+        "an expired record is logically gone; the re-put is a fresh insert"
+    );
+
+    let fetched = db
+        .get("test", "revive")
+        .expect("get revived")
+        .expect("revived record must be readable");
+    assert_eq!(fetched.payload, "new payload");
+    assert_eq!(fetched.version, 1);
+
+    // The expired generation's snapshots must be purged with it: only the
+    // fresh v1 remains (no stale v2 from the expired generation).
+    let versions = db.versions("test", "revive").expect("versions");
+    assert_eq!(
+        versions.len(),
+        1,
+        "only the fresh v1 must remain in version history, got {versions:?}"
+    );
+    assert_eq!(versions[0].payload, "new payload");
+    assert_eq!(versions[0].version, 1);
+}
+
+/// Same H-023 hole through the batch write path.
+#[test]
+fn put_batch_after_ttl_expiry_succeeds() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut expired = MemoryInput::new("test", "batch-revive", "old");
+    expired.ttl_ms = Some(1);
+    db.put(expired).expect("seed put");
+    thread::sleep(std::time::Duration::from_millis(5));
+    assert!(db.get("test", "batch-revive").expect("get").is_none());
+
+    let records = db
+        .put_batch(vec![MemoryInput::new("test", "batch-revive", "new")])
+        .expect("put_batch after expiry must succeed (H-023)");
+    assert_eq!(records[0].payload, "new");
+    assert_eq!(records[0].version, 1);
+    assert_eq!(
+        db.get("test", "batch-revive")
+            .expect("get")
+            .expect("present")
+            .payload,
+        "new"
+    );
+}
+
+/// MEMG-11 review r2: a batch mixing a live upsert and an expired key must not
+/// deadlock (the guard-retention approach held read guards and then purged
+/// under the write lock in the same thread). Bounded with a channel timeout so
+/// a regression fails instead of hanging the suite.
+#[test]
+fn put_batch_mixed_live_and_expired_upserts_do_not_deadlock() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    // Live key (guarded-upsert branch) + expired key (purge-on-write branch)
+    // in the SAME batch.
+    db.put(MemoryInput::new("test", "live-key", "live old"))
+        .expect("seed live");
+    let mut expired = MemoryInput::new("test", "expired-key", "expired old");
+    expired.ttl_ms = Some(1);
+    db.put(expired).expect("seed expired");
+    thread::sleep(std::time::Duration::from_millis(5));
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    let handle = thread::spawn(move || {
+        let res = db.put_batch(vec![
+            MemoryInput::new("test", "live-key", "live new"),
+            MemoryInput::new("test", "expired-key", "expired new"),
+        ]);
+        let _ = tx.send(res.map(|records| records.len()));
+        db
+    });
+
+    let len = rx
+        .recv_timeout(std::time::Duration::from_secs(30))
+        .expect("put_batch with mixed live+expired keys must not deadlock");
+    assert_eq!(len.expect("batch must succeed"), 2);
+    let db = handle.join().expect("batch thread must not panic");
+    assert_eq!(
+        db.get("test", "live-key")
+            .expect("get")
+            .expect("live record present")
+            .payload,
+        "live new"
+    );
+    assert_eq!(
+        db.get("test", "expired-key")
+            .expect("get")
+            .expect("expired record revived")
+            .payload,
+        "expired new"
+    );
+}
+
+// ── 14c. Re-put vs TTL sweeper race (DUR-03) ───────────────
+
+/// DUR-03 pre-mortem #2: a re-put racing the TTL sweeper (`purge_expired`)
+/// must never error, panic, or corrupt. The writer starts at 0/1/2 ms after
+/// the seed, so it sometimes resolves the record while still live and
+/// sometimes after expiry — both the guarded-upsert and the purge-on-write
+/// paths race the sweeper. The write always ends with the fresh record
+/// present: the generation guard keeps the sweeper from deleting it or from
+/// double-decrementing the generation's stats.
+#[test]
+fn put_after_expiry_racing_ttl_sweeper_stays_consistent() {
+    let dir = tempdir().expect("tempdir");
+    let db = Arc::new(Embedded::open(dir.path()).expect("open"));
+
+    for round in 0..24u64 {
+        let key = format!("race-{round}");
+        let mut seed = MemoryInput::new("test", &key, "old");
+        seed.ttl_ms = Some(1);
+        db.put(seed).expect("seed put");
+        thread::sleep(std::time::Duration::from_millis(round % 3));
+
+        let writer_db = Arc::clone(&db);
+        let sweeper_db = Arc::clone(&db);
+        let writer_key = key.clone();
+        let writer = thread::spawn(move || {
+            writer_db
+                .put(MemoryInput::new("test", &writer_key, "new"))
+                .map(|_| ())
+        });
+        let sweeper = thread::spawn(move || sweeper_db.purge_expired());
+
+        let write_res = writer.join().expect("writer thread must not panic");
+        let sweep_res = sweeper.join().expect("sweeper thread must not panic");
+        assert!(
+            write_res.is_ok(),
+            "re-put must succeed under the sweeper race: {write_res:?}"
+        );
+        assert!(sweep_res.is_ok(), "sweeper must not fail: {sweep_res:?}");
+        assert_eq!(
+            db.get("test", &key)
+                .expect("get")
+                .expect("record must be present after the race")
+                .payload,
+            "new"
+        );
+    }
+}
+
+// ── 14d. Foreign node at the deterministic id (DUR-03) ─────
+
+/// A node that is not a memory record of this `(namespace, key)` must still
+/// be reported as a collision — purge-on-write only claims expired records
+/// of the same key.
+#[test]
+fn put_rejects_foreign_node_at_deterministic_id() {
+    use vantadb::sdk::memory_node_id;
+    use vantadb::storage::StorageEngine;
+    use vantadb::UnifiedNode;
+
+    let dir = tempdir().expect("tempdir");
+    let engine = Arc::new(
+        StorageEngine::open_with_config(&dir.path().to_string_lossy(), None).expect("open engine"),
+    );
+    let db = Embedded::from_engine(engine.clone());
+
+    let id = memory_node_id("test", "collide");
+    engine
+        .insert(&UnifiedNode::new(id))
+        .expect("insert foreign node");
+
+    let err = db
+        .put(MemoryInput::new("test", "collide", "payload"))
+        .expect_err("foreign node must collide");
+    assert!(
+        matches!(err, vantadb::error::Error::NodeIdCollision(collided) if collided == id),
+        "expected NodeIdCollision({id}), got {err:?}"
+    );
+}
+
+// ── 15. Same key in multiple namespaces ─────────────────
+
+#[test]
+fn same_key_different_namespaces_are_independent() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    db.put(MemoryInput::new("ns1", "shared-key", "payload-a"))
+        .expect("put ns1");
+    db.put(MemoryInput::new("ns2", "shared-key", "payload-b"))
+        .expect("put ns2");
+
+    let a = db
+        .get("ns1", "shared-key")
+        .expect("get ns1")
+        .expect("record");
+    let b = db
+        .get("ns2", "shared-key")
+        .expect("get ns2")
+        .expect("record");
+
+    assert_eq!(a.payload, "payload-a");
+    assert_eq!(b.payload, "payload-b");
+    assert_ne!(a.node_id, b.node_id);
+}
+
+// ── 16. Insert with explicit ID collision handling ─────────
+
+#[test]
+fn duplicate_engine_id_returns_error() {
+    let db = Embedded::in_memory().unwrap();
+    db.put(MemoryInput::new("test", "k", "v1"))
+        .expect("first insert");
+    let r1 = db.get("test", "k").unwrap().unwrap();
+    assert_eq!(r1.version, 1);
+    db.put(MemoryInput::new("test", "k", "v2"))
+        .expect("duplicate insert updates version");
+    let r2 = db.get("test", "k").unwrap().unwrap();
+    assert_eq!(r2.version, 2, "re-inserting same key updates version");
+}
+
+// ── 17. Update non-existent node ─────────────────────────
+
+#[test]
+fn update_non_existent_node_returns_error() {
+    let db = Embedded::in_memory().unwrap();
+    assert!(db.get("test", "non_existent").unwrap().is_none());
+}

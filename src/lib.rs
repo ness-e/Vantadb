@@ -1,0 +1,240 @@
+#![deny(unsafe_op_in_unsafe_fn)]
+// Tests use `unwrap`/`expect` freely for invariants that would panic anyway in
+// production. Keep deny on prod code, allow inside `#[cfg(test)]` only.
+// `#[cfg_attr(test, allow(...))]` is evaluated by rustc — the deny remains for
+// every other build profile (release, benches, doc).
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+
+//! # VantaDB — Embedded Persistent Memory Engine
+//!
+//! Durable local memory with vector (HNSW) and lexical (BM25) retrieval,
+//! structured fields, property graphs, and a DSL query planner — all in
+//! one embedded Rust crate.
+//!
+//! ## Core Types
+//!
+//! | Type | Role |
+//! |------|------|
+//! | [`Embedded`](sdk/struct.Embedded.html) | Top-level engine handle. Open/close, CRUD, search, graph ops. |
+//! | [`UnifiedNode`](node/struct.UnifiedNode.html) | Single node representation (fields, vector, edges, metadata). |
+//! | [`MemoryRecord`](sdk/struct.MemoryRecord.html) | A stored memory record with namespace, key, payload, vector, metadata. |
+//! | [`Error`](error/enum.Error.html) | Typed error enum covering validation, I/O, serialization, and engine errors. |
+//!
+//! ## Feature Flags
+//!
+//! | Feature | Description |
+//! |---------|-------------|
+//! | `encryption` | AES-256-GCM at-rest encryption |
+//! | `cli` | Interactive REPL and CLI commands |
+//! | `server` | HTTP server (axum) |
+//! | `arrow` | Apache Arrow columnar export |
+//! | `python_sdk` | Python bindings (via PyO3) |
+//! | `wal-shipping` | Async WAL shipping to replicas |
+//! | `async-ingestion` | Background ingestion worker pool |
+//! | `remote-inference` | Remote LLM inference integration |
+//!
+//! ## Quick Example
+//!
+//! ```rust,no_run
+//! use vantadb::sdk::{Embedded, MemoryInput};
+//! use vantadb::config::Config;
+//!
+//! let config = Config::default();
+//! let engine = Embedded::open_with_config(config).unwrap();
+//!
+//! engine.put(MemoryInput::new("docs", "example", "Hello, VantaDB!"))
+//!     .unwrap();
+//!
+//! let record = engine.get("docs", "example").unwrap();
+//! assert_eq!(record.unwrap().payload, "Hello, VantaDB!");
+//! engine.close().unwrap();
+//! ```
+
+/// AES-256-GCM at-rest encryption (opt-in `encryption` feature).
+///
+/// With a master key configured, the engine encrypts its four on-disk write paths:
+/// the WAL (v4), the VantaFile segments (v3), the backend KV (per-value envelope) and
+/// the HNSW image (whole-file envelope); the text index and the snapshots follow by
+/// transitivity. The mode is decided **from the bytes on disk**, not from the config.
+///
+/// Read [`SECURITY.md`](https://github.com/ness-e/Vantadb/blob/main/SECURITY.md) for the
+/// declared limits (what stays in cleartext, what is lost, and what the key registry is).
+#[cfg(feature = "encryption")]
+pub mod crypto;
+
+pub mod accumulator;
+pub mod agentic;
+pub mod api;
+/// Certified purge (VER-02): per-surface residue inventory + JSON certificate.
+pub mod attestation;
+/// Append-only JSONL audit log of business operations (opt-in).
+pub mod audit;
+pub(crate) mod backend;
+pub(crate) mod backends;
+/// Binary header format for all persisted VantaDB files.
+pub mod binary_header;
+pub(crate) mod cache_warmer;
+/// Circuit breaker state machine for fast-failing HTTP requests (feature `server`).
+#[cfg(feature = "server")]
+pub mod circuit_breaker;
+#[cfg(feature = "cli")]
+pub mod cli;
+/// Dynamic `--namespace` / `--key` value completion (clap `CompleteEnv`).
+#[cfg(feature = "cli")]
+pub mod cli_complete;
+#[cfg(feature = "cli")]
+pub mod cli_handlers;
+#[cfg(feature = "server")]
+pub mod cli_server;
+#[cfg(feature = "arrow")]
+pub mod columnar;
+pub mod config;
+/// Explicit connection pool for HTTP query execution (feature `server`).
+#[cfg(feature = "server")]
+pub mod connection_pool;
+/// Terminal output helpers (banner/status lines). Available under `cli` (the
+/// `vanta-cli` REPL) and `server` (HTTP bootstrap/telemetry status lines), so
+/// `server` no longer implies `cli` (WIRE-07 feature decouple).
+#[cfg(any(feature = "cli", feature = "server"))]
+pub mod console;
+pub(crate) mod cost_estimator;
+pub(crate) mod edge_index;
+/// Visible-fallback probe for local embeddings (DEF-08; DISTRIBUTION §7).
+pub mod embedding_health;
+/// Scoped entity metadata store (teams, users, agents, tasks, assets).
+pub mod entity;
+/// Core error types for all VantaDB operations.
+pub mod error;
+/// Eviction policies: weighted scoring and Bayesian Beta-Binomial decay.
+pub mod eviction;
+pub mod executor;
+pub mod gc;
+pub mod gds;
+pub mod governor;
+pub mod graph;
+pub mod graphrag;
+pub mod hardware;
+pub mod index;
+pub mod index_port;
+pub mod integrations;
+#[cfg(any(feature = "remote-inference", feature = "embed-local"))]
+pub mod llm;
+/// LSM-tree segment types and offset packing.
+pub(crate) mod lsm;
+pub(crate) mod memory_governor;
+pub mod metadata;
+pub mod metrics;
+/// Database migration engine for format upgrades.
+pub mod migration;
+/// Core node, edge, and field value types.
+pub mod node;
+/// Dispatch-by-name extension registry for logical operators (C2S6).
+pub mod operator_registry;
+pub mod parser;
+pub mod physical_plan;
+pub mod planner;
+#[cfg(feature = "python_sdk")]
+pub mod python;
+pub mod query;
+pub(crate) mod rbac;
+pub mod sdk;
+/// Neutral search-profile leaf (C2M3): profile types + RRF/budget consts.
+pub mod search_profile;
+pub mod serialization;
+#[cfg(feature = "server")]
+pub mod server;
+/// Typed columnar storage for metadata fields (JSON Shredding).
+pub mod shred;
+/// Versioned skill store (agent skills / memory skills).
+pub mod skills;
+pub mod sync_ext;
+/// Anonymous operational telemetry (TEC-09, opt-in only).
+pub mod telemetry;
+
+pub(crate) mod scalar_index;
+/// Storage schema versioning and compatibility checks.
+pub mod schema;
+/// ADR-0057 C-6: `crypto::EncryptionStream` is deprecated (its framing has no
+/// AAD/slot/epoch), but `storage::vfile` still exposes it to its own test
+/// until the VantaFile wave retires it. The allow is scoped to this module
+/// and is removed together with the stream.
+#[allow(deprecated)]
+pub mod storage;
+pub(crate) mod text_index;
+#[cfg(feature = "advanced-tokenizer")]
+pub mod tokenizer;
+#[cfg(feature = "tui")]
+pub mod tui;
+pub mod utils;
+pub mod vector;
+/// Write-ahead log reader, writer, and record types.
+pub mod wal;
+pub(crate) mod wal_sharded;
+
+/// Wiki knowledge store with pending→ready lifecycle (F7, MEM-28).
+pub mod wiki;
+
+/// Async WAL shipping to remote replica (behind feature "wal-shipping").
+#[cfg(feature = "wal-shipping")]
+pub mod wal_shipping;
+
+/// Async ingestion pipeline for offloading node insertion to a worker pool.
+#[cfg(feature = "async-ingestion")]
+pub mod ingestion;
+/// Async transcript file I/O and processing.
+#[cfg(feature = "async-io")]
+pub mod transcript;
+
+// Re-exports for ergonomic API
+pub use binary_header::Header;
+#[allow(deprecated)]
+pub use binary_header::VantaHeader;
+pub use config::{Config, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
+pub use error::{Error, Result};
+pub use index::graph::VECTOR_INDEX_VERSION;
+pub use node::{
+    DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, SparseVector, UnifiedNode,
+    VectorRepresentations,
+};
+pub use parser::IQL_VERSION;
+pub use sdk::{
+    connect, default_confidence, AbstentionReason, Bm25TermContribution, BulkImportReport,
+    Capabilities, ConfidenceClass, DedupPolicy, EdgeRecord, Embedded, ExportReport, Fields,
+    FilterOp, ForgetMode, ForgetReport, ForgetTarget, GroupByConfig, HybridFusionReport,
+    ImportReport, IndexRebuildReport, MemoryFilter, MemoryFilterItem, MemoryInput,
+    MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit,
+    MemorySearchPage, MemorySearchRequest, MergeOutcome, MergeResult, MmrConfig, NamespaceStats,
+    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
+    ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit,
+    StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
+    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
+};
+pub use sdk::{
+    SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
+    SkillUpdateInput, SkillWriteResult,
+};
+pub use storage::vfile::VFILE_VERSION;
+pub use storage::{BackendKind, MergeReport, PipelineMode, PipelineReport, VacuumReport};
+pub use text_index::{TextIndexSpec, TextTokenizerSpec};
+pub use utils::compute_confidence_friction;
+pub use wal::{WalReader, WalRecord, WalWriter};
+pub use wal::{WAL_FORMAT_VERSION, WAL_POSTCARD_VERSION};
+
+#[cfg(feature = "failpoints")]
+pub use fail::FailScenario;
+
+/// Configure a failpoint by name with the given actions
+#[cfg(feature = "failpoints")]
+pub fn cfg_failpoint(name: &str, actions: &str) -> std::result::Result<(), String> {
+    fail::cfg(name, actions).map_err(|e| format!("{:?}", e))
+}
+
+/// Remove a previously configured failpoint by name
+#[cfg(feature = "failpoints")]
+pub fn remove_failpoint(name: &str) {
+    fail::remove(name);
+}
+
+/// Testing utilities for failpoint-based chaos and resilience testing.
+#[cfg(feature = "failpoints")]
+pub mod testing;
