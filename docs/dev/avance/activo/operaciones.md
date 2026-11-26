@@ -1058,3 +1058,11 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Verificación:** `node dev-tools/check-harness-contract.mjs` → **7 checks, exit 0** · sonda `P12` del carril del harness: contradicción inyectada → `FAIL commit-authority` · `rg 'prepara\+ejecuta commit|git mutating'` sobre `vanta-lead.md` → la forma vieja **ya no existe**.
 - **Commit:** `.opencode/` `b7f97f6` (ronda 3).
 - **Nota:** la cerré yo porque el carril del harness tenía `Backlog.md` prohibido; el detector lo verificó él.
+
+### El `actionlint` del `pre-commit` llevaba toda la sesión sin lintar nada (`FIND-784`)
+- **Fecha:** 2026-11-26
+- **Objetivo:** el hook decía `actionlint ok` en **cada commit**, así que nadie lo miró. Lo destapó un bloqueo real: el WIP de `FIND-766` dejó `.github/workflows/certification.yml` inválido y el hook falló.
+- **Resultado:** ✅ La invocación **no podía funcionar**: `actionlint` **sin argumentos lee `stdin`**, con un **directorio** devuelve `Incorrect function` en Windows, y sólo acepta **ficheros**; y `2>/dev/null` tiraba el motivo, así que el mensaje era `actionlint FAILED` a secas. Arreglado a `actionlint .github/workflows/*.yml` **sin ocultar stderr**.
+- **Verificación (el contraste que lo prueba):** la versión de `HEAD` de `certification.yml` daba `exit 0` y la del WIP `exit -1`; con el hook arreglado el gate **mide** y el fichero corregido vuelve a `exit 0`. `bash -n .githooks/pre-commit` → 0. Los 20 workflows: `exit 0`.
+- **Commit:** `cc93e5d79`
+- **Nota:** el gate de CI (`docs-gates`) **sí** linteaba, así que el repo no estaba ciego — pero **local y CI no medían lo mismo** (clase `FIND-762`). Es la séptima variante del patrón del día y la peor situada: en el hook que da por bueno cada commit.
