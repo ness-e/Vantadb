@@ -1,0 +1,133 @@
+//! Graph-domain SDK types: node/edge records and query results.
+//!
+//! Pure move of the graph items from `super` (FIND-49). Public paths
+//! `crate::sdk::types::X` are preserved via re-exports in `super`.
+//! Definitions of the node/edge records stay in
+//! `crate::sdk::serialization::graph_types` (used by `storage::engine`).
+
+pub use super::super::serialization::graph_types::{EdgeRecord, NodeInput, NodeRecord};
+use super::u128_serde;
+use serde::{Deserialize, Serialize};
+
+/// Stable query result enum for external SDKs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum QueryResult {
+    /// Query returned a set of matching nodes.
+    Read(Vec<NodeRecord>),
+    /// Query performed a write operation.
+    Write {
+        /// Number of nodes affected by the write.
+        affected_nodes: usize,
+        /// Human-readable result message.
+        message: String,
+        /// Node id returned by the write, if applicable. Serialized as a
+        /// decimal string (API-01, `u128_serde`) so ids > 2^53 survive JSON.
+        ///
+        /// `default` keeps reads of payloads without the field working
+        /// (`deserialize_with` bypasses serde_derive's missing-field path;
+        /// API-01 R1 review fix).
+        #[serde(
+            default,
+            serialize_with = "u128_serde::serialize_opt",
+            deserialize_with = "u128_serde::deserialize_opt"
+        )]
+        node_id: Option<u128>,
+        /// `true` when the write succeeded but the automatic embedding
+        /// degraded (the record was stored without a semantic vector).
+        ///
+        /// `default` keeps older payloads readable (FIND-712: additive field,
+        /// not a breaking change for the bindings).
+        #[serde(default)]
+        degraded: bool,
+    },
+    /// Query detected stale context for the given node.
+    StaleContext {
+        /// Node id with stale context.
+        #[serde(with = "u128_serde")]
+        node_id: u128,
+    },
+}
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+
+    // ΓöÇΓöÇ QueryResult ΓöÇΓöÇ
+
+    #[test]
+    fn test_query_result_read() {
+        let result = QueryResult::Read(vec![]);
+        match result {
+            QueryResult::Read(nodes) => assert!(nodes.is_empty()),
+            _ => panic!("expected Read"),
+        }
+    }
+
+    #[test]
+    fn test_query_result_write() {
+        let result = QueryResult::Write {
+            affected_nodes: 1,
+            message: "created".into(),
+            node_id: Some(42),
+            degraded: false,
+        };
+        match result {
+            QueryResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+                ..
+            } => {
+                assert_eq!(affected_nodes, 1);
+                assert_eq!(message, "created");
+                assert_eq!(node_id, Some(42));
+            }
+            _ => panic!("expected Write"),
+        }
+    }
+
+    #[test]
+    fn test_query_result_stale_context() {
+        let result = QueryResult::StaleContext { node_id: 99 };
+        match result {
+            QueryResult::StaleContext { node_id } => {
+                assert_eq!(node_id, 99);
+            }
+            _ => panic!("expected StaleContext"),
+        }
+    }
+
+    // ΓöÇΓöÇ QueryResult clone/debug ΓöÇΓöÇ
+
+    #[test]
+    fn test_query_result_clone_read() {
+        let r = QueryResult::Read(vec![]);
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+    }
+
+    #[test]
+    fn test_query_result_clone_write() {
+        let r = QueryResult::Write {
+            affected_nodes: 3,
+            message: "done".into(),
+            node_id: None,
+            degraded: false,
+        };
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+    }
+
+    #[test]
+    fn test_query_result_debug() {
+        let r = QueryResult::Write {
+            affected_nodes: 1,
+            message: "ok".into(),
+            node_id: Some(7),
+            degraded: false,
+        };
+        let dbg = format!("{:?}", r);
+        assert!(dbg.contains("Write") || dbg.contains("affected_nodes"));
+    }
+}

@@ -1,0 +1,197 @@
+//! Public API snapshot test — breaking-change rails for the `vantadb` crate (HARD-01).
+//!
+//! Regenerates the public API surface of the current tree (rustdoc JSON via the
+//! `nightly` toolchain) and compares it against the committed golden file
+//! `tests/api/public-api.txt`. Any change to the public surface (added, removed
+//! or changed items) fails this test until the author acknowledges it by
+//! updating the snapshot and getting the update reviewed.
+//!
+//! The test is `#[ignore]`d: it needs a nightly toolchain plus a full rustdoc
+//! JSON build, so only the dedicated `public-api-snapshot` CI job runs it
+//! (`--run-ignored ignored-only`); general suites and sanitizers skip it.
+//!
+//! Update the snapshot:
+//!   pwsh:  $env:VANTADB_PUBLIC_API_UPDATE="1"; cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
+//!   bash:  VANTADB_PUBLIC_API_UPDATE=1 cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
+//!
+//! Generation parameters (must stay in sync with the snapshot header):
+//! - toolchain: `nightly` (rustdoc JSON is nightly-only)
+//! - features: default (`vantadb` default feature set)
+//! - `public_api` omit_blanket_impls(true) — equivalent to `cargo public-api --simplified` (one -s)
+//!
+//! Policy: docs/api/VERSIONING.md + docs/api/COMPATIBILITY.md.
+//! ponytail: regeneration needs a nightly rustdoc build (minutes) — this test is
+//! for a dedicated CI job, not the <5 min Fast Gate.
+
+// ponytail: blanket allow — expects carry documented invariants at each call site.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
+use std::ffi::OsString;
+use std::fmt::Write as _;
+use std::fs;
+use std::path::Path;
+
+/// Golden file, relative to the workspace root (test CWD = package root).
+const SNAPSHOT: &str = "tests/api/public-api.txt";
+
+/// Human-readable header written at the top of the golden file. Lines starting
+/// with `//` are ignored by the comparison.
+const HEADER: &str = "\
+// Public API snapshot of the `vantadb` crate — golden file for `tests/api/public_api.rs`.
+//
+// Regenerate with: VANTADB_PUBLIC_API_UPDATE=1 cargo nextest run -p vantadb --test public_api
+//
+// Generation parameters: nightly rustdoc JSON; default features; public-api 0.52.x with
+// omit_blanket_impls(true) (equivalent to `cargo public-api --simplified`, a single -s).
+// Excludes: none — the surface below is the full simplified default-features API.
+// Lines starting with `//` are ignored by the snapshot comparison (see public_api.rs).
+";
+
+/// Set to a non-empty value (e.g. `1`) to rewrite the snapshot instead of
+/// comparing against it. An empty variable is treated as "not set" (FIND-731).
+const UPDATE_ENV: &str = "VANTADB_PUBLIC_API_UPDATE";
+
+/// Whether the snapshot should be rewritten.
+///
+/// The flag is ON only when the variable exists **and is not empty**. `var_os`
+/// returns `Some("")` for a defined-but-empty variable, so a bare `is_some()`
+/// made `VANTADB_PUBLIC_API_UPDATE= cargo nextest run ...` rewrite the golden
+/// and report PASS — a false green that auto-accepted any contract delta
+/// (FIND-731).
+fn update_requested(value: Option<OsString>) -> bool {
+    value.is_some_and(|v| !v.is_empty())
+}
+
+fn generate_public_api() -> Result<String, String> {
+    let target_dir = std::env::var("CARGO_TARGET_DIR")
+        .ok()
+        .filter(|v| !v.is_empty());
+    let mut builder = rustdoc_json::Builder::default()
+        .toolchain("nightly")
+        .manifest_path("Cargo.toml")
+        .package("vantadb")
+        .quiet(true);
+    if let Some(dir) = target_dir.as_deref() {
+        builder = builder.target_dir(Path::new(dir));
+    }
+    let json_path = builder
+        .build()
+        .map_err(|e| format!("rustdoc JSON build failed: {e}"))?;
+    let api = public_api::Builder::from_rustdoc_json(json_path)
+        .omit_blanket_impls(true)
+        .build()
+        .map_err(|e| format!("public-api build failed: {e}"))?;
+    Ok(api.to_string())
+}
+
+/// Drop `//` header lines and trailing whitespace, and guarantee a final
+/// newline, so the golden file can carry a readable header.
+fn normalize(text: &str) -> String {
+    let mut out = String::new();
+    for line in text.lines() {
+        if line.starts_with("//") {
+            continue;
+        }
+        out.push_str(line.trim_end());
+        out.push('\n');
+    }
+    out
+}
+
+/// Small, readable diff: up to 10 differing lines + totals.
+fn first_diff(expected: &str, actual: &str) -> String {
+    let mut msg = String::new();
+    let mut total = 0usize;
+    let mut shown = 0usize;
+    for (i, (e, a)) in expected.lines().zip(actual.lines()).enumerate() {
+        if e != a {
+            total += 1;
+            if shown < 10 {
+                let _ = writeln!(
+                    msg,
+                    "  line {}:\n    snapshot: {e}\n    current:  {a}",
+                    i + 1
+                );
+                shown += 1;
+            }
+        }
+    }
+    let e_count = expected.lines().count();
+    let a_count = actual.lines().count();
+    if e_count != a_count {
+        let _ = writeln!(msg, "  line count: snapshot={e_count} current={a_count}");
+    }
+    if total > shown {
+        let _ = writeln!(msg, "  ... and {} more differing lines", total - shown);
+    }
+    msg
+}
+
+#[test]
+#[ignore = "requires nightly rustdoc JSON; runs in the public-api-snapshot CI job (--run-ignored ignored-only)"]
+fn public_api_snapshot_matches_committed_file() {
+    let current =
+        normalize(&generate_public_api().expect("could not generate the current public API"));
+
+    if update_requested(std::env::var_os(UPDATE_ENV)) {
+        fs::write(SNAPSHOT, format!("{HEADER}{current}")).expect("failed to write the snapshot");
+        eprintln!("[public_api] snapshot updated ({UPDATE_ENV} set): {SNAPSHOT}");
+        return;
+    }
+
+    let snapshot =
+        fs::read_to_string(SNAPSHOT).unwrap_or_else(|e| panic!("cannot read {SNAPSHOT}: {e}"));
+    let expected = normalize(&snapshot);
+    assert!(
+        !expected.trim().is_empty(),
+        "{SNAPSHOT} is empty — regenerate it with {UPDATE_ENV}=1"
+    );
+    assert!(
+        expected == current,
+        "\npublic API surface changed vs {SNAPSHOT}.\n\
+         If the change is intentional, update the snapshot ({UPDATE_ENV}=1) and get it reviewed.\n\
+         Differences:\n{}",
+        first_diff(&expected, &current)
+    );
+}
+
+/// FIND-731: an empty variable must not enable the update path. Before the fix
+/// these assertions fail for the empty case, which is how a mis-written CI
+/// invocation (`VAR= cargo test`) silently rewrote the golden and returned PASS.
+#[cfg(test)]
+mod update_flag {
+    use super::update_requested;
+    use std::ffi::OsString;
+
+    #[test]
+    fn absent_variable_does_not_request_update() {
+        assert!(!update_requested(None));
+        // ... and the real lookup path: an env name no tool sets.
+        assert!(!update_requested(std::env::var_os(
+            "VANTADB_PUBLIC_API_UPDATE_FIND731_ABSENT"
+        )));
+    }
+
+    #[test]
+    fn empty_variable_does_not_request_update() {
+        // `var_os` yields Some("") for `VANTADB_PUBLIC_API_UPDATE=` — the false green.
+        assert!(!update_requested(Some(OsString::from(""))));
+    }
+
+    #[test]
+    fn non_empty_variable_requests_update() {
+        assert!(update_requested(Some(OsString::from("1"))));
+        assert!(update_requested(Some(OsString::from("true"))));
+    }
+
+    /// Pins the residual ceiling: only *emptiness* is rejected, so an explicit
+    /// `=0` or `= ` still rewrites the golden. Documented so a future reader can
+    /// tighten it deliberately (parse falsy values) instead of by accident.
+    #[test]
+    fn explicit_falsy_values_still_request_update() {
+        // ponytail: presence-with-content = ON. A CI writing `=0` to disable
+        // would still rewrite; upgrade path = parse {0,false,no,off}.
+        assert!(update_requested(Some(OsString::from("0"))));
+        assert!(update_requested(Some(OsString::from(" "))));
+    }
+}

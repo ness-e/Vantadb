@@ -1,0 +1,470 @@
+//! Server/status command handlers — status, server, completions.
+
+use clap::CommandFactory;
+use console::Term;
+
+use crate::cli::Cli;
+use crate::cli::Shell;
+use crate::cli_handlers::fmt::{header_style, info_style};
+use crate::cli_handlers::{
+    create_spinner, open_database, print_info, print_json, print_warning, MIB,
+};
+use crate::error::{ChainedError, Result};
+
+#[tracing::instrument]
+/// Display database health diagnostics and system status
+pub fn cmd_status(db_path: &str, verbose: bool, json_output: bool) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    let term = Term::stdout();
+
+    if !path.exists() {
+        let metrics = crate::metrics::operational_metrics_snapshot();
+        if json_output {
+            return print_json(&serde_json::json!({
+                "path": db_path,
+                "initialized": false,
+                "backend": "Uninitialized (directory not found)",
+                "read_only": true,
+                "node_count": 0,
+                "cache_entries": 0,
+                "logical_bytes": 0,
+                "startup_ms": metrics.startup_ms,
+            }));
+        }
+        let _ = term.write_line("");
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╔═══════════════════════════════════════════════════════════╗")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("║               VantaDB Status Dashboard                    ║")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╠═══════════════════════════════════════════════════════════╣")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            info_style().apply_to("║  📁 Database Information                                  ║")
+        ));
+        let _ = term.write_line(&format!("║     Path:           {:<38} ║", db_path));
+        let _ = term.write_line(&format!(
+            "║     Backend:        {:<38} ║",
+            "Uninitialized (directory not found)"
+        ));
+        let _ = term.write_line(&format!("║     Read-only:      {:<38} ║", "Yes (Fallback)"));
+        let _ = term.write_line(&format!(
+            "{}",
+            info_style().apply_to("║  💾 Storage Statistics                                    ║")
+        ));
+        let _ = term.write_line(&format!("║     HNSW Nodes:     {:<38} ║", "0 (Empty)"));
+        let _ = term.write_line(&format!("║     Cache entries:  {:<38} ║", "0"));
+        let _ = term.write_line(&format!("║     Logical size:   {:<38} ║", "0 MB"));
+        let _ = term.write_line(&format!(
+            "{}",
+            info_style().apply_to("║  ⚡ Performance Metrics                                   ║")
+        ));
+        let _ = term.write_line(&format!(
+            "║     Startup time:   {:<38} ║",
+            format!("{} ms", metrics.startup_ms)
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╚═══════════════════════════════════════════════════════════╝")
+        ));
+        print_warning(&format!(
+            "Database is not initialized. Run a mutation (like `put`) to create it at '{}'",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+
+    let engine = open_database(db_path, true)?;
+    let stats = engine.stats();
+    let metrics = crate::metrics::operational_metrics_snapshot();
+    // DEF-08: visible fallback — this is the CLI status surface where the user
+    // sees whether local embeddings are degraded (fail-closed / no-vector
+    // inserts, never synthetic vectors served)
+    // (DISTRIBUTION §7 contract; probe shared with MCP `capabilities`).
+    let embedding = crate::embedding_health::embedding_health();
+
+    spinner.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "path": db_path,
+            "initialized": true,
+            "backend": format!("{:?}", engine.backend_kind()),
+            "read_only": engine.read_only,
+            "node_count": stats.node_count,
+            "cache_entries": stats.cache_entries,
+            "logical_bytes": stats.logical_bytes,
+            "physical_rss": stats.physical_rss,
+            "startup_ms": metrics.startup_ms,
+            "wal_replay_ms": metrics.wal_replay_ms,
+            "wal_records_replayed": metrics.wal_records_replayed,
+            "ann_rebuild_ms": metrics.ann_rebuild_ms,
+            "records_exported": metrics.records_exported,
+            "records_imported": metrics.records_imported,
+            "embedding": &embedding,
+        }));
+    }
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("║               VantaDB Status Dashboard                    ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╠═══════════════════════════════════════════════════════════╣")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  📁 Database Information                                  ║")
+    ));
+    let _ = term.write_line(&format!("║     Path:           {:<38} ║", db_path));
+    let _ = term.write_line(&format!(
+        "║     Backend:        {:<38} ║",
+        format!("{:?}", engine.backend_kind())
+    ));
+    let _ = term.write_line(&format!(
+        "║     Read-only:      {:<38} ║",
+        if engine.read_only { "Yes" } else { "No" }
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to(&format!("║  🧠 Embeddings{}║", " ".repeat(44)))
+    ));
+    let _ = term.write_line(&format!(
+        "║     Provider:       {:<38} ║",
+        embedding.provider
+    ));
+    let _ = term.write_line(&format!(
+        "║     Fallback:       {:<38} ║",
+        match embedding.fallback {
+            Some(true) => "Yes — degraded (fail-closed)".to_string(),
+            Some(false) => "No".to_string(),
+            None => "n/a (remote or not compiled)".to_string(),
+        }
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  💾 Storage Statistics                                    ║")
+    ));
+    let _ = term.write_line(&format!("║     HNSW Nodes:     {:<38} ║", stats.node_count));
+    let _ = term.write_line(&format!(
+        "║     Cache entries:  {:<38} ║",
+        stats.cache_entries
+    ));
+    let _ = term.write_line(&format!(
+        "║     Logical size:   {:<38} ║",
+        format!("{} MB", stats.logical_bytes / MIB)
+    ));
+    if let Some(rss) = stats.physical_rss {
+        let _ = term.write_line(&format!(
+            "║     Physical RSS:   {:<38} ║",
+            format!("{} MB", rss / MIB)
+        ));
+    }
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  ⚡ Performance Metrics                                   ║")
+    ));
+    let _ = term.write_line(&format!(
+        "║     Startup time:   {:<38} ║",
+        format!("{} ms", metrics.startup_ms)
+    ));
+    let _ = term.write_line(&format!(
+        "║     WAL replay:     {:<38} ║",
+        format!(
+            "{} ms ({} records)",
+            metrics.wal_replay_ms, metrics.wal_records_replayed
+        )
+    ));
+    let _ = term.write_line(&format!(
+        "║     ANN rebuild:    {:<38} ║",
+        format!("{} ms", metrics.ann_rebuild_ms)
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  📦 Data Operations                                       ║")
+    ));
+    let _ = term.write_line(&format!(
+        "║     Records exported:{:<37} ║",
+        metrics.records_exported
+    ));
+    let _ = term.write_line(&format!(
+        "║     Records imported:{:<37} ║",
+        metrics.records_imported
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
+    ));
+
+    // DEF-08: degraded local embeddings must never be silent to the user — the
+    // notice carries `fallback: true`, the consequence and the remedy.
+    if let Some(notice) = &embedding.notice {
+        print_warning(notice);
+    }
+
+    if verbose {
+        let _ = term.write_line("");
+        print_info("Verbose mode: Extended metrics available via OperationalMetrics API");
+    }
+
+    Ok(())
+}
+
+#[tracing::instrument]
+/// Start the HTTP or MCP server wrapper for the database
+pub fn cmd_server(
+    db_path: &str,
+    http: bool,
+    mcp: bool,
+    port: Option<u16>,
+    host: Option<String>,
+    require_auth: bool,
+    allow_insecure: bool,
+    dashboard_dir: Option<String>,
+    memory_limit: Option<&str>,
+    _verbose: bool,
+) -> Result<()> {
+    let mcp_mode = mcp && !http;
+
+    if mcp_mode {
+        return cmd_server_mcp(db_path, port, host, require_auth, memory_limit);
+    }
+
+    #[cfg(feature = "server")]
+    {
+        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+            crate::error::Error::Runtime(ChainedError::msg(format!(
+                "Failed to start tokio runtime: {e}"
+            )))
+        })?;
+
+        rt.block_on(cmd_server_http(
+            db_path,
+            port,
+            host,
+            require_auth,
+            allow_insecure,
+            dashboard_dir,
+            memory_limit,
+        ))
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        Err(crate::error::Error::Cli(ChainedError::msg(
+            "HTTP server requires the 'server' feature. Rebuild with: cargo build --features server",
+        )))
+    }
+}
+
+#[cfg(feature = "server")]
+async fn cmd_server_http(
+    db_path: &str,
+    port: Option<u16>,
+    host: Option<String>,
+    require_auth: bool,
+    allow_insecure: bool,
+    dashboard_dir: Option<String>,
+    memory_limit: Option<&str>,
+) -> Result<()> {
+    use crate::config::Config;
+
+    let memory_limit = match memory_limit {
+        Some(raw) => Some(crate::config::parse_memory_limit(raw).map_err(|e| {
+            crate::error::Error::Cli(ChainedError::msg(format!(
+                "Invalid --memory-limit value: {e}"
+            )))
+        })?),
+        None => None,
+    };
+
+    let config = Config {
+        storage_path: db_path.to_string(),
+        port: port.unwrap_or(8080),
+        host: host.unwrap_or_else(|| "127.0.0.1".to_string()),
+        require_auth,
+        allow_insecure,
+        dashboard_dir: dashboard_dir.map(std::path::PathBuf::from),
+        memory_limit,
+        ..Default::default()
+    };
+
+    crate::cli_server::run(config).await
+}
+
+/// `~/.vanta/bin`, where an installed `vanta` binary lives.
+///
+/// Returns `None` when `HOME`/`USERPROFILE` is absent **or empty**: an empty
+/// home used to produce `./.vanta/bin/<exe>`, which was probed **before** the
+/// bare `exe_name` on `PATH` — widening the server binary search to the CWD
+/// (FIND-751). Filters again on purpose: the test hands over the raw `Some("")`.
+fn home_bin_dir(home: Option<std::ffi::OsString>) -> Option<std::path::PathBuf> {
+    crate::utils::env_value(home).map(|h| std::path::PathBuf::from(h).join(".vanta").join("bin"))
+}
+
+fn cmd_server_mcp(
+    db_path: &str,
+    port: Option<u16>,
+    host: Option<String>,
+    require_auth: bool,
+    memory_limit: Option<&str>,
+) -> Result<()> {
+    use crate::error::Error;
+
+    let binary_name = "vantadb-server";
+    let exe_name = if cfg!(windows) {
+        format!("{}.exe", binary_name)
+    } else {
+        binary_name.to_string()
+    };
+
+    let build_cmd = |binary: &std::path::Path| -> std::process::Command {
+        let mut cmd = std::process::Command::new(binary);
+        cmd.env("VANTADB_STORAGE_PATH", db_path);
+        if let Some(p) = port {
+            cmd.env("VANTADB_PORT", p.to_string());
+        }
+        if let Some(ref h) = host {
+            cmd.env("VANTADB_HOST", h);
+        }
+        if require_auth {
+            cmd.env("VANTADB_REQUIRE_AUTH", "true");
+        }
+        if let Some(ml) = memory_limit {
+            cmd.env("VANTADB_MEMORY_LIMIT", ml);
+        }
+        cmd.arg("--mcp");
+        cmd.stdin(std::process::Stdio::inherit());
+        cmd.stdout(std::process::Stdio::inherit());
+        cmd.stderr(std::process::Stdio::inherit());
+        cmd
+    };
+
+    let mut candidates = Vec::new();
+    if let Ok(cur) = std::env::current_exe() {
+        if cur
+            .file_stem()
+            .map(|s| s == "vanta" || s == "vantadb-server")
+            .unwrap_or(false)
+        {
+            candidates.push(cur.clone());
+        }
+        let mut sibling_vanta = cur.clone();
+        sibling_vanta.set_file_name(if cfg!(windows) { "vanta.exe" } else { "vanta" });
+        candidates.push(sibling_vanta);
+        let mut sibling_server = cur.clone();
+        sibling_server.set_file_name(&exe_name);
+        candidates.push(sibling_server);
+    }
+    // Also look in ~/.vanta/bin (or %USERPROFILE%\.vanta\bin). `env_chain`
+    // filters each variable so `HOME=` still falls through instead of stopping
+    // the chain on an empty value (FIND-751).
+    if let Some(vanta_bin) = home_bin_dir(crate::utils::env_chain(
+        std::env::var_os("USERPROFILE"),
+        std::env::var_os("HOME"),
+    )) {
+        candidates.push(vanta_bin.join(&exe_name));
+        candidates.push(vanta_bin.join(if cfg!(windows) { "vanta.exe" } else { "vanta" }));
+    }
+    candidates.push(std::path::PathBuf::from(if cfg!(windows) {
+        "vanta.exe"
+    } else {
+        "vanta"
+    }));
+    candidates.push(std::path::PathBuf::from(&exe_name));
+
+    let mut spawned = None;
+    for target in &candidates {
+        if let Ok(child) = build_cmd(target).spawn() {
+            spawned = Some(child);
+            break;
+        }
+    }
+
+    let mut child = match spawned {
+        Some(c) => c,
+        None => {
+            return Err(Error::Cli(ChainedError::msg(format!(
+                "MCP server host binary ('vanta' or '{}') not found. \
+                 Install via 'cargo build -p vantadb-server' or place the unified 'vanta' binary in PATH.",
+                exe_name
+            ))));
+        }
+    };
+
+    let status = child.wait().map_err(|e| {
+        Error::Cli(ChainedError::msg(format!(
+            "Error waiting for vantadb-server process (db_path={}): {e}",
+            db_path
+        )))
+    })?;
+
+    if !status.success() {
+        if let Some(code) = status.code() {
+            std::process::exit(code);
+        } else {
+            return Err(Error::Cli(ChainedError::msg(format!(
+                "vantadb-server terminated by signal (db_path={})",
+                db_path
+            ))));
+        }
+    }
+
+    Ok(())
+}
+
+#[tracing::instrument]
+/// Generate shell completion scripts for the given shell type
+pub fn cmd_completions(shell: Shell) {
+    let mut cmd = Cli::command();
+    let shell: clap_complete::Shell = shell.into();
+    clap_complete::generate(shell, &mut cmd, "vanta-cli", &mut std::io::stdout());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+
+    // FIND-751: `USERPROFILE=` yields `Some("")`, and `.vanta/bin` joined onto
+    // the empty path is `./.vanta/bin` — a CWD-relative candidate probed before
+    // the bare executable name on PATH.
+    #[test]
+    fn home_bin_dir_needs_a_non_empty_home() {
+        assert_eq!(home_bin_dir(None), None);
+        assert_eq!(
+            home_bin_dir(Some(OsString::new())),
+            None,
+            "an empty home must not yield a CWD-relative bin directory"
+        );
+
+        let home = if cfg!(windows) {
+            std::path::PathBuf::from(r"C:\Users\tester")
+        } else {
+            std::path::PathBuf::from("/home/tester")
+        };
+        assert_eq!(
+            home_bin_dir(Some(home.clone().into_os_string())),
+            Some(home.join(".vanta").join("bin"))
+        );
+    }
+}

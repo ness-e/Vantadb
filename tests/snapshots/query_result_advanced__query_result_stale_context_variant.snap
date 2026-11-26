@@ -1,0 +1,7 @@
+---
+source: tests/query_result_advanced.rs
+expression: result
+---
+StaleContext {
+    node_id: 9999,
+}

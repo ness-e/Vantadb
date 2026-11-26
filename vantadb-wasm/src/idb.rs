@@ -1,0 +1,244 @@
+use js_sys::{Function, Promise, Reflect, Uint8Array};
+use wasm_bindgen::prelude::*;
+
+/// Error type for quota-exceeded conditions with actionable details.
+#[derive(Debug)]
+pub struct QuotaExceededError {
+    pub message: String,
+}
+
+impl QuotaExceededError {
+    fn new(message: String) -> Self {
+        Self { message }
+    }
+
+    /// Convert to a `JsValue` suitable for returning from WASM.
+    pub fn to_js_value(&self) -> JsValue {
+        let obj = js_sys::Object::new();
+        Reflect::set(&obj, &"name".into(), &"QuotaExceededError".into()).ok();
+        Reflect::set(&obj, &"message".into(), &self.message.clone().into()).ok();
+        obj.into()
+    }
+}
+
+/// Check if a `JsValue` represents a `QuotaExceededError` DOMException.
+fn is_quota_exceeded_error(e: &JsValue) -> bool {
+    Reflect::get(e, &"name".into())
+        .ok()
+        .and_then(|v| v.as_string())
+        .as_deref()
+        == Some("QuotaExceededError")
+}
+
+// Inline IndexedDB persistence bridge — no external JS import needed.
+// BND-01: the snippet MUST export a function — an `extern "C" {}` with no
+// imports makes wasm-bindgen drop the snippet from the bundle, so the
+// bridge would never register. `init()` is called lazily from `storage()`.
+#[wasm_bindgen(inline_js = r#"
+export function init() {
+    if (typeof globalThis !== "undefined" && globalThis.vantaIdbStorage) return;
+    const DB_NAME = "VantaDB";
+    const STORE_NAME = "state";
+    const listeners = [];
+    let channel = null;
+    function notify(key) { for (let i = 0; i < listeners.length; i++) { try { listeners[i](key); } catch (e) { } } }
+    function openDB() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+    try { channel = new BroadcastChannel("vantadb-sync"); } catch (e) { }
+    if (channel) { channel.onmessage = (ev) => { if (ev.data && ev.data.type === "data-changed") notify(ev.data.key || "db_state.json"); }; }
+    function runWriteTx(db, key, op, resolve, reject) {
+        const execute = (resolveTx, rejectTx) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            op(tx.objectStore(STORE_NAME));
+            tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
+            tx.onerror = () => rejectTx(tx.error);
+        };
+        if (typeof navigator !== "undefined" && navigator.locks) {
+            navigator.locks.request("vantadb-write", () => new Promise(execute)).catch((err) => reject(err));
+        } else {
+            execute(resolve, reject);
+        }
+    }
+    const storage = {
+        read(key) {
+            return openDB().then((db) => new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, "readonly");
+                const req = tx.objectStore(STORE_NAME).get(key);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => { if (req.error && req.error.name === "NotFoundError") resolve(null); else reject(req.error); };
+            }));
+        },
+        write(key, data) {
+            return openDB().then((db) => new Promise((resolve, reject) => {
+                runWriteTx(db, key, (store) => store.put(data, key), resolve, reject);
+            }));
+        },
+        del(key) {
+            return openDB().then((db) => new Promise((resolve, reject) => {
+                runWriteTx(db, key, (store) => store.delete(key), resolve, reject);
+            }));
+        },
+        subscribe(fn) { listeners.push(fn); return () => { listeners.splice(listeners.indexOf(fn), 1); }; },
+        getBroadcastChannel() { return channel ? "vantadb-sync" : null; },
+    };
+    const g = typeof globalThis !== "undefined" ? globalThis : window;
+    g.vantaIdbStorage = storage;
+}
+"#)]
+extern "C" {
+    /// Register `globalThis.vantaIdbStorage` (idempotent).
+    fn init();
+}
+// NOTA BND-01: la IIFE anterior se auto-ejecuta al cargar el módulo snippet y
+// registra globalThis.vantaIdbStorage antes de cualquier llamada. No se declara
+// ningún import extern del snippet (un import sin export correspondiente produce
+// LinkError: WebAssembly.Instance() — ver Backlog BND-01).
+
+fn storage() -> Result<JsValue, JsValue> {
+    // The bridge registers lazily on first use: `init()` is the exported
+    // snippet entry point (BND-01), idempotent via the guard inside.
+    let mut val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
+    if val.is_undefined() {
+        // `init` is the exported snippet entry point (pure JS that assigns
+        // `globalThis.vantaIdbStorage`); it is idempotent, so calling it
+        // twice is harmless.
+        init();
+        val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
+    }
+    if val.is_undefined() {
+        return Err(JsValue::from_str(
+            "vantaIdbStorage not available — inline bridge failed to register",
+        ));
+    }
+    Ok(val)
+}
+
+fn get_fn(obj: &JsValue, method: &str) -> Result<Function, JsValue> {
+    let val = Reflect::get(obj, &method.into())?;
+    val.dyn_into::<Function>()
+}
+
+async fn js_call(obj: &JsValue, method: &str, args: &js_sys::Array) -> Result<JsValue, JsValue> {
+    let func = get_fn(obj, method)?;
+    let result = func.apply(obj, args)?;
+    let promise = result
+        .dyn_into::<Promise>()
+        .map_err(|_| JsValue::from_str("expected Promise from IndexedDB API"))?;
+    wasm_bindgen_futures::JsFuture::from(promise).await
+}
+
+/// IndexedDB-based storage for persisting VantaDB state in the browser.
+pub struct IdbStorage;
+
+impl IdbStorage {
+    /// Check if IndexedDB is available in the current environment.
+    pub fn is_available() -> bool {
+        let global = js_sys::global();
+        Reflect::get(&global, &"indexedDB".into())
+            .ok()
+            .is_some_and(|v| !v.is_undefined())
+    }
+
+    /// Check if the BroadcastChannel API is available for cross-tab sync.
+    pub fn has_broadcast_channel() -> bool {
+        let global = js_sys::global();
+        Reflect::get(&global, &"BroadcastChannel".into())
+            .ok()
+            .is_some_and(|v| !v.is_undefined())
+    }
+
+    /// Check if the Web Locks API is available for multi-tab write coordination.
+    pub fn has_web_locks() -> bool {
+        let global = js_sys::global();
+        let nav = match Reflect::get(&global, &"navigator".into()).ok() {
+            Some(v) => v,
+            None => return false,
+        };
+        Reflect::get(&nav, &"locks".into())
+            .ok()
+            .is_some_and(|v| !v.is_undefined())
+    }
+
+    /// Read a file from IndexedDB by key. Returns `None` if the key does not exist.
+    pub async fn read_file(key: &str) -> Result<Option<Vec<u8>>, JsValue> {
+        let s = storage()?;
+        let args = js_sys::Array::new();
+        args.push(&key.into());
+        let result = js_call(&s, "read", &args).await?;
+        if result.is_null() || result.is_undefined() {
+            return Ok(None);
+        }
+        let buf = result
+            .dyn_into::<js_sys::ArrayBuffer>()
+            .map_err(|_| JsValue::from_str("expected ArrayBuffer from IndexedDB read"))?;
+        let uint8 = Uint8Array::new(&buf);
+        let mut vec = vec![0u8; uint8.length() as usize];
+        uint8.copy_to(&mut vec);
+        Ok(Some(vec))
+    }
+
+    /// Write a file to IndexedDB. Replaces any existing value for the same key.
+    ///
+    /// Catches `QuotaExceededError` DOMException from IndexedDB and enriches it
+    /// with a descriptive message for easier debugging.
+    pub async fn write_file(key: &str, data: &[u8]) -> Result<(), JsValue> {
+        let s = storage()?;
+        let buf = Uint8Array::new_with_length(data.len() as u32);
+        buf.copy_from(data);
+        let args = js_sys::Array::new();
+        args.push(&key.into());
+        args.push(&buf.buffer());
+
+        match js_call(&s, "write", &args).await {
+            Ok(_) => Ok(()),
+            Err(e) if is_quota_exceeded_error(&e) => Err(QuotaExceededError::new(
+                format!(
+                    "QuotaExceededError writing key '{}' to IndexedDB: {} — consider clearing browser data or reducing dataset size",
+                    key,
+                    js_sys::Error::from(e).message().as_string().unwrap_or_default()
+                )
+            ).to_js_value()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Delete a persisted key-value entry from IndexedDB.
+    pub async fn delete_file(key: &str) -> Result<(), JsValue> {
+        let s = storage()?;
+        let args = js_sys::Array::new();
+        args.push(&key.into());
+        js_call(&s, "del", &args).await?;
+        Ok(())
+    }
+
+    /// Subscribe to cross-tab data change notifications via BroadcastChannel.
+    /// Returns an unsubscribe closure. The callback receives a JsValue (the changed key).
+    pub fn subscribe(cb: &js_sys::Function) -> Result<js_sys::Function, JsValue> {
+        let s = storage()?;
+        let args = js_sys::Array::new();
+        args.push(cb);
+        let result = get_fn(&s, "subscribe")?.apply(&s, &args)?;
+        result
+            .dyn_into::<js_sys::Function>()
+            .map_err(|_| JsValue::from_str("expected unsubscribe function from subscribe"))
+    }
+
+    /// Return the BroadcastChannel name used for cross-tab sync, or null if unavailable.
+    pub fn channel_name() -> Result<Option<String>, JsValue> {
+        let s = storage()?;
+        let result = get_fn(&s, "getBroadcastChannel")?.call0(&s)?;
+        if result.is_null() || result.is_undefined() {
+            Ok(None)
+        } else {
+            result.as_string().map(Some).ok_or_else(|| {
+                JsValue::from_str("expected string or null from getBroadcastChannel")
+            })
+        }
+    }
+}

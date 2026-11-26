@@ -1,0 +1,33 @@
+name: Documentation Issue
+description: Report unclear, stale, missing, or inconsistent documentation.
+title: "[DOCS] "
+labels: ["docs", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value:
+        "Use this template for README, docs, examples, release notes, or API/SDK documentation
+        issues."
+
+  - type: input
+    id: location
+    attributes:
+      label: Document or Section
+      description: "Which file, heading, or URL needs attention?"
+      placeholder: "e.g. README.MD#install-from-source"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: "What is unclear, stale, missing, or inconsistent?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested Fix
+      description: "Optional: describe the wording, example, or link that would help."

@@ -1,0 +1,84 @@
+{
+  "name": "vantadb",
+  "version": "0.9.0",
+  "description": "VantaDB TypeScript SDK — browser AI agent memory: WASM-powered embedded vector & graph memory for JS runtimes (Node, Bun, Deno, browser)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "main": "dist/vantadb.js",
+  "types": "dist/vantadb.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/vantadb.d.ts",
+      "import": "./dist/vantadb.js",
+      "require": "./dist/vantadb.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js",
+      "require": "./dist/types.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.js",
+      "require": "./dist/native.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "prepublishOnly": "npm run build",
+    "coverage": "npm run build && c8 --all --src ./src --reporter text --reporter json --reporter json-summary node test-runner.mjs",
+    "bench": "node bench/bench.mjs",
+    "bench:3x": "node bench/bench.mjs && node bench/bench.mjs && node bench/bench.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ness-e/Vantadb.git"
+  },
+  "homepage": "https://github.com/ness-e/Vantadb#readme",
+  "bugs": "https://github.com/ness-e/Vantadb/issues",
+  "keywords": [
+    "vector-database",
+    "memory",
+    "rag",
+    "embeddings",
+    "graph",
+    "wasm",
+    "ai",
+    "semantic-search",
+    "browser",
+    "agent-memory",
+    "local-first",
+    "hybrid-search"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "vantadb-wasm": "file:../vantadb-wasm/pkg",
+    "vantadb-node": "file:../vantadb-node"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "c8": "^12.0.0",
+    "eslint": "^10.7.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.64.0",
+    "vite-plugin-wasm": "^3.6.0",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "test-exclude": {
+      "glob": "^14.0.2",
+      "minimatch": ">=11.0.7"
+    },
+    "minimatch": ">=11.0.7"
+  }
+}

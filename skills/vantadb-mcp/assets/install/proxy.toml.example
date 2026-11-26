@@ -1,0 +1,14 @@
+# vanta-proxy config minima (FIND-104 default-on). Start: vanta-proxy "<esta-ruta>"
+# Stop: Ctrl+C (no arrancar = proxy off). Captura turnos a namespace proxy-turns;
+# curalos a hilos con thread_send via inbox (nunca auto-promote, ver recall-policy §6).
+
+[server]
+host = "127.0.0.1"
+port = 8096
+rate_limit_per_minute = 60
+
+[upstream]
+url = "https://api.anthropic.com"
+api_key = ""
+forward_timeout_secs = 600
+models = []

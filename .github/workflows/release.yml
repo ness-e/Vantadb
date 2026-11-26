@@ -1,0 +1,202 @@
+# release-plz — automated versioning, changelog, tags, and publish to crates.io
+# via Trusted Publishing (OIDC). Dispara cuando mergeás develop → main.
+# Requires: crates.io Trusted Publisher for vantadb with workflow file "release.yml".
+name: RELEASE Automated
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release-plz-release:
+    name: Release-plz release
+    runs-on: ubuntu-latest
+    # 45 min, same rationale as release-plz-pr: `cargo publish --verify`
+    # compiles the crate (ONNX Runtime, arrow, simsimd) on the same 7GB
+    # runner. A timeout here would leave the tag created but the crate
+    # unpublished.
+    timeout-minutes: 45
+    concurrency:
+      group: release-plz-release-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      CARGO_TERM_COLOR: always
+    permissions:
+      contents: write
+      pull-requests: read
+      id-token: write
+    # FIND-342/F1: expone el resultado del release al job fanout (tag publicado).
+    outputs:
+      releases: ${{ steps.release-plz.outputs.releases }}
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Rust toolchain + system deps (libclang for release-plz semver-checks)
+        uses: ./.github/actions/rust-setup
+        with:
+          toolchain: 1.95.0
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
+          # `cargo publish --verify` compiles the crate (ONNX Runtime, arrow,
+          # simsimd) on the same 7GB runner that OOM-thrashed the semver
+          # check in release-plz-pr. Swap keeps the publish path alive.
+          swap-mb: 4096
+      - name: Run release-plz
+        id: release-plz
+        uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+          # crates.io publica por TRUSTED PUBLISHING (OIDC), no por token.
+          #
+          # OJO: cargo decide entre token y OIDC por la PRESENCIA de
+          # CARGO_REGISTRY_TOKEN, no por su valor. Si la variable esta
+          # definida -aunque sea vacia- cargo se salta el intercambio OIDC:
+          #   - secret ausente -> variable vacia -> "please provide a non-empty
+          #     token" (run 39368867477, job 118451918327)
+          #   - secret presente pero rechazado por crates.io -> "403 Forbidden:
+          #     authentication failed" (run 39377761363)
+          # Por eso la variable NO se define aqui: el crate `vantadb` tiene el
+          # Trusted Publisher configurado en crates.io y asi publico el 0.8.0
+          # (trustpub_data con run_id 37045089945).
+          #
+          # El secret CARGO_REGISTRY_TOKEN sigue existiendo en el repo para el
+          # primer publish de `vanta-memory`: Trusted Publishing exige que el
+          # crate ya exista en crates.io, asi que ese si necesita token.
+
+  release-plz-pr:
+    name: Release-plz PR
+    needs: [release-plz-release]
+    if: needs.release-plz-release.outputs.releases_created != 'true'
+    runs-on: ubuntu-latest
+    # 45 min, not 30. The cargo-semver-checks run inside `release-plz release-pr`
+    # is a full cold compile of the workspace + the published baseline, and it
+    # has NEVER completed in this repo: the 2026-10-02 run had nothing to
+    # release (8s, check skipped) and the 2026-10-19 run was killed at 15 min
+    # with the check still going at 10m53s (run 39324117624, job 118306356063).
+    # The equivalent CI job measures 13m21s uncontended and >23m under the
+    # parallel matrix. release-plz adds ~4 min on top (version determination
+    # 3m25s + baseline build). 30 min is a coin flip on the release path;
+    # 45 min is not.
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Rust toolchain + system deps (libclang for release-plz semver-checks)
+        uses: ./.github/actions/rust-setup
+        with:
+          toolchain: 1.95.0
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
+          swap-mb: 4096
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Run release-plz
+        id: release-plz
+        uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Sync workspace version across monorepo manifests on Release PR branch
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin
+          # FIND-467: selector endurecido. La rama real de release-plz es
+          # `release-plz-<timestamp ISO>` (p.ej. release-plz-2026-10-20T08-17-56Z):
+          # tras el prefijo viene siempre el anio (4 digitos + guion), asi que
+          # `^release-plz-[0-9]{4}-` acepta la rama real y rechaza ramas
+          # manuales tipo `release-plz-fix-*` o `release-plz-1manual`.
+          # Ademas la seleccion es determinista: se ordena por createdAt
+          # descendente y se toma el PR abierto mas reciente (no el [0]
+          # arbitrario que devuelva la API).
+          PR_BRANCH=$(gh pr list --state open --base main --json headRefName,createdAt --jq '[.[] | select(.headRefName | test("^release-plz-[0-9]{4}-"))] | sort_by(.createdAt) | reverse | .[0].headRefName // empty')
+          if [ -z "$PR_BRANCH" ]; then
+            echo "No open release-plz PR branch found; skipping manifest sync."
+            exit 0
+          fi
+          echo "Checking out Release PR branch: $PR_BRANCH"
+          git checkout -B "$PR_BRANCH" "origin/$PR_BRANCH"
+          node scripts/docs/sync-workspace-version.mjs --write
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            NEW_VER=$(node -e 'const fs=require("fs");const m=fs.readFileSync("Cargo.toml","utf8").match(/\[workspace\.package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);console.log(m[1]);')
+            git commit -m "chore(release): sync monorepo surface manifests to v${NEW_VER}"
+            # The checkout uses persist-credentials: false (RULES: least
+            # privilege), so `git push` has no credentials and dies with
+            # "could not read Username for 'https://github.com'" (run
+            # 39353698789, job 118404027216 - the sync commit was created
+            # but never pushed). release-plz pushes with its own --git-token;
+            # this step does not. Authenticate the push explicitly with the
+            # same token `gh` already uses.
+            AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+                push origin "HEAD:$PR_BRANCH"
+          else
+            echo "All monorepo manifests already synchronized."
+          fi
+
+  # FIND-342/F1: fan-out explicito a los lanes tag-triggered (wheels, npm-61,
+  # npm-node, sbom, binaries). Los tags creados por release-plz con GITHUB_TOKEN
+  # no disparan esos workflows (GitHub suprime eventos derivados); este job los
+  # dispara por API SOBRE el tag, asi que cada downstream ve
+  # `github.ref == refs/tags/v*` y publica SIN tocar ningun `if:`.
+  # El PAT queda como credencial del dispatch + cascada implicita de fallback
+  # (PUBLISH.md). pypi/npm siguen tras su `environment:` (aprueba el owner).
+  # Prueba real imposible sin release (declarado): validacion mecanica maxima.
+  fanout:
+    name: Fan-out downstream release workflows
+    needs: [release-plz-release]
+    if: needs.release-plz-release.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Dispatch downstream workflows on the released tag
+        env:
+          RELEASES_JSON: ${{ needs.release-plz-release.outputs.releases }}
+        run: |
+          if [ -z "${{ secrets.RELEASE_PLZ_TOKEN }}" ]; then
+            echo "::error::RELEASE_PLZ_TOKEN is not set. Dispatches authenticated with GITHUB_TOKEN do not trigger downstream runs (GitHub suppresses derived events), so the fan-out would silently no-op. Set the PAT (PUBLISH.md, seccion Cascadas) — the PAT tag-cascade remains the fallback."
+            exit 1
+          fi
+          TAG=$(echo "$RELEASES_JSON" | jq -r '.[0].tag_name // .[0].tag // empty')
+          if [ -z "$TAG" ]; then
+            echo "::error::Could not derive the released tag from release-plz outputs: $RELEASES_JSON"
+            exit 1
+          fi
+          echo "Fanning out on tag $TAG (PRE-PUB: solo nucleo automatico)"
+          gh workflow run release-wheels.yml -R "${{ github.repository }}" --ref "$TAG"
+          gh workflow run release-npm-wasm.yml -R "${{ github.repository }}" --ref "$TAG" -f package=both
+          # PRE-PUB lanes manuales (dispatch): al lanzar, reactivar estas 5 lineas.
+          # gh workflow run release-npm-node.yml -R "${{ github.repository }}" --ref "$TAG" -f publish=true
+          # gh workflow run release-adapters.yml -R "${{ github.repository }}" --ref "$TAG" -f publish_pypi=true
+          # gh workflow run release-providers.yml -R "${{ github.repository }}" --ref "$TAG" -f publish_pypi=true
+          # (sbom fusionado como step en release-binaries.yml)
+          # gh workflow run release-binaries.yml -R "${{ github.repository }}" --ref "$TAG" -f release_tag="$TAG"

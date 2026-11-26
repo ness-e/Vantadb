@@ -1,0 +1,84 @@
+{
+  "name": "vantadb-node",
+  "version": "0.9.0",
+  "description": "VantaDB native Node.js bindings via napi-rs - persistent embedded memory & vector search (additional backend to WASM)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ness-e/Vantadb.git",
+    "directory": "vantadb-node"
+  },
+  "homepage": "https://github.com/ness-e/Vantadb#readme",
+  "bugs": "https://github.com/ness-e/Vantadb/issues",
+  "keywords": [
+    "vector-database",
+    "memory",
+    "rag",
+    "embeddings",
+    "graph",
+    "ai",
+    "semantic-search",
+    "agent-memory",
+    "local-first",
+    "hybrid-search",
+    "nodejs",
+    "napi",
+    "native-addon"
+  ],
+  "type": "module",
+  "main": "./index.cjs",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "require": "./index.cjs"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.cjs",
+    "index.d.ts",
+    "*.node",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "napi build --platform --release --js index.cjs && napi build --platform --release --esm --js index.js && node scripts/patch-exports.mjs",
+    "test": "vitest run",
+    "bench": "node bench/bench-abi.mjs"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.8.2",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
+  },
+  "napi": {
+    "binaryName": "vantadb_native",
+    "dtsHeaderFile": "./dts-header.d.ts",
+    "targets": [
+      "x86_64-pc-windows-msvc",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-linux-musl",
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin"
+    ]
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0"
+}

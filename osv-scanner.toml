@@ -1,0 +1,46 @@
+# OSV-Scanner config (FIND-150) — suppls `cargo audit` in CI (ci-rust.yml job `osv`).
+# Licenses stay in `deny.toml`; this file only triages vulnerability IDs.
+# Mirror of deny.toml [advisories] + .cargo/audit.toml triage: every ignore
+# here MUST have owner + expiry + tracked-reference, same as deny.toml.
+# Config applies to the colocated ./Cargo.lock (does not propagate to
+# feature-freez/desktop/src-tauri, fuzz/, providers/*, vantadb-node/ — separate lockfiles).
+
+# RUSTSEC-2023-0089 (atomic-polyfill unmaintained) - REMOVED 2026-11-23: the
+# advisory no longer matches ./Cargo.lock. postcard is 1.1.3 and the lock has
+# neither `heapless` nor `atomic-polyfill` (postcard 1.1.3 does not pull the
+# heapless -> atomic-polyfill chain); `portable-atomic` is 1.15.0. OSV-Scanner
+# flagged this entry as an unused ignore, which is exactly the stale-ignore
+# signal this file's header warns about. Re-add only if the advisory matches
+# the lock again.
+
+# RUSTSEC-2024-0436: paste unmaintained (transitive tikv-jemalloc-ctl, build-time
+# proc macro only). Mirror of .cargo/audit.toml triage. Owner: vanta-lead.
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+ignoreUntil = "2027-01-01T00:00:00Z"
+reason = "Mirror of audit.toml triage: build-time only, no runtime impact. Tracked: tikv/jemalloc-ctl#60. Owner: vanta-lead."
+
+# RUSTSEC-2026-0543: chrono unmaintained (informational; no patched version).
+# FIND-652 landed: all direct deps migrated to jiff 0.2; chrono survives only
+# transitively via the optional `arrow` feature (arrow-* 59.x), unreachable in
+# the default build. Mirror of the owner-approved deny.toml waiver (2026-11-17):
+# risk acceptance, not a remediation or release authorization.
+# Owner: @ness-e (vanta-lead) | Mandatory review: 2027-03-22 and before any
+# public release | Tracked: FIND-652 + FIND-708 (arrow 60 drops chrono?)
+# docs/specs/CONSTRAINTS.md exception W3.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+ignoreUntil = "2027-03-22T00:00:00Z"
+reason = "Renewed 2026-11-24: the direct-dependency migration already landed (FIND-652, jiff 0.2), so no code can be migrated further; the only remaining chrono is transitive via the OPTIONAL arrow feature (arrow-* 59.x), unreachable in the default build, and no patched chrono release exists because the crate is unmaintained. Renewal is risk acceptance with the same owner, not a new exemption; review on 2027-03-22 or as soon as arrow stops depending on chrono (FIND-708). Owner: @ness-e (vanta-lead)."
+
+# RUSTSEC-2026-0253: lru (transitive via tantivy; direct dep is already 0.18.5
+# >= patched 0.18.2). REMOVED 2026-10-30: tantivy is now 0.27 and the lock only
+# carries lru 0.18.5, so the advisory no longer matches anything.
+
+# RUSTSEC-2023-0071 / RUSTSEC-2026-0387 / GHSA-qwgh-2vcv-g2f7 — REMOVED 2026-11-06:
+# Mirror of deny.toml line 36: jsonwebtoken replaced by pure HMAC-SHA256 in ADR-039;
+# rsa, crypto-bigint, and block-buffer 0.10 chains dropped from dependency graph.
+
+# RUSTSEC-2026-0395..0406 batch (zstd-safe) — REMOVED 2026-10-30: the tantivy 0.27
+# bump already ships zstd 0.14.3 / zstd-safe 8.2.0 (patched), so the advisory no
+# longer matches the lock. Re-add only if a downgrade reappears.

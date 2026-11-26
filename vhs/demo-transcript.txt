@@ -1,0 +1,91 @@
+VantaDB Hero Demo — transcript of a verified local run (edited pacing)
+cli_version: vanta-cli 0.9.0
+mcp_version: 0.9.0
+
+=== Frame 1: Health check ===
+$ vanta-cli --db <temporary demo database> config doctor
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                   VantaDB System Doctor Diagnostics                       ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+  ✓ Storage Directory        Directory exists and is writable (<temporary demo database>)
+  ✓ Storage Lock             Storage lock is free (clean shutdown state)
+  ✓ Embeddings Health        Provider: ollama (this build has no `embed-local` feature: local ONNX is not compiled) | Strict mode: true
+  ✓ Network Port             Port 8080 is available for binding
+  ✓ Hardware Acceleration    Profile: Performance | Memory: 31 GB | Cores: 12 | Instructions: Avx2
+
+✓ All system pre-flight checks passed! System is healthy.
+This run uses a separate local E5 ONNX encoder for SDK records.
+
+=== Frame 2: MCP handshake ===
+$ vanta-cli --db <temporary demo database> server --mcp  (JSON-RPC over stdio)
+serverInfo: {"name": "vantadb", "version": "0.9.0"}
+protocolVersion: 2024-11-05
+tools: 15
+memory_put
+memory_get
+memory_supersede
+memory_recall
+memory_dream
+memory_search
+memory_forget
+vanta_scene
+vanta_dream
+vanta_graph
+vanta_dispatch
+bugfix_record
+bugfix_query
+context_assemble
+thread_send
+
+=== Frame 3: Memory capture ===
+$ db.memory_capture(...) + db.put(...)  # local E5 encoder
+captured L0 messages=2 filtered=0 cursor_ms=1794008159579
+application-curated records=2  vector dims: 384
+Application-curated memories; automatic L2 consolidation is not demonstrated.
+
+=== Frame 4: Hybrid search & supersession ===
+$ db.search(...) + db.memory.supersede(...)
+initial hybrid RRF score=0.0328 (native score, not a probability)
+current=['pref-indent-2']  history=['pref-indent', 'pref-indent-2']
+adjacency labels: {"pref-indent": ["superseded_by", "supersedes_edge"], "pref-indent-2": ["superseded_by", "supersedes_edge"]}
+
+=== Frame 5: L2 scene & engine inspection ===
+$ vanta-cli --db <temporary demo database> server --mcp  (vanta_scene write/read)
+vanta-cli --db <temporary demo database> --json stats
+L2 scene read-back verified: scene_name=formatting summary='Demo formatting preference'
+Application-authored L2 projection; not automatic consolidation.
+stats subset: {"namespaces": ["agent/hero", "scene/hero-session", "l0/hero-session", "l0_cursor/hero-session"], "node_count": 7, "total_records": 7, "total_vector_nodes": 3}
+CLI engine counters; not whole-Python-worker RSS.
+physical_rss maps core storage estimates, not process RAM.
+
+=== Frozen evidence (stats) ===
+{
+  "cache_entries": 0,
+  "logical_bytes": 4204372,
+  "namespace_count": 4,
+  "namespaces": [
+    "agent/hero",
+    "scene/hero-session",
+    "l0/hero-session",
+    "l0_cursor/hero-session"
+  ],
+  "node_count": 7,
+  "physical_rss": 24576,
+  "total_payload_bytes": 737,
+  "total_records": 7,
+  "total_vector_nodes": 3
+}
+
+=== Frozen evidence (L2 scene) ===
+{
+  "scene_name": "formatting",
+  "meta": {
+    "created": "2026-11-06T23:36:00.537Z",
+    "updated": "2026-11-06T23:36:00.537Z",
+    "summary": "Demo formatting preference",
+    "heat": 1
+  },
+  "content": "Current user preference: 2-space indentation with tabs enabled. Source: application-curated agent/hero/pref-indent-2; replaces pref-indent. No LLM extraction or automatic consolidation was performed.",
+  "deleted": false
+}

@@ -1,0 +1,217 @@
+"""Tests for the VantaDB OpenAI adapter."""
+
+import pytest
+
+pytest.importorskip("openai")
+pytest.importorskip("vantadb_openai")
+from vantadb_openai import VantaDBOpenAI, __version__
+
+
+class TestVantaDBOpenAI:
+    def test_version(self):
+        assert isinstance(__version__, str)
+        assert len(__version__) > 0
+
+    def test_init(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        assert store is not None
+
+    def test_init_custom_namespace(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key", namespace="custom_ns")
+        assert store is not None
+
+    def test_store_and_search(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        embedding = [0.1] * 128
+        rid = store.store("test text", embedding)
+        assert ":" in rid
+        results = store.search("openai_store", embedding, top_k=5)
+        assert len(results) > 0
+        assert results[0]["text"] == "test text"
+
+    def test_store_with_metadata(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        rid = store.store("meta text", [0.2] * 128, {"lang": "en"})
+        assert ":" in rid
+
+    def test_get_record(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        embedding = [0.3] * 128
+        rid = store.store("get-test-text", embedding, {"key1": "val1", "num": 42})
+        ns, key = rid.split(":", 1)
+
+        record = store.get(ns, key)
+        assert record is not None
+        assert record["namespace"] == ns
+        assert record["key"] == key
+        assert record["text"] == "get-test-text"
+        assert record["metadata"]["key1"] == "val1"
+        assert record["metadata"]["num"] == 42
+        assert record["created_at_ms"] > 0
+        assert record["version"] >= 0
+
+        # verify not found returns None
+        missing = store.get(ns, "nonexistent_key")
+        assert missing is None
+
+    def test_delete_record(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        embedding = [0.4] * 128
+        rid = store.store("delete-test", embedding)
+        ns, key = rid.split(":", 1)
+
+        assert store.get(ns, key) is not None
+
+        deleted = store.delete(key)
+        assert deleted is True
+
+        assert store.get(ns, key) is None
+
+        # deleting again should return False
+        deleted_again = store.delete(key)
+        assert deleted_again is False
+
+    def test_list_records(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        emb = [0.5] * 128
+        store.store("list-item-1", emb)
+        store.store("list-item-2", emb)
+        store.store("list-item-3", emb)
+
+        ns = "openai_store"
+        result = store.list(ns, limit=10)
+        assert len(result["records"]) >= 3
+
+        texts = {r["text"] for r in result["records"]}
+        assert "list-item-1" in texts
+        assert "list-item-2" in texts
+        assert "list-item-3" in texts
+
+    def test_list_namespaces(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        emb = [0.6] * 128
+        store.store("namespace-test", emb)
+
+        namespaces = store.list_namespaces()
+        assert "openai_store" in namespaces
+
+    def test_search_with_metadata(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        emb = [0.7] * 128
+        store.store("search-meta-1", emb, {"lang": "en", "score": 95})
+        store.store("search-meta-2", [0.71] * 128, {"lang": "es", "score": 80})
+
+        ns = "openai_store"
+        results = store.search(ns, emb, top_k=5)
+        assert len(results) >= 2
+
+        for r in results:
+            assert "namespace" in r
+            assert "key" in r
+            assert "text" in r
+            assert "metadata" in r
+            assert "score" in r
+            assert "created_at_ms" in r
+            assert "version" in r
+            assert isinstance(r["metadata"], dict)
+
+        # find the exact match
+        exact = [r for r in results if r["text"] == "search-meta-1"]
+        assert len(exact) >= 1
+        assert exact[0]["metadata"]["lang"] == "en"
+        assert exact[0]["metadata"]["score"] == 95
+
+    def test_search_invalid_distance_metric_raises(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        with pytest.raises(ValueError, match="distance_metric"):
+            store.search("openai_store", [0.1] * 128, distance_metric="manhattan")
+
+    def test_store_unsupported_metadata_warns_and_keeps_supported(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        with pytest.warns(UserWarning, match="unsupported value types"):
+            rid = store.store(
+                "warn-test", [0.8] * 128, {"ok": "yes", "bad": {"nested": True}}
+            )
+        ns, key = rid.split(":", 1)
+        record = store.get(ns, key)
+        assert record["metadata"]["ok"] == "yes"
+        assert "bad" not in record["metadata"]
+
+    def test_embed_mocked(self, tmp_path, monkeypatch):
+        class _FakeEmbeddings:
+            def create(self, *, model=None, input=None, **kwargs):
+                return {"data": [{"embedding": [0.1] * 4} for _ in input]}
+
+        class _FakeClient:
+            def __init__(self, **kwargs):
+                self.embeddings = _FakeEmbeddings()
+
+        import openai
+
+        monkeypatch.setattr(openai, "OpenAI", _FakeClient)
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        out = store.embed(["a", "b"])
+        assert len(out) == 2
+        assert len(out[0]) == 4
+
+
+class TestEmbedBatchProv11:
+    """PROV-11: embed_batch() chunking + async pattern (mocked, no network)."""
+
+    def _store(self, tmp_path, monkeypatch, calls):
+        class _FakeEmbeddings:
+            def create(self, *, model=None, input=None, **kwargs):
+                calls.append(list(input))
+                return {"data": [{"embedding": [float(t[1:])] * 4} for t in input]}
+
+        class _FakeClient:
+            def __init__(self, **kwargs):
+                self.embeddings = _FakeEmbeddings()
+
+        import openai
+
+        monkeypatch.setattr(openai, "OpenAI", _FakeClient)
+        from vantadb_openai import VantaDBOpenAI as _Cls
+
+        return _Cls(str(tmp_path), api_key="test-key")
+
+    def test_batch_chunks_and_preserves_order(self, tmp_path, monkeypatch):
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        texts = [f"t{i}" for i in range(250)]
+        out = store.embed_batch(texts, batch_size=100)
+        assert len(out) == 250
+        assert [v[0] for v in out] == [float(i) for i in range(250)]
+        assert [len(c) for c in calls] == [100, 100, 50]
+
+    def test_batch_small_is_single_request(self, tmp_path, monkeypatch):
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        out = store.embed_batch(["t1", "t2"])
+        assert len(out) == 2
+        assert len(calls) == 1
+
+    def test_batch_empty_makes_no_request(self, tmp_path, monkeypatch):
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        assert store.embed_batch([]) == []
+        assert calls == []
+
+    def test_batch_invalid_size_raises(self, tmp_path, monkeypatch):
+        import pytest as _pt
+
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        with _pt.raises(ValueError, match="batch_size"):
+            store.embed_batch(["t1"], batch_size=0)
+        assert calls == []
+
+    def test_batch_async_via_to_thread(self, tmp_path, monkeypatch):
+        import asyncio
+
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        texts = [f"t{i}" for i in range(5)]
+        out = asyncio.run(asyncio.to_thread(store.embed_batch, texts, 2))
+        assert [v[0] for v in out] == [float(i) for i in range(5)]
+        assert [len(c) for c in calls] == [2, 2, 1]

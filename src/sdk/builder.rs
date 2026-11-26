@@ -1,0 +1,699 @@
+use crate::agentic::thread::{CreateThread, ThreadStore};
+use crate::config::Config;
+use crate::error::{Error, Result};
+use crate::graphrag::pipeline::{GraphRagPipeline, GraphRagResult};
+use crate::index::set_prefetch_mode;
+use crate::storage::StorageEngine;
+use parking_lot::{Mutex, RwLock};
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+use tracing;
+
+/// Stable embedded database handle used by SDKs and bindings.
+#[derive(Clone)]
+pub struct Embedded {
+    engine: Arc<RwLock<Option<Arc<StorageEngine>>>>,
+    pub(crate) config: Config,
+    audit: Option<Arc<crate::audit::AuditLogger>>,
+    /// Serializes `supersede()`'s read-modify-write (REVIEW-13): the engine's
+    /// `insert_lock` only covers the individual write, not the SDK-level
+    /// read + idempotency check, so two concurrent supersedes could both pass
+    /// the guard and double-mark the record. Shared across clones via `Arc` —
+    /// and, since FIND-661, across `Embedded` wrappers over the same engine:
+    /// the `Arc` is the engine-owned `sdk_supersede_lock`.
+    /// ponytail: global supersede lock - rare admin op; per-namespace striping
+    /// if contention ever matters.
+    pub(crate) supersede_lock: Arc<Mutex<()>>,
+    /// Serializes `merge_record()`'s read-decide-write (MEMG-05), same
+    /// rationale as `supersede_lock` (REVIEW-13): the engine's `insert_lock`
+    /// only covers the individual insert, not the SDK-level read + decision,
+    /// so two concurrent merges could both decide against the same `existing`
+    /// and persist the loser (arrival-order nondeterminism). Shared across
+    /// clones via `Arc` — and, since FIND-661, across `Embedded` wrappers
+    /// over the same engine (`sdk_merge_lock`).
+    /// ponytail: global merge lock - merges are a sync/import path, not a hot
+    /// path; per-key striped locks only if merge throughput ever matters.
+    pub(crate) merge_lock: Arc<Mutex<()>>,
+    /// Serializes the record write/delete read-modify-write against every
+    /// other writer and against purge (DUR-03 r3): `put_one`,
+    /// `put_record_exact`, `put_batch_inner`, `delete_inner` and the purge
+    /// paths (`purge_expired` sweeper, purge-on-write) all take the **write**
+    /// guard across resolve + insert/delete + index replacement, so no two
+    /// writers can apply the same generation's text-index decrement twice
+    /// (a second decrement would drive the term df negative).
+    /// `resolve_existing_for_write` keeps a read guard for decision-only
+    /// callers (`merge_record_inner`). Shared across clones via `Arc` — and,
+    /// since FIND-651 (breach 2), across `Embedded` wrappers over the same
+    /// engine: the `Arc` is the engine-owned `sdk_purge_lock`, so a second
+    /// `from_engine` handle cannot run a concurrent purge on the same data.
+    /// ponytail: global write serialization per handle - correctness first
+    /// (DUR-03 r3); per-key striped locks only if write throughput demands it.
+    pub(crate) purge_lock: Arc<RwLock<()>>,
+    /// Serializes the thread message read-modify-write (FIND-599): the
+    /// engine's `insert_lock` only covers the individual write, not the read +
+    /// append, so two concurrent `send_message` calls read the same message
+    /// list and the second insert drops the first message. Shared across
+    /// clones via `Arc` (same rationale as `merge_lock`) — and, since
+    /// FIND-661, across `Embedded` wrappers over the same engine
+    /// (`sdk_thread_message_lock`).
+    /// ponytail: one lock per area (messages / thread index) - thread writes
+    /// are not a hot path; striped locks only if contention ever matters.
+    pub(crate) thread_message_lock: Arc<Mutex<()>>,
+    /// Serializes the thread-index read-modify-write (FIND-600): the index is
+    /// a single JSON blob in `InternalMetadata`, so two concurrent
+    /// `create_thread` calls read the same id list and the second save drops
+    /// the first thread id (the thread then disappears from `list_threads`
+    /// and the purge never reaches it). Shared across clones via `Arc` — and,
+    /// since FIND-661, across `Embedded` wrappers over the same engine
+    /// (`sdk_thread_index_lock`).
+    pub(crate) thread_index_lock: Arc<Mutex<()>>,
+    /// Serializes skill optimistic lock check and commit (FIND-605): prevents
+    /// TOCTOU races between concurrent `update`/`patch` calls with the same
+    /// `expected_version`. Shared across clones via `Arc` — and, since
+    /// FIND-661, across `Embedded` wrappers over the same engine
+    /// (`sdk_skill_write_lock`).
+    pub(crate) skill_write_lock: Arc<Mutex<()>>,
+    /// FastGate deduplication filter instance shared across clones — and,
+    /// since FIND-661, across `Embedded` wrappers over the same engine: the
+    /// `Arc` is the engine-owned `sdk_dedup_filter` (dedup marks describe
+    /// the engine's data, so a per-wrapper filter let duplicates written
+    /// through a second handle evade detection).
+    /// `with_dedup_filter` still overrides per handle.
+    pub(crate) dedup_filter: Arc<crate::utils::duplicate_prevention::DuplicatePreventionFilter>,
+}
+
+impl std::fmt::Debug for Embedded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let is_open = self.engine.read().is_some();
+        f.debug_struct("Embedded")
+            .field("config", &self.config)
+            .field("is_open", &is_open)
+            .finish()
+    }
+}
+
+impl Embedded {
+    /// Wrap an existing engine handle in an Embedded instance.
+    /// Copies the engine's config for use as the embedded config.
+    #[tracing::instrument(skip(engine))]
+    pub fn from_engine(engine: Arc<StorageEngine>) -> Self {
+        let config = engine.config.clone();
+        // FIND-651 (breach 2) / FIND-661: share the engine-owned SDK locks
+        // so every `Embedded` wrapper over this engine serializes its
+        // read-modify-writes against the others — fresh locks per wrapper
+        // let two handles purge (DUR-03 r3), supersede, merge, thread-write
+        // and skill-write the same data concurrently.
+        let purge_lock = engine.sdk_purge_lock.clone();
+        let supersede_lock = engine.sdk_supersede_lock.clone();
+        let merge_lock = engine.sdk_merge_lock.clone();
+        let thread_message_lock = engine.sdk_thread_message_lock.clone();
+        let thread_index_lock = engine.sdk_thread_index_lock.clone();
+        let skill_write_lock = engine.sdk_skill_write_lock.clone();
+        let dedup_filter = engine.sdk_dedup_filter.clone();
+        Self {
+            engine: Arc::new(RwLock::new(Some(engine))),
+            audit: init_audit(&config),
+            config,
+            supersede_lock,
+            merge_lock,
+            purge_lock,
+            thread_message_lock,
+            thread_index_lock,
+            skill_write_lock,
+            dedup_filter,
+        }
+    }
+
+    /// Open a VantaDB database at the given path with default configuration.
+    ///
+    /// # Examples
+    ///
+    /// Opens a persistent database in a temporary directory. The directory is
+    /// owned by a `TempDir`, so it is removed when the example ends — even if an
+    /// assertion panics (FIND-750). The `#`-prefixed lines are hidden from the
+    /// rendered docs.
+    ///
+    /// ```rust
+    /// use vantadb::Embedded;
+    /// # let tmp = tempfile::tempdir().expect("tempdir");
+    /// let path = tmp.path().join("db");
+    /// let db = Embedded::open(&path).expect("open database");
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(path), err)]
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        let config = Config {
+            storage_path: path.as_ref().to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        Self::open_with_config(config)
+    }
+
+    /// Open a VantaDB database at the given path in read-only mode (EGO-09).
+    ///
+    /// Equivalent to `open_with_config` with `read_only: true`. Write
+    /// operations on the handle are rejected (`check_read_only`); the
+    /// engine underneath takes a **shared** OS lock instead of the
+    /// exclusive writer lock, so any number of read-only handles can
+    /// coexist — but a live exclusive **writer still blocks** the open
+    /// (`Error::DatabaseBusy`), and an uninitialized path fails with
+    /// `Error::NotFound` (read-only opens never create schema or lock
+    /// files). The Fjall backend itself has no read-only mode (it opens
+    /// read-write and holds its own lock), so a reader alongside a writer
+    /// on the same directory is NOT supported at the backend level.
+    ///
+    /// # Shared read-write pattern
+    ///
+    /// For one writer + many readers on the same directory, run a single
+    /// long-lived writer process (daemon) that owns the directory and
+    /// expose reads/writes to sidecars over a local socket or stdio/JSONL
+    /// (the pattern Ego uses for its `vantadb-py` sidecar) instead of
+    /// opening the directory twice.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use vantadb::Embedded;
+    ///
+    /// let db = Embedded::open_readonly("/var/lib/vantadb").expect("open read-only");
+    /// assert!(db.get("docs", "greeting").expect("read").is_some());
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(path), err)]
+    pub fn open_readonly(path: impl AsRef<Path>) -> Result<Self> {
+        let config = Config {
+            storage_path: path.as_ref().to_string_lossy().into_owned(),
+            read_only: true,
+            ..Default::default()
+        };
+        Self::open_with_config(config)
+    }
+
+    /// Open a VantaDB database with a fully custom configuration.
+    ///
+    /// # Examples
+    ///
+    /// Opens an in-memory database by setting `BackendKind::InMemory` as the
+    /// backend and `":memory:"` as the storage path:
+    ///
+    /// ```rust
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded};
+    ///
+    /// let config = Config {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// };
+    /// let db = Embedded::open_with_config(config).expect("open database");
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(config), err)]
+    pub fn open_with_config(config: Config) -> Result<Self> {
+        let final_config = config.clone();
+        set_prefetch_mode(config.prefetch_mode);
+
+        let engine = StorageEngine::open_with_config(
+            &final_config.storage_path,
+            Some(final_config.clone()),
+        )?;
+        // FIND-651 (breach 2) / FIND-661: same engine-owned SDK locks as
+        // `from_engine` — any later `Embedded::from_engine(db.engine_handle()?)`
+        // wrapper then shares these exact `Arc`s instead of getting
+        // independent ones.
+        let purge_lock = engine.sdk_purge_lock.clone();
+        let supersede_lock = engine.sdk_supersede_lock.clone();
+        let merge_lock = engine.sdk_merge_lock.clone();
+        let thread_message_lock = engine.sdk_thread_message_lock.clone();
+        let thread_index_lock = engine.sdk_thread_index_lock.clone();
+        let skill_write_lock = engine.sdk_skill_write_lock.clone();
+        let dedup_filter = engine.sdk_dedup_filter.clone();
+        let embedded = Self {
+            engine: Arc::new(RwLock::new(Some(Arc::new(engine)))),
+            audit: init_audit(&final_config),
+            config: final_config,
+            supersede_lock,
+            merge_lock,
+            purge_lock,
+            thread_message_lock,
+            thread_index_lock,
+            skill_write_lock,
+            dedup_filter,
+        };
+        if !embedded.config.read_only {
+            embedded.ensure_indexes_current()?;
+        }
+        Ok(embedded)
+    }
+
+    /// Returns the underlying storage engine handle for testing and low-level engine operations.
+    #[doc(hidden)]
+    pub fn engine_handle(&self) -> Result<Arc<StorageEngine>> {
+        self.engine.read().clone().ok_or(Error::NotInitialized)
+    }
+
+    /// Record an audit event if an audit log is configured; no-op otherwise.
+    /// Audit failures are logged and never fail the business operation.
+    pub(crate) fn audit(&self, event: crate::audit::AuditEvent) {
+        if let Some(logger) = &self.audit {
+            if let Err(e) = logger.record(&event) {
+                tracing::warn!(op = %event.op, error = %e, "audit record failed");
+            }
+        }
+    }
+
+    /// The configured audit logger, if any. Lets sibling modules (e.g. the
+    /// CLI server middleware) record auth events without owning the DB handle.
+    #[cfg(feature = "server")]
+    pub(crate) fn audit_logger(&self) -> Option<Arc<crate::audit::AuditLogger>> {
+        self.audit.clone()
+    }
+
+    /// Create an empty handle (no engine) for tests.
+    /// Produces `NotInitialized` errors on any engine-dependent operation.
+    #[doc(hidden)]
+    pub fn test_empty(config: Config) -> Self {
+        Self {
+            engine: Arc::new(RwLock::new(None)),
+            audit: init_audit(&config),
+            config,
+            // No engine → no shared data to serialize; fresh locks and a
+            // fresh dedup filter are correct and INTENTIONALLY per-handle
+            // (engine-dependent ops fail `NotInitialized` before reaching
+            // them — there is no `sdk_*` state to clone).
+            supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
+            thread_message_lock: Arc::new(Mutex::new(())),
+            thread_index_lock: Arc::new(Mutex::new(())),
+            skill_write_lock: Arc::new(Mutex::new(())),
+            dedup_filter: Arc::new(
+                crate::utils::duplicate_prevention::DuplicatePreventionFilter::default(),
+            ),
+        }
+    }
+
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Uses the default pipeline configuration (seed_k=10, hops=2, max=100, top_k=20).
+    /// For custom settings, construct [`GraphRagPipeline`] directly.
+    pub fn graphrag_search(
+        &self,
+        namespace: &str,
+        query: Option<&str>,
+        query_vector: Option<&[f32]>,
+    ) -> Result<GraphRagResult> {
+        let pipeline = GraphRagPipeline::new();
+        pipeline.search(self, namespace, query, query_vector)
+    }
+
+    /// Run the GraphRAG pipeline with a custom pipeline configuration.
+    pub fn graphrag_search_with_pipeline(
+        &self,
+        namespace: &str,
+        query: Option<&str>,
+        query_vector: Option<&[f32]>,
+        pipeline: &GraphRagPipeline,
+    ) -> Result<GraphRagResult> {
+        pipeline.search(self, namespace, query, query_vector)
+    }
+
+    /// Builds a [`SkillStore`](crate::skills::SkillStore) that shares this handle's skill write lock (FIND-605).
+    pub fn skill_store<'e>(&self, engine: &'e StorageEngine) -> crate::skills::SkillStore<'e> {
+        crate::skills::SkillStore::with_shared_lock(engine, self.skill_write_lock.clone())
+    }
+
+    /// Override the deduplication filter (useful for tests or custom sizing).
+    pub fn with_dedup_filter(
+        mut self,
+        filter: Arc<crate::utils::duplicate_prevention::DuplicatePreventionFilter>,
+    ) -> Self {
+        self.dedup_filter = filter;
+        self
+    }
+
+    /// Access the active deduplication filter.
+    pub fn dedup_filter(
+        &self,
+    ) -> Arc<crate::utils::duplicate_prevention::DuplicatePreventionFilter> {
+        Arc::clone(&self.dedup_filter)
+    }
+
+    // ── Agentic Threads ──
+
+    /// Builds a [`ThreadStore`] that shares this handle's thread locks.
+    ///
+    /// The SDK builds one store per call, so a store's own locks would not
+    /// serialize anything: sharing them makes concurrent callers (the MCP
+    /// server serves requests in parallel) serialize their read-modify-write
+    /// instead of losing updates (FIND-599/FIND-600).
+    fn thread_store<'e>(&self, engine: &'e StorageEngine) -> ThreadStore<'e> {
+        ThreadStore::with_shared_locks(
+            engine,
+            self.thread_message_lock.clone(),
+            self.thread_index_lock.clone(),
+        )
+    }
+
+    /// Create a new conversation thread.
+    ///
+    /// Returns the thread's numeric ID. Pass `ttl_secs` for auto-expiry.
+    pub fn create_thread(&self, title: &str, ttl_secs: Option<u64>) -> Result<u128> {
+        let engine = self.engine_handle()?;
+        let store = self.thread_store(&engine);
+        store.create(
+            CreateThread {
+                title,
+                metadata: HashMap::new(),
+                ttl_secs,
+            },
+            None,
+        )
+    }
+
+    /// Append a message to a thread.
+    pub fn send_message(&self, thread_id: u128, role: &str, content: &str) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let store = self.thread_store(&engine);
+        store.send_message(thread_id, role, content, HashMap::new(), None)
+    }
+
+    /// Retrieve a thread by its ID.
+    pub fn get_thread(&self, thread_id: u128) -> Result<Option<crate::agentic::MessageThread>> {
+        let engine = self.engine_handle()?;
+        let store = self.thread_store(&engine);
+        store.get(thread_id)
+    }
+
+    /// List threads with pagination.
+    pub fn list_threads(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<crate::agentic::MessageThread>> {
+        let engine = self.engine_handle()?;
+        let store = self.thread_store(&engine);
+        store.list(limit, offset)
+    }
+
+    /// Delete a thread by its ID.
+    pub fn delete_thread(&self, thread_id: u128) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let store = self.thread_store(&engine);
+        store.delete(thread_id)
+    }
+
+    /// Purge threads whose TTL has expired.
+    ///
+    /// Returns the number of threads removed.
+    pub fn purge_expired_threads(&self) -> Result<usize> {
+        let engine = self.engine_handle()?;
+        let store = self.thread_store(&engine);
+        store.purge_expired_threads()
+    }
+
+    /// Recover archived (shadow-archived) nodes that belonged to a summary node.
+    ///
+    /// Scans the TombstoneStorage partition for nodes with a `belonged_to`
+    /// edge targeting `summary_id`, re-activates them, and inserts them
+    /// back into the active store.
+    #[tracing::instrument(skip(self), err)]
+    pub fn recover_archived_nodes(&self, summary_id: u128) -> Result<Vec<crate::sdk::NodeRecord>> {
+        let engine = self.engine_handle()?;
+        let nodes = engine.recover_archived_nodes(summary_id)?;
+        Ok(nodes
+            .into_iter()
+            .map(|n| engine.node_to_record(n))
+            .collect())
+    }
+
+    /// Flush and close the embedded engine handle.
+    #[tracing::instrument(skip(self), err)]
+    pub fn close(&self) -> Result<()> {
+        if let Err(e) = self.flush() {
+            tracing::warn!("flush failed: {e}");
+        }
+        let mut guard = self.engine.write();
+        *guard = None;
+        Ok(())
+    }
+
+    // ── Filesystem Snapshots ──
+
+    /// Create a filesystem snapshot via hard links for immutable files and copies
+    /// for mutable files (Unix), or copies on Windows.
+    ///
+    /// Data and backend files are captured under `<data_dir>/snapshots/<name>`.
+    /// RocksDB uses a native checkpoint before its files are copied.
+    /// The capture holds the engine's write quiesce lock across the whole
+    /// mirror (FIND-651): concurrent writers block up to
+    /// `insert_lock_timeout_ms` and then fail with a retriable
+    /// [`crate::error::Error::Timeout`]; the snapshot always observes a file
+    /// set frozen at a commit boundary.
+    pub fn create_snapshot(&self, name: &str) -> Result<crate::storage::FsSnapshot> {
+        let engine = self.engine_handle()?;
+        engine.create_snapshot(name)
+    }
+
+    /// List all existing snapshot names.
+    pub fn list_snapshots(&self) -> Result<Vec<String>> {
+        let engine = self.engine_handle()?;
+        engine.list_snapshots()
+    }
+
+    /// Restore the database directory from a physical snapshot (MCP-34b).
+    ///
+    /// Static associated function: the restore swaps `<storage_path>/data`
+    /// on disk, which requires that NO engine holds the database open —
+    /// hence it does not take `&self`. Expected flow:
+    ///
+    /// ```ignore
+    /// db.close()?;                                        // release fs2 lock + handles
+    /// let db = Embedded::restore_from(config.clone(), "snap-1")?;  // swap + reopen
+    /// ```
+    ///
+    /// Validates `name` as a plain identifier (anti path-traversal), fails
+    /// with `NotFound` if the snapshot does not exist, stages the live data
+    /// directory aside with rollback-on-failure, copies the snapshot contents
+    /// back, and reopens a fresh engine over the restored directory (indexes
+    /// rebuild from storage on open). Complete snapshots must match
+    /// `config.backend_kind`; restore does not migrate backends. See
+    /// [`StorageEngine::snapshot_restore`] for the full safety contract.
+    pub fn restore_from(config: Config, name: &str) -> Result<Self> {
+        StorageEngine::snapshot_restore_for_backend(
+            Path::new(&config.storage_path),
+            name,
+            config.backend_kind,
+        )?;
+        Self::open_with_config(config)
+    }
+
+    /// Restore and reopen, reporting whether the snapshot included backend state.
+    pub fn restore_from_with_backend(config: Config, name: &str) -> Result<(Self, bool)> {
+        let (_, backend_restored) = StorageEngine::snapshot_restore_for_backend(
+            Path::new(&config.storage_path),
+            name,
+            config.backend_kind,
+        )?;
+        Ok((Self::open_with_config(config)?, backend_restored))
+    }
+}
+
+/// Open the audit logger when `config.audit_log_path` is set. A failed open is
+/// logged and treated as disabled — it must never block the database open.
+fn init_audit(config: &Config) -> Option<Arc<crate::audit::AuditLogger>> {
+    let path = config.audit_log_path.as_ref()?;
+    match crate::audit::AuditLogger::with_rotation(
+        path,
+        config.audit_max_bytes,
+        config.audit_max_files,
+    ) {
+        Ok(logger) => Some(Arc::new(logger)),
+        Err(e) => {
+            tracing::warn!(
+                path = %path.display(),
+                error = %e,
+                "audit log disabled: could not open audit_log_path"
+            );
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_empty_embedded() -> Embedded {
+        Embedded::test_empty(Config::default())
+    }
+
+    // ── Debug ──
+
+    #[test]
+    fn test_debug_impl_closed() {
+        let e = make_empty_embedded();
+        let d = format!("{:?}", e);
+        assert!(d.contains("Embedded"), "got: {d}");
+        assert!(d.contains("is_open"), "got: {d}");
+        assert!(d.contains("false"), "got: {d}");
+    }
+
+    #[test]
+    fn test_debug_impl_contains_config() {
+        let e = make_empty_embedded();
+        let d = format!("{:?}", e);
+        assert!(d.contains("config"), "got: {d}");
+    }
+
+    // ── engine_handle ──
+
+    #[test]
+    fn test_engine_handle_none_errors() {
+        let e = make_empty_embedded();
+        let result = e.engine_handle();
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert!(err.to_string().contains("initialized"), "got: {err}");
+    }
+
+    // ── close ──
+
+    #[test]
+    fn test_close_on_empty_ok() {
+        let e = make_empty_embedded();
+        // close on an already-None engine should not panic
+        assert!(e.close().is_ok());
+    }
+
+    #[test]
+    fn test_close_then_engine_handle_fails() {
+        let e = make_empty_embedded();
+        let _ = e.close();
+        let result = e.engine_handle();
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert!(err.to_string().contains("initialized"), "got: {err}");
+    }
+
+    // ── Config defaults used by builder ──
+
+    #[test]
+    fn test_default_config_values() {
+        let cfg = Config::default();
+        assert!(!cfg.read_only);
+        assert_eq!(cfg.port, 8080);
+        assert_eq!(cfg.host, "127.0.0.1");
+    }
+
+    // ── recover_archived_nodes ──
+
+    #[test]
+    fn test_recover_archived_nodes_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let embedded = Embedded::open(dir.path()).unwrap();
+        let result = embedded.recover_archived_nodes(42);
+        assert!(
+            result.is_ok(),
+            "recover_archived_nodes should succeed on empty DB"
+        );
+        let nodes = result.unwrap();
+        assert!(nodes.is_empty(), "no archived nodes to recover");
+    }
+
+    #[test]
+    fn test_recover_archived_nodes_with_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let embedded = Embedded::open(dir.path()).unwrap();
+        let engine = embedded.engine_handle().unwrap();
+
+        // Insert an archived node directly into TombstoneStorage
+        let belonged_to_id = engine.intern_label("belonged_to");
+        let mut archived = crate::node::UnifiedNode::new(100);
+        archived.edges.push(crate::node::Edge {
+            target: 1,
+            label_id: belonged_to_id,
+            weight: 1.0,
+            reverse: false,
+            created_at_ms: 1,
+        });
+        let data = postcard::to_allocvec(&archived)
+            .map_err(|e| format!("serialization: {e}"))
+            .unwrap();
+        engine
+            .put_to_partition(
+                crate::storage::BackendPartition::TombstoneStorage,
+                b"archived_100",
+                &data,
+            )
+            .expect("put archived node");
+
+        // Recover via the SDK method
+        let nodes = embedded.recover_archived_nodes(1).unwrap();
+        assert_eq!(nodes.len(), 1, "should recover 1 node");
+        assert_eq!(nodes[0].id, 100, "recovered node id should match");
+    }
+
+    #[test]
+    fn test_from_engine_shares_purge_lock_across_wrappers() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Embedded::open(dir.path()).unwrap();
+        let engine = db.engine_handle().unwrap();
+
+        let w1 = Embedded::from_engine(engine.clone());
+        let w2 = Embedded::from_engine(engine);
+
+        assert!(
+            Arc::ptr_eq(&db.purge_lock, &w1.purge_lock),
+            "Embedded::from_engine must share purge_lock with original Embedded handle"
+        );
+        assert!(
+            Arc::ptr_eq(&w1.purge_lock, &w2.purge_lock),
+            "multiple Embedded::from_engine wrappers on the same StorageEngine must share purge_lock"
+        );
+
+        let guard = w1.purge_lock.write();
+        assert!(
+            w2.purge_lock.try_write().is_none(),
+            "sibling wrapper must contend on the same purge_lock"
+        );
+        drop(guard);
+    }
+
+    #[test]
+    fn test_from_engine_shares_sdk_locks_across_wrappers() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Embedded::open(dir.path()).unwrap();
+        let engine = db.engine_handle().unwrap();
+
+        let w1 = Embedded::from_engine(engine.clone());
+        let w2 = Embedded::from_engine(engine);
+
+        assert!(Arc::ptr_eq(&db.supersede_lock, &w1.supersede_lock));
+        assert!(Arc::ptr_eq(&w1.supersede_lock, &w2.supersede_lock));
+        assert!(Arc::ptr_eq(&db.merge_lock, &w1.merge_lock));
+        assert!(Arc::ptr_eq(&w1.merge_lock, &w2.merge_lock));
+        assert!(Arc::ptr_eq(
+            &w1.thread_message_lock,
+            &w2.thread_message_lock
+        ));
+        assert!(Arc::ptr_eq(&w1.thread_index_lock, &w2.thread_index_lock));
+        assert!(Arc::ptr_eq(&w1.skill_write_lock, &w2.skill_write_lock));
+        assert!(Arc::ptr_eq(&w1.dedup_filter, &w2.dedup_filter));
+
+        let g1 = w1.supersede_lock.lock();
+        assert!(
+            w2.supersede_lock.try_lock().is_none(),
+            "sibling wrapper must contend on shared supersede_lock (FIND-661)"
+        );
+        drop(g1);
+
+        let g2 = w1.merge_lock.lock();
+        assert!(
+            w2.merge_lock.try_lock().is_none(),
+            "sibling wrapper must contend on shared merge_lock (FIND-661)"
+        );
+        drop(g2);
+    }
+}

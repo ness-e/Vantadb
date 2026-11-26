@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VantaDB Hero Demo — Step 23</title>
+<style>
+  :root { --base: hsl(236,23%,12%); --surface: hsl(237,16%,18%); --text: hsl(226,64%,88%); --accent: hsl(174,46%,63%); --mauve: hsl(267,57%,78%); --border: hsl(240,12%,34%); }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--base); color:var(--text); font-family:"JetBrains Mono","Cascadia Code",monospace; display:grid; place-items:center; min-height:100vh; }
+  .frame { width:min(1280px, calc(100vw - 48px)); height:min(800px, calc(100vh - 48px)); padding:1.2rem 1.6rem; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:0 24px 64px rgba(0,0,0,.5); display:flex; flex-direction:column; gap:.8rem; }
+  .dots { display:flex; gap:.5rem; align-items:center; }
+  .dot { width:12px; height:12px; border-radius:50%; } .r{background:hsl(10,57%,63%)} .y{background:hsl(40,70%,73%)} .g{background:hsl(115,54%,76%)}
+  .play { margin-left:auto; min-height:32px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.2rem .7rem; font:inherit; font-size:.75rem; cursor:pointer; }
+  .play:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .step { color:var(--mauve); font-size:.85rem; }
+  h2 { color:var(--accent); font-size:1.25rem; margin:.2rem 0; }
+  .pane { flex:1; overflow:auto; position:relative; }
+  .card { position:absolute; inset:0; padding-right:4%; font-size:clamp(14px,1.15vw,18px); line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; opacity:0; transform-origin:left top; transition:opacity .25s ease, transform 12s linear; }
+  .card.on { opacity:1; transform:scale(1.04); }
+  .cmd { color:var(--accent); }
+  .foot { font-size:.72rem; color:hsl(226,30%,62%); }
+  @media (prefers-reduced-motion: reduce) {
+    .card { transition:opacity .25s ease; }
+    .card.on { transform:none; }
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="dots">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <button class="play" id="play">Play</button>
+  </div>
+  <div class="step" id="step">—</div>
+  <h2 id="title">Loading…</h2>
+  <div class="pane" id="pane"></div>
+  <div class="foot" id="disc"></div>
+</div>
+<script>
+  const pane = document.getElementById("pane");
+  const playBtn = document.getElementById("play");
+  let frames = [], cur = -1, timer = null, playing = false;
+
+  fetch("hero-run.json").then(r => {
+    if (!r.ok) throw new Error(`hero-run.json HTTP ${r.status}`);
+    return r.json();
+  }).then(doc => {
+    if (doc.schema_version !== 1 || !Array.isArray(doc.frames) || doc.frames.length !== 5)
+      throw new Error("hero-run.json: expected schema_version 1 and 5 frames");
+    frames = doc.frames;
+    document.getElementById("disc").textContent =
+      (doc.disclosure || "") + " — paths abbreviated";
+    window.showFrame(0);
+    window.__demoReady = true;
+  }).catch(e => {
+    document.getElementById("title").textContent = `Error: ${e.message}`;
+  });
+
+  window.showFrame = (n) => {
+    const f = frames[n];
+    const prev = pane.querySelector(".card");
+    const card = document.createElement("div");
+    card.className = "card";
+    const cmd = document.createElement("div");
+    cmd.className = "cmd"; cmd.textContent = "$ " + f.command;
+    const out = document.createElement("div");
+    out.textContent = f.output;
+    card.append(cmd, out);
+    pane.appendChild(card);
+    requestAnimationFrame(() => { card.classList.add("on"); });
+    if (prev) { prev.classList.remove("on"); setTimeout(() => prev.remove(), 260); }
+    cur = n;
+    document.getElementById("title").textContent = f.title;
+    document.getElementById("step").textContent = `Step ${n + 1} of ${frames.length}`;
+  };
+
+  const stop = () => { clearInterval(timer); timer = null; playing = false; playBtn.textContent = "Play"; };
+  window.startDemo = () => {
+    stop();
+    window.__demoDone = false;
+    window.showFrame(0);
+    playing = true;
+    playBtn.textContent = "Stop";
+    timer = setInterval(() => {
+      if (cur + 1 >= frames.length) { stop(); window.__demoDone = true; playBtn.textContent = "Replay"; return; }
+      window.showFrame(cur + 1);
+    }, 12000);
+  };
+  playBtn.onclick = () => (playing ? stop() : window.startDemo());
+</script>
+</body>
+</html>

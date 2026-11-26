@@ -1,0 +1,27 @@
+[package]
+name = "vantadb-openai"
+version = "0.9.0"
+edition = "2021"
+rust-version = "1.94.1"
+license = "Apache-2.0"
+description = "OpenAI embedding API wrapper + VantaDB storage — generate embeddings via OpenAI and store/search them in VantaDB"
+publish = false
+
+[lib]
+name = "vantadb_openai"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["pyo3"]
+
+[dependencies]
+vantadb = { path = "../..", default-features = false, features = ["fjall", "memmap2"] }
+pyo3 = { version = "0.30", optional = true, features = ["extension-module", "abi3-py311"] }
+
+[workspace]
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+

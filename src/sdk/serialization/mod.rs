@@ -1,0 +1,2389 @@
+//! Wire-format helpers for reading and writing VantaDB memory records
+//! to/from internal node representations and JSONL export lines.
+
+pub mod tsfmt;
+
+#[cfg(test)]
+use super::builder::Embedded;
+use super::types::*;
+use crate::error::{Error, Result};
+use crate::node::{FieldValue, SparseVector, UnifiedNode, VectorRepresentations};
+use twox_hash::XxHash3_128;
+use web_time::{SystemTime, UNIX_EPOCH};
+
+const RESERVED_PREFIX: &str = "__vanta_";
+/// Internal field name used to store the namespace on a memory record node.
+pub const FIELD_NAMESPACE: &str = "__vanta_namespace";
+/// Internal field name used to store the record key on a memory record node.
+pub const FIELD_KEY: &str = "__vanta_key";
+/// Internal field name used to store the payload text on a memory record node.
+pub const FIELD_PAYLOAD: &str = "__vanta_payload";
+/// Internal field name storing the Unix-ms creation timestamp.
+pub const FIELD_CREATED_AT_MS: &str = "__vanta_created_at_ms";
+/// Internal field name storing the Unix-ms last-update timestamp.
+pub const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
+/// Internal field name storing the monotonic version counter.
+pub const FIELD_VERSION: &str = "__vanta_version";
+/// Internal field name storing the optional Unix-ms expiry deadline.
+pub const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
+/// Internal field name storing the key of the record that supersedes this one (ADR-028).
+pub const FIELD_SUPERSEDED_BY: &str = "__vanta_superseded_by";
+/// Internal field name storing the Unix-ms timestamp when the supersession was recorded (ADR-028).
+pub const FIELD_SUPERSEDED_AT_MS: &str = "__vanta_superseded_at_ms";
+/// v2 (ADR-046 §D2): start of the validity window. Presence of this field also
+/// marks a node as v2 — a v1 node lacks it and normalizes `valid_at := created_at`.
+pub const FIELD_VALID_AT_MS: &str = "__vanta_valid_at_ms";
+/// v2 (ADR-046 §D2): end of the validity window (exclusive).
+pub const FIELD_INVALID_AT_MS: &str = "__vanta_invalid_at_ms";
+/// v2 (ADR-046 §D2): provenance class wire name (`Asserted`/`Derived`).
+pub const FIELD_CONFIDENCE_CLASS: &str = "__vanta_confidence_class";
+/// v2 (ADR-046 §D2): last successful re-validation timestamp.
+pub const FIELD_LAST_VALIDATED_AT_MS: &str = "__vanta_last_validated_at_ms";
+/// v2 (ADR-046 §D2): same-namespace derivation parent keys.
+pub const FIELD_DERIVED_FROM: &str = "__vanta_derived_from";
+/// v2 (ADR-046 §D5): quarantine entry timestamp (`Some` = quarantined).
+pub const FIELD_QUARANTINED_AT_MS: &str = "__vanta_quarantined_at_ms";
+/// v2 (ADR-046 §D5): stable quarantine reason code.
+pub const FIELD_QUARANTINE_REASON: &str = "__vanta_quarantine_reason";
+/// v2 (ADR-046 §D5): principal that applied the quarantine.
+pub const FIELD_QUARANTINED_BY: &str = "__vanta_quarantined_by";
+/// v2 (ADR-046 §D5): quarantine review deadline signal.
+pub const FIELD_QUARANTINE_REVIEW_DUE_MS: &str = "__vanta_quarantine_review_due_ms";
+/// Internal `ext_metadata` key storing the sparse vector on a memory record
+/// node as interleaved `ListFloat` pairs (ADR-019). Kept out of the
+/// bincode-graph so old databases read missing keys as `None`.
+pub const SPARSE_VECTOR_EXT_KEY: &str = "__vanta_sparse_vector";
+/// FIND-485: why an `INSERT` with an auto-embedded `text` field ended up
+/// **without** a vector. Present only on degraded writes; **absent** means the
+/// auto-embedding never ran (explicit `VECTOR`, no `text`, or empty text).
+///
+/// Values: `failed` (provider errored — e.g. no provider reachable),
+/// `synthetic` (provider has no real model session, so the vector is not
+/// semantic) and `unavailable` (build without the `remote-inference` feature,
+/// so there is no provider at all).
+///
+/// A plain relational key so it round-trips through storage and every read
+/// surface that returns raw fields shows it (`vanta-cli query … --json` lists
+/// all of them); the error detail stays in the adjacent `tracing::warn!`.
+/// It is listed in `RESERVED_FIELDS`, so the SDK memory API keeps it out of
+/// `MemoryRecord.metadata`.
+///
+/// Applying an explicit `VECTOR` clears it (FIND-711): a node that now has a
+/// valid vector must not keep a stale degradation mark.
+pub const FIELD_EMBED_STATUS: &str = "__vanta_embed_status";
+/// FIND-485: [`FIELD_EMBED_STATUS`] value — the provider returned an error.
+#[cfg(feature = "remote-inference")]
+pub const EMBED_STATUS_FAILED: &str = "failed";
+/// FIND-485: [`FIELD_EMBED_STATUS`] value - the provider has no real model
+/// session, so the vector it produced is not semantic. Both write paths
+/// (`INSERT` and `INSERT MESSAGE`) **drop** it and mark the record
+/// (FIND-710: one policy, not two).
+#[cfg(feature = "remote-inference")]
+pub const EMBED_STATUS_SYNTHETIC: &str = "synthetic";
+/// FIND-485: [`FIELD_EMBED_STATUS`] value — the build has no `remote-inference`
+/// feature, so there is no provider at all.
+#[cfg(not(feature = "remote-inference"))]
+pub const EMBED_STATUS_UNAVAILABLE: &str = "unavailable";
+pub(crate) const EXPORT_SCHEMA_VERSION: u32 = 2;
+pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
+pub(crate) const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
+pub(crate) const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
+pub(crate) const SPARSE_INDEX_STATE_KEY: &[u8] = b"sparse_index_state";
+pub(crate) const SPARSE_INDEX_SCHEMA_VERSION: u32 = 1;
+
+pub(crate) mod conversions;
+pub mod graph_types;
+pub(crate) mod impl_export;
+// Re-export for the CLI export path only (`cli_handlers::data`, feature `cli`).
+#[cfg(feature = "cli")]
+pub(crate) use impl_export::write_export_manifest;
+pub(crate) mod impl_index;
+pub(crate) mod impl_rebuild;
+pub(crate) mod impl_sparse_index;
+pub(crate) mod impl_text_index;
+pub mod vector_types;
+
+pub(crate) fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+/// Deterministic node id for a memory record: `XxHash3_128(ns + "\0" + key)`.
+///
+/// MEMG-03 (DIST-19 S6): the grafo↔memoria bridge. Every record projects to
+/// the node with this id (`memory_record_to_node_owned`), so memory and graph
+/// traversals meet on one stable address with no lookup table.
+pub fn memory_node_id(namespace: &str, key: &str) -> u128 {
+    let mut hasher = XxHash3_128::default();
+    hasher.write(namespace.as_bytes());
+    hasher.write(&[0]);
+    hasher.write(key.as_bytes());
+    hasher.finish_128()
+}
+
+/// Deterministic 64-bit metadata hash bit for Bloom-like filter matching.
+/// Uses 64-bit FNV-1a modulo 64.
+pub fn metadata_hash_bit(key: &str, val_repr: &str) -> usize {
+    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+
+    let mut hash = FNV_OFFSET_BASIS;
+    for byte in key.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash ^= b'=' as u64;
+    hash = hash.wrapping_mul(FNV_PRIME);
+    for byte in val_repr.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    (hash % 64) as usize
+}
+
+/// Canonical string representation of a metadata `Value` for consistent hashing.
+pub fn value_canonical_repr(v: &Value) -> String {
+    match v {
+        Value::String(s) => format!("s:{s}"),
+        Value::Int(i) => format!("i:{i}"),
+        Value::Float(f) => {
+            let bits = if *f == 0.0 {
+                0.0f64.to_bits()
+            } else {
+                f.to_bits()
+            };
+            format!("f:{bits:016x}")
+        }
+        Value::Bool(b) => {
+            if *b {
+                "b:1".to_string()
+            } else {
+                "b:0".to_string()
+            }
+        }
+        Value::DateTime(dt) => {
+            format!("d:{}", tsfmt::rfc3339_micros_z(*dt))
+        }
+        Value::ListString(list) => format!("ls:{list:?}"),
+        Value::ListInt(list) => format!("li:{list:?}"),
+        Value::ListFloat(list) => {
+            let bits: Vec<u64> = list
+                .iter()
+                .map(|f| {
+                    if *f == 0.0 {
+                        0.0f64.to_bits()
+                    } else {
+                        f.to_bits()
+                    }
+                })
+                .collect();
+            format!("lf:{bits:?}")
+        }
+        Value::ListBool(list) => format!("lb:{list:?}"),
+        Value::ListDateTime(list) => {
+            let dts: Vec<String> = list.iter().map(|dt| tsfmt::rfc3339_micros_z(*dt)).collect();
+            format!("ld:{dts:?}")
+        }
+        Value::Null => "n:".to_string(),
+    }
+}
+
+/// MCP-29: IQL table name under which a memory namespace is reachable via
+/// `SELECT * FROM <name>`. IQL identifiers (`src/parser/mod.rs::ident`) accept
+/// `[A-Za-z_][A-Za-z0-9_#.]*`, but namespaces may also contain `-` and `/`;
+/// both map to `_`. Names must start with a letter or `_`, so a leading digit
+/// or `.` is prefixed with `_`.
+///
+/// ponytail: sanitization is not injective ("a/b" and "a_b" both map to
+/// "a_b") — if that ever matters, switch to an escaping scheme here; the scan
+/// side (src/physical_plan/scan.rs) is the only caller.
+pub(crate) fn iql_table_name_for_namespace(namespace: &str) -> String {
+    let mut out = String::with_capacity(namespace.len());
+    for ch in namespace.chars() {
+        match ch {
+            '/' | '-' => out.push('_'),
+            c => out.push(c),
+        }
+    }
+    if !out.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') {
+        out.insert(0, '_');
+    }
+    out
+}
+
+/// Validate a vector dimension against the dimension established by the
+/// vector index (`expected = None` → the index holds no vector yet, so
+/// there is nothing to validate against).
+///
+/// FIND-411: a vector index holds vectors of **one** dimension. A vector
+/// (or a query vector) of a different length used to be accepted and then
+/// scored as a *perfect* match — the distance kernels returned `0.0` for two
+/// vectors of different lengths, which is the best possible Euclidean
+/// score. The mismatch is now rejected at the entry point.
+pub(crate) fn validate_vector_dimension(expected: Option<usize>, got: usize) -> Result<()> {
+    match expected {
+        Some(expected) if expected != got => Err(Error::dimension_mismatch(expected, got)),
+        _ => Ok(()),
+    }
+}
+
+pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
+    if namespace.is_empty() {
+        return Err(Error::Validation {
+            field: "namespace".into(),
+            reason: "namespace must not be empty".into(),
+        });
+    }
+    if namespace.len() > 128 {
+        return Err(Error::Validation {
+            field: "namespace".into(),
+            reason: "namespace must be at most 128 bytes".into(),
+        });
+    }
+    if !namespace
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'/' | b'-'))
+    {
+        return Err(Error::Validation {
+            field: "namespace".into(),
+            reason: "namespace may contain only A-Z, a-z, 0-9, '.', '_', '/', '-'".into(),
+        });
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_key(key: &str) -> Result<()> {
+    if key.is_empty() {
+        return Err(Error::Validation {
+            field: "key".into(),
+            reason: "key must not be empty".into(),
+        });
+    }
+    if key.len() > 512 {
+        return Err(Error::Validation {
+            field: "key".into(),
+            reason: "key must be at most 512 bytes".into(),
+        });
+    }
+    if key.as_bytes().contains(&0) {
+        return Err(Error::Validation {
+            field: "key".into(),
+            reason: "key must not contain NUL bytes".into(),
+        });
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_metadata(metadata: &MemoryMetadata) -> Result<()> {
+    if let Some(key) = metadata.keys().find(|key| key.starts_with(RESERVED_PREFIX)) {
+        return Err(Error::Validation {
+            field: "metadata".into(),
+            reason: format!("metadata key '{}' is reserved for VantaDB internals", key),
+        });
+    }
+    if let Some(key) = metadata.keys().find(|key| key.as_bytes().contains(&0)) {
+        return Err(Error::Validation {
+            field: "metadata".into(),
+            reason: format!("metadata key '{}' must not contain NUL bytes", key),
+        });
+    }
+    Ok(())
+}
+
+pub(crate) fn namespace_index_key(namespace: &str, key: &str) -> Vec<u8> {
+    let mut index_key = Vec::with_capacity(namespace.len() + 1 + key.len());
+    index_key.extend_from_slice(namespace.as_bytes());
+    index_key.push(0);
+    index_key.extend_from_slice(key.as_bytes());
+    index_key
+}
+
+pub(crate) fn namespace_index_prefix(namespace: &str) -> Vec<u8> {
+    let mut prefix = Vec::with_capacity(namespace.len() + 1);
+    prefix.extend_from_slice(namespace.as_bytes());
+    prefix.push(0);
+    prefix
+}
+
+/// Whether a `Value` can be encoded as a scalar payload-index key
+/// (`encoded_scalar_value`). List variants cannot — the derived payload index
+/// stores flattened scalar entries, so a whole-list prefix scan is impossible.
+/// `list()`/`records_for_namespace` fall back to a namespace scan and apply
+/// the filter by equality (`matches_memory_filters`) for non-scalar filter
+/// values instead of failing (ERR-026: a list/null filter must narrow, not
+/// error out).
+pub(crate) fn is_scalar_indexable(value: &Value) -> bool {
+    !matches!(
+        value,
+        Value::ListString(_)
+            | Value::ListInt(_)
+            | Value::ListFloat(_)
+            | Value::ListBool(_)
+            | Value::ListDateTime(_)
+    )
+}
+
+pub(crate) fn encoded_scalar_value(value: &Value) -> Result<Vec<u8>> {
+    match value {
+        Value::String(value) => {
+            let mut encoded = b"s:".to_vec();
+            encoded.extend_from_slice(value.as_bytes());
+            Ok(encoded)
+        }
+        Value::Int(value) => Ok(format!("i:{value}").into_bytes()),
+        Value::Float(value) => Ok(format!("f:{:016x}", value.to_bits()).into_bytes()),
+        Value::Bool(value) => {
+            if *value {
+                Ok(b"b:1".to_vec())
+            } else {
+                Ok(b"b:0".to_vec())
+            }
+        }
+        Value::DateTime(dt) => {
+            let mut encoded = b"d:".to_vec();
+            encoded.extend_from_slice(tsfmt::rfc3339_micros_z(*dt).as_bytes());
+            Ok(encoded)
+        }
+        Value::ListString(_)
+        | Value::ListInt(_)
+        | Value::ListFloat(_)
+        | Value::ListBool(_)
+        | Value::ListDateTime(_) => Err(Error::Validation {
+            field: "value".into(),
+            reason: "Cannot encode list value as scalar index key".into(),
+        }),
+        Value::Null => Ok(b"n:".to_vec()),
+    }
+}
+
+pub(crate) fn payload_index_prefix(namespace: &str, field: &str, value: &Value) -> Result<Vec<u8>> {
+    let encoded = encoded_scalar_value(value)?;
+    let mut prefix = Vec::with_capacity(namespace.len() + field.len() + encoded.len() + 3);
+    prefix.extend_from_slice(namespace.as_bytes());
+    prefix.push(0);
+    prefix.extend_from_slice(field.as_bytes());
+    prefix.push(0);
+    prefix.extend_from_slice(&encoded);
+    prefix.push(0);
+    Ok(prefix)
+}
+
+pub(crate) fn payload_index_key(
+    namespace: &str,
+    field: &str,
+    value: &Value,
+    key: &str,
+) -> Result<Vec<u8>> {
+    let mut index_key = payload_index_prefix(namespace, field, value)?;
+    index_key.extend_from_slice(key.as_bytes());
+    Ok(index_key)
+}
+
+pub(crate) fn node_id_bytes(node_id: u128) -> Vec<u8> {
+    node_id.to_le_bytes().to_vec()
+}
+
+pub(crate) fn decode_node_id(bytes: &[u8]) -> Option<u128> {
+    if bytes.len() != std::mem::size_of::<u128>() {
+        return None;
+    }
+    let mut id = [0u8; 16];
+    id.copy_from_slice(bytes);
+    Some(u128::from_le_bytes(id))
+}
+
+pub(crate) fn get_string_field(fields: &Fields, key: &str) -> Option<String> {
+    match fields.get(key) {
+        Some(Value::String(value)) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+pub(crate) fn get_u64_field(fields: &Fields, key: &str) -> Option<u64> {
+    match fields.get(key) {
+        Some(Value::Int(value)) if *value >= 0 => Some(*value as u64),
+        _ => None,
+    }
+}
+
+pub(crate) fn get_string_list_field(fields: &Fields, key: &str) -> Option<Vec<String>> {
+    match fields.get(key) {
+        Some(Value::ListString(values)) => Some(values.clone()),
+        _ => None,
+    }
+}
+
+/// Encode a `SparseVector` into the persisted `ListFloat` field format:
+/// interleaved `[dim_0, val_0, dim_1, val_1, ...]` (ADR-019). Both `u32` dims
+/// and `f32` weights are exactly representable in `f64`, so the round-trip is
+/// lossless, and `BTreeMap` iteration keeps the encoding deterministic.
+fn sparse_vector_to_field(sparse: &SparseVector) -> FieldValue {
+    let mut flat = Vec::with_capacity(sparse.0.len() * 2);
+    for (dim, weight) in &sparse.0 {
+        flat.push(*dim as f64);
+        flat.push(*weight as f64);
+    }
+    FieldValue::ListFloat(flat)
+}
+
+/// Decode a persisted `ListFloat` sparse field back into a `SparseVector`.
+/// Returns `None` for malformed payloads (odd length or invalid dims),
+/// matching the corrupt handling of the legacy JSON path.
+fn sparse_vector_from_field(flat: &[f64]) -> Option<SparseVector> {
+    if flat.len() % 2 != 0 {
+        return None;
+    }
+    let mut map = std::collections::BTreeMap::new();
+    for pair in flat.chunks_exact(2) {
+        let dim = pair[0];
+        // AUD-023 (P2-7): `dim as u32` satura silenciosamente NaN/negativos/
+        // out-of-range y trunca dims no-enteras, corrompiendo el vector. Rechazar
+        // el payload completo en vez de persistir un dim inválido.
+        if !dim.is_finite() || dim < 0.0 || dim > u32::MAX as f64 || dim.fract() != 0.0 {
+            return None;
+        }
+        map.insert(dim as u32, pair[1] as f32);
+    }
+    Some(SparseVector(map))
+}
+
+/// Decode the persisted [`SPARSE_VECTOR_EXT_KEY`] field value back into a
+/// `SparseVector` — the exact logic `memory_record_from_node_inner` uses.
+/// `ListFloat` pairs are the current encoding (ADR-019); the legacy
+/// `String`/JSON form remains readable. A present-but-corrupt payload logs
+/// once and reads as `None` (never fails the read). Extracted so paths that
+/// rebuild a record's sparse vector straight from stored relational fields
+/// (e.g. `purge_expired`, FIND-251) share the identical decode.
+pub(crate) fn sparse_vector_from_stored_field(
+    field: Option<&FieldValue>,
+    node_id: u128,
+) -> Option<SparseVector> {
+    match field {
+        Some(FieldValue::ListFloat(flat)) => match sparse_vector_from_field(flat) {
+            Some(parsed) => Some(parsed),
+            None => {
+                tracing::warn!(
+                    node_id = %node_id,
+                    "corrupt sparse vector payload (malformed ListFloat pairs) ignored during read"
+                );
+                None
+            }
+        },
+        Some(FieldValue::String(json)) => match serde_json::from_str(json) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                // PERF-07: a present-but-corrupt sparse payload was silently
+                // dropped by `.ok()`. Log it once so the corruption is
+                // visible, but keep returning None (old behavior) rather than
+                // failing the whole read.
+                tracing::warn!(
+                    node_id = %node_id,
+                    error = %err,
+                    "corrupt sparse vector payload ignored during read"
+                );
+                None
+            }
+        },
+        _ => None,
+    }
+}
+
+pub fn record_from_node(node: &UnifiedNode) -> Option<MemoryRecord> {
+    memory_record_from_node_inner(node, true)
+}
+
+/// Deprecated alias of [`record_from_node`] (anti-stutter AST-005).
+#[deprecated(since = "0.5.0", note = "use `record_from_node` instead")]
+pub fn memory_record_from_node(node: &UnifiedNode) -> Option<MemoryRecord> {
+    record_from_node(node)
+}
+
+/// Like [`record_from_node`] but **without** lazy TTL eviction: records
+/// whose deadline has passed are still returned so callers can observe them
+/// (e.g. per-namespace TTL statistics).
+pub(crate) fn memory_record_from_node_include_expired(node: &UnifiedNode) -> Option<MemoryRecord> {
+    memory_record_from_node_inner(node, false)
+}
+
+fn memory_record_from_node_inner(node: &UnifiedNode, apply_lazy_ttl: bool) -> Option<MemoryRecord> {
+    if !node.is_alive() {
+        return None;
+    }
+
+    let mut fields: Fields = node
+        .relational
+        .iter()
+        .map(|(key, value)| (key.clone(), value.clone().into()))
+        .collect();
+
+    // ponytail: the set of reserved field names is declared once and used both
+    // to strip them from `metadata` below and to document which keys the
+    // helpers consume above. Adding a new reserved field is a single edit.
+    const RESERVED_FIELDS: &[&str] = &[
+        FIELD_NAMESPACE,
+        FIELD_KEY,
+        FIELD_PAYLOAD,
+        FIELD_CREATED_AT_MS,
+        FIELD_UPDATED_AT_MS,
+        FIELD_VERSION,
+        FIELD_EXPIRES_AT_MS,
+        FIELD_SUPERSEDED_BY,
+        FIELD_SUPERSEDED_AT_MS,
+        FIELD_VALID_AT_MS,
+        FIELD_INVALID_AT_MS,
+        FIELD_CONFIDENCE_CLASS,
+        FIELD_LAST_VALIDATED_AT_MS,
+        FIELD_DERIVED_FROM,
+        FIELD_QUARANTINED_AT_MS,
+        FIELD_QUARANTINE_REASON,
+        FIELD_QUARANTINED_BY,
+        FIELD_QUARANTINE_REVIEW_DUE_MS,
+        SPARSE_VECTOR_EXT_KEY,
+        FIELD_EMBED_STATUS,
+    ];
+
+    let namespace = get_string_field(&fields, FIELD_NAMESPACE)?;
+    let key = get_string_field(&fields, FIELD_KEY)?;
+    let payload = get_string_field(&fields, FIELD_PAYLOAD)?;
+    let created_at_ms = get_u64_field(&fields, FIELD_CREATED_AT_MS)?;
+    let updated_at_ms = get_u64_field(&fields, FIELD_UPDATED_AT_MS)?;
+    let version = get_u64_field(&fields, FIELD_VERSION)?;
+    let expires_at_ms = get_u64_field(&fields, FIELD_EXPIRES_AT_MS);
+    let superseded_by = get_string_field(&fields, FIELD_SUPERSEDED_BY);
+    let superseded_at_ms = get_u64_field(&fields, FIELD_SUPERSEDED_AT_MS);
+
+    // v2 fields (ADR-046 §D2/§D7). A node without FIELD_VALID_AT_MS is a v1
+    // node — normalize to the D2 defaults (`valid_at := created_at`, class
+    // `Asserted`, `confidence := D_a`) instead of reading the legacy 0.5
+    // `confidence_score`. `0` is the documented "unset" sentinel.
+    let is_v2 = fields.contains_key(FIELD_VALID_AT_MS);
+    let valid_at_ms = match get_u64_field(&fields, FIELD_VALID_AT_MS) {
+        Some(value) if value != 0 => value,
+        _ => created_at_ms,
+    };
+    let invalid_at_ms = get_u64_field(&fields, FIELD_INVALID_AT_MS);
+    let confidence_class = match get_string_field(&fields, FIELD_CONFIDENCE_CLASS) {
+        Some(wire) => ConfidenceClass::from_wire_str(&wire).unwrap_or_else(|| {
+            tracing::warn!(
+                node_id = %node.id,
+                value = %wire,
+                "unknown confidence_class value ignored during read"
+            );
+            ConfidenceClass::Asserted
+        }),
+        None => ConfidenceClass::Asserted,
+    };
+    let confidence = if is_v2 {
+        node.confidence_score
+    } else {
+        default_confidence()
+    };
+    let derived_from = get_string_list_field(&fields, FIELD_DERIVED_FROM).unwrap_or_default();
+    let last_validated_at_ms = get_u64_field(&fields, FIELD_LAST_VALIDATED_AT_MS);
+    let quarantined_at_ms = get_u64_field(&fields, FIELD_QUARANTINED_AT_MS);
+    let quarantine_reason = get_string_field(&fields, FIELD_QUARANTINE_REASON);
+    let quarantined_by = get_string_field(&fields, FIELD_QUARANTINED_BY);
+    let quarantine_review_due_ms = get_u64_field(&fields, FIELD_QUARANTINE_REVIEW_DUE_MS);
+
+    for reserved in RESERVED_FIELDS {
+        fields.remove(*reserved);
+    }
+
+    // Lazy TTL eviction: if expires_at_ms is set and the deadline
+    // has passed, the record is treated as if it no longer exists.
+    if apply_lazy_ttl {
+        if let Some(deadline) = expires_at_ms {
+            if deadline > 0 {
+                let now = now_ms();
+                if now > deadline {
+                    return None;
+                }
+            }
+        }
+    }
+
+    let vector = match &node.vector {
+        VectorRepresentations::Full(vector) => Some(vector.clone()),
+        _ => None,
+    };
+
+    // Sparse vector persisted as a reserved relational field (survives the
+    // KV round-trip via NodeMetadata; `ext_metadata` is memory-only).
+    // Missing key => None (old records). The parse is conditional: nodes
+    // without SPARSE_VECTOR_EXT_KEY skip serde_json entirely (PERF-07).
+    // ADR-019: new writes are ListFloat pairs; legacy String/JSON remains
+    // readable for backward compat.
+    let sparse_vector =
+        sparse_vector_from_stored_field(node.get_field(SPARSE_VECTOR_EXT_KEY), node.id);
+
+    Some(MemoryRecord {
+        namespace,
+        key,
+        payload,
+        metadata: fields,
+        created_at_ms,
+        updated_at_ms,
+        version,
+        node_id: node.id,
+        vector,
+        sparse_vector,
+        expires_at_ms,
+        superseded_by,
+        superseded_at_ms,
+        valid_at_ms,
+        invalid_at_ms,
+        confidence_class,
+        confidence,
+        last_validated_at_ms,
+        derived_from,
+        quarantined_at_ms,
+        quarantine_reason,
+        quarantined_by,
+        quarantine_review_due_ms,
+    })
+}
+
+/// Project a record to its graph node (MEMG-03): the node id is the record's
+/// deterministic [`memory_node_id`], and the record's addressing fields
+/// travel on the node. Returns the node plus the record back.
+pub fn memory_record_to_node_owned(mut record: MemoryRecord) -> (UnifiedNode, MemoryRecord) {
+    let namespace = std::mem::take(&mut record.namespace);
+    let key = std::mem::take(&mut record.key);
+    let payload = std::mem::take(&mut record.payload);
+    let metadata = std::mem::take(&mut record.metadata);
+    let vector = record.vector.take();
+    let sparse_vector = std::mem::take(&mut record.sparse_vector);
+
+    let mut node = UnifiedNode::new(record.node_id);
+    node.set_field(FIELD_NAMESPACE, FieldValue::String(namespace.clone()));
+    node.set_field(FIELD_KEY, FieldValue::String(key.clone()));
+    node.set_field(FIELD_PAYLOAD, FieldValue::String(payload.clone()));
+    node.set_field(
+        FIELD_CREATED_AT_MS,
+        FieldValue::Int(record.created_at_ms as i64),
+    );
+    node.set_field(
+        FIELD_UPDATED_AT_MS,
+        FieldValue::Int(record.updated_at_ms as i64),
+    );
+    node.set_field(FIELD_VERSION, FieldValue::Int(record.version as i64));
+
+    if let Some(expires_at) = record.expires_at_ms {
+        node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at as i64));
+    }
+
+    if let Some(superseded_by) = record.superseded_by.clone() {
+        node.set_field(FIELD_SUPERSEDED_BY, FieldValue::String(superseded_by));
+    }
+    if let Some(superseded_at) = record.superseded_at_ms {
+        node.set_field(
+            FIELD_SUPERSEDED_AT_MS,
+            FieldValue::Int(superseded_at as i64),
+        );
+    }
+
+    // v2 fields (ADR-046 §D2/§D6): the record is canonical; the node is a
+    // projection. FIELD_VALID_AT_MS is always written — its presence marks the
+    // node as v2 for read-side normalization.
+    node.set_field(
+        FIELD_VALID_AT_MS,
+        FieldValue::Int(record.valid_at_ms as i64),
+    );
+    if let Some(invalid_at) = record.invalid_at_ms {
+        node.set_field(FIELD_INVALID_AT_MS, FieldValue::Int(invalid_at as i64));
+    }
+    node.set_field(
+        FIELD_CONFIDENCE_CLASS,
+        FieldValue::String(record.confidence_class.as_wire_str().to_string()),
+    );
+    node.confidence_score = record.confidence;
+    if let Some(last_validated) = record.last_validated_at_ms {
+        node.set_field(
+            FIELD_LAST_VALIDATED_AT_MS,
+            FieldValue::Int(last_validated as i64),
+        );
+    }
+    if !record.derived_from.is_empty() {
+        node.set_field(
+            FIELD_DERIVED_FROM,
+            FieldValue::ListString(record.derived_from.clone()),
+        );
+    }
+    if let Some(quarantined_at) = record.quarantined_at_ms {
+        node.set_field(
+            FIELD_QUARANTINED_AT_MS,
+            FieldValue::Int(quarantined_at as i64),
+        );
+    }
+    if let Some(reason) = record.quarantine_reason.clone() {
+        node.set_field(FIELD_QUARANTINE_REASON, FieldValue::String(reason));
+    }
+    if let Some(by) = record.quarantined_by.clone() {
+        node.set_field(FIELD_QUARANTINED_BY, FieldValue::String(by));
+    }
+    if let Some(review_due) = record.quarantine_review_due_ms {
+        node.set_field(
+            FIELD_QUARANTINE_REVIEW_DUE_MS,
+            FieldValue::Int(review_due as i64),
+        );
+    }
+
+    // Populate Bloom-like FilterBitset for multi-tenant and equality filtering
+    node.bitset.set_bit(metadata_hash_bit("__ns__", &namespace));
+
+    // ponytail: iterar por referencia, no clonar todo el HashMap solo para leerlo
+    for (k, v) in &metadata {
+        let repr = value_canonical_repr(v);
+        node.bitset.set_bit(metadata_hash_bit(k, &repr));
+        node.set_field(k.clone(), v.clone().into());
+    }
+
+    let vector = vector.filter(|v| !v.is_empty());
+    if let Some(ref vec) = vector {
+        node.vector = VectorRepresentations::Full(vec.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+    }
+
+    if let Some(sparse) = &sparse_vector {
+        // ADR-019: persist as interleaved ListFloat pairs — no serde_json on
+        // the write hot path. Empty vectors write an empty ListFloat (matches
+        // legacy `"{}"` round-trip semantics).
+        node.set_field(SPARSE_VECTOR_EXT_KEY, sparse_vector_to_field(sparse));
+    }
+
+    record.namespace = namespace;
+    record.key = key;
+    record.payload = payload;
+    record.metadata = metadata;
+    record.vector = vector;
+    record.sparse_vector = sparse_vector;
+
+    (node, record)
+}
+
+/// Convert a `MemoryRecord` into a JSONL export line with schema version.
+pub fn export_line_from_record(record: MemoryRecord) -> MemoryExportLine {
+    MemoryExportLine {
+        schema_version: EXPORT_SCHEMA_VERSION,
+        namespace: record.namespace,
+        key: record.key,
+        payload: record.payload,
+        metadata: record.metadata,
+        vector: record.vector,
+        sparse_vector: record.sparse_vector,
+        created_at_ms: record.created_at_ms,
+        updated_at_ms: record.updated_at_ms,
+        version: record.version,
+        expires_at_ms: record.expires_at_ms,
+        superseded_by: record.superseded_by,
+        superseded_at_ms: record.superseded_at_ms,
+        valid_at_ms: record.valid_at_ms,
+        invalid_at_ms: record.invalid_at_ms,
+        confidence_class: record.confidence_class,
+        confidence: record.confidence,
+        last_validated_at_ms: record.last_validated_at_ms,
+        derived_from: record.derived_from,
+        quarantined_at_ms: record.quarantined_at_ms,
+        quarantine_reason: record.quarantine_reason,
+        quarantined_by: record.quarantined_by,
+        quarantine_review_due_ms: record.quarantine_review_due_ms,
+    }
+}
+
+/// Boundary validation shared by import (v2 lines) and the SDK put path
+/// (mgr-12 §3.1): finite `[0,1]` confidence + V1 class/parents consistency.
+/// Deeper derivation checks (parent existence, depth) run on the validated
+/// write path, not on transport.
+pub(crate) fn validate_confidence_fields(
+    class: ConfidenceClass,
+    derived_from: &[String],
+    confidence: f32,
+) -> Result<()> {
+    if !confidence.is_finite() || !(0.0..=1.0).contains(&confidence) {
+        return Err(Error::Validation {
+            field: "confidence".into(),
+            reason: "confidence must be a finite number in [0,1]".into(),
+        });
+    }
+    match class {
+        ConfidenceClass::Asserted => {
+            if !derived_from.is_empty() {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: "asserted records cannot declare derived_from parents".into(),
+                });
+            }
+            Ok(())
+        }
+        ConfidenceClass::Derived => {
+            if derived_from.is_empty() {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: "derived records require a non-empty derived_from parent list".into(),
+                });
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Rebuild a `MemoryRecord` from a JSONL export line, recomputing the
+/// deterministic node id (`memory_node_id(namespace, key)`). The inverse of
+/// [`export_line_from_record`] — used by import paths that receive JSONL
+/// content as a string (e.g. the MCP `import` tool) instead of a file.
+///
+/// ADR-046 §D7: accepts `schema_version ∈ {1, 2}` (v1 lines are normalized
+/// with the backfill defaults; v2 lines are preserved) and rejects anything
+/// else (TooNew for `> 2`, invalid for `0`). Export always emits v2.
+pub fn record_from_export_line(line: MemoryExportLine) -> Result<MemoryRecord> {
+    if !(1..=EXPORT_SCHEMA_VERSION).contains(&line.schema_version) {
+        return Err(Error::Validation {
+            field: "schema_version".into(),
+            reason: format!(
+                "unsupported memory export schema_version {}; supported: 1..={}",
+                line.schema_version, EXPORT_SCHEMA_VERSION
+            ),
+        });
+    }
+
+    let is_v1 = line.schema_version == 1;
+    // v1 normalization (ADR-046 §D7 table #3 + §Migration): valid_at =
+    // created_at, invalid_at = superseded_at (if superseded), class Asserted,
+    // confidence D_a, last_validated None, derived_from [], quarantine None×4.
+    let valid_at_ms = if line.valid_at_ms == 0 {
+        line.created_at_ms
+    } else {
+        line.valid_at_ms
+    };
+    let invalid_at_ms = if is_v1 {
+        if line.superseded_by.is_some() {
+            line.superseded_at_ms
+        } else {
+            None
+        }
+    } else {
+        line.invalid_at_ms
+    };
+    let confidence_class = if is_v1 {
+        ConfidenceClass::Asserted
+    } else {
+        line.confidence_class
+    };
+    let confidence = if is_v1 {
+        default_confidence()
+    } else {
+        line.confidence
+    };
+    let last_validated_at_ms = if is_v1 {
+        None
+    } else {
+        line.last_validated_at_ms
+    };
+    let derived_from = if is_v1 { Vec::new() } else { line.derived_from };
+    let (quarantined_at_ms, quarantine_reason, quarantined_by, quarantine_review_due_ms) = if is_v1
+    {
+        (None, None, None, None)
+    } else {
+        (
+            line.quarantined_at_ms,
+            line.quarantine_reason,
+            line.quarantined_by,
+            line.quarantine_review_due_ms,
+        )
+    };
+
+    validate_confidence_fields(confidence_class, &derived_from, confidence)?;
+    if let Some(invalid_at) = invalid_at_ms {
+        if valid_at_ms > invalid_at {
+            return Err(Error::Validation {
+                field: "invalid_at_ms".into(),
+                reason: format!(
+                    "valid_at_ms ({valid_at_ms}) must be <= invalid_at_ms ({invalid_at})"
+                ),
+            });
+        }
+    }
+    // O1 — D3-3 alignment is deliberately NOT enforced on import: 0.8.0 always
+    // writes `invalid_at == superseded_at`, but the future retroactive setter
+    // (API v1.0) may diverge them. The transport tolerates and preserves both
+    // values verbatim (documented tolerance); only the window order is
+    // validated above. Test: `record_from_export_line_tolerates_d3_divergence`.
+
+    let node_id = memory_node_id(&line.namespace, &line.key);
+    Ok(MemoryRecord {
+        namespace: line.namespace,
+        key: line.key,
+        payload: line.payload,
+        metadata: line.metadata,
+        created_at_ms: line.created_at_ms,
+        updated_at_ms: line.updated_at_ms,
+        version: line.version,
+        node_id,
+        vector: line.vector,
+        sparse_vector: line.sparse_vector,
+        expires_at_ms: line.expires_at_ms,
+        superseded_by: line.superseded_by,
+        superseded_at_ms: line.superseded_at_ms,
+        valid_at_ms,
+        invalid_at_ms,
+        confidence_class,
+        confidence,
+        last_validated_at_ms,
+        derived_from,
+        quarantined_at_ms,
+        quarantine_reason,
+        quarantined_by,
+        quarantine_review_due_ms,
+    })
+}
+
+pub(crate) fn matches_memory_filters(record: &MemoryRecord, filters: &MemoryMetadata) -> bool {
+    filters
+        .iter()
+        .all(|(key, expected)| record.metadata.get(key) == Some(expected))
+}
+
+pub(crate) fn matches_advanced_filters(
+    record: &MemoryRecord,
+    filter_ops: &crate::sdk::types::MemoryFilter,
+) -> bool {
+    filter_ops.iter().all(|op_item| {
+        if let Some(actual) = record.metadata.get(&op_item.field) {
+            match op_item.op {
+                crate::sdk::types::FilterOp::Eq => actual == &op_item.value,
+                crate::sdk::types::FilterOp::Neq => actual != &op_item.value,
+                crate::sdk::types::FilterOp::Gt => actual > &op_item.value,
+                crate::sdk::types::FilterOp::Gte => actual >= &op_item.value,
+                crate::sdk::types::FilterOp::Lt => actual < &op_item.value,
+                crate::sdk::types::FilterOp::Lte => actual <= &op_item.value,
+            }
+        } else {
+            false
+        }
+    })
+}
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_term_stats_key_valid() {
+        let key = b"\xffvanta_text_v3\0term\0myns\0mytoken";
+        let result = Embedded::parse_term_stats_key(key);
+        assert_eq!(result, Some(("myns".into(), "mytoken".into())));
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_invalid_utf8() {
+        let key = b"\xffvanta_text_v3\0term\0myns\0\xff\xfe";
+        let result = Embedded::parse_term_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_invalid_namespace_utf8() {
+        let key = b"\xffvanta_text_v3\0term\0\xff\xfe\0token";
+        let result = Embedded::parse_term_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_truncated() {
+        let key = b"\xffvanta_text_v3\0term";
+        let result = Embedded::parse_term_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_namespace_stats_key_valid() {
+        let key = b"\xffvanta_text_v3\0ns\0myns";
+        let result = Embedded::parse_namespace_stats_key(key);
+        assert_eq!(result, Some("myns".into()));
+    }
+
+    #[test]
+    fn test_parse_namespace_stats_key_invalid_utf8() {
+        let key = b"\xffvanta_text_v3\0ns\0\xff\xfe";
+        let result = Embedded::parse_namespace_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_namespace_stats_key_truncated() {
+        let key = b"\xffvanta_text_v3\0ns";
+        let result = Embedded::parse_namespace_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    // ΓöÇΓöÇΓöÇ now_ms ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_now_ms_non_zero() {
+        let t = now_ms();
+        assert!(
+            t > 1_700_000_000_000,
+            "expected reasonable Unix ms, got {t}"
+        );
+    }
+
+    // ΓöÇΓöÇΓöÇ memory_node_id ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_memory_node_id_deterministic() {
+        let a = memory_node_id("ns", "key1");
+        let b = memory_node_id("ns", "key1");
+        assert_eq!(a, b);
+
+        let c = memory_node_id("ns", "key2");
+        assert_ne!(a, c);
+
+        let d = memory_node_id("other", "key1");
+        assert_ne!(a, d);
+    }
+
+    // DIST-19 S6 (MEMG-03): the grafo↔memoria bridge — a record projects to
+    // the node whose id is the deterministic `memory_node_id(ns, key)`, and
+    // the node carries the namespace/key back (ns+key ↔ node_id round-trip).
+    #[test]
+    fn test_record_to_node_preserves_deterministic_id() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "key1".into(),
+            node_id: memory_node_id("ns", "key1"),
+            ..Default::default()
+        };
+        let (node, _) = memory_record_to_node_owned(record);
+        assert_eq!(node.id, memory_node_id("ns", "key1"));
+        assert_eq!(
+            node.get_field(FIELD_NAMESPACE),
+            Some(&FieldValue::String("ns".into()))
+        );
+        assert_eq!(
+            node.get_field(FIELD_KEY),
+            Some(&FieldValue::String("key1".into()))
+        );
+    }
+
+    // ΓöÇΓöÇΓöÇ validate_namespace ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_validate_namespace_empty() {
+        let err = validate_namespace("").unwrap_err();
+        assert!(err.to_string().contains("namespace must not be empty"));
+    }
+
+    #[test]
+    fn test_validate_namespace_too_long() {
+        let long = "a".repeat(129);
+        let err = validate_namespace(&long).unwrap_err();
+        assert!(err.to_string().contains("at most 128"));
+    }
+
+    #[test]
+    fn test_validate_namespace_invalid_chars() {
+        let err = validate_namespace("hello world").unwrap_err();
+        assert!(err.to_string().contains("may contain only"));
+        let err2 = validate_namespace("ns@name").unwrap_err();
+        assert!(err2.to_string().contains("may contain only"));
+    }
+
+    #[test]
+    fn test_validate_namespace_valid() {
+        assert!(validate_namespace("my.namespace/foo_bar-baz").is_ok());
+        assert!(validate_namespace("a").is_ok());
+        assert!(validate_namespace("a.b/c_d-e").is_ok());
+        assert!(validate_namespace("default").is_ok());
+    }
+
+    // ΓöÇΓöÇΓöÇ validate_key ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_validate_key_empty() {
+        let err = validate_key("").unwrap_err();
+        assert!(err.to_string().contains("key must not be empty"));
+    }
+
+    #[test]
+    fn test_validate_key_too_long() {
+        let long = "a".repeat(513);
+        let err = validate_key(&long).unwrap_err();
+        assert!(err.to_string().contains("at most 512"));
+    }
+
+    #[test]
+    fn test_validate_key_nul_byte() {
+        let err = validate_key("bad\0key").unwrap_err();
+        assert!(err.to_string().contains("must not contain NUL"));
+    }
+
+    #[test]
+    fn test_validate_key_valid() {
+        assert!(validate_key("hello_world").is_ok());
+        assert!(validate_key("a").is_ok());
+        assert!(validate_key("Σ╜áσÑ╜").is_ok());
+    }
+
+    // ΓöÇΓöÇΓöÇ validate_metadata ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_validate_metadata_reserved_prefix() {
+        let mut meta = MemoryMetadata::new();
+        meta.insert("__vanta_foo".into(), Value::String("x".into()));
+        let err = validate_metadata(&meta).unwrap_err();
+        assert!(err.to_string().contains("reserved"));
+    }
+
+    #[test]
+    fn test_validate_metadata_nul_in_key() {
+        let mut meta = MemoryMetadata::new();
+        meta.insert("bad\0key".into(), Value::Int(1));
+        let err = validate_metadata(&meta).unwrap_err();
+        assert!(err.to_string().contains("NUL"));
+    }
+
+    #[test]
+    fn test_validate_metadata_valid() {
+        let mut meta = MemoryMetadata::new();
+        meta.insert("color".into(), Value::String("blue".into()));
+        assert!(validate_metadata(&meta).is_ok());
+        assert!(validate_metadata(&MemoryMetadata::new()).is_ok());
+    }
+
+    // ΓöÇΓöÇΓöÇ namespace_index_key / namespace_index_prefix ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_namespace_index_key_format() {
+        let key = namespace_index_key("myns", "mykey");
+        assert_eq!(key, b"myns\0mykey");
+    }
+
+    #[test]
+    fn test_namespace_index_prefix_format() {
+        let prefix = namespace_index_prefix("myns");
+        assert_eq!(prefix, b"myns\0");
+    }
+
+    // ΓöÇΓöÇΓöÇ encoded_scalar_value ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_encoded_scalar_value_string() {
+        let encoded = encoded_scalar_value(&Value::String("hello".into())).unwrap();
+        assert_eq!(encoded, b"s:hello");
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_int() {
+        let encoded = encoded_scalar_value(&Value::Int(42)).unwrap();
+        assert_eq!(encoded, b"i:42");
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_float() {
+        let encoded = encoded_scalar_value(&Value::Float(1.5)).unwrap();
+        assert!(encoded.starts_with(b"f:"));
+        assert_eq!(encoded.len(), 18); // "f:" + 16 hex chars
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_bool() {
+        assert_eq!(encoded_scalar_value(&Value::Bool(true)).unwrap(), b"b:1");
+        assert_eq!(encoded_scalar_value(&Value::Bool(false)).unwrap(), b"b:0");
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_datetime() {
+        let dt: jiff::Timestamp = "2025-01-15T10:30:00Z".parse().unwrap();
+        let encoded = encoded_scalar_value(&Value::DateTime(dt)).unwrap();
+        assert!(encoded.starts_with(b"d:"));
+        assert!(String::from_utf8_lossy(&encoded).contains("2025-01-15"));
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_null() {
+        assert_eq!(encoded_scalar_value(&Value::Null).unwrap(), b"n:");
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_list_returns_error() {
+        assert!(encoded_scalar_value(&Value::ListString(vec!["a".into()])).is_err());
+        assert!(encoded_scalar_value(&Value::ListInt(vec![1])).is_err());
+        assert!(encoded_scalar_value(&Value::ListFloat(vec![1.0])).is_err());
+        assert!(encoded_scalar_value(&Value::ListBool(vec![true])).is_err());
+        assert!(encoded_scalar_value(&Value::ListDateTime(vec![])).is_err());
+    }
+
+    // ΓöÇΓöÇΓöÇ payload_index_prefix / payload_index_key ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_payload_index_prefix_string() {
+        let prefix = payload_index_prefix("ns", "color", &Value::String("red".into())).unwrap();
+        assert_eq!(prefix, b"ns\0color\0s:red\0");
+    }
+
+    #[test]
+    fn test_payload_index_prefix_int() {
+        let prefix = payload_index_prefix("ns", "age", &Value::Int(30)).unwrap();
+        assert_eq!(prefix, b"ns\0age\0i:30\0");
+    }
+
+    #[test]
+    fn test_payload_index_prefix_list_error() {
+        let result = payload_index_prefix("ns", "f", &Value::ListInt(vec![1]));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_payload_index_key() {
+        let key = payload_index_key("ns", "status", &Value::String("ok".into()), "mykey").unwrap();
+        assert_eq!(key, b"ns\0status\0s:ok\0mykey");
+    }
+
+    // ΓöÇΓöÇΓöÇ node_id_bytes / decode_node_id ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_node_id_roundtrip() {
+        let id: u128 = 0xdeadbeefcafe;
+        let bytes = node_id_bytes(id);
+        assert_eq!(bytes.len(), 16);
+        let decoded = decode_node_id(&bytes).unwrap();
+        assert_eq!(decoded, id);
+    }
+
+    #[test]
+    fn test_decode_node_id_wrong_length() {
+        assert!(decode_node_id(&[0u8; 8]).is_none());
+        assert!(decode_node_id(&[]).is_none());
+        assert!(decode_node_id(&[0u8; 17]).is_none());
+    }
+
+    #[test]
+    fn test_decode_node_id_zero() {
+        let bytes = node_id_bytes(0);
+        assert_eq!(decode_node_id(&bytes), Some(0));
+    }
+
+    // ΓöÇΓöÇΓöÇ get_string_field / get_u64_field ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_get_string_field_present() {
+        let mut fields = Fields::new();
+        fields.insert("name".into(), Value::String("Alice".into()));
+        assert_eq!(get_string_field(&fields, "name"), Some("Alice".into()));
+    }
+
+    #[test]
+    fn test_get_string_field_missing() {
+        let fields = Fields::new();
+        assert_eq!(get_string_field(&fields, "name"), None);
+    }
+
+    #[test]
+    fn test_get_string_field_wrong_type() {
+        let mut fields = Fields::new();
+        fields.insert("age".into(), Value::Int(30));
+        assert_eq!(get_string_field(&fields, "age"), None);
+    }
+
+    #[test]
+    fn test_get_u64_field_present() {
+        let mut fields = Fields::new();
+        fields.insert("count".into(), Value::Int(42));
+        assert_eq!(get_u64_field(&fields, "count"), Some(42));
+    }
+
+    #[test]
+    fn test_get_u64_field_negative_rejected() {
+        let mut fields = Fields::new();
+        fields.insert("neg".into(), Value::Int(-5));
+        assert_eq!(get_u64_field(&fields, "neg"), None);
+    }
+
+    #[test]
+    fn test_get_u64_field_missing() {
+        let fields = Fields::new();
+        assert_eq!(get_u64_field(&fields, "x"), None);
+    }
+
+    #[test]
+    fn test_get_u64_field_wrong_type() {
+        let mut fields = Fields::new();
+        fields.insert("name".into(), Value::String("x".into()));
+        assert_eq!(get_u64_field(&fields, "name"), None);
+    }
+
+    // ΓöÇΓöÇΓöÇ memory_record_from_node ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    fn make_memory_node(id: u128, namespace: &str, key: &str) -> UnifiedNode {
+        use crate::node::FieldValue;
+        let mut node = UnifiedNode::new(id);
+        node.set_field(FIELD_NAMESPACE, FieldValue::String(namespace.to_string()));
+        node.set_field(FIELD_KEY, FieldValue::String(key.to_string()));
+        node.set_field(FIELD_PAYLOAD, FieldValue::String("test payload".into()));
+        node.set_field(FIELD_CREATED_AT_MS, FieldValue::Int(1000));
+        node.set_field(FIELD_UPDATED_AT_MS, FieldValue::Int(1000));
+        node.set_field(FIELD_VERSION, FieldValue::Int(1));
+        node
+    }
+
+    #[test]
+    fn test_record_from_node_valid() {
+        let node = make_memory_node(42, "myns", "mykey");
+        let record = record_from_node(&node).unwrap();
+        assert_eq!(record.namespace, "myns");
+        assert_eq!(record.key, "mykey");
+        assert_eq!(record.payload, "test payload");
+        assert_eq!(record.created_at_ms, 1000);
+        assert_eq!(record.updated_at_ms, 1000);
+        assert_eq!(record.version, 1);
+        assert_eq!(record.node_id, 42);
+        assert!(record.metadata.is_empty());
+        assert!(record.vector.is_none());
+        assert!(record.expires_at_ms.is_none());
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_record_from_node_deprecated_alias() {
+        let node = make_memory_node(42, "myns", "mykey");
+        let via_new = record_from_node(&node).unwrap();
+        let via_old = memory_record_from_node(&node).unwrap();
+        assert_eq!(via_new.node_id, via_old.node_id);
+        assert_eq!(via_new.payload, via_old.payload);
+    }
+
+    #[test]
+    fn test_record_from_node_deleted() {
+        let mut node = make_memory_node(1, "ns", "k");
+        node.mark_deleted();
+        assert!(record_from_node(&node).is_none());
+    }
+
+    #[test]
+    fn test_record_from_node_missing_required_fields() {
+        let node = UnifiedNode::new(1);
+        assert!(record_from_node(&node).is_none());
+    }
+
+    #[test]
+    fn test_record_from_node_expired() {
+        let mut node = UnifiedNode::new(1);
+        node.set_field(
+            FIELD_NAMESPACE,
+            crate::node::FieldValue::String("ns".into()),
+        );
+        node.set_field(FIELD_KEY, crate::node::FieldValue::String("k".into()));
+        node.set_field(FIELD_PAYLOAD, crate::node::FieldValue::String("p".into()));
+        node.set_field(FIELD_CREATED_AT_MS, crate::node::FieldValue::Int(1000));
+        node.set_field(FIELD_UPDATED_AT_MS, crate::node::FieldValue::Int(1000));
+        node.set_field(FIELD_VERSION, crate::node::FieldValue::Int(1));
+        // Expire in the past
+        node.set_field(FIELD_EXPIRES_AT_MS, crate::node::FieldValue::Int(1));
+        assert!(record_from_node(&node).is_none());
+    }
+
+    #[test]
+    fn test_record_from_node_strips_internal_fields() {
+        let mut node = make_memory_node(1, "ns", "k");
+        node.set_field(
+            "custom_field",
+            crate::node::FieldValue::String("keep".into()),
+        );
+        let record = record_from_node(&node).unwrap();
+        assert!(!record.metadata.contains_key(FIELD_NAMESPACE));
+        assert!(!record.metadata.contains_key(FIELD_KEY));
+        assert!(!record.metadata.contains_key(FIELD_PAYLOAD));
+        assert!(!record.metadata.contains_key(FIELD_CREATED_AT_MS));
+        assert!(!record.metadata.contains_key(FIELD_UPDATED_AT_MS));
+        assert!(!record.metadata.contains_key(FIELD_VERSION));
+        assert!(!record.metadata.contains_key(FIELD_EXPIRES_AT_MS));
+        assert_eq!(
+            record.metadata.get("custom_field"),
+            Some(&Value::String("keep".into()))
+        );
+    }
+
+    #[test]
+    fn test_record_from_node_with_vector() {
+        let mut node = make_memory_node(1, "ns", "k");
+        node.vector = VectorRepresentations::Full(vec![0.1, 0.2]);
+        let record = record_from_node(&node).unwrap();
+        assert_eq!(record.vector, Some(vec![0.1, 0.2]));
+    }
+
+    #[test]
+    fn test_record_from_node_without_expiry() {
+        let mut node = make_memory_node(1, "ns", "k");
+        node.set_field(FIELD_EXPIRES_AT_MS, crate::node::FieldValue::Int(0));
+        let record = record_from_node(&node).unwrap();
+        assert_eq!(record.expires_at_ms, Some(0));
+    }
+
+    // ΓöÇΓöÇΓöÇ memory_record_to_node_owned ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_memory_record_to_node_owned_roundtrip() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "payload".into(),
+            metadata: {
+                let mut m = MemoryMetadata::new();
+                m.insert("color".into(), Value::String("red".into()));
+                m
+            },
+            created_at_ms: 100,
+            updated_at_ms: 200,
+            version: 3,
+            node_id: memory_node_id("ns", "k"),
+            vector: Some(vec![0.5, 0.5]),
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+
+        let (node, returned_record) = memory_record_to_node_owned(record);
+        assert_eq!(node.id, returned_record.node_id);
+        assert!(node.is_alive());
+        assert_eq!(returned_record.namespace, "ns");
+        assert_eq!(returned_record.key, "k");
+        assert_eq!(returned_record.payload, "payload");
+        assert_eq!(returned_record.vector, Some(vec![0.5, 0.5]));
+
+        // Verify fields are on the node
+        assert_eq!(
+            node.get_field(FIELD_NAMESPACE),
+            Some(&crate::node::FieldValue::String("ns".into()))
+        );
+        assert_eq!(
+            node.get_field(FIELD_KEY),
+            Some(&crate::node::FieldValue::String("k".into()))
+        );
+    }
+
+    #[test]
+    fn test_memory_record_to_node_owned_with_expiry() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 1,
+            updated_at_ms: 1,
+            version: 1,
+            node_id: memory_node_id("ns", "k"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: Some(999_999_999_999),
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        let (node, _) = memory_record_to_node_owned(record);
+        assert_eq!(
+            node.get_field(FIELD_EXPIRES_AT_MS),
+            Some(&crate::node::FieldValue::Int(999_999_999_999))
+        );
+    }
+
+    #[test]
+    fn test_memory_record_to_node_owned_empty_vector_not_stored() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 1,
+            updated_at_ms: 1,
+            version: 1,
+            node_id: memory_node_id("ns", "k"),
+            vector: Some(vec![]),
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        let (node, returned) = memory_record_to_node_owned(record);
+        assert!(returned.vector.is_none());
+        // Empty vector should not set HAS_VECTOR flag
+        let expected = crate::node::VectorRepresentations::None;
+        assert_eq!(node.vector, expected);
+    }
+
+    // ΓöÇΓöÇΓöÇ export_line_from_record / record_from_export_line ΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_export_line_roundtrip() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "data".into(),
+            metadata: {
+                let mut m = MemoryMetadata::new();
+                m.insert("x".into(), Value::Int(1));
+                m
+            },
+            created_at_ms: 10,
+            updated_at_ms: 20,
+            version: 2,
+            node_id: memory_node_id("ns", "k"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+
+        let line = export_line_from_record(record.clone());
+        assert_eq!(
+            line.schema_version, 2,
+            "export always emits v2 (ADR-046 §D7)"
+        );
+        assert_eq!(line.namespace, "ns");
+        assert_eq!(line.key, "k");
+        assert_eq!(line.version, 2);
+
+        let recovered = record_from_export_line(line).unwrap();
+        // node_id is computed deterministically, should match original
+        assert_eq!(recovered.node_id, record.node_id);
+        assert_eq!(recovered.namespace, record.namespace);
+        assert_eq!(recovered.key, record.key);
+        assert_eq!(recovered.version, record.version);
+    }
+
+    #[test]
+    fn test_record_from_export_line_wrong_schema_version() {
+        let line = MemoryExportLine {
+            schema_version: 999,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        let err = record_from_export_line(line).unwrap_err();
+        assert!(err.to_string().contains("unsupported"));
+        assert!(err.to_string().contains("999"));
+    }
+
+    // ─── ADR-046 §D7: import predicate {1,2} + v1 normalization ───
+
+    #[test]
+    fn record_from_export_line_v1_normalizes_window_and_confidence() {
+        let line = MemoryExportLine {
+            schema_version: 1,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 3,
+            expires_at_ms: None,
+            superseded_by: Some("newer".into()),
+            superseded_at_ms: Some(1500),
+            ..Default::default()
+        };
+        let record = record_from_export_line(line).expect("v1 line imports");
+        assert_eq!(record.valid_at_ms, 1000, "valid_at := created_at");
+        assert_eq!(
+            record.invalid_at_ms,
+            Some(1500),
+            "invalid_at := superseded_at when superseded"
+        );
+        assert_eq!(record.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(record.confidence, 1.0, "D_a");
+        assert_eq!(record.last_validated_at_ms, None);
+        assert!(record.derived_from.is_empty());
+        assert_eq!(record.quarantined_at_ms, None);
+        assert_eq!(record.quarantine_reason, None);
+        assert_eq!(record.quarantined_by, None);
+        assert_eq!(record.quarantine_review_due_ms, None);
+    }
+
+    #[test]
+    fn record_from_export_line_v1_without_supersession_keeps_open_window() {
+        let line = MemoryExportLine {
+            schema_version: 1,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 1,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        let record = record_from_export_line(line).expect("v1 line imports");
+        assert_eq!(record.valid_at_ms, 1000);
+        assert_eq!(record.invalid_at_ms, None);
+    }
+
+    #[test]
+    fn record_from_export_line_v2_preserves_v2_fields() {
+        let line = MemoryExportLine {
+            schema_version: 2,
+            namespace: "ns".into(),
+            key: "derived".into(),
+            payload: "p".into(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 4,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            valid_at_ms: 1200,
+            invalid_at_ms: None,
+            confidence_class: ConfidenceClass::Derived,
+            // Stored score is transported, not re-derived (import preserves v2).
+            confidence: 0.45,
+            last_validated_at_ms: Some(1900),
+            derived_from: vec!["parent-a".into(), "parent-b".into()],
+            quarantined_at_ms: Some(2100),
+            quarantine_reason: Some("unreviewed_import".into()),
+            quarantined_by: Some("system:test".into()),
+            quarantine_review_due_ms: Some(9999),
+        };
+        let record = record_from_export_line(line).expect("v2 line imports");
+        assert_eq!(record.valid_at_ms, 1200);
+        assert_eq!(record.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(record.confidence, 0.45);
+        assert_eq!(record.last_validated_at_ms, Some(1900));
+        assert_eq!(record.derived_from, vec!["parent-a", "parent-b"]);
+        assert_eq!(record.quarantined_at_ms, Some(2100));
+        assert_eq!(
+            record.quarantine_reason.as_deref(),
+            Some("unreviewed_import")
+        );
+        assert_eq!(record.quarantined_by.as_deref(), Some("system:test"));
+        assert_eq!(record.quarantine_review_due_ms, Some(9999));
+    }
+
+    #[test]
+    fn record_from_export_line_rejects_schema_zero_and_invalid_v2_shapes() {
+        let zero = MemoryExportLine {
+            schema_version: 0,
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(zero).is_err(), "0 is not a version");
+
+        let derived_without_parents = MemoryExportLine {
+            schema_version: 2,
+            confidence_class: ConfidenceClass::Derived,
+            confidence: 0.5,
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(derived_without_parents).is_err());
+
+        let asserted_with_parents = MemoryExportLine {
+            schema_version: 2,
+            confidence_class: ConfidenceClass::Asserted,
+            derived_from: vec!["p".into()],
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(asserted_with_parents).is_err());
+
+        let out_of_range = MemoryExportLine {
+            schema_version: 2,
+            confidence: 1.5,
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(out_of_range).is_err());
+
+        let reversed_window = MemoryExportLine {
+            schema_version: 2,
+            created_at_ms: 1000,
+            valid_at_ms: 2000,
+            invalid_at_ms: Some(1500),
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(reversed_window).is_err());
+    }
+
+    #[test]
+    fn record_from_export_line_tolerates_d3_divergence() {
+        // O1: 0.8.0 always aligns `invalid_at`/`superseded_at` (D3-3), but the
+        // future retroactive setter (API v1.0) may diverge them — import
+        // preserves both values verbatim (documented tolerance; only the
+        // window order is validated).
+        let line = MemoryExportLine {
+            schema_version: 2,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            created_at_ms: 1000,
+            superseded_by: Some("newer".into()),
+            superseded_at_ms: Some(1500),
+            valid_at_ms: 1000,
+            invalid_at_ms: Some(1800), // diverges from superseded_at (1500)
+            ..MemoryExportLine::default()
+        };
+        let record = record_from_export_line(line).expect("divergence tolerated");
+        assert_eq!(record.superseded_at_ms, Some(1500));
+        assert_eq!(record.invalid_at_ms, Some(1800));
+    }
+
+    // ─── ADR-046 §D6: record ↔ node v2 mapping ────────────────────
+
+    #[test]
+    fn memory_record_v2_fields_roundtrip_through_node() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "v2".into(),
+            payload: "data".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 5,
+            node_id: memory_node_id("ns", "v2"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            valid_at_ms: 1100,
+            invalid_at_ms: Some(1800),
+            confidence_class: ConfidenceClass::Derived,
+            confidence: 0.45,
+            last_validated_at_ms: Some(1700),
+            derived_from: vec!["parent-a".into(), "parent-b".into()],
+            quarantined_at_ms: Some(1900),
+            quarantine_reason: Some("explicit_write".into()),
+            quarantined_by: Some("system:dream_promote".into()),
+            quarantine_review_due_ms: Some(9999),
+        };
+        let (node, _) = memory_record_to_node_owned(record.clone());
+        assert_eq!(
+            node.confidence_score, 0.45,
+            "D6: the write path projects record.confidence into the node header"
+        );
+        let recovered = record_from_node(&node).expect("record roundtrip");
+        assert_eq!(recovered.valid_at_ms, 1100);
+        assert_eq!(recovered.invalid_at_ms, Some(1800));
+        assert_eq!(recovered.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(
+            recovered.confidence, 0.45,
+            "D6: the read path reads it back"
+        );
+        assert_eq!(recovered.last_validated_at_ms, Some(1700));
+        assert_eq!(recovered.derived_from, vec!["parent-a", "parent-b"]);
+        assert_eq!(recovered.quarantined_at_ms, Some(1900));
+        assert_eq!(
+            recovered.quarantine_reason.as_deref(),
+            Some("explicit_write")
+        );
+        assert_eq!(
+            recovered.quarantined_by.as_deref(),
+            Some("system:dream_promote")
+        );
+        assert_eq!(recovered.quarantine_review_due_ms, Some(9999));
+    }
+
+    #[test]
+    fn v1_node_without_v2_fields_normalizes_on_read() {
+        // Hand-built v1 node: no `__vanta_valid_at_ms` marker and the legacy
+        // 0.5 confidence_score must NOT leak into the record (ADR-046 §D4c).
+        let mut node = crate::node::UnifiedNode::new(7);
+        node.set_field(
+            FIELD_NAMESPACE,
+            crate::node::FieldValue::String("ns".into()),
+        );
+        node.set_field(FIELD_KEY, crate::node::FieldValue::String("k".into()));
+        node.set_field(FIELD_PAYLOAD, crate::node::FieldValue::String("p".into()));
+        node.set_field(FIELD_CREATED_AT_MS, crate::node::FieldValue::Int(1000));
+        node.set_field(FIELD_UPDATED_AT_MS, crate::node::FieldValue::Int(2000));
+        node.set_field(FIELD_VERSION, crate::node::FieldValue::Int(1));
+        node.confidence_score = 0.5; // legacy node default
+
+        let record = record_from_node(&node).expect("v1 node read");
+        assert_eq!(record.valid_at_ms, 1000, "v1: valid_at := created_at");
+        assert_eq!(record.invalid_at_ms, None);
+        assert_eq!(record.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(
+            record.confidence, 1.0,
+            "v1 normalization: D_a, not the node's 0.5"
+        );
+        assert_eq!(record.quarantined_at_ms, None);
+    }
+
+    #[test]
+    fn node_write_always_marks_v2_and_strips_internal_fields_from_metadata() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "marker".into(),
+            payload: "data".into(),
+            metadata: [("user".into(), Value::String("field".into()))].into(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 1,
+            node_id: memory_node_id("ns", "marker"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            valid_at_ms: 1000,
+            confidence_class: ConfidenceClass::Asserted,
+            confidence: 0.7,
+            ..Default::default()
+        };
+        let (node, _) = memory_record_to_node_owned(record);
+        assert!(
+            node.get_field(FIELD_VALID_AT_MS).is_some(),
+            "v2 marker present"
+        );
+        let recovered = record_from_node(&node).expect("roundtrip");
+        assert_eq!(recovered.metadata.len(), 1);
+        assert_eq!(recovered.confidence, 0.7);
+    }
+
+    #[test]
+    fn test_export_line_serialization_roundtrip() {
+        let line = MemoryExportLine {
+            schema_version: 1,
+            namespace: "myns".into(),
+            key: "mykey".into(),
+            payload: "my payload".into(),
+            metadata: MemoryMetadata::new(),
+            vector: Some(vec![0.1, 0.2]),
+            sparse_vector: None,
+            created_at_ms: 100,
+            updated_at_ms: 200,
+            version: 5,
+            expires_at_ms: None,
+            superseded_by: Some("successor".into()),
+            superseded_at_ms: Some(1234),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&line).unwrap();
+        let deserialized: MemoryExportLine = serde_json::from_str(&json).unwrap();
+        // Compare fields individually since MemoryExportLine lacks PartialEq
+        assert_eq!(deserialized.schema_version, line.schema_version);
+        assert_eq!(deserialized.namespace, line.namespace);
+        assert_eq!(deserialized.key, line.key);
+        assert_eq!(deserialized.payload, line.payload);
+        assert_eq!(deserialized.metadata, line.metadata);
+        assert_eq!(deserialized.vector, line.vector);
+        assert_eq!(deserialized.created_at_ms, line.created_at_ms);
+        assert_eq!(deserialized.updated_at_ms, line.updated_at_ms);
+        assert_eq!(deserialized.version, line.version);
+        assert_eq!(deserialized.expires_at_ms, line.expires_at_ms);
+        assert_eq!(deserialized.superseded_by, line.superseded_by);
+        assert_eq!(deserialized.superseded_at_ms, line.superseded_at_ms);
+    }
+
+    #[test]
+    fn test_export_line_superseded_roundtrip() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "old".into(),
+            payload: "data".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 10,
+            updated_at_ms: 20,
+            version: 2,
+            node_id: memory_node_id("ns", "old"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: Some("new".into()),
+            superseded_at_ms: Some(4321),
+            ..Default::default()
+        };
+
+        let line = export_line_from_record(record.clone());
+        assert_eq!(line.superseded_by.as_deref(), Some("new"));
+        assert_eq!(line.superseded_at_ms, Some(4321));
+
+        let recovered = record_from_export_line(line).unwrap();
+        assert_eq!(recovered.superseded_by, record.superseded_by);
+        assert_eq!(recovered.superseded_at_ms, record.superseded_at_ms);
+        assert_eq!(recovered.version, record.version);
+    }
+
+    #[test]
+    fn test_memory_record_superseded_node_roundtrip() {
+        // ADR-028: superseded fields must survive record → node → record.
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "old".into(),
+            payload: "data".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 10,
+            updated_at_ms: 20,
+            version: 2,
+            node_id: memory_node_id("ns", "old"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: Some("new".into()),
+            superseded_at_ms: Some(4321),
+            ..Default::default()
+        };
+
+        let (node, _) = memory_record_to_node_owned(record.clone());
+        assert_eq!(
+            node.get_field(FIELD_SUPERSEDED_BY),
+            Some(&crate::node::FieldValue::String("new".into()))
+        );
+        assert_eq!(
+            node.get_field(FIELD_SUPERSEDED_AT_MS),
+            Some(&crate::node::FieldValue::Int(4321))
+        );
+
+        let recovered = record_from_node(&node).unwrap();
+        assert_eq!(recovered.superseded_by, record.superseded_by);
+        assert_eq!(recovered.superseded_at_ms, record.superseded_at_ms);
+    }
+
+    #[test]
+    fn test_memory_record_backward_compat_no_superseded_fields() {
+        // ADR-028: dumps written before the fields existed deserialize to None.
+        let json = serde_json::json!({
+            "namespace": "ns",
+            "key": "k",
+            "payload": "data",
+            "metadata": {},
+            "created_at_ms": 10,
+            "updated_at_ms": 20,
+            "version": 1,
+            "node_id": "42",
+            "vector": null,
+            "sparse_vector": null,
+            "expires_at_ms": null
+        });
+        let record: MemoryRecord = serde_json::from_value(json).unwrap();
+        assert_eq!(record.superseded_by, None);
+        assert_eq!(record.superseded_at_ms, None);
+    }
+
+    // ΓöÇΓöÇΓöÇ matches_memory_filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    #[test]
+    fn test_matches_memory_filters_exact() {
+        let mut record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            node_id: 0,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        record
+            .metadata
+            .insert("color".into(), Value::String("blue".into()));
+
+        let mut filters = MemoryMetadata::new();
+        filters.insert("color".into(), Value::String("blue".into()));
+        assert!(matches_memory_filters(&record, &filters));
+
+        let mut bad_filters = MemoryMetadata::new();
+        bad_filters.insert("color".into(), Value::String("red".into()));
+        assert!(!matches_memory_filters(&record, &bad_filters));
+    }
+
+    #[test]
+    fn test_matches_memory_filters_empty() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            node_id: 0,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        assert!(matches_memory_filters(&record, &MemoryMetadata::new()));
+    }
+
+    #[test]
+    fn test_matches_memory_filters_multi() {
+        let mut record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            node_id: 0,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        record.metadata.insert("a".into(), Value::Int(1));
+        record
+            .metadata
+            .insert("b".into(), Value::String("x".into()));
+
+        let mut filters = MemoryMetadata::new();
+        filters.insert("a".into(), Value::Int(1));
+        filters.insert("b".into(), Value::String("x".into()));
+        assert!(matches_memory_filters(&record, &filters));
+
+        let mut bad = MemoryMetadata::new();
+        bad.insert("a".into(), Value::Int(1));
+        bad.insert("b".into(), Value::String("y".into()));
+        assert!(!matches_memory_filters(&record, &bad));
+    }
+
+    // ΓöÇΓöÇ matches_advanced_filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    fn make_record_with_meta(pairs: &[(&str, Value)]) -> MemoryRecord {
+        let mut record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            node_id: 0,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        for (k, v) in pairs {
+            record.metadata.insert(k.to_string(), v.clone());
+        }
+        record
+    }
+
+    #[test]
+    fn test_advanced_filter_eq() {
+        let r = make_record_with_meta(&[("color", Value::String("blue".into()))]);
+        let ops = vec![crate::sdk::types::MemoryFilterItem {
+            field: "color".into(),
+            op: crate::sdk::types::FilterOp::Eq,
+            value: Value::String("blue".into()),
+        }];
+        assert!(matches_advanced_filters(&r, &ops));
+        let ops_fail = vec![crate::sdk::types::MemoryFilterItem {
+            field: "color".into(),
+            op: crate::sdk::types::FilterOp::Eq,
+            value: Value::String("red".into()),
+        }];
+        assert!(!matches_advanced_filters(&r, &ops_fail));
+    }
+
+    #[test]
+    fn test_advanced_filter_neq() {
+        let r = make_record_with_meta(&[("status", Value::String("active".into()))]);
+        let ops = vec![crate::sdk::types::MemoryFilterItem {
+            field: "status".into(),
+            op: crate::sdk::types::FilterOp::Neq,
+            value: Value::String("inactive".into()),
+        }];
+        assert!(matches_advanced_filters(&r, &ops));
+    }
+
+    #[test]
+    fn test_advanced_filter_gt_gte_lt_lte_int() {
+        let r = make_record_with_meta(&[("score", Value::Int(50))]);
+        let make_op = |op: crate::sdk::types::FilterOp, v: i64| {
+            vec![crate::sdk::types::MemoryFilterItem {
+                field: "score".into(),
+                op,
+                value: Value::Int(v),
+            }]
+        };
+        assert!(matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::FilterOp::Gt, 40)
+        ));
+        assert!(!matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::FilterOp::Gt, 60)
+        ));
+        assert!(matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::FilterOp::Gte, 50)
+        ));
+        assert!(!matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::FilterOp::Gte, 51)
+        ));
+        assert!(matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::FilterOp::Lt, 60)
+        ));
+        assert!(!matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::FilterOp::Lt, 40)
+        ));
+        assert!(matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::FilterOp::Lte, 50)
+        ));
+        assert!(!matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::FilterOp::Lte, 49)
+        ));
+    }
+
+    /// WIRE-03: pin the canonical datetime range filter used by the py↔js
+    /// parity tests — `$gte` + `$lt` over `Value::DateTime` compare
+    /// chronologically (same-variant ordering, see `FilterOp` docs).
+    #[test]
+    fn test_advanced_filter_datetime_range() {
+        let at = |y: i16, m: i8, d: i8| {
+            jiff::civil::date(y, m, d)
+                .at(0, 0, 0, 0)
+                .to_zoned(jiff::tz::TimeZone::UTC)
+                .expect("valid date")
+                .timestamp()
+        };
+        let r = make_record_with_meta(&[("when", Value::DateTime(at(2026, 6, 1)))]);
+        let in_range = vec![
+            crate::sdk::types::MemoryFilterItem {
+                field: "when".into(),
+                op: crate::sdk::types::FilterOp::Gte,
+                value: Value::DateTime(at(2026, 1, 1)),
+            },
+            crate::sdk::types::MemoryFilterItem {
+                field: "when".into(),
+                op: crate::sdk::types::FilterOp::Lt,
+                value: Value::DateTime(at(2026, 12, 1)),
+            },
+        ];
+        assert!(matches_advanced_filters(&r, &in_range));
+
+        let outside = vec![crate::sdk::types::MemoryFilterItem {
+            field: "when".into(),
+            op: crate::sdk::types::FilterOp::Lt,
+            value: Value::DateTime(at(2026, 1, 1)),
+        }];
+        assert!(!matches_advanced_filters(&r, &outside));
+    }
+
+    #[test]
+    fn test_advanced_filter_missing_field_returns_false() {
+        let r = make_record_with_meta(&[]);
+        let ops = vec![crate::sdk::types::MemoryFilterItem {
+            field: "nonexistent".into(),
+            op: crate::sdk::types::FilterOp::Eq,
+            value: Value::String("x".into()),
+        }];
+        assert!(!matches_advanced_filters(&r, &ops));
+    }
+
+    #[test]
+    fn test_advanced_filter_multi_and_logic() {
+        let r = make_record_with_meta(&[
+            ("score", Value::Int(75)),
+            ("status", Value::String("active".into())),
+        ]);
+        let ops = vec![
+            crate::sdk::types::MemoryFilterItem {
+                field: "score".into(),
+                op: crate::sdk::types::FilterOp::Gte,
+                value: Value::Int(50),
+            },
+            crate::sdk::types::MemoryFilterItem {
+                field: "status".into(),
+                op: crate::sdk::types::FilterOp::Eq,
+                value: Value::String("active".into()),
+            },
+        ];
+        assert!(matches_advanced_filters(&r, &ops));
+
+        // Falla si uno de los filtros no coincide
+        let ops_fail = vec![
+            crate::sdk::types::MemoryFilterItem {
+                field: "score".into(),
+                op: crate::sdk::types::FilterOp::Gte,
+                value: Value::Int(80),
+            },
+            crate::sdk::types::MemoryFilterItem {
+                field: "status".into(),
+                op: crate::sdk::types::FilterOp::Eq,
+                value: Value::String("active".into()),
+            },
+        ];
+        assert!(!matches_advanced_filters(&r, &ops_fail));
+    }
+
+    // ─── sparse vector persistence (ADR-019) ────────────────────
+
+    fn make_sparse(entries: &[(u32, f32)]) -> SparseVector {
+        let mut sparse = SparseVector::new();
+        for (dim, val) in entries {
+            sparse.insert(*dim, *val);
+        }
+        sparse
+    }
+
+    fn record_with_sparse(sparse: Option<SparseVector>) -> MemoryRecord {
+        MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "payload".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 100,
+            updated_at_ms: 200,
+            version: 1,
+            node_id: memory_node_id("ns", "k"),
+            vector: None,
+            sparse_vector: sparse,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_sparse_roundtrip_listfloat() {
+        let record = record_with_sparse(Some(make_sparse(&[(1, 0.5), (42, -1.25), (7, 3.0)])));
+        let (node, returned) = memory_record_to_node_owned(record);
+
+        // Written as interleaved ListFloat pairs in sorted dim order (BTreeMap).
+        assert_eq!(
+            node.get_field(SPARSE_VECTOR_EXT_KEY),
+            Some(&crate::node::FieldValue::ListFloat(vec![
+                1.0, 0.5, 7.0, 3.0, 42.0, -1.25
+            ]))
+        );
+        // Record returned to caller keeps the sparse vector in memory.
+        assert_eq!(
+            returned.sparse_vector,
+            Some(make_sparse(&[(1, 0.5), (42, -1.25), (7, 3.0)]))
+        );
+
+        // Read path reconstructs the same vector.
+        let read = record_from_node(&node).unwrap();
+        assert_eq!(
+            read.sparse_vector,
+            Some(make_sparse(&[(1, 0.5), (42, -1.25), (7, 3.0)]))
+        );
+    }
+
+    #[test]
+    fn test_sparse_empty_roundtrip() {
+        let record = record_with_sparse(Some(SparseVector::new()));
+        let (node, _) = memory_record_to_node_owned(record);
+        assert_eq!(
+            node.get_field(SPARSE_VECTOR_EXT_KEY),
+            Some(&crate::node::FieldValue::ListFloat(vec![]))
+        );
+        let read = record_from_node(&node).unwrap();
+        assert_eq!(read.sparse_vector, Some(SparseVector::new()));
+    }
+
+    #[test]
+    fn test_sparse_none_not_stored() {
+        let record = record_with_sparse(None);
+        let (node, _) = memory_record_to_node_owned(record);
+        assert_eq!(node.get_field(SPARSE_VECTOR_EXT_KEY), None);
+        let read = record_from_node(&node).unwrap();
+        assert_eq!(read.sparse_vector, None);
+    }
+
+    #[test]
+    fn test_sparse_read_legacy_json_string() {
+        // Simulate a node persisted before ADR-019 (String/JSON format).
+        let mut node = make_memory_node(42, "myns", "mykey");
+        node.set_field(
+            SPARSE_VECTOR_EXT_KEY,
+            crate::node::FieldValue::String("{\"1\":0.5,\"42\":-1.25}".into()),
+        );
+        let record = record_from_node(&node).unwrap();
+        assert_eq!(
+            record.sparse_vector,
+            Some(make_sparse(&[(1, 0.5), (42, -1.25)]))
+        );
+    }
+
+    #[test]
+    fn test_sparse_read_corrupt_legacy_returns_none() {
+        let mut node = make_memory_node(42, "myns", "mykey");
+        node.set_field(
+            SPARSE_VECTOR_EXT_KEY,
+            crate::node::FieldValue::String("not-json".into()),
+        );
+        let record = record_from_node(&node).unwrap();
+        assert_eq!(record.sparse_vector, None);
+    }
+
+    #[test]
+    fn test_sparse_read_corrupt_listfloat_odd_len_returns_none() {
+        let mut node = make_memory_node(42, "myns", "mykey");
+        node.set_field(
+            SPARSE_VECTOR_EXT_KEY,
+            crate::node::FieldValue::ListFloat(vec![1.0, 0.5, 2.0]),
+        );
+        let record = record_from_node(&node).unwrap();
+        assert_eq!(record.sparse_vector, None);
+    }
+
+    #[test]
+    fn test_sparse_read_corrupt_listfloat_invalid_dims_return_none() {
+        // AUD-023 (P2-7): dims inválidas (NaN, negativa, out-of-range, no-entera)
+        // deben rechazarse con None, no saturarse silenciosamente via `as u32`.
+        let bad_payloads = [
+            vec![f64::NAN, 0.5],      // NaN dim -> hoy satura a 0
+            vec![f64::INFINITY, 0.5], // +inf dim -> hoy satura a u32::MAX
+            vec![-1.0, 0.5],          // dim negativa -> hoy satura a 0
+            vec![4294967296.0, 0.5],  // > u32::MAX -> hoy satura a u32::MAX
+            vec![1.5, 0.5],           // dim no-entera -> hoy trunca a 1
+        ];
+        for flat in bad_payloads {
+            let mut node = make_memory_node(42, "myns", "mykey");
+            node.set_field(
+                SPARSE_VECTOR_EXT_KEY,
+                crate::node::FieldValue::ListFloat(flat),
+            );
+            let record = record_from_node(&node).unwrap();
+            assert_eq!(
+                record.sparse_vector, None,
+                "dims inválidas deben devolver None, no saturar silencioso"
+            );
+        }
+    }
+}

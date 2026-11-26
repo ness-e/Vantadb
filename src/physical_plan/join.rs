@@ -1,0 +1,336 @@
+// ponytail: nested-loop join step invariant; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
+//! Physical join operators: nested-loop join and subquery filter.
+//!
+//! Split out of the monolithic `physical_plan` module (REVIEW-05).
+
+use crate::error::Result;
+use crate::node::UnifiedNode;
+use crate::query::PhysicalOperator;
+
+use super::strip_alias;
+
+// ─── Physical Nested Loop Join Operator ────────────────────────
+
+// ponytail: NestedLoopJoin — simplest correct. Add HashJoin when perf warrants it.
+// ponytail: Merges all relational fields (left precedence on name collision);
+// FIND-657: collision losers stay reachable under `<qualifier>.<field>`.
+// ponytail: No predicate pushdown yet — all WHERE filters apply post-join.
+
+/// Physical nested-loop join operator that iterates left entities and,
+/// for each left entity, scans all right entities applying the ON condition.
+pub struct PhysicalNestedLoopJoin<'a> {
+    /// Left child operator.
+    left_child: Box<dyn PhysicalOperator + 'a>,
+    /// Right child operator.
+    right_child: Box<dyn PhysicalOperator + 'a>,
+    /// Left-side join field (alias-qualified, e.g. `"p.addr_id"`).
+    left_field: String,
+    /// Right-side join field (alias-qualified, e.g. `"a.id"`).
+    right_field: String,
+    /// All right-side nodes buffered during open().
+    right_nodes: Vec<UnifiedNode>,
+    /// Index into right_nodes for the current left row.
+    right_cursor: usize,
+    /// Current left node being probed.
+    current_left: Option<UnifiedNode>,
+}
+
+impl<'a> PhysicalNestedLoopJoin<'a> {
+    /// Create a new nested-loop join operator.
+    pub fn new(
+        left_child: Box<dyn PhysicalOperator + 'a>,
+        right_child: Box<dyn PhysicalOperator + 'a>,
+        left_field: String,
+        right_field: String,
+    ) -> Self {
+        Self {
+            left_child,
+            right_child,
+            left_field,
+            right_field,
+            right_nodes: Vec::new(),
+            right_cursor: 0,
+            current_left: None,
+        }
+    }
+}
+
+impl PhysicalOperator for PhysicalNestedLoopJoin<'_> {
+    fn open(&mut self) -> Result<()> {
+        self.left_child.open()?;
+        self.right_child.open()?;
+
+        // Buffer all right-side nodes (needed for repeated probing per left row)
+        self.right_nodes.clear();
+        while let Some(node) = self.right_child.next()? {
+            self.right_nodes.push(node);
+        }
+        self.right_child.close()?;
+
+        self.right_cursor = 0;
+        self.current_left = None;
+        Ok(())
+    }
+
+    fn next(&mut self) -> Result<Option<UnifiedNode>> {
+        let left_field = strip_alias(&self.left_field).to_string();
+        let right_field = strip_alias(&self.right_field).to_string();
+
+        loop {
+            // If we don't have a current left row, fetch one
+            if self.current_left.is_none() {
+                match self.left_child.next()? {
+                    Some(node) => {
+                        self.current_left = Some(node);
+                        self.right_cursor = 0;
+                    }
+                    None => return Ok(None), // left side exhausted
+                }
+            }
+
+            // INVARIANT (B2b, cat. (b)): `current_left` is `Some` here — the
+            // `is_none` branch above either fills it or returns early from the
+            // same loop iteration. `let-else` keeps E1 green with zero behavior
+            // change on valid data (hypothetical `None` ends iteration safely).
+            let Some(left) = self.current_left.as_ref() else {
+                return Ok(None);
+            };
+
+            // Probe right nodes
+            while self.right_cursor < self.right_nodes.len() {
+                let right = &self.right_nodes[self.right_cursor];
+                self.right_cursor += 1;
+
+                // Evaluate ON condition: left_field = right_field
+                let left_val = left.relational.get(&left_field);
+                let right_val = right.relational.get(&right_field);
+
+                let matches = match (left_val, right_val) {
+                    (Some(lv), Some(rv)) => compare_field_values(lv, rv, &crate::query::RelOp::Eq),
+                    _ => false,
+                };
+
+                if matches {
+                    // Merge fields: left fields first, then right fields (left priority on conflict)
+                    let mut merged = UnifiedNode::new(left.id);
+                    merged.relational = left.relational.clone();
+                    for (k, v) in &right.relational {
+                        // Use BTreeMap entry API to avoid overwriting left fields
+                        if !merged.relational.contains_key(k) {
+                            merged.relational.insert(k.clone(), v.clone());
+                        }
+                    }
+                    // FIND-657: a right-side field that lost to a left field
+                    // of the same name stays reachable under its qualified
+                    // key `<qualifier>.<field>` (the qualifier is the prefix
+                    // of the ON right field — `a.id` → `a`; an unqualified
+                    // right field carries no qualifier to emit under). The
+                    // exact-match-first lookup in `evaluate_condition` /
+                    // `PhysicalProject` then resolves `a.name` to the right
+                    // value instead of silently stripping to the left one.
+                    // `entry().or_insert` never overwrites a genuine stored
+                    // key (a real `a.name` on either side wins over the
+                    // synthesized alias — same contract as FIND-556) and the
+                    // two passes keep BTreeMap order from deciding whether
+                    // a right-side genuine `a.name` shadows the synthesized
+                    // one.
+                    if let Some((qualifier, _)) = self.right_field.rsplit_once('.') {
+                        for (k, v) in &right.relational {
+                            if left.relational.contains_key(k) {
+                                merged
+                                    .relational
+                                    .entry(format!("{qualifier}.{k}"))
+                                    .or_insert_with(|| v.clone());
+                            }
+                        }
+                    }
+                    return Ok(Some(merged));
+                }
+            }
+
+            // Exhausted right nodes for this left row; advance to next left
+            self.current_left = None;
+        }
+    }
+
+    fn close(&mut self) -> Result<()> {
+        self.left_child.close()?;
+        self.right_nodes.clear();
+        self.current_left = None;
+        Ok(())
+    }
+}
+
+// ─── Physical Subquery Filter Operator ──────────────────────────
+
+/// Physical subquery filter that evaluates a scalar subquery during `open()`
+/// then filters child rows against the computed scalar value.
+pub struct PhysicalSubqueryFilter<'a> {
+    /// Child operator whose rows are filtered.
+    child: Box<dyn PhysicalOperator + 'a>,
+    /// Subquery plan to evalute once during open().
+    subquery_plan: Box<dyn PhysicalOperator + 'a>,
+    /// Field to compare (alias-qualified).
+    field: String,
+    /// Comparison operator.
+    op: crate::query::RelOp,
+    /// Scalar value obtained by executing the subquery.
+    scalar_value: Option<crate::node::FieldValue>,
+    /// FIND-558: field the subplan projects whose value is the scalar.
+    /// `None` = legacy fallback (first stored field) for subplans with no
+    /// projection, e.g. `SELECT *`.
+    scalar_field: Option<String>,
+}
+
+impl<'a> PhysicalSubqueryFilter<'a> {
+    /// Create a new subquery filter operator.
+    pub fn new(
+        child: Box<dyn PhysicalOperator + 'a>,
+        subquery_plan: Box<dyn PhysicalOperator + 'a>,
+        field: String,
+        op: crate::query::RelOp,
+    ) -> Self {
+        Self {
+            child,
+            subquery_plan,
+            field,
+            op,
+            scalar_value: None,
+            scalar_field: None,
+        }
+    }
+
+    /// FIND-558: declare which projected field of the subplan supplies the
+    /// scalar (`SELECT price, name` ⇒ `price`). The planner derives it from
+    /// the subplan's `Project` operator. The field is stored raw — lookup is
+    /// exact-key-first, then the stripped alias (same contract as
+    /// `evaluate_condition`), so a genuinely dotted stored key such as
+    /// `meta.env` still wins over the stripped form.
+    pub fn with_scalar_field(mut self, scalar_field: Option<String>) -> Self {
+        self.scalar_field = scalar_field;
+        self
+    }
+}
+
+impl PhysicalOperator for PhysicalSubqueryFilter<'_> {
+    fn open(&mut self) -> Result<()> {
+        // Execute the subquery plan to get the scalar value
+        self.subquery_plan.open()?;
+        let mut subq_nodes: Vec<UnifiedNode> = Vec::new();
+        while let Some(node) = self.subquery_plan.next()? {
+            subq_nodes.push(node);
+        }
+        self.subquery_plan.close()?;
+
+        // FIND-558: the scalar is the field the subplan *projects*, not the
+        // alphabetically-first key of the `BTreeMap` (`SELECT price, name`
+        // used to pick `name`). Fallback (`None`): first stored field —
+        // ponytail: `SELECT *` scalar subqueries keep the legacy behaviour;
+        // a scalar subquery should project exactly one column anyway.
+        self.scalar_value = subq_nodes.first().and_then(|n| match &self.scalar_field {
+            Some(f) => n
+                .relational
+                .get(f)
+                .or_else(|| n.relational.get(strip_alias(f)))
+                .cloned(),
+            None => n.relational.values().next().cloned(),
+        });
+
+        // Open child for iteration
+        self.child.open()?;
+        Ok(())
+    }
+
+    fn next(&mut self) -> Result<Option<UnifiedNode>> {
+        let sv = match &self.scalar_value {
+            Some(v) => v,
+            None => {
+                // FIND-557: `field op (empty subquery)` is a comparison
+                // against NULL — not-true for every row and every operator
+                // (`!=` included). The predicate must not silently
+                // disappear by passing child rows through.
+                return Ok(None);
+            }
+        };
+
+        // Exact key first (a real dotted key wins), then the stripped
+        // alias — same lookup contract as `evaluate_condition`.
+        let field_name = strip_alias(&self.field);
+        while let Some(node) = self.child.next()? {
+            let actual = node
+                .relational
+                .get(&self.field)
+                .or_else(|| node.relational.get(field_name));
+            if let Some(actual) = actual {
+                if compare_field_values(actual, sv, &self.op) {
+                    return Ok(Some(node));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    fn close(&mut self) -> Result<()> {
+        self.child.close()?;
+        Ok(())
+    }
+}
+
+/// Compare two field values using the given relational operator.
+fn compare_field_values(
+    a: &crate::node::FieldValue,
+    b: &crate::node::FieldValue,
+    op: &crate::query::RelOp,
+) -> bool {
+    match (a, b) {
+        (crate::node::FieldValue::String(a), crate::node::FieldValue::String(e)) => match op {
+            crate::query::RelOp::Eq => a == e,
+            crate::query::RelOp::Neq => a != e,
+            crate::query::RelOp::Gt => a > e,
+            crate::query::RelOp::Gte => a >= e,
+            crate::query::RelOp::Lt => a < e,
+            crate::query::RelOp::Lte => a <= e,
+        },
+        (crate::node::FieldValue::Int(a), crate::node::FieldValue::Int(e)) => match op {
+            crate::query::RelOp::Eq => a == e,
+            crate::query::RelOp::Neq => a != e,
+            crate::query::RelOp::Gt => a > e,
+            crate::query::RelOp::Gte => a >= e,
+            crate::query::RelOp::Lt => a < e,
+            crate::query::RelOp::Lte => a <= e,
+        },
+        (crate::node::FieldValue::Float(a), crate::node::FieldValue::Float(e)) => match op {
+            crate::query::RelOp::Eq => a == e,
+            crate::query::RelOp::Neq => a != e,
+            crate::query::RelOp::Gt => a > e,
+            crate::query::RelOp::Gte => a >= e,
+            crate::query::RelOp::Lt => a < e,
+            crate::query::RelOp::Lte => a <= e,
+        },
+        (crate::node::FieldValue::Bool(a), crate::node::FieldValue::Bool(e)) => match op {
+            crate::query::RelOp::Eq => a == e,
+            crate::query::RelOp::Neq => a != e,
+            _ => false,
+        },
+        (crate::node::FieldValue::Null, crate::node::FieldValue::Null) => match op {
+            crate::query::RelOp::Eq => true,
+            crate::query::RelOp::Neq => false,
+            _ => false,
+        },
+        // FIND-157: same mixed Int/Float coercion as `evaluate_condition` —
+        // exact `i64`↔`f64` ordering, non-finite ⇒ false for every op.
+        (crate::node::FieldValue::Int(a), crate::node::FieldValue::Float(e)) => {
+            super::cmp_int_float(*a, *e)
+                .map(|ord| super::rel_op_matches(ord, op))
+                .unwrap_or(false)
+        }
+        (crate::node::FieldValue::Float(a), crate::node::FieldValue::Int(e)) => {
+            super::cmp_int_float(*e, *a)
+                .map(|ord| super::rel_op_matches(ord.reverse(), op))
+                .unwrap_or(false)
+        }
+        _ => false,
+    }
+}

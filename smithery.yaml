@@ -1,0 +1,33 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+startCommand:
+  type: stdio
+configSchema:
+  type: object
+  properties:
+    profile:
+      type: string
+      description: "VantaDB MCP operating profile: 'brain' (default 15 core cognitive memory tools), 'coder' (codebase and project memory), or 'minimal' (basic key-value and search)"
+      default: "brain"
+      enum:
+        - "brain"
+        - "coder"
+        - "minimal"
+    dbPath:
+      type: string
+      description: "Custom directory path for persistent database storage (defaults to ~/.vantadb)"
+commandFunction: |-
+  (config) => ({
+    command: 'vanta-cli',
+    args: [
+      'server',
+      '--mcp',
+      '--profile',
+      config.profile || 'brain',
+      ...(config.dbPath ? ['--db', config.dbPath] : [])
+    ],
+    env: {
+      VANTADB_MCP_PROFILE: config.profile || 'brain'
+    }
+  })
+exampleConfig:
+  profile: "brain"

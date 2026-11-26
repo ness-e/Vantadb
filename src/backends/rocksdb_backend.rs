@@ -1,0 +1,679 @@
+//! RocksDB-backed implementation of `StorageBackend`.
+//!
+//! This adapter encapsulates all direct interaction with the `rocksdb` crate.
+//! No RocksDB types (DB, ColumnFamily handles, iterators, options) should leak
+//! outside this module.
+//!
+//! ## Crate frontier (FIND-36)
+//!
+//! `RocksDbBackend` is `pub(crate)` and only reachable via
+//! `crate::backend::StorageBackend` (trait, `pub(crate)`) through
+//! `StorageEngine` — it never imports `desktop`, `tauri` or
+//! `NativeConnection`. The only caller is `StorageEngine`'s backend factory
+//! (`src/storage/engine/init.rs` `match BackendKind`). The call chain is a
+//! one-way DAG `NativeConnection (desktop) → Embedded → StorageEngine
+//! → StorageBackend → RocksDbBackend`; there is no back-edge, so the
+//! "3 cycles get/put/delete" reported by CodeGraph (Leiden clustering of the
+//! shared method names) is a false positive — verified by `rg` zero
+//! cross-imports + isolated workspaces (`feature-freez/desktop/src-tauri` has
+//! `[workspace] members = ["."]`, `cargo check -p vantadb` stays invariant)
+//! and `cargo check --all-targets --all-features` 0 cycles.
+//! See `feature-freez/desktop/src-tauri/src/connections/native.rs` header for the desktop side.
+//!
+//! `// ponytail: doc justifies Leiden false positive without trait refactor; extract trait if real SCC emerges`
+
+use crate::backend::{
+    BackendPartition, BackendWriteOp, Compactable, Scannable, Snapshotable, StorageBackend,
+};
+use crate::config::Config;
+use crate::error::{Error, Result};
+use rocksdb::checkpoint::Checkpoint;
+use rocksdb::{Direction, FlushOptions, IteratorMode, Options, WriteBatch, DB};
+use std::path::Path;
+use tracing::{info, warn};
+
+const MIB: usize = 1024 * 1024;
+const GIB: u64 = 1024 * 1024 * 1024;
+
+/// FIND-606: absolute top of the RocksDB block-cache + memtable budget,
+/// even when `Config::memory_limit` declares more. The engine's volatile
+/// node cache reserves ~25 % of host RAM (`storage::engine::insert`),
+/// the HNSW index is 100 % RAM-resident and the decrypt caches share the
+/// same physical memory — a 1 TiB declared limit must not mint a
+/// ~600 GiB block cache.
+const ROCKSDB_MAX_BUDGET: usize = 8 * 1024 * 1024 * 1024;
+
+/// FIND-606: RocksDB's combined block-cache + memtable budget.
+///
+/// `Config::memory_limit` — the same number the RSS guard enforces —
+/// derives the budget; undeclared, it falls back to the default
+/// resident ceiling (`min(host RAM × 15 %, 256 MiB)`) instead of the
+/// raw total RAM of the host. The result is capped absolutely at
+/// [`ROCKSDB_MAX_BUDGET`]. `0` still yields a non-zero budget.
+fn rocksdb_budget(config: &Config, caps: &crate::hardware::HardwareCapabilities) -> usize {
+    let effective_memory = config
+        .memory_limit
+        .unwrap_or_else(|| caps.resident_default_ceiling());
+    ((effective_memory as f64) * 0.60)
+        .min(ROCKSDB_MAX_BUDGET as f64)
+        .max(1.0) as usize
+}
+
+/// RocksDB-backed implementation of `StorageBackend`.
+///
+/// Owns the `rocksdb::DB` instance and all column family configuration.
+/// Created exclusively through `RocksDbBackend::open`.
+pub(crate) struct RocksDbBackend {
+    db: DB,
+}
+
+impl RocksDbBackend {
+    /// Open a RocksDB database at `path` with the given configuration.
+    ///
+    /// Preserves the original tuning: bloom filters, LRU cache sizing,
+    /// memtable budgets, LZ4 compression, mmap access for low-RAM profiles,
+    /// and per-CF block-based table options.
+    pub(crate) fn open(path: &str, config: &Config) -> Result<Self> {
+        let caps = crate::hardware::HardwareCapabilities::global();
+
+        // Memory limit resolution priority:
+        // 1. Explicit config.memory_limit (from Python SDK constructor)
+        // 2. FIND-606: a modest default ceiling (`min(host RAM × 15 %,
+        //    256 MiB)`) — never the total RAM of the host. The old
+        //    fallback sized the block cache at 45 % of *host* RAM
+        //    (≈29 GiB on a 64 GiB box) in parallel with the engine's
+        //    ~25 % volatile-cache reserve and the RAM-resident HNSW
+        //    index: three uncapped reservations on the same physical
+        //    memory (`.opencode/rules/memory-budget.md` R-3/R-4).
+        //
+        // `host_or_declared` keeps the mmap heuristic honest: it answers
+        // "how much RAM can this process really use" — the declared
+        // limit when present, the physical RAM otherwise — while
+        // `rocksdb_budget` is the cache+memtable reservation.
+        let host_or_declared = config.memory_limit.unwrap_or(caps.total_memory);
+        let rocksdb_budget = rocksdb_budget(config, caps);
+
+        let mut opts = Options::default();
+        opts.create_if_missing(!config.read_only);
+        opts.create_missing_column_families(true);
+        opts.set_max_background_jobs(4);
+        opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+
+        // Adaptive Mode: Dynamic RocksDB tuning based on effective RAM
+        let mut bopts = rocksdb::BlockBasedOptions::default();
+        bopts.set_bloom_filter(10.0, false);
+        // Performance Booster: Force retention of L0 indexes and bloom filters permanently
+        bopts.set_cache_index_and_filter_blocks(true);
+        bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
+
+        // Standard Bopts for cold layers (no L0 pinning)
+        let mut cold_bopts = rocksdb::BlockBasedOptions::default();
+        cold_bopts.set_bloom_filter(10.0, false);
+
+        // OOM Guard (FIND-606 + BK-02): the block cache and the memtables
+        // share ONE budget — 75 % for the LRU cache, 25 % for memtables —
+        // and a shared `WriteBufferManager` enforces the memtable share
+        // across the DB and all 10 column families (the memtable arena
+        // usage is additionally charged to the block cache, so the pair
+        // can never exceed `rocksdb_budget`).
+        let cache_size = (rocksdb_budget as f64 * 0.75) as usize; // 75% focus on block cache
+        let write_buffer_total = rocksdb_budget - cache_size; // 25% for memtables
+
+        // BK-02: the per-CF buffer is bounded by the memtable share
+        // itself — the old 8 MiB floor won over a small computed budget
+        // and could reserve more than the 25 % the split promised. The
+        // WBM is the hard cap; this floor only keeps RocksDB's own
+        // minimum sane.
+        let wb_floor = (8 * MIB).min(write_buffer_total / 2).max(64 * 1024);
+        let write_buffer_size = (write_buffer_total / 2).clamp(wb_floor, 128 * MIB);
+
+        opts.set_write_buffer_size(write_buffer_size);
+        opts.set_max_write_buffer_number(2);
+
+        let cache = rocksdb::Cache::new_lru_cache(cache_size.max(1));
+        // BK-02: one WriteBufferManager shared by the DB and every CF —
+        // previously each CF could hold `max_write_buffer_number` buffers
+        // of `write_buffer_size` with no joint cap.
+        let wbm = rocksdb::WriteBufferManager::new_write_buffer_manager_with_cache(
+            write_buffer_total.max(1),
+            true, // allow_stall: back-pressure at the cap instead of OOM
+            cache.clone(),
+        );
+        opts.set_write_buffer_manager(&wbm);
+        bopts.set_block_cache(&cache);
+        cold_bopts.set_block_cache(&cache);
+
+        info!(
+            rocksdb_budget_mb = rocksdb_budget / MIB,
+            cache_mb = cache_size / MIB,
+            memtable_budget_mb = write_buffer_total / MIB,
+            memtable_mb = write_buffer_size / MIB,
+            "RocksDB memory configured"
+        );
+
+        opts.set_block_based_table_factory(&bopts);
+
+        if caps.profile == crate::hardware::HardwareProfile::LowResource
+            || host_or_declared < 16 * GIB
+        {
+            opts.set_allow_mmap_reads(true);
+            opts.set_allow_mmap_writes(true);
+            warn!(
+                effective_memory_gb = host_or_declared / GIB,
+                "RAM < 16GB — MMap access forced (Resource Governance)"
+            );
+        }
+
+        // Fast layers (LZ4)
+        let mut default_opts = opts.clone();
+        default_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        default_opts.set_block_based_table_factory(&bopts);
+
+        // tombstone_storage: Unpinned bloom for efficiency
+        let mut shadow_opts = rocksdb::Options::default();
+        shadow_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        shadow_opts.set_block_based_table_factory(&cold_bopts);
+        // BK-02: the shared WBM caps memtables across ALL column families
+        // — CF options built from `Options::default()` don't inherit the
+        // DB-level one (`default_opts` and its clones do).
+        shadow_opts.set_write_buffer_manager(&wbm);
+
+        let mut archive_opts = rocksdb::Options::default();
+        archive_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        archive_opts.set_block_based_table_factory(&bopts);
+        archive_opts.set_write_buffer_manager(&wbm);
+
+        let mut tombstone_opts = default_opts.clone();
+        tombstone_opts.set_block_based_table_factory(&cold_bopts);
+
+        let mut namespace_index_opts = default_opts.clone();
+        namespace_index_opts.set_block_based_table_factory(&bopts);
+
+        let mut payload_index_opts = default_opts.clone();
+        payload_index_opts.set_block_based_table_factory(&bopts);
+
+        let mut text_index_opts = default_opts.clone();
+        text_index_opts.set_block_based_table_factory(&bopts);
+
+        let mut sparse_index_opts = default_opts.clone();
+        sparse_index_opts.set_block_based_table_factory(&bopts);
+
+        let mut internal_metadata_opts = default_opts.clone();
+        internal_metadata_opts.set_block_based_table_factory(&cold_bopts);
+
+        // Version-history snapshots (VS-CORE-07): bounded per key (default cap
+        // 32), LZ4 like the rest; hot reads are point-get / prefix scans.
+        let mut versions_opts = default_opts.clone();
+        versions_opts.set_block_based_table_factory(&bopts);
+
+        let cf_descriptors = vec![
+            rocksdb::ColumnFamilyDescriptor::new("default", default_opts),
+            rocksdb::ColumnFamilyDescriptor::new("tombstone_storage", shadow_opts),
+            rocksdb::ColumnFamilyDescriptor::new("compressed_archive", archive_opts),
+            rocksdb::ColumnFamilyDescriptor::new("tombstones", tombstone_opts),
+            rocksdb::ColumnFamilyDescriptor::new("namespace_index", namespace_index_opts),
+            rocksdb::ColumnFamilyDescriptor::new("payload_index", payload_index_opts),
+            rocksdb::ColumnFamilyDescriptor::new("text_index", text_index_opts),
+            rocksdb::ColumnFamilyDescriptor::new("sparse_index", sparse_index_opts),
+            rocksdb::ColumnFamilyDescriptor::new("internal_metadata", internal_metadata_opts),
+            rocksdb::ColumnFamilyDescriptor::new("versions", versions_opts),
+        ];
+
+        let db = if config.read_only {
+            DB::open_cf_descriptors_read_only(&opts, path, cf_descriptors, false)
+                .map_err(|e: rocksdb::Error| Error::Io(std::io::Error::other(e.to_string())))?
+        } else {
+            DB::open_cf_descriptors(&opts, path, cf_descriptors)
+                .map_err(|e: rocksdb::Error| Error::Io(std::io::Error::other(e.to_string())))?
+        };
+
+        Ok(Self { db })
+    }
+
+    /// Helper: resolve a `BackendPartition` to its RocksDB column family handle.
+    fn cf_handle(&self, partition: BackendPartition) -> Result<&rocksdb::ColumnFamily> {
+        self.db
+            .cf_handle(partition.cf_name())
+            .ok_or_else(|| Error::NotFound {
+                kind: "column_family".into(),
+                id: partition.cf_name().into(),
+            })
+    }
+}
+
+impl StorageBackend for RocksDbBackend {
+    fn put(&self, partition: BackendPartition, key: &[u8], value: &[u8]) -> Result<()> {
+        if partition == BackendPartition::Default {
+            self.db
+                .put(key, value)
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+        } else {
+            let cf = self.cf_handle(partition)?;
+            self.db
+                .put_cf(&cf, key, value)
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+        }
+    }
+
+    fn get(&self, partition: BackendPartition, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        if partition == BackendPartition::Default {
+            self.db
+                .get(key)
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+        } else {
+            let cf = self.cf_handle(partition)?;
+            self.db
+                .get_cf(&cf, key)
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+        }
+    }
+
+    fn get_many(
+        &self,
+        partition: BackendPartition,
+        keys: &[&[u8]],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        if partition == BackendPartition::Default {
+            let results = self
+                .db
+                .multi_get(keys)
+                .into_iter()
+                .zip(keys.iter())
+                .filter_map(|(res, k)| match res {
+                    Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
+                    Ok(None) => None,
+                    Err(e) => Some(Err(Error::Io(std::io::Error::other(e.to_string())))),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            Ok(results)
+        } else {
+            let cf = self.cf_handle(partition)?;
+            let keys_and_cfs: Vec<(&rocksdb::ColumnFamily, &[u8])> =
+                keys.iter().copied().map(|k| (cf, k)).collect();
+            let results = self
+                .db
+                .multi_get_cf(keys_and_cfs)
+                .into_iter()
+                .zip(keys.iter())
+                .filter_map(|(res, k)| match res {
+                    Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
+                    Ok(None) => None,
+                    Err(e) => Some(Err(Error::Io(std::io::Error::other(e.to_string())))),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            Ok(results)
+        }
+    }
+
+    fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()> {
+        if partition == BackendPartition::Default {
+            self.db
+                .delete(key)
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+        } else {
+            let cf = self.cf_handle(partition)?;
+            self.db
+                .delete_cf(&cf, key)
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+        }
+    }
+
+    fn write_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
+        let mut batch = WriteBatch::default();
+        for op in ops {
+            match op {
+                BackendWriteOp::Put {
+                    partition,
+                    key,
+                    value,
+                } => {
+                    if partition == BackendPartition::Default {
+                        batch.put(&key, &value);
+                    } else {
+                        let cf = self.cf_handle(partition)?;
+                        batch.put_cf(&cf, &key, &value);
+                    }
+                }
+                BackendWriteOp::Delete { partition, key } => {
+                    if partition == BackendPartition::Default {
+                        batch.delete(&key);
+                    } else {
+                        let cf = self.cf_handle(partition)?;
+                        batch.delete_cf(&cf, &key);
+                    }
+                }
+            }
+        }
+        self.db
+            .write(batch)
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+    }
+
+    fn flush(&self) -> Result<()> {
+        let mut flush_opt = FlushOptions::default();
+        flush_opt.set_wait(true);
+        self.db
+            .flush_opt(&flush_opt)
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+    }
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: true,
+            supports_manual_compaction: true,
+            kind: crate::backend::BackendKind::RocksDb,
+        }
+    }
+
+    fn as_snapshotable(&self) -> Option<&dyn Snapshotable> {
+        Some(self)
+    }
+
+    fn as_compactable(&self) -> Option<&dyn Compactable> {
+        Some(self)
+    }
+
+    /// Whether the store holds no data at all.
+    ///
+    /// Cheap: one iterator step per column family, without materialising the
+    /// entries. Used by the at-rest encryption wiring to tell a brand-new
+    /// database from an existing plaintext one.
+    #[cfg(feature = "encryption")]
+    fn is_empty(&self) -> Result<bool> {
+        for partition in BackendPartition::ALL {
+            let cf = self.cf_handle(partition)?;
+            if self
+                .db
+                .iterator_cf(&cf, rocksdb::IteratorMode::Start)
+                .next()
+                .is_some()
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+}
+
+/// RocksDB serves the scan role like every backend.
+impl Scannable for RocksDbBackend {
+    fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let cf = self.cf_handle(partition)?;
+        let mut result = Vec::new();
+        for item in self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start) {
+            let (k, v) = item.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+            result.push((k.to_vec(), v.to_vec()));
+        }
+        Ok(result)
+    }
+
+    fn scan_prefix_iter<'a>(
+        &'a self,
+        partition: BackendPartition,
+        prefix: &'a [u8],
+    ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>> {
+        let cf = self.cf_handle(partition)?;
+        let prefix = prefix.to_vec();
+        let mut iter = self
+            .db
+            .iterator_cf(&cf, IteratorMode::From(&prefix, Direction::Forward));
+        Ok(Box::new(std::iter::from_fn(move || {
+            let item = iter.next()?;
+            let (k, v) = match item {
+                Ok(kv) => kv,
+                Err(e) => {
+                    return Some(Err(Error::Io(std::io::Error::other(e.to_string()))));
+                }
+            };
+            if !k.starts_with(&prefix) {
+                return None;
+            }
+            Some(Ok((k.to_vec(), v.to_vec())))
+        })))
+    }
+}
+
+/// RocksDB is the only backend with a native point-in-time snapshot API.
+impl Snapshotable for RocksDbBackend {
+    fn checkpoint(&self, path: &Path) -> Result<()> {
+        let cp = Checkpoint::new(&self.db).map_err(|e| {
+            Error::Io(std::io::Error::other(format!(
+                "Error creating Checkpoint initializer: {}",
+                e
+            )))
+        })?;
+
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        cp.create_checkpoint(path).map_err(|e| {
+            Error::Io(std::io::Error::other(format!(
+                "Error writing checkpoint: {}",
+                e
+            )))
+        })
+    }
+}
+
+/// RocksDB is the only backend with real manual compaction.
+/// Returns `Ok(true)`: compaction was requested and ran.
+impl Compactable for RocksDbBackend {
+    fn compact(&self) -> Result<bool> {
+        let mut c_opts = rocksdb::CompactOptions::default();
+        c_opts.set_exclusive_manual_compaction(false);
+        self.db
+            .compact_range_opt(None::<&[u8]>, None::<&[u8]>, &c_opts);
+        Ok(true)
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "rocksdb")]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+    use crate::backend::BackendWriteOp;
+    use crate::config::Config;
+    use tempfile::tempdir;
+
+    fn open_rocksdb() -> (RocksDbBackend, tempfile::TempDir) {
+        let dir = tempdir().unwrap();
+        let config = Config {
+            memory_limit: Some((256 * MIB) as u64), // 256 MB to keep test lightweight
+            ..Default::default()
+        };
+        let backend = RocksDbBackend::open(dir.path().to_str().unwrap(), &config).unwrap();
+        (backend, dir)
+    }
+
+    #[test]
+    fn test_rocksdb_open() {
+        let (_b, _dir) = open_rocksdb();
+    }
+
+    #[test]
+    fn test_rocksdb_budget_default_ceiling() {
+        // FIND-606: with no declared `memory_limit` the budget stays
+        // inside the default resident ceiling — it must never scale to
+        // 60 % of raw host RAM again.
+        let caps = crate::hardware::HardwareCapabilities::global();
+        let budget = rocksdb_budget(&Config::default(), caps);
+        assert!(budget <= caps.resident_default_ceiling() as usize);
+        assert!(budget > 0);
+    }
+
+    #[test]
+    fn test_rocksdb_budget_absolute_cap_on_declared_limit() {
+        // FIND-606: even a declared `u64::MAX` limit cannot mint an
+        // unbounded block cache — the budget is capped at
+        // ROCKSDB_MAX_BUDGET.
+        let caps = crate::hardware::HardwareCapabilities::global();
+        let config = Config {
+            memory_limit: Some(u64::MAX),
+            ..Default::default()
+        };
+        assert_eq!(rocksdb_budget(&config, caps), ROCKSDB_MAX_BUDGET);
+    }
+
+    #[test]
+    fn test_rocksdb_open_small_memory_limit() {
+        // FIND-597 + BK-02: a small declared limit must still open —
+        // the per-CF write_buffer_size is bounded by the memtable share
+        // (the old 8 MiB clamp could exceed the whole budget) and the
+        // shared WriteBufferManager caps all column families.
+        let dir = tempdir().unwrap();
+        let config = Config {
+            memory_limit: Some(16 * MIB as u64),
+            ..Default::default()
+        };
+        let backend = RocksDbBackend::open(dir.path().to_str().unwrap(), &config).unwrap();
+        backend.put(BackendPartition::Default, b"k", b"v").unwrap();
+        assert_eq!(
+            backend
+                .get(BackendPartition::Default, b"k")
+                .unwrap()
+                .unwrap(),
+            b"v"
+        );
+    }
+
+    #[test]
+    fn test_rocksdb_put_get_default() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"k1", b"v1").unwrap();
+        let val = b
+            .get(BackendPartition::Default, b"k1")
+            .unwrap()
+            .expect("k1");
+        assert_eq!(val, b"v1");
+    }
+
+    #[test]
+    fn test_rocksdb_get_missing() {
+        let (b, _dir) = open_rocksdb();
+        assert!(b
+            .get(BackendPartition::Default, b"missing")
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn test_rocksdb_delete() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"k", b"v").unwrap();
+        b.delete(BackendPartition::Default, b"k").unwrap();
+        assert!(b.get(BackendPartition::Default, b"k").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_rocksdb_write_batch() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"del", b"val").unwrap();
+
+        let ops = vec![
+            BackendWriteOp::Put {
+                partition: BackendPartition::Default,
+                key: b"a".to_vec(),
+                value: b"1".to_vec(),
+            },
+            BackendWriteOp::Put {
+                partition: BackendPartition::TextIndex,
+                key: b"b".to_vec(),
+                value: b"2".to_vec(),
+            },
+            BackendWriteOp::Delete {
+                partition: BackendPartition::Default,
+                key: b"del".to_vec(),
+            },
+        ];
+        b.write_batch(ops).unwrap();
+
+        assert_eq!(
+            b.get(BackendPartition::Default, b"a").unwrap().unwrap(),
+            b"1"
+        );
+        assert_eq!(
+            b.get(BackendPartition::TextIndex, b"b").unwrap().unwrap(),
+            b"2"
+        );
+        assert!(b.get(BackendPartition::Default, b"del").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_rocksdb_scan() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"k1", b"v1").unwrap();
+        b.put(BackendPartition::Default, b"k2", b"v2").unwrap();
+        let entries = b.scan(BackendPartition::Default).unwrap();
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_rocksdb_scan_prefix() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::PayloadIndex, b"abc", b"1").unwrap();
+        b.put(BackendPartition::PayloadIndex, b"abd", b"2").unwrap();
+        b.put(BackendPartition::PayloadIndex, b"zzz", b"3").unwrap();
+        let entries = b
+            .scan_prefix(BackendPartition::PayloadIndex, b"ab")
+            .unwrap();
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_rocksdb_scan_prefix_no_match() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"abc", b"1").unwrap();
+        assert!(b
+            .scan_prefix(BackendPartition::Default, b"zz")
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_rocksdb_flush() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"k", b"v").unwrap();
+        b.flush().unwrap();
+        assert_eq!(
+            b.get(BackendPartition::Default, b"k").unwrap().unwrap(),
+            b"v"
+        );
+    }
+
+    #[test]
+    fn test_rocksdb_checkpoint() {
+        let (b, _dir) = open_rocksdb();
+        let base = tempdir().unwrap();
+        let cp_path = base.path().join("checkpoint");
+        b.put(BackendPartition::Default, b"ck", b"cv").unwrap();
+        b.flush().unwrap();
+        b.as_snapshotable()
+            .expect("RocksDB implements Snapshotable")
+            .checkpoint(&cp_path)
+            .unwrap();
+
+        assert!(cp_path.join("CURRENT").exists());
+    }
+
+    #[test]
+    fn test_rocksdb_compact() {
+        let (b, _dir) = open_rocksdb();
+        // Typed outcome: Ok(true) = compaction ran (was silent no-op before).
+        assert!(b
+            .as_compactable()
+            .expect("RocksDB implements Compactable")
+            .compact()
+            .unwrap());
+    }
+
+    #[test]
+    fn test_rocksdb_capabilities() {
+        let (b, _dir) = open_rocksdb();
+        let caps = b.capabilities();
+        assert!(caps.supports_checkpoint);
+        assert!(caps.supports_manual_compaction);
+        assert_eq!(caps.kind, crate::backend::BackendKind::RocksDb);
+    }
+}

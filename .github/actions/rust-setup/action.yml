@@ -1,0 +1,136 @@
+name: 'Rust & system setup'
+description: 'Common Rust toolchain, cache, and system dependencies for VantaDB CI'
+inputs:
+  toolchain:
+    description: 'Rust toolchain channel. Default 1.95.0 mirrors rust-toolchain.toml; release/publish jobs deliberately override with `stable` (see CI_POLICY) — do not "unify" them without a release rehearsal.'
+    required: false
+    default: '1.95.0'
+  components:
+    description: 'Additional Rustup components (comma-separated)'
+    required: false
+    default: ''
+  swap-mb:
+    description: 'Swap file size in MB (0 to skip)'
+    required: false
+    default: '0'
+  free-disk:
+    description: 'Free disk space'
+    required: false
+    default: 'false'
+  cache-bin:
+    description: 'Whether to cache cargo binaries'
+    required: false
+    default: 'false'
+  install-nextest:
+    description: 'Install cargo-nextest'
+    required: false
+    default: 'false'
+  install-llvm-cov:
+    description: 'Install cargo-llvm-cov'
+    required: false
+    default: 'false'
+  install-system-deps:
+    description: 'Install system libraries (RocksDB, Clang)'
+    required: false
+    default: 'true'
+  shared-key:
+    description: 'Extra cache key suffix for Swatinem/rust-cache (isolate sanitizers/miri/fuzz caches)'
+    required: false
+    default: ''
+  use-sccache:
+    description: 'Enable sccache as RUSTC_WRAPPER (disable to measure real compile times)'
+    required: false
+    default: 'true'
+  workspaces:
+    description: 'Extra workspace target dirs for rust-cache (standalone crates outside the root target/). Default mirrors rust-cache upstream.'
+    required: false
+    default: '. -> target'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Free Disk Space
+      if: ${{ inputs.free-disk == 'true' && runner.os == 'Linux' }}
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+    - name: Add swap space
+      if: ${{ inputs.swap-mb != '0' && runner.os == 'Linux' }}
+      shell: bash
+      run: |
+        sudo swapoff /swapfile || true
+        sudo rm -f /swapfile
+        sudo dd if=/dev/zero of=/swapfile bs=1M count=${{ inputs.swap-mb }}
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        free -h
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        components: ${{ inputs.components }}
+
+    # FIND-701: rustup resolves the channel from the environment before the
+    # repository's `rust-toolchain.toml`, and the file before the global default.
+    # Without this export the `toolchain:` input is decorative: every job ran the
+    # 1.95.0 pin, so the MSRV gate measured 1.95.0 while claiming 1.94.1
+    # (verified locally: file pin 1.94.1 wins over a 1.95.0 default, and
+    # RUSTUP_TOOLCHAIN=stable wins over the file -> 1.97.1).
+    - name: Pin the requested toolchain for every later step
+      shell: bash
+      # Empty input = keep rust-toolchain.toml as the single source of truth
+      # (H06-ARCH-008: exporting an empty RUSTUP_TOOLCHAIN breaks rustup).
+      run: |
+        if [ -n "${{ inputs.toolchain }}" ]; then
+          echo "RUSTUP_TOOLCHAIN=${{ inputs.toolchain }}" >> "$GITHUB_ENV"
+        fi
+
+    - name: Rust cache
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      with:
+        cache-bin: ${{ inputs.cache-bin }}
+        shared-key: ${{ inputs.shared-key }}
+        workspaces: ${{ inputs.workspaces }}
+
+    # sccache is an optional cache: a transient download failure of the
+    # binary (e.g. HTTP 504 from GitHub releases) must degrade to an uncached
+    # build, not fail the job. The wrapper is enabled only if setup succeeded.
+    - name: Set up sccache
+      id: sccache
+      if: ${{ inputs.use-sccache == 'true' }}
+      continue-on-error: true
+      uses: mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11
+      with:
+        version: v0.19.0
+
+    - name: Enable sccache for cargo
+      if: ${{ inputs.use-sccache == 'true' && steps.sccache.outcome == 'success' }}
+      shell: bash
+      run: |
+        echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+        echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+
+    - name: Install system dependencies
+      if: ${{ inputs.install-system-deps == 'true' && runner.os == 'Linux' }}
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+    - name: Install cargo-nextest
+      if: ${{ inputs.install-nextest == 'true' }}
+      uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      with:
+        tool: nextest
+
+    - name: Install cargo-llvm-cov
+      if: ${{ inputs.install-llvm-cov == 'true' }}
+      uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      with:
+        tool: cargo-llvm-cov

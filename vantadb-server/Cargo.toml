@@ -1,0 +1,98 @@
+[package]
+name = "vantadb-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Optional local server wrapper and MCP interface for VantaDB"
+
+[[bin]]
+name = "vantadb-server"
+path = "src/main.rs"
+
+[dependencies]
+# WIRE-07 feature decouple: the HTTP binary must not drag `cli`
+# (clap/clap_complete/indicatif/console/anyhow for the REPL — strategy §grafo,
+# VantaDB-Analisis-Arquitectura:68). `default-features = false` + this explicit
+# list = the previous default set MINUS `cli` (behavior otherwise identical).
+# Keep in sync with `[features] default` in the root Cargo.toml; opt back into
+# the CLI with `--features cli` (forwards `vantadb/cli`).
+vantadb = { workspace = true, features = [
+    "advanced-tokenizer",
+    "fjall",
+    "fs2",
+    "memmap2",
+    "rayon",
+    "roaring",
+    "server",
+    "sysinfo",
+] }
+vantadb-mcp = { workspace = true }
+# WIRE-16 (ADR-0054 T3): the host wires the vanta-memory scheduler.
+# `http-server` enables the loop helper (`services::scheduler`) + conversation
+# bridge; `llm-driver` enables the standalone runner's HTTP transport. Both
+# features are already active in the workspace via `vantadb-mcp` (delta de
+# build ~0) — declared here directly for this crate's own contract.
+vanta-memory = { workspace = true, features = ["http-server", "llm-driver"] }
+# ERR-CORE-02: bin-only human error chain (.context() en main).
+anyhow = { workspace = true }
+# WIRE-16: R-5 warn+default for `VANTADB_SCHEDULER_*` parsing (already in the
+# workspace graph via every other crate).
+tracing = { workspace = true }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "sync", "signal", "net", "time"] }
+
+[dev-dependencies]
+axum = { workspace = true }
+tower = { workspace = true, features = ["util"] }
+# Machete-justified (NOT unused): serde/fs2/jiff/console/indicatif are used
+# by the shared harness pulled via `#[path = "../../tests/common/mod.rs"]`
+# (tests/common/mod.rs:6-10: console, fs2, serde, indicatif, jiff) — a
+# cross-dir include cargo-machete's per-dir heuristic cannot see. `clap` was
+# removed (only mentioned in a src/main.rs comment; zero code usage).
+serde = { workspace = true }
+serde_json = { workspace = true }
+fs2 = { workspace = true }
+futures = { workspace = true }
+tempfile = { workspace = true }
+jiff = { workspace = true }
+console = { workspace = true }
+indicatif = { workspace = true }
+rcgen = "0.14"
+reqwest = { workspace = true, features = ["rustls-tls", "json"] }
+rustls = { version = "0.23", features = ["ring"] }
+axum-server = { version = "0.8", features = ["tls-rustls"] }
+
+[features]
+custom-allocator = ["mimalloc"]
+jemalloc = ["vantadb/jemalloc", "dep:tikv-jemallocator"]
+cli = ["vantadb/cli"]
+embed-local = ["vantadb/embed-local", "vantadb-mcp/embed-local"]
+# SRV-10: opt-in at-rest encryption surface. Forwards the core `encryption`
+# feature; storage is still not wired (FIND-249) — the engine warns at open
+# when the feature+key are active (ENC-01) and `src/server/bootstrap.rs`
+# warns when a key is set without this feature.
+encryption = ["vantadb/encryption"]
+tls = ["vantadb/tls"]
+opentelemetry = ["vantadb/opentelemetry"]
+prometheus = ["vantadb/prometheus"]
+
+# FIND-150: serde/fs2/jiff/console/indicatif are used by the shared test
+# harness pulled via `#[path = "../../tests/common/mod.rs"]`
+# (root tests/common/mod.rs:6-10) — a cross-dir include cargo-machete's
+# per-dir heuristic cannot see. Justified, not removed (`clap` dev-dep was
+# genuinely unused and got deleted instead).
+[package.metadata.cargo-machete]
+ignored = ["serde", "fs2", "jiff", "console", "indicatif"]
+
+
+[dependencies.mimalloc]
+version = "0.1"
+optional = true
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies.tikv-jemallocator]
+version = "0.6"
+optional = true
+
+[lints]
+workspace = true

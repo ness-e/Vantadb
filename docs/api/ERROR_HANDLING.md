@@ -1,0 +1,502 @@
+---
+title: VantaDB Error Handling Reference
+kind: reference
+status: active
+description: This is the canonical contract for how VantaDB surfaces errors across every
+aliases: [DbError, Error, ERROR_CODES, McpError]
+tags: [vantadb, api, errors]
+---
+
+# VantaDB Error Handling Reference
+
+This is the **canonical contract** for how VantaDB surfaces errors across every
+binding (Rust core, Python, TypeScript/WASM, MCP, HTTP API). If you are writing
+client code, integrating with an LLM agent, or adding a new error variant,
+**read this first** — error codes are the contract that lets clients `match`
+without parsing human-readable messages.
+
+## Design Principles
+
+VantaDB follows the same standardization lesson that
+[Vanta's engineering team documented in 2024](https://www.vanta.com/resources/how-we-standardized-error-handling):
+
+> *"We settled on a set of canonical error codes that everyone could use:
+> fundamental concepts such as InvalidInputError, NotAuthorizedError,
+> ResourceNotFoundError, etc. We focused on keeping the list small so that
+> teams would be forced to make tough decisions and decide if the extra work
+> for custom errors was really necessary."*
+> — Ruyan Chen, Vanta Engineering (Mar 2025)
+
+Applied to VantaDB:
+
+1. **Small canonical code list** — 10 codes (`VANTADB_VALIDATION_ERROR`,
+   `VANTADB_NOT_FOUND`, `VANTADB_TIMEOUT`, `VANTADB_BUSY`,
+   `VANTADB_RESOURCE_LIMIT`, `VANTADB_CORRUPT`, `VANTADB_INVALID_ARGUMENT`,
+   `VANTADB_IO_ERROR`, `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`) instead of
+   one-per-variant proliferation.
+2. **Codes are stable; messages are not** — clients must `match` on `code`,
+   never on `message` text. `Display` strings can change without a major
+   version bump.
+3. **Retry semantics are explicit** — every error exposes `is_retriable()`
+   (Rust) / `.retriable` (Python) / `code` class (TS). Never guess.
+4. **Recovery hints shipped with the error** — `recovery_hint()` /
+   `.details.hint` so users see actionable guidance, not a generic toast.
+5. **Cause chain preserved** — `#[source]` (Rust) / `cause` (TS 4.4+) /
+   `__cause__` (Python 3 `raise … from`) keeps the debug trail intact.
+6. **Backtrace captured, never displayed** (ERR-OBS-01) — `ChainedError`
+   variants (`Generic`, `Wal`, `Backend`, …) capture a
+   `std::backtrace::Backtrace` at construction when `RUST_LIB_BACKTRACE=1` /
+   `RUST_BACKTRACE=1`; exposed via `Debug` and `backtrace_str()`, never in
+   `Display` (cross-language messages stay clean). See
+   `docs/user/operations/OBSERVABILITY.md`.
+7. **One envelope shape across bindings (API-01)** — every error that crosses
+   a boundary exposes the same three parts:
+   - `code` — stable, machine-readable (`VANTADB_*`, §1). Clients `match` on
+     this and nothing else.
+   - `message` — human-readable `Display` text. Never for matching; may change
+     without a major bump.
+   - `context` — whatever the source carries: typed variant fields, the cause
+     chain (`#[source]` / `cause` / `__cause__`), plus `retriable` +
+     `hint` recovery metadata.
+
+   No binding converts an error into a `panic!`/`unreachable!`/`expect`; a
+   panic is a bug, not an error path. Rust: `Error::code()` +
+   `Display` + `is_retriable()`/`recovery_hint()`; Python: `.code` /
+   `str(exc)` / `.retriable` + `.hint`; TS/WASM/Node: `DbError.code` /
+   `.message` / `.details` + `.cause`; MCP: `error.data.code` /
+   `error.message` / `error.data`; HTTP: `success: false` + `error`/`data` +
+   `code` (`VANTADB_*`) with optional `hint`
+   (see [`HTTP_API.md` §Error responses](HTTP_API.md#error-responses)); full RFC 9457
+   (`type`/`title`/`status`/`detail`/`instance`) is not implemented — tracked in
+   `docs/dev/Backlog.md` (FIND-161).
+
+> **Resolved (ERR-CORE-01, 2026-09-02):** `Error::code()` now exists and
+> returns `&'static str` with the `VANTADB_` prefix. The table below is the
+> **implemented contract** — Rust `code()` emits exactly these strings.
+
+### The `Generic` catch-all (by design)
+
+`Error::Generic` is a deliberate last-resort variant, not a leftover: it
+exists for failures with no typed classification (typically adapter/FFI glue
+at the edge of the crate). Its wire code is `VANTADB_WASM_ERROR` for
+historical reasons — the code predates the non-WASM bindings — and is frozen
+until a major bump. New code must prefer a typed variant;
+`Error::generic_error` is only for edge glue. `Generic` is **not** a
+substitute for `InvalidInput`/`Schema`/`ResourceLimit`, and it is never
+retriable.
+
+`ResourceLimit`, `InvalidInput`, `Schema`, `DatabaseBusy` and
+`NoVectorForKey` carry a `String` payload by design (API-01; R-6 debt): they
+have 12–64 call sites each, their semantics live in `code()` /
+`is_retriable()` / `recovery_hint()`, and retyping them to `ChainedError` is
+an incremental, non-breaking follow-up — not a big-bang rewrite. If a caller
+needs structured fields, add a typed variant and map it here; do not change
+the `Display` strings (bindings' fallback classifiers parse them).
+
+---
+
+## 1. Error code table
+
+### 1.1 Canonical codes (10 — contract surface)
+
+Every VantaDB error, regardless of source binding, normalizes to one of these
+codes. Clients should branch on `code`; the variant-specific fields are
+informational, not contractual for matching. The Rust core emits the prefixed
+form (`VANTADB_*`); TS/WASM/Node now emit the same prefixed values on the wire
+(ERR-TS-01); Python attaches the same prefixed values as the `.code` attribute
+on the MOD-20 exception classes (`NotFoundError.__name__` stays unprefixed -
+the *code*, not the class name, is the cross-binding contract) (ERR-PY-01).
+
+| Code | Meaning | Source Rust variant(s) | Retriable |
+|------|---------|-------------------------|-----------|
+| `VANTADB_VALIDATION_ERROR` | Input failed validation (dimension, schema, duplicate, collision, cycle, conflict, IQL parse) | `DimensionMismatch`, `DuplicateNode`, `NodeIdCollision`, `CycleDetected`, `ExecutionConflict`, `Validation`, `InvalidInput`, `IqlParse`, `UnsupportedOperation`, `NoVectorForKey` | ❌ |
+| `VANTADB_NOT_FOUND` | Requested entity does not exist | `NodeNotFound`, `NotFound` | ❌ |
+| `VANTADB_TIMEOUT` | Operation exceeded its time budget | `Timeout` | ✅ |
+| `VANTADB_BUSY` | Resource locked or not initialized | `DatabaseBusy` (✅), `NotInitialized` (❌) | ✅/❌ per variant |
+| `VANTADB_RESOURCE_LIMIT` | Memory, disk, or backpressure limit exceeded; on-disk header field overflow | `ResourceLimit` (✅), `VectorLenOverflow` (❌ hard format limit), `EdgeCountOverflow` (❌ hard format limit) | see §2 |
+| `VANTADB_CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `Serialization`, `Schema`, `Restore`, `Backup` | ❌ |
+| `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument (runtime IQL failure) | `Iql` | ❌ |
+| `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `Io` (❌), `Wal` (✅), `Backend` (✅), `Cli`, `Search`, `Runtime` | see §2 |
+| `VANTADB_WASM_ERROR` | Generic catch-all fallback (`Generic`) | `Generic` | ❌ |
+| `VANTADB_CLOSED` | Operation attempted on a closed database handle | (lifecycle, not an `Error` variant — never returned by `code()`) | ❌ |
+
+> **Final mapping note (ERR-CORE-01):** the previously provisional overlap
+> between `VALIDATION_ERROR` and `INVALID_ARGUMENT` on `IqlParse` is
+> resolved: `IqlParse` → `VANTADB_VALIDATION_ERROR` (matching the TS
+> classification), `Iql` → `VANTADB_INVALID_ARGUMENT`. `code()` is a
+> compile-exhaustive match: every new variant must declare its code.
+
+### 1.2 `VANTADB_*` prefixed codes (implemented)
+
+`Error::code()` (`src/error.rs`) returns a `&'static str` with the
+`VANTADB_` prefix. The TS SDK keeps its readable unprefixed *keys*
+(`ERROR_CODES.BUSY`) while the *wire values* are the canonical prefixed
+strings (ERR-TS-01); `VANTADB_CLOSED` is emitted by handle-lifecycle checks
+(TS `close()` guard), not by `code()`:
+
+```rust
+match err.code() {
+    "VANTADB_VALIDATION_ERROR" | "VANTADB_INVALID_ARGUMENT" => { /* ... */ }
+    "VANTADB_NOT_FOUND" => { /* ... */ }
+    c if c.starts_with("VANTADB_") => { /* known family, unhandled */ }
+    _ => unreachable!("code() always returns a VANTADB_* string"),
+}
+```
+
+---
+
+## 2. `is_retriable()` matrix (Rust core)
+
+Defined in `src/error.rs:269`. Use this when implementing retry policies at the
+binding boundary.
+
+```rust
+impl Error {
+    pub fn is_retriable(&self) -> bool {
+        matches!(
+            self,
+            Error::DatabaseBusy(_)
+                | Error::Timeout { .. }
+                | Error::ResourceLimit(_)
+                | Error::Backend(_)
+                | Error::Wal(_)
+        )
+    }
+}
+```
+
+| Rust variant | `is_retriable()` | Recommended backoff |
+|--------------|:---------------:|---------------------|
+| `DatabaseBusy(_)` | ✅ | exponential, jitter, max 30s |
+| `Timeout { .. }` | ✅ | exponential |
+| `ResourceLimit(_)` | ✅ | linear, monitor memory |
+| `Backend(_)` | ✅ | exponential, check disk |
+| `Wal(_)` | ✅ | exponential, check disk |
+| `Io(_)` | ❌ | not retryable by the core classifier (OS-level failures are typically terminal; bindings may retry selectively) |
+| `VectorLenOverflow { .. }` / `EdgeCountOverflow { .. }` | ❌ | hard on-disk format limits — shrink the node, do not retry |
+| All other 25 variants | ❌ | do not retry |
+
+---
+
+## 3. `recovery_hint()` guide (Rust core)
+
+Defined in `src/error.rs:281`. Returns a `&'static str` with actionable
+guidance for the operator. Bindings should surface this in error details.
+
+```rust
+impl Error {
+    pub fn recovery_hint(&self) -> Option<&'static str> {
+        match self {
+            Error::DatabaseBusy(_) => Some("Wait for the lock to be released and retry"),
+            Error::Timeout { .. } => Some("Increase the timeout or reduce system load"),
+            Error::ResourceLimit(_) => Some("Reduce memory pressure or increase configured limits"),
+            Error::IncompatibleFormat { .. } => Some("Delete the WAL or run dump/restore to migrate formats"),
+            Error::Schema(_) => Some("Reinitialize the database or restore from backup"),
+            Error::WALVersionMismatch { .. } => Some("The WAL was written by a different version of VantaDB"),
+            Error::Restore(_) => Some("Check that the backup file exists and is readable"),
+            Error::Backup(_) => Some("Ensure the backup directory is writable and has free space"),
+            Error::NodeNotFound(_) => Some("The node may have been deleted or never existed"),
+            Error::NotFound { .. } => Some("Verify that the namespace or identifier is spelled correctly"),
+            _ => None,
+        }
+    }
+}
+```
+
+Clients with structured error details should include `hint` in the response
+payload so end-users see actionable guidance instead of a generic toast.
+
+---
+
+## 4. TypeScript / WASM error mapping
+
+The TypeScript SDK and WASM binding normalize Rust `Error` to a
+`DbError` class with a stable `code` from the 13-code contract. The wire
+values are the canonical `VANTADB_*` codes (ERR-TS-01); the TS object keys
+keep their unprefixed names. `SERIALIZATION`, `QUOTA_EXCEEDED` and
+`NOT_SUPPORTED` are **binding-layer refinements**, not additional core
+codes — `Error::code()` still emits only the §1.1 set (`Serialization` and
+`QuotaExceeded` map to `VANTADB_CORRUPT` / `VANTADB_RESOURCE_LIMIT` there,
+and `UnsupportedOperation` maps to `VANTADB_VALIDATION_ERROR`).
+
+```ts
+export const ERROR_CODES = {
+  CLOSED: "VANTADB_CLOSED",
+  WASM_ERROR: "VANTADB_WASM_ERROR",
+  VALIDATION_ERROR: "VANTADB_VALIDATION_ERROR",
+  NOT_FOUND: "VANTADB_NOT_FOUND",
+  INVALID_ARGUMENT: "VANTADB_INVALID_ARGUMENT",
+  CORRUPT: "VANTADB_CORRUPT",
+  SERIALIZATION: "VANTADB_SERIALIZATION",
+  RESOURCE_LIMIT: "VANTADB_RESOURCE_LIMIT",
+  QUOTA_EXCEEDED: "VANTADB_QUOTA_EXCEEDED",
+  TIMEOUT: "VANTADB_TIMEOUT",
+  BUSY: "VANTADB_BUSY",
+  IO_ERROR: "VANTADB_IO_ERROR",
+  NOT_SUPPORTED: "VANTADB_NOT_SUPPORTED", // SDK-level (FIND-536)
+} as const;
+```
+
+`vantadb-node` (napi) carries the code as a `"{VANTADB_CODE}: {message}"`
+prefix on the thrown `Error` — `wrapNativeError` in `vantadb-ts` parses it
+back into `err.code` and strips it from the message, falling back to
+`classifyWasmError` for unprefixed (host-level) failures.
+
+### 4.1 `DbError` shape
+
+```ts
+export class DbError extends Error {
+  readonly code: ErrorCode;        // one of the 13 above
+  readonly details?: unknown;      // structured payload (Rust variant fields)
+  readonly timestamp: Date;
+
+  toJSON(): {
+    name: string;
+    code: string;
+    message: string;
+    details?: unknown;
+    timestamp: string;            // ISO-8601
+  };
+}
+```
+
+### 4.2 `wrapWasmError` and `classifyWasmError`
+
+The WASM binding preserves the structured `code` via
+`to_js_err` (Rust) → `Reflect::set(err, "code", ...)` (TS). When that is
+missing (older pkg builds), `classifyWasmError` falls back to message-prefix
+regex mirroring the `Display` strings in `src/error.rs`.
+
+```ts
+import { wrapWasmError } from "vantadb";
+
+try {
+  db.put(...);
+} catch (e) {
+  const err = wrapWasmError(e, "db.put");
+  if (err.code === "VANTADB_VALIDATION_ERROR") {
+    console.warn("validation failed:", err.details);
+  } else if (err.code === "VANTADB_BUSY") {
+    await sleep(100); // is_retriable equivalent
+    retry();
+  }
+}
+```
+
+### 4.3 Cause chain (TS 4.4+)
+
+Since ERR-TS-01, `wrapWasmError` / `wrapNativeError` set
+`DbError.cause` to the original thrown value (ES2022 `ErrorOptions`),
+preserving the error chain natively. The legacy `details.original` /
+`details.{name,stack}` fields are kept unchanged for backward compat.
+
+---
+
+## 5. Python exception hierarchy (10 subclasses)
+
+The Python binding exposes an `Error(RuntimeError)` base and 10 typed
+subclasses (`MOD-20`). All inherit from `RuntimeError` for backward compat.
+
+> **The base class is named `Error`, not `VantaError`.** There is no
+> `VantaError` in any binding: the `VantaError` name is the *legacy alias* that
+> AST-010 **removed** in 0.6.0, and a separate TS *string* `name` (see below).
+> `catch`/`except` the base as `except vantadb.Error`, or narrow to a subclass.
+
+**Do not conflate the three same-ish names:**
+
+| Language | Type | Defined in |
+|----------|------|-----------|
+| Python | `vantadb.Error` (exception class, extends `RuntimeError`) + 10 subclasses | `vantadb-python/src/convert.rs` (`create_exception!`), re-exported from `vantadb/src/lib.rs` |
+| TypeScript | `DbError` (class) — **its `name` string is `"VantaError"`** | `vantadb-ts/src/errors.ts` |
+| Rust | `vantadb::Error` (`#[non_exhaustive]` enum, 32 variants) | `src/error.rs` |
+
+The Python subclasses mirror the Rust enum 1:1 (`NotFoundError` ←
+`NodeNotFound`/`NotFound`, `BusyError` ← `DatabaseBusy`/`NotInitialized`, …), so
+"an `Error` subclass" and "some `vantadb::Error` variant" usually mean the same
+condition in different languages.
+
+```
+Error (RuntimeError)
+├── NotFoundError         # NodeNotFound, NotFound
+├── ValidationError       # DimensionMismatch, DuplicateNode, Validation, InvalidInput, …
+├── CorruptError          # IncompatibleFormat, WALVersionMismatch, Schema, Serialization, …
+├── StorageError          # Io, Wal, Backend
+├── ConflictError         # ExecutionConflict, CycleDetected (NodeIdCollision → ValidationError)
+├── UnsupportedError      # UnsupportedOperation
+├── ResourceLimitError    # ResourceLimit
+├── BusyError             # DatabaseBusy, NotInitialized
+├── NoVectorError         # NoVectorForKey
+└── TimeoutError          # Timeout
+```
+
+### 5.1 Attributes (0.5.0+)
+
+Every `Error` subclass exposes:
+
+| Attribute | Type | Meaning |
+|-----------|------|---------|
+| `.code` | `str` | Canonical code from §1.1, exact prefixed value (e.g. `"VANTADB_VALIDATION_ERROR"`) — ERR-PY-01 |
+| `.retriable` | `bool` | Equivalent to `is_retriable()` |
+| `.details` | `dict \| None` | Structured fields from the Rust variant — *pending*: not attached yet (ERR-PY-01 shipped `code`/`retriable`/`hint`; variant-field extraction is a follow-up task) |
+| `.hint` | `str \| None` | Recovery hint (mirrors `recovery_hint()`) |
+| `.line` / `.col` | `int` | **IQL parse errors only** (`IqlParse`): the 1-based position of the rejected token, `col` counted in characters (FIND-722). Absent on every other error |
+
+### 5.2 `error_to_dict()` (`.to_dict()` deferred)
+
+PyO3 `create_exception!` types cannot carry methods, so the plain-dict shape
+is exposed as a module-level helper `vantadb.error_to_dict(exc)` (ERR-PY-01;
+`exc.to_dict()` tracked for a follow-up if a method-carrying redesign lands):
+
+```python
+import vantadb
+try:
+    db.put(...)
+except vantadb.Error as exc:
+    log.error("vanta_error", extra=vantadb.error_to_dict(exc))
+    # {"name": "NotFoundError", "code": "VANTADB_NOT_FOUND",
+    #  "message": "...", "retriable": false, "hint": "..."}
+```
+
+---
+
+## 6. MCP JSON-RPC error codes
+
+The VantaDB MCP server (`vantadb-mcp`) speaks JSON-RPC 2.0 over stdio. Every
+error response uses the JSON-RPC standard codes (5 factories) plus a Vanta
+custom range (`-32001`..`-32099`) for domain-specific errors.
+
+### 6.1 Standard JSON-RPC factories
+
+Defined in `vantadb-mcp/src/error.rs`:
+
+| Code | Constant | Meaning |
+|------|----------|---------|
+| `-32700` | `parse_error` | Invalid JSON was received by the server |
+| `-32600` | `invalid_request` | The JSON sent is not a valid Request object |
+| `-32601` | `method_not_found` | The method does not exist or is unavailable |
+| `-32602` | `invalid_params` | Invalid method parameter(s) |
+| `-32603` | `internal_error` | Internal JSON-RPC error |
+
+### 6.2 Vanta custom `-320xx` codes
+
+Mapped from `Error` (Task `ERR-MCP-01`):
+
+| Code | Constant | Error variant(s) | Meaning |
+|------|----------|------------------------|---------|
+| `-32001` | `vanta_busy` | `DatabaseBusy`, `NotInitialized` | Database is busy or not initialized |
+| `-32002` | `vanta_corrupt` | `WALVersionMismatch`, `IncompatibleFormat`, `Schema`, `Serialization` | Persisted data is corrupt |
+| `-32003` | `vanta_conflict` | — reserved, not emitted (conflict variants fold into `vanta_validation` per `vantadb-mcp/src/error.rs`) | Concurrent modification conflict |
+| `-32004` | `vanta_not_found` | `NodeNotFound`, `NotFound` | Requested entity does not exist |
+| `-32005` | `vanta_unauthorized` | (auth layer) | Caller not authorized for this operation |
+| `-32006` | `vanta_rate_limited` | (rate limit layer) | Too many requests |
+| `-32007` | `vanta_resource_limit` | `ResourceLimit` | Resource limit exceeded |
+| `-32008` | `vanta_timeout` | `Timeout` | Operation timed out |
+| `-32009` | `vanta_validation` | `DimensionMismatch`, `DuplicateNode`, `Validation`, `InvalidInput`, `IqlParse` | Input validation failed |
+
+### 6.3 Response envelope
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "validation failed on 'namespace': must not be empty",
+    "data": {
+      "code": "VALIDATION_ERROR",
+      "retriable": false,
+      "hint": "Provide a non-empty namespace identifier",
+      "details": { "field": "namespace" }
+    }
+  }
+}
+```
+
+The `data.code` field carries the canonical code from §1.1, so LLM agents can
+branch on a stable identifier even when the JSON-RPC code is just the
+transport layer.
+
+### 6.4 Retry guidance for LLM clients
+
+| JSON-RPC code | Vanta canonical code | Should LLM retry? |
+|---------------|----------------------|:-----------------:|
+| `-32602` | `VALIDATION_ERROR` | ❌ fix the input |
+| `-32001` | `BUSY` | ✅ wait + retry |
+| `-32004` | `NOT_FOUND` | ❌ resource missing |
+| `-32007` | `RESOURCE_LIMIT` | ⚠️ retry with backoff |
+| `-32008` | `TIMEOUT` | ✅ retry (or increase timeout) |
+| `-32603` | (unknown internal) | ⚠️ retry once, then escalate |
+
+---
+
+## 7. HTTP API error envelope (cross-reference)
+
+The HTTP API (`docs/api/HTTP_API.md`) returns errors as:
+
+```json
+{ "success": false, "error": "<message>", "hint": "<optional>" }
+```
+
+with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
+`Error` variant → HTTP status is defined in `src/server/errors.rs`
+(`vanta_error_status`). Since ERR-CORE-01 both error envelopes
+(`vanta_error_response`, `query_error_response`) include a canonical
+`"code"` field alongside the message — e.g.
+`{ "success": false, "error": "...", "code": "VANTADB_NOT_FOUND" }`. See
+`docs/api/HTTP_API.md` § Error responses.
+
+> **RFC 9457 adoption (2026-09-27, owner decision — FIND-161):** the HTTP error
+> surface will migrate to RFC 9457 `application/problem+json`
+> (`type` / `title` / `status` / `detail` / `instance`), with the canonical
+> `code` preserved as an extension member for cross-binding consistency.
+> Implementation tracked as `FIND-165`; until it ships, the envelope above stays
+> the wire contract.
+
+---
+
+## 8. See also
+
+- [`docs/api/EMBEDDED_SDK.md`](EMBEDDED_SDK.md) — Rust `Error` reference
+- [`docs/api/PYTHON_SDK.md`](PYTHON_SDK.md) — Python `Error` subclasses
+- [`docs/api/TS_SDK.md`](TS_SDK.md) — TypeScript `DbError` + `ERROR_CODES`
+- [`docs/api/MCP.md`](MCP.md) — MCP JSON-RPC codes + Vanta `-320xx` table
+- [`docs/api/HTTP_API.md`](HTTP_API.md) — HTTP error envelope
+- `src/error.rs` — canonical Rust definition
+- `vantadb-ts/src/errors.ts` — TypeScript canonical
+- `vantadb-mcp/src/error.rs` — MCP canonical
+- Plan `2026-09-02-error-observability-excellence` — task lineage
+
+## Changelog
+
+- **2026-09-29** — §5 gains a disambiguation table. The Python base class is
+  `Error`, not `VantaError` (the `VantaError` alias was removed in 0.6.0,
+  AST-010); the TS class is `DbError`, whose serialized `name` string remains
+  `"VantaError"` (AST-004); the Rust type is `vantadb::Error`. The Python
+  hierarchy in §5 was already correct and is unchanged. Frontmatter alias
+  `VantaError` → `DbError`/`Error`; changelog `VantaError::code()` →
+  `Error::code()`. No API or wire change.
+- **2026-09-25 (API-01)** — Design Principles gain principle 7 (cross-binding
+  envelope `code` + `message` + `context`, no panic) and the
+  "`Generic` catch-all (by design)" subsection documenting why `Generic` and
+  the `String`-payload variants stay as-is (R-6 debt paid incrementally).
+  `src/error.rs` carries the same envelope at module level. No wire change —
+  `code()` / `Display` untouched.
+- **2026-09-02 (ERR-TS-01)** — TS/WASM/Node aligned to the canonical
+  `VANTADB_*` wire values: `vantadb-wasm`'s `to_js_err` now calls
+  `Error::code()` directly (local 30→8 table removed);
+  `vantadb-node`'s `map_err` emits `"{CODE}: {Display}"`;
+  `vantadb-ts`'s `ERROR_CODES` keeps unprefixed keys but prefixed values
+  (BREAKING for `err.code === "VALIDATION_ERROR"`-style comparisons);
+  `wrapNativeError` recovers the code (no invented `NATIVE_ERROR`);
+  `guards.validateVector` throws `DbError(ERROR_CODES.VALIDATION_ERROR)`
+  instead of `TypeError`/`RangeError` (BREAKING for TypeError catchers);
+  `cause` chain set by both wrappers (§4.3).
+- **2026-09-02 (ERR-CORE-01)** — `Error::code()` implemented in
+  `src/error.rs`: 10 canonical `VANTADB_*` codes, exhaustive match, snapshot
+  test `error::tests::code_snapshot_all_variants`. Final mapping resolved
+   (`IqlParse` → `VANTADB_VALIDATION_ERROR`). Typed overflow variants
+   `VectorLenOverflow` / `EdgeCountOverflow` replace the `ResourceLimit(format!)`
+   catch-alls in `write_node_to_vstore`. HTTP envelopes gain the `code` field.
+   §2 corrected: `Io` is **not** retriable per the code (was a doc error).
+- **2026-09-02** — Created as part of `ERR-DOCS-01`. Provisional 10-code
+  table pending `pub fn code()` from `ERR-CORE-01`.

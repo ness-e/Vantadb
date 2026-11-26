@@ -1,0 +1,1076 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+#![cfg(debug_assertions)]
+#![cfg(feature = "advanced-tokenizer")]
+
+//! Persistent text-index certification for memory payloads.
+
+use std::process::Command;
+use std::sync::Mutex;
+use tempfile::tempdir;
+use vantadb::config::Config;
+use vantadb::{Embedded, MemoryInput, MemoryMetadata, MemorySearchRequest, Value};
+
+static TEXT_INDEX_REPAIR_METRIC_LOCK: Mutex<()> = Mutex::new(());
+
+fn input(namespace: &str, key: &str, payload: &str) -> MemoryInput {
+    MemoryInput::new(namespace, key, payload)
+}
+
+fn posting_key(namespace: &str, token: &str, key: &str) -> Vec<u8> {
+    let mut index_key = Vec::new();
+    index_key.extend_from_slice(namespace.as_bytes());
+    index_key.push(0);
+    index_key.extend_from_slice(token.as_bytes());
+    index_key.push(0);
+    index_key.extend_from_slice(key.as_bytes());
+    index_key
+}
+
+fn assert_has_posting(keys: &[Vec<u8>], namespace: &str, token: &str, key: &str) {
+    let expected = posting_key(namespace, token, key);
+    assert!(
+        keys.contains(&expected),
+        "missing posting key {:?}",
+        String::from_utf8_lossy(&expected)
+    );
+}
+
+fn field_string(value: &str) -> Value {
+    Value::String(value.to_string())
+}
+
+fn search_keys(
+    db: &Embedded,
+    namespace: &str,
+    text_query: &str,
+    filters: MemoryMetadata,
+    top_k: usize,
+) -> Vec<String> {
+    db.search(MemorySearchRequest {
+        namespace: namespace.to_string(),
+        query_vector: Vec::new(),
+        filters,
+        text_query: Some(text_query.to_string()),
+        top_k,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        ..Default::default()
+    })
+    .expect("text search")
+    .into_iter()
+    .map(|hit| hit.record.key)
+    .collect()
+}
+
+fn seed_hybrid_eval_corpus(db: &Embedded) {
+    let mut both = input("agent/main", "both", "alpha fused");
+    both.vector = Some(vec![1.0, 0.0]);
+    db.put(both).expect("put both");
+
+    let mut vector_only = input("agent/main", "vector-only", "unrelated");
+    vector_only.vector = Some(vec![0.9, 0.1]);
+    db.put(vector_only).expect("put vector only");
+
+    let mut text_only = input("agent/main", "text-only", "alpha lexical");
+    text_only.vector = Some(vec![0.0, 1.0]);
+    db.put(text_only).expect("put text only");
+
+    let mut other_namespace = input("agent/other", "other", "alpha fused");
+    other_namespace.vector = Some(vec![1.0, 0.0]);
+    db.put(other_namespace).expect("put other namespace");
+}
+
+#[test]
+fn text_index_rebuilds_from_canonical_records() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    db.put(input("agent/main", "a", "Alpha alpha beta"))
+        .expect("put");
+    db.flush().expect("flush");
+
+    let before = db.operational_metrics();
+    db.debug_clear_text_index_for_tests()
+        .expect("clear text index");
+    assert!(db
+        .debug_text_index_posting_keys_for_tests()
+        .expect("text keys")
+        .is_empty());
+
+    let rebuild = db.rebuild_index().expect("rebuild");
+    assert!(rebuild.success);
+
+    let keys = db
+        .debug_text_index_posting_keys_for_tests()
+        .expect("text keys after rebuild");
+    assert_eq!(keys.len(), 2);
+    assert_has_posting(&keys, "agent/main", "alpha", "a");
+    assert_has_posting(&keys, "agent/main", "beta", "a");
+    assert!(
+        db.debug_text_index_audit_for_tests()
+            .expect("audit after rebuild")
+            .passed
+    );
+
+    let after = db.operational_metrics();
+    assert!(after.text_postings_written >= before.text_postings_written + 2);
+}
+
+#[test]
+fn text_index_repairs_on_open_when_postings_missing_or_state_corrupt() {
+    let _metric_guard = TEXT_INDEX_REPAIR_METRIC_LOCK.lock().expect("metric lock");
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().to_path_buf();
+    let repairs_before;
+
+    {
+        let db = Embedded::open(&path).expect("open");
+        db.put(input("agent/main", "repair", "repair alpha"))
+            .expect("put");
+        db.flush().expect("flush");
+
+        repairs_before = db.operational_metrics().text_index_repairs;
+        db.debug_clear_text_index_for_tests()
+            .expect("clear text index");
+        db.debug_corrupt_text_index_state_for_tests()
+            .expect("corrupt text state");
+        db.flush().expect("flush corrupted state");
+        db.close().expect("close");
+    }
+
+    let reopened = Embedded::open(&path).expect("reopen");
+    let keys = reopened
+        .debug_text_index_posting_keys_for_tests()
+        .expect("text keys after repair");
+    assert_has_posting(&keys, "agent/main", "repair", "repair");
+    assert_has_posting(&keys, "agent/main", "alpha", "repair");
+    assert!(
+        reopened
+            .debug_text_index_audit_for_tests()
+            .expect("audit after repair")
+            .passed
+    );
+
+    let after = reopened.operational_metrics();
+    assert!(after.text_index_repairs > repairs_before);
+}
+
+#[test]
+fn public_text_index_audit_detects_drift_without_repairing() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    db.put(input("agent/main", "audit", "audit alpha beta"))
+        .expect("put audit record");
+    db.put(input("agent/other", "audit", "audit outside"))
+        .expect("put other record");
+
+    let clean = db
+        .audit_text_index(Some("agent/main"))
+        .expect("clean namespace audit");
+    assert!(clean.passed);
+    assert_eq!(clean.status, "ok");
+    assert_eq!(clean.namespace_filter.as_deref(), Some("agent/main"));
+    assert_eq!(clean.namespaces_audited, vec!["agent/main".to_string()]);
+    assert_eq!(clean.mismatches, 0);
+    assert!(clean.expected_entries > 0);
+
+    db.debug_clear_text_index_for_tests()
+        .expect("clear text index");
+    let drift = db
+        .audit_text_index(Some("agent/main"))
+        .expect("drift namespace audit");
+    assert!(!drift.passed);
+    assert_eq!(drift.status, "repair_recommended");
+    assert!(drift.missing_entries > 0);
+    assert!(drift.mismatches >= drift.missing_entries);
+
+    let still_missing = db
+        .debug_text_index_posting_keys_for_tests()
+        .expect("posting keys remain cleared");
+    assert!(still_missing.is_empty());
+
+    db.rebuild_index().expect("rebuild after audit drift");
+    assert!(
+        db.audit_text_index(Some("agent/main"))
+            .expect("audit after rebuild")
+            .passed
+    );
+}
+
+#[test]
+fn cli_audit_index_reports_json_and_drift_exit_code() {
+    let dir = tempdir().expect("tempdir");
+    let db_path = dir.path().to_path_buf();
+
+    {
+        let db = Embedded::open(&db_path).expect("open");
+        db.put(input("agent/main", "cli", "cli audit alpha"))
+            .expect("put cli");
+        db.flush().expect("flush clean cli db");
+        db.close().expect("close clean cli db");
+    }
+
+    let clean = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "audit-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+            "--namespace",
+            "agent/main",
+            "--json",
+            "--deep",
+        ])
+        .output()
+        .expect("run clean cli deep audit");
+    assert!(
+        clean.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&clean.stdout),
+        String::from_utf8_lossy(&clean.stderr)
+    );
+    let clean_json: serde_json::Value =
+        serde_json::from_slice(&clean.stdout).expect("clean audit json");
+    assert_eq!(clean_json["passed"], true);
+    assert_eq!(clean_json["deep_audit"], true);
+    assert_eq!(clean_json["namespace_filter"], "agent/main");
+
+    {
+        let db = Embedded::open(&db_path).expect("reopen for drift");
+        db.debug_clear_text_index_for_tests()
+            .expect("clear cli text index");
+        db.flush().expect("flush drift cli db");
+        db.close().expect("close drift cli db");
+    }
+
+    let drift = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "audit-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+            "--namespace",
+            "agent/main",
+            "--json",
+            "--deep",
+        ])
+        .output()
+        .expect("run drift cli deep audit");
+    assert_eq!(drift.status.code(), Some(3));
+    let drift_json: serde_json::Value =
+        serde_json::from_slice(&drift.stdout).expect("drift audit json");
+    assert_eq!(drift_json["passed"], false);
+    assert_eq!(drift_json["deep_audit"], true);
+    assert!(drift_json["missing_entries"].as_u64().unwrap_or(0) > 0);
+}
+
+#[test]
+fn cli_repair_text_index_fixes_deep_logical_corruption() {
+    let dir = tempdir().expect("tempdir");
+    let db_path = dir.path().to_path_buf();
+
+    {
+        let db = Embedded::open(&db_path).expect("open");
+        db.put(input("agent/main", "cli-repair", "alpha beta gamma"))
+            .expect("put repair seed");
+        db.flush().expect("flush repair seed");
+        db.debug_corrupt_text_index_posting_tf_for_tests("agent/main", "alpha", "cli-repair", 99)
+            .expect("corrupt tf");
+        db.debug_corrupt_text_index_posting_positions_for_tests(
+            "agent/main",
+            "beta",
+            "cli-repair",
+            vec![8, 13],
+        )
+        .expect("corrupt positions");
+        db.debug_corrupt_text_index_term_stats_for_tests("agent/main", "gamma", 7)
+            .expect("corrupt term stats");
+        db.debug_corrupt_text_index_doc_stats_for_tests("agent/main", "cli-repair", 100)
+            .expect("corrupt doc stats");
+        db.flush().expect("flush logical corruption");
+        db.close().expect("close corrupted db");
+    }
+
+    let corrupt = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "audit-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+            "--namespace",
+            "agent/main",
+            "--json",
+            "--deep",
+        ])
+        .output()
+        .expect("run corrupt deep audit");
+    assert_eq!(corrupt.status.code(), Some(3));
+    let corrupt_json: serde_json::Value =
+        serde_json::from_slice(&corrupt.stdout).expect("corrupt audit json");
+    assert_eq!(corrupt_json["passed"], false);
+    assert_eq!(corrupt_json["deep_audit"], true);
+    assert_eq!(corrupt_json["tf_errors"].as_u64(), Some(1));
+    assert_eq!(corrupt_json["position_errors"].as_u64(), Some(1));
+    assert_eq!(corrupt_json["df_errors"].as_u64(), Some(1));
+    assert_eq!(corrupt_json["doc_len_errors"].as_u64(), Some(1));
+
+    let repair = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "repair-text-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+        ])
+        .output()
+        .expect("run cli repair");
+    assert!(
+        repair.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&repair.stdout),
+        String::from_utf8_lossy(&repair.stderr)
+    );
+    let repair_stdout = String::from_utf8_lossy(&repair.stdout);
+    assert!(repair_stdout.contains("repair success=true"));
+    assert!(repair_stdout.contains("record_count=1"));
+
+    let repaired = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "audit-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+            "--namespace",
+            "agent/main",
+            "--json",
+            "--deep",
+        ])
+        .output()
+        .expect("run repaired deep audit");
+    assert!(
+        repaired.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&repaired.stdout),
+        String::from_utf8_lossy(&repaired.stderr)
+    );
+    let repaired_json: serde_json::Value =
+        serde_json::from_slice(&repaired.stdout).expect("repaired audit json");
+    assert_eq!(repaired_json["passed"], true);
+    assert_eq!(repaired_json["deep_audit"], true);
+    assert_eq!(repaired_json["value_mismatches"].as_u64(), Some(0));
+}
+
+#[test]
+fn text_index_update_delete_remove_stale_postings() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    db.put(input("agent/main", "item", "alpha beta"))
+        .expect("put initial");
+    db.put(input("agent/main", "item", "beta gamma beta"))
+        .expect("put update");
+
+    let keys = db
+        .debug_text_index_posting_keys_for_tests()
+        .expect("text keys after update");
+    assert!(!keys.contains(&posting_key("agent/main", "alpha", "item")));
+    assert_has_posting(&keys, "agent/main", "beta", "item");
+    assert_has_posting(&keys, "agent/main", "gamma", "item");
+    let posting = db
+        .debug_text_index_posting_for_tests("agent/main", "beta", "item")
+        .expect("posting")
+        .expect("beta posting");
+    assert_eq!(posting.1, 2);
+    assert_eq!(
+        search_keys(&db, "agent/main", "alpha", Default::default(), 10),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        search_keys(&db, "agent/main", "gamma", Default::default(), 10),
+        vec!["item".to_string()]
+    );
+
+    assert!(db.delete("agent/main", "item").expect("delete"));
+    let keys = db
+        .debug_text_index_posting_keys_for_tests()
+        .expect("text keys after delete");
+    assert!(!keys
+        .iter()
+        .any(|key: &Vec<u8>| key.starts_with(b"agent/main\0")));
+    assert!(
+        db.debug_text_index_audit_for_tests()
+            .expect("audit after delete")
+            .passed
+    );
+}
+
+#[test]
+fn text_index_tokenization_and_key_contract() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    db.put(input(
+        "agent/main",
+        "contract",
+        "Hello, VantaDB! Agent-42 memory memory.",
+    ))
+    .expect("put");
+
+    let keys = db
+        .debug_text_index_posting_keys_for_tests()
+        .expect("text keys");
+    // Advanced tokenizer stems by default (Tantivy Porter): "memory" → "memori".
+    let expected = vec![
+        posting_key("agent/main", "42", "contract"),
+        posting_key("agent/main", "agent", "contract"),
+        posting_key("agent/main", "hello", "contract"),
+        posting_key("agent/main", "memori", "contract"),
+        posting_key("agent/main", "vantadb", "contract"),
+    ];
+    assert_eq!(keys, expected);
+    let posting = db
+        .debug_text_index_posting_for_tests("agent/main", "memori", "contract")
+        .expect("posting")
+        .expect("memory posting");
+    assert_eq!(posting.1, 2);
+}
+
+#[test]
+fn phrase_query_uses_consecutive_positions_and_cleans_stale_positions() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    db.put(input("agent/main", "exact", "alpha beta gamma"))
+        .expect("put exact");
+    db.put(input("agent/main", "separated", "alpha spacer beta"))
+        .expect("put separated");
+    db.put(input("agent/main", "reversed", "beta alpha gamma"))
+        .expect("put reversed");
+
+    assert_eq!(
+        search_keys(&db, "agent/main", "\"alpha beta\"", Default::default(), 10),
+        vec!["exact".to_string()]
+    );
+    assert_eq!(
+        search_keys(&db, "agent/main", "\"beta alpha\"", Default::default(), 10),
+        vec!["reversed".to_string()]
+    );
+
+    db.put(input("agent/main", "exact", "alpha spacer beta"))
+        .expect("update exact");
+    assert_eq!(
+        search_keys(&db, "agent/main", "\"alpha beta\"", Default::default(), 10),
+        Vec::<String>::new()
+    );
+
+    assert!(db.delete("agent/main", "reversed").expect("delete"));
+    assert_eq!(
+        search_keys(&db, "agent/main", "\"beta alpha\"", Default::default(), 10),
+        Vec::<String>::new()
+    );
+    assert!(
+        db.debug_text_index_audit_for_tests()
+            .expect("audit positions")
+            .passed
+    );
+}
+
+#[test]
+fn text_index_export_import_round_trip_rebuildable() {
+    let source_dir = tempdir().expect("source tempdir");
+    let target_dir = tempdir().expect("target tempdir");
+    let export_path = source_dir.path().join("memory.jsonl");
+
+    let source = Embedded::open(source_dir.path()).expect("open source");
+    source
+        .put(input("agent/main", "portable", "portable alpha alpha"))
+        .expect("put source");
+    source
+        .export_namespace(&export_path, "agent/main", None)
+        .expect("export namespace");
+
+    let target = Embedded::open(target_dir.path()).expect("open target");
+    let imported = target
+        .import_file(&export_path, false)
+        .expect("import file");
+    assert_eq!(imported.inserted, 1);
+    assert_eq!(imported.errors, 0);
+
+    let imported_keys = target
+        .debug_text_index_posting_keys_for_tests()
+        .expect("imported text keys");
+    // Advanced tokenizer stems by default: "portable" → "portabl".
+    assert_has_posting(&imported_keys, "agent/main", "portabl", "portable");
+    assert_has_posting(&imported_keys, "agent/main", "alpha", "portable");
+
+    target
+        .debug_clear_text_index_for_tests()
+        .expect("clear imported text index");
+    target.rebuild_index().expect("rebuild target");
+
+    let rebuilt_keys = target
+        .debug_text_index_posting_keys_for_tests()
+        .expect("rebuilt text keys");
+    assert_eq!(rebuilt_keys.len(), 2);
+    assert_has_posting(&rebuilt_keys, "agent/main", "portabl", "portable");
+    assert_has_posting(&rebuilt_keys, "agent/main", "alpha", "portable");
+    assert_eq!(
+        search_keys(&target, "agent/main", "portable", Default::default(), 10),
+        vec!["portable".to_string()]
+    );
+    assert_eq!(
+        search_keys(
+            &target,
+            "agent/main",
+            "\"portable alpha\"",
+            Default::default(),
+            10
+        ),
+        vec!["portable".to_string()]
+    );
+    assert!(
+        target
+            .debug_text_index_audit_for_tests()
+            .expect("audit imported")
+            .passed
+    );
+}
+
+#[test]
+fn text_query_bm25_uses_tf_df_and_document_length() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    db.put(input("agent/main", "tf-low", "alpha signal"))
+        .expect("put low tf");
+    db.put(input("agent/main", "tf-high", "alpha alpha alpha signal"))
+        .expect("put high tf");
+    let hits = db
+        .search(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("alpha".to_string()),
+            top_k: 2,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("tf search");
+    assert_eq!(hits[0].record.key, "tf-high");
+    assert!(hits[0].score > hits[1].score);
+
+    let rare_dir = tempdir().expect("rare tempdir");
+    let rare_db = Embedded::open(rare_dir.path()).expect("open rare");
+    rare_db
+        .put(input("agent/main", "rare-doc", "common rare"))
+        .expect("put rare");
+    rare_db
+        .put(input("agent/main", "common-doc", "common common"))
+        .expect("put common");
+    rare_db
+        .put(input("agent/main", "common-a", "common filler a"))
+        .expect("put common a");
+    rare_db
+        .put(input("agent/main", "common-b", "common filler b"))
+        .expect("put common b");
+    assert_eq!(
+        search_keys(&rare_db, "agent/main", "common rare", Default::default(), 4)[0],
+        "rare-doc"
+    );
+
+    let len_dir = tempdir().expect("len tempdir");
+    let len_db = Embedded::open(len_dir.path()).expect("open len");
+    len_db
+        .put(input("agent/main", "short", "anchor"))
+        .expect("put short");
+    len_db
+        .put(input(
+            "agent/main",
+            "long",
+            "anchor filler filler filler filler filler filler filler filler",
+        ))
+        .expect("put long");
+    let hits = len_db
+        .search(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("anchor".to_string()),
+            top_k: 2,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("length search");
+    assert_eq!(hits[0].record.key, "short");
+    assert!(hits[0].score > hits[1].score);
+}
+
+#[test]
+fn text_query_is_namespace_scoped_filtered_and_deterministic() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    db.put(input("agent/a", "a1", "shared term"))
+        .expect("put a");
+    db.put(input("agent/b", "b1", "shared term"))
+        .expect("put b");
+    assert_eq!(
+        search_keys(&db, "agent/a", "shared", Default::default(), 10),
+        vec!["a1".to_string()]
+    );
+
+    let mut task = input("agent/main", "task", "filtered alpha");
+    task.metadata
+        .insert("category".to_string(), field_string("task"));
+    db.put(task).expect("put task");
+    let mut note = input("agent/main", "note", "filtered alpha");
+    note.metadata
+        .insert("category".to_string(), field_string("note"));
+    db.put(note).expect("put note");
+
+    let mut filters = MemoryMetadata::new();
+    filters.insert("category".to_string(), field_string("task"));
+    assert_eq!(
+        search_keys(&db, "agent/main", "filtered", filters, 10),
+        vec!["task".to_string()]
+    );
+
+    db.put(input("agent/main", "a", "tie token"))
+        .expect("put tie a");
+    db.put(input("agent/main", "b", "tie token"))
+        .expect("put tie b");
+    let keys = search_keys(&db, "agent/main", "tie", Default::default(), 10);
+    assert_eq!(keys[..2], ["a".to_string(), "b".to_string()]);
+
+    let before = db.operational_metrics();
+    db.search(MemorySearchRequest {
+        namespace: "agent/main".to_string(),
+        query_vector: Vec::new(),
+        filters: Default::default(),
+        text_query: Some("tie".to_string()),
+        top_k: 2,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        ..Default::default()
+    })
+    .expect("metrics search");
+    let after = db.operational_metrics();
+    assert!(after.text_lexical_queries > before.text_lexical_queries);
+    assert!(after.text_candidates_scored > before.text_candidates_scored + 1);
+}
+
+#[test]
+fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
+    let _metric_guard = TEXT_INDEX_REPAIR_METRIC_LOCK.lock().expect("metric lock");
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().to_path_buf();
+
+    {
+        let db = Embedded::open(&path).expect("open");
+        seed_hybrid_eval_corpus(&db);
+
+        let hybrid = db
+            .search(MemorySearchRequest {
+                namespace: "agent/main".to_string(),
+                query_vector: vec![1.0, 0.0],
+                filters: Default::default(),
+                text_query: Some("alpha".to_string()),
+                top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
+                ..Default::default()
+            })
+            .expect("hybrid search");
+        let keys: Vec<_> = hybrid.iter().map(|hit| hit.record.key.as_str()).collect();
+        assert_eq!(keys[0], "both");
+        assert!(keys.contains(&"text-only"));
+        assert!(keys.contains(&"vector-only"));
+        assert!(!keys.contains(&"other"));
+
+        let debug = db
+            .debug_memory_search_plan_for_tests(MemorySearchRequest {
+                namespace: "agent/main".to_string(),
+                query_vector: vec![1.0, 0.0],
+                filters: Default::default(),
+                text_query: Some("alpha".to_string()),
+                top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
+                ..Default::default()
+            })
+            .expect("debug hybrid plan");
+        assert_eq!(debug.route, "hybrid");
+        assert_eq!(debug.budget, 40);
+        assert_eq!(debug.text_candidates, 2);
+        assert_eq!(debug.vector_candidates, 3);
+        assert_eq!(debug.fused_candidates, 3);
+        assert_eq!(debug.top_identities[0], "agent/main\0both");
+
+        db.debug_corrupt_text_index_state_for_tests()
+            .expect("corrupt state");
+        db.flush().expect("flush");
+        db.close().expect("close");
+    }
+
+    let read_only = Embedded::open_with_config(Config {
+        storage_path: path.to_string_lossy().into_owned(),
+        read_only: true,
+        ..Default::default()
+    })
+    .expect("open read-only");
+    let repairs_before_read_only_audit = read_only.operational_metrics().text_index_repairs;
+    let audit = read_only
+        .audit_text_index(Some("agent/main"))
+        .expect("read-only audit should not repair");
+    assert!(!audit.passed);
+    assert!(!audit.state_valid);
+    assert_eq!(
+        read_only.operational_metrics().text_index_repairs,
+        repairs_before_read_only_audit
+    );
+    let text = read_only.search(MemorySearchRequest {
+        namespace: "agent/main".to_string(),
+        query_vector: Vec::new(),
+        filters: Default::default(),
+        text_query: Some("alpha".to_string()),
+        top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        ..Default::default()
+    });
+    assert!(text.is_err());
+    let hybrid = read_only.search(MemorySearchRequest {
+        namespace: "agent/main".to_string(),
+        query_vector: vec![1.0, 0.0],
+        filters: Default::default(),
+        text_query: Some("alpha".to_string()),
+        top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        ..Default::default()
+    });
+    assert!(hybrid.is_err());
+    drop(read_only);
+
+    let reopened = Embedded::open(&path).expect("open writable");
+    let hybrid = reopened
+        .search(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("alpha".to_string()),
+            top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("hybrid after repair");
+    assert_eq!(hybrid[0].record.key, "both");
+}
+
+#[test]
+fn hybrid_respects_metadata_filters_and_reopen_import_export() {
+    let source_dir = tempdir().expect("source tempdir");
+    let target_dir = tempdir().expect("target tempdir");
+    let export_path = source_dir.path().join("hybrid.jsonl");
+
+    let source = Embedded::open(source_dir.path()).expect("open source");
+    let mut keep = input("agent/main", "keep", "filtered alpha");
+    keep.vector = Some(vec![1.0, 0.0]);
+    keep.metadata
+        .insert("category".to_string(), field_string("task"));
+    source.put(keep).expect("put keep");
+    let mut drop = input("agent/main", "drop", "filtered alpha");
+    drop.vector = Some(vec![1.0, 0.0]);
+    drop.metadata
+        .insert("category".to_string(), field_string("note"));
+    source.put(drop).expect("put drop");
+
+    let mut filters = MemoryMetadata::new();
+    filters.insert("category".to_string(), field_string("task"));
+    let hits = source
+        .search(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: filters.clone(),
+            text_query: Some("alpha".to_string()),
+            top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("filtered hybrid");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].record.key, "keep");
+
+    let mut missing_filter = MemoryMetadata::new();
+    missing_filter.insert("category".to_string(), field_string("missing"));
+    let empty = source
+        .search(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: missing_filter,
+            text_query: Some("alpha".to_string()),
+            top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("empty filtered hybrid");
+    assert!(empty.is_empty());
+
+    source
+        .export_namespace(&export_path, "agent/main", None)
+        .expect("export");
+    source.close().expect("close source");
+
+    let target = Embedded::open(target_dir.path()).expect("open target");
+    target.import_file(&export_path, false).expect("import");
+    target.flush().expect("flush target");
+    target.close().expect("close target");
+
+    let reopened = Embedded::open(target_dir.path()).expect("reopen target");
+    let hits = reopened
+        .search(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters,
+            text_query: Some("alpha".to_string()),
+            top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("hybrid after import reopen");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].record.key, "keep");
+}
+
+#[test]
+fn hybrid_ordering_is_deterministic_on_ties() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut a = input("agent/main", "a", "tie alpha");
+    a.vector = Some(vec![1.0, 0.0]);
+    db.put(a).expect("put a");
+    let mut b = input("agent/main", "b", "tie alpha");
+    b.vector = Some(vec![1.0, 0.0]);
+    db.put(b).expect("put b");
+
+    let hits = db
+        .search(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("tie".to_string()),
+            top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("hybrid tie search");
+    let keys: Vec<_> = hits.into_iter().map(|hit| hit.record.key).collect();
+    assert_eq!(keys, vec!["a".to_string(), "b".to_string()]);
+}
+
+#[test]
+fn debug_search_explain_reports_snippet_bm25_and_rrf_ranks() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+    seed_hybrid_eval_corpus(&db);
+
+    let explain = db
+        .explain_memory_search(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("\"alpha fused\"".to_string()),
+            top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("explain hybrid");
+    assert_eq!(explain.route, "hybrid");
+    let both = explain
+        .hits
+        .iter()
+        .find(|hit| hit.identity == "agent/main\0both")
+        .expect("both explain");
+    assert_eq!(both.rrf_text_rank, Some(1));
+    assert_eq!(both.rrf_vector_rank, Some(1));
+    // Advanced tokenizer stems by default: "fused" → "fuse" in the phrase.
+    assert_eq!(both.matched_phrases, vec!["alpha fuse".to_string()]);
+    assert!(both.matched_tokens.contains(&"alpha".to_string()));
+    assert!(both.matched_tokens.contains(&"fuse".to_string()));
+    assert!(both
+        .snippet
+        .as_deref()
+        .unwrap_or_default()
+        .contains("alpha fused"));
+    assert!(both.bm25_terms.iter().all(|term| term.doc_len > 0));
+}
+
+#[test]
+fn debug_memory_search_plan_reports_all_routes() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+    seed_hybrid_eval_corpus(&db);
+
+    let text = db
+        .debug_memory_search_plan_for_tests(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("alpha".to_string()),
+            top_k: 2,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("debug text plan");
+    assert_eq!(text.route, "text-only");
+    assert_eq!(text.budget, 2);
+    assert_eq!(text.text_candidates, 2);
+    assert_eq!(text.vector_candidates, 0);
+
+    let vector = db
+        .debug_memory_search_plan_for_tests(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: None,
+            top_k: 2,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("debug vector plan");
+    assert_eq!(vector.route, "vector-only");
+    assert_eq!(vector.budget, 2);
+    assert_eq!(vector.text_candidates, 0);
+    assert_eq!(vector.vector_candidates, 2);
+
+    let empty = db
+        .debug_memory_search_plan_for_tests(MemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("alpha".to_string()),
+            top_k: 0,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+            ..Default::default()
+        })
+        .expect("debug empty plan");
+    assert_eq!(empty.route, "empty");
+    assert_eq!(empty.budget, 0);
+    assert!(empty.top_identities.is_empty());
+}
+
+#[test]
+fn text_index_deep_audit_and_logical_repair_workflow() {
+    let _metric_guard = TEXT_INDEX_REPAIR_METRIC_LOCK.lock().expect("metric lock");
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    // Seed document with lexical terms
+    db.put(input("agent/main", "a", "alpha beta gamma"))
+        .expect("put");
+    db.flush().expect("flush");
+
+    // Perform deep audit on clean state
+    let clean_report = db.audit_text_index_deep(None).expect("clean deep audit");
+    assert!(clean_report.passed);
+    assert_eq!(clean_report.tf_errors, 0);
+    assert_eq!(clean_report.position_errors, 0);
+    assert_eq!(clean_report.df_errors, 0);
+    assert_eq!(clean_report.doc_len_errors, 0);
+    assert_eq!(clean_report.value_mismatches, 0);
+
+    // Corrupt Posting TF for "alpha"
+    db.debug_corrupt_text_index_posting_tf_for_tests("agent/main", "alpha", "a", 99)
+        .expect("corrupt tf");
+
+    // Corrupt Posting Positions for "beta"
+    db.debug_corrupt_text_index_posting_positions_for_tests(
+        "agent/main",
+        "beta",
+        "a",
+        vec![10, 20],
+    )
+    .expect("corrupt positions");
+
+    // Corrupt Term Stats DF for "gamma"
+    db.debug_corrupt_text_index_term_stats_for_tests("agent/main", "gamma", 5)
+        .expect("corrupt term stats df");
+
+    // Corrupt Doc Stats length for doc "a"
+    db.debug_corrupt_text_index_doc_stats_for_tests("agent/main", "a", 100)
+        .expect("corrupt doc stats");
+
+    // Perform deep audit on corrupted state
+    let corrupt_report = db.audit_text_index_deep(None).expect("corrupt deep audit");
+    assert!(!corrupt_report.passed);
+    assert_eq!(corrupt_report.tf_errors, 1);
+    assert_eq!(corrupt_report.position_errors, 1);
+    assert_eq!(corrupt_report.df_errors, 1);
+    assert_eq!(corrupt_report.doc_len_errors, 1);
+    assert_eq!(corrupt_report.value_mismatches, 4);
+
+    // Perform repair
+    let repairs_before = db.operational_metrics().text_index_repairs;
+    let repair_report = db.repair_text_index().expect("repair text index");
+    assert!(repair_report.success);
+    assert!(repair_report.record_count > 0);
+    assert_eq!(
+        db.operational_metrics()
+            .text_index_repairs
+            .saturating_sub(repairs_before),
+        1
+    );
+
+    // Perform deep audit again to verify successful logical repair
+    let post_repair_report = db
+        .audit_text_index_deep(None)
+        .expect("post-repair deep audit");
+    assert!(post_repair_report.passed);
+    assert_eq!(post_repair_report.tf_errors, 0);
+    assert_eq!(post_repair_report.position_errors, 0);
+    assert_eq!(post_repair_report.df_errors, 0);
+    assert_eq!(post_repair_report.doc_len_errors, 0);
+    assert_eq!(post_repair_report.value_mismatches, 0);
+}

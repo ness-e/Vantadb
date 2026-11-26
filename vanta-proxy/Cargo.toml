@@ -1,0 +1,41 @@
+[package]
+name = "vanta-proxy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Transparent LLM wire proxy (OpenAI Chat / Anthropic Messages / Responses API)"
+
+[dependencies]
+axum = { workspace = true }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "net", "signal", "time"] }
+reqwest = { workspace = true, features = ["rustls-tls", "stream", "json", "blocking"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = "1"
+toml = { workspace = true }
+# PRX-07: operator-configured custom patterns only (built-in detectors are
+# hand-rolled linear scans). Pinned to a semver-compatible 1.x.
+regex = "1"
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+# Stream draining for the MEM-51 SSE interceptor (already in the graph via
+# reqwest/axum — promoted to a real dep, no new crates introduced).
+futures = { workspace = true }
+# Workspace deps for the MEM-26 cycle: local RBAC entity_* auth (D25/D34) and
+# persona/scene injection via the memory lib (D29). Graph stays acyclic:
+# proxy → {memory, vantadb}.
+# VER-03: `encryption` (existing workspace feature) exposes `vantadb::crypto`
+# for the per-namespace AEAD envelope — no new external crates (ring is
+# already in the graph via reqwest/rustls).
+vantadb = { workspace = true, features = ["encryption"] }
+vanta-memory = { workspace = true, features = ["llm-driver"] }
+
+[dev-dependencies]
+futures = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

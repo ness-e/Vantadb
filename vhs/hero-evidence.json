@@ -1,0 +1,24 @@
+{
+  "stats": {
+    "cache_entries": 0,
+    "logical_bytes": 4204372,
+    "namespace_count": 4,
+    "namespaces": ["agent/hero", "scene/hero-session", "l0/hero-session", "l0_cursor/hero-session"],
+    "node_count": 7,
+    "physical_rss": 24576,
+    "total_payload_bytes": 737,
+    "total_records": 7,
+    "total_vector_nodes": 3
+  },
+  "l2_scene": {
+    "scene_name": "formatting",
+    "meta": {
+      "created": "2026-11-06T23:36:00.537Z",
+      "updated": "2026-11-06T23:36:00.537Z",
+      "summary": "Demo formatting preference",
+      "heat": 1
+    },
+    "content": "Current user preference: 2-space indentation with tabs enabled. Source: application-curated agent/hero/pref-indent-2; replaces pref-indent. No LLM extraction or automatic consolidation was performed.",
+    "deleted": false
+  }
+}

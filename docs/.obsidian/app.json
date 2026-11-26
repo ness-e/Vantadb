@@ -1,0 +1,18 @@
+{
+  "useMarkdownLinks": true,
+  "newLinkFormat": "relative",
+  "showFrontmatter": false,
+  "defaultViewMode": "source",
+  "livePreview": false,
+  "attachmentFolderPath": "assets",
+  "newFileLocation": "root",
+  "newFileFolderPath": "_templates",
+  "alwaysUpdateLinks": true,
+  "showLineNumber": true,
+  "strictLineBreaks": false,
+  "vimMode": false,
+  "spellcheck": true,
+  "foldHeading": true,
+  "foldIndent": true,
+  "readableLineLength": true
+}

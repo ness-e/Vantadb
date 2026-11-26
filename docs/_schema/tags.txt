@@ -1,0 +1,53 @@
+# ADVISORY tag vocabulary for docs/ frontmatter.
+# One tag per line. Comments and blank lines ignored.
+#
+# This list is a RECOMMENDATION, not a gate. Only the lowercase-hyphenated
+# FORMAT of `tags:` is enforced, because Obsidian derives a property's type from
+# its name vault-wide: one file with a stray value corrupts the display of every
+# file using that name.
+#
+# The corpus used ~430 distinct tags on 2026-09-28. Rationalising them is a human
+# decision tracked in docs/dev/plans/, not something a gate should decide. New
+# tags are welcome; prefer reusing one from this list first.
+
+# --- subject area ---
+api
+architecture
+bindings
+cli
+graphrag
+mcp
+sdk
+storage
+wasm
+web
+
+# --- audience ---
+user
+contributor
+maintainer
+
+# --- document lifecycle intent ---
+adr
+audit
+benchmark
+changelog
+decision
+experiment
+governance
+plan
+research
+review
+runbook
+task
+
+# --- technology, for search only ---
+hnsw
+bm25
+rrf
+quantization
+wal
+fjall
+rocksdb
+pydantic
+pyo3

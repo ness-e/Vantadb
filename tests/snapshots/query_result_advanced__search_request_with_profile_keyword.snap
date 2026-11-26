@@ -1,0 +1,35 @@
+---
+source: tests/query_result_advanced.rs
+expression: req
+---
+MemorySearchRequest {
+    namespace: "docs",
+    query_vector: [],
+    query_sparse: None,
+    filters: {},
+    text_query: Some(
+        "api reference",
+    ),
+    top_k: 15,
+    distance_metric: Cosine,
+    explain: true,
+    exclude_superseded: true,
+    min_confidence: None,
+    as_of_ms: None,
+    valid_window: None,
+    include_quarantined: false,
+    search_profile: Some(
+        SearchProfileConfig {
+            mode: Keyword,
+            rrf_k: None,
+            candidate_k: None,
+            dense_weight: None,
+            lexical_weight: None,
+            sparse_weight: None,
+        },
+    ),
+    range: None,
+    group_by: None,
+    mmr: None,
+    cursor: None,
+}

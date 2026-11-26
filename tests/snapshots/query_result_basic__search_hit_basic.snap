@@ -1,0 +1,39 @@
+---
+source: tests/query_result_basic.rs
+expression: hit
+---
+MemorySearchHit {
+    record: MemoryRecord {
+        namespace: "agent/main",
+        key: "memory-1",
+        payload: "remember the contract",
+        metadata: {},
+        created_at_ms: 1000,
+        updated_at_ms: 2000,
+        version: 1,
+        node_id: 42,
+        vector: Some(
+            [
+                0.1,
+                0.2,
+                0.3,
+            ],
+        ),
+        sparse_vector: None,
+        expires_at_ms: None,
+        superseded_by: None,
+        superseded_at_ms: None,
+        valid_at_ms: 0,
+        invalid_at_ms: None,
+        confidence_class: Asserted,
+        confidence: 1.0,
+        last_validated_at_ms: None,
+        derived_from: [],
+        quarantined_at_ms: None,
+        quarantine_reason: None,
+        quarantined_by: None,
+        quarantine_review_due_ms: None,
+    },
+    score: 0.95,
+    explanation: None,
+}

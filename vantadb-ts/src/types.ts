@@ -1,0 +1,584 @@
+/**
+ * Wire DTOs for the VantaDB TypeScript SDK.
+ *
+ * Casing (Gate P, API-01 foundation): the public TS API is `camelCase`; the
+ * JSON payload shapes in this file are still `snake_case` (`created_at_ms`,
+ * `node_id`, `query_vector`, …) — one casing per payload, migrated in
+ * W1/API-02. Normative table: `docs/api/BINDINGS_NAMESPACES.md` § Casing
+ * Contract. `node_id` / graph ids travel as decimal strings (u128 > 2^53).
+ */
+
+export type Value =
+  | { String: string }
+  | { Int: number }
+  | { Float: number }
+  | { Bool: boolean }
+  | { DateTime: string }
+  | { Null: null }
+  | { ListString: string[] }
+  | { ListInt: number[] }
+  | { ListFloat: number[] }
+  | { ListBool: boolean[] }
+  | { ListDateTime: string[] };
+
+export type Metadata = Record<string, Value>;
+
+/** Plain JS value accepted as metadata/filter input (normalized internally to `Value`). */
+export type FlatValue = string | number | boolean | null;
+
+/** Caller-provided input value: plain JS value, a JS `Date` (normalized to the
+ * tagged `DateTime` wire form), or the tagged `Value` form itself. */
+export type UntrustedInput = FlatValue | Value | Date;
+
+/**
+ * Graph node id accepted by the public API: a safe-integer `number` or a
+ * `bigint` for ids above 2^53 (JS numbers lose integer precision there).
+ * The WASM wire always carries the id as a decimal string (`u128`).
+ */
+export type NodeId = number | bigint;
+
+/**
+ * Canonical AST JSON for an IQL statement — the projection the Rust core
+ * produces from `vantadb::parser::parse_statement` (`docs/api/IQL.md` §AST
+ * JSON, pinned by `src/parser/mod.rs::tests::test_ast_json_projection_shape`).
+ *
+ * Declared once (`vantadb-wasm`) and re-exported here so the two packages
+ * cannot drift.
+ *
+ * **Numeric caveat (JS only):** ids are safe — the core emits the six `u128`
+ * id fields (`node_id`, `source_id`, `target_id`, `thread_id`) as decimal
+ * strings (ADR-0062), so they cross `JSON.parse` bit-exact; keep them as
+ * strings and never `Number()` them. `Int` literals above 2^53
+ * (`9_007_199_254_740_991`) still lose precision through this surface, because
+ * every JSON *number* is an IEEE-754 double. Python is unaffected
+ * (`json.loads` keeps arbitrary precision).
+ */
+export type { AstJson } from "vantadb-wasm";
+
+/**
+ * Metadata/filters as provided by callers: plain JS values (preferred,
+ * e.g. `{ lang: "en" }`), `Date` instances (normalized to `DateTime`), or the
+ * tagged wire form (backward compat, e.g. `{ lang: { String: "en" } }`).
+ * Records returned by the engine always use the tagged `Metadata` form.
+ */
+export type MetadataInput = Record<string, UntrustedInput>;
+
+export interface MemoryInput {
+  namespace: string;
+  key: string;
+  payload: string;
+  metadata?: MetadataInput;
+  vector?: number[];
+  /** Sparse term-weight vector (e.g. raw-keyword weights). Sparse vectors
+   * participate in sparse-dot search alongside the dense vector. Wire shape:
+   * `Record<u32-index, weight>` — empty / undefined skips sparse search. */
+  sparse_vector?: Record<number, number>;
+  ttl_ms?: number;
+}
+
+export interface MemoryRecord {
+  namespace: string;
+  key: string;
+  payload: string;
+  metadata: Metadata;
+  created_at_ms: string | number;
+  updated_at_ms: string | number;
+  version: string | number;
+  node_id: string | number;
+  // PERF-08: the WASM layer now emits record vectors as a zero-copy Float32Array
+  // (previously a number[] built via serde_wasm_bindgen). Both are indexable/
+  // iterable; consumers must accept either form.
+  vector?: Float32Array | number[];
+  expires_at_ms?: string | number;
+  /** Key (same namespace) of the record that supersedes this one (ADR-028);
+   * absent = current. Superseded records stay in storage (soft-dead). */
+  superseded_by?: string | null;
+  /** Unix-ms timestamp when the supersession was recorded (ADR-028). */
+  superseded_at_ms?: string | number | null;
+  /** Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+   * `"Derived"` (computed by the engine from `derived_from` parents). */
+  confidence_class?: "Asserted" | "Derived";
+  /** Confidence range in [0, 1] — declared (asserted) or computed by the
+   * engine (derived, `min(parents) × 0.9`). A range, NOT a calibrated
+   * probability (see `docs/api/scores.md`). Default 1.0 for asserted. */
+  confidence?: number;
+  /** Last successful re-validation timestamp (ms); `null`/absent = never
+   * re-validated (failures never touch this field). */
+  last_validated_at_ms?: string | number | null;
+  /** Parent record keys for a `derived` record (empty for asserted). */
+  derived_from?: string[];
+  /** Start of the validity window (ADR-046 §D3, SCH-07). v1 records normalize
+   * to `created_at_ms`; native emits a number, WASM a decimal string. */
+  valid_at_ms?: string | number;
+  /** End of the validity window (exclusive); absent = open-ended. */
+  invalid_at_ms?: string | number | null;
+  /** Quarantine entry timestamp (SCH-07); absent = active (not quarantined). */
+  quarantined_at_ms?: string | number | null;
+  /** Stable quarantine reason code (`explicit_write`, `unreviewed_import`,
+   * `derived_promotion`, `policy_match`); the code set may grow. */
+  quarantine_reason?: string | null;
+  /** Principal that applied the quarantine (or `system:<op>`). */
+  quarantined_by?: string | null;
+  /** Review deadline (ms); absent = no default deadline configured. */
+  quarantine_review_due_ms?: string | number | null;
+}
+
+export interface ListOptions {
+  filters?: MetadataInput;
+  limit?: number;
+  /** Opaque page cursor: the WASM backend emits decimal strings (policy
+   * string-u64) while the native backend emits numbers; both accept either
+   * form back (FIND-125 resync against `vantadb-wasm/src/lib.rs:200-229`). */
+  cursor?: string | number;
+  /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
+   * window contains this unix-ms instant. */
+  as_of_ms?: number | null;
+  /** Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
+   * `from_ms < to_ms` is validated at the core boundary. */
+  valid_window?: ValidWindow | null;
+  /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
+   * quarantined content is excluded from search/list/retrieval. */
+  include_quarantined?: boolean;
+  /** When true, hide records marked as superseded (ADR-028). Default false:
+   * superseded records remain listed for backward compatibility — same
+   * default as the WASM and Python bindings. */
+  exclude_superseded?: boolean;
+  /** Opt-in confidence filter (SCH-07, ADR-046 §D2): keep only records whose
+   * `confidence` is `>= min_confidence` (finite, in [0, 1]). */
+  min_confidence?: number | null;
+}
+
+/** Half-open valid-time window `[from_ms, to_ms)` (ADR-046 §D3). */
+export interface ValidWindow {
+  from_ms: number;
+  to_ms: number;
+}
+
+export interface MemoryListPage {
+  records: MemoryRecord[];
+  /** Opaque next cursor (decimal string from WASM, number from native);
+   * absent on the last page. Feed back into `ListOptions.cursor`. */
+  next_cursor?: string | number;
+}
+
+// TS-09 (breaking, 0.7.0): every multi-parameter call takes a single input
+// object — `put`/`search` already did; `get`/`delete`/`deleteByFilter`/
+// `list`/`count`/`supersede`/`searchMulti`/`searchVector`/`similarToKey` now
+// do too. Single-scalar methods (graph ids, `putBatch` arrays) stay positional.
+
+/** Input for `get`. */
+export interface GetInput {
+  namespace: string;
+  key: string;
+}
+
+/** Input for `delete`. */
+export interface DeleteInput {
+  namespace: string;
+  key: string;
+}
+
+/** Input for `deleteByFilter`. */
+export interface DeleteByFilterInput {
+  namespace: string;
+  /** Native `FilterItem[]` wire form or the canonical `$op` DSL (`FilterSpec`). */
+  filter: FilterSpec;
+}
+
+/** Input for `list`: namespace plus the usual page options. */
+export interface ListInput extends ListOptions {
+  namespace: string;
+}
+
+/**
+ * Input for `scan` (EGO-11): namespace plus page cursor only — no filters.
+ * `scan()` is the explicit full-sweep entry point; `search`/`searchMulti`
+ * rank by relevance and require a query signal, so they never sweep.
+ */
+export interface ScanInput {
+  namespace: string;
+  limit?: number;
+  /** Opaque page cursor, same form as `ListOptions.cursor`. */
+  cursor?: string | number;
+}
+
+/** Input for `count`. */
+export interface CountInput {
+  namespace: string;
+  /** Native `FilterItem[]` wire form or the canonical `$op` DSL (`FilterSpec`). */
+  filters?: FilterSpec;
+}
+
+/** Input for `supersede`. */
+export interface SupersedeInput {
+  namespace: string;
+  oldKey: string;
+  newKey: string;
+}
+
+/** Input for `searchVector`. */
+export interface SearchVectorInput {
+  vector: number[];
+  topK?: number;
+}
+
+/** Input for `similarToKey`. */
+export interface SimilarToKeyInput {
+  namespace: string;
+  key: string;
+  topK?: number;
+}
+
+export interface SearchRequest {
+  namespace: string;
+  /** Optional since EGO-02: omit (or `[]`) when running text-only (`text_query`)
+   * or sparse-only (`query_sparse`) search — it defaults to `[]`. An empty
+   * vector without `text_query`/`query_sparse` is still rejected. */
+  query_vector?: number[];
+  /** Sparse query vector keyed by dimension id. Fused with any dense/text
+   * scores. Requires the native backend (`vantadb/native`); the WASM backend
+   * throws an explicit error (sparse is not wired there). An empty
+   * `query_vector` with `text_query` selects text-only (BM25) search. */
+  query_sparse?: Record<number, number> | null;
+  filters?: MetadataInput;
+  text_query?: string;
+  top_k?: number;
+  distance_metric?: "Cosine" | "Euclidean";
+  explain?: boolean;
+  /** When true, hide records marked as superseded (ADR-028). Default false:
+   * superseded records remain searchable for backward compatibility. */
+  exclude_superseded?: boolean;
+  /** Opt-in confidence filter (ADR-046 §D2/SCH-04): keep only hits whose
+   * record `confidence` is `>= min_confidence`. Must be a finite number in
+   * `[0, 1]`; `undefined`/`null` = no filter (default). Part of the cursor
+   * plan fingerprint — a cursor from a different threshold is rejected. */
+  min_confidence?: number | null;
+  /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
+   * window contains this unix-ms instant (`valid_at_ms <= as_of_ms <
+   * invalid_at_ms`). Part of the cursor plan fingerprint. */
+  as_of_ms?: number | null;
+  /** Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
+   * `from_ms < to_ms` is validated at the core boundary. Part of the cursor
+   * plan fingerprint. */
+  valid_window?: ValidWindow | null;
+  /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
+   * quarantined content is excluded from search/list/retrieval. */
+  include_quarantined?: boolean;
+}
+
+/** A list of namespaces to search in batch. Used by `searchMulti`. */
+export interface BatchSearchRequest extends Omit<SearchRequest, "namespace"> {
+  /** Namespaces to search independently; results are merged and capped at top_k. */
+  namespaces: string[];
+}
+
+export interface SearchHit {
+  record: MemoryRecord;
+  /** Relevance score between the query and this hit's record — **higher is
+   * better** (`MemorySearchHit.score` in the Rust core, W1/API-02).
+   * Value depends on the input mix and `distance_metric`:
+   * cosine similarity ∈ [-1, 1], or `-distance²` for Euclidean. Raw ANN
+   * distances stay on `searchVector()` (`{node_id, distance}`, lower is
+   * better). */
+  score: number;
+  explanation?: SearchExplanationHit;
+}
+
+export interface SearchExplanationHit {
+  identity: string;
+  score: number;
+  snippet?: string;
+  matched_tokens: string[];
+  matched_phrases: string[];
+}
+
+export interface NodeInput {
+  id: number;
+  content?: string;
+  vector?: number[];
+  fields: Record<string, FlatValue | Value>;
+}
+
+export interface NodeRecord {
+  id: string;
+  fields: Record<string, Value>;
+  // PERF-08: zero-copy Float32Array from the WASM layer (was number[]).
+  vector?: Float32Array | number[];
+  vector_dimensions: number;
+  edges: EdgeRecord[];
+  confidence_score: number;
+  importance: number;
+  hits: number;
+  last_accessed: number;
+  epoch: number;
+  tier: "Hot" | "Cold";
+  is_alive: boolean;
+}
+
+export interface EdgeRecord {
+  /**
+   * Target node id. Rust serializes u128 ids as decimal strings
+   * (`u128_serde`, `src/sdk/serialization/graph_types.rs`); `getNode()`/
+   * `recoverArchivedNodes()` normalize them to bigint on read while
+   * `query()` passes the wire strings through — both forms reach callers.
+   */
+  target: string | bigint;
+  label: string;
+  weight: number;
+  /**
+   * Whether this entry is the auto-created reverse half of a bidirectional
+   * edge (`addEdge`). Load-bearing for directional traversal
+   * (`TraversalDirection::Reverse`, src/graph.rs) — CORE-02. Always present
+   * on the wire.
+   */
+  reverse: boolean;
+  /** Logical creation timestamp (Unix ms); `0` when unknown (legacy data). */
+  created_at_ms: number;
+}
+
+export interface QueryResult {
+  Read?: NodeRecord[];
+  Write?: { affected_nodes: number; message: string; node_id?: string | null };
+  StaleContext?: { node_id: string };
+}
+
+export interface ExportReport {
+  records_exported: number;
+  namespaces: string[];
+  path: string;
+  duration_ms: number;
+}
+
+/** Filter operators (PascalCase — wire-compatible with the core `FilterOp`). */
+export type FilterOp = "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte";
+
+/** Single AND-combined filter item for export/delete operations. */
+export interface FilterItem {
+  field: string;
+  op: FilterOp;
+  /** Plain JS value, `Date`, or tagged wire form (backward compat). */
+  value: UntrustedInput;
+}
+
+/** Filter operators of the canonical cross-SDK `$op` DSL (Python/MCP/CLI parity). */
+export type FilterOperator = "$eq" | "$neq" | "$gt" | "$gte" | "$lt" | "$lte";
+
+/** One condition for {@link FilterInput}: an input value (implicit `$eq`) or an
+ * object of `$op` keys mapped to values (`{$gte: v, $lt: v2}` = range). */
+export type FilterCondition = UntrustedInput | { [op in FilterOperator]?: UntrustedInput };
+
+/** Canonical cross-SDK filter DSL, interchangeable with Python/MCP/CLI:
+ * `{field: value}` = implicit `$eq`; `{field: {$gte: v}}` = advanced op(s).
+ * A flat object is AND-combined (the canonical `$and` form). */
+export type FilterInput = Record<string, FilterCondition>;
+
+/** Filter argument accepted by `count`/`deleteByFilter`/`exportNamespace`:
+ * the native `FilterItem[]` wire form or the canonical `$op` DSL. */
+export type FilterSpec = FilterItem[] | FilterInput;
+
+export interface ImportReport {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  duration_ms: number;
+}
+
+export interface OperationalMetrics {
+  startup_ms: string;
+  wal_replay_ms: string;
+  wal_records_replayed: string;
+  ann_rebuild_ms: string;
+  ann_rebuild_scanned_nodes: string;
+  derived_rebuild_ms: string;
+  text_index_rebuild_ms: string;
+  text_postings_written: string;
+  text_index_repairs: string;
+  text_lexical_queries: string;
+  text_lexical_query_ms: string;
+  text_candidates_scored: string;
+  text_consistency_audits: string;
+  text_consistency_audit_failures: string;
+  hybrid_query_ms: string;
+  hybrid_candidates_fused: string;
+  planner_hybrid_queries: string;
+  planner_text_only_queries: string;
+  planner_vector_only_queries: string;
+  records_exported: string;
+  records_imported: string;
+  import_errors: string;
+  derived_prefix_scans: string;
+  derived_full_scan_fallbacks: string;
+  process_rss_bytes: string;
+  process_virtual_bytes: string;
+  hnsw_nodes_count: string;
+  hnsw_logical_bytes: string;
+  /** Absent (undefined) when the OS/backend reports no value — the WASM
+   * layer serializes `Option<String>` as absent, never `null`
+   * (FIND-125 resync against `JsOperationalMetrics`,
+   * `vantadb-wasm/src/lib.rs:269-318`). */
+  mmap_resident_bytes?: string;
+  volatile_cache_entries: string;
+  volatile_cache_cap_bytes: string;
+  jemalloc_allocated_bytes?: string;
+  jemalloc_active_bytes?: string;
+  jemalloc_metadata_bytes?: string;
+  jemalloc_resident_bytes?: string;
+  jemalloc_mapped_bytes?: string;
+  jemalloc_retained_bytes?: string;
+  /** Cumulative NaN/Inf→0.0 sanitizations on outgoing payloads (WSM-12). */
+  nan_sanitization_count: string;
+  /** Cumulative metadata fields dropped from outgoing records (WSM-11). */
+  metadata_drop_count: string;
+}
+
+export interface Capabilities {
+  runtime_profile: string;
+  persistence: boolean;
+  vector_search: boolean;
+  iql_queries: boolean;
+  read_only: boolean;
+}
+
+export interface Config {
+  storage_path?: string;
+  read_only?: boolean;
+  rss_threshold?: number;
+  memory_limit?: number;
+}
+
+/**
+ * Result of a BFS, DFS, filtered-traversal or topological-sort traversal.
+ *
+ * Wire format (real, verified 2026-08-28 against `src/sdk/graph.rs` and
+ * `vantadb-wasm/src/lib.rs:1552-1578`): the WASM binding returns `Vec<u128>` and
+ * `serde_wasm_bindgen 0.6` with default options serializes each `u128` as a
+ * `BigInt` (because `u128` exceeds `Number.MAX_SAFE_INTEGER`). Consumers
+ * receive a `bigint[]` of node IDs in traversal order — NOT the fictional
+ * `{ visited, levels, path }` / `{ visited, order, has_cycle }` shape that
+ * older revisions of this file advertised.
+ *
+ * `@deprecated` aliases `GraphBfsResult` / `GraphDfsResult` / `GraphTopologicalSortResult`
+ * are kept as `bigint[]` for source compatibility but the old field shape is gone.
+ * This is a breaking change for code that read `result.visited` / `result.levels` / etc.
+ * — iterate the array or index into it instead.
+ */
+export type GraphBfsResult = bigint[];
+
+/** @deprecated Use `bigint[]` directly. See `GraphBfsResult` for the wire shape. */
+export type GraphDfsResult = bigint[];
+
+/** @deprecated Use `bigint[]` directly. `has_cycle` is no longer exposed in the wire. */
+export type GraphTopologicalSortResult = bigint[];
+
+/** Optional edge label/time filter for `graphFilteredTraversal` (GRAFO-01). */
+export interface GraphTraversalFilter {
+  /** Only follow edges whose label id is in this set. Empty = no label filter. */
+  labels?: number[];
+  /** Inclusive [from_ms, to_ms] window on edge creation time. Absent = no filter. */
+  time_range?: [number, number] | null;
+}
+
+/** Degree centrality entry for a graph node (GRAFO-01). */
+export interface GraphDegreeEntry {
+  /** Node id as a string (u128 ids exceed JS safe integers). */
+  id: string;
+  in_degree: number;
+  out_degree: number;
+}
+
+// ---------------------------------------------------------------------------
+// GraphRAG (DIST-15) — canonical wire shape shared by Py/TS/Node/WASM.
+// ---------------------------------------------------------------------------
+
+/** A ranked GraphRAG node. */
+export interface GraphRagNode {
+  /** Decimal string (u128 ids exceed JS safe integers, API-01). */
+  id: string;
+  content: string;
+  /** Combined relevance: 0.6·seed + 0.3·hop_boost + 0.1·degree_factor. */
+  score: number;
+  /** BFS distance from the nearest seed (0 = seed itself). */
+  hop_distance: number;
+}
+
+/** A relationship edge between two GraphRAG nodes. */
+export interface GraphRagEdge {
+  /** Decimal string node id (u128). */
+  source: string;
+  /** Decimal string node id (u128). */
+  target: string;
+  label: string;
+}
+
+/** Pipeline counters for a GraphRAG run. */
+export interface GraphRagStats {
+  seeds_found: number;
+  nodes_expanded: number;
+  total_candidates: number;
+  expansion_hops_used: number;
+}
+
+/**
+ * Result of `graphragSearch()` / `NativeVantaDB.graphragSearch()` — the
+ * canonical wire shape shared by every binding (Py/TS/Node/WASM).
+ */
+export interface GraphRagResult {
+  nodes: GraphRagNode[];
+  edges: GraphRagEdge[];
+  /** LLM-ready context block (nodes + relationships), empty when no seeds. */
+  context_text: string;
+  stats: GraphRagStats;
+}
+
+// ---------------------------------------------------------------------------
+// Memory Forgetting & Attestation (TEC-03, VER-02)
+// ---------------------------------------------------------------------------
+
+/** Mode of memory forgetting. */
+export type ForgetMode = "soft" | "hard" | "certified";
+
+/** Input options for `forget()`. */
+export interface ForgetOptions {
+  namespace: string;
+  key: string;
+  mode?: ForgetMode;
+}
+
+/** One line of the per-surface inventory in a PurgeCertificate. */
+export interface SurfaceReport {
+  surface: string;
+  action: string;
+  residues: number;
+  evidence: string;
+}
+
+/** WAL linkage evidence in a PurgeCertificate. */
+export interface ChainEvidence {
+  scheme: string;
+  format_version: number;
+  chained: boolean;
+  status: string;
+  verify_command: string;
+}
+
+/** Integrity information in a PurgeCertificate. */
+export interface CertificateIntegrity {
+  algorithm: string;
+  sha256: string;
+}
+
+/** Cryptographic certificate of memory deletion (VER-02). */
+export interface PurgeCertificate {
+  schema_version: number;
+  timestamp: string;
+  namespace: string;
+  key: string;
+  node_id: string;
+  reason: string;
+  status: string;
+  surfaces: SurfaceReport[];
+  chain: ChainEvidence;
+  out_of_scope: string[];
+  integrity: CertificateIntegrity;
+}
