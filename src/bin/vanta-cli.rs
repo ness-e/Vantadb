@@ -3,7 +3,7 @@
 
 use anyhow::Context as _;
 use clap::CommandFactory as _;
-use clap::Parser;
+use clap::FromArgMatches as _;
 
 use vantadb::cli::{Cli, Commands, ExportFormat};
 use vantadb::cli_handlers;
@@ -24,6 +24,14 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 // ERR-CORE-02: bin → anyhow con `.context()` (cadena humana en stderr).
 // La lib nunca usa anyhow; solo este bin. `?` sobre los handlers convierte
 // `Error` (Error + Send + Sync + 'static) vía el `From` genérico de anyhow.
+/// Build identity written by `build.rs`: `<version> (commit <sha>, worktree <state>)`.
+///
+/// Included only by this binary target on purpose. A `cargo:rustc-env` in the
+/// root package would invalidate the 200k-LOC engine on every commit (FIND-98);
+/// an OUT_DIR file only lands in this target's dep-info, so a commit costs one
+/// relink of `vanta-cli`.
+const BUILD_VERSION: &str = include_str!(concat!(env!("OUT_DIR"), "/build_version.txt"));
+
 fn main() -> anyhow::Result<()> {
     // Dynamic completions (clap_complete `CompleteEnv`): when the shell
     // integration sets COMPLETE=<shell>, this writes the registration script or
@@ -33,12 +41,15 @@ fn main() -> anyhow::Result<()> {
     // build.rs; the two paths are complementary, not alternatives.
     clap_complete::CompleteEnv::with_factory(Cli::command).complete();
 
-    run().context("vanta-cli: command failed")
+    // FIND-98: `--version`/`-V` must say which commit the running artifact came
+    // from — `vanta-cli 0.9.0` alone cannot distinguish a stale install. The
+    // `vanta-cli <version>` prefix stays (scripts/verify-release.ps1 matches it).
+    let args = Cli::from_arg_matches(&Cli::command().version(BUILD_VERSION).get_matches())?;
+
+    run(args).context("vanta-cli: command failed")
 }
 
-fn run() -> anyhow::Result<()> {
-    let args = Cli::parse();
-
+fn run(args: Cli) -> anyhow::Result<()> {
     if args.json {
         std::env::set_var("VANTADB_QUIET", "1");
     }

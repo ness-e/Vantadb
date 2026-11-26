@@ -2028,3 +2028,87 @@ mod api07_cli_binary {
         );
     }
 }
+
+// FIND-98: the installed `vanta-cli` could not say which commit it came from,
+// so a two-month-old copy answered `vanta-cli 0.9.0` exactly like a fresh one
+// (same hole FIND-741 closed for `vantadb-server`). The check script compares
+// the declared commit with `HEAD`; this test proves the binary declares it.
+mod find98_build_identity {
+    use std::path::Path;
+    use std::process::Command;
+
+    fn git(args: &[&str]) -> Option<String> {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(env!("CARGO_MANIFEST_DIR"))
+            .args(args)
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    }
+
+    #[test]
+    fn version_declares_a_commit_from_this_history() {
+        let manifest = env!("CARGO_MANIFEST_DIR");
+        let Some(head) = git(&["rev-parse", "HEAD"]) else {
+            // No git metadata (source tarball / vendored tree): skipping is
+            // honest. A `.git` that exists while rev-parse fails is a broken
+            // checkout and must not skip silently.
+            assert!(
+                !Path::new(manifest).join(".git").exists(),
+                "git rev-parse failed inside a checkout - refusing to skip silently"
+            );
+            eprintln!("SKIP version_declares_a_commit_from_this_history: no git metadata");
+            return;
+        };
+
+        // Built from this tree, so this is CARGO_BIN_EXE, never the installed copy.
+        let out = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+            .arg("--version")
+            .output()
+            .expect("spawn vanta-cli --version");
+        assert!(out.status.success(), "--version must exit 0");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+
+        // Release surface (scripts/verify-release.ps1:163) matches the prefix.
+        assert!(
+            stdout.starts_with(&format!("vanta-cli {}", env!("CARGO_PKG_VERSION"))),
+            "the `vanta-cli <version>` prefix is release surface and must stay, got: {stdout}"
+        );
+        assert!(
+            stdout.contains("worktree clean") || stdout.contains("worktree dirty"),
+            "`--version` must say whether the build tree was dirty, got: {stdout}"
+        );
+
+        let marker = "commit ";
+        let start = stdout
+            .find(marker)
+            .map(|i| i + marker.len())
+            .expect("`--version` must declare the commit it was built from");
+        let declared: String = stdout[start..]
+            .chars()
+            .take_while(char::is_ascii_hexdigit)
+            .collect();
+        assert!(
+            declared.len() >= 7,
+            "declared commit must be a hex sha, got: {stdout}"
+        );
+
+        // It must exist in this repo's history. Deliberately NOT an equality
+        // with HEAD: in this multi-lane tree HEAD can advance between building
+        // the binary and running the test, so `declared == HEAD` is flaky
+        // (FIND-741 documented the same race). Matching HEAD is the job of
+        // scripts/check-cli-fresh.ps1, run on demand against the installed copy.
+        assert!(
+            git(&["cat-file", "-e", &format!("{declared}^{{commit}}")]).is_some(),
+            "declared commit {declared} does not exist in this repository: {stdout}"
+        );
+        assert!(
+            git(&["merge-base", "--is-ancestor", &declared, &head]).is_some(),
+            "declared commit {declared} is not an ancestor of HEAD ({head}): {stdout}"
+        );
+    }
+}
