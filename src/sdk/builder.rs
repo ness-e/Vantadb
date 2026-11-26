@@ -130,18 +130,16 @@ impl Embedded {
     /// # Examples
     ///
     /// Opens a persistent database in a temporary directory. The directory is
-    /// removed after the engine is closed so the example leaves no files behind.
+    /// owned by a `TempDir`, so it is removed when the example ends — even if an
+    /// assertion panics (FIND-750). The `#`-prefixed lines are hidden from the
+    /// rendered docs.
     ///
     /// ```rust
     /// use vantadb::Embedded;
-    ///
-    /// let path = std::env::temp_dir().join(format!(
-    ///     "vantadb-open-example-{}",
-    ///     std::process::id()
-    /// ));
+    /// # let tmp = tempfile::tempdir().expect("tempdir");
+    /// let path = tmp.path().join("db");
     /// let db = Embedded::open(&path).expect("open database");
     /// db.close().expect("close database");
-    /// let _ = std::fs::remove_dir_all(&path);
     /// ```
     #[tracing::instrument(skip(path), err)]
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {

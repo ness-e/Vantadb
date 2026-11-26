@@ -719,21 +719,20 @@ mod tests {
         // through both backends via a fresh DB (backward-compat: opening a DB
         // that predates the feature must not error, history starts empty).
         for kind in [BackendKind::InMemory, BackendKind::Fjall] {
+            // FIND-750: a `TempDir` owns the Fjall directory, so a panic can no
+            // longer leave a half-written DB behind in `%TEMP%`. The guard is the
+            // first local → it drops last; `close()` is asserted below because
+            // `Drop` swallows its errors.
+            let tmp = tempfile::tempdir().expect("tempdir");
             let cfg = Config {
                 storage_path: if kind == BackendKind::Fjall {
-                    std::env::temp_dir()
-                        .join(format!("vantadb-versions-test-{}", std::process::id()))
-                        .to_string_lossy()
-                        .into_owned()
+                    tmp.path().join("db").to_string_lossy().into_owned()
                 } else {
                     ":memory:".into()
                 },
                 backend_kind: kind,
                 ..Default::default()
             };
-            if kind == BackendKind::Fjall {
-                let _ = std::fs::remove_dir_all(&cfg.storage_path);
-            }
             let db = Embedded::open_with_config(cfg).expect("open");
             // pre-feature DB: partition exists but is empty
             assert!(db.versions("docs", "nope").expect("versions").is_empty());
@@ -741,10 +740,10 @@ mod tests {
             assert_eq!(db.versions("docs", "k").expect("versions").len(), 1);
             if kind == BackendKind::Fjall {
                 db.close().expect("close");
-                let _ = std::fs::remove_dir_all(
-                    std::env::temp_dir()
-                        .join(format!("vantadb-versions-test-{}", std::process::id())),
-                );
+                // Release the handle before asserting removability: on Windows a
+                // momentarily-open Fjall handle would turn the assert into a flake.
+                drop(db);
+                tmp.close().expect("tempdir removable after close");
             }
         }
     }

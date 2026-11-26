@@ -15,24 +15,20 @@
 //!
 //! Run: `cargo nextest run --profile audit -p vantadb --test wal_rollback --build-jobs 2`
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use vantadb::config::SyncMode;
 use vantadb::node::UnifiedNode;
 use vantadb::wal::{WalRecord, WalWriter};
 
-static SEQ: AtomicU32 = AtomicU32::new(0);
-
-fn tmp_wal_path(tag: &str) -> std::path::PathBuf {
-    let n = SEQ.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "vantadb_test_wal_rollback_{}_{}_{}_{}",
-        tag,
-        std::process::id(),
-        n,
-        rand::random::<u32>()
-    ));
-    let _ = std::fs::remove_file(&dir);
-    dir
+/// A fresh WAL path inside its own `TempDir` (FIND-750).
+///
+/// The guard is returned so the caller can bind it **first**: locals drop in
+/// reverse declaration order, so the directory outlives the writer/reader and
+/// removes the file even when an assertion panics — which a trailing
+/// `remove_file` never did.
+fn tmp_wal_path(tag: &str) -> (tempfile::TempDir, std::path::PathBuf) {
+    let tmp = tempfile::TempDir::new().expect("tempdir");
+    let path = tmp.path().join(format!("wal_rollback_{tag}.wal"));
+    (tmp, path)
 }
 
 /// 1. Pure in-memory postcard round-trip for the new `Prepare` variant.
@@ -56,7 +52,7 @@ fn wal_v2_prepare_roundtrip() {
 /// 2. File-backed round-trip: `[Begin + 3x Insert + Prepare]` survives close+reopen.
 #[test]
 fn wal_v2_phase1_batch_roundtrip() {
-    let path = tmp_wal_path("phase1");
+    let (_tmp, path) = tmp_wal_path("phase1");
 
     // Write phase-1 batch.
     {
@@ -104,14 +100,12 @@ fn wal_v2_phase1_batch_roundtrip() {
     for (i, rec) in got.iter().enumerate().take(4).skip(1) {
         assert!(matches!(rec, WalRecord::Insert(_)), "record {i} is Insert");
     }
-
-    let _ = std::fs::remove_file(&path);
 }
 
 /// 3. Mixed-version WAL: v1 markers (Begin/Commit) + v2 Prepare co-exist in one file.
 #[test]
 fn wal_v2_mixed_with_v1_markers() {
-    let path = tmp_wal_path("mixed");
+    let (_tmp, path) = tmp_wal_path("mixed");
 
     {
         let mut w = WalWriter::open(&path, SyncMode::Always).expect("open writer");
@@ -155,8 +149,6 @@ fn wal_v2_mixed_with_v1_markers() {
         }
     ));
     assert!(matches!(got[6], WalRecord::Commit(2)));
-
-    let _ = std::fs::remove_file(&path);
 }
 
 /// 4. Rollback contract: a Prepared-but-uncommitted txn must NOT be applied on replay.
@@ -172,7 +164,7 @@ fn wal_v2_mixed_with_v1_markers() {
 /// signal. The Prepare record itself survives — that's the audit-trail win.
 #[test]
 fn wal_v2_prepared_without_commit_is_recoverable_but_rollback_signal() {
-    let path = tmp_wal_path("rollback_signal");
+    let (_tmp, path) = tmp_wal_path("rollback_signal");
 
     {
         let mut w = WalWriter::open(&path, SyncMode::Always).expect("open writer");
@@ -217,8 +209,6 @@ fn wal_v2_prepared_without_commit_is_recoverable_but_rollback_signal() {
     // no Commit for txn 99; recovery applies MOD-02's slice-mask and skips
     // the Insert. Prepare itself is the durable proof that an apply was
     // attempted (or failed). This test asserts only the on-disk invariants.
-
-    let _ = std::fs::remove_file(&path);
 }
 
 /// 5. WAL format version constant is 3 (RES-01 + VER-01 keystone).

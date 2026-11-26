@@ -443,8 +443,11 @@ mod tests {
             bytes.extend_from_slice(&v.to_le_bytes());
         }
 
-        let path =
-            std::env::temp_dir().join(format!("vanta_review15_mmap_{}.bin", std::process::id()));
+        // FIND-750: the payload lives inside a `TempDir`, so the file is removed
+        // even when an assertion panics below. The guard is the first local → it
+        // drops last, after the mapping has been released.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("mmap_roundtrip.bin");
         {
             let mut f = File::create(&path).unwrap();
             f.write_all(&bytes).unwrap();
@@ -469,6 +472,5 @@ mod tests {
         assert!((sim - 1.0).abs() < 1e-6);
 
         drop(rep);
-        let _ = std::fs::remove_file(&path); // best-effort cleanup
     }
 }

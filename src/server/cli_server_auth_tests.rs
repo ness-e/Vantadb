@@ -412,9 +412,11 @@ async fn auth_l3_precedes_service_id() {
 
 #[tokio::test]
 async fn auth_events_recorded_in_audit_log() {
-    let audit_path =
-        std::env::temp_dir().join(format!("vanta-auth-test-{}.jsonl", std::process::id()));
-    let _ = std::fs::remove_file(&audit_path);
+    // FIND-750: the audit file lives inside a `TempDir` so the log disappears even
+    // when an assertion panics. The guard is the first local → it drops last, and
+    // the log is read below while it is still alive.
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let audit_path = tmp.path().join("audit.jsonl");
 
     let storage = in_memory_storage(Some(audit_path.clone()));
     seed_user(
@@ -448,7 +450,6 @@ async fn auth_events_recorded_in_audit_log() {
     assert_eq!(status, 200);
 
     let log = std::fs::read_to_string(&audit_path).expect("audit log written");
-    let _ = std::fs::remove_file(&audit_path);
     let lines: Vec<&str> = log.lines().collect();
     assert_eq!(lines.len(), 2, "expected 2 auth events, got: {log}");
     assert!(

@@ -380,17 +380,13 @@ impl Embedded {
     /// # Example
     /// ```
     /// use vantadb::{Embedded, MemoryInput};
-    ///
-    /// let dir = std::env::temp_dir().join(format!(
-    ///     "vantadb-ns-stats-doctest-{}",
-    ///     std::process::id()
-    /// ));
-    /// let db = Embedded::open(&dir).unwrap();
+    /// # let tmp = tempfile::tempdir().expect("tempdir");
+    /// let db = Embedded::open(tmp.path().join("db")).expect("open database");
     /// db.put(MemoryInput::new("agent", "k", "payload")).unwrap();
     ///
     /// let stats = db.namespace_stats(None).unwrap();
     /// assert_eq!(stats["agent"].count, 1);
-    /// let _ = std::fs::remove_dir_all(&dir);
+    /// db.close().expect("close database");
     /// ```
     #[tracing::instrument(skip(self), err)]
     pub fn namespace_stats(
