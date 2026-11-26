@@ -695,7 +695,7 @@ the model context under the recall-first rule.
 |---|---|
 | `session.idle` event | Reads the closed exchange with `ctx.session.context()` and posts the `user` + `assistant` turns (text parts only) to `thread_send` on a stable per-session thread (`vanta-opencode-idle-<sessionID>`, resolved from plugin storage, else `thread_list`, else `thread_create`; re-resolved if a send fails). Deduped by the assistant message id (falling back to the user id, then to the turn text). |
 | `ctx.session.hook("context")` | Calls `memory_recall` with the **verbatim** user turn (`scope: "agent"`, `top_k: 5`) once per distinct turn, and injects `prepend_context` **verbatim** only when there are hits. |
-| `ctx.session.hook("context")` | Publishes `capabilities.ingest` once per session: when the pipeline reads `broken` (queued work and `drain_path: none`) it emits one legible line saying the pipeline captures but does not consolidate. The plugin still recomputes that predicate from `runner` + `queue.depth` instead of reading `ingest.health`; `health` is the field to consume (it also covers "a loop started and died"). |
+| `ctx.session.hook("context")` | Publishes `capabilities.ingest` once per session, **reading** the core's `health` verdict (ADR-0065 § D3) instead of recomputing it. `broken` emits one legible line saying the pipeline captures but does not consolidate, naming `drain_path` and separating three causes (a runner that was never configured, a loop that started and died, a loop that never started). `unknown` emits one line stating that there is **no reading** — not a verdict either way — and `idle`/`draining` are silent. A payload with no `health` field (a writer older than ADR-0065) is never guessed from `runner` + `queue.depth`: the semaphore stays silent and says why once per process, because that predicate is blind to the dead-loop case. |
 
 Contract details that are easy to get wrong:
 
@@ -749,9 +749,13 @@ VANTADB_MEMORY_WRITE_TIMEOUT_MS=15000    # optional; per write call (thread_send
 ```
 
 Mechanical gate: `node .opencode/plugins/vanta-memory-capture.selftest.mjs`
-(19 assertions over a mocked transport, including the branches that must
-never invert — empty recall injects nothing, hits inject the block, a credential
-never reaches the wire).
+(28 tests over a mocked transport, including the branches that must never
+invert — empty recall injects nothing, hits inject the block, a credential never
+reaches the wire, a dead loop with queued work warns, `health: unknown` raises no
+broken alarm, `queue: null` is never read as depth 0, and the semaphore speaks
+once per session). The mutation that restores the old
+`runner === "none" && depth > 0` predicate as the decision turns the dead-loop
+case red; that run is recorded in the `FIND-749` task file.
 
 ## Prompts (4)
 
