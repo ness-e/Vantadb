@@ -33,5 +33,8 @@ fn main() {
         }
     }
     std::fs::write("benches/data/synthetic_dataset.bin", &buf).unwrap();
-    println!("wrote benches/data/synthetic_dataset.bin: {} bytes", buf.len());
+    println!(
+        "wrote benches/data/synthetic_dataset.bin: {} bytes",
+        buf.len()
+    );
 }
