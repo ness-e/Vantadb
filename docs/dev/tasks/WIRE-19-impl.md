@@ -9,7 +9,10 @@ tags: [vantadb, vanta-memory, mcp, server, crate-boundary, contract-first, execu
 # WIRE-19-impl — el wiring del host, en filas ejecutables
 
 Decision: [ADR-0063](../architecture/adr/ADR-0063-host-wiring-home-vanta-memory.md) (`status: accepted`).
-Analysis: [WIRE-19](./WIRE-19.md) (`status: complete` — spec cerrada, **implementación pendiente**).
+Analysis: [WIRE-19](./WIRE-19.md) (`status: complete` — spec cerrada).
+Implementation: **parcial** — `FIND-783` (`85c972227`) aterrizó las filas 1, 5 y 9 sin anotarlo, y
+**desvió** las filas 4/8 a un constructor distinto del que este fichero prescribe (§8.4, medido).
+Estado pieza por pieza y partición en §0.1.
 
 **Este fichero no re-decide nada**, con **una** excepción declarada y acotada en §8.0:
 `MCP-43` aterrizó antes que esta tarea y dejó dos copias nuevas; el alcance crece de 7 a
@@ -52,11 +55,47 @@ runner no cambia eso: en proxy no debe haber scheduler en absoluto. Es la guarda
 
 ---
 
+## §0.1 — Estado medido contra `HEAD` (2026-11-27, tras `85c972227`)
+
+Medido con `rg`/lectura, **sin compilar**. Este bloque es el que manda: si contradice una fila de
+§2, la fila está desactualizada.
+
+| Pieza | Estado | Dónde vive hoy |
+|---|---|---|
+| `resolve_ingest_toml_path` (privado) | ✅ **movida** | `vanta-memory/src/ingest/runner_config.rs:126` |
+| `ingest_toml_path` (`pub fn`) | ✅ **movida, 1 sola definición** | `vanta-memory/src/ingest/runner_config.rs:143`; el server la re-exporta (`vantadb-server/src/scheduler.rs:82`) |
+| `IngestRunnerCfg::from_storage_path` | ✅ **existe** | `runner_config.rs:278` — pero **ningún host la llama** (ver §8.4) |
+| `IngestRunnerCfg::from_storage` (**no está en el ADR**) | ✅ **añadida por `FIND-783`** | `runner_config.rs:295`; la usan los 3 hosts |
+| `IngestRunnerCfg::runner_factory` | ❌ **no existe** | la lógica del P4 sigue en el `fn` libre `vantadb-server/src/scheduler.rs:94-101`, **y duplicada** en `vantadb-mcp/src/memory_scheduler.rs:98-104` |
+| `DEFAULT_INTERVAL_MS` | ❌ **no movida** | `vantadb-server/src/scheduler.rs:45` (y el default del host, `memory_scheduler.rs:44`) |
+| `parse_interval_ms` | ❌ **no movida** | `vantadb-server/src/scheduler.rs:49` |
+| `scheduler_interval_ms_from_env_opt` | ❌ **no existe en ningún sitio** | — |
+| `scheduler_interval_ms_from_env` (reescrita como wrapper de `_opt`) | ❌ **no reescrita** | `vantadb-server/src/scheduler.rs:67` |
+| Re-export de los 6 nombres | 🟡 **3/6 son re-export, 3/6 siguen definidos en el server** | `pub use`: `ingest_toml_path` (`scheduler.rs:82`); shims: `ingest_runner_cfg` (`:85`), `ingest_runner_factory` (`:94`). Los tres del intervalo no pueden re-exportarse hasta mover la pieza |
+| `wire_memory` en `run_stdio_server` + guardas | 🟡 **la composición no es `wire_memory`; las guardas sí están, el one-shot no** | el MCP compone con `memory_scheduler::start` (`vantadb-mcp/src/server.rs:1064,1120`; `proxy.rs:659,712`), no con `wire_memory` (0 usos fuera de `vantadb-server`). `read_only` ✅ (`server.rs:1063,1119`); host one-shot ❌ (`memory_scheduler.rs:69-70` ⇒ 5 000 ms con la variable **sin definir** ⇒ loop **ON**; el ADR D4 pide OFF, ver §8.0) |
+| Superficie `pub` añadida en `vanta-memory` | 🟡 **+3 de +7** (y una de más) | `ingest_toml_path`, `from_storage_path`, `from_storage` ⇒ el diff real de `cargo public-api` será **+8**, no +7: `from_storage` no estaba en el ADR |
+
+Métricas de cierre que ya están en verde (las mismas de §4.2/§6, re-medidas):
+
+```text
+rg -n 'fn ingest_toml_path' --glob '*.rs'             → 1 definición (+1 test en :479)
+rg -n 'join\("vanta-ingest.toml"\)' --glob '*.rs'      → 1  (esperado 0: el `join` ahora vive DENTRO del dueño)
+rg -n 'env::var\("VANTADB_INGEST_CONFIG"\)' --glob '*.rs' → 1
+rg -n 'env::var\("VANTADB_SCHEDULER_INTERVAL_MS"\)' --glob '*.rs' → 2  (server :69 + memory_scheduler :69) ⇒ R-5 sigue violada
+rg -n 'fn ingest_runner_cfg\(' --glob '*.rs'           → 1  (el shim del server)
+```
+
+> **`join("vanta-ingest.toml")` pasó de "0 esperado" a "1 aceptado":** §4.2 pedía 0 porque el
+> objetivo era que ningún *host* construyera la ruta. Ahora la construye el dueño, una vez. La
+> métrica correcta sigue siendo `0` **fuera de** `vanta-memory/src/ingest/runner_config.rs`.
+
+---
+
 ## §1 — Alcance de escritura
 
 | Fichero | Qué cambia | Fila |
 |---|---|---|
-| `vanta-memory/src/ingest/runner_config.rs` | **+4 items** (`resolve_ingest_toml_path` privado, `ingest_toml_path`, `IngestRunnerCfg::from_storage_path`, `IngestRunnerCfg::runner_factory`) + 3 tests movidos | 1 |
+| `vanta-memory/src/ingest/runner_config.rs` | **+5 items** (`resolve_ingest_toml_path` privado, `ingest_toml_path`, `IngestRunnerCfg::from_storage_path`, `IngestRunnerCfg::from_storage`, `IngestRunnerCfg::runner_factory`) + 3 tests movidos. **Hecho: los 4 primeros (`FIND-783`); falta `runner_factory`** | 1 |
 | `vanta-memory/src/services/scheduler.rs` | **+3 items** (`DEFAULT_INTERVAL_MS`, `parse_interval_ms`, `scheduler_interval_ms_from_env_opt`) y `scheduler_interval_ms_from_env` reescrita como wrapper + 1 test movido | 2 |
 | `vantadb-server/src/scheduler.rs` | **borrar** `:44-115` y `mod tests` `:148-192`; **añadir** §3.1 (2 `pub use` + 2 shims); recortar imports | 3 |
 | `vantadb-server/src/main.rs` | `:88-94` → `from_storage_path` + `cfg.runner_factory()` | 4 |
@@ -87,7 +126,7 @@ snippet que marcó la review). Las **filas 8 y 9 no están en el ADR**: existen 
 | **2** | `vantadb-server/src/scheduler.rs:44-46` · `:48-65` · `:67-74` · test `:152-159` | `vanta-memory/src/services/scheduler.rs`, **por encima** del primer `#[cfg(feature = "http-server")]` | `DEFAULT_INTERVAL_MS`, `parse_interval_ms` **verbatim**; `scheduler_interval_ms_from_env_opt() -> Option<u64>` (**nuevo**, único read site del env); `scheduler_interval_ms_from_env()` → `_opt().unwrap_or(DEFAULT_INTERVAL_MS)`. **Reescribir el doc de `DEFAULT_INTERVAL_MS`**: hoy cita `src/config.rs`, y desde este crate debe citar `vantadb/src/config.rs` (R-4) | 1 h | el parser de intervalo no tiene hogar sin gate; el doc cita una ruta que no existe en el crate |
 | **3** | `vantadb-server/src/scheduler.rs:44-115` + `mod tests` `:148-192` | mismo fichero, reducido | **Borrar** esos rangos; conservar el doc de módulo (L1-31, re-escrito: "el host compone; la superficie vive en `vanta_memory`") y `wire_memory` (`:117-146`); **añadir** §3.1. Imports finales — ver §2.3, **no** es la lista que parecía | 1 h | definiciones duplicadas ⇒ `cargo check` falla; un shim que falte rompe `scheduler::*` en silencio |
 | **4** | `vantadb-server/src/main.rs:88-94` | mismo fichero | `scheduler_interval_ms_from_env()` sin cambios; sustituir el par cfg+factory por `from_storage_path` + `cfg.runner_factory()` — ver §2.4 | 0.25 h | el hogar canónico queda invisible ⇒ la copia vuelve |
-| **5** | `vantadb-mcp/src/wiki.rs:385-395` · `:291` | mismo fichero | **Borrar** `fn ingest_toml_path`; `:291` → `IngestRunnerCfg::from_storage_path(&storage.config().storage_path)`. **`data_dir()` no es el parámetro**: ya es `<root>/data`, un nivel de más | 0.5 h | la divergencia `InMemory`/CWD sobrevive en el tool |
+| **5** | `vantadb-mcp/src/wiki.rs:385-395` · `:291` | mismo fichero | **Borrar** `fn ingest_toml_path`; `:291` → `IngestRunnerCfg::from_storage(storage)` — **no** `from_storage_path(&storage.config().storage_path)` (§8.4: ese constructor reintroduce el bug al revés). **`data_dir()` no es el parámetro**: ya es `<root>/data`, un nivel de más | 0.5 h | la divergencia `InMemory`/CWD sobrevive en el tool |
 | **6** | `docs/user/operations/CONFIGURATION.md:136` | mismo fichero | `VANTADB_SCHEDULER_INTERVAL_MS`: → `(vanta-memory/src/services/scheduler.rs)` | 0.15 h | R-4: ruta citada que ya no contiene la variable |
 | **7** | `docs/user/operations/CONFIGURATION.md:137` | mismo fichero | `VANTADB_INGEST_CONFIG`: → `(vanta-memory/src/ingest/runner_config.rs)` | 0.15 h | R-4 en la fila de config |
 
@@ -95,8 +134,8 @@ snippet que marcó la review). Las **filas 8 y 9 no están en el ADR**: existen 
 
 | # | Origen (fichero:líneas) | Destino | Qué se cambia | Effort | Si se olvida |
 |---|---|---|---|---|---|
-| **8** | `vantadb-mcp/src/memory_scheduler.rs:64-83` (`interval_ms_from_env`) · `:92-101` (`start`) | mismo fichero, delegando en `vanta-memory` | **Intervalo**: borrar el `std::env::var` de `:69`. Deja el nombre como wrapper de delegación pura: `fn interval_ms_from_env() -> u64 { vanta_memory::services::scheduler::scheduler_interval_ms_from_env_opt().unwrap_or(DEFAULT_INTERVAL_MS) }`. **`DEFAULT_INTERVAL_MS = 5_000` (`:44`) se queda** como default del host (ver §8.0). **Fábrica**: sustituir `let cfg = crate::threads::ingest_runner_cfg(storage);` + el closure `match build_ingest_runner(&cfg)` por `let factory = IngestRunnerCfg::from_storage_path(&storage.config().storage_path).runner_factory();` y pasar `factory` a `start_with` (que ya acepta `Fn() -> Option<R>`). Imports: `build_ingest_runner` y `ConcreteRunner` (`:34`) probablemente quedan sin uso ⇒ **que lo diga `cargo check`**, no el ojo. El test `interval_env_is_one_knob…` (`:305-328`) **se queda tal cual**: sigue ejercitando el wrapper | 1 h | el camino de **producción** del `--mcp` sigue resolviendo por `data_dir()`, es decir el bug que la tarea existe para cerrar sigue vivo donde más importa |
-| **9** | `vantadb-mcp/src/threads.rs:357-369` (`ingest_runner_cfg`) · `:354` | mismo fichero | **Borrar** `pub(crate) fn ingest_runner_cfg` y su doc (que admite la duplicación). `:354` (`let _ = ingest_runner_cfg(storage).build_runner();` en `note_runner_state_once`) → `let _ = IngestRunnerCfg::from_storage_path(&storage.config().storage_path).build_runner();`. El `use` de `:23` se queda (sigue usándose). El otro caller (`memory_scheduler.rs:94`) lo cambia la fila 8 | 0.5 h | queda una tercera resolución del TOML y el invariante "un solo read site" es falso |
+| **8** | `vantadb-mcp/src/memory_scheduler.rs:64-83` (`interval_ms_from_env`) · `:92-101` (`start`) | mismo fichero, delegando en `vanta-memory` | **Intervalo**: borrar el `std::env::var` de `:69`. Deja el nombre como wrapper de delegación pura: `fn interval_ms_from_env() -> u64 { vanta_memory::services::scheduler::scheduler_interval_ms_from_env_opt().unwrap_or(DEFAULT_INTERVAL_MS) }`. **`DEFAULT_INTERVAL_MS = 5_000` (`:44`) se queda** como default del host (ver §8.0). **Fábrica**: sustituir `let cfg = crate::threads::ingest_runner_cfg(storage);` + el closure `match build_ingest_runner(&cfg)` por `let factory = IngestRunnerCfg::from_storage(storage).runner_factory();` (§8.4 — **no** `from_storage_path(&storage.config().storage_path)`) y pasar `factory` a `start_with` (que ya acepta `Fn() -> Option<R>`). Imports: `build_ingest_runner` y `ConcreteRunner` (`:34`) probablemente quedan sin uso ⇒ **que lo diga `cargo check`**, no el ojo. El test `interval_env_is_one_knob…` (`:305-328`) **se queda tal cual**: sigue ejercitando el wrapper | 1 h | el camino de **producción** del `--mcp` sigue resolviendo por `data_dir()`, es decir el bug que la tarea existe para cerrar sigue vivo donde más importa |
+| **9** | `vantadb-mcp/src/threads.rs:357-369` (`ingest_runner_cfg`) · `:354` | mismo fichero | ✅ **HECHO por `FIND-783`** (`85c972227`): `pub(crate) fn ingest_runner_cfg` borrada; `note_runner_state_once` llama `IngestRunnerCfg::from_storage(storage).build_runner()` (`threads.rs:355`). El `use` de `:23` se queda. Queda **una** constatación, no trabajo: la fila decía `from_storage_path(...)` y la implementación usa `from_storage` (§8.4) | 0 h | — |
 
 **Total: ~6 h de edición + ~2.5 h de verificación (§5) ≈ 1.25-1.5 días.** El ADR estimó
 1 día para 7 filas; las dos extra son ~1.5 h.
@@ -148,7 +187,7 @@ vantadb_server::scheduler::wire_memory(hooks, db, interval_ms, cfg.runner_factor
 
 ```rust
 // vantadb-mcp/src/wiki.rs:291  (tool wiki_ingest)
-let runner_cfg = IngestRunnerCfg::from_storage_path(&storage.config().storage_path);
+let runner_cfg = IngestRunnerCfg::from_storage(storage);   // §8.4: the live engine, not config().storage_path
 let pipeline = runner_cfg.pipeline_config();
 let runner = build_ingest_runner(&runner_cfg);      // :293 se queda
 ```
@@ -315,14 +354,16 @@ En `vantadb-mcp`, sobre `BackendKind::InMemory`, con `VANTADB_INGEST_CONFIG` sin
 
 ```rust
 // El operador escribe UN vanta-ingest.toml. El host que lo honra no puede depender
-// del CWD del proceso.
-let cfg = IngestRunnerCfg::from_storage_path(&storage.config().storage_path);
+// del CWD del proceso, ni del default de `config.storage_path` (§8.4).
+let cfg = IngestRunnerCfg::from_storage(&storage);
 ```
 
-Forma concreta: la ruta efectiva debe terminar en `data/vanta-ingest.toml` **y** empezar
-por `storage_path` — nunca ser relativa al CWD. Hoy los caminos 2 y 3 devuelven
-`"vanta-ingest.toml"` con `InMemory` ⇒ **rojo antes, verde después**. Es la aserción
-que mide el fix; sin ella el cambio se cierra "en el papel".
+Forma concreta: la ruta efectiva debe terminar en `data/vanta-ingest.toml` **y** empezar por
+la raíz declarada — nunca ser relativa al CWD. Hoy el camino 2 (`wiki.rs`) y el 3
+(`memory_scheduler.rs`) resuelven con `from_storage`, que con `InMemory` cae a
+`config.storage_path` (donde el operador **sí** lo declaró) ⇒ **ya verde**, y volverían a
+rojo si alguien los cambia a `from_storage_path(&storage.config().storage_path)`.
+Es la aserción que mide el fix; sin ella el cambio se cierra "en el papel".
 
 ---
 
@@ -489,6 +530,37 @@ se hizo, pero por su cuenta (§8.0).
 `&storage.config().storage_path` compila en `wiki.rs`, `memory_scheduler.rs` y
 `threads.rs`. `main.rs:85` ya guarda `let storage_path = config.storage_path.clone();` —
 el call site nuevo lo reusa sin tocar el closure.
+
+---
+
+### 8.4 **Medido: el constructor que este fichero prescribía reintroduce el bug al revés**
+
+Las filas 4/5/8 y §2.4/§4.4 pedían `IngestRunnerCfg::from_storage_path(&storage.config().storage_path)`.
+`FIND-783` **no** lo hizo y añadió `IngestRunnerCfg::from_storage(&StorageEngine)`
+(`runner_config.rs:295-304`). Verificado leyendo el código, no heredado:
+
+| Afirmación | Evidencia | Veredicto |
+|---|---|---|
+| `StorageEngine::open(path)` **no** escribe `path` en `config.storage_path` | `src/storage/engine/init.rs:24-26` → `open_with_config(path, None)` → `init.rs:29-31`: `let config = config.unwrap_or_default();`. `path` sólo llega a `Self::storage_root(path)` (`init.rs:313-316`), que devuelve un `PathBuf` **sin** tocar `config` | ✅ **cierta** |
+| Ese default no es la ruta del operador | `src/config.rs:1442-1447`: `storage_path = env VANTADB_STORAGE_PATH` o el literal **`"vantadb_data"`** | ✅ **cierta** ⇒ `from_storage_path(&config.storage_path)` resolvería `./vantadb_data/data/vanta-ingest.toml` **relativo al CWD** |
+| Ya había precedente escrito | `vantadb-mcp/src/server.rs:190-193` deriva la raíz de `data_dir()` con el mismo razonamiento, por la misma razón (discovery file del proxy) | ✅ |
+| `data_dir()` es `<raíz>/data` para todo backend de disco, y vacío sólo en `InMemory` | `init.rs:419-470`: `init_storage` es genérica por `BackendRegistry` y hace `base_path.join("data")` (`:459`); el early-return de `InMemory` devuelve `PathBuf::new()` (`:425-428`) | ✅ ⇒ `data_dir().parent()` **es** la raíz declarada para fjall/rocksdb/vfile/lo que registre el registry |
+| En los dos hosts reales ambos constructores coinciden | `vantadb-server/src/main.rs:85` pasa `config.storage_path` (que ahí **sí** es la raíz declarada) y `vantadb-mcp/src/server.rs:1050-1057` abre con `Some(cfg_with_path)`, cuyo `storage_path` se fija en `:1051-1053` | ✅ ⇒ `from_storage` es mejora estricta, **no** cambio de comportamiento en producción |
+
+**Contrato corregido:** las filas 5/8/9, §2.4 (wiki) y §4.4 usan ya `from_storage`.
+`from_storage_path` **se queda**: es el constructor correcto para quien sólo tiene un `&str`
+(el hook del HTTP, `main.rs:88-95`) y el que ejercita el shim `ingest_runner_cfg`.
+El diff de `cargo public-api -p vanta-memory` será **+8, no +7** (§3.3): `from_storage` es un
+item `pub` que el ADR-0063 no previó.
+
+**Lo que sólo se puede comprobar compilando — y no lo hice (disco, y `FIND-773` compilando):**
+
+1. Que `cargo public-api -p vanta-memory` dé exactamente `+8 / -0` (el conteo de arriba es por
+   `rg`, no por el snapshot).
+2. Que `IngestRunnerCfg` siga derivando `Clone` donde §2.3 lo necesita para `runner_factory`
+   (el `derive` existe; su línea cambió con la mudanza, `runner_config.rs:60-70` aprox.).
+3. Que ningún backend registrado en `BackendRegistry` devuelva un `data_dir` cuyo `parent()` no
+   sea la raíz — la lectura cubre `init_storage`, no cada factory.
 
 ---
 
