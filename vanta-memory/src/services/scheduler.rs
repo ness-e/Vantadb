@@ -30,7 +30,7 @@
 //!
 //! This module reads exactly **one** variable, `VANTADB_SCHEDULER_INTERVAL_MS`
 //! — the single read site in **this** crate for the pass interval
-//! ([`scheduler_interval_ms_from_env_opt`], ADR-0063). A host that needs a
+//! ([`crate::services::scheduler::scheduler_interval_ms_from_env_opt`], ADR-0063). A host that needs a
 //! different fallback `unwrap_or`s its own default instead of parsing the
 //! environment a second time. (`vantadb-mcp` still carries its own parser
 //! until `WIRE-23` consumes this one.)
