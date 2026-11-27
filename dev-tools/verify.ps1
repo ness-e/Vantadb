@@ -141,7 +141,15 @@ try {
     # GOV-A3 probe CLI reales (doctor/backup/restore) — ponytail 1-2 líneas: reuse cargo run --bin vanta-cli
     if (-not (Skip-Step "cli-probes")) { run "cli-probes" ("cargo", "run", "-p", "vantadb", "--bin", "vanta-cli", "--", "--help") }
     # GOV-B3 consumo guard — anti-regresión compile gate (ponytail: solo --no-run, sin timed bench en fast gate)
-    if (-not (Skip-Step "consumo-guard")) { run "consumo guard" ("cargo", "bench", "-p", "vantadb", "--bench", "canonical_p99", "--no-run", "-j", "1") }
+    if (-not (Skip-Step "consumo-guard")) {
+        # R4 (2026-11-27, auditoria de recursos): antes `cargo bench --bench canonical_p99
+        # --no-run`, que hereda [profile.bench] = release + lto=thin + codegen-units=1 +
+        # opt-level=3: el artefacto mas caro del repo, y el paso mas lento del fast gate.
+        # `check --benches` verifica que los benches COMPILAN (tipos, imports, APIs) sin
+        # codegen ni enlace. Lo que se pierde: que el bench ENLACE en release; eso pasa al
+        # nightly, igual que coverage (HARD-02).
+        run "consumo guard (check --benches)" ("cargo", "check", "-p", "vantadb", "--benches", "-j", "1")
+    }
     # GOV-C3 Daily Backup Verification — ponytail: validates runbook §3.1 exists (docs-only), no heavy restore in fast gate
     # Full restore+doctor verification lives in DISASTER_RECOVERY_RUNBOOK.md §3.1; fast gate only checks doc anchor exists
     if (-not (Skip-Step "backup-verification")) { run "daily backup verification" ("pwsh", "-NoProfile", "-Command", "if ((Select-String -Path 'docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md' -Pattern 'Daily Backup Verification' | Measure-Object).Count -ge 1) { exit 0 } else { Write-Host 'Daily Backup Verification missing in runbook' -ForegroundColor Red; exit 1 }") }

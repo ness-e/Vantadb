@@ -77,6 +77,13 @@ test-threads = 2
 
 [profile.audit]
 fail-fast = false
+# R3 (2026-11-27, auditoria de recursos): 12 hilos (nº de logicos) dejaban el
+# commit al 80,7 % y provocaba la clase `os error 1455` (ERROR_COMMITMENT_LIMIT).
+# El perfil `ci-windows` ya usaba 2 por esto mismo. Bajar a 2 reduce el pico y
+# los `terminate-after` que dejaban DB huerfanas en %TEMP%.
+# COSTE DECLARADO: cambia el perfil de medicion — con 2 hilos ya no se exponen
+# los flakes de contencion que 12 hilos descubrian. CI decide con su propio perfil.
+test-threads = 2
 failure-output = "immediate-final"
 success-output = "never"
 status-level = "slow"

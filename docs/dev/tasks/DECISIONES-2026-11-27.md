@@ -52,9 +52,30 @@ El release sigue necesitando la **firma del owner**: tag y publishes no se ejecu
 | `FIND-586` era "no cabe" | Diseño + parcial, con contrato del delta |
 | `DIST-18` bloqueada hasta 1.0.0 | Se publica en `v0.10.0` |
 
-## Lo que estas decisiones NO cambian
+## D6 — Un solo feature set para los carriles (decision del owner, 2026-11-27)
 
-- Un gate que falla **no se salta** (`SKIP` declarado sólo por WIP ajeno, nunca por prisa).
-- Un `FIND` nuevo **se resuelve en el acto**.
-- Nada se marca cerrado sin su verificación.
-- Los dos cuellos reales siguen siendo el **disco** y **una compilación Rust a la vez**.
+**Todos los carriles compilan con el set del gate:** `cli,fjall,memmap2,fs2,roaring`.
+
+Los tests de `encryption`, `wal-shipping` y `--all-features` pasan a **CI** (`Tests (embeddings features)` y las lanes de features).
+
+**Por qué:** la auditoría de recursos midió **3.727 fingerprints** de `vantadb`, **226** `libvantadb*.rlib` de ~110 MB y **9** builds de `librocksdb-sys` (~4 GB cada uno), porque cada carril compilaba con un set distinto y no compartían ni un objeto.
+
+**Coste aceptado explícitamente:** un bug que sólo aparezca con `encryption` o `wal-shipping` **deja de verse en local** y sólo lo caza CI. El owner lo aceptó para ganar 30-40 % de tiempo de build.
+
+**Excepción:** el carril que trabaje **en** cifrado puede usar `encryption,wal-shipping` **declarándolo** en su task file. Es la única segunda variante admitida.
+
+## D7 — Disco y compilación (aplicado 2026-11-27)
+
+Cinco cambios, todos reversibles, todos medidos antes de aplicarse:
+
+| # | Cambio | Dónde | Ganancia medida | Coste declarado |
+|---|---|---|---|---|
+| R1 | `CARGO_INCREMENTAL = "0"` | `.cargo/config.toml` | El incremental llegaba a **14,43 GB** creciendo 1,64 GB/25 min con 843 `dep-graph.bin` | Cada edición recompila el crate; **medido: 2,9 min** un build completo de tests de `vanta-memory` |
+| R3 | `test-threads = 2` en el perfil `audit` | `.config/nextest.toml` | Commit estaba al **80,7 %**; clase `os error 1455` | **Cambia el perfil de medición**: ya no expone flakes de contención que 12 hilos veían |
+| R4 | El fast gate ya no compila el bench en release | `dev-tools/verify.ps1` | Era el paso más caro (`lto=thin`, `codegen-units=1`, `opt-level=3`) | Deja de garantizar que el bench **enlace**; eso pasa al nightly (precedente HARD-02) |
+| R5 | `lld-link` en vez del `link.exe` de MSVC | `.cargo/config.toml` | MSVC medía 380-392 MB por link; LLD 22.1.2 ya estaba instalado sin usar | Diferencias de semántica en PDB; **verificado con un link real: exit 0** |
+| R8 | Terminar los procesos ociosos | — | 3 `codebase-memory-mcp` quemaban **~1 núcleo permanente** (51 h-núcleo acumuladas) | **Se perdió la herramienta MCP** `codebase-memory-mcp` en esa sesión; declarado |
+
+**No aplicado: sccache.** Necesita 15 GB de caché y hay que esperar a un momento sin dos builds vivos. Queda como la siguiente palanca.
+
+## Lo que estas decisiones NO cambian

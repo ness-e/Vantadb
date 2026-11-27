@@ -8,3 +8,17 @@
 # See https://docs.rs/getrandom#webassembly-support
 [target.wasm32-unknown-unknown]
 rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
+# R1 (2026-11-27, auditoria de recursos): incremental fuera por defecto en este repo.
+# Medido: `target/debug/incremental` llegaba a 14,43 GB creciendo 1,64 GB cada 25 min,
+# con 843 `dep-graph.bin` y 614 perfiles — porque cada carril compila con un feature
+# set distinto, asi que el incremental apenas acierta y solo ocupa. Nada lo podaba.
+# Con esto, el burn rate del disco cae ~2/3. Coste: cada edicion recompila el crate.
+[env]
+CARGO_INCREMENTAL = "0"
+
+# R5 (2026-11-27): lld-link en vez del link.exe de MSVC. Ya estaba instalado en
+# C:\Program Files\LLVM\bin y sin usar. MSVC medía 380-392 MB por link.
+# Reversible en una linea; si el PDB de un perfil con debug necesita MSVC, se quita.
+[target.x86_64-pc-windows-msvc]
+linker = "lld-link"
