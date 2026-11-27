@@ -25,6 +25,33 @@ fn failure_backoff(failures: u32) -> Duration {
     MAX_BACKOFF.min(Duration::from_secs(secs))
 }
 
+/// Refuse a shipping cycle when any discovered segment is **encrypted**
+/// (FIND-496).
+///
+/// The shipper reads records and posts them as JSON, so a replica of an
+/// encrypted database would only work if the destination shared the DEK — i.e.
+/// master-key material over the network, which is explicitly out of scope. The
+/// check runs on the whole discovered set, **before any POST**, so a cycle is
+/// either fully supported or refuses up front.
+///
+/// The marker lives in the cleartext WAL header, so the check needs no key.
+fn refuse_encrypted_segments(segments: &[PathBuf]) -> Result<()> {
+    for path in segments {
+        if crate::wal::is_encrypted(crate::wal::segment_version(path)) {
+            return Err(Error::wal_error(format!(
+                "WAL shipping does not support an encrypted database: segment '{}' is \
+                 encrypted (WAL format v{}). The replica would need the master key and \
+                 sending key material over the network is not supported, so NOTHING was \
+                 shipped. Disable `wal-shipping` for this database, or keep its WAL \
+                 plaintext.",
+                path.display(),
+                crate::wal::segment_version(path),
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Configuration for shipping WAL segments to a remote replica.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalShipConfig {
@@ -111,9 +138,18 @@ impl WalShipper {
     /// Run one shipping cycle: discover unsent segments and ship all their records.
     ///
     /// Returns the number of records shipped in this cycle.
+    ///
+    /// # Errors
+    ///
+    /// A database whose WAL is **encrypted** is refused **before** anything is
+    /// shipped (FIND-496): the replica would need the master key, and sending
+    /// key material over the network is out of scope by design. Failing at the
+    /// start of the cycle is the difference between "this is not supported" and
+    /// "half of the records were replicated and then it broke".
     pub fn ship_once(&self) -> Result<u64> {
         let marker = self.load_marker();
         let segments = self.discover_segments(&marker)?;
+        refuse_encrypted_segments(&segments)?;
         let mut total_shipped = 0u64;
 
         for segment_path in &segments {
@@ -356,6 +392,48 @@ mod tests {
         let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive")).unwrap();
         let segments = shipper.discover_segments(&None).unwrap();
         assert_eq!(segments.len(), 1);
+    }
+
+    /// FIND-496: an encrypted WAL must be refused **at the start** of the
+    /// cycle, not in the middle of the replication. The marker file is the
+    /// witness: it is only written after a segment has been shipped.
+    #[cfg(feature = "encryption")]
+    #[test]
+    fn shipper_refuses_an_encrypted_wal_before_shipping_anything() {
+        use crate::wal::{WalCrypto, WalRecord};
+
+        let dir = tempdir().unwrap();
+        let wal_path = dir.path().join("vanta.wal");
+        let crypto = WalCrypto::open(dir.path(), &[0x33u8; 32]).unwrap();
+        let mut writer = WalWriter::open_encrypted(&wal_path, SyncMode::Periodic, crypto).unwrap();
+        writer.append(&WalRecord::Delete { id: 7 }).unwrap();
+        writer.sync().unwrap();
+        // Rotation is what makes the segment visible to the shipper.
+        let rotated = writer.rotate(SyncMode::Periodic).unwrap();
+        drop(rotated);
+
+        let cfg = WalShipConfig {
+            replica_url: "http://127.0.0.1:9/wal".to_string(),
+            ..WalShipConfig::default()
+        };
+        let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive")).unwrap();
+        let segments = shipper.discover_segments(&None).unwrap();
+        assert_eq!(segments.len(), 1, "the rotated segment must be discovered");
+
+        let err = shipper.ship_once().unwrap_err();
+        let message = err.to_string();
+        assert!(
+            message.contains("does not support an encrypted database"),
+            "the refusal must name the encryption limit, got: {message}"
+        );
+        assert!(
+            message.contains("NOTHING was shipped"),
+            "the refusal must say that nothing was shipped, got: {message}"
+        );
+        assert!(
+            !dir.path().join(".wal_ship_marker").exists(),
+            "no marker may be written: nothing was shipped"
+        );
     }
 
     #[test]

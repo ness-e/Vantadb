@@ -1901,3 +1901,12 @@ el propio SDK ya usa— los arregla a los tres.
 - **No es el instrumento:** el primer intento compartía el vector del testigo con el del sujeto y el needle marcaba el testigo como fuga; corregido antes de publicar. El testigo sobrevive siempre ⇒ el «0 archivos» no es una base vacía.
 - **Churn HNSW** (borrar + reinsertar el mismo volumen, corpus constante): 10 % → p50 0.972 ms / p99 1.239 / QPS **1004.89**; 30 % → 1.425 / 1.673 / **733.59**; 50 % → 1.488 / 1.676 / **669.21**, sin resultados vacíos. Degradación moderada (p50 ×1.53, QPS ×0.67).
 - **El script sale `exit 1`** mientras la recuperación de `certified` no sea 0: un benchmark que siempre sale verde no mide nada. `ruff check` + `ruff format --check` limpios.
+
+### FIND-496: el WAL shipping no replica una base cifrada (falla al inicio)
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** `WalShipper::ship_once` abria los segmentos rotados con `WalReader::open` (sin clave): sobre un WAL cifrado fallaba con `EncryptionKeyRequired` a mitad de la replicacion, despues de haber enviado los lotes de los segmentos anteriores.
+- **Resultado:** contrato (b) de la fila: el shipping declara que no soporta bases cifradas y falla al inicio del ciclo, antes de cualquier POST, con un mensaje accionable (nombra el segmento, el formato y las dos salidas: desactivar `wal-shipping` o mantener el WAL en claro). La deteccion lee el `format_version` del header en claro, asi que no necesita clave. No se envia material de clave por la red (descartado por la fila).
+- **Verificacion:** `shipper_refuses_an_encrypted_wal_before_shipping_anything`: RED medido con la guarda deshabilitada (el error era el seco `Encryption key required for wal`); con la guarda el ciclo se niega y no escribe el marker (nada se envio). Poblacion del area: 319/319.
+- **Deuda declarada:** la replicacion de bases cifradas no existe y este fix la declara imposible, no la implementa (requeriria compartir la DEK con el destino).
+- **Ids:** `FIND-496`
