@@ -220,8 +220,9 @@ impl<'a> ThreadStore<'a> {
     /// `gc` — if provided, the TTL expiry is registered with the garbage
     /// collector so it can be cleaned up automatically.
     pub fn create(&self, input: CreateThread<'_>, gc: Option<&mut GcWorker<'a>>) -> Result<u128> {
-        // NOT-02 / FIND-600: atomically write the thread node and update the index
-        // under the same lock so concurrent callers cannot observe partial state.
+        // NOT-02 / FIND-600: serialize the two writes under one lock so
+        // concurrent callers cannot interleave their index read-modify-writes.
+        // (The pair is not atomic — see the ordering note before the writes.)
         let _guard = self.index_lock.lock();
         let CreateThread {
             title,
@@ -243,17 +244,58 @@ impl<'a> ThreadStore<'a> {
         node.set_field(FIELD_UPDATED_AT, FieldValue::Int(now as i64));
         node.set_field(FIELD_METADATA, FieldValue::String(metadata_json));
 
+        let mut ttl_expires_at = None;
         if let Some(ttl) = ttl_secs {
             let expires_at = now + ttl;
             node.set_field(FIELD_EXPIRES_AT, FieldValue::Int(expires_at as i64));
             node.set_field(FIELD_TTL_SECS, FieldValue::Int(ttl as i64));
-            if let Some(gc) = gc {
-                gc.register_ttl(thread_id, expires_at);
-            }
+            ttl_expires_at = Some(expires_at);
         }
 
-        self.engine.insert(&node)?;
+        // FIND-798: write the index **before** the node.
+        //
+        // With the old order (node, then index) an index failure stranded a
+        // node that no reader could reach: `list` and `purge_expired_threads`
+        // both walk the index, not the backend, so the orphan was invisible
+        // *and* immortal, and the error invited a retry that minted a fresh id
+        // and inserted a second node.
+        //
+        // Inverted, a failure leaves at worst an index id with no node. That is
+        // the cheap direction: `list` does not render it (it resolves before it
+        // pages), the id costs one wasted slot in the index blob, and nothing
+        // duplicates on retry. It is *not* self-recycling — `purge_expired_threads`
+        // only rebuilds the index `if purged > 0`, and a dangling id never
+        // increments `purged` — which is exactly why the compensation below
+        // exists.
         self.add_thread_id_locked(thread_id)?;
+        if let Err(e) = self.engine.insert(&node) {
+            // Compensate so a failed create leaves no trace at all: drop the id
+            // we just wrote. Best-effort by design — `save_thread_ids` takes the
+            // same `insert_lock` the insert may have just timed out on, so under
+            // sustained contention the cleanup can fail for the same reason. In
+            // that case we keep the dangling id (cheap, see above) and still
+            // return the *original* error, which is the one the caller needs.
+            //
+            // ponytail: the cleanup is logged, not retried, and has no
+            // retry loop. Upgrade: fold index+node into one backend batch if a
+            // failed create ever needs to be atomic down to the index.
+            if let Err(cleanup) = self.remove_thread_id_locked(thread_id) {
+                tracing::warn!(
+                    thread_id,
+                    error = %cleanup,
+                    "create: insert failed and the index entry could not be rolled back; \
+                     the thread id stays in the index with no node"
+                );
+            }
+            return Err(e);
+        }
+
+        // Register the TTL only now that the thread exists. Registering it before
+        // the writes left the GC holding an expiry — and a WAL `Delete` on the
+        // next sweep — for an id that never got a node.
+        if let (Some(gc), Some(expires_at)) = (gc, ttl_expires_at) {
+            gc.register_ttl(thread_id, expires_at);
+        }
 
         Ok(thread_id)
     }
@@ -318,15 +360,32 @@ impl<'a> ThreadStore<'a> {
     }
 
     /// List threads with pagination.
+    ///
+    /// Paging is applied to the threads that **exist**, not to the raw index:
+    /// an index id whose node is gone (a failed `create` whose compensation also
+    /// failed, or a TTL sweep that deleted the node without touching the index —
+    /// `GcWorker::sweep` calls `StorageEngine::delete` directly) used to consume
+    /// a page slot. Enough of them at the front of the index made a page come
+    /// back empty while real threads sat further down, and the HTTP layer derives
+    /// `has_more` from the returned count (`src/server/pagination.rs:38`), so it
+    /// reported `has_more: false` with no cursor: the data became unreachable
+    /// through the list (FIND-798).
     pub fn list(&self, limit: usize, offset: usize) -> Result<Vec<MessageThread>> {
         let ids = self.load_thread_ids()?;
-        let chunk: Vec<u128> = ids.into_iter().skip(offset).take(limit).collect();
-
-        let mut threads = Vec::with_capacity(chunk.len());
-        for id in chunk {
-            if let Some(thread) = self.get(id)? {
-                threads.push(thread);
+        let mut threads = Vec::with_capacity(limit.min(ids.len()));
+        let mut skipped = 0usize;
+        for id in ids {
+            if threads.len() >= limit {
+                break;
             }
+            let Some(thread) = self.get(id)? else {
+                continue; // dangling id: not a position in the page
+            };
+            if skipped < offset {
+                skipped += 1;
+                continue;
+            }
+            threads.push(thread);
         }
         Ok(threads)
     }
@@ -486,6 +545,191 @@ mod tests {
             ..Default::default()
         })
         .expect("open embedded")
+    }
+
+    /// Count nodes whose `_title` is `title`, from the **store** rather than the
+    /// thread index.
+    ///
+    /// Deliberately not `list`: `list` walks the index, so it cannot see the
+    /// orphan this module is about.
+    ///
+    /// Ceiling: `scan_nodes` is the HNSW-gated view (`storage/engine/ops.rs`
+    /// skips a row with no index entry), not a raw partition scan. That is enough
+    /// here — the orphan is a fully inserted node, so it is visible — but it is
+    /// not a general "the backend is empty" oracle.
+    fn nodes_titled(engine: &crate::storage::StorageEngine, title: &str) -> usize {
+        engine
+            .scan_nodes()
+            .expect("scan nodes")
+            .iter()
+            .filter(|n| match n.get_field(FIELD_TITLE) {
+                Some(FieldValue::String(t)) => t.as_str() == title,
+                _ => false,
+            })
+            .count()
+    }
+
+    /// FIND-798: a `create` whose index write fails must leave **no** node
+    /// behind, and the retry must leave exactly one.
+    ///
+    /// On `HEAD` the node is inserted first (`thread.rs:255`) and the index is
+    /// updated second (`:256`), so an index failure strands a node that neither
+    /// `list` nor `purge_expired_threads` can reach (both walk the index) while
+    /// the error tells the user the create failed. The retry mints a fresh id
+    /// (`generate_id`), so it adds a *second* node.
+    ///
+    /// The failure is injected through a real precondition rather than a test
+    /// seam: the index is a JSON blob in `InternalMetadata` (`THREAD_INDEX_KEY`),
+    /// so a corrupt blob makes `load_thread_ids` fail inside
+    /// `add_thread_id_locked`. This exercises the `load` side; a `save_thread_ids`
+    /// failure aborts at the same `?` in the same helper, before the node write,
+    /// so it takes the same path but is not itself exercised here.
+    #[test]
+    fn create_failing_at_the_index_leaves_no_orphan_node() {
+        let db = embedded();
+        let engine = db.engine_handle().expect("engine handle");
+
+        engine
+            .put_to_partition(
+                BackendPartition::InternalMetadata,
+                THREAD_INDEX_KEY,
+                b"{not json",
+            )
+            .expect("corrupt the thread index");
+
+        assert!(
+            db.create_thread("orphan", None).is_err(),
+            "create must report the index failure"
+        );
+
+        let after_failure = nodes_titled(&engine, "orphan");
+        assert_eq!(
+            after_failure, 0,
+            "a create that failed at the index must persist zero nodes (found {after_failure})"
+        );
+
+        // Repair the index and retry, exactly as a user would.
+        engine
+            .put_to_partition(BackendPartition::InternalMetadata, THREAD_INDEX_KEY, b"[]")
+            .expect("repair the thread index");
+        let retried = db.create_thread("orphan", None).expect("retry create");
+
+        let after_retry = nodes_titled(&engine, "orphan");
+        assert_eq!(
+            after_retry, 1,
+            "the retry must leave exactly one node (found {after_retry})"
+        );
+        let listed = db.list_threads(10, 0).expect("list threads");
+        assert_eq!(listed.len(), 1, "exactly one thread must be listed");
+        assert_eq!(listed[0].thread_id, retried);
+    }
+
+    /// FIND-798: the compensation branch — the `insert` fails *after* the index
+    /// id was written, and the id must be rolled back.
+    ///
+    /// The failure is per-instance and deterministic: with two transactions open,
+    /// `StorageEngine::insert` returns `InvalidInput` (`storage/engine/insert.rs`,
+    /// the `sole_id() == None` branch) while `put_to_partition` — the index write —
+    /// is transaction-unaware and still succeeds. That is precisely the ordering
+    /// the compensation exists for, with no failpoint and no global state.
+    #[test]
+    fn create_failing_at_the_insert_rolls_back_the_index_entry() {
+        let db = embedded();
+        let engine = db.engine_handle().expect("engine handle");
+
+        let txn_a = engine.begin_transaction().expect("begin txn a");
+        let txn_b = engine.begin_transaction().expect("begin txn b");
+
+        let error = db.create_thread("compensated", None);
+        assert!(
+            error.is_err(),
+            "create must report the insert failure (two txns open)"
+        );
+
+        assert_eq!(
+            nodes_titled(&engine, "compensated"),
+            0,
+            "a create that failed at the insert must persist zero nodes"
+        );
+        let ids: Vec<u128> = serde_json::from_slice(
+            &engine
+                .get_from_partition(BackendPartition::InternalMetadata, THREAD_INDEX_KEY)
+                .expect("read index")
+                .expect("index entry present"),
+        )
+        .expect("index is valid JSON");
+        assert!(
+            ids.is_empty(),
+            "the compensation must drop the id written before the failed insert (found {ids:?})"
+        );
+
+        engine.abort_transaction(txn_a).expect("abort txn a");
+        engine.abort_transaction(txn_b).expect("abort txn b");
+
+        // Once the failure is gone the same create succeeds and leaves one of each.
+        let id = db
+            .create_thread("compensated", None)
+            .expect("create thread");
+        assert_eq!(nodes_titled(&engine, "compensated"), 1);
+        let listed = db.list_threads(10, 0).expect("list threads");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].thread_id, id);
+    }
+
+    /// FIND-798: paging counts **threads**, not index slots.
+    ///
+    /// A dangling id (no node) used to consume a page slot, because `list` applied
+    /// `skip`/`take` to the raw ids and filtered afterwards. Enough of them ahead
+    /// of the real threads produced an empty page — and the HTTP layer derives
+    /// `has_more` from the returned count, so it also stopped offering a cursor.
+    #[test]
+    fn list_pages_over_threads_not_over_dangling_index_ids() {
+        let db = embedded();
+        let engine = db.engine_handle().expect("engine handle");
+        let real = db.create_thread("real", None).expect("create thread");
+
+        // Three ids with no node, planted *ahead* of the real one.
+        let ids: Vec<u128> = vec![u128::MAX, u128::MAX - 1, u128::MAX - 2, real];
+        engine
+            .put_to_partition(
+                BackendPartition::InternalMetadata,
+                THREAD_INDEX_KEY,
+                &serde_json::to_vec(&ids).expect("serialize index"),
+            )
+            .expect("plant the index");
+
+        let page = db.list_threads(1, 0).expect("list page");
+        assert_eq!(
+            page.len(),
+            1,
+            "a page of 1 must hold a real thread, not a dangling id"
+        );
+        assert_eq!(page[0].thread_id, real);
+
+        assert_eq!(
+            db.list_threads(10, 0).expect("list all").len(),
+            1,
+            "the dangling ids are not threads"
+        );
+        assert!(
+            db.list_threads(10, 1).expect("list offset 1").is_empty(),
+            "the dangling ids are not page positions either"
+        );
+    }
+
+    /// FIND-798 guard: the happy path is untouched — one `create` yields one
+    /// node in the backend and exactly one id in the index.
+    #[test]
+    fn create_leaves_one_node_and_one_index_entry() {
+        let db = embedded();
+        let engine = db.engine_handle().expect("engine handle");
+
+        let id = db.create_thread("solitary", None).expect("create thread");
+
+        assert_eq!(nodes_titled(&engine, "solitary"), 1, "one node");
+        let listed = db.list_threads(10, 0).expect("list threads");
+        assert_eq!(listed.len(), 1, "one index entry");
+        assert_eq!(listed[0].thread_id, id);
     }
 
     /// FIND-599: two concurrent `send_message` calls on the same thread must
