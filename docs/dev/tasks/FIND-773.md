@@ -160,6 +160,10 @@ vantadb::graph_edge_concurrency concurrent_add_edge_loses_no_edges_on_one_node
 
 **No verificado, declarado:** el revisor no re-midió el probe de throughput (era un fichero temporal, ya borrado) y aceptó §Techo como está — ratios sobre absolutos, sin `canonical_p99` de release.
 
+**Ronda 2 (close-out sobre `3a3a0f1c0`): ✅ `approve`.** M1/M2/M3/L1/L2 verificados **en los blobs del commit**, no en el árbol: `git hash-object` de los 5 ficheros == `git rev-parse 3a3a0f1c0:<path>` (árbol ≡ commit); `node_exists` en el blob comprometido: **0** ocurrencias; `Commit del task file` en `core-engine.md` comprometido: **0**; `git show 3a3a0f1c0 --numstat -- docs/dev/Backlog.md` → `0 1` con la fila `FIND-773` verbatim y **ningún hunk ajeno**; `--stat` → exactamente 5 ficheros (los otros carriles —`budget.json`, `H-02-H-07.md`, `web/`— siguen sucios y **fuera** del commit). Gates re-ejecutados contra el código comprometido: `fmt --all --check` exit 0 · filtro del contrato `117/117` (55 binarios) · `clippy --workspace --all-targets --all-features -- -D warnings` exit 0, 0 warnings. **Bloqueos restantes: ninguno.**
+
+**Nits del close-out, sin acción exigida:** (a) la nota de traspaso decía 362 inserciones y git dice 363 (`0+15+168+29+151`) — error de mi mensaje, el repo es autoconsistente; (b) al retirar mi fila quedó vacía la sección `Backlog.md:812`, que pasa de 23 a 24 secciones vacías: es la convención que el fichero ya tiene (23 antecedentes) y el alcance era "sólo mi fila" — barrido cosmético para otro día.
+
 ## Deuda y NOTICED BUT NOT TOUCHING
 
 - **`remove_edge`/`ensure_edge` sin guard** — declarado arriba. Dos llamadores fuera del lock hoy (`supersede`, `bulk_import_stream:3259`) que pueden tomar el guard directamente; los otros ocho necesitan el split locked/unlocked en `memory.rs`.
