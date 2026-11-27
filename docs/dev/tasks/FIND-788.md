@@ -404,3 +404,24 @@ a la sesion que lo lanzo.
 **Corolario operativo:** cualquier `actionlint` que se lance en background debe tener tope duro y kill —
 lo que el carril de `FIND-807` implemento en su medicion ("tope duro + kill"). Y si un `run:` de CI
 necesita crecer, la logica va **compuesta** (`case`, funcion) para no ganar sentencias.
+
+## El cuelgue no es "una sentencia": tambien lo dispara un comentario (2026-11-27)
+
+La medicion anterior decia "+1 sentencia -> cuelga". Es **cierto pero incompleto**, y el criterio incompleto costo
+tres intentos y varias esperas de >120 s en el cierre de `FIND-816`. La biseccion, con tope duro en cada medida:
+
+| variante del `run:` | `actionlint` (con shellcheck) |
+|---|---|
+| bucle con `continue` dentro de un `if` | **cuelga >120 s** |
+| bucle con sustitucion de patron sobre el manifest | **cuelga >120 s** |
+| el mismo codigo, **comentarios sin sintaxis de shell** | **0,85 s** |
+| el mismo codigo, comentario que **cita** esa sintaxis | **cuelga >120 s** |
+| **final**: bucle en step propio + la lista en `env:` | **1,35 s** |
+
+**Conclusion operativa:** `actionlint` se cuelga tambien cuando un **comentario dentro de un `run:` contiene
+sintaxis de shell** (un `$(...)`, una sustitucion, un `if` en prosa que parece codigo). No es solo el numero de
+sentencias: es el **texto** que actionlint intenta interpretar.
+
+**Regla practica:** en un `run:` de CI, los comentarios se escriben en **prosa que no parezca shell**; la logica
+nueva va a un **step propio** con un script; las listas de patrones van a `env:` y se referencian, no se
+incrustan. Con esas tres cosas, 20 workflows lintean en **24,31 s** (5,03 s sin shellcheck).
