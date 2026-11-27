@@ -54,7 +54,7 @@ fn generic_tokens_masked() {
     let r = Redactor::new(&enabled(RedactMode::Mask)).expect("default config builds");
     let secrets = [
         "sk-ant-abc123XYZ456",
-        "ghp_0123456789abcdef0123456789abcdef0123",
+        "ghp_0123456789abcdef0123456789abcdef0123", // secretlint-disable-line
     ];
     let ApplyOutcome::Pass(bytes) = r.apply(&body_with(&secrets)) else {
         panic!("mask mode must pass")

@@ -37,9 +37,11 @@ vantadb-mcp = { workspace = true }
 vanta-memory = { workspace = true, features = ["http-server", "llm-driver"] }
 # ERR-CORE-02: bin-only human error chain (.context() en main).
 anyhow = { workspace = true }
-# WIRE-16: R-5 warn+default for `VANTADB_SCHEDULER_*` parsing (already in the
-# workspace graph via every other crate).
-tracing = { workspace = true }
+# Retirado 2026-11-27 (cargo-machete estaba rojo por esto): `tracing` salio de
+# aqui. Lo justificaba WIRE-16 (R-5 warn+default del parseo de
+# `VANTADB_SCHEDULER_*`), pero WIRE-20 movio ese parseo a
+# `vanta-memory/src/services/scheduler.rs`. Cero usos en este crate
+# (`rg 'tracing::|use tracing|instrument' vantadb-server/src` -> 0).
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "sync", "signal", "net", "time"] }
 
 [dev-dependencies]
