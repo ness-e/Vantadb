@@ -30,7 +30,8 @@
   Rules (all three, always — -Paths narrows rule (a) only):
     (a) task file in the diff with no `**Estado:**`, a non-canonical one, or
         non-terminal while its ID is in no Backlog row and no active plan;
-    (b) a Backlog row removed in the diff needs an entry in docs/dev/avance/;
+    (b) a Backlog row ABSENT from the file being committed needs an entry in
+        docs/dev/avance/ — an edited/rewritten row is not a removal (FIND-822);
     (c) whole-tree census of inherited state (advisory).
 
   A gate that cannot fail is not a gate. A gate that is red for everyone is a
@@ -145,14 +146,28 @@ function Get-DiffFiles([string[]]$FilePaths) {
     return $files
 }
 
-function Get-RemovedBacklogIds {
+# FIND-822: `git diff` renders an EDITED line as `-old` + `+new`, so a row
+# rewritten in place (a cell touched, the file re-emitted from another copy) put
+# a `-` line in the diff while the row never left. The invariant is "the row is
+# absent from the WORKTREE file => it needs an avance entry", NOT "the line is
+# not in the diff". $Present is the set of IDs that still OWN a row in the
+# worktree file (Get-BacklogOwnIds, the same rule (a) uses); anything in it
+# survives, so it is not a retirement — and anything missing from it is (FIND-792
+# stays red: a row removed without an avance entry).
+# The parameter is TYPED on purpose: a bare string would make `.Contains()` a
+# SUBSTRING test (`"FIND-8220".Contains("FIND-82")` is true) and swallow a real
+# removal; typed, a wrong caller fails loudly instead.
+function Get-RemovedBacklogIds([System.Collections.Generic.HashSet[string]]$Present) {
     $diff = & git -C $root diff -U0 $Base -- docs/dev/Backlog.md 2>$null
     if ($LASTEXITCODE -ne 0) { return @() }
     $ids = New-Object System.Collections.Generic.List[string]
     foreach ($line in $diff) {
         if ($line -match '^-' -and $line -notmatch '^---') {
             $m = [regex]::Match($line, '^\-\s*\|\s*`([^`]+)`')
-            if ($m.Success -and -not $ids.Contains($m.Groups[1].Value)) { $ids.Add($m.Groups[1].Value) }
+            if (-not $m.Success) { continue }
+            $id = $m.Groups[1].Value
+            if ($Present -and $Present.Contains($id)) { continue }
+            if (-not $ids.Contains($id)) { $ids.Add($id) }
         }
     }
     return $ids
@@ -237,6 +252,20 @@ function Invoke-EndToEnd {
     & $write "docs/dev/tasks/FIND-901.md" ("## Metadata`n- **Estado:** " + [char]0x23F3 + " IN PROGRESS`n")
     $cases += ,@("e2e (d): task file WITH its own Backlog row passes", ((& $run @("-Diff", "-Root", $tmp)) -eq 0))
     Remove-Item (Join-Path $tmp "docs/dev/tasks/FIND-901.md") -Force
+
+    # (b2) FIND-822: a row REWRITTEN in place is not a retirement. `git diff`
+    # renders an edited line as `-old` + `+new`, and the old detector read every
+    # `-` line as a close: it demanded an avance entry for a row that never left.
+    & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-901`` | x reescrita |`n"
+    $cases += ,@("e2e (b2): in-place row rewrite is NOT a removal", ((& $run @("-Diff", "-Base", "HEAD", "-Root", $tmp)) -eq 0))
+
+    # (b3) the whole table re-emitted in another ORDER: git renders a reordered
+    # block as `-`/`+` for every row, and every row survives. Also not a close.
+    & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-901`` | x |`n| ``FIND-902`` | y |`n"
+    & git -C $tmp -c user.email=t@t -c user.name=t add -A 2>$null
+    & git -C $tmp -c user.email=t@t -c user.name=t commit -qm two 2>$null
+    & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-902`` | y |`n| ``FIND-901`` | x |`n"
+    $cases += ,@("e2e (b3): reordered table rewrite is NOT a removal", ((& $run @("-Diff", "-Base", "HEAD", "-Root", $tmp)) -eq 0))
 
     # (c) a Backlog row removed with no avance entry
     & $write "docs/dev/Backlog.md" "# Backlog`n`n| ID | Hallazgo |`n|---|---|`n| ``FIND-901`` | x |`n| ``FIND-902`` | y |`n"
@@ -378,7 +407,8 @@ foreach ($f in $taskFiles) {
 # nothing (review round 3: the old guard skipped this rule in silence).
 $removedIds = @()
 if ($Diff) {
-    $removedIds = @(Get-RemovedBacklogIds)
+    # FIND-822: subtract the rows that still exist — a rewrite is not a close.
+    $removedIds = @(Get-RemovedBacklogIds $backlogIds)
     if (-not $removedIds.Count) { Write-Host "  (b) no Backlog row removed in the diff" -ForegroundColor Gray }
 }
 foreach ($id in $removedIds) {
