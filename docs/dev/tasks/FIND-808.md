@@ -123,7 +123,7 @@ cobertura de CI y el agregado de `default`.
 | 3 | Crear este task file con impacto mapeado y spec | ✅ |
 | 4 | Editar `docs/dev/architecture/FEATURES.md`: fuentes, fila `default`, 4 status marks, `python_sdk`, citas de workflow, §CI | ✅ |
 | 5 | Verify mecánico: `check-docs.mjs` · `check-links.mjs` · `rg ci-rust-10` en 0 · lista de flags == `Cargo.toml:156` | ✅ |
-| 6 | OCR review + review P2-01 (una ronda) | ✅ |
+| 6 | OCR review + review P2-01 (ronda 1 → ronda 1-bis → 2-bis) | ✅ |
 | 7 | Cierre: fila del Backlog, entrada en `docs/dev/avance/activo/docs.md`, commit con índice aislado | ✅ |
 
 ## Verify (contrato mecánico)
@@ -143,11 +143,19 @@ file, `docs/dev/avance/activo/docs.md`). Sin `docs/api/**`, sin `src/**`, sin pl
 
 | Campo | Valor |
 |---|---|
-| **Revisor** | `vanta-review` (sub-agente, sesión `ses_de21e1c8fffeWM3YE8hkGrGpJq`) |
+| **Revisor** | `vanta-review` (sub-agente, contexto fresco, report-only) |
 | **Enfoque** | contexto fresco adversarial, report-only: re-midió la premisa y las 5 claims en vez de aceptar este task file; leyó `ci-rust.yml` del **blob commiteado** (el working tree arrastra un hunk ajeno) y no tocó nada |
 | **Cómo se probó** | `check-docs.mjs` / `check-links.mjs` re-ejecutados por él (0/0); `rg ci-rust-10` → 0; listas de flags comparadas contra `Cargo.toml:156`; citas de workflow resueltas una a una contra `git show HEAD:.github/workflows/ci-rust.yml`; **no** compiló Rust (otra lane construyendo) |
 | **Veredicto ronda 1** | 🔴 **changes-required** — 3 Blocking, 4 Medium, 4 Low |
-| **Veredicto ronda 1-bis** | ver §Cierre de la ronda 1-bis (abajo) |
+| **Veredicto ronda 1-bis** | 🔴 **changes-required** — B1/B2/B3/M1/M3 cerrados; **1 Blocking nuevo, mío**: `Run tests (Audit profile, core)` existe solo en Linux (`ci-rust.yml:473`) y macOS (`:567`); Windows es otro step y otro perfil (`Run quick integrity tests (Windows)`, `--profile ci-windows`) → citar por un identificador que no es común a las tres reintroduce el defecto de M3. +1 Medium (Step 6 ✅ con el gate abierto) y 3 Low (omisiones de `✅ ci` en `jemalloc`/`custom-allocator`, y `embed-local` sin fila) |
+| **Veredicto ronda 2-bis** | ver §Cierre de la ronda 2-bis (abajo) |
+
+**Ronda 2 (sobre el dictamen 1-bis):** §Cobertura cita los tres **jobs** (`Tests (Linux)` / `Tests
+(Windows)` / `Tests (macOS)`, que existen los tres) y aclara el perfil de cada uno; la leyenda
+acota `✅ ci` a `ci-rust.yml` (los workflows de release no cuentan) y `jemalloc` recibe su mark
+(`release-combo`); se agrega la fila que faltaba, `embed-local`, **al final** de la tabla para no
+desplazar las anclas `:32`/`:48`/`:51` que cita la matriz; Step 6 y el identificador de sesión
+(no verificable desde el repo) corregidos.
 
 **Blocking de la ronda 1 y qué se hizo:**
 
@@ -188,9 +196,9 @@ file, `docs/dev/avance/activo/docs.md`). Sin `docs/api/**`, sin `src/**`, sin pl
 y fila del Backlog sin retirar) siguen en §Deuda **con dueño nombrado**. L4 (3682 vs 3685
 internos) es deriva del árbol, no un defecto.
 
-## Cierre de la ronda 1-bis
+## Cierre de la ronda 2-bis
 
-Pendiente del veredicto del revisor sobre el commit de la ronda 2 (ver RESULTADO).
+Pendiente del veredicto del revisor sobre el commit de la ronda 3 (ver RESULTADO).
 
 ## Deuda / NOTICED BUT NOT TOUCHING
 
@@ -214,6 +222,9 @@ Pendiente del veredicto del revisor sobre el commit de la ronda 2 (ver RESULTADO
 - Las notas `CI: default + Miri (...)`, en `fjall`/`memmap2`/`fs2`, listan un subconjunto de
   la string real de Miri (falta `encryption`). No son falsas (nombran un subconjunto) y la
   string exacta aparece una sola vez en §Cobertura en CI.
+- **`custom-allocator` queda sin `✅ ci` a propósito**: lo enciende `release-binaries.yml`,
+  no una lane de `ci-rust.yml`, y la leyenda ahora acota el mark a `ci-rust.yml` (ronda 2).
+  Si se quisiera cubrir "cualquier workflow", es una decisión de la leyenda, no de una fila.
 - **La fila `FIND-808` del Backlog sigue presente** (🆕 Pendiente, con el path inexistente
   `docs/FEATURES.md:32`): `docs/dev/Backlog.md` arrastra un hunk ajeno sin commitear (`0/1`,
   la retirada de `FIND-798`). Commitear el fichero hornearía el cierre de un carril cuyo

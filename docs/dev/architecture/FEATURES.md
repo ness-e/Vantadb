@@ -20,7 +20,7 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]` (del 
 | Status | Significado |
 | --- | --- |
 | ✅ `default` | En la feature set por defecto (`Cargo.toml:156`); compilada en todo build |
-| ✅ `ci` | Alguna lane de CI compila o corre una combinación que **enciende** el flag, más allá de `clippy --all-features` (ese job compila la unión y por eso no cuenta como ejercicio) |
+| ✅ `ci` | Alguna lane de `.github/workflows/ci-rust.yml` compila o corre una combinación que **enciende** el flag, más allá de `clippy --all-features` (ese job compila la unión y por eso no cuenta como ejercicio). Los workflows de release (que construyen lo publicado) no cuentan como lane de `ci` |
 | 🟡 `opt-in` | Código real detrás del flag; **no está en `Cargo.toml:156`**. Los dos ejes son independientes: `opt-in` dice "no es default", `ci` dice "alguien lo ejerce" |
 | ⚠️ `experimental` | Código real pero fuera de la superficie de producto estable (ver ADR-0014 / `docs/dev/operations/CI_POLICY.md`) |
 | 💀 `no-op` | Sin gates de código; marcador vacío |
@@ -49,7 +49,7 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]` (del 
 | `tui` | 🟡 opt-in | TUI interactiva del CLI (`ratatui`+`crossterm`) | `src/lib.rs:129`, `src/tui.rs`, `src/bin/vanta-cli.rs` (3 gates) |
 | `prometheus` | 🟡 opt-in | Métricas Prometheus (endpoints + counters de governor/cache warmer) | 62 gates — la superficie opt-in más grande (`src/cache_warmer.rs`, `src/memory_governor.rs`); Candidata Pro |
 | `python_sdk` | 🟡 opt-in | `python` — bindings directos `pyo3` desde el crate core | `src/lib.rs:112` (2 gates). Nota: `vantadb-python` **no** la activa y tampoco apaga los defaults — `vantadb-python/Cargo.toml:25` consume el core con `features = ["fjall","memmap2","rayon"]` y sin `default-features = false`, así que el wheel se construye con **`default` encendido + `rayon`** |
-| `jemalloc` | 🟡 opt-in | Allocator jemalloc para el binario `vanta-cli` (gated a unix en Cargo.toml) | `src/bin/vanta-cli.rs` (4 gates) |
+| `jemalloc` | 🟡 opt-in · ✅ ci | Allocator jemalloc para el binario `vanta-cli` (gated a unix en Cargo.toml) | `src/bin/vanta-cli.rs` (4 gates); CI: job `release-combo` hace `cargo check --release --features "server,jemalloc"` sobre el binario |
 | `custom-allocator` | 🟡 opt-in | Allocator custom (mimalloc) para el binario `vanta-cli` cuando jemalloc no aplica | `src/bin/vanta-cli.rs` (1 gate) |
 | `async-ingestion` | 🟡 opt-in | `ingestion` — pipeline async de inserción a worker pool | `src/lib.rs:146`, `src/ingestion.rs` (1 gate en lib) |
 | `async-io` | 🟡 opt-in | `transcript` — I/O async de transcriptos | `src/lib.rs:149`, `src/transcript.rs` (9 gates) |
@@ -58,6 +58,7 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]` (del 
 | `pitr` | 💀 removed | ~~`wal_archiver` — archivado WAL + point-in-time recovery~~ | **Removido 2026-08-25 (FIND-26):** dead code sin wiring desde el engine (RES-02); el código vive en git history. Ver ADR-0014 (superseded) y backlog CORE-02 si se reviviera PITR |
 | `bayesian_decay` | 🟡 opt-in | Variantes de eviction con decay Bayesian Beta-Binomial | `src/eviction.rs` (17 gates) |
 | `wasm` | 💀 no-op | Sin `#[cfg]` en código del crate core | 0 matches en `src/`/`tests/`; únicamente referenciada por la dependencia de `vantadb-wasm/Cargo.toml:21` (`default-features = false, features = ["wasm"]`). **Candidate for removal** (la dependencia funciona sin ella) — extracción trivial, fuera de alcance de este task |
+| `embed-local` | 🟡 opt-in · ✅ ci | Embedder local in-process (`ort` + `tokenizers`): inferencia sin proveedor externo | `Cargo.toml:166`, `src/lib.rs:120-121` (`cfg(any(remote-inference, embed-local))`); CI: job `Tests (embeddings features)`, leg `embed-local`, `--lib`. *Fila agregada en `FIND-808` (ronda 2): era la única feature declarada en `Cargo.toml` sin fila* |
 
 ## Cobertura en CI
 
@@ -69,9 +70,11 @@ Lo que la columna `Status` afirma se sostiene en tres lanes de `ci-rust.yml`, ci
 **nombre de step** —los números de línea de ese workflow rotan con cada edición, y fueron
 justamente el mecanismo que puso aquí una cita a un workflow inexistente—:
 
-- **`Run tests (Audit profile, core)`** (Linux/Windows/macOS) — `cargo nextest run
+- **Jobs `Tests (Linux)`, `Tests (Windows)`, `Tests (macOS)`** — `cargo nextest run
   --features "cli,arrow,tls,opentelemetry"` sobre cinco `-p`: `vantadb`, `vantadb_py`,
-  `vanta-memory`, `vantadb-server`, `vantadb-mcp`.
+  `vanta-memory`, `vantadb-server`, `vantadb-mcp`. Linux y macOS corren el perfil `audit`;
+  Windows corre `ci-windows` (`--profile ci-windows`, step `Run quick integrity tests
+  (Windows)` — no es el mismo step ni el mismo perfil que las otras dos).
 - **`Clippy Lints`** — `--all-features`: compila la **unión**, una sola combinación. No
   prueba un `#[cfg(not(feature = …))]` que se haya podrido (las features son aditivas), así
   que por sí solo no cuenta como que un flag esté ejercitado.
