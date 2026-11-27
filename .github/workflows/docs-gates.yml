@@ -18,29 +18,33 @@ name: 'GATES: Docs - lint, links, secrets, API surface, examples, rustdoc'
 on:
   push:
     branches: [main, develop]
-    paths:
-      - 'docs/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'vantadb-python/vantadb_py/**'
-      - 'vantadb-python/vantadb/**'
-      - 'vantadb-ts/src/**'
-      - 'vantadb-ts/package.json'
-      - 'vantadb-node/package.json'
-      - 'vantadb-*/**'
-      - 'vanta-memory/**'
-      - 'providers/**'
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'README.md'
-      - 'llms.txt'
-      - '.github/markdownlint-cli2.yaml'
-      - 'release-manifest.json'
-      - 'cliff.toml'
-  # FIND-765 (2026-11-26): `pull_request` NO lleva `paths:` a proposito.
+  # FIND-816 (2026-11-27): `push` TAMPOCO lleva `paths:` ya. Misma solucion que
+  # `FIND-807` en `ci-rust.yml` (`1c6cee680`, ya probada en produccion): el
+  # filtro se resuelve DENTRO del workflow, en el job `docs-scope`, con el rango
+  # `event.before`..`HEAD` del push / `base.sha`..`HEAD` del PR.
+  #
+  # Lo medido, no deducido (y re-medido al escribir esto, con `git ls-files` y
+  # los 21 patrones aplicados con la semantica de GitHub -`*` no cruza `/`, `**`
+  # si-): **430 de 2415 ficheros trackeados (17,8 %) caian fuera del filtro**
+  # (la fila decia 426 de 2351; el arbol crecio). El reparto, medido igual:
+  # integrations/ 81, vanta-proxy/ 61, dev-tools/ 52, examples/ 38, benches/ 27,
+  # skills/ 26, evals/ 25, benchmarks/ 21, assets/ 16, fuzz/ 12, .github/ 11 (los
+  # de la raiz del directorio, no `.github/workflows/**` ni `.github/actions/**`),
+  # embeddings/ 8, y el resto sueltos (Justfile, deny.toml, build.rs, LICENSE...).
+  #
+  # Por que importa: de este fichero salen **4 contexts required** de `develop`
+  # (`Internal links resolve`, `Frontmatter schema, kind agreement, orphans`,
+  # `Generated indexes are current`, `Generate API reference (rustdoc)`). Un
+  # push cuyo rango solo toque lo que el filtro deja fuera no dispara el
+  # workflow, y esos 4 quedan **ausentes** = `Pending` para siempre (el deadlock
+  # de `FIND-765`), tapado hoy por el bypass de admin del ruleset.
+  #
+  # El coste que `paths` ahorraba, medido en `45771790202`: 967 s de runner y
+  # 10m38s de pared por PR, de los que **84 % son 3 jobs** (doc-examples 466 s,
+  # doctests 270 s, rustdoc 73 s). Esos 3 son los unicos gateados por
+  # `docs-scope`; el resto (los 13 baratos, <=4m10s en total) reporta siempre,
+  # que es justo lo que compra que los required tengan veredicto.
+  # FIND-765 (2026-11-26): por esto NINGUN evento de este fichero lleva `paths:`.
   # Un workflow que no dispara no reporta NINGUN check-run, y los contexts
   # required que se le atribuyen quedan en "Pending" para siempre: la doc dice
   # "Avoid requiring workflows that can be skipped" (docs.github.com/en/pull-
@@ -48,20 +52,18 @@ on:
   # status-checks). Contraste: un JOB que se salta por `if:` SI reporta, y
   # GitHub lo cuenta como Success ("Successful check statuses are success,
   # skipped, and neutral", /en/pull-requests/reference/status-checks).
-  # De este fichero salen 3 de los 13 contexts required de `develop` (23692587)
-  # y 6 de los 18 de `main` (16844590).
-  # El filtro dejaba fuera 426 de 2351 ficheros tracked (18%), no solo `web/**`
-  # (que no existe en ninguna rama: `git ls-tree origin/main -d` -> vacio):
-  # `integrations/**` 81, `vanta-proxy/**` 61 (crate del workspace, no lo cubre
-  # `vantadb-*/**`), `dev-tools/**` 48, `examples/**`, `benches/**`, `evals/**`,
-  # `fuzz/**`, `Formula/**`, `Justfile`, `deny.toml`… Un PR que solo los tocara
-  # era inmergeable y el PR no decia por que.
+  # De este fichero salen **4** de los 15 contexts required de `develop`
+  # (23692587; el comentario original decia 3 de 13, escrito antes de que
+  # `Generate API reference (rustdoc)` fuera required) y 6 de los 18 de `main`
+  # (16844590).
+  # El reparto de los 430 ficheros fuera de los 21 patrones esta arriba, medido;
+  # un PR que solo los tocara era inmergeable y el PR no decia por que.
   # Coste medido de los 16 jobs en un PR (run 45771790202): 967 s de runner y
   # 10m38s de pared, pero 84% de ese tiempo son 3 jobs (doc-examples 466 s,
-  # doctests 270 s, rustdoc 73 s) que un PR de docs no puede afectar. Si esa
-  # latencia molesta, el filtrado fino va DENTRO de esos tres con su `if:` +
-  # un job de diff de paths (fail-closed) — nunca en el disparador.
-  # `push` conserva el filtro: ahi no hay required check que satisfacer.
+  # doctests 270 s, rustdoc 73 s) que un PR de docs no puede afectar. Ese
+  # filtrado fino va DENTRO de esos tres con su `if:` + el job `docs-scope`
+  # (fail-closed) - nunca en el disparador, que es lo que hacia este fichero
+  # hasta FIND-816.
   pull_request:
     branches: [main, develop]
   schedule:
@@ -118,6 +120,114 @@ permissions:
   contents: read
 
 jobs:
+  docs-scope:
+    # FIND-816 (2026-11-27): el filtro que vivia en `on.push.paths` (21 patrones)
+    # resuelto DENTRO del job, el mismo idioma que `rust-scope` en `ci-rust.yml`
+    # (FIND-807, `1c6cee680`). El workflow ahora arranca en todo push y en todo
+    # PR, asi que los 4 contexts required de este fichero SIEMPRE reportan; lo
+    # que este job decide es si los 3 jobs caros (84 % del coste medido) tienen
+    # algo que juzgar.
+    #
+    # Contesta dos cosas, y la segunda es el chequeo que la fila pide:
+    #   (1) `docs=true|false` - algun fichero del rango casa con los 21 patrones?
+    #   (2) imprime los ficheros del rango que NO casan. Ese es el 17,8 % medido
+    #       (430 de 2415 trackeados): si crece o si aparece algo que un gate de
+    #       docs SI lea, se ve en el log de cada run en vez de deducirse.
+    #
+    # Fail-open en el resto (misma politica que `rust-scope`, FIND-725/770/807):
+    # evento que no es push/PR, base irresoluble, fetch o diff fallido, o patron
+    # malformado -> `docs=true`, o sea que los jobs caros corren. Un falso
+    # positivo cuesta minutos; un falso negativo pierde un gate en silencio.
+    name: Docs Scope (push or PR range)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      # Lo consume el `if:` de los 3 jobs caros. Sin esta declaracion,
+      # `needs.docs-scope.outputs.docs` no existe para actionlint ni para el
+      # evaluador de expresiones.
+      docs: ${{ steps.scope.outputs.docs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Shallow basta: la base se busca por SHA y un diff de arboles no
+          # necesita historia (mismo criterio que `rust-scope`).
+          fetch-depth: 1
+
+      - name: Decide whether the docs gates have anything to judge
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          case "$EVENT_NAME" in
+            pull_request) base="${BASE_SHA:-}" ;;
+            push) base="${PUSH_BEFORE:-}" ;;
+            *) echo "event=$EVENT_NAME (neither pull_request nor push) - the heavy docs jobs run"
+               echo "docs=true" >> "$GITHUB_OUTPUT"
+               exit 0 ;;
+          esac
+
+          # Primer push de una rama: `before` es la SHA nula, no hay rango.
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "::warning::no usable base for $EVENT_NAME ($base) - fail-open: the heavy docs jobs run"
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git fetch --depth 1 origin "$base"; then
+            echo "::warning::cannot fetch base commit $base - fail-open: the heavy docs jobs run"
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # `--no-renames` + `-z`/`quotePath=false`: los mismos dos traps que
+          # `rust-scope` (un fichero movido imprime solo su ruta nueva; git
+          # C-quotea rutas no-ASCII y el `"` inicial romperia el match).
+          if ! changed="$(git -c core.quotePath=false diff --name-only --no-renames -z "$base" HEAD | tr '\0' '\n')"; then
+            echo "::warning::git diff $base..HEAD failed - fail-open: the heavy docs jobs run"
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Los 21 patrones que `on.push.paths` llevaba hasta FIND-816, uno a uno
+          # y sin inventar ninguno. `vantadb-[^/]+/` cubre `vantadb-*/**` y las
+          # dos entradas `vantadb-python/...` quedan como estaban (son un
+          # subconjunto, y mantenerlas deja el diff de este cambio legible).
+          PATTERNS='^(docs/|scripts/|src/|tests/|vantadb-python/vantadb_py/|vantadb-python/vantadb/|vantadb-ts/src/|vantadb-ts/package\.json$|vantadb-node/package\.json$|vantadb-[^/]+/|vanta-memory/|providers/|\.github/workflows/|\.github/actions/|Cargo\.toml$|Cargo\.lock$|README\.md$|llms\.txt$|\.github/markdownlint-cli2\.yaml$|release-manifest\.json$|cliff\.toml$)'
+
+          echo "--- files changed in $base..HEAD ---"
+          printf '%s\n' "$changed"
+
+          # Here-string, no pipe: `printf ... | grep -q` bajo `set -o pipefail`
+          # hace que un `grep` que sale en el primer match cierre el pipe y
+          # `printf` muera con SIGPIPE (141), y la respuesta seria `docs=false`
+          # con un push que SI toca docs. Ver el mismo comentario, con la
+          # medicion, en `rust-scope` (FIND-807).
+          #
+          # `rc`: 0 = match, 1 = sin match, 2 = regex rota. Tratar 2 como "sin
+          # match" apagaria los jobs caros en TODOS los runs por un typo, sin
+          # que nada se ponga rojo: fail-open.
+          rc=0
+          grep -qE "$PATTERNS" <<< "$changed" || rc=$?
+          case "$rc" in
+            0) echo "docs=true" >> "$GITHUB_OUTPUT" ;;
+            1) echo "docs=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::warning::grep exited $rc (malformed pattern?) - fail-open: the heavy docs jobs run"
+               echo "docs=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+          # (2) El chequeo de cobertura: lo que cae fuera de los 21 patrones y,
+          # por lo tanto, no lo juzga ningun job de este fichero. Se imprime
+          # siempre -en el push con `docs=true` tambien- para que el numero sea
+          # evidencia de cada run, no una cifra de un comentario.
+          outside="$(grep -vE "$PATTERNS" <<< "$changed" || true)"
+          echo "--- outside the 21 patterns (no docs gate here reads them) ---"
+          printf '%s\n' "${outside:-none}"
+
   # (lint-markdown removed: subsumed by docs-lint-regression with baseline 0,
   # same config, wider trigger incl. schedule sweep. Saves one runner per run.)
   check-format:
@@ -463,7 +573,15 @@ jobs:
         run: node scripts/docs/check-api-docs.mjs --changed "${{ steps.base.outputs.sha }}..HEAD" --json
         continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed
   doc-examples:
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
+    # FIND-816: de los 3 jobs caros (84 % del coste medido de este fichero), es
+    # el primero. Se omite cuando `docs-scope` midio que el rango no toca nada
+    # que estos gates lean; un job omitido reporta `skipped` y no rompe ningun
+    # required (no lo es). El `|| needs.docs-scope.result != 'success'` es el
+    # fail-closed: si el scope no termino bien, el job corre.
+    needs: [docs-scope]
+    if: >-
+      github.actor != 'dependabot[bot]' && (github.event_name != 'schedule') &&
+      (needs.docs-scope.outputs.docs == 'true' || needs.docs-scope.result != 'success')
 
     name: Python examples match the real SDK
     runs-on: ubuntu-latest
@@ -568,7 +686,17 @@ jobs:
       - name: Emit the JSON report
         run: node scripts/docs/check-secrets.mjs --json
   rustdoc:
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
+    # FIND-816: REQUIRED (`Generate API reference (rustdoc)`, ruleset 23692587).
+    # Gatearlo por `docs-scope` es la decision explicita que FIND-787 cerro: un
+    # required puede reportar `skipped` (GitHub lo cuenta como Success), y la
+    # unica alternativa peor es NO reportar, que es `Pending` para siempre
+    # (FIND-765). `skipped` ocurre solo cuando el rango no toca ni `src/` ni
+    # `Cargo.*` ni ningun crate: nada que rustdoc pueda leer. El coste de
+    # runner NO se paga en ese caso, y en el resto la lane corre como siempre.
+    needs: [docs-scope]
+    if: >-
+      github.actor != 'dependabot[bot]' && (github.event_name != 'schedule') &&
+      (needs.docs-scope.outputs.docs == 'true' || needs.docs-scope.result != 'success')
 
     name: Generate API reference (rustdoc)
     runs-on: ubuntu-latest
@@ -682,7 +810,12 @@ jobs:
   # ubuntu-latest (medición local en Windows): un fallo platform-specific
   # es finding real, no ruido.
   doctests:
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
+    # FIND-816: el tercero de los caros (270 s medidos). Mismo gate que sus dos
+    # hermanos; ver `doc-examples` para el razonamiento completo.
+    needs: [docs-scope]
+    if: >-
+      github.actor != 'dependabot[bot]' && (github.event_name != 'schedule') &&
+      (needs.docs-scope.outputs.docs == 'true' || needs.docs-scope.result != 'success')
 
     name: Doc-tests (RUSTDOCFLAGS=-D warnings)
     runs-on: ubuntu-latest
