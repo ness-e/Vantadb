@@ -15,7 +15,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/dev/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
 > **Formato:** esquema canónico de 10 columnas (`.opencode/references/backlog-format.md`; migrado 2026-09-30). Filas completadas: **eliminadas** de las tablas (registro en `docs/dev/avance/`); sin tachados ni ✅ en tablas activas.
-> **Total open items:** recalculado el 2026-11-27 contra `HEAD`: **276 filas en tablas** (**239 `🟡 Pendiente`**, **11 `🟡 Parcial`**, **24 diferidas/bloqueadas/pausadas**, **1 `🔵 Futuro`**). **Este numero envejece con cada commit**: se recalcula, no se arrastra (el anterior, 294, era del 2026-11-23). Dueño de hacerlo automático: `FIND-811`/`gen-index` — una cifra escrita a mano en un fichero que cambia 20 veces al día no es una medición, es una promesa.
+> **Total open items:** recalculado el 2026-11-27 contra `HEAD`: **275 filas en tablas** (**238 `🟡 Pendiente`**, **11 `🟡 Parcial`**, **24 diferidas/bloqueadas/pausadas**, **1 `🔵 Futuro`**). **Este numero envejece con cada commit**: se recalcula, no se arrastra (294 era del 23-nov). Dueño de automatizarlo: `FIND-811`; hoy lo recalculo el orquestador al cerrar cada wave.
 ---
 
 ## Exec Summary
@@ -990,13 +990,11 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `FIND-819` | 🔵 Baja | **`docs/feature-matrix.md:31-37` describe como stale tres puntos que `FIND-808` acaba de corregir** en `FEATURES.md`: la matriz quedó desactualizada por el fix del documento | docs/dev/feature-matrix.md:31-37 | 🟢 15-30min | 🔵 Baja | 🟡 Pendiente (2026-11-27) | Lo declaró el cierre de `FIND-808` como deuda con dueño: su carril tenía prohibido tocar la matriz (es la fuente de verdad), así que el doc corregido y la matriz dicen cosas distintas sobre los mismos tres puntos. **Es la ironía exacta del día:** la fuente de verdad quedó stale porque el documento que la cita se corrigió. **Contrato:** una línea por punto, y la matriz deja de repetir lo que puede derivar del `Cargo.toml`. Verificación: los tres puntos dicen lo mismo en los dos ficheros, y el chequeo de `FIND-811` no aplica (no hay marca de verificación, hay contenido duplicado). | Origen: cierre de `FIND-808` (2026-11-27) | Ver: `FIND-808`, `FIND-219` |
 
 ## Media 2026-11-27 - El WIP cronico de H-02-H-07 envenena el indice generado
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `FIND-820` | 🟡 Media | **`H-02-H-07.md` lleva días como WIP sin commitear** y **envenena el índice cada vez**: hoy hubo que apartarlo con `stash` tres veces para poder pushear en verde | docs/dev/tasks/H-02-H-07.md | 🟢 30-60min | 🟡 Media | 🟡 Pendiente (2026-11-27) | Medido hoy: `gen-index --write` **indexa el worktree**, así que un `docs/**` modificado y sin commitear produce un `docs/index.md` que **nunca coincide con lo que ve CI**. Pasó tres veces; cada vez tuve que copiar el WIP, restaurar el fichero a `HEAD`, regenerar, commitear y devolver el WIP. Y el riesgo es simétrico al de `FIND-792`: si otro carril commitea el índice en esa ventana, el índice horneado describe el WIP ajeno. **Contrato:** (a) decidir el WIP — commitearlo o descartarlo, no dejarlo días; y (b) si el índice va a seguir siendo un fichero generado, el generador **debe leer de git** (`git show HEAD:<path>`), no del worktree, o el gate tiene que comparar contra el árbol commiteado. Verificación: `gen-index --check` es determinista con WIP presente y ausente. | Origen: tres regeneraciones fallidas del 2026-11-27 | Ver: `FIND-792`, `FIND-813` |
 
 ## Alta 2026-11-27 - El repositorio del harness no tiene hooks: sus commits saltan el gate entero
 
