@@ -1,8 +1,23 @@
 //! Agentic message thread storage with optional TTL.
 //!
 //! [`ThreadStore`] wraps a [`StorageEngine`] to persist conversation threads
-//! as [`UnifiedNode`]s with JSON-serialized messages. Threads can opt into
-//! TTL-based expiry via [`GcWorker`].
+//! as [`UnifiedNode`]s with JSON-serialized messages.
+//!
+//! # TTL: a window of inactivity, evaluated on demand (FIND-800)
+//!
+//! A thread created with a TTL carries its deadline **on the node**
+//! (`_expires_at`, seconds) plus the window itself (`_ttl_secs`, used to
+//! re-arm). No timer runs: the deadline is evaluated by
+//! [`ThreadStore::purge_expired_threads`], reachable as
+//! `Embedded::purge_expired_threads` and as the MCP tool
+//! `thread_purge_expired`. Until that call, an expired thread stays readable.
+//!
+//! [`GcWorker`] is an optional, caller-owned accelerator that **no production
+//! path supplies** — see its module docs for why it is not wired up.
+//!
+//! The window is inactivity-based: [`ThreadStore::send_message`] re-arms
+//! `_expires_at` to `now + _ttl_secs`, so a thread with ongoing conversation
+//! never expires and a silent one does.
 
 use crate::backend::BackendPartition;
 use crate::error::{ChainedError, Error, Result};
@@ -146,8 +161,10 @@ fn generate_id() -> u128 {
 /// CRUD store for agentic message threads backed by a [`StorageEngine`].
 ///
 /// Threads are stored as nodes in the default partition and indexed via a
-/// serialized ID list in the `InternalMetadata` partition. Callers that want
-/// TTL-based expiry pass a [`GcWorker`] reference into the relevant methods.
+/// serialized ID list in the `InternalMetadata` partition. Expiry is evaluated
+/// only by [`Self::purge_expired_threads`]: the optional `gc` parameter of
+/// `create`/`send_message` is a caller-owned accelerator, not the mechanism
+/// (FIND-800).
 pub struct ThreadStore<'a> {
     engine: &'a StorageEngine,
     clock: Arc<dyn Clock>,
@@ -214,11 +231,22 @@ impl<'a> ThreadStore<'a> {
 
     /// Create a new thread.
     ///
-    /// `input.ttl_secs` — if set, the thread auto-expires after this many seconds.
-    /// The thread's messages are deleted on sweep.
+    /// `input.ttl_secs` — if set, the thread gets a TTL window of this many
+    /// seconds, counted from now and **re-armed by every**
+    /// [`Self::send_message`]: it expires after that much *inactivity*, not at
+    /// a fixed absolute deadline. Nothing deletes it on a timer — the deadline
+    /// is persisted as `_expires_at` and evaluated by
+    /// [`Self::purge_expired_threads`], so an expired thread stays readable
+    /// until that call (FIND-800).
     ///
-    /// `gc` — if provided, the TTL expiry is registered with the garbage
-    /// collector so it can be cleaned up automatically.
+    /// `ttl_secs = Some(0)` is not a "no TTL": it stamps `_expires_at = now`, so
+    /// the thread expires at the next second **and cannot be rescued** — the
+    /// re-arm in `send_message` requires `_ttl_secs > 0`. Use `None` for a
+    /// thread that never expires.
+    ///
+    /// `gc` — an optional, caller-owned [`GcWorker`]: registering the expiry
+    /// there lets that caller sweep the node earlier. It is not the mechanism,
+    /// and `Embedded` never supplies one (see the module docs).
     pub fn create(&self, input: CreateThread<'_>, gc: Option<&mut GcWorker<'a>>) -> Result<u128> {
         // NOT-02 / FIND-600: serialize the two writes under one lock so
         // concurrent callers cannot interleave their index read-modify-writes.
@@ -302,8 +330,15 @@ impl<'a> ThreadStore<'a> {
 
     /// Append a message to an existing thread.
     ///
-    /// The thread's TTL (if any) is refreshed by re-registering with the
-    /// original duration. Pass `gc` to keep the GC index in sync.
+    /// **This re-arms the thread's TTL (FIND-800).** A message moves
+    /// `_expires_at` to `now + _ttl_secs`, so the TTL is a window of
+    /// *inactivity*: a thread with one message per hour and a one-hour TTL
+    /// never expires, while the same thread goes quiet for an hour does. That
+    /// is the intended semantics, not a leak — an absolute deadline would need
+    /// its own field.
+    ///
+    /// `gc` — optional, caller-owned [`GcWorker`], kept in sync with the new
+    /// deadline. `Embedded` never supplies one (see the module docs).
     pub fn send_message(
         &self,
         thread_id: u128,
@@ -397,9 +432,20 @@ impl<'a> ThreadStore<'a> {
         self.remove_thread_id_locked(thread_id)
     }
 
-    /// Remove all threads whose TTL has expired.
+    /// Remove all threads whose TTL has expired — **this is the TTL mechanism**
+    /// (FIND-800).
     ///
-    /// Returns the number of threads purged.
+    /// Walks the thread index, reads each node and deletes the ones whose
+    /// `_expires_at` is already in the past (`< now`, strict, so the thread is
+    /// still alive during the exact second of its deadline). Nothing calls this
+    /// on a timer: it runs when the caller asks (`Embedded::purge_expired_threads`,
+    /// MCP `thread_purge_expired`), so a deployment that never calls it never
+    /// expires a thread.
+    ///
+    /// Cost is one `get` per indexed thread, plus — only when something was
+    /// purged — a **second** pass over the survivors (another `get` per id) and
+    /// a full rewrite of the index blob; the worst case is 2N reads plus one
+    /// index write. Returns the number of threads purged.
     pub fn purge_expired_threads(&self) -> Result<usize> {
         // FIND-600: the rebuild rewrites the whole index, so the lock is held
         // from the load to the save (the helpers below do not lock again).

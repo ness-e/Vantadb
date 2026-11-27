@@ -201,6 +201,116 @@ fn test_thread_ttl_expiry() {
     assert!(store.get(thread_id).unwrap().is_none());
 }
 
+// ── TTL: el mecanismo es el purge explícito (FIND-800) ──
+//
+// FIND-800: el módulo prometía «auto-expiry» y ningún camino de producción ejecutaba el TTL
+// (`Embedded` pasa `gc = None` y el `GcWorker` sólo se instancia en tests). La decisión fue no
+// encender el GC (su índice vive en memoria, no sobrevive a un reinicio y su barrido deja ids
+// colgantes en `_thread_ids`) y declarar el mecanismo que sí existe: `purge_expired_threads`.
+// Estos dos tests son la forma ejecutable de ese contrato — no hay RED posible porque no se
+// añade lógica, sólo se fija por escrito lo que el código ya hacía.
+
+/// El TTL **no se evalúa en lectura**. Un hilo vencido sigue siendo legible hasta que corre el
+/// purge explícito; el borde es estricto (`_expires_at < now`, `thread.rs:486-489`), así que en el
+/// segundo exacto del deadline el hilo todavía vive.
+#[test]
+fn expired_thread_is_readable_until_the_explicit_purge_runs() {
+    let (engine, _dir) = setup_engine();
+    let clock = Arc::new(ManualClock::new(1_000_000, 1_000_000_000));
+    let store = ThreadStore::with_clock(&engine, clock.clone());
+
+    let ttl_secs = 60u64;
+    let thread_id = store
+        .create(
+            CreateThread {
+                title: "about to expire",
+                metadata: HashMap::new(),
+                ttl_secs: Some(ttl_secs),
+            },
+            None,
+        )
+        .expect("create with TTL");
+
+    // En el segundo exacto del deadline todavía no está vencido (`<`, no `<=`).
+    clock.advance_secs(ttl_secs);
+    assert_eq!(
+        store
+            .purge_expired_threads()
+            .expect("purge at the boundary"),
+        0,
+        "at exactly `_expires_at` the thread is not expired yet"
+    );
+
+    // Un segundo después está vencido, pero **nadie evalúa el TTL en lectura**: sigue visible
+    // por id y en el listado. Esto es lo que el doc ahora declara.
+    clock.advance_secs(1);
+    assert!(
+        store.get(thread_id).expect("get").is_some(),
+        "an expired thread stays readable until the explicit purge runs"
+    );
+    assert_eq!(
+        store.list(10, 0).expect("list").len(),
+        1,
+        "and it stays listed, too"
+    );
+
+    // El purge explícito es el mecanismo: borra el nodo y reconstruye el índice.
+    assert_eq!(
+        store.purge_expired_threads().expect("purge"),
+        1,
+        "the purge is what makes the TTL real"
+    );
+    assert!(store.get(thread_id).expect("get").is_none());
+    assert!(store.list(10, 0).expect("list").is_empty());
+}
+
+/// El TTL es una ventana de **inactividad**: cada `send_message` re-arma el deadline con la
+/// duración original (`thread.rs:372-382`). Un hilo con conversación activa nunca caduca; uno
+/// sin actividad sí. Está declarado en el doc de `send_message` — este test lo fija.
+#[test]
+fn send_message_re_arms_the_ttl_so_an_active_thread_never_expires() {
+    let (engine, _dir) = setup_engine();
+    let clock = Arc::new(ManualClock::new(1_000_000, 1_000_000_000));
+    let store = ThreadStore::with_clock(&engine, clock.clone());
+
+    let ttl_secs = 60u64;
+    let thread_id = store
+        .create(
+            CreateThread {
+                title: "chatty",
+                metadata: HashMap::new(),
+                ttl_secs: Some(ttl_secs),
+            },
+            None,
+        )
+        .expect("create with TTL");
+
+    // Actividad dentro de la ventana: re-arma el deadline.
+    clock.advance_secs(50);
+    store
+        .send_message(thread_id, "user", "still here", HashMap::new(), None)
+        .expect("send_message");
+
+    // 100 s después de crearlo — 40 s después del deadline *original* — y sigue vivo, porque el
+    // mensaje de los 50 s movió el deadline a los 110 s.
+    clock.advance_secs(50);
+    assert_eq!(
+        store.purge_expired_threads().expect("purge while active"),
+        0,
+        "a message re-arms the TTL: this is an inactivity window, not an absolute deadline"
+    );
+    assert!(store.get(thread_id).expect("get").is_some());
+
+    // Sin actividad, la ventana se cierra: 61 s después del último mensaje, caduca.
+    clock.advance_secs(ttl_secs + 1);
+    assert_eq!(
+        store.purge_expired_threads().expect("purge after silence"),
+        1,
+        "with no further activity the inactivity window closes"
+    );
+    assert!(store.get(thread_id).expect("get").is_none());
+}
+
 // ── test_create_via_embedded ──
 
 #[test]

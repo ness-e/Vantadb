@@ -2,6 +2,20 @@
 //!
 //! [`GcWorker`] tracks node expiration timestamps via a [`BTreeMap`] and
 //! evicts expired entries from the [`StorageEngine`] on each sweep.
+//!
+//! # This is not what expires threads (FIND-800)
+//!
+//! **No production path instantiates [`GcWorker`]**: `Embedded` passes
+//! `gc = None` on every thread write, so nothing outside the tests
+//! (`src/gc.rs` and `tests/storage/gc.rs`) ever constructs one. Thread TTLs are
+//! evaluated by
+//! [`ThreadStore::purge_expired_threads`](crate::agentic::ThreadStore::purge_expired_threads),
+//! which reads the deadline persisted on the node. The worker is not wired up
+//! because (a) its index is in memory only and is empty after every restart, so
+//! it would not make expiry durable; (b) sharing it across the store the SDK
+//! builds per call would need a `Mutex<GcWorker>` on the thread write path; and
+//! (c) [`GcWorker::sweep`] deletes straight through [`StorageEngine::delete`],
+//! leaving the id in the thread index.
 
 use crate::error::{Error, Result};
 use crate::storage::StorageEngine;
@@ -25,7 +39,11 @@ impl<'a> GcWorker<'a> {
         }
     }
 
-    /// Registers a node to be automatically expired and cleared at `expiry_secs`
+    /// Registers a node to be expired at `expiry_secs` (seconds since the UNIX
+    /// epoch) and cleared at the next [`Self::sweep`].
+    ///
+    /// The registration lives in an **in-memory** map: it is lost when the
+    /// process exits, and nothing repopulates it on open.
     pub fn register_ttl(&mut self, id: u128, expiry_secs: u64) {
         self.index_ttl.entry(expiry_secs).or_default().push(id);
     }
@@ -35,6 +53,16 @@ impl<'a> GcWorker<'a> {
     /// memory-record expiry is driven by `spawn_memory_ttl_sweeper` (feature
     /// `server`), which purges the full memory/index surface via
     /// `Embedded::purge_expired`.
+    ///
+    /// It deletes through [`StorageEngine::delete`] directly, so it does **not**
+    /// touch the thread index (`_thread_ids`): a swept thread leaves a dangling
+    /// id behind (which `ThreadStore::list` skips since FIND-798). For threads
+    /// use `ThreadStore::purge_expired_threads` — it rebuilds the index.
+    ///
+    /// Note it expires on `expiry <= now` (inclusive), while the thread purge
+    /// uses `_expires_at < now` (strict): the two mechanisms disagree on the
+    /// exact second of a deadline. Irrelevant while this worker is unused, but
+    /// do not "harmonize" one without the other (FIND-800).
     pub fn sweep(&mut self) -> Result<usize> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)

@@ -502,16 +502,18 @@ pub struct NodeRecord {
 
 ## Threads API
 
-Conversation threads with append-only messages and optional TTL expiry.
+Conversation threads with append-only messages and an optional TTL window.
+The TTL is **inactivity-based**: `send_message` re-arms it. Expiry is evaluated
+only when `purge_expired_threads()` runs — there is no background sweeper.
 
 | Method | Description |
 |--------|-------------|
-| `create_thread(title, ttl_secs)` | Create a new conversation thread. Returns the thread's numeric ID. Pass `title` for display and optional `ttl_secs` for auto-expiry |
-| `get_thread(thread_id)` | Retrieve a thread by its ID. Returns `Option<MessageThread>` |
+| `create_thread(title, ttl_secs)` | Create a new conversation thread. Returns the thread's numeric ID. Pass `title` for display and optional `ttl_secs` for a TTL window of that many seconds of inactivity |
+| `get_thread(thread_id)` | Retrieve a thread by its ID. Returns `Option<MessageThread>` (an expired thread stays readable until `purge_expired_threads()` runs) |
 | `list_threads(limit, offset)` | List threads with pagination. Returns `Vec<MessageThread>` |
 | `delete_thread(thread_id)` | Delete a thread by its ID |
-| `send_message(thread_id, role, content)` | Append a message to a thread. `role` is the message role (e.g., "user", "assistant") |
-| `purge_expired_threads()` | Purge threads whose TTL has expired. Returns the number of threads removed |
+| `send_message(thread_id, role, content)` | Append a message to a thread. `role` is the message role (e.g., "user", "assistant"). **Re-arms the thread's TTL** |
+| `purge_expired_threads()` | Purge threads whose TTL has expired — **this is the only mechanism that expires a thread**. Returns the number of threads removed |
 | `recover_archived_nodes(summary_id)` | Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns `Vec<NodeRecord>` |
 
 ## Snapshots API

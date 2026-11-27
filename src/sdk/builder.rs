@@ -358,7 +358,10 @@ impl Embedded {
 
     /// Create a new conversation thread.
     ///
-    /// Returns the thread's numeric ID. Pass `ttl_secs` for auto-expiry.
+    /// Returns the thread's numeric ID. Pass `ttl_secs` for a TTL window of
+    /// that many seconds of **inactivity** — each `send_message` re-arms it —
+    /// which is evaluated by [`Self::purge_expired_threads`]: there is no
+    /// background expiry (FIND-800).
     pub fn create_thread(&self, title: &str, ttl_secs: Option<u64>) -> Result<u128> {
         let engine = self.engine_handle()?;
         let store = self.thread_store(&engine);
