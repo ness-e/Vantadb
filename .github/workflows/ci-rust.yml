@@ -430,7 +430,11 @@ jobs:
 
   test:
     name: Tests (Linux)
-    if: github.actor != 'dependabot[bot]'
+    # FIND-787: el actor-guard de dependabot SE QUITÓ a propósito. Con el guard de
+    # abajo required, un job saltado por `if:` haría rojo todo PR de dependabot; y un
+    # required que se salta deja el candado sin medir (GitHub cuenta `skipped` como
+    # satisfecho). Dependabot toca Cargo.toml/Cargo.lock, que es justo donde esta
+    # suite mide. Coste aceptado por el owner: la suite corre entera en sus PRs.
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: [fmt, clippy, secret-scan]
@@ -476,7 +480,6 @@ jobs:
 
   test-windows:
     name: Tests (Windows)
-    if: github.actor != 'dependabot[bot]'
     runs-on: windows-latest
     timeout-minutes: 90
     needs: [fmt, clippy, secret-scan]
@@ -520,7 +523,6 @@ jobs:
 
   test-macos:
     name: Tests (macOS)
-    if: github.actor != 'dependabot[bot]'
     runs-on: macos-latest
     timeout-minutes: 60
     needs: [fmt, clippy, secret-scan]
