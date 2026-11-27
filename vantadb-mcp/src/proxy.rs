@@ -3,7 +3,8 @@
 //! Writer instances expose an ephemeral HTTP server on 127.0.0.1:0 with
 //! `GET /api/v2/health` and `POST /api/v2/mcp/proxy` (generic MCP dispatcher).
 //! Proxy instances detect `.vanta.server.json`, probe health with 500 ms
-//! timeout + sysinfo PID liveness, then forward `tools/call` via reqwest.
+//! timeout (connect phase capped at 150 ms, FIND-782) + sysinfo PID liveness,
+//! then forward `tools/call` via reqwest.
 //! Auth token is passed through as `Authorization: Bearer` when the writer
 //! requires it (VANTADB_API_KEY env).
 //!
@@ -46,6 +47,28 @@ use tokio::sync::{Mutex, RwLock};
 const RESOLVE_ATTEMPTS: u32 = 3;
 /// Base backoff between attempts; doubled per attempt (50 ms, 100 ms).
 const BACKOFF_BASE_MS: u64 = 50;
+/// Per-request budget: the discovery probe's answer, and the default for the
+/// clients the handle carries. `call_classified` overrides it per call (60 s);
+/// what matters on the **call** path is that no client gets a connect deadline
+/// — see [`ProxyHandle::try_connect`].
+const REQUEST_TIMEOUT_MS: u64 = 500;
+/// Connect-phase ceiling of the discovery probe — **not** of the reply.
+///
+/// A closed loopback port does not refuse promptly on Windows: the raw
+/// `connect` answers WSAECONNREFUSED after **~2.0 s** (FIND-782, 5/5 runs,
+/// 2019-2191 ms; FIND-757 saw the same from the other side — a failing
+/// `try_proxy` cost 530-800 ms of which ~500 ms was the health timeout).
+/// Without this deadline every probe of a failing re-election spends its whole
+/// budget in `connect`, three times ([`RESOLVE_ATTEMPTS`]) — ~77 % of the
+/// ~1.84 s a tool call cost with no writer.
+///
+/// It bounds a phase that, on loopback, is either instantaneous (a live
+/// listener is accepted by the kernel in microseconds, long before the app
+/// accepts) or never happens. That is why it can be far below the reply
+/// budget without touching the "slow but alive writer" tolerance: that writer
+/// keeps all [`REQUEST_TIMEOUT_MS`] to answer
+/// (`alive_but_silent_writer_keeps_the_reply_budget` pins it).
+const HEALTH_CONNECT_TIMEOUT_MS: u64 = 150;
 
 /// Discovery file shape — must match `crate::server::ServerInfo` (duplicated here
 /// to avoid server↔proxy import cycle; both derive from same JSON contract).
@@ -111,8 +134,29 @@ pub struct ProxyHandle {
 }
 
 impl ProxyHandle {
-    /// Build a ProxyHandle from ServerInfo, probing health with 500 ms timeout.
-    /// Returns None if PID dead, health non-healthy, or timeout.
+    /// Build a ProxyHandle from ServerInfo, probing health within
+    /// [`REQUEST_TIMEOUT_MS`]. Returns None if PID dead, health non-healthy, or
+    /// timeout (including a connect that never completes: the probe gives the
+    /// TCP handshake only [`HEALTH_CONNECT_TIMEOUT_MS`]).
+    ///
+    /// Two clients, deliberately, and the split is load-bearing (FIND-782):
+    /// - `probe` bounds the **connect** phase, so a closed port fails in
+    ///   ~150 ms instead of burning the whole request budget;
+    /// - `client` — what the handle keeps, and what `call_classified` uses for
+    ///   `POST /api/v2/mcp/proxy` — keeps HEAD's builder, **no connect
+    ///   deadline**.
+    ///
+    /// Why not put the deadline on the call client too? *Not* because it would
+    /// break the no-replay policy: a connect expiry is produced inside the
+    /// connector, so `is_connect()` is true and the outcome is still
+    /// [`ProxyOutcome::NotSent`] — replay-safe
+    /// (`connect_deadline_is_still_not_sent` pins that). It is because it would
+    /// change the *timing* of the replay path — today a dead writer surfaces as
+    /// a slow refusal and the call is replayed into the re-elected writer; with
+    /// a deadline the same call re-elects ~1.8 s earlier and, on a merely
+    /// slow-handshake writer, would report a spurious retriable BUSY instead of
+    /// landing. That is a trade worth measuring on its own, not a free win to
+    /// smuggle into this ticket.
     pub async fn try_connect(info: ServerInfo, api_key: Option<String>) -> Option<Self> {
         // sysinfo is a syscall-heavy snapshot: never on the async task (R-1/R-7).
         let pid = info.pid;
@@ -123,17 +167,30 @@ impl ProxyHandle {
             tracing::warn!(pid = info.pid, "stale discovery: PID not alive");
             return None;
         }
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_millis(500))
+        let probe = reqwest::Client::builder()
+            .timeout(Duration::from_millis(REQUEST_TIMEOUT_MS))
+            .connect_timeout(Duration::from_millis(HEALTH_CONNECT_TIMEOUT_MS))
             .build()
             .ok()?;
         let base_url = format!("http://127.0.0.1:{}", info.http_port);
         let health_url = format!("{}/api/v2/health", base_url);
-        let mut req = client.get(&health_url);
+        let mut req = probe.get(&health_url);
         if let Some(ref key) = api_key {
             req = req.header("Authorization", format!("Bearer {}", key));
         }
-        let resp = req.send().await.ok()?;
+        // Named, not swallowed: the connect deadline is a new failure class and
+        // an operator needs to tell it apart from a refusal or a slow answer.
+        let resp = match req.send().await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::debug!(
+                    port = info.http_port,
+                    error = %e,
+                    "health probe failed (connect deadline, refusal or timeout)"
+                );
+                return None;
+            }
+        };
         if !resp.status().is_success() {
             tracing::warn!(status = %resp.status(), "health probe non-200");
             return None;
@@ -148,7 +205,7 @@ impl ProxyHandle {
 
         // MCP-05: Best-effort verification of writer profile against local profile
         let config_url = format!("{}/_admin/config", base_url);
-        let mut cfg_req = client.get(&config_url);
+        let mut cfg_req = probe.get(&config_url);
         if let Some(ref key) = api_key {
             cfg_req = cfg_req.header("Authorization", format!("Bearer {}", key));
         }
@@ -172,6 +229,12 @@ impl ProxyHandle {
             }
         }
 
+        // Only built once a writer has answered: the failing path (no writer)
+        // pays for the probe client alone.
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_millis(REQUEST_TIMEOUT_MS))
+            .build()
+            .ok()?;
         Some(Self {
             base_url,
             client,
@@ -184,7 +247,7 @@ impl ProxyHandle {
     /// only add a failure mode to the re-election path.
     fn for_local_port(port: u16, api_key: Option<String>) -> Option<Self> {
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_millis(500))
+            .timeout(Duration::from_millis(REQUEST_TIMEOUT_MS))
             .build()
             .ok()?;
         Some(Self {
@@ -811,6 +874,41 @@ mod tests {
         assert!(
             matches!(outcome, ProxyOutcome::NotSent(_)),
             "connect refusal must be NotSent, got: {outcome:?}"
+        );
+    }
+
+    /// R1 (FIND-782): a **connect deadline** is replay-safe. When a caller sets
+    /// `.connect_timeout()`, the expiry is produced *inside* the connector, so
+    /// the error chain carries a connect error and `is_connect()` is true ⇒
+    /// [`ProxyOutcome::NotSent`], never `Unknown`. `call_classified` checks
+    /// `is_connect()` first, and both conditions hold at once here.
+    ///
+    /// Platform note: on Windows a closed loopback port refuses only after
+    /// ~2 s, so this exercises the *deadline*; on Linux it refuses at once and
+    /// exercises the *refusal*. The property is the classification, and it is
+    /// the same either way — which is exactly what makes a deadline usable on
+    /// the call path without touching the no-replay policy.
+    #[tokio::test]
+    async fn connect_deadline_is_still_not_sent() {
+        let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = probe.local_addr().unwrap().port();
+        drop(probe);
+        let handle = ProxyHandle {
+            base_url: format!("http://127.0.0.1:{}", port),
+            client: reqwest::Client::builder()
+                .connect_timeout(Duration::from_millis(HEALTH_CONNECT_TIMEOUT_MS))
+                .timeout(Duration::from_secs(5))
+                .build()
+                .unwrap(),
+            api_key: None,
+        };
+        let outcome = handle
+            .call_classified("tools/call", &Some(json!({"name": "memory_list"})))
+            .await;
+        assert!(
+            matches!(outcome, ProxyOutcome::NotSent(_)),
+            "a connect deadline proves the request never left us, so it must be \
+             replayed after re-electing (got: {outcome:?})"
         );
     }
 

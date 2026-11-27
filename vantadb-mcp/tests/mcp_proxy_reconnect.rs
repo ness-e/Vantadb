@@ -328,15 +328,22 @@ async fn live_writer_lock_blocks_promotion() {
     );
 
     // ── Coarse net, not the contract (FIND-739) ────────────────────────────
-    // With the lock patience pinned, this call is dominated by 3 probes +
-    // 50/150 ms backoff: measured 1.90-2.40 s over 9 runs (FIND-757). The
-    // scenario matters — discovery advertises a **live PID at a closed port**,
-    // so every probe pays the 500 ms health timeout and `try_connect` never
-    // short-circuits on a dead PID. That timeout is the cost (~1.5 s, ~77 %);
-    // the six `is_pid_alive` calls are measured at 24-34 ms each ⇒ ~0.17 s
+    // With the lock patience pinned, this call used to be dominated by 3 probes
+    // + 50/150 ms backoff: 1.90-2.40 s over 9 runs (FIND-757) and 1.93-2.10 s
+    // loaded (FIND-739) — both pre-fix. The scenario matters — discovery
+    // advertises a **live PID at a closed port**, so `try_connect` never
+    // short-circuits on a dead PID and every probe reached the health request.
+    // That was the cost (~1.5 s, ~77 %): on this machine a closed loopback port
+    // answers `connect` in ~2.0 s, so each probe spent its whole 500 ms budget
+    // there. FIND-782 put a deadline on that phase (150 ms, probe client only)
+    // and this call now measures **0.78 s** (N=5); the net below deliberately
+    // stays at 10 s because it guards the `System::new_all()` class, not the
+    // probe budget — the probe budget is pinned by
+    // `find782_probe_deadline::closed_port_probe_fails_on_the_connect_deadline`.
+    // The six `is_pid_alive` calls are measured at 24-34 ms each ⇒ ~0.17 s
     // (~9 %). FIND-757: the "~300 ms per Windows targeted refresh" this
     // comment used to claim was never measured in isolation, and is wrong by
-    // an order of magnitude. The 10 s net is ~4x the measured worst, ~2x the
+    // an order of magnitude. The 10 s net is ~13x the current worst, ~2x the
     // loaded number reported for the old shape (MCP-44: 5.05 s, which also
     // paid the 1000 ms of patience this test no longer pays), and ~2x below
     // the regression it exists for: `System::new_all()` per PID check costs
@@ -348,7 +355,8 @@ async fn live_writer_lock_blocks_promotion() {
     assert!(
         elapsed < Duration::from_secs(10),
         "re-election regressed: {elapsed:?} for 3 probes + backoff with a 50 ms lock patience \
-         (measured 1.93-2.10 s loaded; the `System::new_all()` class is ~21 s via 6 checks)"
+         (measured 0.78 s after FIND-782, 1.93-2.10 s before; the `System::new_all()` class is \
+         ~21 s via 6 checks)"
     );
 
     // The writer storage is untouched and still the single writer.
