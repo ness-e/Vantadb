@@ -104,7 +104,7 @@ single `cargo check` job on a warm sccache costs **~1.5–3 min**, cold closer t
 | Candidate | Gap it would close | Cost | Decision |
 | --- | --- | --- | --- |
 | `server-full` (§2 row 6) | The documented operator build had **no** gate | ~2 min, one step, one job | **added** — `Feature Combo (server-full)` |
-| `embed-local` in the release combo (§2 row 5) | Release lane parity with `release-binaries.yml` | ~1–3 min **on an existing job** | **declared, not added**: it changes the release profile under `-D warnings`, where `FIND-231` proved bugs hide. Unverifiable without a release build here; the one-string fix is `--features "server,embed-local,jemalloc"` on `ci-rust.yml:972,975` |
+| `embed-local` in the release combo (§2 row 5) | Release lane parity with `release-binaries.yml` | ~1–3 min **on an existing job** | **declared, not added**: it changes the release profile under `-D warnings`, where `FIND-231` proved bugs hide. Unverifiable without a release build here; the one-string fix is `--features "server,embed-local,jemalloc"` on `ci-rust.yml:988` |
 | `minimal-cli` (§2 row 9) | Nothing promised | ~2 min/run forever | **not added** |
 | One job per remaining opt-in flag (11 flags) | Only `clippy --all-features` compile coverage | ~11 × 2 min/run | **not added**: additive-feature coverage already comes free with the union build |
 
