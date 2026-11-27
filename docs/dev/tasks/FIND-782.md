@@ -1,7 +1,7 @@
 ---
-title: "FIND-782: el 77 % del coste de re-elegir writer es el timeout de health ×3 — se ataca la fase de connect, no el presupuesto de la sonda"
+title: "FIND-782: 77 % del coste de re-elegir writer es el timeout de health x3 - se acota la fase de connect de la sonda"
 kind: task
-status: active
+status: completed
 description: "La resolución que falla cerrado paga 3 × 500 ms de timeout de health porque un puerto loopback cerrado tarda ~2 s en rechazar el connect. Se acota la fase de connect de la SONDA (150 ms) dejando intactos los 500 ms de respuesta (writer lento y vivo) y el cliente de las llamadas. Medido: 1,84 s → 0,78 s por tool call."
 ---
 
