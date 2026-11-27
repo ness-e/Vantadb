@@ -184,7 +184,7 @@ Mi commit de retiro de fila es **por path**, así que horneó también la elimin
 
 **Lección de mecanismo (para el próximo carril con fichero caliente):** un commit por path en un fichero que otros carriles editan **arrastra sus hunks**. No se detecta con `-ExpectPresent`/`-ExpectAbsent` (miran sólo lo declarado): exige inspeccionar `git show <commit> -- <path>` **después** del commit y confirmar que cada `-`/`+` es propio. Es exactamente lo que se hizo acá para encontrar H1.
 
-**Estado del cierre:** implementación y verificación completas, revisión **no aprobada**. `status: active`, no `completed` — espera **ronda 3** o **aceptación explícita del owner**.
+**Estado del cierre:** implementación y verificación completas, revisión **aprobada en la ronda 4**. `status: completed` desde la ronda 4 — espera **ronda 3** o **aceptación explícita del owner**.
 
 ## Deuda y NOTICED BUT NOT TOUCHING
 
