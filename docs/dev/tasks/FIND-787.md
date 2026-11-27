@@ -373,6 +373,26 @@ del guard con 6 caras adversariales, la extracción byte-idéntica del `run:`, e
 tiempo, contra la versión pineada), `check-docs` + `check-links`, y el harness de 6 caras sobre el
 `run:` extraído.
 
+### Segunda ronda: el review del lote (2026-11-27) — H-2
+
+**Veredicto sobre esta fila: `changes-required` por el registro, no por el fondo.** El
+revisor re-ejecutó los tres hechos y confirmó dos (el guard existe, está required) y el
+tercero **en su método**: en `de8127334` había **tres** required en `failure`, no uno —
+`Tests Executed (guard)`, `Generate API reference (rustdoc)` y `Generated indexes are
+current` (estos dos últimos ya rojos en `develop`). El `jq` de este cierre filtraba por
+nombre y **excluía 11 de los 15 por construcción**, así que "el único" era un artefacto
+del filtro, no una medición.
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| H-2 | "el único required en `failure` era el guard" es **falso** | **corregido** arriba, con los 15 contexts sin filtro y la lección escrita |
+
+Sigue en pie lo que sostiene la retirada: el guard **reportó `failure`** en el caso exacto
+de su contrato (`skipped` ×3) con las 4 anotaciones nombrando cada job; el `skipped` como
+'Success' en un required es documentación de GitHub **y** está medido de nuevo en
+`FIND-815`. Lo que no se puede afirmar es que fuera el único rojo que bloqueaba.
+
+---
 ## NOTICED BUT NOT TOUCHING
 
 - `.github/workflows/ci-gate.yml:96` — `success|skipped|neutral) ;;` trata `skipped` como verde en
@@ -442,18 +462,47 @@ Tests (Windows) reported 'skipped' (actor ness-e) - a required check satisfied b
 Tests (Linux) reported 'skipped' (actor ness-e) - a required check satisfied by a skip measured nothing (FIND-787)
 ```
 
-**La cadena causal, cerrada por eliminacion:** de los required de ese SHA, los tres
-`Tests (*)` estaban `skipped` (GitHub lo cuenta como 'Success'), `Format Check` y
-`Clippy Lints` en `success`... y el **unico** required en `failure` era el guard.
-`Secret Scan` tambien estaba rojo, pero **no** es required (`23692587`). O sea que el
-`mergeStateStatus: BLOCKED` no lo produjo otra cosa: lo produjo el guard. El PR se
-cerro sin mergear y la rama se descarto.
+**Que el guard estaba en `failure` en un PR required: cierto. Que fuera el UNICO: falso
+(ver la corrección del review, abajo).** La primera version de este cierre lo afirmaba "por
+eliminacion" leyendo el `jq` de arriba — pero ese `jq` **filtra por nombre**, asi que
+excluia 11 de los 15 required **por construccion**. Los hechos duros son: el guard reporto
+`failure` con 4 anotaciones que nombran los tres jobs `skipped`, en un PR cuyo merge quedo
+`BLOCKED` y que se cerro sin mergear.
+
+### Corrección del review P2-01 (H-2): la "eliminación" era falsa
+
+El revisor leyó los 15 required **sin filtro** y encontro **tres** en `failure`, no uno:
+
+```text
+$ gh api "repos/:owner/:repo/commits/de8127334/check-runs?per_page=100&filter=latest" \
+    --jq '.check_runs[]|"\(.name) = \(.conclusion)"'   # (cruzado con los 15 contexts de 23692587)
+REQUIRED  Tests (Windows)                            = skipped
+REQUIRED  Tests (Linux)                              = skipped
+REQUIRED  Tests (macOS)                              = skipped
+REQUIRED  Tests Executed (guard)                     = failure   <-- el de esta fila
+REQUIRED  Generate API reference (rustdoc)           = failure   <-- ya rojo en develop
+REQUIRED  Generated indexes are current              = failure   <-- ya rojo en develop
+REQUIRED  (los otros 9)                              = success
+```
+
+O sea: **`BLOCKED` estaba sobredeterminado**, y el experimento del PR #292 **no aísla** al
+guard. Lo que la fila sí prueba es lo que importa: el guard **existe**, **es required**, y
+**reportó `failure`** en el caso exacto que su contrato describe (`skipped` de las tres
+suites), con las anotaciones nombrando cada job. La semántica de GitHub (`skipped` =
+'Success' en un required) es documentación, y `FIND-815` la volvió a medir por el otro lado.
+
+**La lección, que es del lote entero:** el `jq` con `select(.name|test(...))` estrecha la
+evidencia hasta mostrar sólo lo que se quiere ver — es el patrón de `FIND-118` cometido
+**dentro del cierre del gate fundacional**. Cuando la afirmación es "el único", se
+enumeran **todos** los candidatos y se filtran después, nunca antes.
 
 ### Veredicto
 
 Los tres hechos se sostienen ⇒ **fila retirada**. El gate que `FIND-787` pedia existe,
-mide y bloquea en produccion; lo que quedaba abierto de la misma clase son **otras**
-filas, no esta:
+mide y bloquea en produccion (con la corrección H-2 arriba: el `BLOCKED` estaba
+sobredeterminado, pero el guard reportó `failure` en el caso que su contrato describe, y la
+semántica de `skipped` es documentación más la medición de `FIND-815`). Lo que quedaba
+abierto de la misma clase son **otras** filas, no esta:
 
 - `FIND-815` (el guard solo juzga cuando `rust-scope=true`, o sea que un PR docs-only
   con `secret-scan` roto pasaba) - se arregla en el lote de gates, mismo job.

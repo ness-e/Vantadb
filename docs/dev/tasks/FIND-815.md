@@ -124,6 +124,20 @@ shebang, artefacto de extraer un bloque suelto.)
 
 ## Deuda
 
+- **L-1 del review P2-01 (declarado, no diferido):** el guard juzga `secret-scan`, `fmt` y
+  `clippy`, pero **no** los otros required de `ci-rust.yml` que se omiten por actor:
+  `MSRV Check (1.95.0)`, `Experimental Crates Check` y `Miri (UB Detection)` llevan
+  `if: github.actor != 'dependabot[bot]'`, así que en un PR de Dependabot reportan
+  `skipped` = Success. Es la **misma clase** de `FIND-787`, en tres checks más. No se
+  arregla acá porque quitarles el guard de actor cuesta runner real en cada PR de
+  Dependabot (Miri es el más caro del fichero) y es una decisión de coste del owner, no de
+  este carril. El arreglo es de una línea por job, y el patrón está escrito: el mismo
+  razonamiento que `FIND-472` ya aplicó a `fmt`/`clippy` (`ci-rust.yml:236-269`).
+- **L-2 del review (declarado):** la rama de skip (`SCOPE=false && SCOPE_RESULT=success`)
+  sale 0 **antes** de mirar las tres suites. Con `docs=false` las suites están fuera de
+  alcance por decisión medida y un run cancelado no gatea el head nuevo, así que no
+  desbloquea un merge indebido; pero el invariante que el comentario declara no es
+  exactamente el que ese camino impone.
 - **El coste de pared sube con `clippy`.** El guard ya esperaba a las 3 suites (hasta
   90 min); agregar `clippy` (671 s medidos en el run de referencia de `FIND-770`) y
   `secret-scan` (10 min de timeout) no cambia el orden de magnitud, pero en un run de
@@ -135,8 +149,13 @@ shebang, artefacto de extraer un bloque suelto.)
 
 ## Review
 
-**P2-01 - `vanta-review`, contexto fresco, una ronda:** ver el bloque `RESULTADO` del
-lote y la sección de review de `docs/dev/avance/activo/ci-cd.md`.
+**P2-01 - `vanta-review`, contexto fresco, una ronda. Veredicto sobre esta fila: `cumple`.**
+Re-ejecutó el harness por su cuenta (**10 caras propias** además de las 13 del carril:
+`clippy` `cancelled`/`failure`, `SCOPE` vacío y `SCOPE=TRUE` capitalizado, `neutral`,
+`stale`, `cancelled`) y **todas** fueron fail-closed: no encontró una cara que ponga verde
+el guard con algo rojo. Confirmó que el `clippy: skipped` se normaliza con la condición
+exacta de su `if:` real, y que el coste de runner añadido es **cero** (no se agregó job ni
+step). Salvedades: L-1 y L-2, arriba.
 
 ## NOTICED BUT NOT TOUCHING
 
