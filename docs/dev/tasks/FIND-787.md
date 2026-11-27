@@ -382,3 +382,84 @@ tiempo, contra la versión pineada), `check-docs` + `check-links`, y el harness 
 - El `Adapter compat (${{ matrix.adapter }}/...)` sigue exportando el nombre sin expandir
   (`FIND-791`): no es mi fila.
 - `docs/` entero en la allowlist de `.gitleaks.toml` (`FIND-786`, declarado allí).
+
+## Cierre - fila retirada (2026-11-27)
+
+Los **tres** hechos que el contrato exige antes de retirar la fila, verificados hoy
+contra la API y el repo (no heredados del task file):
+
+### 1. El guard existe
+
+```text
+$ git log --oneline -1 f39ea167c
+f39ea167c ci: a skipped required check now fails instead of satisfying the gate (FIND-787)
+$ git show --stat f39ea167c | head -5
+ .github/workflows/ci-rust.yml   |  81 +++++++++
+ docs/dev/avance/activo/ci-cd.md |  16 ++
+ docs/dev/tasks/FIND-787.md      | 384 ++++++++++++++++++++++++++++++++++++++++
+```
+
+Y en el fichero vive como job `tests-guard` (`ci-rust.yml:586`), `name: Tests Executed
+(guard)` (`:621`), `needs: [rust-scope, test, test-windows, test-macos]` (`:622`),
+`if: always()` (`:623`) - las tres propiedades que el contrato pedia.
+
+### 2. Esta **required** en el ruleset `23692587` (`develop`), con 15 contexts
+
+```text
+$ gh api repos/:owner/:repo/rulesets/23692587 \
+    --jq '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
+Format Check / Clippy Lints / Tests (Linux) / Tests (Windows) / Tests (macOS)
+MSRV Check (1.95.0) / Experimental Crates Check / Security Audit / Miri (UB Detection)
+Dependency Policy Check / Internal links resolve / Frontmatter schema, kind agreement, orphans
+Generated indexes are current / Generate API reference (rustdoc) / Tests Executed (guard)
+```
+
+**15**, y `Tests Executed (guard)` es el ultimo de la lista.
+
+### 3. El `fail-path` se probo **en produccion** (PR #292)
+
+```text
+$ gh pr view 292 --json state,mergedAt,mergeStateStatus,headRefOid
+{"state":"CLOSED","mergedAt":null,"mergeStateStatus":"BLOCKED",
+ "headRefOid":"de8127334f63838ae6ed664bafcee727eae2b055"}
+
+$ gh api "repos/:owner/:repo/commits/de8127334/check-runs?per_page=100&filter=latest" \
+    --jq '[.check_runs[]|select(.name|test("Tests|Secret Scan|Format Check|Clippy"))|"\(.name)\t\(.conclusion)"]'
+Tests (Windows)                     skipped
+Tests (embeddings features)         skipped
+Tests (Linux)                       skipped
+Tests (macOS)                       skipped
+Tests Executed (guard)              failure
+Clippy Lints                        success
+Secret Scan (gitleaks + secretlint) failure
+Format Check                        success
+
+$ gh api repos/:owner/:repo/check-runs/140609250938/annotations --jq '.[].message'
+The required test suite did not execute: Tests (Linux) (skipped); Tests (Windows) (skipped);
+  Tests (macOS) (skipped); fix the upstream cause and re-run - do not merge on a skip
+Tests (macOS) reported 'skipped' (actor ness-e) - a required check satisfied by a skip measured nothing (FIND-787)
+Tests (Windows) reported 'skipped' (actor ness-e) - a required check satisfied by a skip measured nothing (FIND-787)
+Tests (Linux) reported 'skipped' (actor ness-e) - a required check satisfied by a skip measured nothing (FIND-787)
+```
+
+**La cadena causal, cerrada por eliminacion:** de los required de ese SHA, los tres
+`Tests (*)` estaban `skipped` (GitHub lo cuenta como 'Success'), `Format Check` y
+`Clippy Lints` en `success`... y el **unico** required en `failure` era el guard.
+`Secret Scan` tambien estaba rojo, pero **no** es required (`23692587`). O sea que el
+`mergeStateStatus: BLOCKED` no lo produjo otra cosa: lo produjo el guard. El PR se
+cerro sin mergear y la rama se descarto.
+
+### Veredicto
+
+Los tres hechos se sostienen ⇒ **fila retirada**. El gate que `FIND-787` pedia existe,
+mide y bloquea en produccion; lo que quedaba abierto de la misma clase son **otras**
+filas, no esta:
+
+- `FIND-815` (el guard solo juzga cuando `rust-scope=true`, o sea que un PR docs-only
+  con `secret-scan` roto pasaba) - se arregla en el lote de gates, mismo job.
+- `FIND-791` (una lane no-required que corre y falla sin bloquear) - sigue abierta.
+- El borde `on.push.paths` que dejaba al guard sin nacer en un push docs-only lo cerro
+  `FIND-807` (`1c6cee680`).
+
+**Retirada:** fila `FIND-787` de `docs/dev/Backlog.md`. El registro queda en
+`docs/dev/avance/activo/ci-cd.md`.
