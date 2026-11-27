@@ -900,13 +900,6 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 | `FIND-798` | 🟠 Alta | `create` de un thread deja un **nodo huérfano** si falla la actualización del índice: el usuario ve "create falló" pero el hilo **sí está persistido**, y reintentar lo **duplica** | `src/agentic/thread.rs:209-212` | 🟢 1-2h | 🟠 Alta | 🟡 Pendiente (2026-11-27) | `insert` ocurre **antes** de `add_thread_id`: si el segundo paso falla, el nodo existe sin entrada en el índice, así que es invisible para list/purge y el mensaje invita a reintentar, lo que crea un segundo nodo. **Contrato:** invertir el orden con compensación o transacción con rollback explícito del `insert`; el test inyecta el fallo en el segundo paso y exige **cero nodos** y que el reintento no duplique. Verificación: dos `create` con el segundo paso forzado a fallar ⇒ conteo final 1. | Origen: `FIND-607` (partida 2026-11-27) | Ver: `FIND-607`, `FIND-799` |
 
 
-## Alta 2026-11-27 - AG-04: purge borra ids cuando la lectura falla y deja el hilo invisible y no purgable
-
-| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
-|---|---|---|---|---|---|---|---|---|---|
-| `FIND-799` | 🟠 Alta | `purge_expired_threads` **descarta ids cuando la lectura falla**: `get(...).ok().flatten()` traga el error de E/S, así que un fallo se confunde con "no existe" y el hilo queda invisible **y no purgable** | `src/agentic/thread.rs:247-255` | 🟢 1-2h | 🟠 Alta | 🟡 Pendiente (2026-11-27) | Un error de E/S y un nodo ausente son **indistinguibles** en ese camino: el id se borra del índice aunque el nodo siga en disco, el hilo desaparece de toda lectura y, al no estar en el índice, **nunca** vuelve a entrar en un purge. Pérdida de datos silenciosa y permanente. **Contrato:** distinguir `Err` de `Ok(None)`: en `Err` el id **no** se descarta, el fallo se cuenta y se reporta. Verificación: fallo inyectado ⇒ `purged`=0 y el id sigue; nodo realmente ausente ⇒ se purga. | Origen: `FIND-607` (partida 2026-11-27) | Ver: `FIND-607`, `FIND-798` |
-
-
 ## Media 2026-11-27 - AG-05: el TTL de los threads nunca expira porque el GcWorker esta muerto
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |

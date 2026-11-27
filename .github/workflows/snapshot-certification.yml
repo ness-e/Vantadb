@@ -3,6 +3,26 @@ name: "CERT: Linux Snapshot & Restore"
 # This isolated lane covers the binary excluded from nextest's fast filter.
 # A push trigger also certifies develop before this file reaches the default
 # branch, where GitHub requires workflow_dispatch workflows to be registered.
+#
+# FIND-797 - why these entries are crate-wide instead of a hand-picked list:
+# the `paths:` blocks below are the ONLY thing that decides whether the 7 phases
+# ever run, so they have to be derived from what those phases execute. They were
+# not: the push ending at `66404bedc` (`dca7d5818..66404bedc`, 31 files) changed
+# `vanta-memory/src/ingest/runner_config.rs` and four `vantadb-mcp/src/*.rs` -
+# crates phases 06 and 07 run - and no run of this workflow exists for that SHA,
+# because the list named only `core/record/**`, `utils/backup.rs`,
+# `validation.rs` and `handlers/tools.rs`. The phases run
+# `cargo nextest -p <crate>`, and their `--test` targets import the crate:
+# `snapshot_certification` imports `vantadb::{index,node,sdk,storage,wal,config}`,
+# `mcp_tests` imports `vantadb_mcp::*`, and the `--lib` phases select by test NAME
+# (`test(snapshot)`), not by module - so a smaller subset cannot be justified by
+# the selector. Each crate a phase runs therefore brings its `Cargo.toml`, its
+# `build.rs` (it compiles for every target) and all of its `src/**`, plus the test
+# files those phases name. `vantadb-server` is NOT here: no phase runs it, and
+# watching it would cost runs with nothing to certify.
+# `dev-tools/check-cert-lane-paths.mjs` enforces this derivation on every edit of
+# this file (it is the first `run:` step below), so the two sides cannot drift
+# again in silence.
 on:
   push:
     branches: [main, develop]
@@ -14,22 +34,16 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "rust-toolchain.toml"
-      - "src/backend.rs"
-      - "src/backends/**"
-      - "src/index/**"
-      - "src/storage/**"
-      - "src/sdk/builder.rs"
-      - "src/utils/fs.rs"
-      - "src/wal*.rs"
+      - "build.rs"
+      - "dev-tools/check-cert-lane-paths.mjs"
+      - "src/**"
       - "tests/**"
       - "vanta-memory/Cargo.toml"
-      - "vanta-memory/src/core/record/**"
-      - "vanta-memory/src/utils/backup.rs"
+      - "vanta-memory/src/**"
       - "vanta-memory/tests/backup_snapshot.rs"
       - "vanta-memory/tests/rollback.rs"
       - "vantadb-mcp/Cargo.toml"
-      - "vantadb-mcp/src/handlers/tools.rs"
-      - "vantadb-mcp/src/validation.rs"
+      - "vantadb-mcp/src/**"
       - "vantadb-mcp/tests/mcp_tests.rs"
   pull_request:
     branches: [main, develop]
@@ -41,22 +55,16 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "rust-toolchain.toml"
-      - "src/backend.rs"
-      - "src/backends/**"
-      - "src/index/**"
-      - "src/storage/**"
-      - "src/sdk/builder.rs"
-      - "src/utils/fs.rs"
-      - "src/wal*.rs"
+      - "build.rs"
+      - "dev-tools/check-cert-lane-paths.mjs"
+      - "src/**"
       - "tests/**"
       - "vanta-memory/Cargo.toml"
-      - "vanta-memory/src/core/record/**"
-      - "vanta-memory/src/utils/backup.rs"
+      - "vanta-memory/src/**"
       - "vanta-memory/tests/backup_snapshot.rs"
       - "vanta-memory/tests/rollback.rs"
       - "vantadb-mcp/Cargo.toml"
-      - "vantadb-mcp/src/handlers/tools.rs"
-      - "vantadb-mcp/src/validation.rs"
+      - "vantadb-mcp/src/**"
       - "vantadb-mcp/tests/mcp_tests.rs"
   workflow_dispatch:
 
@@ -83,6 +91,18 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # FIND-797 - the `paths:` blocks above decide whether these phases run at
+      # all, so they are derived here instead of being trusted. The script reads
+      # this same file twice (the `-p <crate>` and `--test <name>` of every
+      # `run_phase`, and the entries of every `paths:` block) and fails in seconds
+      # when a phase runs a crate whose `Cargo.toml`/`src/**` the filter does not
+      # watch. Placed before rust-setup because it needs nothing but the checkout:
+      # a divergence must cost seconds, not the toolchain install. It is not
+      # circular - editing this workflow always fires the lane (it lists itself),
+      # which is exactly the mutation that opens the gap.
+      - name: Verify the paths filter covers every crate the phases run
+        run: node dev-tools/check-cert-lane-paths.mjs
 
       - uses: ./.github/actions/rust-setup
         with:
