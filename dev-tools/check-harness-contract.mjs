@@ -1879,6 +1879,21 @@ function runSelfTest() {
     rv(FIND271_HEAD.replace("verificado 2026-10-04", "verificado 2026-10-04 · commit `651d7a30d`"))
       .length === 0,
   );
+  // P2-01 round 1, probes the rule's two ways to be wrong.
+  const FIND271_SPLIT =
+    "| `FIND-271` | 🟢 Baja | **x** | `a.rs:1` | 🟢 30min | 🟢 Nice | 🆕 Pendiente | re-verificado 2026-11-22 | Origen: `651d7a30d` | — |";
+  ok(
+    "reverify: a commit in ANOTHER column does not absolve the claim cell (FIND-779 b)",
+    rv(FIND271_SPLIT).length === 1,
+  );
+  ok(
+    "reverify: undated 'verificado' is not a dated claim",
+    rv(
+      "| `FIND-271` | 🟢 Baja | **x** | `a.rs:1` | 🟢 30min | 🟢 Nice | 🆕 Pendiente | runner verificado contra `zep-cloud==3.30.0` | Origen: T | — |",
+    ).length === 0,
+  );
+  ok("reverify: a bare 8-digit date is not a commit", hasReverifyEvidence("20261127") === false);
+  ok("reverify: a sha with a letter is evidence", hasReverifyEvidence("b312482da") === true);
 
   let failed = 0;
   for (const [name, pass] of cases) {

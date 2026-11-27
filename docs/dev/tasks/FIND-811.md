@@ -2,7 +2,7 @@
 title: "FIND-811: \"re-verificado\" no significa verificado — 10 filas medidas y un gate"
 kind: task
 status: completed
-description: "4 de las 9 filas de FIND-607 describían código borrado 24-27 días antes. Barrido de las 10 marcas \"re-verificado / verificado <fecha>\" más antiguas contra HEAD: 8 VIVA (cita de línea corregida + comando re-ejecutable), 2 REFUTADAS y retiradas con su evidencia. Contrato: la marca solo vale si cita comando o commit; gate nuevo en check-harness-contract.mjs (85/85 fixtures)."
+description: "4 de las 9 filas de FIND-607 describían código borrado 24-27 días antes. Barrido de las 10 marcas \"re-verificado / verificado <fecha>\" más antiguas contra HEAD: 8 VIVA (cita de línea corregida + comando re-ejecutable), 2 REFUTADAS y retiradas con su evidencia. Contrato: la marca solo vale si cita comando o commit; gate nuevo en check-harness-contract.mjs (89/89 fixtures)."
 ---
 
 # FIND-811: la marca que no medía nada
@@ -85,7 +85,7 @@ Reglas que el gate aplica, y por qué cada una:
 
 Implementado en `dev-tools/check-harness-contract.mjs`: `REVERIFY_CLAIM` + `hasReverifyEvidence` + `reverifyViolations` + check `reverify (FIND-811)`, también cableado en el modo `--rows` (que corre al crear la fila, no sólo en `/harness`).
 
-### Fixtures (85/85, eran 81/81)
+### Fixtures (89/89, eran 81/81)
 
 | Fixture | Qué prueba |
 |---------|-----------|
@@ -93,13 +93,25 @@ Implementado en `dev-tools/check-harness-contract.mjs`: `REVERIFY_CLAIM` + `hasR
 | `the row retired by FIND-811 (verbatim HEAD) fails` | **falla contra HEAD real**: el texto literal de `FIND-271` tal como estaba en `HEAD` |
 | `the same row with the command that caught it passes` | el comando la absuelve |
 | `a commit sha passes` | el SHA la absuelve |
+| `a commit in ANOTHER column does not absolve the claim cell` | la evidencia se lee en la celda del claim, no en la fila (lección de `FIND-779 b`) |
+| `undated 'verificado' is not a dated claim` | no se marca `runner verificado contra zep-cloud==3.30.0` (`FIND-205`) |
+| `a bare 8-digit date is not a commit` / `a sha with a letter is evidence` | el lookahead `(?=[0-9a-f]*[a-f])` |
 
 El segundo fixture es el que importa: no es sintético, es la fila que este task retiró.
+
+## Review (P2-01, una ronda)
+
+- **Tier:** **fast** (globs del diff: `docs/dev/**` + `dev-tools/**`; ningún path de la tabla adversarial).
+- **Veredicto:** **approve**, con modo **degraded** declarado: el `dev-tools/verify.ps1` completo no se corrió porque la mitad Rust (`cargo fmt`/`clippy`/`nextest`) está **prohibida en este carril** (medición pura; disco ~14 GB). Ningún `.rs` está en el diff y el hook pre-commit saltó `cargo-fmt`/`cargo-clippy` por la misma razón, sin `SKIP` manual.
+- **Gates que sí corrieron:** `node dev-tools/check-harness-contract.mjs` (9 checks, verde) · `--self-test` (89/89) · `scripts/docs/check-docs.mjs` (`GATING: all clear`) · hook `pre-commit` (prettier Passed, markdownlint Passed) · `pwsh dev-tools/ocr-review.ps1` (rule group JS/TS sobre el check nuevo: sin typos, sin `var`, sin `==`, sin dead code).
+- **Round 1 encontró y cerró un fallo real:** la primera implementación juzgaba sólo las columnas `Hallazgo`/`Descripción`, y el fixture con la fila verbatim de `FIND-271` **pasó** en verde porque su marca vivía en `Relaciones`. Se cambió a *todas las celdas, evidencia en la misma celda* y se añadió el fixture de la columna ajena.
+- **Riesgo residual:** `no verificado 2026-11-22` (una negación con fecha) se marcaría como claim. No hay ninguna en el catálogo; si aparece, se resuelve igual que `MEASURE_NEGATED`.
+
 
 ## Verificación
 
 - `node dev-tools/check-harness-contract.mjs` → **harness contract holds (9 checks)** (eran 8).
-- `node dev-tools/check-harness-contract.mjs --self-test` → **85/85** (eran 81/81).
+- `node dev-tools/check-harness-contract.mjs --self-test` → **89/89** (eran 81/81).
 - `git diff --numstat -- docs/dev/Backlog.md` → 8 inserciones / 11 borrados sobre 960 líneas (962 → 960 por las 2 retiradas y 1 retirada ajena preservada).
 - Sin compilar Rust (medición pura): los hallazgos se midieron con `rg`/`git cat-file`/`git log`.
 - Rama `develop` sin cambios de rama. Commit local por `dev-tools/git-commit-isolated.ps1` con `-ExpectAbsent` por fila retirada.
