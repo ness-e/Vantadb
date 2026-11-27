@@ -169,7 +169,17 @@ $ node dev-tools/check-harness-contract.mjs --self-test
 
 ## Review
 
-**P2-01 - `vanta-review`, contexto fresco, una ronda:** ver el `RESULTADO` del lote.
+**P2-01 - `vanta-review`, contexto fresco, una ronda. Veredicto sobre esta fila: `cumple el
+mecanismo`, con 1 Low que se cerró.**
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| L-3 | El hook era **fail-open** si faltaba `node`: imprimía un WARNING y dejaba pasar el commit. El caso "falta el script del padre" sí estaba declarado; el de `node` no. | **cerrado**: ahora es **fail-closed** (`FAILED=1`), con el escape declarado `SKIP=harness-contract`. `node` es prerequisito duro de este repo (`package.json`, `node_modules/`) |
+| — | DOC-04 byte-idéntico al del padre, `--root "$PARENT"` correcto, `SKIP=` ruidoso, config local declarada como coste, `--self-test` 89/89 | confirmado por el revisor |
+
+**La razón del cambio, en la frase del propio reviewer:** *"un gate que avisa y pasa es el
+patrón que este lote combate"*. El hook ya bloqueaba lo que decía bloquear; lo que faltaba
+era que **no poder verificar** contara como rojo, no como aviso.
 
 ## NOTICED BUT NOT TOUCHING
 
