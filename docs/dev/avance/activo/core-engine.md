@@ -1920,3 +1920,12 @@ el propio SDK ya usa— los arregla a los tres.
 - **Verificacion:** `manifest_declares_the_encryption_registry_when_present` + `restore_of_an_encrypted_backup_without_a_key_explains_the_requirement` (RED medido con la guarda deshabilitada: restauraba sin clave). El restore con clave sigue funcionando (es una copia de ficheros).
 - **Deuda declarada:** la master key sigue sin viajar con el backup (decision, ADR-0057 D2: empaquetarla cambia el modelo de amenaza).
 - **Ids:** `FIND-507`
+
+### FIND-343: borrado fisico - cerrada por medicion (ya estaba implementado)
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** la fila (EGO-16) afirmaba que el payload de un registro borrado sobrevivia en el WAL y en el journal Fjall tras el mantenimiento completo, y que la mitad LSM exigia reescribir la base entera.
+- **Resultado:** medido en HEAD, la fila esta resuelta. `tests/certified_delete.rs:252` (sin `#[ignore]`) escribe un canario, borra, corre `vacuum + merge + compact_wal + flush + close` y escanea en crudo **todo** el arbol de datos: **0 hits**. Mecanismo en el arbol: WAL = sustitucion de los registros del nodo borrado por `Delete{id}` sin payload (conteo y estado reproducidos intactos, cadena VER-01 recalculada, set global cruzando segmentos rotados, txn abortada no borra; `redact_erased` corre desde `rotate_all`), backend = `FjallBackend: Compactable` invocado por `compact_wal`.
+- **Verificacion:** `cargo nextest run --profile audit -p vantadb --test certified_delete -E 'test(physical_erasure)' --no-tests fail` -> **1 passed**. Sin cambios de codigo.
+- **Deuda declarada (fuera de la fila):** crypto-shredding del ciphertext de un registro borrado (rotacion de DEK, `src/crypto/**`) y el reciclado del journal Fjall viejo (lo hace Fjall, no el motor).
+- **Ids:** `FIND-343`, `EGO-14`, `EGO-16`, `VER-01`
