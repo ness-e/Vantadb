@@ -1,27 +1,27 @@
 ---
-title: "FIND-818: barrido de marcas — lotes 2 y 3 (21 filas medidas contra HEAD)"
+title: "FIND-818: barrido de marcas `verificado <fecha>` — cierre (4 lotes, censo a 0)"
 kind: task
-status: in-progress
-description: "Lotes 2-3 del barrido de marcas `verificado <fecha>`: 21 filas medidas contra HEAD (15 VIVA, 6 CAMBIADA, 0 retiradas). El modo de fallo no es 'falso' sino podrido: citas desplazadas, punteros fantasma y referencias a ficheros que se borraron. Quedan 6 marcas para el lote 4."
+status: completed
+description: "Barrido completo de las marcas `verificado <fecha>` del Backlog: 4 lotes, 37 filas medidas contra HEAD (27 VIVA, 7 CAMBIADA, 3 retiradas), censo final a 0 celdas con marca fechada sin evidencia in-cell sobre 391 filas de tabla. Los tres modos de fallo del catálogo, con un ejemplo medido de cada uno."
 ---
 
-# FIND-818: segundo lote del barrido de marcas
+# FIND-818: el barrido de marcas y su cierre
 
 ## Metadata
 - **Fuente:** `docs/dev/Backlog.md` (fila `FIND-818`, línea 986)
 - **Origen:** cierre de `FIND-811` (2026-11-27) · **Ver:** `FIND-811`, `FIND-296` (fantasma), `EGO-15`, `FIND-290`
 - **Esfuerzo:** 4-8h (un lote) · **Prioridad:** 🟡 Media · **Tipo:** docs/gobernanza del backlog (medición pura, sin Rust)
-- **Creado / cerrado:** 2026-11-27
-- **Estado:** ⏳ IN PROGRESS
-- **Lote:** 3 de 4 cerrado; quedan 6 marcas fechadas
+- **Creado / cerrado:** 2026-11-27 (abierto y cerrado el mismo día, 4 lotes)
+- **Estado:** ✅ COMPLETED
+- **Lote:** 4 de 4 cerrado; **censo a 0** (0 celdas con marca fechada sin evidencia in-cell)
 
 ## Blast Radius
 
 | Dirección | Módulos |
 |-----------|---------|
-| Tocado | `docs/dev/Backlog.md` (21 filas re-escritas: 10 del lote 2 + 11 del lote 3, más la fila de `FIND-818`) · este task file |
+| Tocado | `docs/dev/Backlog.md` (27 filas re-escritas: 10 del lote 2 + 11 del lote 3 + 5 del lote 4, más la fila de `FIND-818` y la de `FIND-477` retiradas) · este task file · `docs/dev/avance/historial/backlog-history.md` (cierre + retirada) |
 | Inmutable | `src/**` (`FIND-798` compilando) · `tests/**` · `vanta-memory/**` · `vantadb-mcp/**` · `.github/**` · `dev-tools/**` · `.opencode/**` · `docs/dev/plans/**` · `docs/index.md` · `docs/dev/feature-matrix.md` (`FIND-819` en vuelo) · `docs/dev/architecture/FEATURES.md` |
-| Fuera de alcance | las 6 marcas restantes (`10-20`:5 · `10-05`:1 = `FIND-284`) |
+| Fuera de alcance | nada: el censo queda a 0 |
 
 ## Premisa (medida, no re-derivada)
 
@@ -40,6 +40,65 @@ HEAD: 29 filas de tabla con marca fechada, 14 con veredicto 2026-11-27 previo,
 ```
 
 Los tres números conviven porque son tres cortes distintos: **29 líneas del lote 2 = 28 filas + 1 blockquote**, y las 29 filas de hoy incluyen las dos filas de `FIND-818`/`FIND-822` creadas después. Contar líneas en vez de filas fue el error que la review P2-01 cazó en el lote 2 (de ahí el "quedan 19" que eran 18).
+
+## Lote 4 — las 6 restantes (`2026-10-20`:5 · `2026-10-05`:1) (verificadas 2026-11-27)
+
+| Fila | Veredicto | Evidencia (re-ejecutable) |
+|------|-----------|---------------------------|
+| `FIND-475` | **VIVA** (cita movida) | `Select-String .github/workflows/release-wheels.yml -Pattern "if: startsWith"` → `:181`, `:269`, ninguno con rama `workflow_dispatch`; los hermanos sí (`release-adapters.yml:4`, `:118`). La cita era `:179` |
+| `FIND-476` | **VIVA** (y el doc existió) | `DIST-01` referenciado en `release-plz.toml:60,67` y `vanta-memory/Cargo.toml:12,15`; el doc **existió** (alta `f79c50551`, 2026-10-04) y lo borró `2cbe9fe9f` (2026-10-10) → referencias huérfanas, no rotas de nacimiento |
+| `FIND-477` | **REFUTADA → retirada** | La fila afirmaba que las rutas citadas por el comentario "ya no existen". **Las dos existen hoy**: `crates/release_plz_core/src/version.rs` tiene el mapping literal (`matches!(diff.semver_check, SemverCheck::Incompatible(_))` → `VersionIncrement::breaking(self)`) y `crates/next_version/src/version_increment.rs` también, con `pub fn breaking` → `Minor` para 0.x (leídos 2026-11-27 de `raw.githubusercontent.com/release-plz/release-plz/main`). El comentario de `release-plz.toml:30-33` es correcto: no hay nada que arreglar |
+| `FIND-478` | **VIVA** (cita movida) | `rg -n "git add -A" .github/workflows/release.yml` → `:144` (era `:131`) |
+| `FIND-480` | **VIVA** (citas movidas) | `documented_only` en `release-manifest.json:84`, único `crates.io` = `vanta-memory` (`:86`), sin `vantadb-wasm`; `release-plz.toml:56` = `release = false` para wasm (era `:57`) |
+| `FIND-284` | **CAMBIADA** (contrato) | `_batch_guard = self.purge_lock.write()` en `memory.rs:1542` dentro de `put_batch_inner` (`:1486`): el lock **sigue ancho y por decisión** (DUR-03, `:1533-1541`); angostarlo debe preservar el invariante anti-deadlock y medirse con `canonical_p99` |
+
+**Retiradas: 1** (`FIND-477`), y el motivo es el modo de fallo nº 1: la fila daba por muertas dos rutas del upstream que siguen vivas. Las otras 5 no tenían nada roto salvo la cita.
+
+## Cierre del barrido (4 lotes, 2026-11-27)
+
+### Los números
+
+| Lote | Fecha de las marcas | Filas | VIVA | CAMBIADA | Retiradas |
+|------|--------------------|-------|------|----------|-----------|
+| 1 (`FIND-811`) | `09-25`, `10-04`, `10-05` | 10 | 8 | 0 | **2** (`FIND-271`, `FIND-282`) |
+| 2 | `2026-10-18` | 10 | 5 | 5 | 0 |
+| 3 | `2026-11-22` | 11 | 10 | 1 | 0 |
+| 4 | `2026-10-20` / `10-05` | 6 | 4 | 1 | **1** (`FIND-477`) |
+| **Total** | | **37** | **27** | **7** | **3** |
+
+(Los VIVA de los lotes 2-4 incluyen 8 "VIVA con cita corregida": la fila estaba viva y lo que estaba muerto era la línea o el path que citaba.)
+
+### El censo final, medido con los predicados del gate
+
+`REVERIFY_CLAIM` + `hasReverifyEvidence` (inlined de `check-harness-contract.mjs:314-325`) + el splitter de celdas (`:183`, `(?<!\\)\|`), aplicados **por celda sobre todas las filas de tabla** del Backlog (no solo las añadidas), sobre el estado **final** del archivo:
+
+```
+piped lines: 490 | separators: 100 | filed rows: 390
+dated cells (REVERIFY_CLAIM): 27 | cells WITHOUT in-cell evidence: 0
+```
+
+**Censo a 0 para el predicado `verificado <fecha>`.** Las 27 celdas con marca fechada llevan comando o commit en la misma celda.
+
+Dos precisiones que el número solo no dice:
+
+- **Predicado acotado.** El gate juzga `verificad[oa]s?` + fecha; hay **6 celdas de otros carriles** con la forma `**Veredicto HEAD 2026-11-27: …**` que no dicen "verificado" y por tanto no entran en el censo (`DEAD-01`, `FIND-159`, `FIND-198`, `FIND-598`, `GTM-05`, `GTM-09`). Quedan anotadas como deuda, no como barridas.
+- **El corte anterior era pre-retiro.** Durante el lote 4 el censo dio `492 piped lines / 29 dated cells`; al retirar `FIND-818` y `FIND-477` y limpiar la sección vacía, el estado final es `490 piped lines / 390 filed rows / 27 dated cells`. Contar líneas con pipe (que incluyen los 100 separadores `|---|`) como "filas" fue el error que la review marcó dos veces: la primera me hizo pasar de 19 a 18, la segunda de 492 a 390.
+
+### Los tres modos de fallo, con un ejemplo medido de cada uno
+
+1. **Falso** — nunca fue cierto, ni el día que se escribió. `FIND-271` citaba `docs/dev/architecture/CRASH_MODEL.md:75` y ese path **no existió en ningún commit**: `git cat-file -e` → exit 128 también en `b7b2b4c04`, el commit del día en que se escribió la fila. La marca midió la relectura de la fila anterior, no el repo.
+2. **Podrido** — fue cierto y envejeció. `EGO-15` citaba `seed.rs:25`; `8f3b7039d` movió el `embedded.search` a `:31` **dos días antes** de que se escribiera la marca "re-verificado 2026-11-22". Lo mismo con las 8 citas desplazadas de los lotes 2-4 y con las 3 filas que aún citaban la spec `mgr-23-24-memoria-proyecto.md`, borrada el 2026-10-24.
+3. **Ausente ≠ inexistente** — el error que casi cometí. `EGO-08` afirmaba una ausencia en `docs/dev/plans/`; mi primera redacción concluyó "el plan citado no existe" porque no estaba en `HEAD`, y la review lo refutó: `docs/dev/plans/` **como directorio** no existía en git el 2026-11-22 (`git ls-tree 4b8f72cd -- docs/dev/plans/` → vacío), pero el plan **sí existió** (`2026-10-08-ego-feedback-0.9.0.md`, alta `16fe0c0b0`, baja `4e831d3e1`, dos días de vida). Regla que queda: **ausencia en `HEAD` no es inexistencia; hay que preguntarle a `git ls-tree`/`git log --all` por el snapshot de la fecha.**
+
+### La regla que sale del barrido
+
+> Una marca `verificado <fecha>` sólo vale si **la misma celda** cita el comando o el commit con el que se comprobó, y si el comando se puede re-correr hoy. La fecha sin comando es una relectura; el `archivo:línea` sin comando es una cita que envejece sola; y "no está en `HEAD`" no es "no existió".
+
+### Deuda residual (no bloquea el cierre)
+
+- `ADR-0066:447` sigue citando `Backlog.md:801` como `FIND-296`, línea que nunca lo fue (`docs/dev/architecture/**` no era escribible en este carril).
+- La segunda ruta de `FIND-477` (`next_version version_increment.rs`) quedó sin verificar: el crate no está en `release-plz/next_version` ni en `MarcoIeni/next_version`.
+- El censo file-wide es un one-liner fuera del repo (`.opencode/` y `dev-tools/**` no eran escribibles aquí): si se quiere permanente, el vehículo es un check más en `check-harness-contract.mjs` (`reverify` ya cubre las filas **añadidas**; falta el barrido completo como comando).
 
 ## Cómo se filtró el incidente del 2026-11-26
 
@@ -92,13 +151,15 @@ Medido, y es el hallazgo del lote: `git log -1 -- <ADR-0066.md>` devuelve **`db6
 
 `MEMG-03` citaba `FIND-296` como dueño del residual. `FIND-296` **nunca existió como fila**: 0 coincidencias en HEAD y 0 en el snapshot `29e9c12f` (2026-10-18), donde la única aparición es la propia fila de `MEMG-03` que lo invoca; y ningún commit de la historia cambió jamás el conteo de esa forma de fila (`git log --all -S` de la fila `FIND-296` → 0 commits). Es el mismo patrón que `FIND-271` en el lote 1 (`CRASH_MODEL.md` inexistente), pero invertido: aquí el puntero fantasma no invalida la fila entera, invalida el **residual** — y el residual real lo dejó escrito `ADR-0066` §Relation (L1 batch-flushed sin linkage = D1b, procedencia a nivel mensaje diferida, query de linaje con scope para persona).
 
-## Verificación
+## Verificación (cierre)
 
 - `node dev-tools/check-harness-contract.mjs` → **harness contract holds (9 checks)**.
 - `node dev-tools/check-harness-contract.mjs --self-test` → **89/89** (gate `reverify` sin tocar).
-- `git diff --numstat -- docs/dev/Backlog.md` → **12 inserciones / 12 borrados** en el lote 3: las 11 filas de `2026-11-22` + la fila de `FIND-818`. Ninguna fila retirada.
-- `pwsh dev-tools/check-closure.ps1 -Diff` → **CLOSURE OK**, pero por una razón que hay que declarar: el `-Diff` pasa porque **otro carril está implementando `FIND-822` en este mismo worktree** (`M dev-tools/check-closure.ps1`, 31/4, + `docs/dev/tasks/FIND-822.md` sin trackear). Contra `HEAD` esa regla sigue roja (lee un rewrite como retirada); con su fix en vuelo, ya no. No es mío y no lo toco.
-- Sin compilar Rust (medición pura): `rg`, `git cat-file`, `git log`, `Get-ChildItem`, `Select-String`, `node`.
+- **Censo file-wide** con los predicados del gate (inlined) y separadores excluidos: `490 piped lines / 100 separators / 390 filed rows / 27 dated cells / 0 without in-cell evidence`.
+- `git diff --numstat -- docs/dev/Backlog.md` → **6 inserciones / 8 borrados**: 5 filas re-escritas + el retítulo de la sección, y 2 filas retiradas (`FIND-818`, `FIND-477`). El Backlog pasa de 1003 a 1001 líneas (−2 exacto).
+- **Aislamiento del WIP ajeno:** el Backlog tenía 21 filas más re-escritas por otro carril (`Estado`). El commit se construyó con `HEAD + solo mis hunks` (reconstrucción línea a línea: 8 operaciones verificadas, 0 hunks ajenos), y los 21 pares del otro carril se devolvieron al worktree después con `git show HEAD:…` + reemplazo exacto. Verificado tras el restore: sus 21 ediciones presentes, las mías ya en el commit.
+- `pwsh dev-tools/check-closure.ps1 -Diff` → 1 sola violación, **ajena**: `docs/dev/tasks/FIND-800.md` (otro carril, sin `**Estado:**`). La retirada de `FIND-818` y `FIND-477` **no** dispara la regla (b): ambas tienen entrada en `docs/dev/avance/historial/backlog-history.md`.
+- Sin compilar Rust (medición pura): `rg`, `git cat-file`, `git log`, `git ls-tree`, `Get-ChildItem`, `Select-String`, `node`.
 - Rama `develop`, sin `checkout`/`switch`/`worktree`.
 
 ## Review (P2-01, una ronda)
@@ -120,14 +181,23 @@ Medido, y es el hallazgo del lote: `git log -1 -- <ADR-0066.md>` devuelve **`db6
   - **B2 (bloqueante, corregido):** mi "corrección" del `Ver:` de `EGO-08` cambiaba un puntero real por un fantasma. El plan **existió**: `docs/dev/plans/2026-10-08-ego-feedback-0.9.0.md`, alta `16fe0c0b0` (2026-10-08), baja `4e831d3e1` (2026-10-10). Ahora la columna cita el archivo y sus dos commits.
   - **B3 (bloqueante, corregido):** la evidencia de `EGO-07` tenía dos cláusulas falsas — `rg -l "ort::" src` da **33** archivos por `IndexPort::`/`Sort::` (la buena es `rg -l '\bort::' src` → 2: `llm.rs`, `embedding_health.rs`), y `:733` **no** es `get` (es `purge_expired_record_locked`, `:720`; `get` está en `:1819`). Corregidas ambas; el veredicto CAMBIADA se sostiene por la cita muerta de `put_one`.
   - **N1–N7 (corregidos salvo N7):** bullet duplicado del gate hole borrado · Blast Radius a 21 filas · `title` alineado a lotes 2-3 · Premisa reconciliada en tres cortes fechados (28 filas del lote 2 / 29-14-15 del lote 3 / 29-23-6 de hoy) · medición `'verificado 2026-11-22'` anotada como **pre-rewrite** · `MEMG-25` con la ruta completa (`vanta-memory/src/core/profile/profile_sync.rs:75`). **N7 no se corrige porque no es mío:** `M dev-tools/check-closure.ps1` es el fix de `FIND-822` que otro carril tiene en vuelo en este mismo worktree; este carril no lo tocó (ver §Verificación).
-- **Lo que la review confirmó:** el censo 29/23/6 exacto y con los 6 pendientes nominales, 8 de las 9 VIVA sólidas una por una, `EGO-15` bien declarada como verificada-sin-re-derivar, y el gate verde (9 checks / 89 fixtures) re-corrido por el reviewer.
+### Review ronda 3 — lote 4 y cierre (`vanta-review`, `ses_de1a395a9ffe342zCXiuS6FDAr`)
+
+- **Veredicto ronda 3:** 🔴 **changes-required** (2 bloqueantes) → **ambos corregidos** antes del commit.
+  - **B1 (bloqueante, corregido):** `FIND-477` no era CAMBIADA sino **REFUTADA → retirada**. La fila decía que las rutas citadas por `release-plz.toml` "ya no existen" y **las dos existen**: `version.rs` (con el mapping literal) y `crates/next_version/src/version_increment.rs` (con `pub fn breaking` → `Minor` para 0.x), ambas leídas del upstream `main` el 2026-11-27. Mi error fue declarar la segunda "sin verificar" tras dos 404 en el path raíz equivocado: el crate vive **dentro** del monorepo. Retirada con entrada en `backlog-history.md`; el lote 4 pasa a 4 VIVA / 1 CAMBIADA / 1 retirada y los totales a **27 / 7 / 3**.
+  - **B2 (bloqueante, corregido):** el censo publicaba `table rows: 492` contando **líneas con pipe** (392 filas + 100 separadores) y en el estado **pre-retiro**. Es la misma confusión línea-vs-fila que la ronda 1 bloqueó, esta vez dentro del artefacto que declara cerrado el barrido. Re-medido con separadores excluidos y estado final: `490 piped lines / 100 separators / 390 filed rows / 27 dated cells / 0 without evidence`.
+  - **N1–N5 (corregidos):** `description` alineada con la tabla (27/7/3) · `title` y H1 ya no dicen "lotes 2 y 3 / segundo lote" · Blast Radius con los 3 lotes y las 2 retiradas · §Deuda sin "quedan 6 marcas" · §Verificación reescrita con el estado final (y `check-closure` declarado **rojo por `FIND-800.md`, ajeno**, no "CLOSURE OK" como decía).
+  - **N6 (corregido):** la sección vacía del Backlog se retitula a `Barrido de marcas verificado: cerrado (4 lotes, censo a 0; el gate queda en check-harness-contract)`, porque su título anterior ("Quedan 29 marcas…") era falso dentro del archivo que se declara barrido.
+  - **N7 (anotado, no corregido):** el censo es del predicado `verificado <fecha>`; hay **6 celdas de otros carriles** con `**Veredicto HEAD 2026-11-27: …**` sin evidencia in-cell (`DEAD-01`, `FIND-159`, `FIND-198`, `FIND-598`, `GTM-05`, `GTM-09`). No entran en el censo y quedan como deuda declarada.
+  - **Nits (corregidos los del carril):** las columnas `Archivo:línea` de las 5 VIVA se alinean con la prosa (`release-wheels.yml:181`, `release-plz.toml:67` + `vanta-memory/Cargo.toml:15`, `release.yml:144`, `release-manifest.json:84`). El defecto de `cells=10` con header de 9 en `Backlog.md:598-622` es pre-existente y ajeno: no se toca.
+- **WIP ajeno declarado:** durante el lote 4 otro carril reescribía la columna `Estado` de 21 filas del Backlog (`⏸️ Diferida a v0.11.0` → `🟡 Pendiente (2026-11-27: sacada de v0.11.0…)`). El commit se construyó **sin** sus hunks (ver §Verificación) y se le devolvieron al worktree después.
 
 
 
 ## Deuda
 
-- **6 marcas fechadas quedan sin barrer** (lote 4): `10-20`:5 (`FIND-475`, `FIND-476`, `FIND-477`, `FIND-478`, `FIND-480`) + `10-05`:1 (`FIND-284`). Censo por celda con el regex del gate: 29 filas de tabla con marca fechada, 23 con veredicto del 2026-11-27, 6 pendientes. Ojo con el criterio: `FIND-320` y las 8 del lote 1 no dicen literalmente `verificado 2026-11-27` (dicen `Veredicto HEAD 2026-11-27` / `VIVA HEAD 2026-11-27`), así que un conteo por la cadena literal las cuenta como pendientes y **no lo están**.
+- **Ninguna marca fechada queda sin barrer:** censo a 0 (28 celdas con marca, 0 sin evidencia in-cell). El lote 4 midió las últimas 6 (`10-20`:5 + `10-05`:1).
 - **`EGO-15` no necesitó re-medición, sí verificación:** sus 6 citas (`pipeline.rs:71/:96/:101`, `expand.rs:13`, `public-api.txt:3151,3153`, `seed.rs:31`) resuelven exactas; la que estaba muerta (`seed.rs:25`) ya la había corregido el otro carril (`8f3b7039d`). `FIND-290` ídem: `lib.rs:45/:1164` y `reflection/mod.rs:245/:6/:351` exactas.
-- **Punteros fantasma encontrados hasta ahora:** `FIND-296` (lote 2, citado por `MEMG-03` y por `ADR-0066:447` como `Backlog.md:801`, línea que nunca lo fue). El `Ver: plan EGO 2026-10-08` de `EGO-08` **no** era fantasma: existió (`16fe0c0b0`, borrado `4e831d3e1`), y la primera redacción de este archivo lo dio por inexistente — corregido por la review. Ninguno de los dos justifica retirar la fila que lo cita.
-- **`docs/` sí está trackeado desde 2026-04-03** (`354db146d`); lo que faltaba el 2026-11-22 era `docs/dev/plans/` como directorio (`git ls-tree 4b8f72cd -- docs/dev/plans/` → vacío). Cualquier "no existe" del barrido debe distinguir *no está en `HEAD`* de *no existió nunca*: es el tercer modo de fallo, después de falso y podrido.
-- **Para el lote 4 (6 filas):** la review recomienda delta mínimo en vez de re-emitir la celda (`**Veredicto HEAD …: VIVA**` + `Medición:` al frente, sin tocar la prosa): re-emitir fue lo que arrastró los N del lote 3. Y el censo 29/23/6 depende de un one-liner que no vive en el repo (`dev-tools/**` es inmutable en este carril): si se quiere reproducible, va como `FIND` propio.
+- **Punteros fantasma encontrados:** `FIND-296` (lote 2, citado por `MEMG-03` y por `ADR-0066:447` como `Backlog.md:801`, línea que nunca lo fue). El `Ver: plan EGO 2026-10-08` de `EGO-08` **no** era fantasma: existió (`16fe0c0b0`, borrado `4e831d3e1`), y la primera redacción de este archivo lo dio por inexistente — corregido por la review. Ninguno de los dos justificó retirar la fila que lo cita.
+- **El lote 4 se hizo con delta mínimo** (recomendación de la review del lote 3): solo se reemplazó la cola `Verificado 2026-10-20: …` de cada celda, sin re-emitir la prosa. Fue la decisión correcta: 6 filas, 0 pipes sueltos, 0 retrabajo.
+- **Tres cosas quedan fuera de este carril** (no bloquean el cierre): `ADR-0066:447` sigue citando `Backlog.md:801` como `FIND-296`; la segunda ruta de `FIND-477` (`next_version version_increment.rs`) sin verificar; y el censo file-wide como one-liner, que para ser permanente necesita un check en `dev-tools/check-harness-contract.mjs` (no escribible aquí).
