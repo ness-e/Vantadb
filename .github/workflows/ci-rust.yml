@@ -3,31 +3,33 @@ name: "CI: Rust — Build & Lint + Tests"
 on:
   push:
     branches: ["main", "develop"]
-    paths:
-      - "src/**"
-      - "tests/**"
-      - "benches/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "build.rs"
-      - ".config/nextest.toml"
-      - ".github/workflows/ci-rust.yml"
-      - ".github/actions/rust-setup/**"
-      - ".cargo/**"
-      - "deny.toml"
-      - "osv-scanner.toml"
-      - "rust-toolchain.toml"
-      - "vantadb-*/**"
-      - "vanta-memory/**"
-      - "vanta-proxy/**"
-      - "integrations/**"
-      - "providers/**"
-      - ".gitleaks.toml"
-      - ".secretlintrc.json"
-      - ".secretlintignore"
-      - "release-plz.toml"
-      - "release-manifest.json"
-      - "cliff.toml"
+  # FIND-807 (2026-11-27): `push` TAMPOCO lleva `paths:` ya, por la misma razon
+  # que `pull_request` (FIND-770, justo abajo), y el filtro se mueve al mismo
+  # sitio: el job `rust-scope`, que ahora resuelve el rango del push con
+  # `event.before`..`HEAD` (el mismo truco que `wasm-scope`, FIND-725).
+  #
+  # Lo medido por API, no deducido: con **15** contexts required en
+  # `23692587`, un push docs-only deja **11 ausentes** — los 10 jobs required de
+  # este fichero mas `Tests Executed (guard)`, que vive aqui y por eso tampoco
+  # nacia. 5 de 5 pushes docs-only medidos (`4b93657eb`, `3fd8f253c`, `653af5daf`,
+  # `6a1dde001`, `5d2e598ed`) dieron `required_present=4/15`; los 4 que si
+  # reportan son los de `docs-gates.yml`, que no filtra el push. Control: el
+  # push que contenia `0ef9160de` reporto 15/15 — su RANGO incluia un commit de
+  # CI, asi que el filtro no lo alcanzo. Es el rango, no el asunto del head.
+  #
+  # Por que importa: un context required ausente queda `Pending` para siempre
+  # (el deadlock de `FIND-765`). Hoy solo lo tapa un accidente — los pushes
+  # evaluan **bypass de admin** —, asi que para un no-admin, o el dia que se
+  # restrinja el bypass, un push de solo-docs queda bloqueado por 11 contexts
+  # que nadie va a reportar. En `pull_request` no habia agujero: `FIND-770` ya
+  # lo cerro ahi, y el guard juzga en todo PR (probado en el PR #292).
+  #
+  # El coste que `paths` ahorraba NO era la suite: `rust-scope` ya la omite por
+  # `if:` cuando el diff no es Rust, y los 9 jobs caros del `needs` caen en
+  # cascada. Lo que se ahorraba era el residual barato — los 11 jobs que
+  # reportan siempre —, medido por `FIND-770` en **~570 s de runner** por run
+  # docs-only, frente a los 5670 s de los 3 tests si no hubiera scope. Es
+  # exactamente el precio que un PR docs-only ya paga hoy.
   # FIND-770: `pull_request` NO lleva `paths:` a proposito. Un workflow que no
   # arranca no reporta NINGUN check-run: sus checks quedan en `Pending` y el PR
   # no se puede mergear si son required
@@ -110,11 +112,11 @@ jobs:
     # corren los gates. Un falso positivo cuesta minutos de runner; un falso
     # negativo pierde una suite entera en silencio (`skipped`, no `failure`).
     #
-    # Este job NO lleva `if:` propio, y no es un olvido: en un `push` sale por
-    # el primer branch del script (no es `pull_request`) y cuesta ~5 s de
-    # checkout. Ponerle un `if: github.event_name == 'pull_request'` haria que
-    # en cada push quedara `skipped`, y con eso `clippy` y los 8 jobs de su
-    # cadena tambien: el deadlock, por la puerta del guard.
+    # Este job NO lleva `if:` propio, y no es un olvido: en un `push` resuelve
+    # el rango `event.before`..`HEAD` (FIND-807) y cuesta ~5 s de checkout.
+    # Ponerle un `if: github.event_name == 'pull_request'` haria que en cada
+    # push quedara `skipped`, y con eso `clippy` y los 8 jobs de su cadena
+    # tambien: el deadlock, por la puerta del guard.
     name: Rust Scope (PR paths)
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -125,29 +127,38 @@ jobs:
         # Shallow clone basta: la base se busca por SHA abajo (mismo truco que
         # `adr-gate`) y un diff de arboles no necesita historia.
 
-      - name: Detect Rust-relevant changes in the PR range
+      - name: Detect Rust-relevant changes in the pull_request or push range
         id: changed
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
 
-          if [ "$EVENT_NAME" != "pull_request" ]; then
-            echo "event=$EVENT_NAME (not a pull_request) — running the Rust gates"
+          # FIND-807: el rango sale del evento. `push` usa `event.before`
+          # (mismo truco que `wasm-scope`, FIND-725); `pull_request` usa
+          # `base.sha` (FIND-770). El filtro de paths que vivia en
+          # `on.push.paths` vive aqui ahora, como ya vivia aqui el de PR.
+          case "$EVENT_NAME" in
+            pull_request) base="${BASE_SHA:-}" ;;
+            push) base="${PUSH_BEFORE:-}" ;;
+            *) echo "event=$EVENT_NAME (neither pull_request nor push) — running the Rust gates"
+               echo "rust=true" >> "$GITHUB_OUTPUT"
+               exit 0 ;;
+          esac
+
+          # Primer push de una rama: `before` es la SHA nula, no hay rango que
+          # diffear. Fail-open, misma politica que `wasm-scope`.
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "::warning::no usable base for $EVENT_NAME ($base) — fail-open: running the Rust gates"
             echo "rust=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          if [ -z "${BASE_SHA:-}" ]; then
-            echo "::warning::no base SHA on this pull_request — fail-open: running the Rust gates"
-            echo "rust=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if ! git fetch --depth 1 origin "$BASE_SHA"; then
-            echo "::warning::cannot fetch base commit $BASE_SHA — fail-open: running the Rust gates"
+          if ! git fetch --depth 1 origin "$base"; then
+            echo "::warning::cannot fetch base commit $base — fail-open: running the Rust gates"
             echo "rust=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -155,21 +166,19 @@ jobs:
           # `--no-renames` + `-z`/`quotePath=false`: los dos mismos traps que
           # `wasm-scope` (un fichero movido imprime solo su ruta nueva; git
           # C-quotea rutas no-ASCII y el `"` inicial romperia el match).
-          if ! changed="$(git -c core.quotePath=false diff --name-only --no-renames -z "$BASE_SHA" HEAD | tr '\0' '\n')"; then
-            echo "::warning::git diff $BASE_SHA..HEAD failed — fail-open: running the Rust gates"
+          if ! changed="$(git -c core.quotePath=false diff --name-only --no-renames -z "$base" HEAD | tr '\0' '\n')"; then
+            echo "::warning::git diff $base..HEAD failed — fail-open: running the Rust gates"
             echo "rust=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Espejo de `on.push.paths` (24 patrones; superset de los 22 que
-          # llevaba `pull_request`: `.cargo/**` y `.github/actions/rust-setup/**`
-          # eran solo de push). Mantener las dos listas en sync: un path que
-          # dispara el workflow en push tiene que disparar los gates en el PR.
-          # Anclado con ^ y terminado en `/` o `$` para que un prefijo no se
-          # escape (`src/` no debe casar `src-tauri/`).
+          # Lista UNICA de patrones (FIND-807): ya no hay `on.push.paths` con el
+          # que mantenerla en sync. Cubre lo que disparaba el push y lo que el
+          # PR necesita. Anclado con ^ y terminado en `/` o `$` para que un
+          # prefijo no se escape (`src/` no debe casar `src-tauri/`).
           PATTERNS='^(src/|tests/|benches/|Cargo\.toml$|Cargo\.lock$|build\.rs$|\.config/nextest\.toml$|\.github/workflows/ci-rust\.yml$|\.github/actions/rust-setup/|\.cargo/|deny\.toml$|osv-scanner\.toml$|rust-toolchain\.toml$|vantadb-[^/]+/|vanta-memory/|vanta-proxy/|integrations/|providers/|\.gitleaks\.toml$|\.secretlintrc\.json$|\.secretlintignore$|release-plz\.toml$|release-manifest\.json$|cliff\.toml$)'
 
-          echo "--- files changed in $BASE_SHA..HEAD ---"
+          echo "--- files changed in $base..HEAD ---"
           printf '%s\n' "$changed"
           # Here-string, no pipe: `printf ... | grep -q` bajo `set -o pipefail`
           # hace que un `grep` que sale en el primer match cierre el pipe y
@@ -598,11 +607,13 @@ jobs:
     # `FIND-791`-. Un required TIENE que reportar en cada run; lo unico
     # elegible es que el reporte de "no ejecuto" sea rojo. Eso es este job.
     #
-    # Inerte hasta que el owner lo agregue al ruleset (decision suya, ver
-    # docs/dev/tasks/FIND-787.md "Cambio de ruleset propuesto"). No es el
-    # deadlock de FIND-765 justamente porque reporta siempre: `ci-rust.yml`
-    # no lleva `paths:` en `pull_request:` (FIND-770) y `if: always()` no
-    # depende del evento ni del actor.
+    # No es el deadlock de FIND-765 justamente porque reporta siempre - y eso
+    # ahora es cierto en los DOS eventos: `ci-rust.yml` no lleva `paths:` ni en
+    # `pull_request:` (FIND-770) ni en `push:` (FIND-807), e `if: always()` no
+    # depende del evento ni del actor. Antes de FIND-807 esa frase solo era
+    # cierta para `pull_request`: el guard heredaba el `paths:` del workflow y
+    # no nacia en un push docs-only, asi que su context quedaba `Pending` y el
+    # unico motivo de que nadie lo viera era el bypass de admin.
     name: Tests Executed (guard)
     needs: [rust-scope, test, test-windows, test-macos]
     if: always()
