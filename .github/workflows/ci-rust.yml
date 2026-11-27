@@ -618,8 +618,32 @@ jobs:
     # cierta para `pull_request`: el guard heredaba el `paths:` del workflow y
     # no nacia en un push docs-only, asi que su context quedaba `Pending` y el
     # unico motivo de que nadie lo viera era el bypass de admin.
+    #
+    # FIND-815 (2026-11-27): el guard juzgaba UNA cosa -si las suites
+    # ejecutaron-. Su rama legitima de skip (`rust-scope` midio "no hay Rust")
+    # tenia un borde que el propio FIND-787 documento como precondicion: en un
+    # PR docs-only, un `Secret Scan` en ROJO no bloqueaba nada, porque las
+    # suites no tenian por que correr y `Secret Scan` no es required. El caso
+    # real ya existio: en `43e41f055` el escaneo fallo. Ahora el guard juzga
+    # DOS cosas: (i) si las suites tocaban ejecutarse y no ejecutaron, y (ii)
+    # si un check UPSTREAM de las suites (`secret-scan`, `fmt`, `clippy`) esta
+    # rojo - en ese orden, para que un upstream rojo bloquee aunque el scope
+    # sea docs-only. El skip deja de ser "no hay Rust" y pasa a ser "no hay
+    # Rust Y los upstream estan verdes".
+    #
+    # Coste: CERO de runner para un PR docs-only con todo verde. No se agrega
+    # ningun job ni ningun step; el guard ya existia y ya corria siempre. Y no
+    # necesita tocar el ruleset: `Tests Executed (guard)` ya es required en
+    # `23692587`, asi que su rojo ya bloquea el merge.
+    #
+    # Que cuenta como "omitido legitimo" de los upstream, medido en el YAML y
+    # no supuesto: `secret-scan` (`:204`) y `fmt` (`:234`) NO llevan `if:` ni
+    # `needs:`, asi que se ejecutan en todo run - un `skipped` ahi es anomalo y
+    # el guard lo trata como rojo (fail-closed). El unico omitido legitimo es
+    # `clippy`, que si esta gateado por `rust-scope` (`:270-273`): se acepta
+    # `skipped` SOLO cuando `rust-scope` midio `false` y termino `success`.
     name: Tests Executed (guard)
-    needs: [rust-scope, test, test-windows, test-macos]
+    needs: [rust-scope, secret-scan, fmt, clippy, test, test-windows, test-macos]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -631,10 +655,13 @@ jobs:
       group: tests-guard-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
-      - name: Fail when a required test check was skipped instead of executed
+      - name: Fail when a required test check was skipped or an upstream check is red
         env:
           SCOPE: ${{ needs.rust-scope.outputs.rust }}
           SCOPE_RESULT: ${{ needs.rust-scope.result }}
+          SECRET_SCAN: ${{ needs.secret-scan.result }}
+          FMT: ${{ needs.fmt.result }}
+          CLIPPY: ${{ needs.clippy.result }}
           LINUX: ${{ needs.test.result }}
           WINDOWS: ${{ needs.test-windows.result }}
           MACOS: ${{ needs.test-macos.result }}
@@ -642,11 +669,44 @@ jobs:
         run: |
           set -euo pipefail
 
+          # FIND-815: los upstream PRIMERO, y antes de la rama de skip. Un
+          # check que alimenta a las suites y esta rojo bloquea aunque
+          # `rust-scope` haya medido que no hay Rust que compilar.
+          upstream=""
+          for entry in "Secret Scan (gitleaks + secretlint)=${SECRET_SCAN:-unknown}" "Format Check=${FMT:-unknown}"; do
+            job="${entry%=*}"
+            case "${entry##*=}" in
+              success) echo "  ${job} -> success (upstream ok)" ;;
+              *) upstream="${upstream}${job} (${entry##*=}); "
+                 echo "::error::${job} reported '${entry##*=}' - it feeds the test suites, so this gate is red even when they are out of scope (FIND-815)" ;;
+            esac
+          done
+
+          # Clippy es el tercero, y el UNICO cuyo omitido puede ser legitimo:
+          # esta gateado por `rust-scope`. Se normaliza a `success` solo en ese
+          # caso; cualquier otro valor cae en el `*)` y es rojo.
+          clippy="${CLIPPY:-unknown}"
+          if [ "$clippy" = "skipped" ] && [ "${SCOPE:-}" = "false" ] && [ "${SCOPE_RESULT:-}" = "success" ]; then
+            clippy="success"
+            echo "  Clippy Lints -> skipped (rust-scope measured: nothing to compile)"
+          fi
+          case "$clippy" in
+            success) echo "  Clippy Lints -> success (upstream ok)" ;;
+            *) upstream="${upstream}Clippy Lints (${clippy}); "
+               echo "::error::Clippy Lints reported '${clippy}' - it feeds the test suites, so this gate is red even when they are out of scope (FIND-815)" ;;
+          esac
+
+          if [ -n "$upstream" ]; then
+            echo "::error::A check upstream of the test suites failed: ${upstream}fix it and re-run - do not merge"
+            exit 1
+          fi
+
           # Unico `skipped` legitimo: `rust-scope` MIDIO el diff (del PR o del
           # rango de push, FIND-807) y no
           # hay nada que el build Rust lea. No es una omision, es una decision
           # con evidencia; el job la registra y pasa. Fail-closed en el resto:
-          # scope roto o sin valor -> se exige ejecucion.
+          # scope roto o sin valor -> se exige ejecucion. Desde FIND-815 esta
+          # rama solo se alcanza con los tres upstream verdes.
           if [ "${SCOPE:-}" = "false" ] && [ "${SCOPE_RESULT:-}" = "success" ]; then
             echo "rust-scope measured the diff: not a Rust change -> the test suites are out of scope"
             exit 0
