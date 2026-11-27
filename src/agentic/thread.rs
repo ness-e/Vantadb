@@ -333,9 +333,9 @@ impl<'a> ThreadStore<'a> {
     /// **This re-arms the thread's TTL (FIND-800).** A message moves
     /// `_expires_at` to `now + _ttl_secs`, so the TTL is a window of
     /// *inactivity*: a thread with one message per hour and a one-hour TTL
-    /// never expires, while the same thread goes quiet for an hour does. That
-    /// is the intended semantics, not a leak — an absolute deadline would need
-    /// its own field.
+    /// never expires, while one that goes quiet for an hour does. That is the
+    /// intended semantics, not a leak — an absolute deadline would need its own
+    /// field.
     ///
     /// `gc` — optional, caller-owned [`GcWorker`], kept in sync with the new
     /// deadline. `Embedded` never supplies one (see the module docs).

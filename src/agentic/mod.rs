@@ -1,4 +1,4 @@
-//! Agentic chat: message threads with a lazily-evaluated TTL.
+//! Agentic chat: message threads with an explicitly-purged TTL.
 //!
 //! Provides [`MessageThread`], [`Message`], and [`ThreadStore`] for
 //! creating, reading, updating, and deleting agentic conversation threads.

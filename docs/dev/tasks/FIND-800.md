@@ -19,7 +19,8 @@ description: "El `GcWorker` estaba muerto en producción (`Embedded` pasa `gc = 
   `ThreadStore`, 3 líneas) · `src/gc.rs` (doc del módulo y de `register_ttl`/`sweep`) ·
   `src/sdk/builder.rs` (una línea de doc de `create_thread`; **ningún cambio de código**) ·
   `tests/message_thread_test.rs` (2 tests) · `docs/api/EMBEDDED_SDK.md` (§Threads: cabecera + 3 celdas
-  de tabla) · este fichero · `docs/dev/Backlog.md` (sólo mi fila) ·
+  de tabla) · este fichero · `docs/dev/Backlog.md` (sólo mi fila — la retiró un commit ajeno, así que
+  este commit **no** la incluye: se verificó con `-ExpectAbsent`) ·
   `docs/dev/avance/activo/core-engine.md`
 
 ## Impacto mapeado (Regla 0)
@@ -54,7 +55,7 @@ description: "El `GcWorker` estaba muerto en producción (`Embedded` pasa `gc = 
 | Afirmación de la fila | Verificación en `HEAD` (`cce353f10`) |
 |---|---|
 | `Embedded` siempre pasa `gc = None` | ✅ `src/sdk/builder.rs:374` (`create_thread`) y `:382` (`send_message`) — eran `:371`/`:379` antes de la corrección de doc de esta tarea |
-| `send_message` desliza el `expires_at` | ✅ `src/agentic/thread.rs:372-382`: `new_expires_at = now + ttl_secs` y `insert` del nodo |
+| `send_message` desliza el `expires_at` | ✅ `src/agentic/thread.rs:375-384`: `new_expires_at = now + ttl_secs` y `insert` del nodo |
 | `GcWorker` no se instancia en producción | ✅ **cero** en `src/` fuera de `gc.rs`: los `GcWorker::new` son 13 en `src/gc.rs` (bajo `#[cfg(test)]`) y 1 en `tests/storage/gc.rs` |
 | El doc dice «auto-expiry» | ✅ `src/sdk/builder.rs:361` («Pass `ttl_secs` for auto-expiry»), `docs/api/EMBEDDED_SDK.md:509`, `vantadb-mcp/src/threads.rs:32`. El tool MCP ya acota («purged later via `thread_purge_expired`»); el SDK no. |
 | Hay un mecanismo que sí ejecuta el TTL | ✅ `Embedded::purge_expired_threads` (`builder.rs:413`) → `ThreadStore::purge_expired_threads` (`thread.rs:449`), expuesto como tool MCP `thread_purge_expired`. **Nadie lo llama solo.** |
@@ -81,7 +82,7 @@ código, no por comodidad:
    incrementa `purged` (ver §NOTICED #4). `list` ya lo tolera (`cce353f10`), pero el blob del índice
    —que se re-serializa entero en cada `create`— acumula basura que sólo se limpia de rebote. Es
    exactamente el productor de ids colgantes que el pre-mortem señalaba.
-4. **El reloj del barrido no es inyectable.** `sweep` lee `web_time::SystemTime` (`gc.rs:61`), no el
+4. **El reloj del barrido no es inyectable.** `sweep` lee `web_time::SystemTime` (`gc.rs:67`), no el
    `Clock` del store. El test de TTL existente lo dice explícitamente: «`GcWorker::sweep` is
    intentionally not used: it reads wall time» (`tests/message_thread_test.rs:170`). Encenderlo
    pondría en producción un camino que ningún test puede controlar; el mecanismo actual
@@ -210,7 +211,7 @@ tocar** (ruta prohibida): ver §NOTICED BUT NOT TOUCHING (#1).
    automático, sólo usa la palabra. **Fila de docs pendiente** (`FIND-*`): el resto de superficies ya
    dice la verdad. No se creó la fila desde acá porque `.opencode/**` (donde vive el routing de
    hallazgos) está prohibido y otro carril está tocando `Backlog.md`.
-2. **El barrido del servidor no purga hilos.** `spawn_memory_ttl_sweeper` (`src/gc.rs:181-216`) corre
+2. **El barrido del servidor no purga hilos.** `spawn_memory_ttl_sweeper` (`src/gc.rs:187`) corre
    `db.purge_expired()` cada `ttl_sweep_interval_ms`, y `purge_expired` (`src/sdk/api/memory.rs:2791`)
    sólo barre **registros de memoria** (por `expires_at_ms` + índice escalar). Enganchar
    `purge_expired_threads()` ahí daría expiración automática en despliegues con `feature = "server"`
@@ -256,7 +257,7 @@ doc/expediente, **cero de código**; 5 Optional/Nits). Todos aplicados:
 | O3 | El parámetro `gc` sigue en la firma pública y ahora está documentado como no usado en producción | §NOTICED #5: retirarlo es breaking (semver), fila aparte |
 | O4 | El techo (e) atribuía el bloqueo a la Regla 8; el orden `index_lock → message_lock` es demostrablemente seguro | Reformulado: lo que falta es una **costura de test**; la seguridad del orden queda afirmada con la evidencia (`create`/`delete` sólo `index_lock`, `send_message` sólo `message_lock`) |
 | O5 | `gc.rs` usa `expiry <= now` y el purge `< now` | Nota en el doc de `sweep` para que nadie «armonice» uno solo |
-| N1-N5 | Citas desplazadas (`gc.rs:61` → `:67`, `gc.rs:29` → `:30`, `gc.rs:79` → `:85`, refs `thread.rs` en los tests), «14 hits» → 13 + 1, y «nada lo recicla» contradiciendo NOTICED #4 | Todos corregidos por barrido |
+| N1-N5 | Citas desplazadas (`gc.rs:67` → `:67`, `gc.rs:29` → `:30`, `gc.rs:79` → `:85`, refs `thread.rs` en los tests), «14 hits» → 13 + 1, y «nada lo recicla» contradiciendo NOTICED #4 | Todos corregidos por barrido |
 
 **Lo que el reviewer confirmó como correcto:** que el diff de `src/` es **sólo comentarios** (leyó
 cada línea añadida); que la salida (b) es la decisión adecuada y 4 de sus 5 razones son literalmente
@@ -264,3 +265,20 @@ verificables en el código; que los dos tests **fallan en ambas direcciones** (n
 y que declarar los techos —incluida la carrera no arreglada y la fila de MCP en ruta prohibida— es el
 estándar. Verificó por su cuenta la premisa con `rg "GcWorker::new"` (13 en `src/gc.rs`, 1 en
 `tests/storage/gc.rs`, **0** en producción) y corrió los dos tests nuevos: **2/2 PASS**.
+
+**P2-01, ronda 2 — `vanta-review`, contexto fresco: `approve`** (commit `16619fe0c`). 0 Critical,
+0 Required. Verificó el delta contra el commit, no contra este documento: leyó las 8 rutas
+completas y confirmó que **todas** las líneas añadidas en `src/` son comentarios; re-corrió
+`cargo nextest run --profile audit -p vantadb -E 'test(gc) or test(thread) or test(ttl) or test(expire)'
+--no-tests fail` → **45/45, 2969 skipped** (coincide al dígito); `cargo fmt --check` → 0;
+`cargo doc -p vantadb --no-deps --lib` → 0 warnings en los 4 ficheros del commit (los 2 avisos que
+salen son de `src/wal.rs:2201/2203`, ajeno) ⇒ **los intra-doc links nuevos resuelven**;
+`check-docs` → GATING all clear; `check-links` → 0 broken; `git show 16619fe0c:docs/dev/Backlog.md`
+→ sin fila propia (la retiró otro carril); `rg -c "^### FIND-800"` en el avance → **1**, sin
+duplicado. **No pudo re-verificar `clippy`** porque el árbol estaba roto por terceros en el minuto
+del intento (`src/migration.rs:170,188`, `src/cli_handlers/backup.rs:469`, ninguno del commit) —
+declarado en vez de escrito como ✅; el mismo lib compiló y pasó 45/45 cinco minutos antes. Residual
+aplicado tras el veredicto (no bloqueaba): `src/agentic/mod.rs:1` pasa de «lazily-evaluated TTL» a
+**«explicitly-purged TTL»** (el término «lazy» era el de la alternativa **descartada**), se corrige
+la concordancia en el doc de `send_message`, y se realinean tres citas (`gc.rs:67`, `gc.rs:187`,
+`thread.rs:375-384`).

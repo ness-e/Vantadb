@@ -265,7 +265,7 @@ fn expired_thread_is_readable_until_the_explicit_purge_runs() {
 }
 
 /// El TTL es una ventana de **inactividad**: cada `send_message` re-arma el deadline con la
-/// duración original (`thread.rs:372-382`). Un hilo con conversación activa nunca caduca; uno
+/// duración original (`thread.rs:375-384`). Un hilo con conversación activa nunca caduca; uno
 /// sin actividad sí. Está declarado en el doc de `send_message` — este test lo fija.
 #[test]
 fn send_message_re_arms_the_ttl_so_an_active_thread_never_expires() {
