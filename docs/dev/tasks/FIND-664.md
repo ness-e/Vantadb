@@ -166,7 +166,7 @@ $ shellcheck scripts/{download_benchmark_datasets,verify_datasets}.sh  exit 0
 
 - `AGENTS.md` Regla 2 afirma «existen 8 instancias» de `continue-on-error: true`; el
   conteo real es 40 (39 tras quitar el job-level de `bench-informational`). Registrado
-  como `FIND-823`.
+  como `FIND-825`.
 - `dev-tools/scripts/download_sift.py` sigue en el árbol marcado DEPRECATED, atrapando
   su excepción y saliendo 0. Ya nadie lo invoca; borrarlo es de `dev-tools/**`.
   Registrado como `FIND-824`.
