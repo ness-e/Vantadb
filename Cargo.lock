@@ -2735,6 +2735,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lru"
+version = "0.19.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4e2a1b977b42ee8b53a2a4adbd1183431c493f1d1960b7ccd893e2f0b9407ba"
+dependencies = [
+ "hashbrown 0.17.1",
+]
+
+[[package]]
 name = "lru-slab"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3941,7 +3950,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "itertools 0.14.0",
  "kasuari",
- "lru",
+ "lru 0.18.5",
  "palette",
  "serde",
  "strum",
@@ -4755,7 +4764,7 @@ dependencies = [
  "itertools 0.14.0",
  "levenshtein_automata",
  "log",
- "lru",
+ "lru 0.18.5",
  "measure_time",
  "once_cell",
  "oneshot",
@@ -5729,7 +5738,7 @@ dependencies = [
  "insta",
  "jiff",
  "libc",
- "lru",
+ "lru 0.19.2",
  "mach2",
  "memmap2",
  "mimalloc",
@@ -5856,7 +5865,7 @@ name = "vantadb_py"
 version = "0.9.0"
 dependencies = [
  "jiff",
- "lru",
+ "lru 0.19.2",
  "pyo3",
  "rayon",
  "serde_json",
