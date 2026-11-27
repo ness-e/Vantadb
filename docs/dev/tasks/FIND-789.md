@@ -1,7 +1,7 @@
 ---
 title: "FIND-789: el gate de artefactos no fallaba por los artefactos, sino por cómo los pedía"
 kind: task
-status: active
+status: completed
 description: "Los dos jobs rojos fallaban por su invocación, no por artefactos ausentes: `@('-Smoke')` se enlazaba posicionalmente a `[string]$Tag` (`FAIL invalid tag '-Smoke'`) y el job del tarball llamaba `gh release list` sin checkout (`fatal: not a git repository`). Arreglado con splatting por nombre y `-R`; sobre v0.9.0 el gate da ALL GREEN."
 ---
 
@@ -136,7 +136,7 @@ Sin `continue-on-error`, sin `|| true`, sin borrar ningún job, sin tocar el umb
 
 ## Review
 
-**P2-01 · `vanta-review`, contexto fresco — ronda 1 y ronda 2 (2026-11-26).** El revisor no participó en el cambio.
+**P2-01 · `vanta-review`, contexto fresco — cuatro rondas (2026-11-26).** El revisor no participó en el cambio. **Ronda 1: 🔴 `changes-required`** (el cambio técnico aprueba, el cierre no) · **Ronda 2: 🔴 `changes-required`** (8 de 9 cerrados, H1 abierto por un commit que retiró la fila de otro carril) · **Ronda 3: 🔴 `changes-required`** (5 de 6; el bloqueante era una afirmación falsa heredada del orquestador: "fila restaurada verbatim") · **Ronda 4: ✅ `approve`** (6/6 en el árbol sobre `8dc536de7`).
 
 **Veredicto de la ronda 1: 🔴 `changes-required`** — el cambio **técnico** aprueba, el **cierre** no. **Veredicto de la ronda 2: 🔴 `changes-required`** — 8 de 9 hallazgos cerrados, **H1 abierto por culpa de mi commit** (abajo). Lo que sigue es del revisor, no del autor; este fichero **no se marca `completed`**: espera **ronda 3** o **aceptación explícita del owner**.
 
@@ -193,3 +193,11 @@ Mi commit de retiro de fila es **por path**, así que horneó también la elimin
 - **`docs/dev/workflow/PUBLISH.md`** sigue anunciando que el workflow "también corre semanalmente contra `releases/latest`" y "los 2 assets binarios": las dos cosas son falsas con este cambio (14 assets, dispatch-only desde `bbd380ea0`). Fuera de mi lista de escritura → queda como fila `FIND-*` para quien tenga ese fichero.
 - **El cron sigue activo en `main`** y sólo se desactiva con el merge `develop → main` (owner, Regla 7). Hasta entonces el lunes rojo es esperado y ya no es un misterio: es la copia vieja del fichero.
 - **`Ver: … FIND-789` colgante en la fila `FIND-790` (`Backlog.md`) — decisión: se queda, y se declara acá, no sólo en `ci-cd.md`.** Los dos caminos eran quitarlo o justificarlo; se justifica porque (a) `Ver:` es una relación informativa hacia un ID **sin fila en el Backlog**, no un enlace que resuelva a un fichero, así que no se rompe nada, y (b) el `Backlog.md` es justo el fichero caliente que en esta misma tarea ya horneó hunks ajenos dos veces (`6e4119c8d` arrastró el retiro de `FIND-775`, `d15564b06` el de `FIND-788`, reparado en `43b8a7006`): editarlo por un `Ver:` cosmético es exactamente el riesgo que no se justifica. **Quien cierre `FIND-790` lo actualiza en su propio commit**, que es donde la fila se toca de todos modos.
+
+### Ronda 4 — ✅ `approve` (cierre)
+
+Revisor con contexto fresco, verificando **por bytes** y no por la salida de PowerShell. 6/6 puntos: la frase falsa desapareció y la cadena `43b8a7006` → `560ff7e8a` → `932f8137d` quedó auditable salto por salto; `ci-cd.md` corregido en una línea (numstat `1/1`); el `Ver:` justificado como "ID **sin fila en el Backlog**"; el commit `8dc536de7` con 3 hunks, todos propios; **0 mojibake nuevo** (la única secuencia en `ci-cd.md:481` es de `db6ad7f79a`, 8 h antes); `status: active` honesto.
+
+**Nits anotados, no bloquean:** (a) las menciones están en `:892`/`:904`, no `:893`/`:905` — off-by-one de cita, no de contenido; (b) `1396 chars` son **unidades UTF-16** (en code points, 1392 — que es justamente lo que reporta PowerShell, la herramienta que la frase dice no haber usado); el número que sostiene el argumento son los **bytes: 1428 vs 1519**. **No "arreglar" 1396 a 1392**: rompería la simetría con la fila de 1428 bytes.
+
+**Veredicto final: `approve`.** Con esto la fila se cierra. Queda del lado del owner: el **push** (Regla 7) y, tras el merge a `main`, la prueba de campo `gh workflow run release-verify.yml -f tag=v0.9.0`.
