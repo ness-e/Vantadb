@@ -74,3 +74,20 @@ tags: [pipeline, backlog, waves]
 - **`docs/pipeline-state.json` está obsoleto** (última escritura 2026-11-24, con 4 `running` muertos). No se usa como fuente: la verdad es el Backlog + git.
 - Esfuerzos del Backlog **no re-medidos**: si una tarea se sale del appetite, se reporta y se parte — no se estira ni se abandona.
 - **`FIND-607` son 18 hallazgos** en un solo ID: se parte en sub-tareas antes de ejecutar, o el cierre mentirá sobre lo hecho.
+
+## Residual incorporado (2026-11-26): 15 filas abiertas que no estaban en el plan
+
+El owner detectó que **15 filas abiertas no figuraban en el plan**: todas nacieron de esta sesión
+(derivadas de cierres) y se quedaron fuera al crearlo. **Regla: toda fila abierta va en el plan**, o no se ejecuta nunca.
+
+| Wave | Filas | Zona / partición |
+|---|---|---|
+| **W10** | `FIND-787` · `FIND-789` · `FIND-788` · `FIND-791` | `.github/workflows/**` (una por fichero) + `dev-tools/` + Backlog |
+| **W11** | `FIND-782` · `FIND-783` | `vantadb-mcp/src/proxy.rs` · `vanta-memory/src/services/scheduler.rs` + `vantadb-mcp/src/threads.rs` |
+| **W12** | `FIND-774` · `FIND-775` · `FIND-777` · `FIND-781` | `.opencode/task-system/mcp/**` (parser y campaign) + `.opencode/` prompts |
+| **W13** | `FIND-772` · `FIND-773` · `FIND-779` · `FIND-790` | `vanta-memory/src/core/**` · `src/sdk/api/graph.rs` · `dev-tools/check-harness-contract.mjs` |
+| **W14** | `FIND-737` | `.github/workflows/ci-rust.yml` (lane TSan) + `-Zbuild-std` |
+
+**Partición:** un agente por wave; dentro de una wave, ficheros disjuntos. Las waves 10-13 son
+**disjuntas entre sí**, así que pueden correr en paralelo hasta el cupo de recursos
+(2 Rust compilando · 1 agente por fichero de workflow · disco).
