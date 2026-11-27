@@ -166,11 +166,16 @@ esperado. El commit es bueno; lo que fallo fue mi string de expectativa.
 
 ## Review (GATE — agente distinto, P2-01)
 
-> Primera ronda: **🔴 changes-required**. Segunda ronda tras aplicar las
-> correcciones: **✅ approve**.
+> Primera ronda: **🔴 changes-required**. Ronda de cierre tras aplicar las
+> correcciones: **✅ approve** (confirmado por el revisor, no autoproclamado).
+>
+> Unchecked by whoever runs next: el veredicto lo emite el revisor; este bloque
+> se **pre-redactó** por el implementador y quedó pendiente de confirmación hasta
+> la ronda 2. Si el revisor hubiera rechazado, el artefacto habría mentido — es
+> exactamente el defecto que P2-01 existe para prevenir (clase `FIND-118`).
 
-- **Revisor:** `vanta-review` (contexto fresco, sesión `ses_de2511210ffedDaZECcpAQZHzf`; nunca la misma sesión del implementador).
-- **Premisa (H-07):** **confirmada** — el revisor re-ejecutó por su cuenta la medición que sostiene la fila: `rg -n '\.agents[/\\]skills[/\\]progreso' .opencode` → **0 matches (exit 1)**, y `Get-FileHash` de ambos `SKILL.md` → `7954B937…31FC48` idéntico. También re-corrió `build-skills-index.mjs` para probar que el índice es reproducible (solo cambió `generated`) y verificó el `sha1(content)[0:12]` del campo `hash`.
+- **Revisor:** `vanta-review` (contexto fresco, sesión `ses_de2511210ffedDaZECcpAQZHzf`; nunca la misma sesión del implementador — verificado: coincide con su `OPENCODE_SESSION_ID`).
+- **Premisa (H-07):** **confirmada en el código fuente** — `SKILL.md:133-134` (los task files quedan `STALE` por diseño tras archivar el plan) y `:149-151` (política de commit: `Standalone: no commit`). Esas son las dos afirmaciones de la fila, y ambas se leen tal cual. **El conteo "4 veces" sigue sin comando reproducible** (ver §Premisa de la fila). El Δ del fix (`rg` → 0, hashes idénticos) se verificó **aparte** y no es evidencia de la premisa: probaba el remedio, no la enfermedad.
 - **Enfoque:** correcto, y con la alternativa evaluada —el revisor consideró symlinkar `.opencode/skills/progreso` → global y lo **rechazó con razón** (no versiona, rompe por máquina). Vendorizar + junction `.agents/skills` preserva un único punto de edición.
 - **Cómo se probó:** hashes SHA-256 de ambas copias; `Test-Path` del enlace relativo en las dos ubicaciones (`False` → `True`); `rg` del path de fuera en `.opencode` y `docs`; `git diff --numstat` del Backlog (6/0) + bytes sin BOM/CRLF ni caracteres de reemplazo; diff semántico del índice (`322 = 322`, deep-changed = `['progreso']`); y los dos scripts del Trigger 1.F (exit 0 ambos).
 - **Checklist anti-hábitos tóxicos:**
@@ -188,11 +193,11 @@ esperado. El commit es bueno; lo que fallo fue mi string de expectativa.
 |---|---|---|
 | M4 | Enumeraciones "solo 3 custom" obsoletas dentro de `.opencode/` | **Corregidas las de `SKILLS-MANIFEST.md`** (L3, L10, L604 — dentro del scope de escritura). Las de `task-system/prompts/*.md` y `references/skills-engineering.md` quedan **NOTICED BUT NOT TOUCHING**: fuera del scope declarado por el owner; sin rotura funcional porque la junction hace que la tabla siga aterrizando en la copia del proyecto. |
 | M5 | Contrato completo de la fila no entregado | Nombrado arriba: detector ya existe (`check-closure.ps1 -All`); remanente → `H3-08`. |
-| M6 | Nada detecta drift entre la copia del proyecto y la global | **Mitigado sin código**: comando de verificación de drift documentado en `.opencode/skills/INDEX.md`. Un assert automático en `build-skills-index.mjs` queda como deuda (fuera de scope). |
+| M6 | Nada detecta drift entre la copia del proyecto y la global | **Mitigado sin código**: check de drift **genérico** (recorre todas las skills del proyecto, no hardcodea la vendorizada) en `.opencode/skills/INDEX.md` — ejecutado y verificado: `progreso same=True`, y `impeccable`/`vantadb`/`vantadb-mcp` `same=False` (esperado: son custom a propósito). Un assert automático en `build-skills-index.mjs` queda como deuda (fuera de scope). |
 | M7 | `status: stable` en una tarea que cierra | Aceptado: el gate lee `**Estado:**`, no el frontmatter; vocabulario dominante respetado en el campo que sí se lee. |
 | L1 | Nit de legibilidad `9561`:1 | Corregido a `skills-index.json:9561`. |
 
-- **Commits:** `.opencode` `a840490` · VantaDB: este mismo commit.
+- **Commits:** `.opencode` `a840490` (vendorización) + `9403fd9` (drift check genérico — corrección del review) · VantaDB: `ceb080dc7` (cierre) + **este** commit (correcciones del review).
 
 ## Invariantes
 
