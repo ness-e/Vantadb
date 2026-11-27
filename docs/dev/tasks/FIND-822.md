@@ -96,7 +96,7 @@ node dev-tools/check-harness-contract.mjs --self-test          → 89/89
 
 ## Deuda declarada
 
-- **`docs/index.md` desactualizado:** `node scripts/docs/gen-index.mjs --check` ya fallaba en `HEAD` (1 hunk ajeno) y mi task file añade 7 (2 filas + alineación). `gen-index --write` está **fuera del alcance de esta tarea** por contrato: regenerarlo absorbe los `docs/**` pendientes de otros carriles y hornea una copia stale — la misma clase que `FIND-813`. Lo regenera quien cierre el árbol limpio.
+- **`docs/index.md` desactualizado:** `node scripts/docs/gen-index.mjs --check` falla con **8 hunks y +2 documentos** (904 → 906): uno es **este** task file y el otro un task file **ajeno** todavía sin commitear; el resto es deriva de descripciones y de alineación de otros carriles (ya fallaba antes de esta tarea). `gen-index --write` está **fuera del alcance** por contrato: regenerarlo absorbe los `docs/**` pendientes de otros carriles y hornea una copia stale — la misma clase que `FIND-813`. Lo regenera quien cierre el árbol limpio.
 - **El filtro compara contra el worktree, no contra `git show HEAD:`.** Correcto para `-Diff` (mide lo que se va a commitear) y para `-Audit` (base `origin/develop`), pero una fila retirada y reintroducida en el mismo commit no se distingue de una fila viva.
 - **`Test-AvanceHasId` es una mención textual** en `avance/`: nombrar una fila ajena retirada la absolvería. Por eso la entrada de avance de esta tarea no enumera IDs ajenos (los cinco falsos positivos viven en este task file, que no se escanea).
 
