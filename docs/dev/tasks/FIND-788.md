@@ -269,15 +269,28 @@ workflow. El hook de pre-commit corre sus gates de YAML.
 
 **Y una advertencia de árbol compartido, porque el alcance real del commit no es el que se planeó.**
 Cuatro carriles estaban escribiendo `docs/dev/Backlog.md` y `docs/dev/avance/activo/ci-cd.md`
-mientras esto se hacía. Resultado, verificado con `git log -S` y con el diff de filas
-(`HEAD~3` → `HEAD`): la **fila `FIND-788` ya salió del Backlog** en `d15564b06` (commit del carril de
-`FIND-789`, que arrastró una escritura mía en su snapshot) y **la sección de este ticket en
-`ci-cd.md` ya está commiteada** en `6e4119c8d`, con un mensaje que no la nombra. Las filas vecinas
-(`FIND-781/782/783/787/790/791`) siguen todas ahí: nadie perdió una fila. Por eso este commit **no**
-toca el Backlog (no hay nada que retirar: `git diff` vacío) y de `ci-cd.md` lleva sólo las dos líneas
-que corregí después. Es la clase de incidente de `FIND-768`/`FIND-753`, con el desenlace bueno:
-el trabajo sobrevivió, la atribución no. `-ExpectAbsent 'docs/dev/Backlog.md::| \`FIND-788\` |'` lo
-prueba en el commit.
+mientras esto se hacía, y la fila del Backlog de esta tarea hizo **tres viajes**:
+
+| Commit | Qué le pasó a la fila `FIND-788` |
+|---|---|
+| `d15564b06` | salió del Backlog dentro del commit del carril de `FIND-789`, que arrastró una escritura mía en su snapshot |
+| `43b8a7006` | **volvió** — el carril de `FIND-792` la restauró al detectar la desaparición (`FIND-792` es justo esa clase: un commit path-scoped retira la fila de otro carril) |
+| `932f8137d` | **retirada por su dueño**, en un commit que toca **sólo** `docs/dev/Backlog.md`, con `-ExpectAbsent` de esta fila y `-ExpectPresent` de las siete vecinas (`781/783/787/790/791/792/793`) |
+
+**Y la sección de este ticket en `ci-cd.md` ya estaba commiteada** en `6e4119c8d` (mismo accidente,
+mensaje que no la nombra); el commit `560ff7e8a` lleva sólo las cuatro líneas que corregí después.
+Resultado neto: **nadie perdió una fila** (`FIND-792` la recuperó a tiempo) y la retirada final es
+atribuible.
+
+**Un hallazgo que este carril se hizo a sí mismo, y que se declara en vez de esconderse:** el primer
+intento de retirar la fila se construyó con `(git show HEAD:…)` **dentro de PowerShell**; el pipe
+re-codifica el texto con la página de códigos de la consola y convirtió el fichero entero en mojibake
+(`514/516` líneas cambiadas, `🟠` → `≡ƒƒá`). Se detectó con `git diff --numstat` **antes de
+commitear**, se revirtió con `git checkout --` y se rehizo con `[IO.File]::ReadAllText(…, UTF8)` +
+`WriteAllText(…, UTF8-sin-BOM)` sobre el fichero en disco: `0 2`. El `≡ƒƒá` de la fila restaurada por
+`43b8a7006` es la misma trampa del otro lado — **la restauración de `FIND-792` metió el emoji
+mangleado**. Es materia de `FIND-793` ("el helper da falso negativo con expectativas acentuadas"),
+que ya está registrada: no se abre fila nueva.
 
 ## Lo que NO se puede verificar (y por qué)
 
@@ -352,16 +365,22 @@ cerraron con medición nueva, no con una promesa, y los Medium/Low son de regist
 
 ## Cierre
 
-- **Commit:** local, por `dev-tools/git-commit-isolated.ps1` (índice privado + verificación por
-  contenido), sin `--amend` y sin push (Regla 7). Rutas: `.github/workflows/certification.yml`,
-  `docs/dev/tasks/FIND-788.md`, `docs/dev/avance/activo/ci-cd.md`. **El Backlog no entra**: la fila
-  ya salió en `d15564b06` (ver §Higiene), y `-ExpectAbsent 'docs/dev/Backlog.md::| \`FIND-788\` |'`
-  lo verifica contra `HEAD` en vez de darlo por hecho.
+- **Commits (locales, sin `--amend` y sin push — Regla 7), por `dev-tools/git-commit-isolated.ps1`
+  (índice privado + verificación por contenido):**
+  - `560ff7e8a` — `fix(ci): count certification tests from JSON, not from the presentation (FIND-788)`:
+    `.github/workflows/certification.yml`, `docs/dev/tasks/FIND-788.md`, `docs/dev/avance/activo/ci-cd.md`
+    (4 líneas de corrección; la sección grande ya viajaba en `6e4119c8d`, ajeno).
+  - `932f8137d` — `docs(backlog): retire the FIND-788 row (closed by 560ff7e8a)`: **sólo**
+    `docs/dev/Backlog.md`, con `-ExpectAbsent` de esta fila y `-ExpectPresent` de las siete vecinas
+    (`781/783/787/790/791/792/793`) → 8/8 verificadas. Se hizo en un commit aparte porque la fila
+    había vuelto en `43b8a7006` después de que `560ff7e8a` se creara.
 - **`gen-index.mjs` no se corre**: lo prohíbe el contrato de la tarea; lo regenera la ola.
-- **Fila del Backlog:** retirada (por otro carril, declarado). **`docs/dev/avance/activo/ci-cd.md`:**
-  sección escrita; viaja parte en `6e4119c8d` y parte en este commit.
+- **Fila del Backlog:** retirada en `932f8137d` (§Higiene cuenta los tres viajes). **`ci-cd.md`:**
+  sección escrita, parcialmente en `6e4119c8d` y parcialmente en `560ff7e8a`.
 - **Learnings:** contador de población en CI = leer el formato máquina, nunca la presentación; y un
-  gate cuya **medición** falla no puede apagar la lane — se distingue el estado y se sigue.
+  gate cuya **medición** falla no puede apagar la lane — se distingue el estado y se sigue. Tercero,
+  de este árbol: **nunca** construir contenido de `docs/` desde `(git show …)` en PowerShell — se
+  re-codifica y manglea el fichero entero.
 - **Deuda / siguiente:** fijar la versión de `nextest` en `rust-setup` (hoy sin pin, y
-  `--message-format` depende de ella); los otros 12 usos de `test-count` en el repo como si fuera
+  `--message-format` depende de ella); los otros usos de `test-count` en el repo como si fuera
   población; y `CARGO_TERM_COLOR: always` tiñendo todo el log de la lane.
