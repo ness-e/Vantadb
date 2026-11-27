@@ -121,6 +121,35 @@ impl Embedded {
         self.check_read_only()?;
         crate::metrics::record_graph_op("add_edge");
         let engine = self.engine_handle()?;
+        // FIND-773: `get` → `push` → `insert` is a read-modify-write of the
+        // node's **whole** edge list. The engine's `insert_lock` only
+        // serializes the individual write, so two writers both read the same
+        // list and the last `insert` wins — the loser's edge vanishes with no
+        // error, indistinguishable from an edge nobody created (measured:
+        // 636 of 800 edges lost with 8 concurrent writers).
+        //
+        // Same idiom as `insert_one_internal`/`put_batch_inner`/`delete_inner`
+        // (the other read-modify-writes on this handle): the engine-owned
+        // `purge_lock` **write** guard spans the entire sequence, both halves
+        // included; it is shared by every `Embedded` wrapper over the same
+        // engine (`from_engine`, FIND-651), so two PyO3/WASM/MCP handles
+        // cannot race each other either.
+        //
+        // ponytail: one handle-wide write lock instead of a per-node lock —
+        // an edge touches TWO nodes, so per-node locks need a total order or
+        // they deadlock on A→B racing B→A. Ceiling: edge writes now serialize
+        // against the other SDK read-modify-writes on this handle (they did
+        // already contend on the engine's `insert_lock`). Escape hatch if
+        // write throughput ever demands it: a striped lock keyed by the
+        // ordered `(min(src,dst), max(src,dst))` pair.
+        //
+        // Not covered here: `remove_edge`/`ensure_edge` reach the same
+        // read-modify-write but are called *from inside* the guard above
+        // (`memory.rs:1259,1262,1697,1700`), so they cannot take it again — a
+        // non-reentrant `RwLock` would deadlock. Closing those needs the
+        // locked/unlocked split this module already uses
+        // (`resolve_existing_for_write{,_locked}`) at their call sites.
+        let _write_guard = self.purge_lock.write();
         let label_id = engine.intern_label(label);
         let w = weight.unwrap_or(1.0);
         // Both the forward and reverse edge share the same logical creation time.
