@@ -2,7 +2,7 @@
 title: "FIND-794: ningún `-E` de nextest puede ejecutarse sin una aserción de población"
 kind: task
 status: completed
-description: "Un filtro `-E` que no selecciona nada no cambia el color del gate: el contrato de FIND-782 declaraba `test(find782)` y medía 0 tests. Se fija `--no-tests fail` en las 4 invocaciones de dev-tools (CI ya lo lleva en las 8 suyas) y un check estático que impide añadir un `-E` sin él, más la existencia de cada `test(<nombre>)` positivo."
+description: "Un filtro `-E` que no selecciona nada no cambia el color del gate: el contrato de FIND-782 declaraba `test(find782)` y medía 0 tests. Se fija `--no-tests fail` en las 4 invocaciones de dev-tools (CI ya lo lleva en las suyas) y un check estático que impide añadir un `-E` sin él, más la existencia de cada `test(<nombre>)` positivo."
 ---
 
 # FIND-794: la selección vacía no cambia el color
