@@ -151,6 +151,10 @@
   path — the identity form: `git rev-parse <commit>:<path>` must equal `<oid>`.
   Usable as `-ExpectBlob "docs/x.md::$((git hash-object docs/x.md))"`, which
   asserts the committed bytes are the worktree bytes. Repeatable.
+  On `docs/dev/Backlog.md` a blob oid pins the whole file but declares NO row:
+  hashing the working copy carries whatever another lane wrote into it, so the
+  find-792 guard still needs the rows named by `-ExpectAbsent` (or
+  `-AllowForeignRows` for a deliberate multi-row cleanup).
 
 .PARAMETER AllowForeignRows
   Opt-in escape for FIND-792: allow the commit to remove Backlog rows whose ID
