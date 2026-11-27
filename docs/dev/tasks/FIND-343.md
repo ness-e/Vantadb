@@ -2,7 +2,7 @@
 title: "FIND-343: borrado fisico incompleto (WAL + journal Fjall) - ya estaba implementado, medido"
 kind: task
 status: in-progress
-description: "La fila daba la mitad LSM por imposible. Medido en HEAD: el canario del flujo completo (put/delete/vacuum/merge/compact_wal/flush/close) NO aparece en ningun byte del directorio de datos y el test corre sin #[ignore]. El mecanismo existe: sustitucion por Delete{id} sin payload en el WAL (conteo y estado intactos) y reescritura atomica de keyspaces del backend. Cierra por medicion, sin codigo nuevo."
+description: "La fila daba la mitad LSM por imposible. Medido en HEAD: el canario del flujo completo (put/delete/vacuum/merge/compact_wal/flush/close) NO aparece en ningun byte del directorio de datos y el test corre sin #[ignore]. El mecanismo existe: sustitucion por Delete{id} sin payload en el WAL y reescritura atomica de keyspaces del backend. Cierra por medicion, sin codigo."
 ---
 
 # FIND-343: borrado físico — cerrada por medición
