@@ -77,7 +77,7 @@ Tier **Fast** (paths: `vanta-memory/src/**`, `vantadb-server/src/**`, `docs/dev/
 
 | Campo | Valor |
 |---|---|
-| Reviewer | `vanta-review` (contexto fresco, sesión `ses_de3842ee…`; re-ejecutó el contrato por su cuenta) |
+| Reviewer | `vanta-review` (contexto fresco, agente distinto del autor; ronda 2 en la misma sesión, verificando el **blob** de `ddf64df2c`, no el worktree) |
 | Ronda | 1 |
 | Veredicto ronda 1 | 🔴 **CAMBIOS REQUERIDOS** — 1 Blocking, 1 High, 2 Medium, 3 Low |
 | Código | ✅ aprobado por el reviewer: movimiento byte-idéntico, re-export cubre a todos los lectores reales, server de verdad en 0 read sites, gate de población respetado |
@@ -86,6 +86,7 @@ Tier **Fast** (paths: `vanta-memory/src/**`, `vantadb-server/src/**`, `docs/dev/
 | Resolución M2 | El doc afirmaba "the single read site" árbol-wide cuando hoy hay 2 (el del `--mcp` es `WIRE-23`) → acotado a "in this crate", con el pendiente nombrado. Era la misma clase de invariante falso que la tarea nació a corregir |
 | Resolución M1 | **No es defecto de esta implementación** (el ADR fija `None = unset` y `parse_interval_ms` se mueve verbatim); lo que queda roto es la fila `WIRE-23`, que promete basura→5 000 y un test "sin tocar". Declarado como deuda de esa fila, sin cambio de semántica acá |
 | Resolución L1 | `"por encima del primer #[cfg]"` era falso al pie de la letra (el primer `#[cfg]` gatea un `use`) → reformulado a **ungated**, que es la propiedad que importa y está probada con `--no-default-features` |
+| Veredicto ronda 2 | ✅ **APPROVE** — sin Blocking ni High abiertos. Verificó sobre el blob de `ddf64df2c` (worktree == commit): `0 1` en `Backlog.md` con la fila de `WIRE-20` borrada y ninguna ajena, `vantadb/src` en 0 citas (los únicos hits son los enunciados de prohibición), "in this crate" en los dos docs de read site, población 35 → `run` 35/35, `--no-default-features` ✅, `--all-targets` ✅, clippy `-D warnings` ✅, `fmt --check` ✅ |
 | Pendiente para el orchestrator (L2/L3) | (a) `WIRE-19`/`WIRE-22` conservan premisa stale ("el bloque sigue en el server", "borrar las definiciones") — hay que actualizarlas antes de despacharlas; (b) `_opt` se re-exporta **sin consumidor que lo nombre**: el test de superficie de `WIRE-22` debe incluirlo o un tidy-up lo borra en silencio; (c) `CONFIGURATION.md:136` ya no es cierta, y es de `WIRE-22` |
 
 ## Resultado
