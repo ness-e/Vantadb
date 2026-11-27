@@ -8,10 +8,27 @@ title = "VantaDB Gitleaks Configuration"
 useDefault = true
 
 [allowlist]
-description = "Global allowlist para tests sintéticos, fixtures, documentación y artefactos de compilación"
+description = "Global allowlist para documentación y artefactos de compilación"
 paths = [
-    '''(^|/)tests/''',
-    '''(^|/)evals/fixtures/''',
+    # FIND-814 (2026-11-27): `tests/` estaba allowlisteado como DIRECTORIO ENTERO,
+    # asi que un secreto real dentro de `tests/` era invisible para `Secret Scan`.
+    # Medido con gitleaks 8.24.3 (la version del job, no la ultima):
+    #   $ echo 'AKIAZ7Q2XK4M9PLR3TUV' > tests/__gl_probe.txt
+    #   $ gitleaks dir tests --config .gitleaks.toml   -> "no leaks found", exit 0
+    # La misma credencial, con este allowlist retirado -> 1 leak, exit 1.
+    # (La forma `AKIAIOSFODNN7EXAMPLE` NO sirve como prueba: `EXAMPLE` es stopword
+    # del config por defecto y no dispara ni con el allowlist quitado.)
+    #
+    # Mecanismo que lo reemplaza, y el unico admitido para un fixture que necesite
+    # una credencial con forma real:
+    #   1. por LINEA: terminarla con `gitleaks:allow` - explicito y auditable,
+    #      viaja con el dato y no silencia nada mas:
+    #         const FAKE = "AKIAZ7Q2XK4M9PLR3TUV"  # gitleaks:allow
+    #   2. por FICHERO: una `[[rules.allowlists]]` o un `[allowlist]` acotado al
+    #      path exacto, con el motivo escrito al lado.
+    # PROHIBIDO volver a allowlistear un directorio completo: es lo que este
+    # cambio retira (misma clase que el `docs/` de FIND-786, que sigue declarado
+    # abajo como deuda).
     '''(^|/)docs/''',
     '''(^|/)scripts/docs/''',
     '''(^|/)target/''',
@@ -58,6 +75,21 @@ paths = [
 # (comentarios doc y claves i18n), no patrones de secreto.
 regexTarget = "line"
 regexes = [
+    # FIND-814: fixture SINTETICA de `tests/security/security_audit.rs:123`
+    # (`let valid_key = "vanta-secret-key-2024";`), la credencial falsa contra la
+    # que se prueba el `ConstantTimeEq` del middleware. No es un secreto: se
+    # silencia por HUELLA (la linea exacta), no por fichero ni por directorio,
+    # para que cualquier otra credencial que entre en ESE MISMO fichero siga
+    # disparando. Preferencia para fixtures futuros: `gitleaks:allow` al final de
+    # la linea, que viaja con el dato y no necesita tocar este fichero.
+    '''let valid_key = "vanta-secret-key-2024"''',
+    # FIND-814: fixture SINTETICA de `vanta-proxy/tests/prx07_redact.rs:57`
+    # (`"ghp_0123456789abcdef0123456789abcdef0123"`), uno de los dos tokens
+    # falsos contra los que se prueba que el `Redactor` los enmascara. Huella de
+    # LINEA, no de fichero: el resto de ese test sigue escaneado. Unico hallazgo
+    # real que aparecio al retirar el allowlist de directorio - medido en los
+    # 8728 commits del historial, 6 hits = las 6 versiones del mismo fichero.
+    '''"ghp_0123456789abcdef0123456789abcdef0123"''',
     # Falso positivo de `generic-api-key` sobre el keyword `auth` en un comentario
     # doc presente en `src/server/routing.rs:5` y embebido en `scripts/build_routing.ps1:73`
     # ("//! auth middleware, OTEL/tracing setup, TLS handshake, the bootstrap loop...").
