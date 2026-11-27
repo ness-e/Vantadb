@@ -123,7 +123,7 @@ cobertura de CI y el agregado de `default`.
 | 3 | Crear este task file con impacto mapeado y spec | ✅ |
 | 4 | Editar `docs/dev/architecture/FEATURES.md`: fuentes, fila `default`, 4 status marks, `python_sdk`, citas de workflow, §CI | ✅ |
 | 5 | Verify mecánico: `check-docs.mjs` · `check-links.mjs` · `rg ci-rust-10` en 0 · lista de flags == `Cargo.toml:156` | ✅ |
-| 6 | OCR review + review P2-01 (ronda 1 → 1-bis → 2-bis → 3-bis) | ✅ |
+| 6 | OCR review + review P2-01 (rondas 1 → 4-bis) | ✅ |
 | 7 | Cierre: fila del Backlog, entrada en `docs/dev/avance/activo/docs.md`, commit con índice aislado | ✅ |
 
 ## Verify (contrato mecánico)
@@ -149,7 +149,8 @@ file, `docs/dev/avance/activo/docs.md`). Sin `docs/api/**`, sin `src/**`, sin pl
 | **Veredicto ronda 1** | 🔴 **changes-required** — 3 Blocking, 4 Medium, 4 Low |
 | **Veredicto ronda 1-bis** | 🔴 **changes-required** — B1/B2/B3/M1/M3 cerrados; **1 Blocking nuevo, mío**: `Run tests (Audit profile, core)` existe solo en Linux (`ci-rust.yml:473`) y macOS (`:567`); Windows es otro step y otro perfil (`Run quick integrity tests (Windows)`, `--profile ci-windows`) → citar por un identificador que no es común a las tres reintroduce el defecto de M3. +1 Medium (Step 6 ✅ con el gate abierto) y 3 Low (omisiones de `✅ ci` en `jemalloc`/`custom-allocator`, y `embed-local` sin fila) |
 | **Veredicto ronda 2-bis** | 🔴 **changes-required** — el Blocking de la 1-bis cerrado; **1 Blocking nuevo, mío**: al acotar `✅ ci` a las lanes de `ci-rust.yml` dejé fuera la certificación pesada, que es el *único* sitio donde `failpoints` se ejerce (`0` ocurrencias en `ci-rust.yml`, `certification.yml:1115` + `nightly.yml`) — el mark quedaba desautorizado por su propia definición, la misma clase de B3. + 2 nits de redacción (`nombre de step` para un bullet que cita jobs; `release-combo` es la key, no el nombre mostrado) |
-| **Veredicto ronda 3-bis** | ver §Cierre de la ronda 3-bis (abajo) |
+| **Veredicto ronda 3-bis** | 🔴 **changes-required** — leyenda/`failpoints` cerrado; **1 Blocking nuevo, mío**: ampliar `✅ ci` a la certificación pesada desautorizó la frase pre-existente de `rocksdb` (`:44`, «no está en features de test de CI») — la certificación corre `cargo test --release --features rocksdb` (`certification.yml:271,281`). + 2 Low: `prometheus` y `async-ingestion` quedan autorizados y sin mark bajo la definición ampliada |
+| **Veredicto ronda 4-bis** | ver §Cierre de la ronda 4-bis (abajo) |
 
 **Ronda 2 (sobre el dictamen 1-bis):** §Cobertura cita los tres **jobs** (`Tests (Linux)` / `Tests
 (Windows)` / `Tests (macOS)`, que existen los tres) y aclara el perfil de cada uno; la leyenda
@@ -203,9 +204,15 @@ pesada (`certification.yml` / `nightly.yml`) además de `ci-rust.yml`, sin reabr
 que prevalece sobre cualquier otro mark; y las dos citas de redacción pasan a nombrar `job o
 step` y el nombre mostrado del job de allocators.
 
-## Cierre de la ronda 3-bis
+**Ronda 4 (sobre el dictamen 3-bis):** `rocksdb` recupera la verdad sobre sus lanes (test con
+la feature encendida, en la certificación pesada) y pasa a `✅ ci`; `prometheus` y
+`async-ingestion` reciben el mark que la definición ampliada ya les daba. Con eso la
+enumeración de las 27 filas queda cerrada en las dos direcciones: las que llevan `✅ ci` cumplen
+la definición y las que no la llevan tienen `0` hits en las tres lanes.
 
-Pendiente del veredicto del revisor sobre el commit de la ronda 4 (ver RESULTADO).
+## Cierre de la ronda 4-bis
+
+Pendiente del veredicto del revisor sobre el commit de la ronda 5 (ver RESULTADO).
 
 ## Deuda / NOTICED BUT NOT TOUCHING
 
