@@ -82,100 +82,144 @@ runner se dispare. Los dos se miden abajo.
 | D5 | `rustdoc` es required: ¿se puede gatear? | **sí** | no gatearlo | `skipped` cuenta como 'Success' para el ruleset (`FIND-787`), y la alternativa peor es **no reportar** (`Pending`, `FIND-765`). Gateado sólo se omite cuando el rango no toca ni `src/` ni `Cargo.*` ni ningún crate: nada que rustdoc pueda leer. Declarado, no silencioso. |
 | D6 | El "chequeo que la fila pide" | el job **imprime** los ficheros del rango que caen fuera de los 21 patrones, en cada run | una lista de exclusiones escrita a mano | una lista manual es el anti-patrón que este lote cierra. El print convierte la cifra de un comentario en evidencia de cada run: si el 17,8 % crece, o si aparece ahí algo que un gate sí lea, se ve. |
 
-## Verificación — las dos direcciones
+## Verificación — las dos direcciones, **después del review P2-01**
 
-### `docs-scope`: 15 caras contra el `run:` extraído del fichero
+### El review tumbó dos cosas de esta fila, y las dos están cerradas
 
-El `run:` **no se copia**: un extractor lo saca del YAML (bloque `run: |` del step,
-dedentado → 66 líneas, 37 no vacías no-comentario) y corre en bash 5.3.9 con `env -i`,
-un `git` **falso** en `PATH` (sin red, sin repo) y `GITHUB_OUTPUT` a un fichero temporal.
+| # | Hallazgo | Qué se hizo |
+|---|---|---|
+| **H-1** | **`rustdoc` (REQUIRED) quedaba ciego para `vanta-proxy/`.** Es member del workspace (`Cargo.toml` §members), `cargo doc --no-deps --workspace` lo documenta, y **no casaba ninguno de los 21 patrones**: un PR que sólo lo tocara daba `docs=false` ⇒ `Generate API reference (rustdoc)` = `skipped` = **Success**. Regresión, además: antes de este cambio `pull_request` no llevaba `paths:`, así que rustdoc corría en todo PR. | (a) `vanta-proxy/` entra en `PATTERNS`; (b) el "chequeo" dejó de ser un **print** y pasó a ser una **reconciliación ejecutable**: un step propio recorre todo `*/Cargo.toml` y falla si un crate del árbol no casa ningún patrón. La lista de crates **no se escribe a mano**: se deriva, y la única excepción es un crate que declara su propio `[workspace]` (hoy `fuzz/`), porque entonces no es member y rustdoc no lo lee. |
+| **M-2** | `rustdoc` es required y conservaba `if: github.actor != 'dependabot[bot]'`: todo PR de Dependabot lo reportaba `skipped` = Success, justo la semántica de `FIND-787` que este commit hace *cargable*. | se le **quitó** el guard de actor, con el mismo razonamiento que este fichero ya aplica a otro required (`:351-354`, FIND-472). Coste declarado: rustdoc es el job más caro del fichero (~1m30 s caliente, 13m05 s frío) y un bump de dependencias es exactamente lo que puede romper un `cargo doc -D warnings`. |
+| **L-2** | La rama de skip del guard (`SCOPE=false && SCOPE_RESULT=success`) sale 0 **antes** de mirar las tres suites. | **declarado, no cambiado**: con `docs=false` las suites están fuera de alcance por decisión medida, y un run cancelado no gatea el head nuevo. Cambiar ese orden fue el bug que `FIND-815` cerró por el otro lado (upstream sí se mira antes). |
+| **M-1** | `Generated indexes are current` (REQUIRED) está **rojo en develop** y esta fila añade 5 documentos que no están en `docs/index.md`. | **declarado**: `node scripts/docs/gen-index.mjs --check` → exit 1 (y el rojo que nombra ni siquiera es de estos ficheros: es una fila `EMB-10`). No se arregla aquí porque `--write` indexaría ficheros de otros carriles (la clase de `FIND-792`) y `docs/index.md` es **zona prohibida** de este lote. |
 
-| # | Cara | Entradas | Esperado | Obtenido |
-|---|---|---|---|---|
-| a | push, sólo `docs/` | `docs/api/MCP.md` | `docs=true` | **true** |
-| b | push, sólo `dev-tools/` (territorio del 17,8 %) | `dev-tools/verify.ps1` | `docs=false` | **false** |
-| c | push con `src/` | `src/lib.rs` | true | **true** |
-| d | primer push de una rama (`before` nula) | `-` ×40 | true | **true** |
-| e | `schedule` / `workflow_dispatch` | — | true | **true** |
-| f | PR con `docs/` | `docs/index.md` | true | **true** |
-| g | `git fetch` falla | — | true (fail-open) | **true** |
-| h | `git diff` falla | — | true (fail-open) | **true** |
-| i | **`src-tauri/` no debe casar `src/`** | `src-tauri/main.rs` | false | **false** |
-| j | `.github/` raíz (no `workflows`/`actions`) | `.github/dependabot.yml` | false | **false** |
-| k | `.github/workflows/` | `.github/workflows/ci-rust.yml` | true | **true** |
-| l | `Justfile` (fuera) | `Justfile` | false | **false** |
-| m | mezcla dentro+fuera | `dev-tools/a` + `docs/b.md` | true | **true** |
-| n | rango vacío | — | false | **false** |
-| o | `vantadb-python/tests/…` (vía `vantadb-*/`) | `test_sdk.py` | true | **true** |
+**La lección de H-1, que vale para el resto del lote:** un *print* no es un chequeo. Lo que
+cierra la clase es un gate que pueda **fallar**, y este ahora puede: se probó creando un
+crate falso (`zz-fake-crate/Cargo.toml`) → **exit 1** nombrando el crate.
 
-`=== 15 pass / 0 fail ===`
+### El cuelgue de `actionlint`... dentro de un comentario
 
-Y el print de cobertura, en la cara `b` (la que más importa: un push que hoy **no
-producía run**):
+Tres versiones de la reconciliación colgaron `actionlint` **con shellcheck** (>120 s,
+matadas; sin shellcheck, 0,2-0,7 s — el modo en que `FIND-785` lo midió). Causa aislada
+por bisección, con tope duro en cada medida:
+
+| Variante | `actionlint` (con shellcheck) |
+|---|---|
+| bloque nuevo con un `if ... continue` dentro del bucle | **cuelga >120 s** |
+| mismo código, con sustitución de patrón sobre el manifest | **cuelga >120 s** |
+| mismo código, **comentarios sin sintaxis de shell** | **0,85 s** |
+| mismo código otra vez, comentario que *cita* esa sintaxis | **cuelga >120 s** |
+| **solución final**: bucle en un **step propio** + `PATTERNS` en `env:` del job | **1,35 s** / 0,13 s sin shellcheck |
+
+O sea: no es sólo "una sentencia nueva" - **el texto del comentario también lo dispara**, y
+la salida robusta es mover la lógica a su propio `run:` y dejar el comentario en prosa.
+Los 20 workflows juntos: **4,81 s**, exit 0.
+
+### Las caras, contra el `run:` extraído del fichero
+
+El `run:` no se copia: un extractor lo saca del YAML. `PATTERNS` ya no vive dentro del
+script (está en `env:` del job), así que el harness lo extrae del YAML y lo pasa como
+variable de entorno, igual que GitHub. `git` es falso (sin red, sin repo) y `GITHUB_OUTPUT`
+va a un temporal.
+
+| # | Cara | Esperado | Obtenido |
+|---|---|---|---|
+| a | push, sólo `docs/` | true | **true** |
+| b | push, sólo `dev-tools/` (territorio del 15,3 %) | false | **false** |
+| c | push con `src/` | true | **true** |
+| d | primer push (`before` nula) | true | **true** |
+| e | `schedule` / `workflow_dispatch` | true | **true** |
+| f | PR con `docs/` | true | **true** |
+| g | `git fetch` falla | true (fail-open) | **true** |
+| h | `git diff` falla | true (fail-open) | **true** |
+| i | **`src-tauri/` no debe casar `src/`** | false | **false** |
+| j | `.github/` raíz (no `workflows`/`actions`) | false | **false** |
+| k | `.github/workflows/` | true | **true** |
+| l | `Justfile` | false | **false** |
+| m | mezcla dentro+fuera | true | **true** |
+| n | rango vacío | false | **false** |
+| o | `vantadb-python/tests/…` (vía `vantadb-*/`) | true | **true** |
+| **p** | **`vanta-proxy/` SOLO — el agujero de H-1** | true | **true** |
+| **q** | `fuzz/` (crate fuera del workspace) | false | **false** |
+| **r1** | reconciliación sobre el árbol **real** | exit 0 | **exit 0** |
+| **r2** | reconciliación con un crate falso fuera de los patrones | exit **1** | **exit 1** |
+
+`=== 19 pass / 0 fail ===`
 
 ```text
---- files changed in aaaa..HEAD ---
-dev-tools/verify.ps1
-Justfile
---- outside the 21 patterns (no docs gate here reads them) ---
-dev-tools/verify.ps1
-Justfile
-GITHUB_OUTPUT: docs=false
+r2 → ::error::crate(s) that rustdoc documents and no pattern covers: zz-fake-crate - add them to PATTERNS (FIND-816)
 ```
-
-### La dirección que la fila pide, literalmente
-
-> un push que sólo toque un fichero fuera de los 21 patrones **publica** los 4 contexts
-
-Con `on.push.paths` retirado, el workflow **arranca** en todo push a `main`/`develop`: los
-13 jobs no gateados corren y reportan. `docs-scope` decide (cara `b`) que los 3 caros no
-tienen nada que juzgar y los omite; los 4 required son de los 13 y **reportan siempre**.
 
 ### `actionlint` — cronometrado, con tope duro
 
-`FIND-785` midió que un `run:` que gana una sentencia puede colgar `actionlint` (33 h
-bloqueado, 0,8 s de CPU). Medido con `Start-Process` + `WaitForExit` y **kill** al tope:
-
 | Comando | Resultado |
 |---|---|
-| `actionlint .github/workflows/docs-gates.yml` | **exit 0 — 0,60 s** |
-| `actionlint -shellcheck= .github/workflows/docs-gates.yml` | **exit 0 — 0,17 s** |
-| `actionlint .github/workflows/*.yml` (20 ficheros, como el hook) | **exit 0 — 6,53 s** |
+| `actionlint .github/workflows/docs-gates.yml` | **exit 0 — 1,35 s** |
+| `actionlint -shellcheck= .github/workflows/docs-gates.yml` | **exit 0 — 0,13 s** |
+| `actionlint .github/workflows/*.yml` (20 ficheros, como el hook) | **exit 0 — 4,81 s** |
 
-Sin cuelgue. La lógica nueva se escribió **compuesta** (`case`) como el lote pide, y el
-primer intento sirvió para algo: actionlint **sí** cazó un defecto real antes del
-commit — `property "docs" is not defined in object type {}` en las 3 líneas del `if:`,
-porque el job no declaraba `outputs:`. Se agregó `outputs.docs: ${{ steps.scope.outputs.docs }}`.
-`shellcheck -s bash -S style` sobre el bloque extraído: **exit 0**.
+`shellcheck -s bash -S style` sobre los dos bloques extraídos: **exit 0**.
+
+### La dirección que la fila pide, literalmente
+
+> un push que sólo toque un fichero fuera de los patrones **publica** los 4 contexts
+
+Con `on.push.paths` retirado, el workflow **arranca** en todo push a `main`/`develop`: los
+13 jobs no gateados corren y reportan. La cara `b` prueba que `docs-scope` decide que los 3
+caros no tienen nada que juzgar; los 4 required son de los 13 y **reportan siempre**.
 
 ### Lo que **no** se verifica acá
 
 - **Que GitHub evalúe el ruleset así.** No se tocó ningún ruleset: los nombres de los 4
-  contexts no cambian y `docs-scope` es un job nuevo que nadie exige. La prueba de campo
-  es un push que sólo toque, por ejemplo, `dev-tools/**`: debe mostrar los 4 contexts
-  reportados y los 3 caros `skipped`.
+  contexts no cambian y `docs-scope` es un job nuevo que nadie exige.
 - **El coste real del run.** Se cita el medido en `45771790202` (967 s, 84 % en los 3
-  gateados) porque este carril no puede correr un push real. Lo que **sí** está medido
-  aquí es qué jobs se gatean y con qué condición.
+  gateados) porque este carril no puede correr un push real.
 
 ## Deuda
 
 - **`CI_POLICY.md` queda más stale**: ya decía "`on.push` con sus 24 intactos" para
   `ci-rust` (deuda declarada por `FIND-807`); ahora tampoco `docs-gates` filtra el push.
   Fuera del write-scope de este carril.
-- **Los 430 ficheros de fuera siguen sin gate de docs.** El cambio no los mete en ningún
-  gate: hace que su cambio **no apague** los required, e imprime la lista en cada run
-  para que la decisión de extender los patrones sea con evidencia. Si alguno pasa a ser
-  material de docs, el sitio es `PATTERNS`, y el print lo va a mostrar.
-- **`rustdoc` gateado por `docs-scope`** es una decisión declarada (D5): un required que
-  se omite con una medición detrás. Si el owner prefiere que corra siempre, se le quita
-  el `needs` y cuesta 73 s más por run docs-only.
+- **Los 369 ficheros de fuera (15,3 %) siguen sin gate de docs.** El cambio no los mete en
+  ningún gate: hace que su cambio **no apague** los required, imprime la lista en cada run
+  y **falla** si un crate del árbol queda fuera de los patrones (la reconciliación). Si
+  alguno pasa a ser material de docs, el sitio es `PATTERNS` y la reconciliación lo va a
+  exigir.
+- **M-1 (del review, declarado):** `Generated indexes are current` es un required que está
+  **rojo en develop** y esta fila agranda la deriva con 5 task files nuevos.
+  `node scripts/docs/gen-index.mjs --check` → **exit 1**, y el rojo que nombra ni siquiera
+  es de estos ficheros (es una fila `EMB-10`). No se arregla acá porque `--write` indexaría
+  ficheros de otros carriles (clase `FIND-792`) y `docs/index.md` es **zona prohibida** del
+  lote. Lo resuelve el carril del índice.
+- **`rustdoc` gateado por `docs-scope`** es una decisión declarada (D5): un required que se
+  omite con una medición detrás. Si el owner prefiere que corra siempre, se le quita el
+  `needs` y cuesta 73 s más por run docs-only. Ya no se omite en PRs de Dependabot (M-2).
 - **Sin compilar Rust** (dos carriles vivos): nada de este cambio lo necesita.
 
 ## Review
 
-**P2-01 - `vanta-review`, contexto fresco, una ronda:** ver el `RESULTADO` del lote y la
-sección correspondiente de `docs/dev/avance/activo/ci-cd.md`.
+**P2-01 - `vanta-review`, contexto fresco, una ronda. Veredicto: `changes-required` (2 High,
+2 Medium, 3 Low, 2 Info).** Reprodujo las premisas por su cuenta (gitleaks 8.24.3 con el
+config viejo y el nuevo, el harness sobre el `run:` extraído, el regex de los patrones sobre
+`git ls-files`, `gh api` del ruleset y de los check-runs, `actionlint` con tope: 20
+workflows en 23,89 s). Cerró confirmando que los 6 commits están correctamente acotados y
+sin tocar zonas prohibidas.
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| H-1 | `rustdoc` (required) ciego para `vanta-proxy/`: member del workspace, documentado por `cargo doc --workspace`, fuera de los 21 patrones | **cerrado**: patrón añadido + reconciliación ejecutable con 2 caras (r1 verde, r2 roja) |
+| H-2 | `FIND-787` registra una "eliminación" falsa (había 3 required en failure, no 1) | **cerrado en su propio commit**: ver `docs/dev/tasks/FIND-787.md` § "Corrección del review" |
+| M-1 | `Generated indexes are current` rojo y esta fila lo agranda, sin declararlo | **declarado** arriba (zona prohibida + clase `FIND-792`) |
+| M-2 | `rustdoc` required seguía con el guard de Dependabot | **cerrado**: guard de actor eliminado, coste declarado |
+| L-1 | `MSRV`, `Experimental Crates Check` y `Miri` siguen siendo skippables por actor | **declarado** en `FIND-815.md`: el guard no los juzga y el coste de quitarlo es del owner |
+| L-2 | La rama de skip no mira las tres suites | **declarado**: con `docs=false` están fuera de alcance por decisión medida |
+| L-3 | El hook de `.opencode` era fail-open si faltaba `node` | **cerrado**: ahora bloquea (commit en `.opencode`) |
+| I-1 | `FIND-810` dejó de estar bloqueado a mitad del review | correcto: el bloqueo fue real hasta `f5ac57998` |
+| I-2 | La verificación manual de los commits con exit 7/1 fue suficiente | confirmado contra los blobs |
+
+**Y el hallazgo que el review no buscaba:** el cuelgue de `actionlint` **también lo dispara
+el texto de un comentario** dentro de un `run:` (bisección en la tabla de arriba). Es un
+dato nuevo para `FIND-785`.
 
 ## NOTICED BUT NOT TOUCHING
 

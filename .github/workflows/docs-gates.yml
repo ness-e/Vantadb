@@ -121,26 +121,41 @@ permissions:
 
 jobs:
   docs-scope:
-    # FIND-816 (2026-11-27): el filtro que vivia en `on.push.paths` (21 patrones)
-    # resuelto DENTRO del job, el mismo idioma que `rust-scope` en `ci-rust.yml`
-    # (FIND-807, `1c6cee680`). El workflow ahora arranca en todo push y en todo
-    # PR, asi que los 4 contexts required de este fichero SIEMPRE reportan; lo
-    # que este job decide es si los 3 jobs caros (84 % del coste medido) tienen
-    # algo que juzgar.
+    # FIND-816 (2026-11-27): el filtro que vivia en `on.push.paths` resuelto
+    # DENTRO del job, el mismo idioma que `rust-scope` en `ci-rust.yml`
+    # (FIND-807, `1c6cee680`). El workflow arranca en todo push y en todo PR, asi
+    # que los 4 contexts required de este fichero SIEMPRE reportan; lo que este
+    # job decide es si los 3 jobs caros (84 % del coste medido) tienen algo que
+    # juzgar.
     #
-    # Contesta dos cosas, y la segunda es el chequeo que la fila pide:
-    #   (1) `docs=true|false` - algun fichero del rango casa con los 21 patrones?
-    #   (2) imprime los ficheros del rango que NO casan. Ese es el 17,8 % medido
-    #       (430 de 2415 trackeados): si crece o si aparece algo que un gate de
+    # Tres cosas:
+    #   (1) `docs=true|false` - algun fichero del rango casa con los patrones?
+    #   (2) imprime los ficheros del rango que NO casan. Medido con `git ls-files`
+    #       y los patrones aplicados con la semantica de GitHub: **369 de 2419
+    #       trackeados (15,3 %)** DESPUES de meter `vanta-proxy/` (antes de eso
+    #       eran 430 de 2415, 17,8 %). Si crece, o si aparece algo que un gate de
     #       docs SI lea, se ve en el log de cada run en vez de deducirse.
+    #   (3) reconcilia los patrones contra los crates del arbol: todo crate que
+    #       `cargo doc --workspace` documenta tiene que estar dentro. Esto nacio
+    #       de un hallazgo real del review (H-1): `vanta-proxy/` es member, lo
+    #       documenta rustdoc, y no casaba ninguno de los 21 patrones - un PR que
+    #       solo lo tocara dejaba un required en `skipped` = Success. La lista de
+    #       crates NO se escribe a mano: se deriva del arbol, y la unica excepcion
+    #       es un crate que declara su propio bloque `[workspace]` (hoy `fuzz/`),
+    #       porque entonces no es member y rustdoc no lo lee.
     #
     # Fail-open en el resto (misma politica que `rust-scope`, FIND-725/770/807):
     # evento que no es push/PR, base irresoluble, fetch o diff fallido, o patron
     # malformado -> `docs=true`, o sea que los jobs caros corren. Un falso
     # positivo cuesta minutos; un falso negativo pierde un gate en silencio.
+    #
+    # La lista de patrones vive en `env:` del job y la usan los DOS steps: una
+    # sola copia, como el `PATTERNS` de `rust-scope` (FIND-807).
     name: Docs Scope (push or PR range)
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      PATTERNS: '^(docs/|scripts/|src/|tests/|vantadb-python/vantadb_py/|vantadb-python/vantadb/|vantadb-ts/src/|vantadb-ts/package\.json$|vantadb-node/package\.json$|vantadb-[^/]+/|vanta-memory/|vanta-proxy/|providers/|\.github/workflows/|\.github/actions/|Cargo\.toml$|Cargo\.lock$|README\.md$|llms\.txt$|\.github/markdownlint-cli2\.yaml$|release-manifest\.json$|cliff\.toml$)'
     outputs:
       # Lo consume el `if:` de los 3 jobs caros. Sin esta declaracion,
       # `needs.docs-scope.outputs.docs` no existe para actionlint ni para el
@@ -193,20 +208,13 @@ jobs:
             exit 0
           fi
 
-          # Los 21 patrones que `on.push.paths` llevaba hasta FIND-816, uno a uno
-          # y sin inventar ninguno. `vantadb-[^/]+/` cubre `vantadb-*/**` y las
-          # dos entradas `vantadb-python/...` quedan como estaban (son un
-          # subconjunto, y mantenerlas deja el diff de este cambio legible).
-          PATTERNS='^(docs/|scripts/|src/|tests/|vantadb-python/vantadb_py/|vantadb-python/vantadb/|vantadb-ts/src/|vantadb-ts/package\.json$|vantadb-node/package\.json$|vantadb-[^/]+/|vanta-memory/|providers/|\.github/workflows/|\.github/actions/|Cargo\.toml$|Cargo\.lock$|README\.md$|llms\.txt$|\.github/markdownlint-cli2\.yaml$|release-manifest\.json$|cliff\.toml$)'
-
           echo "--- files changed in $base..HEAD ---"
           printf '%s\n' "$changed"
 
-          # Here-string, no pipe: `printf ... | grep -q` bajo `set -o pipefail`
-          # hace que un `grep` que sale en el primer match cierre el pipe y
-          # `printf` muera con SIGPIPE (141), y la respuesta seria `docs=false`
-          # con un push que SI toca docs. Ver el mismo comentario, con la
-          # medicion, en `rust-scope` (FIND-807).
+          # Here-string, no pipe: un `grep -q` alimentado por un pipe bajo
+          # `set -o pipefail` muere con SIGPIPE (141) al cerrar el pipe en el
+          # primer match, y la respuesta seria `docs=false` con un push que SI
+          # toca docs. Ver el mismo comentario, con la medicion, en `rust-scope`.
           #
           # `rc`: 0 = match, 1 = sin match, 2 = regex rota. Tratar 2 como "sin
           # match" apagaria los jobs caros en TODOS los runs por un typo, sin
@@ -220,14 +228,35 @@ jobs:
                echo "docs=true" >> "$GITHUB_OUTPUT" ;;
           esac
 
-          # (2) El chequeo de cobertura: lo que cae fuera de los 21 patrones y,
-          # por lo tanto, no lo juzga ningun job de este fichero. Se imprime
-          # siempre -en el push con `docs=true` tambien- para que el numero sea
+          # (2) Lo que cae fuera de los patrones y, por lo tanto, no lo juzga
+          # ningun job de este fichero. Se imprime siempre para que el numero sea
           # evidencia de cada run, no una cifra de un comentario.
           outside="$(grep -vE "$PATTERNS" <<< "$changed" || true)"
-          echo "--- outside the 21 patterns (no docs gate here reads them) ---"
+          echo "--- outside the patterns (no docs gate here reads them) ---"
           printf '%s\n' "${outside:-none}"
 
+      # (3) La reconciliacion, en su PROPIO step. Motivo medido, no estetico: con
+      # el bucle dentro del step de arriba, `actionlint` se cuelga (>120 s y
+      # matado, 0,4 s de CPU) en cuanto el script ronda este tamano; el mismo
+      # bucle en un step aparte cuesta ~1,5 s. Es la misma clase de `FIND-785` y
+      # la razon por la que este lote cronometra cada YAML.
+      - name: Reconcile the pattern list against the workspace crates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=""
+          for manifest in */Cargo.toml; do
+            crate_dir="$(dirname "$manifest")"
+            grep -qE '^\[workspace\]' "$manifest" || grep -qE "$PATTERNS" <<< "$crate_dir/" || missing="${missing}${crate_dir} "
+          done
+
+          if [ -n "$missing" ]; then
+            echo "::error::crate(s) that rustdoc documents and no pattern covers: ${missing}- add them to PATTERNS (FIND-816)"
+            exit 1
+          fi
+
+          echo "ok: every workspace crate is inside the pattern list"
   # (lint-markdown removed: subsumed by docs-lint-regression with baseline 0,
   # same config, wider trigger incl. schedule sweep. Saves one runner per run.)
   check-format:
@@ -693,9 +722,19 @@ jobs:
     # (FIND-765). `skipped` ocurre solo cuando el rango no toca ni `src/` ni
     # `Cargo.*` ni ningun crate: nada que rustdoc pueda leer. El coste de
     # runner NO se paga en ese caso, y en el resto la lane corre como siempre.
+    #
+    # M-2 del review P2-01: se le QUITO el `github.actor != 'dependabot[bot]'`.
+    # Este fichero ya razona lo mismo para otro required (`:351-354`, FIND-472):
+    # "un job omitido por `if:` reporta 'skipped' y GitHub cuenta 'skipped' como
+    # required check SATISFECHO". Un PR de Dependabot toca `Cargo.toml`/
+    # `Cargo.lock` -> `docs=true` -> el job corre; y un bump de dependencia es
+    # exactamente lo que puede romper un `cargo doc -D warnings`. Coste
+    # declarado, medido: rustdoc es el job mas caro de este fichero (~1m30s con
+    # cache caliente, 13m05s frio), y Dependabot abre pocos PRs. Si el owner
+    # prefiere el ahorro, el precio es el agujero de FIND-787 en un required.
     needs: [docs-scope]
     if: >-
-      github.actor != 'dependabot[bot]' && (github.event_name != 'schedule') &&
+      (github.event_name != 'schedule') &&
       (needs.docs-scope.outputs.docs == 'true' || needs.docs-scope.result != 'success')
 
     name: Generate API reference (rustdoc)
