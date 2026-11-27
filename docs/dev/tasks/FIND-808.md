@@ -123,7 +123,7 @@ cobertura de CI y el agregado de `default`.
 | 3 | Crear este task file con impacto mapeado y spec | ✅ |
 | 4 | Editar `docs/dev/architecture/FEATURES.md`: fuentes, fila `default`, 4 status marks, `python_sdk`, citas de workflow, §CI | ✅ |
 | 5 | Verify mecánico: `check-docs.mjs` · `check-links.mjs` · `rg ci-rust-10` en 0 · lista de flags == `Cargo.toml:156` | ✅ |
-| 6 | OCR review + review P2-01 (ronda 1 → ronda 1-bis → 2-bis) | ✅ |
+| 6 | OCR review + review P2-01 (ronda 1 → 1-bis → 2-bis → 3-bis) | ✅ |
 | 7 | Cierre: fila del Backlog, entrada en `docs/dev/avance/activo/docs.md`, commit con índice aislado | ✅ |
 
 ## Verify (contrato mecánico)
@@ -148,7 +148,8 @@ file, `docs/dev/avance/activo/docs.md`). Sin `docs/api/**`, sin `src/**`, sin pl
 | **Cómo se probó** | `check-docs.mjs` / `check-links.mjs` re-ejecutados por él (0/0); `rg ci-rust-10` → 0; listas de flags comparadas contra `Cargo.toml:156`; citas de workflow resueltas una a una contra `git show HEAD:.github/workflows/ci-rust.yml`; **no** compiló Rust (otra lane construyendo) |
 | **Veredicto ronda 1** | 🔴 **changes-required** — 3 Blocking, 4 Medium, 4 Low |
 | **Veredicto ronda 1-bis** | 🔴 **changes-required** — B1/B2/B3/M1/M3 cerrados; **1 Blocking nuevo, mío**: `Run tests (Audit profile, core)` existe solo en Linux (`ci-rust.yml:473`) y macOS (`:567`); Windows es otro step y otro perfil (`Run quick integrity tests (Windows)`, `--profile ci-windows`) → citar por un identificador que no es común a las tres reintroduce el defecto de M3. +1 Medium (Step 6 ✅ con el gate abierto) y 3 Low (omisiones de `✅ ci` en `jemalloc`/`custom-allocator`, y `embed-local` sin fila) |
-| **Veredicto ronda 2-bis** | ver §Cierre de la ronda 2-bis (abajo) |
+| **Veredicto ronda 2-bis** | 🔴 **changes-required** — el Blocking de la 1-bis cerrado; **1 Blocking nuevo, mío**: al acotar `✅ ci` a las lanes de `ci-rust.yml` dejé fuera la certificación pesada, que es el *único* sitio donde `failpoints` se ejerce (`0` ocurrencias en `ci-rust.yml`, `certification.yml:1115` + `nightly.yml`) — el mark quedaba desautorizado por su propia definición, la misma clase de B3. + 2 nits de redacción (`nombre de step` para un bullet que cita jobs; `release-combo` es la key, no el nombre mostrado) |
+| **Veredicto ronda 3-bis** | ver §Cierre de la ronda 3-bis (abajo) |
 
 **Ronda 2 (sobre el dictamen 1-bis):** §Cobertura cita los tres **jobs** (`Tests (Linux)` / `Tests
 (Windows)` / `Tests (macOS)`, que existen los tres) y aclara el perfil de cada uno; la leyenda
@@ -196,9 +197,15 @@ desplazar las anclas `:32`/`:48`/`:51` que cita la matriz; Step 6 y el identific
 y fila del Backlog sin retirar) siguen en §Deuda **con dueño nombrado**. L4 (3682 vs 3685
 internos) es deriva del árbol, no un defecto.
 
-## Cierre de la ronda 2-bis
+**Ronda 3 (sobre el dictamen 2-bis):** la leyenda de `✅ ci` vuelve a incluir la certificación
+pesada (`certification.yml` / `nightly.yml`) además de `ci-rust.yml`, sin reabrir
+`custom-allocator` (que sigue fuera: lo enciende un workflow de **release**); `💀 no-op` declara
+que prevalece sobre cualquier otro mark; y las dos citas de redacción pasan a nombrar `job o
+step` y el nombre mostrado del job de allocators.
 
-Pendiente del veredicto del revisor sobre el commit de la ronda 3 (ver RESULTADO).
+## Cierre de la ronda 3-bis
+
+Pendiente del veredicto del revisor sobre el commit de la ronda 4 (ver RESULTADO).
 
 ## Deuda / NOTICED BUT NOT TOUCHING
 
@@ -223,7 +230,7 @@ Pendiente del veredicto del revisor sobre el commit de la ronda 3 (ver RESULTADO
   la string real de Miri (falta `encryption`). No son falsas (nombran un subconjunto) y la
   string exacta aparece una sola vez en §Cobertura en CI.
 - **`custom-allocator` queda sin `✅ ci` a propósito**: lo enciende `release-binaries.yml`,
-  no una lane de `ci-rust.yml`, y la leyenda ahora acota el mark a `ci-rust.yml` (ronda 2).
+  no una lane de `ci-rust.yml`, y la leyenda acota el mark a las lanes de CI (`ci-rust.yml` + certificación pesada), que excluyen los workflows de release (rondas 2 y 3).
   Si se quisiera cubrir "cualquier workflow", es una decisión de la leyenda, no de una fila.
 - **La fila `FIND-808` del Backlog sigue presente** (🆕 Pendiente, con el path inexistente
   `docs/FEATURES.md:32`): `docs/dev/Backlog.md` arrastra un hunk ajeno sin commitear (`0/1`,

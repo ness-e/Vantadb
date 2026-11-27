@@ -20,10 +20,10 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]` (del 
 | Status | Significado |
 | --- | --- |
 | ✅ `default` | En la feature set por defecto (`Cargo.toml:156`); compilada en todo build |
-| ✅ `ci` | Alguna lane de `.github/workflows/ci-rust.yml` compila o corre una combinación que **enciende** el flag, más allá de `clippy --all-features` (ese job compila la unión y por eso no cuenta como ejercicio). Los workflows de release (que construyen lo publicado) no cuentan como lane de `ci` |
+| ✅ `ci` | Alguna lane de CI —`ci-rust.yml`, o la certificación pesada (`certification.yml` / `nightly.yml`)— compila o corre una combinación que **enciende** el flag, más allá de `clippy --all-features` (ese job compila la unión y por eso no cuenta como ejercicio). Los workflows de release (que construyen lo publicado) no cuentan como lane de `ci` |
 | 🟡 `opt-in` | Código real detrás del flag; **no está en `Cargo.toml:156`**. Los dos ejes son independientes: `opt-in` dice "no es default", `ci` dice "alguien lo ejerce" |
 | ⚠️ `experimental` | Código real pero fuera de la superficie de producto estable (ver ADR-0014 / `docs/dev/operations/CI_POLICY.md`) |
-| 💀 `no-op` | Sin gates de código; marcador vacío |
+| 💀 `no-op` | Sin gates de código; marcador vacío. Prevalece sobre cualquier otro mark: compilarla no ejerce nada |
 
 ## Feature table
 
@@ -49,7 +49,7 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]` (del 
 | `tui` | 🟡 opt-in | TUI interactiva del CLI (`ratatui`+`crossterm`) | `src/lib.rs:129`, `src/tui.rs`, `src/bin/vanta-cli.rs` (3 gates) |
 | `prometheus` | 🟡 opt-in | Métricas Prometheus (endpoints + counters de governor/cache warmer) | 62 gates — la superficie opt-in más grande (`src/cache_warmer.rs`, `src/memory_governor.rs`); Candidata Pro |
 | `python_sdk` | 🟡 opt-in | `python` — bindings directos `pyo3` desde el crate core | `src/lib.rs:112` (2 gates). Nota: `vantadb-python` **no** la activa y tampoco apaga los defaults — `vantadb-python/Cargo.toml:25` consume el core con `features = ["fjall","memmap2","rayon"]` y sin `default-features = false`, así que el wheel se construye con **`default` encendido + `rayon`** |
-| `jemalloc` | 🟡 opt-in · ✅ ci | Allocator jemalloc para el binario `vanta-cli` (gated a unix en Cargo.toml) | `src/bin/vanta-cli.rs` (4 gates); CI: job `release-combo` hace `cargo check --release --features "server,jemalloc"` sobre el binario |
+| `jemalloc` | 🟡 opt-in · ✅ ci | Allocator jemalloc para el binario `vanta-cli` (gated a unix en Cargo.toml) | `src/bin/vanta-cli.rs` (4 gates); CI: job `Release Combo (server + allocator, -D warnings)` (key `release-combo`) hace `cargo check --release --features "server,jemalloc"` sobre el binario |
 | `custom-allocator` | 🟡 opt-in | Allocator custom (mimalloc) para el binario `vanta-cli` cuando jemalloc no aplica | `src/bin/vanta-cli.rs` (1 gate) |
 | `async-ingestion` | 🟡 opt-in | `ingestion` — pipeline async de inserción a worker pool | `src/lib.rs:146`, `src/ingestion.rs` (1 gate en lib) |
 | `async-io` | 🟡 opt-in | `transcript` — I/O async de transcriptos | `src/lib.rs:149`, `src/transcript.rs` (9 gates) |
@@ -67,7 +67,7 @@ El mapeo job → combinación → minutos medidos vive en
 repite acá: la tabla anterior de este fichero era la copia que envejeció.
 
 Lo que la columna `Status` afirma se sostiene en tres lanes de `ci-rust.yml`, citadas por
-**nombre de step** —los números de línea de ese workflow rotan con cada edición, y fueron
+**job o step** —los números de línea de ese workflow rotan con cada edición, y fueron
 justamente el mecanismo que puso aquí una cita a un workflow inexistente—:
 
 - **Jobs `Tests (Linux)`, `Tests (Windows)`, `Tests (macOS)`** — `cargo nextest run
