@@ -61,20 +61,38 @@ const KEY_RUNBOOK: &str = "docs/user/operations/security/KEY_RUNBOOK.md";
 /// Locate the key registry inside `dir` (recursively) and describe it.
 ///
 /// `None` = the backup is plaintext (no registry anywhere in the tree).
-fn encryption_block(dir: &Path) -> Option<BackupEncryption> {
-    let registry = walkdir_flat(dir)
-        .ok()?
-        .into_iter()
-        .find(|p| p.file_name().is_some_and(|n| n == REGISTRY_FILE_NAME))?;
-    let relative = registry
-        .strip_prefix(dir)
-        .unwrap_or(&registry)
-        .to_string_lossy()
-        .replace('\\', "/");
+///
+/// P2-01 M5: the walk error is **propagated**, not swallowed into "plaintext"
+/// — a fail-open here would skip both the manifest declaration and the restore
+/// guard. It also reuses the manifest entries the caller already collected
+/// (`files`), so the tree is walked once.
+fn encryption_block(files: &[ManifestFile]) -> Option<BackupEncryption> {
+    let registry = files
+        .iter()
+        .find(|f| {
+            f.name
+                .rsplit('/')
+                .next()
+                .is_some_and(|last| last == REGISTRY_FILE_NAME)
+        })?
+        .name
+        .clone();
     Some(BackupEncryption {
-        registry: relative,
+        registry,
         master_key_included: false,
         runbook: KEY_RUNBOOK.to_string(),
+    })
+}
+
+/// The manifest entries of `dir`, or the error if the tree cannot be walked.
+///
+/// A backup whose file list cannot be collected is not a backup: `cmd_backup`
+/// aborts instead of writing a manifest that under-declares what it copied.
+fn manifest_files(dir: &Path) -> Result<Vec<ManifestFile>> {
+    collect_manifest_files(dir, dir).map_err(|e| {
+        crate::error::Error::backup_error(format!(
+            "Failed to list the copied files (the manifest would be incomplete): {e}"
+        ))
     })
 }
 
@@ -86,7 +104,7 @@ fn encryption_block(dir: &Path) -> Option<BackupEncryption> {
 /// the runbook (FIND-507).
 #[cfg(feature = "encryption")]
 fn require_master_key_for_encrypted_backup(src: &Path) -> Result<()> {
-    let Some(block) = encryption_block(src) else {
+    let Some(block) = encryption_block(&manifest_files(src)?) else {
         return Ok(());
     };
     let config = crate::config::Config::default();
@@ -288,8 +306,7 @@ pub fn cmd_backup(
         (now_ts % 3600) / 60,
         now_ts % 60
     );
-    let files = collect_manifest_files(&backup_dir, &backup_dir)
-        .unwrap_or_default()
+    let files = manifest_files(&backup_dir)?
         .into_iter()
         // Skip MANIFEST.json itself to avoid a circular reference.
         .filter(|f| f.name != "MANIFEST.json")
@@ -299,7 +316,9 @@ pub fn cmd_backup(
         created_at,
         vantadb_version: env!("CARGO_PKG_VERSION").to_string(),
         base_ref: None,
-        encryption: encryption_block(&backup_dir),
+        // P2-01 M5: from the **already collected** entries — no second walk,
+        // and no `.ok()` that would classify an unreadable tree as plaintext.
+        encryption: encryption_block(&files),
         files,
     };
     // Non-fatal: log a warning but don't abort the backup on manifest failure.
@@ -447,7 +466,9 @@ fn cmd_restore_dry_run(
 
     // FIND-507: an encrypted backup needs the master key at restore time; the
     // dry-run says so before the operator commits to a target.
-    let encryption = encryption_block(src);
+    let encryption = manifest_files(src)
+        .ok()
+        .and_then(|files| encryption_block(&files));
     if let Some(block) = &encryption {
         if !json_output {
             print_warning(&format!(
@@ -630,14 +651,16 @@ mod tests {
         let plain = dir.path().join("plain");
         std::fs::create_dir_all(&plain).unwrap();
         std::fs::write(plain.join("vanta.wal"), b"wal").unwrap();
+        let plain_files = manifest_files(&plain).expect("list the backup tree");
         assert!(
-            encryption_block(&plain).is_none(),
+            encryption_block(&plain_files).is_none(),
             "a plaintext backup must declare no encryption block"
         );
 
         let encrypted = dir.path().join("encrypted");
         write_registry_backup(&encrypted);
-        let block = encryption_block(&encrypted).expect("the registry must be found");
+        let files = manifest_files(&encrypted).expect("list the backup tree");
+        let block = encryption_block(&files).expect("the registry must be found");
         assert_eq!(block.registry, "data/encryption.registry");
         assert!(
             !block.master_key_included,
@@ -672,8 +695,7 @@ mod tests {
             RestoreOptions::default(),
             true,
         )
-        .err()
-        .expect("an encrypted backup without a key must not restore");
+        .expect_err("an encrypted backup without a key must not restore");
         let message = err.to_string();
         assert!(
             message.contains("master key"),

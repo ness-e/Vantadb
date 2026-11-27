@@ -51,20 +51,60 @@ Lo que **sí** está protegido: el contenido del posting y el payload del nodo. 
 
 ## Diseño decidido de la mitad 2 (no implementado)
 
-**Idea:** clave *blindex* determinista, prefijo de namespace intacto (para conservar los escaneos por rango):
+> **Corregido en la ronda P2-01 (M3).** La primera versión de este diseño daba por
+> hecho que el posting y las doc-stats guardaban el token y el `record_key`; el
+> código dice lo contrario y el diseño se apoya ahora en lo que hay.
+
+Lo que hay hoy (verificado en el código):
+
+| Pieza | Contenido real | Consecuencia |
+|---|---|---|
+| `TextPosting` (`text_index.rs:98`) | `{ node_id, tf, positions }` — **sin token** | un posting no puede filtrar un falso positivo de token por sí mismo |
+| `TextDocStats` | `{ node_id, doc_len }` — **sin set de tokens** | no existe hoy un borrado “por registro”: `posting_prefix` solo se usa en `lexical.rs:66` para buscar, no para borrar |
+| `lexical.rs:77-92` | saca el `record_key` **de la clave** y lo usa para leer `doc_stats` | con la clave ciega ese `record_key` desaparece: **BM25 se queda sin `doc_len`** |
+
+**Idea:** clave *blindex* determinista con el prefijo de namespace intacto (para
+conservar los escaneos por rango):
 
 ```
-k_blind      = HKDF-SHA256(DEK_text_index, "vanta:text-index:blind:v1")
-posting_key  = ns ‖ 0x00 ‖ HMAC(k_blind, token)[0..8] ‖ 0x00 ‖ HMAC(k_blind, token ‖ 0x00 ‖ record_key)[0..16]
-term_stats   = 0xFF "vanta_text_v4" 0x00 TAG_TERM ‖ ns ‖ 0x00 ‖ HMAC(k_blind, token)[0..8]
-doc_stats    = 0xFF "vanta_text_v4" 0x00 TAG_DOC  ‖ ns ‖ 0x00 ‖ HMAC(k_blind, record_key)[0..8]
+k_blind     = HKDF-SHA256(DEK_text_index, "vanta:text-index:blind:v1")
+posting     = ns ‖ 0x00 ‖ HMAC(k_blind, token)[0..8]
+valor       = postcard(TextPosting { node_id, tf, positions })   // sin cambios
+doc_stats   = 0xFF "vanta_text_v4" 0x00 TAG_DOC ‖ ns ‖ node_id    // ← deja de llevar el record_key
+term_stats  = 0xFF "vanta_text_v4" 0x00 TAG_TERM ‖ ns ‖ 0x00 ‖ HMAC(k_blind, token)[0..8]
+record_idx  = 0xFF "vanta_text_v4" 0x00 TAG_REC ‖ ns ‖ 0x00 ‖ HMAC(k_blind, record_key)[0..8]
+valor       = postcard(Vec<u64>)   // los tags de token de ese registro (cifrado, como todo valor)
 ```
 
-- **Se conserva:** lookup por `(ns, token)` (escaneo por prefijo con el tag del token), borrado por `(ns, token, key)` (los tres se conocen), purga por namespace (el prefijo `ns\0` sigue en claro), y el borrado por registro usando el conjunto de tokens de `doc_stats` (su **valor** ya va cifrado).
-- **Se pierde:** enumerar el vocabulario de un namespace (hoy tampoco hay API pública que lo haga), y la posibilidad de leer el término en claro — que es el objetivo.
-- **Colisiones:** 64 bits para el token y 128 para `(token,key)`. Un falso positivo de token se descarta comparando el token real que el **valor** del posting ya contiene; 2^-64 de colisión por par es aceptable y se documenta.
-- **Migración:** marcador `\xffvanta_text_v4\0` + **rebuild del índice de texto** en el primer open (derivado de datos canónicos). No hay migración de claves in-place: se descarta el prefijo viejo.
-- **Coste:** el índice de texto deja de ser legible por un operador humano (hoy sirve para depurar). Aceptado, se documenta en el runbook.
+Los tres cambios obligatorios que la primera versión **no** decía:
+
+1. **`doc_stats` se keyea por `node_id`**, no por `record_key`: el `node_id` ya
+   viaja en el posting, así que BM25 resuelve `doc_len` sin necesitar la clave.
+   Eso obliga a tocar `lexical.rs:77-92` (deja de derivar el `record_key` de la
+   clave) y a la purga por registro (`delete`), que hoy recorre tokens.
+2. **Índice inverso `record_idx`** para el borrado: el `delete` conoce el
+   `record_key`, calcula su tag ciego y lee la lista de tokens del registro
+   (valor cifrado). Sin él, borrar un documento exigiría reindexar.
+3. **Token en la clave, no en el valor**: si se quiere descartar un falso
+   positivo por colisión del tag de 64 bits, hay que **añadir** el token al
+   valor del posting (hoy no está) o aceptar el riesgo residual (2⁻⁶⁴ por par,
+   declarado).
+
+**Se conserva:** lookup por `(ns, token)` (escaneo por prefijo con el tag del
+token), borrado por registro (vía `record_idx`), purga por namespace (el
+prefijo `ns\0` sigue en claro) y BM25 (con `doc_stats` por `node_id`).
+
+**Se pierde:** leer el vocabulario en claro — que es el objetivo — y la
+posibilidad de enumerar términos de un namespace (hoy tampoco hay API pública).
+
+**Migración:** marcador `\xffvanta_text_v4\0` + **rebuild del índice de texto**
+en el primer open (es materialización derivada de datos canónicos,
+`STORAGE_VERSIONING.md:97`). Sin migración in-place: se descarta el prefijo
+viejo.
+
+**Coste:** el índice deja de ser legible por un operador humano (hoy sirve para
+depurar); se documenta en el runbook. Y el borrado pasa a necesitar
+`record_idx` (una escritura más por documento indexado).
 
 ## Steps
 
@@ -90,3 +130,14 @@ cargo nextest run  ... mismo filtro ... --no-tests fail
 
 - **Hecho:** `src/text_index.rs` (test de pin), `docs/user/operations/SECURITY.md`, este task file, `Backlog.md`, `avance/activo/core-engine.md`.
 - **No hacer:** cambiar `posting_key` sin el marcador `v4` y el rebuild — el índice viejo devolvería *cero* resultados en silencio (no error), que es peor que la fuga.
+
+## Review
+
+### P2-01 ronda 1 (contexto fresco, `vanta-review`, agente distinto) - **changes-required**, aplicado
+
+VERDICT: changes-required con **0 CRITICAL / 0 HIGH / 7 MEDIUM / 9 LOW**. Confirmado sano: cobertura total del AAD (los 4 constructores pasan `identifier`), identidad estable en rotacion y shards, compaction cifrada coherente, rechazo en el open de vfile/WAL, FIND-496 bien acotado y FIND-507 en el orden correcto.
+
+Aplicado en la misma ronda: **M1** (`verify_wal_file` rechaza el v4 legacy y reporta la version real), **M2** (`migrate`/`check_integrity` dicen "refused / rewrite", no "newer"), **M3** (§Diseno de FIND-513 reescrito con lo que el codigo tiene de verdad), **M4** (la medicion de 343 limpia la clave y asserta base plana), **M5** (`encryption_block` sin fail-open y sin segundo recorrido), **M6** (el Step 5 falso de 507 corregido), **M7** (el pin de rotacion, commiteado) y los LOW de prosa (L1, L6, L7, L8, L9).
+
+No aplicado y declarado: **L2** (un hunk ajeno de `FIND-669` horneado en el commit de cripto: ruido de carril, no enmendable sin `--amend`), **L3** (fila `FIND-500` colgando: es de otra fila, fuera de las 5 del lote) y **L4** (la deuda de crypto-shredding queda en el §Deuda de 343 en vez de como fila nueva: los IDs los asigna el orquestador).
+

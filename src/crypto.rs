@@ -1729,8 +1729,11 @@ mod tests {
     fn miri_aead_envelope_roundtrip() {
         let cipher = Cipher::new(&[0x5Au8; 32]);
         let nonce = [3u8; 12];
-        // Same AAD shape `vfile_crypto::seal_node` binds: artifact + slot.
-        let aad = b"vantafile-v3-slot-64";
+        // The AAD is an opaque blob for the cipher: `vfile_crypto::seal_node`
+        // binds artifact ‖ version ‖ epoch ‖ slot ‖ length ‖ segment identity
+        // (see `AadBuilder`). Two distinct blobs stand in for "same slot,
+        // same segment" vs "another slot or segment".
+        let aad = b"vantafile-v4-slot-64-vstore_L0";
         let plaintext = b"node-header-and-vector-payload";
 
         let sealed = cipher
@@ -1744,7 +1747,7 @@ mod tests {
         );
         // AAD binds the envelope to its slot: a different slot rejects.
         assert!(cipher
-            .decrypt_with_nonce(&nonce, &sealed, b"vantafile-v3-slot-128")
+            .decrypt_with_nonce(&nonce, &sealed, b"vantafile-v4-slot-128-vstore_L0")
             .is_err());
         // A wrong nonce rejects as well.
         assert!(cipher.decrypt_with_nonce(&[9u8; 12], &sealed, aad).is_err());

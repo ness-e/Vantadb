@@ -37,15 +37,15 @@ fn failure_backoff(failures: u32) -> Duration {
 /// The marker lives in the cleartext WAL header, so the check needs no key.
 fn refuse_encrypted_segments(segments: &[PathBuf]) -> Result<()> {
     for path in segments {
-        if crate::wal::is_encrypted(crate::wal::segment_version(path)) {
+        let version = crate::wal::segment_version(path);
+        if crate::wal::is_encrypted(version) {
             return Err(Error::wal_error(format!(
                 "WAL shipping does not support an encrypted database: segment '{}' is \
-                 encrypted (WAL format v{}). The replica would need the master key and \
+                 encrypted (WAL format v{version}). The replica would need the master key and \
                  sending key material over the network is not supported, so NOTHING was \
                  shipped. Disable `wal-shipping` for this database, or keep its WAL \
                  plaintext.",
                 path.display(),
-                crate::wal::segment_version(path),
             )));
         }
     }

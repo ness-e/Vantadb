@@ -47,7 +47,14 @@ La fila afirma cuatro cosas. Medición sobre `HEAD`:
 2. ✅ Test RED `manifest_declares_the_encryption_registry_when_present` (helper puro sobre un dir temporal).
 3. ✅ Bloque `encryption` en `BackupManifest` (`#[serde(default)]`), poblar en `cmd_backup`, aviso explícito en la salida.
 4. ✅ Restore: comprobación antes de copiar + mensaje accionable + `encryption` en el JSON de salida.
-5. ✅ Test de pin de la mitad ya hecha: el snapshot copia el registro (no comparte inodo/fichero con la base viva).
+5. ⬜ Test de pin de la mitad ya hecha (el snapshot copia el registro, no
+   comparte inodo) — **no implementado, y no se declara hecho** (la primera
+   versión lo daba por ✅; lo corrigió la ronda P2-01, M6). Motivo medido: el
+   espejo del snapshot **copia** en Windows/WASM y solo hard-linkea en Unix
+   (`engine/mod.rs:787-825`), así que un test cross-platform no puede medir el
+   inodo; el pin tendría que ser Unix-only. El código sí incluye el registro en
+   `is_mutable_after_snapshot` (`engine/mod.rs:769-775`), que es lo que
+   garantiza la copia.
 6. ✅ GREEN + gates.
 
 ## Contrato de verificación
@@ -67,3 +74,14 @@ cargo nextest run  ... mismo filtro ... --no-tests fail
 ## Context Save Point
 
 - **Hecho:** `src/cli_handlers/backup.rs`, test de pin en `src/storage/engine/*` (snapshot), este task file, `KEY_RUNBOOK.md` (enlace al flujo de backup), `Backlog.md`, `avance/activo/core-engine.md`.
+
+## Review
+
+### P2-01 ronda 1 (contexto fresco, `vanta-review`, agente distinto) - **changes-required**, aplicado
+
+VERDICT: changes-required con **0 CRITICAL / 0 HIGH / 7 MEDIUM / 9 LOW**. Confirmado sano: cobertura total del AAD (los 4 constructores pasan `identifier`), identidad estable en rotacion y shards, compaction cifrada coherente, rechazo en el open de vfile/WAL, FIND-496 bien acotado y FIND-507 en el orden correcto.
+
+Aplicado en la misma ronda: **M1** (`verify_wal_file` rechaza el v4 legacy y reporta la version real), **M2** (`migrate`/`check_integrity` dicen "refused / rewrite", no "newer"), **M3** (§Diseno de FIND-513 reescrito con lo que el codigo tiene de verdad), **M4** (la medicion de 343 limpia la clave y asserta base plana), **M5** (`encryption_block` sin fail-open y sin segundo recorrido), **M6** (el Step 5 falso de 507 corregido), **M7** (el pin de rotacion, commiteado) y los LOW de prosa (L1, L6, L7, L8, L9).
+
+No aplicado y declarado: **L2** (un hunk ajeno de `FIND-669` horneado en el commit de cripto: ruido de carril, no enmendable sin `--amend`), **L3** (fila `FIND-500` colgando: es de otra fila, fuera de las 5 del lote) y **L4** (la deuda de crypto-shredding queda en el §Deuda de 343 en vez de como fila nueva: los IDs los asigna el orquestador).
+

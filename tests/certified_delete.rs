@@ -253,6 +253,18 @@ fn certified_delete_not_found_is_honest_not_silent() {
 fn physical_erasure_no_payload_bytes_after_full_maintenance() {
     use vantadb::PipelineMode;
 
+    // P2-01 M4: with a key in the environment the database would be encrypted
+    // and the canary would be absent **because of the ciphertext**, not
+    // because of the erasure — a vacuous measurement. nextest runs one process
+    // per test, so clearing the key here is safe and makes the premise honest.
+    for var in [
+        "VANTADB_ENCRYPTION_KEY",
+        "VANTADB_ENCRYPTION_KEY_FILE",
+        "VANTADB_ENCRYPTION_KEY_CMD",
+    ] {
+        std::env::remove_var(var);
+    }
+
     // Marcador único e improbable: solo existe en el payload de este test.
     const MARKER: &str = "EGO16-PROBE-payload-debe-desaparecer-7f3a9c1e5b2d4860";
     const PAYLOAD: &str =
@@ -263,6 +275,25 @@ fn physical_erasure_no_payload_bytes_after_full_maintenance() {
     let mut input = certified_input("erase", "target");
     input.payload = PAYLOAD.to_string();
     db.put(input).expect("put");
+
+    // The measurement is only meaningful on a **plaintext** database: no key
+    // resolved means the engine never creates the key registry.
+    fn has_registry(path: &std::path::Path) -> bool {
+        let Ok(entries) = std::fs::read_dir(path) else {
+            return false;
+        };
+        entries.flatten().any(|e| {
+            let p = e.path();
+            p.is_dir() && has_registry(&p)
+                || p.file_name().is_some_and(|n| n == "encryption.registry")
+        })
+    }
+    assert!(
+        !has_registry(dir.path()),
+        "the canary must be measured on a plaintext database: a key in the \
+         environment would make 0 hits meaningless"
+    );
+
     db.delete("erase", "target").expect("delete");
 
     // Mantenimiento completo: purga HNSW, reescritura de segmentos,

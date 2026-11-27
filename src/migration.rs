@@ -11,8 +11,12 @@ use crate::sdk::serialization::{
 };
 use crate::sdk::types::{default_confidence, ConfidenceClass};
 use crate::storage::engine::{BatchInsertOptions, InsertMode};
-use crate::storage::vfile::{VFILE_ENCRYPTED_VERSION, VFILE_VERSION};
-use crate::wal::{WAL_ENCRYPTED_FORMAT_VERSION, WAL_FORMAT_VERSION};
+use crate::storage::vfile::{
+    VFILE_ENCRYPTED_VERSION, VFILE_LEGACY_ENCRYPTED_VERSION, VFILE_VERSION,
+};
+use crate::wal::{
+    WAL_ENCRYPTED_FORMAT_VERSION, WAL_FORMAT_VERSION, WAL_LEGACY_ENCRYPTED_FORMAT_VERSION,
+};
 use web_time::Instant;
 
 /// Physical format kinds that can be migrated.
@@ -110,6 +114,11 @@ enum FormatStatus {
     NeedsMigration,
     /// A version newer than everything this build knows.
     Newer,
+    /// An encrypted layout this build **refuses** (it predates the
+    /// file-identity AAD of FIND-586): not older-and-migratable, not newer —
+    /// the database has to be rewritten. Reporting it as `Newer` was a
+    /// regression of the version bump (P2-01 M2).
+    Refused,
 }
 
 /// The version lines a migration/integrity check accepts for one artefact.
@@ -118,6 +127,8 @@ enum FormatStatus {
 /// * the accepted **current** set is `{plain_current, encrypted_current}`;
 /// * `v < plain_current` → `NeedsMigration` — only the *plaintext* lineage is
 ///   migratable: an encrypted artefact is never rewritten implicitly;
+/// * `v == legacy_encrypted` → `Refused`: an encrypted layout this build
+///   cannot read (the AAD changed), so it is neither migratable nor "newer";
 /// * `v > max(plain, encrypted)` → `Newer`: the file was written by a newer
 ///   build — an integrity *issue*, never a "corrupt" verdict and never a
 ///   migration target.
@@ -129,6 +140,9 @@ struct ArtifactSpec {
     /// Current encrypted format version (`== plain_current` when the
     /// artefact has no encrypted variant).
     encrypted_current: u16,
+    /// An encrypted layout that a previous build wrote and this one refuses
+    /// (`None` when the artefact never changed its encrypted layout).
+    legacy_encrypted: Option<u16>,
 }
 
 impl ArtifactSpec {
@@ -141,6 +155,8 @@ impl ArtifactSpec {
     fn classify(&self, version: u16) -> FormatStatus {
         if version == self.plain_current || version == self.encrypted_current {
             FormatStatus::Current
+        } else if self.legacy_encrypted == Some(version) {
+            FormatStatus::Refused
         } else if version < self.plain_current {
             FormatStatus::NeedsMigration
         } else {
@@ -149,11 +165,13 @@ impl ArtifactSpec {
     }
 }
 
-/// VantaFile segments: plaintext v2, encrypted v3 (`VFILE_*` consts).
+/// VantaFile segments: plaintext v2, encrypted v4 (`VFILE_*` consts); v3 is
+/// the pre-FIND-586 encrypted layout, refused.
 const VFILE_SPEC: ArtifactSpec = ArtifactSpec {
     label: "VantaFile",
     plain_current: VFILE_VERSION,
     encrypted_current: VFILE_ENCRYPTED_VERSION,
+    legacy_encrypted: Some(VFILE_LEGACY_ENCRYPTED_VERSION),
 };
 
 /// HNSW index image: plaintext v8, encrypted v9 (`VECTOR_INDEX_*` consts).
@@ -161,15 +179,17 @@ const INDEX_SPEC: ArtifactSpec = ArtifactSpec {
     label: "Vector index",
     plain_current: VECTOR_INDEX_VERSION,
     encrypted_current: VECTOR_INDEX_ENCRYPTED_VERSION,
+    legacy_encrypted: None,
 };
 
-/// WAL segments: plaintext v3, encrypted v4 (`WAL_*` consts). Note that
-/// `WAL_POSTCARD_VERSION` is *not* the format version — it lives in the
-/// header's `schema_version` field.
+/// WAL segments: plaintext v3, encrypted v5 (`WAL_*` consts); v4 is the
+/// pre-FIND-586 encrypted layout, refused. Note that `WAL_POSTCARD_VERSION` is
+/// *not* the format version — it lives in the header's `schema_version` field.
 const WAL_SPEC: ArtifactSpec = ArtifactSpec {
     label: "WAL",
     plain_current: WAL_FORMAT_VERSION,
     encrypted_current: WAL_ENCRYPTED_FORMAT_VERSION,
+    legacy_encrypted: Some(WAL_LEGACY_ENCRYPTED_FORMAT_VERSION),
 };
 
 /// Database format migration engine.
@@ -494,6 +514,15 @@ impl MigrationEngine {
                     );
                     continue;
                 }
+                FormatStatus::Refused => {
+                    println!(
+                        "  - {name} at v{} — an encrypted layout this build REFUSES \
+                         (it predates the file-identity AAD, FIND-586): rewrite the \
+                         database, it cannot be migrated",
+                        header.format_version,
+                    );
+                    continue;
+                }
             }
 
             if self.dry_run {
@@ -564,6 +593,12 @@ impl MigrationEngine {
                     "  - {name} at v{} — newer than this build, skipping",
                     header.format_version
                 ),
+                FormatStatus::Refused => println!(
+                    "  - {name} at v{} — an encrypted layout this build REFUSES \
+                     (it predates the file-identity AAD, FIND-586): rewrite the \
+                     database, it cannot be migrated",
+                    header.format_version
+                ),
             }
         }
 
@@ -596,6 +631,15 @@ impl MigrationEngine {
             FormatStatus::Newer => {
                 println!(
                     "  - Vector index at v{} — newer than this build, skipping",
+                    header.format_version
+                );
+                return Ok(());
+            }
+            // The index never changed its encrypted layout, so `Refused` is
+            // unreachable for it; keep the match total.
+            FormatStatus::Refused => {
+                println!(
+                    "  - Vector index at v{} — an encrypted layout this build refuses",
                     header.format_version
                 );
                 return Ok(());
@@ -662,8 +706,9 @@ impl MigrationEngine {
     ///
     /// Per artefact the accepted *current* set is `{plaintext, encrypted}`
     /// (`ArtifactSpec::classify`): an old plaintext version is reported as
-    /// needing migration, a version beyond everything this build knows is
-    /// reported as *newer* — never silently accepted, never "corrupt".
+    /// needing migration, a **refused** encrypted layout as "rewrite the
+    /// database" (FIND-586), and a version beyond everything this build knows
+    /// as *newer* — never silently accepted, never "corrupt".
     pub fn check_integrity(&self) -> Result<Vec<String>> {
         let mut issues = Vec::new();
 
@@ -690,6 +735,12 @@ impl MigrationEngine {
                         name,
                         header.format_version,
                         spec.max_known()
+                    )),
+                    FormatStatus::Refused => issues.push(format!(
+                        "{} {} at v{}, an encrypted layout this build REFUSES \
+                         (it predates the file-identity AAD, FIND-586): rewrite the \
+                         database — this is not a migration target",
+                        spec.label, name, header.format_version
                     )),
                 },
                 // No header (missing/short/foreign-magic file) is not an issue.
@@ -1009,8 +1060,10 @@ mod tests {
         Ok(())
     }
 
-    /// An encrypted WAL (v4) is never touched by the migration engine
-    /// (ADR-0057 D7: no implicit migration of encrypted artefacts).
+    /// An encrypted WAL (v5) is never touched by the migration engine
+    /// (ADR-0057 D7: no implicit migration of encrypted artefacts); the v4
+    /// layout is not a migration target either — this build **refuses** it
+    /// (FIND-586).
     #[test]
     fn test_migrate_wal_never_touches_encrypted() -> Result<()> {
         let dir = TempDir::new()?;
@@ -1134,12 +1187,71 @@ mod tests {
         Ok(())
     }
 
+    // ─── FIND-586 / P2-01 M2: the pre-file-identity layouts are REFUSED ──
+
+    /// The version bump left a hole between the plaintext and the encrypted
+    /// version (VFLE 2/4, VWAL 3/5). A v3 VantaFile or a v4 WAL is **not**
+    /// "newer than this build": it is an encrypted layout this build refuses,
+    /// and the operator has to rewrite the database.
+    #[test]
+    fn legacy_encrypted_layouts_are_refused_not_newer() {
+        assert_eq!(
+            VFILE_SPEC.classify(VFILE_LEGACY_ENCRYPTED_VERSION),
+            FormatStatus::Refused,
+            "a v3 VantaFile must be refused, not reported as newer"
+        );
+        assert_eq!(
+            WAL_SPEC.classify(WAL_LEGACY_ENCRYPTED_FORMAT_VERSION),
+            FormatStatus::Refused,
+            "a v4 WAL must be refused, not reported as newer"
+        );
+        // The current encrypted versions and the plaintext lineage are intact.
+        assert_eq!(
+            VFILE_SPEC.classify(VFILE_ENCRYPTED_VERSION),
+            FormatStatus::Current
+        );
+        assert_eq!(VFILE_SPEC.classify(VFILE_VERSION), FormatStatus::Current);
+        assert_eq!(
+            WAL_SPEC.classify(WAL_ENCRYPTED_FORMAT_VERSION),
+            FormatStatus::Current
+        );
+        assert_eq!(WAL_SPEC.classify(WAL_FORMAT_VERSION), FormatStatus::Current);
+    }
+
+    /// `check_integrity` says "rewrite the database", not "newer build", for a
+    /// refused layout.
+    #[test]
+    fn check_integrity_reports_a_refused_layout_as_such() -> Result<()> {
+        let dir = TempDir::new()?;
+        let data = data_dir(&dir);
+        write_header_file(
+            &data.join("vstore_L0.vanta"),
+            *b"VFLE",
+            VFILE_LEGACY_ENCRYPTED_VERSION,
+        );
+
+        let engine = MigrationEngine::new(dir.path());
+        let issues = engine.check_integrity()?;
+        assert_eq!(issues.len(), 1, "one refused artefact: {issues:?}");
+        assert!(
+            issues[0].contains("REFUSES") && issues[0].contains("rewrite the database"),
+            "the verdict must say the layout is refused and the database rewritten, got: {}",
+            issues[0]
+        );
+        assert!(
+            !issues[0].contains("newer than this build"),
+            "a refused layout is not a newer build: {}",
+            issues[0]
+        );
+        Ok(())
+    }
+
     // ─── FIND-499: current plaintext + encrypted formats are accepted ──
 
-    /// (a) A database created *with* a key produces encrypted artefacts
-    /// (VantaFile v3, WAL v4, index v9): `check_integrity` must report zero
-    /// issues — an encrypted artefact is a *current* format, never an
-    /// integrity violation (ADR-0057 D7).
+    /// (a) A database created *with* a key produces encrypted artefacts at the
+    /// **current** encrypted versions (VantaFile v4, WAL v5, index v9):
+    /// `check_integrity` must report zero issues — an encrypted artefact is a
+    /// *current* format, never an integrity violation (ADR-0057 D7).
     #[cfg(feature = "encryption")]
     #[test]
     fn test_integrity_accepts_encrypted_v3_v4_v9() -> Result<()> {

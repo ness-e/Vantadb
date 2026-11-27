@@ -130,16 +130,19 @@ pub(crate) fn is_encrypted(format_version: u16) -> bool {
 ///
 /// The same rule is used by [`scratch_path`] to name the redaction scratch file
 /// without the `.wal.` infix.
+///
+/// The bytes come from `OsStr::as_encoded_bytes` — the same raw form
+/// `vfile_crypto::segment_identifier` uses, so a non-UTF-8 name cannot collapse
+/// two shards into one identity (L7 of the P2-01 round).
 pub(crate) fn wal_identifier(path: &Path) -> Vec<u8> {
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "wal".to_string());
-    let stem = match name.find(".wal") {
-        Some(idx) => &name[..idx],
-        None => &name[..],
+    let Some(name) = path.file_name() else {
+        return b"wal".to_vec();
     };
-    stem.as_bytes().to_vec()
+    let bytes = name.as_encoded_bytes();
+    match bytes.windows(4).position(|w| w == b".wal") {
+        Some(idx) => bytes[..idx].to_vec(),
+        None => bytes.to_vec(),
+    }
 }
 
 /// Refuse an encrypted layout written before FIND-586 (WAL v4).
@@ -1361,7 +1364,7 @@ pub(crate) fn write_redacted_segment(
     if is_encrypted(version) {
         return Ok(SegmentRedact {
             bytes_before,
-            skipped: Some("encrypted segment (v4): the payload is already ciphertext"),
+            skipped: Some("encrypted segment (v4/v5): the payload is already ciphertext"),
             ..Default::default()
         });
     }
@@ -1477,7 +1480,7 @@ impl WalWriter {
         if is_encrypted(self.format_version) {
             return Ok(SegmentRedact {
                 bytes_before: self.bytes_written,
-                skipped: Some("encrypted segment (v4): the payload is already ciphertext"),
+                skipped: Some("encrypted segment (v4/v5): the payload is already ciphertext"),
                 ..Default::default()
             });
         }
@@ -1970,12 +1973,17 @@ pub(crate) fn verify_wal_file(path: &Path) -> Result<WalVerifyReport> {
     };
     let version = header.base.format_version;
 
+    // FIND-586 / P2-01 M1: the pre-file-identity encrypted layout (v4) is
+    // never "verified" here: this build cannot open it, and a green report
+    // would tell the operator the opposite. Refuse it like `open` does.
+    refuse_legacy_encrypted_layout(version)?;
+
     // An encrypted WAL is verified **without the key**: the CRC32C and the
     // hash chain both cover the ciphertext, so the operator can still check
     // the integrity of a WAL they cannot decrypt (ADR-0057 D5).
     #[cfg(feature = "encryption")]
     if is_encrypted(version) {
-        return verify_wal_file_v4(path, &mut file, file_len);
+        return verify_wal_file_v4(path, &mut file, file_len, version);
     }
 
     let chained = is_chained(version);
@@ -2074,18 +2082,24 @@ pub(crate) fn verify_wal_file(path: &Path) -> Result<WalVerifyReport> {
     Ok(report(version, record, status))
 }
 
-/// Verify an **encrypted** WAL (v4) offline — **without the key**.
+/// Verify an **encrypted** WAL (v5) offline — **without the key**.
 ///
 /// The CRC32C and the `prev_hash ‖ record_hash` chain both cover the
 /// **ciphertext**, so an operator without the key still gets the tamper
 /// evidence (reordering, splicing, truncation, bit rot). The AEAD tag — the
 /// layer that proves the *plaintext* — is checked by the replay path, which
-/// does have the key.
+/// does have the key. `format_version` is the one read from the header, so the
+/// report never invents a version (P2-01 M1).
 #[cfg(all(any(feature = "cli", test), feature = "encryption"))]
-fn verify_wal_file_v4(path: &Path, file: &mut File, file_len: u64) -> Result<WalVerifyReport> {
+fn verify_wal_file_v4(
+    path: &Path,
+    file: &mut File,
+    file_len: u64,
+    format_version: u16,
+) -> Result<WalVerifyReport> {
     let report = |records: u64, status: WalVerifyStatus| WalVerifyReport {
         path: path.to_path_buf(),
-        format_version: WAL_ENCRYPTED_FORMAT_VERSION,
+        format_version,
         records,
         status,
     };
@@ -4193,6 +4207,49 @@ mod encryption_tests {
             wal_identifier(Path::new("vanta.shard1.wal")),
             "two shards must not share the AAD identity"
         );
+    }
+
+    /// FIND-586 / P2-01 M1: a **v4** WAL (the pre-file-identity encrypted
+    /// layout) is refused by the reader **and** by `verify_wal_file` — the
+    /// latter used to report it as "verified" and even as v5.
+    #[test]
+    fn legacy_v4_wal_is_refused_by_open_and_by_verify() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        // The DEK has to exist for the reader to get past key resolution.
+        let crypto = WalCrypto::open(dir.path(), &master(0x66)).unwrap();
+        let key = crypto.key();
+        std::fs::write(
+            &path,
+            WalHeader::new(WAL_LEGACY_ENCRYPTED_FORMAT_VERSION as u32).serialize(),
+        )
+        .unwrap();
+
+        let err = match WalReader::open_with_key(&path, key) {
+            Ok(_) => panic!("a v4 WAL must not open on this build"),
+            Err(err) => err,
+        };
+        assert!(
+            matches!(err, Error::IncompatibleFormat { .. }),
+            "a v4 WAL must be refused with IncompatibleFormat, got: {err}"
+        );
+
+        let err = match verify_wal_file(&path) {
+            Ok(_) => panic!("a v4 WAL must not verify as healthy on this build"),
+            Err(err) => err,
+        };
+        assert!(
+            matches!(err, Error::IncompatibleFormat { .. }),
+            "verify must refuse a v4 WAL too, got: {err}"
+        );
+
+        // And the current encrypted format still verifies: the refusal is not
+        // a blanket "no encrypted WALs".
+        drop(crypto);
+        std::fs::remove_file(&path).unwrap();
+        write_encrypted(dir.path(), 0x66, &[WalRecord::Insert(UnifiedNode::new(1))]);
+        let report = verify_wal_file(&path).expect("a v5 WAL verifies");
+        assert_eq!(report.format_version, WAL_ENCRYPTED_FORMAT_VERSION);
     }
 
     /// The shipping path reads a WAL segment with a [`WalReader`]: a v4

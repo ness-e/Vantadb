@@ -8,7 +8,7 @@ description: "El AAD no incluye la identidad del fichero: un registro copiado de
 # FIND-586: el AAD no ata el ciphertext a su fichero
 
 ## Metadata
-- **Fuente:** `docs/dev/Backlog.md` (fila `FIND-586`)
+- **Fuente:** `docs/dev/Backlog.md` (la fila deriva de `FIND-500`; la review P2-01 + el audit de seguridad del 2026-10-21 la abrieron como fila propia — **no** existía una fila `FIND-586` en el Backlog cuando se abrió el lote, ver P2-01 L9)
 - **Origen:** revision P2-01 (vanta-review, M-1) + audit de seguridad (vanta-audit, A-1) del 2026-10-21
 - **Esfuerzo:** 1-2 semanas (la fila) · recortado a lo que cabe en el lote · **Prioridad:** 🟠 Alta
 - **Creado / cerrado:** 2026-11-27
@@ -73,3 +73,14 @@ cargo nextest run  --profile audit -p vantadb --features encryption -E 'test(vfi
 
 - **Hecho:** `src/storage/vfile_crypto.rs`, `src/storage/vfile.rs`, `src/wal.rs`, este task file, `docs/user/operations/SECURITY.md` (§ Encryption at Rest: v4/v5 + la ligadura al fichero), `docs/dev/Backlog.md` (retirada de la fila), `docs/dev/avance/activo/core-engine.md`.
 - **No hacer:** leer un v3/v4 cifrado "por compatibilidad" — reintroduce el agujero y dos formas de AAD por artefacto.
+
+## Review
+
+### P2-01 ronda 1 (contexto fresco, `vanta-review`, agente distinto) - **changes-required**, aplicado
+
+VERDICT: changes-required con **0 CRITICAL / 0 HIGH / 7 MEDIUM / 9 LOW**. Confirmado sano: cobertura total del AAD (los 4 constructores pasan `identifier`), identidad estable en rotacion y shards, compaction cifrada coherente, rechazo en el open de vfile/WAL, FIND-496 bien acotado y FIND-507 en el orden correcto.
+
+Aplicado en la misma ronda: **M1** (`verify_wal_file` rechaza el v4 legacy y reporta la version real), **M2** (`migrate`/`check_integrity` dicen "refused / rewrite", no "newer"), **M3** (§Diseno de FIND-513 reescrito con lo que el codigo tiene de verdad), **M4** (la medicion de 343 limpia la clave y asserta base plana), **M5** (`encryption_block` sin fail-open y sin segundo recorrido), **M6** (el Step 5 falso de 507 corregido), **M7** (el pin de rotacion, commiteado) y los LOW de prosa (L1, L6, L7, L8, L9).
+
+No aplicado y declarado: **L2** (un hunk ajeno de `FIND-669` horneado en el commit de cripto: ruido de carril, no enmendable sin `--amend`), **L3** (fila `FIND-500` colgando: es de otra fila, fuera de las 5 del lote) y **L4** (la deuda de crypto-shredding queda en el §Deuda de 343 en vez de como fila nueva: los IDs los asigna el orquestador).
+

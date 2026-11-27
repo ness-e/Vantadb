@@ -97,6 +97,22 @@ index (derived from canonical data). Design and delta:
   replica would need the master key, and sending key material over the network
   is out of scope. `WalShipper::ship_once` refuses **before** shipping
   anything.
+
+### Segment and shard identity is part of the ciphertext (FIND-586)
+
+The AAD of every encrypted artefact carries the **identity of its file** (the
+segment name for a VantaFile, the shard stem before `.wal` for the WAL). Two
+operational consequences:
+
+- **Renaming a segment makes it unreadable.** `vstore_L0.vanta` copied to
+  `copy.vanta` will not decrypt: it is a different identity. Move the whole
+  `data/` directory (names included) — never individual segments.
+- **A backup/restore keeps the names**, so it keeps working; a manual
+  re-shuffle of files between segments does not.
+- The encrypted layouts changed with that binding (VantaFile **v4**, WAL
+  **v5**); the earlier encrypted layouts (v3 / v4) are **refused** with
+  `IncompatibleFormat` — `vanta --verify`, `migrate` and `check_integrity` say
+  "rewrite the database", never "newer build".
 - **Perder `data/encryption.registry` pierde la base**: las DEKs viven solo ahi.
 - **Runbook completo** (guardar la key, rotarla, deshacer la rotacion,
   cifrar una base existente): [`security/KEY_RUNBOOK.md`](security/KEY_RUNBOOK.md).

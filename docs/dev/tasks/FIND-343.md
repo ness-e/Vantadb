@@ -74,7 +74,23 @@ reproducido por el recovery.
 - **Crypto-shredding**: con la base cifrada, el ciphertext de un registro borrado sigue
   siendo descifrable con la DEK vigente porque el AEAD no conoce el borrado. Rotar la DEK por
   artefacto es del registro de claves (`src/crypto/**`, rotación), no de la purga física — y la
-  fila ya lo listaba así.
+  fila ya lo listaba así. **Queda registrada aquí y NO como fila propia** para no inventar un
+  ID nuevo en plena campaña (los `FIND-*` los asigna el orquestador); la retirada de la fila no
+  la borra: vive en este §Deuda (P2-01 L4).
 - **Journal Fjall preasignado (64 MiB)**: la compactación produce un journal nuevo; el
   *fichero* viejo lo recicla Fjall, no el motor. El canario mide el contenido lógico, que es lo
   que la fila exige (0 bytes del payload en el árbol).
+- **La medición exige una base plana**: el test limpia `VANTADB_ENCRYPTION_KEY*` y asserta que
+  no se creó el registro de claves — con una base cifrada el canario en claro sería
+  0 hits *por el cifrado*, no por el borrado (P2-01 M4).
+
+## Review
+
+### P2-01 ronda 1 (contexto fresco, `vanta-review`, agente distinto) - **changes-required**, aplicado
+
+VERDICT: changes-required con **0 CRITICAL / 0 HIGH / 7 MEDIUM / 9 LOW**. Confirmado sano: cobertura total del AAD (los 4 constructores pasan `identifier`), identidad estable en rotacion y shards, compaction cifrada coherente, rechazo en el open de vfile/WAL, FIND-496 bien acotado y FIND-507 en el orden correcto.
+
+Aplicado en la misma ronda: **M1** (`verify_wal_file` rechaza el v4 legacy y reporta la version real), **M2** (`migrate`/`check_integrity` dicen "refused / rewrite", no "newer"), **M3** (§Diseno de FIND-513 reescrito con lo que el codigo tiene de verdad), **M4** (la medicion de 343 limpia la clave y asserta base plana), **M5** (`encryption_block` sin fail-open y sin segundo recorrido), **M6** (el Step 5 falso de 507 corregido), **M7** (el pin de rotacion, commiteado) y los LOW de prosa (L1, L6, L7, L8, L9).
+
+No aplicado y declarado: **L2** (un hunk ajeno de `FIND-669` horneado en el commit de cripto: ruido de carril, no enmendable sin `--amend`), **L3** (fila `FIND-500` colgando: es de otra fila, fuera de las 5 del lote) y **L4** (la deuda de crypto-shredding queda en el §Deuda de 343 en vez de como fila nueva: los IDs los asigna el orquestador).
+

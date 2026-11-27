@@ -896,6 +896,34 @@ mod tests {
         );
     }
 
+    /// FIND-586 / P2-01 M1: a **v3** VantaFile (the pre-file-identity encrypted
+    /// layout) is refused on open, with a hint that says "rewrite", not
+    /// "wrong key".
+    #[test]
+    fn legacy_v3_vfile_segment_is_refused_on_open() {
+        use crate::storage::vfile::VFILE_LEGACY_ENCRYPTED_VERSION;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vstore_L0.vanta");
+        let mut bytes = vec![0u8; 4096];
+        let header = Header::new(*b"VFLE", VFILE_LEGACY_ENCRYPTED_VERSION, 0);
+        bytes[0..16].copy_from_slice(&header.serialize());
+        bytes[16..24].copy_from_slice(&64u64.to_le_bytes());
+        std::fs::write(&path, &bytes).unwrap();
+
+        let crypto = VFileCrypto::open(dir.path(), &material(0x11)).expect("registry");
+        let err = match File::open_with_crypto(path, 64 * 1024, false, Some(Arc::new(crypto))) {
+            Ok(_) => panic!("a v3 segment must not open on this build"),
+            Err(err) => err,
+        };
+        match err {
+            Error::IncompatibleFormat { hint, .. } => assert!(
+                hint.contains("FIND-586") && hint.contains("Rewrite"),
+                "the hint must say the layout is refused and the database rewritten, got: {hint}"
+            ),
+            other => panic!("expected IncompatibleFormat, got: {other}"),
+        }
+    }
+
     /// FIND-618: `open_node` returns `Zeroizing<Vec<u8>>` so that AEAD-decrypted
     /// plaintext is safely wiped upon drop.
     #[test]
