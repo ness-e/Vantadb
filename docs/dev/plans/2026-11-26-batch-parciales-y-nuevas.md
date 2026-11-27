@@ -99,7 +99,7 @@ Misma regla que el residual anterior: **toda fila abierta va en el plan**, o no 
 
 | Wave | Filas | Zona / partición |
 |---|---|---|
-| **W15** | `FIND-794` · `FIND-797` · `FIND-807` | `.config/nextest.toml` + `dev-tools/**` + los `-E` de CI · `.github/workflows/snapshot-certification.yml` (paths) · `.github/workflows/ci-rust.yml` (el guard en push docs-only) | `.config/nextest.toml` + `dev-tools/**` + los `-E` de CI · `.github/workflows/snapshot-certification.yml` (paths) + un chequeo de divergencia |
+| **W15** | `FIND-794` · `FIND-797` · `FIND-807` · `FIND-808` | `.config/nextest.toml` + `dev-tools/**` + los `-E` de CI · `.github/workflows/snapshot-certification.yml` (paths) · `.github/workflows/ci-rust.yml` (guard en push docs-only) · `docs/FEATURES.md` | `.config/nextest.toml` + `dev-tools/**` + los `-E` de CI · `.github/workflows/snapshot-certification.yml` (paths) + un chequeo de divergencia |
 
 **Creadas y cerradas durante las waves (no requieren carril, quedan como registro):** `FIND-731` · `FIND-732` · `FIND-733` · `FIND-734` · `FIND-735` · `FIND-736` · `FIND-738` · `FIND-739` · `FIND-740` · `FIND-741` · `FIND-742` · `FIND-743` · `FIND-744` · `FIND-745` · `FIND-746` · `FIND-747` · `FIND-748` · `FIND-749` · `FIND-750` · `FIND-751` · `FIND-752` · `FIND-754` · `FIND-755` · `FIND-760` · `FIND-761` · `FIND-763` · `FIND-765` · `FIND-769` · `FIND-776` · `FIND-778` · `FIND-780` · `FIND-784` · `FIND-785` · `FIND-786` · `FIND-792` · `FIND-793` · `FIND-795` · `FIND-796`.
 
