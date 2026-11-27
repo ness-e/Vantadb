@@ -974,6 +974,39 @@ jobs:
       - name: Check release combo — vantadb-server (jemalloc)
         run: cargo check --release --features "jemalloc" --package vantadb-server --locked
 
+  feature-combos:
+    # FIND-219: the operator build documented in
+    # docs/user/operations/DEPLOYMENT_GUIDE.md:65 - `cli,server,tls,opentelemetry,
+    # advanced-tokenizer,remote-inference` - had no gate. It is not a subset of an
+    # existing lane: the test lanes carry `arrow` in place of
+    # `advanced-tokenizer`, so this build also covers the branch where the
+    # columnar code path is OFF while `server` is ON, which `clippy
+    # --all-features` can never reach (features are additive; the union build
+    # compiles exactly one combination).
+    # Scope and cost are the contract: `check` - not a test lane - because the
+    # behaviour is already covered per feature by the test lanes, and this is a
+    # build promise. Measured peers on run 45949538624: Release Combo 1.6 min,
+    # Experimental Crates Check 1.6 min, so ~2 min for this one.
+    # The ledger this job answers to is docs/feature-matrix.md §2 row 6: change
+    # the feature string there in the same commit, or the matrix starts lying.
+    # Not added to the `develop` ruleset on purpose: a new combination should
+    # earn its track record in red-and-look before it can block a merge.
+    name: Feature Combo (server-full)
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [fmt, clippy]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Check server-full (the documented self-hosted build)
+        run: cargo check --locked --features "cli,server,tls,opentelemetry,advanced-tokenizer,remote-inference" --package vantadb
+
   audit:
     name: Security Audit
     # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
