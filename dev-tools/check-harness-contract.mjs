@@ -22,8 +22,9 @@
  * the mechanical checks: git-commit-isolated.ps1 content verification,
  * check-closure.ps1, and node --test for the campaign parser.
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve, dirname, basename } from "node:path";
+import { readFileSync, readdirSync, statSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
@@ -120,8 +121,47 @@ export function loteViolations(planText) {
  * universal word is a claim, so `**92**` (one token) is not invisible.
  */
 const CLAIM = /\d|\b(ning[uú]n|ninguna|todos|todas|solo|sólo|nunca)\b/i;
-const HAS_MEASURE = /Medici[oó]n\s*:|medido\b/i;
 const CLAIM_COLUMNS = [/^hallazgo$/, /^descripcion$/];
+
+/**
+ * FIND-779 (b): the measurement is read from the CLAIM CELL, never from the row.
+ * Two ways the old `HAS_MEASURE.test(text)` failed open:
+ *   - `no medido` matched `medido\b`, so a claim walked through its own denial;
+ *   - a word in a column nobody judges (`Ver:` says "medido") absolved the claim
+ *     cell that carried no measurement at all.
+ * A `Medición:` with no value is the FIND-785 shape — a field that reads as
+ * fulfilled while measuring nothing — and is not a measurement either.
+ */
+const MEASURE_FIELD = /(?<!\bsin\s+)Medici[oó]n\s*:([^|·;]*)/i;
+const MEASURED_WORD = /\bmedid[oa]s?\b/i;
+// FIND-779 (b), P2-01 F8: the negation is not one phrase. Measured fail-opens were
+// `no medido`, `no fue medido`, `no está medido`, `sin ser medido`, `sin Medición:`;
+// the words between the negator and the participle are pinned to two, and they are
+// `\S+`-class WITHOUT punctuation: `\w` cannot consume `está` (F8a) and a bare `\S+`
+// eats `embargo,` and turns `sin embargo, medido` into a violation (F8/R3-4).
+const MEASURE_NEGATED =
+  /\b(no|sin|nunca|jam[aá]s|not)\s+(?:[^\s,;·()]+\s+){0,2}(medid[oa]s?|medir|medici[oó]n|midi[oó])\b/i;
+// A field whose whole value is a placeholder is FIND-785 with a colon: it reads as
+// filled and measures nothing. `N/A` is covered by the `/i` (fixture 8N-2f).
+const MEASURE_PLACEHOLDER = /^(n\/?a|tbd|pendiente|sin\s+datos|[-–—.\s]+)$/i;
+
+export function hasMeasure(cell) {
+  const s = String(cell || "");
+  // P2-01 F8b: `sin Medición:` is not a field (the negation applies to the FIELD,
+  // not only to its value — `sin Medición: 92` used to measure). `\s+` and not `\s`:
+  // `sin  Medición:` with two spaces is the same phrase (R3-1).
+  const field = s.match(MEASURE_FIELD);
+  if (field) {
+    // P2-01 O1: the value ends at a separator, so prose that comes AFTER the field
+    // (`Medición: rg -> 92 · no medido …`) cannot contaminate it.
+    const value = (field[1] || "").trim();
+    return (
+      /[A-Za-z0-9]/.test(value) && !MEASURE_NEGATED.test(value) && !MEASURE_PLACEHOLDER.test(value)
+    );
+  }
+  if (MEASURE_NEGATED.test(s)) return false; // the negation must negate
+  return MEASURED_WORD.test(s);
+}
 
 const normHeader = (c) =>
   c
@@ -132,6 +172,21 @@ const normHeader = (c) =>
     .toLowerCase();
 
 const isSeparator = (s) => /^\s*\|[\s:|-]+\|\s*$/.test(s) && s.includes("-");
+
+/**
+ * FIND-779 (c): cells of a table row, split on UNESCAPED pipes. A cell may carry
+ * `a\|b` (a path with a pipe, an alternation in a regex); splitting naively adds
+ * a cell, every index after it shifts by one, and the gate judges the wrong one —
+ * in silence, because a clean-looking wrong cell reads as "no claim".
+ * Rows AND headers must use this same splitter or the indices disagree again.
+ */
+export function splitCells(line) {
+  return String(line)
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split(/(?<!\\)\|/);
+}
 
 /**
  * Column indices to judge for the row at 1-based `line`, read from the table
@@ -149,7 +204,7 @@ export function governingHeader(text, line) {
     const l = lines[i];
     if (!/^\s*\|/.test(l)) return null;
     if (isSeparator(l) && i > 0 && /^\s*\|/.test(lines[i - 1])) {
-      return lines[i - 1].split("|").slice(1, -1).map(normHeader);
+      return splitCells(lines[i - 1]).map(normHeader);
     }
   }
   return null;
@@ -191,7 +246,6 @@ export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT,
   const cache = new Map();
   for (const { file, line, text } of addedRowLines) {
     if (!/^\s*\|/.test(text)) continue; // only table rows
-    if (HAS_MEASURE.test(text)) continue;
     if (!cache.has(file)) {
       try {
         cache.set(file, fileText(file));
@@ -203,7 +257,15 @@ export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT,
     if (body === null) continue;
     const header = governingHeader(body, line);
     const idx = claimCellIndices(body, line);
-    const cells = text.split("|").slice(1, -1);
+    const cells = splitCells(text);
+    // FIND-779 (b): what is judged is a set of CELLS, and the measurement has to
+    // live in one of them. Testing the row let a claim pass on a word in a column
+    // nobody judges, or on its own negation.
+    const unmeasured = (cols) => {
+      const values = cols.map((k) => cells[k] || "");
+      if (values.some(hasMeasure)) return [];
+      return values.filter((c) => CLAIM.test(c));
+    };
     if (!idx || !idx.length) {
       // Round 5 (R1): only a data table (has an `ID` column) is judged, and only
       // its prose columns — the Backlog's dashboards (`Phase / Dimensión | Items
@@ -211,7 +273,18 @@ export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT,
       // claim header (`Finding/Description`, `Problema/Detalle`) still fails.
       if (!isBacklogFile(file) || !header || !header.includes("id")) continue;
       const proseCols = header.map((h, k) => (PROSE_HINT.test(h) ? k : -1)).filter((k) => k >= 0);
-      const claimed = proseCols.map((k) => cells[k] || "").filter((c) => CLAIM.test(c));
+      // FIND-779 (d): a data table whose header matches no prose word used to be a
+      // SILENT skip — the round-4 hole, reopened by renaming one header. "Cannot
+      // judge" is not "nothing to judge": the gate says so by name.
+      if (!proseCols.length) {
+        out.push(
+          `${file}:${line}: added row under a table the gate cannot judge (no recognizable claim column in ${header.join(
+            " | ",
+          )}) — rename the header to the canonical one or to a prose column`,
+        );
+        continue;
+      }
+      const claimed = unmeasured(proseCols);
       if (!claimed.length) continue;
       out.push(
         `${file}:${line}: claim under a non-canonical header (${header.join(" | ")}) — ${claimed[0]
@@ -220,7 +293,7 @@ export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT,
       );
       continue;
     }
-    const claimed = idx.map((i) => cells[i] || "").filter((c) => CLAIM.test(c));
+    const claimed = unmeasured(idx);
     if (!claimed.length) continue;
     out.push(`${file}:${line}: claim without "Medición:" — ${claimed[0].trim().slice(0, 90)}`);
   }
@@ -501,21 +574,26 @@ export function authorityViolations(line) {
  * The dangerous direction is exactly this: HEAD says "gone", the disk says
  * "here" — any lane's bare `git commit` then bakes the deletions forever.
  *
- * Two one-line signatures, both false-positive-safe:
- *   - HEAD's tree is the empty tree;
- *   - the last commit deleted N>=50 paths that are STILL on disk (a real
- *     deletion also removes them from the worktree).
+ * The ≥50 signature is NOT false-positive-safe (FIND-779 (a): the old docstring
+ * said it was, and a `git rm --cached` of 50+ paths proved it wrong). From the
+ * worktree's side the two are identical — a commit that deletes the paths while
+ * the files stay on disk. What separates them is the INDEX:
+ *   - an intentional untrack leaves the paths UNTRACKED   (`?? <path>`);
+ *   - the incident was committed from a stale/empty private index, so the real
+ *     index still TRACKED them                          (`A  <path>`).
+ * So the verdict is read from the index, and the ceiling is stated instead of
+ * promised: a deletion whose index entry was ALSO dropped afterwards cannot be
+ * told apart from an intentional untrack. Then the check does not guess — it
+ * prints a note naming both hypotheses (≥50 untracked paths, or an inversion
+ * below the threshold). Silence is the one answer it no longer gives.
  */
-function checkRepoIntegrity() {
-  const bad = [];
+export function repoIntegrityViolations(root = ROOT, ref = "HEAD") {
+  const violations = [];
+  const notes = [];
   const EMPTY = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-  const ref = (() => {
-    const i = args.indexOf("--ref");
-    return i >= 0 && args[i + 1] ? args[i + 1] : "HEAD";
-  })();
   const git = (a) =>
     execFileSync("git", a, {
-      cwd: ROOT,
+      cwd: root,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
@@ -523,25 +601,77 @@ function checkRepoIntegrity() {
   try {
     tree = git(["rev-parse", `${ref}^{tree}`]);
   } catch {
-    return []; // not a git repo / no commits yet: not this check's business
+    return { violations, notes }; // not a git repo / no commits yet: not this check's business
   }
-  if (tree === EMPTY) bad.push(`${ref}'s tree is EMPTY — the repo was committed away`);
+  if (tree === EMPTY) violations.push(`${ref}'s tree is EMPTY — the repo was committed away`);
   let deleted = [];
   try {
-    deleted = git(["show", "--diff-filter=D", "--name-only", "--format=", ref])
-      .split("\n")
+    // `-z`, not `--name-only`: without it git QUOTES non-ASCII paths
+    // (`"caf\303\251.md"`), `exists()` is asked about a string that is not a path,
+    // and every accented deletion silently stops counting (measured 2026-11-26).
+    // `git show`, not `diff-tree`: without `-m`, diff-tree emits NOTHING for a
+    // merge commit — measured 61 deletions vs 0, i.e. the check would go blind on
+    // exactly the commit shape a bad lane is most likely to produce (P2-01 F1).
+    deleted = execFileSync(
+      "git",
+      ["show", "-z", "--diff-filter=D", "--name-only", "--format=", ref],
+      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    )
+      .split("\0")
       .filter(Boolean);
   } catch {
     deleted = [];
   }
-  const stillOnDisk = deleted.filter((p) => exists(join(ROOT, p)));
-  if (stillOnDisk.length >= 50) {
-    bad.push(
-      `${ref} deleted ${stillOnDisk.length} paths that are STILL in the working tree (HEAD/worktree inversion) — e.g. ${stillOnDisk[0]}`,
+  const stillOnDisk = deleted.filter((p) => exists(join(root, p)));
+  let tracked = null;
+  if (stillOnDisk.length) {
+    try {
+      tracked = new Set(
+        execFileSync("git", ["ls-files", "-z"], {
+          cwd: root,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        })
+          .split("\0")
+          .filter(Boolean),
+      );
+    } catch {
+      tracked = null; // no index to read: report it, do not guess
+    }
+  }
+  // An unreadable index cannot separate the two hypotheses: fail closed and say why.
+  const isTracked = (p) => (tracked ? tracked.has(p) : true);
+  const inverted = stillOnDisk.filter(isTracked);
+  const untracked = stillOnDisk.filter((p) => !isTracked(p));
+  if (stillOnDisk.length && tracked === null) {
+    notes.push(
+      `could not read the index (git ls-files) — every deleted path is classified as tracked`,
     );
   }
-  if (verbose) console.log(`  repo-integrity: ${ref} tree ok, ${deleted.length} deletions checked`);
-  return bad;
+  if (inverted.length >= 50) {
+    violations.push(
+      `${ref} deleted ${inverted.length} paths that the INDEX still tracks and that are STILL in the working tree (HEAD/worktree inversion) — e.g. ${inverted[0]}`,
+    );
+  } else if (inverted.length) {
+    notes.push(
+      `${inverted.length} deleted path(s) are tracked again in the index and exist on disk — inversion in repair, below the 50-path threshold (e.g. ${inverted[0]})`,
+    );
+  }
+  if (untracked.length >= 50) {
+    notes.push(
+      `${ref} deleted ${untracked.length} paths that exist on disk and are UNTRACKED in the index — consistent with \`git rm --cached\`; a real deletion whose index entry was dropped later looks the same, so this is a note, not a verdict (e.g. ${untracked[0]})`,
+    );
+  }
+  return { violations, notes };
+}
+
+function checkRepoIntegrity() {
+  const i = args.indexOf("--ref");
+  const ref = i >= 0 && args[i + 1] ? args[i + 1] : "HEAD";
+  const { violations, notes } = repoIntegrityViolations(ROOT, ref);
+  for (const n of notes) console.log(`  note repo-integrity: ${n}`);
+  if (verbose) console.log(`  repo-integrity: ${ref} tree ok, deletions classified by the index`);
+  return violations;
 }
 
 function checkCommitAuthority() {
@@ -876,6 +1006,315 @@ function runSelfTest() {
     ).length === 0,
   );
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // FIND-779: one fixture per measured edge. Each one asserts the PROPERTY the
+  // edge broke, not "a violation exists": (d) and (e) both end in one violation,
+  // so the message has to be part of the assertion or the (d) branch would mask
+  // a mutation of (e) — the "fixture passes because another path caught it" trap.
+  // ───────────────────────────────────────────────────────────────────────────
+  const tableUnder = (headerLine, row) =>
+    claimViolations(
+      [{ file: "docs/dev/Backlog.md", line: 3, text: row }],
+      () => `${headerLine}\n|${"---|".repeat(splitCells(headerLine).length)}\n${row}\n`,
+    );
+  const claim92 = swap("<descripción: qué se encontró + acción propuesta>", "**92**");
+
+  // 8N-2 (FIND-779 b): the measurement is a cell, and the negation negates.
+  ok(
+    "8N-2a: 'no medido' does not count as measured",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — no medido")).length ===
+      1,
+  );
+  ok(
+    "8N-2b: a 'medido' in a column nobody judges does not absolve the claim",
+    viol(claim92.replace("Origen:", "Origen: medido en otra celda ·")).length === 1,
+  );
+  ok(
+    "8N-2c: 'Medición:' with no value measures nothing",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — Medición:")).length ===
+      1,
+  );
+  // P2-01 F8: the negation is not one phrase, and an explicit field beats prose.
+  ok(
+    "8N-2d: 'no fue medido' / 'sin ser medido' still negate",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — no fue medido"))
+      .length === 1 &&
+      viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — sin ser medido"))
+        .length === 1,
+  );
+  ok(
+    "8N-2e: a real 'Medición:' wins over a negated word in the same cell",
+    viol(
+      swap(
+        "<descripción: qué se encontró + acción propuesta>",
+        "**92** — no medido en el informe · Medición: `rg -c unwrap src/` -> 92",
+      ),
+    ).length === 0,
+  );
+  ok(
+    "8N-2f: a placeholder value is not a measurement",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — Medición: n/a"))
+      .length === 1 &&
+      viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — Medición: tbd"))
+        .length === 1 &&
+      viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — Medición: N/A"))
+        .length === 1,
+  );
+  // P2-01 F8a: `no está medido` — the two-word window is `\S+`, not `\w+`.
+  ok(
+    "8N-2g: 'no está medido' negates too",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — no está medido"))
+      .length === 1,
+  );
+  // P2-01 F8b: `sin Medición:` is not a field, so its value cannot absolve the claim.
+  ok(
+    "8N-2h: 'sin Medición: <valor>' is not a measurement",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — sin Medición: 92"))
+      .length === 1 &&
+      viol(
+        swap(
+          "<descripción: qué se encontró + acción propuesta>",
+          "**92** — sin Medición: ver nota",
+        ),
+      ).length === 1,
+  );
+  // P2-01 O4: a negated VALUE is not a measurement ("Medición: no medido").
+  ok(
+    "8N-2i: 'Medición: no medido' is a negated value, not a measurement",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — Medición: no medido"))
+      .length === 1,
+  );
+  // P2-01 O1: prose AFTER a real field must not contaminate its value.
+  ok(
+    "8N-2j: 'Medición: <cmd> · no medido' keeps its measurement",
+    viol(
+      swap(
+        "<descripción: qué se encontró + acción propuesta>",
+        "**92** — Medición: `rg -c unwrap src/` -> 92 · no medido en el informe",
+      ),
+    ).length === 0,
+  );
+  // P2-01 R3: the negation is a phrase, not a spelling. Two spaces between `sin` and
+  // `Medición:` is the same negation (the lookbehind is `\bsin\s+`).
+  ok(
+    "8N-2k: 'sin  Medición:' with two spaces is still not a field",
+    viol(swap("<descripción: qué se encontró + acción propuesta>", "**92** — sin  Medición: 92"))
+      .length === 1,
+  );
+  // P2-01 R3-4: `sin embargo, medido` is prose, not a denial of a measurement — the
+  // word window must not swallow punctuation to reach the participle.
+  ok(
+    "8N-2l: 'sin embargo, medido en prod' is a measurement, not a negation",
+    viol(
+      swap(
+        "<descripción: qué se encontró + acción propuesta>",
+        "**92** — sin embargo, medido en prod",
+      ),
+    ).length === 0,
+  );
+
+  // 8N-3 (FIND-779 c): an escaped pipe must not shift the judged cell.
+  ok(
+    "8N-3: an escaped pipe in the row does not desalign the judged cell",
+    viol(claim92.replace("`ruta:línea`", "`a\\|b.rs:12`")).length === 1,
+  );
+  // P2-01 F4: the same splitter has to run over the HEADER, or the indices of the
+  // two sides disagree. Header with an escaped pipe + claim in Descripción.
+  ok(
+    "8N-3b: an escaped pipe in the header does not desalign it either",
+    tableUnder(
+      "| ID | Severidad | Hallazgo | Archivo\\|línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |",
+      "| `FIND-9` | 🟠 Media | **<título>** | `a.rs` | 🟢 1h | 🟠 Media | 🟡 Pendiente | **92** | - | - |",
+    ).length === 1,
+  );
+
+  // 8N-4 (FIND-779 d): a data table with no recognizable claim column is a
+  // declared violation ("cannot judge"), not a silent skip.
+  const OBS_HEADER = "| ID | Severidad | Observación | Comentario |";
+  const synRow = "| `FIND-9` | 🟠 Media | **92 unwraps en prod** | sin cambios |";
+  ok(
+    "8N-4: a data table the gate cannot judge fails instead of skipping",
+    (() => {
+      const v = tableUnder(OBS_HEADER, synRow);
+      return v.length === 1 && /cannot judge/.test(v[0]);
+    })(),
+  );
+
+  // 8N-5 (FIND-779 e): the `Problema/Detalle` synHeader branch had no fixture, so
+  // "stays at exit 1" was not reproducible from the repo.
+  const SYN_HEADER = "| ID | Severidad | Problema | Detalle | Evidencia |";
+  ok(
+    "8N-5a: synHeader `Problema/Detalle` still fails as non-canonical",
+    (() => {
+      const v = tableUnder(
+        SYN_HEADER,
+        "| `FIND-9` | 🟠 Media | **92 unwraps en prod** | sin cambios | - |",
+      );
+      return v.length === 1 && /non-canonical header/.test(v[0]);
+    })(),
+  );
+  ok(
+    "8N-5b: synHeader row whose only 'Medición:' is in an unjudged column still fails",
+    (() => {
+      const v = tableUnder(
+        SYN_HEADER,
+        "| `FIND-9` | 🟠 Media | **92 unwraps en prod** | sin cambios | Medición: `rg` -> 92 |",
+      );
+      // P2-01 F2: assert WHICH branch fired. With `.length === 1` alone this fixture
+      // passed through the (d) "cannot judge" branch when PROSE_HINT was mutated —
+      // a fixture green for the wrong reason, the trap this file exists to close.
+      return v.length === 1 && /non-canonical header/.test(v[0]);
+    })(),
+  );
+
+  // 8N-1 (FIND-779 a): `repo-integrity` is decided by the index, on real repos.
+  // Two disposable git repos: the FP that must NOT fire, and the true positive
+  // that must keep firing (the guard against "fixing" it by switching it off).
+  const gitRepo = (extra = [], count = 60) => {
+    const dir = mkdtempSync(join(tmpdir(), "hcntr-"));
+    const g = (a, env) =>
+      execFileSync("git", ["-c", "commit.gpgsign=false", ...a], {
+        cwd: dir,
+        encoding: "utf8",
+        env: env ? { ...process.env, ...env } : process.env,
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+    g(["init", "-q"]);
+    g(["config", "user.email", "gate@selftest"]);
+    g(["config", "user.name", "gate-selftest"]);
+    writeFileSync(join(dir, "keep.txt"), "k\n");
+    for (const x of extra) writeFileSync(join(dir, x), "x\n");
+    for (let i = 0; i < count; i++) writeFileSync(join(dir, `f${i}.txt`), `${i}\n`);
+    g(["add", "-A"]);
+    g(["commit", "-q", "-m", "seed"]);
+    return { dir, g };
+  };
+  const SIXTY = Array.from({ length: 60 }, (_, i) => `f${i}.txt`);
+  // The stale-index commit: HEAD loses `files` while the real index keeps tracking
+  // them — the incident signature, at a size the caller chooses.
+  const staleIndexRepo = (count) => {
+    const { dir, g } = gitRepo([], count);
+    const privateIndex = { GIT_INDEX_FILE: join(dir, ".git", "selftest-index") };
+    const gi = (a) => g(a, privateIndex);
+    gi(["read-tree", "--empty"]);
+    gi(["add", "keep.txt"]);
+    const tree = gi(["write-tree"]);
+    const stale = g(["commit-tree", tree, "-p", "HEAD", "-m", "stale index"]);
+    g(["update-ref", "HEAD", stale]);
+    return dir;
+  };
+  let repo = null;
+  try {
+    repo = gitRepo();
+    repo.g(["rm", "-q", "--cached", ...SIXTY]);
+    repo.g(["commit", "-q", "-m", "untrack"]);
+    ok(
+      "8N-1a: `git rm --cached` of 60 paths is not an inversion",
+      repoIntegrityViolations(repo.dir).violations.length === 0,
+    );
+  } finally {
+    if (repo) rmSync(repo.dir, { recursive: true, force: true });
+  }
+  // 8N-1d (P2-01 F1): a MERGE commit is the shape a bad lane is most likely to
+  // produce, and `diff-tree` without `-m` emits nothing for it — the check went
+  // blind on 61 deletions (measured: show -z → 61, diff-tree -z → 0).
+  let merged = null;
+  try {
+    merged = gitRepo();
+    merged.g(["checkout", "-q", "-b", "side"]);
+    writeFileSync(join(merged.dir, "side.txt"), "s\n");
+    merged.g(["add", "-A"]);
+    merged.g(["commit", "-q", "-m", "side"]);
+    const p2 = merged.g(["rev-parse", "HEAD"]);
+    merged.g(["checkout", "-q", "-"]);
+    const p1 = merged.g(["rev-parse", "HEAD"]);
+    const privateIndex = { GIT_INDEX_FILE: join(merged.dir, ".git", "selftest-merge") };
+    const gi = (a) => merged.g(a, privateIndex);
+    gi(["read-tree", "--empty"]);
+    gi(["add", "keep.txt"]);
+    const tree = gi(["write-tree"]);
+    const evil = merged.g(["commit-tree", tree, "-p", p1, "-p", p2, "-m", "evil merge"]);
+    merged.g(["update-ref", "HEAD", evil]);
+    ok(
+      "8N-1d: a MERGE commit that deletes 60 tracked paths is still an inversion",
+      repoIntegrityViolations(merged.dir).violations.length === 1,
+    );
+  } finally {
+    if (merged) rmSync(merged.dir, { recursive: true, force: true });
+  }
+  // 8N-1e (P2-01 F5): an index the check cannot read must not become "nothing to
+  // report" — it fails closed and says why.
+  let broken = null;
+  try {
+    broken = gitRepo();
+    broken.g(["rm", "-q", "--cached", ...SIXTY]);
+    broken.g(["commit", "-q", "-m", "untrack"]);
+    writeFileSync(join(broken.dir, ".git", "index"), "not an index\n");
+    const res = repoIntegrityViolations(broken.dir);
+    ok(
+      "8N-1e: an unreadable index fails closed and says so",
+      res.violations.length === 1 && /could not read the index/.test(res.notes.join(" ")),
+    );
+  } finally {
+    if (broken) rmSync(broken.dir, { recursive: true, force: true });
+  }
+
+  // 8N-1c: `--name-only` QUOTES non-ASCII paths, so an accented deletion stopped
+  // counting as "on disk" (measured 60 of 61 before the `-z` fix).
+  let accented = null;
+  try {
+    accented = gitRepo(["café.md"]);
+    accented.g(["rm", "-q", "--cached", "café.md", ...SIXTY]);
+    accented.g(["commit", "-q", "-m", "untrack"]);
+    const res = repoIntegrityViolations(accented.dir);
+    ok(
+      "8N-1c: an accented path deleted from HEAD is still seen on disk (61, not 60)",
+      res.violations.length === 0 && /\b61 paths\b/.test(res.notes.join(" ")),
+    );
+  } finally {
+    if (accented) rmSync(accented.dir, { recursive: true, force: true });
+  }
+  let invertedRepo = null;
+  try {
+    invertedRepo = gitRepo();
+    const privateIndex = { GIT_INDEX_FILE: join(invertedRepo.dir, ".git", "selftest-index") };
+    const gi = (a) => invertedRepo.g(a, privateIndex);
+    gi(["read-tree", "--empty"]);
+    gi(["add", "keep.txt"]);
+    const tree = gi(["write-tree"]);
+    const stale = invertedRepo.g(["commit-tree", tree, "-p", "HEAD", "-m", "stale index"]).trim();
+    invertedRepo.g(["update-ref", "HEAD", stale]);
+    ok(
+      "8N-1b: a stale-index commit deleting 60 TRACKED paths is still an inversion",
+      repoIntegrityViolations(invertedRepo.dir).violations.length === 1,
+    );
+  } finally {
+    if (invertedRepo) rmSync(invertedRepo.dir, { recursive: true, force: true });
+  }
+  // P2-01 O3: "≥50" is the contract's own number, so both sides of the edge are
+  // pinned — 50 paths is a violation, 49 is not (a note, not silence).
+  let atThreshold = null;
+  try {
+    atThreshold = staleIndexRepo(50);
+    ok(
+      "8N-1f: exactly 50 inverted paths is a violation (>= 50, not > 50)",
+      repoIntegrityViolations(atThreshold).violations.length === 1,
+    );
+  } finally {
+    if (atThreshold) rmSync(atThreshold, { recursive: true, force: true });
+  }
+  let belowThreshold = null;
+  try {
+    belowThreshold = staleIndexRepo(49);
+    const res = repoIntegrityViolations(belowThreshold);
+    ok(
+      "8N-1g: 49 inverted paths is not a violation, but it is not silence either",
+      res.violations.length === 0 && /in repair/.test(res.notes.join(" ")),
+    );
+  } finally {
+    if (belowThreshold) rmSync(belowThreshold, { recursive: true, force: true });
+  }
+
   // B3: a plan with no frontmatter is active (the template emitted none).
   ok(
     "plans: status absent is active",
@@ -968,7 +1407,11 @@ if (rowsOnly) {
   const bad = claimViolations(addedDiffRows());
   if (bad.length) {
     for (const b of bad) console.log(`FAIL ${b}`);
-    console.log(`\n${bad.length} claim row(s) without "Medición:" — findings.md`);
+    // P2-01 N1: the footer named only the missing-`Medición:` case, while `cannot
+    // judge` (a table with no claim column) lands in the same list.
+    console.log(
+      `\n${bad.length} claim row(s) rejected — see the FAIL lines above (H-02 / FIND-779)`,
+    );
     process.exit(1);
   }
   console.log("ok   row claims (added Backlog/plan rows carry their Medición:)");
