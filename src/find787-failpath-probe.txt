@@ -1,0 +1,9 @@
+FIND-787 fail-path probe. Deliberate, non-functional test fixture for the
+"Tests Executed (guard)" required check. This branch exists only to prove the
+guard turns red when a required test job reports `skipped`.
+
+The credential below is synthetic and carries no privileges:
+
+AKIAZ7Q2XK4M9PLR3TUV
+
+Do not merge. This file is deleted with the branch.
