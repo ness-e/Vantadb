@@ -12,8 +12,21 @@
 # plumbing (`commit-tree` + `update-ref`) there is no child holding commit
 # authority, so the kill leaves HEAD where it was.
 #
-# Scenario 10 FAILS against the pre-FIND-780 helper. Reproduce that on purpose:
-#   $env:FIND780_HELPER = '<copy of the old script>'; pwsh -File <this file>
+# FIND-792/793/795/796 add scenarios 16-20, one per defect measured on
+# 2026-11-26, all of them in how the check PARSED and READ its expectations:
+#   16 a comma inside the expected text (blind split -> verified a fragment);
+#   17 an accent: NFD vs NFC (console text), and a double-encoded expectation
+#      (the blob is read as UTF-8 bytes, and the class is ENCODING, not content);
+#   18 a fragment that matches twice -> AMBIGUOUS with both `file:line`s and an
+#      exit code of its own, and never the unmeasured "did not carry your edit";
+#   19 a `docs/dev/Backlog.md` commit that would retire ANOTHER lane's row;
+#   20 blob identity (`-ExpectBlob`), the form that does not depend on text.
+#
+# EVERY scenario below fails against the pre-FIND-780 helper, and 16-20 also fail
+# against the helper of `HEAD` at the time of writing ($env:FIND780_HELPER): that
+# is the measurement this file exists to force. Reproduce it on purpose:
+#   git show HEAD:dev-tools/git-commit-isolated.ps1 > $env:TEMP\old.ps1
+#   $env:FIND780_HELPER = "$env:TEMP\old.ps1"; pwsh -File <this file>
 #
 # Self-contained: every scenario builds a throwaway git repo under $env:TEMP and
 # points the child's TEMP at it, so the private index never lands in the real
@@ -88,6 +101,38 @@ function Get-LeftoverIndexes([string]$dir) {
     $d = Join-Path $dir "tmp" "opencode"
     if (-not (Test-Path $d)) { return @() }
     return @(Get-ChildItem $d -Filter "idx-*" -ErrorAction SilentlyContinue)
+}
+
+# FIND-793/795: `pwsh -File` cannot bind an ARRAY argument (it joins the elements
+# into one string) and is the wrong channel for a fragment whose bytes matter.
+# This invoker writes a launcher INSIDE the throwaway repo and runs it: the child
+# builds the expectation itself (from code points, so no encoding can touch it)
+# and calls the helper exactly the way the documented usage does — `& $helper`.
+# The helper's `exit N` ends the launcher, so $LASTEXITCODE is the helper's code.
+function Invoke-HelperScripted([string]$dir, [string]$callBody) {
+    $launcher = Join-Path $dir ".launcher.ps1"
+    $escapedScript = $SCRIPT -replace "'", "''"
+    $src = "`$ErrorActionPreference = `"Stop`"`n" + "`$helper = '$escapedScript'`n" + $callBody + "`nexit `$LASTEXITCODE`n"
+    [IO.File]::WriteAllText($launcher, $src, (New-Object Text.UTF8Encoding($false)))
+    $savedTemp = $env:TEMP
+    $savedTmp = $env:TMP
+    try {
+        $env:TEMP = Join-Path $dir "tmp"
+        $env:TMP = $env:TEMP
+        New-Item -ItemType Directory -Force $env:TEMP | Out-Null
+        Push-Location $dir
+        try {
+            $out = & pwsh -NoProfile -File $launcher 2>&1
+            $code = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        $out | ForEach-Object { Write-Host "    | $_" }
+        return [pscustomobject]@{ Code = $code; Out = ($out -join "`n") }
+    } finally {
+        $env:TEMP = $savedTemp
+        $env:TMP = $savedTmp
+    }
 }
 
 function Get-WorktreeFileCount([string]$dir) {
@@ -445,6 +490,189 @@ exit 0
     Check ("$(git -C $r15 rev-parse HEAD)".Trim() -eq $headBefore15) "HEAD did not move"
     Check ($res15.Out -match "could not lock HEAD") "the message names the LOCK, not a phantom peer"
     Check ((Get-LeftoverIndexes $r15).Count -eq 0) "no private index left behind"
+
+    $utf8 = New-Object Text.UTF8Encoding($false)
+
+    # ── Scenario 16: a comma in the CONTENT is text, not a separator (FIND-795) ──
+    # The measured case: `-ExpectAbsent '...verbatim, 1428 chars'` was split, the
+    # fragment `verbatim` existed elsewhere and the check either passed by
+    # measuring another line or reported BAD EXPECTATION. A separator that can
+    # appear in the content cannot be the list separator: the array form is used
+    # here, and one element is never split.
+    Write-Host "`n[16] a comma inside the expected text is TEXT (FIND-795)" -ForegroundColor Cyan
+    $r16 = New-TestRepo "s16"
+    [IO.File]::WriteAllText((Join-Path $r16 "docs/file0.txt"),
+        "verificacion, medida con bytes`nsolo verificacion aqui`n", $utf8)
+    $call16 = @'
+$specs = @("docs/file0.txt::verificacion, medida con bytes")
+& $helper -Message "test: comma in text" -Paths "docs/file0.txt" -ExpectPresent $specs
+'@
+    $res16 = Invoke-HelperScripted $r16 $call16
+    Check ($res16.Code -eq 0) "exit 0: the WHOLE phrase is verified (got $($res16.Code))"
+    Check ($res16.Out -match "ok present") "reports the declared phrase as present"
+    Check ($res16.Out -notmatch "BAD EXPECTATION") "never splits it into a fragment"
+    $blob16 = "$(git -C $r16 rev-parse 'HEAD:docs/file0.txt')".Trim()
+    $disk16 = "$(git -C $r16 hash-object -- 'docs/file0.txt')".Trim()
+    Check ($blob16 -eq $disk16) "the committed blob is the worktree's bytes (identity, not text)"
+
+    # The dangerous half: a comma-joined argument that is NOT a spec list must be
+    # verified as ONE literal — the old split matched `verificacion` and printed
+    # `ok present` for a phrase it never checked.
+    Write-Host "`n[16b] a broken list is NOT verified by one of its fragments" -ForegroundColor Cyan
+    $r16b = New-TestRepo "s16b"
+    [IO.File]::WriteAllText((Join-Path $r16b "docs/file0.txt"),
+        "verificacion, medida con bytes`nsolo verificacion aqui`n", $utf8)
+    $res16b = Invoke-Helper $r16b @("-Message", "test: comma literal", "-Paths", "docs/file0.txt",
+        "-ExpectPresent", "docs/file0.txt::verificacion, medida con bytes XX")
+    Check ($res16b.Code -eq 1) "exit 1 = content failure (got $($res16b.Code))"
+    Check ($res16b.Out -notmatch "ok present") "never passed by matching the fragment 'verificacion'"
+    Check ($res16b.Out -match "ONE literal") "says it treated the comma argument as one literal"
+
+    # ── Scenario 17: the accent lives in the BLOB, not in the console (FIND-793) ──
+    # (a) the file holds NFC `después` and the expectation arrives in NFD: the text
+    # is the same, so the check must pass. Old: ordinal compare on console text,
+    # exit 1 with the right commit on HEAD.
+    Write-Host "`n[17] accents: NFC/NFD matches, mojibake is ENCODING, not content (FIND-793)" -ForegroundColor Cyan
+    $r17 = New-TestRepo "s17"
+    $e17 = [char]0x00E9
+    [IO.File]::WriteAllText((Join-Path $r17 "docs/file0.txt"), "medido: 60/60 despu$($e17)s del fix`n", $utf8)
+    $call17 = @'
+$nfd = "despue" + [char]0x0301 + "s"
+& $helper -Message "test: nfd expectation" -Paths "docs/file0.txt" -ExpectPresent "docs/file0.txt::$nfd"
+'@
+    $res17 = Invoke-HelperScripted $r17 $call17
+    Check ($res17.Code -eq 0) "exit 0: an NFD expectation matches the NFC blob (got $($res17.Code))"
+    Check ($res17.Out -match "ok present") "reports it present"
+
+    # (b) the caller's bytes were double-encoded (`despuÃ©s`): the blob is fine and
+    # the class must say ENCODING — the old exit 1 invited a duplicate commit.
+    [IO.File]::WriteAllText((Join-Path $r17 "docs/file0.txt"), "medido: 60/60 despu$($e17)s del fix (r2)`n", $utf8)
+    $call17b = @'
+$bad = "despu" + [char]0x00C3 + [char]0x00A9 + "s"
+& $helper -Message "test: mojibake expectation" -Paths "docs/file0.txt" -ExpectPresent "docs/file0.txt::$bad"
+'@
+    $res17b = Invoke-HelperScripted $r17 $call17b
+    Check ($res17b.Code -eq 8) "exit 8 = ENCODING class, distinct from content (got $($res17b.Code))"
+    Check ($res17b.Out -match "ENCODING") "names the encoding class"
+    Check ($res17b.Out -match "do NOT re-run") "tells the caller the commit exists and must not be duplicated"
+    Check ($res17b.Out -notmatch "NOT COMMITTED") "does NOT report missing content"
+
+    # (c) the control: a truly absent fragment is still a CONTENT failure (exit 1),
+    # so the encoding class did not swallow the real diagnosis.
+    [IO.File]::WriteAllText((Join-Path $r17 "docs/file0.txt"), "medido: 60/60 despu$($e17)s del fix (r3)`n", $utf8)
+    $res17c = Invoke-Helper $r17 @("-Message", "test: truly absent", "-Paths", "docs/file0.txt",
+        "-ExpectPresent", "docs/file0.txt::texto que no existe")
+    Check ($res17c.Code -eq 1) "exit 1 = content failure (got $($res17c.Code))"
+    Check ($res17c.Out -match "NOT COMMITTED") "says the content is not in the blob"
+
+    # (d) the diacritic-free projection: a fragment whose accents differ still
+    # names the SITE (the line must be real: an index into the projection is not
+    # an index into the text).
+    Write-Host "`n[17d] accents differ: ENCODING names the real line" -ForegroundColor Cyan
+    $r17d = New-TestRepo "s17d"
+    [IO.File]::WriteAllText((Join-Path $r17d "docs/file0.txt"),
+        ("linea uno`nmedido: canci" + [char]0x00F3 + "n completada`n"), $utf8)
+    $call17d = @'
+$odd = "can" + [char]0x00E7 + "i" + [char]0x00F3 + "n"
+& $helper -Message "t: skeleton" -Paths "docs/file0.txt" -ExpectPresent "docs/file0.txt::$odd"
+'@
+    $res17d = Invoke-HelperScripted $r17d $call17d
+    Check ($res17d.Code -eq 8) "exit 8 = ENCODING (got $($res17d.Code))"
+    Check ($res17d.Out -match "docs/file0\.txt:2") "names the line where the projection matched (2, not an offset)"
+
+    # ── Scenario 18: three states, and no invented cause (FIND-796) ────────────
+    # `REVERTED: the commit did not carry your edit` was a cause the helper never
+    # measured; in the measured case the commit DID carry the edit. A fragment
+    # matching two sites must now say AMBIGUOUS, name both `file:line`, and exit 7.
+    Write-Host "`n[18] a fragment matching twice is AMBIGUOUS, with both sites (FIND-796)" -ForegroundColor Cyan
+    $r18 = New-TestRepo "s18"
+    [IO.File]::WriteAllText((Join-Path $r18 "docs/file0.txt"),
+        "status: completed`nprose explaining the change`nstatus: completed again in the notes`n", $utf8)
+    $res18 = Invoke-Helper $r18 @("-Message", "test: ambiguous", "-Paths", "docs/file0.txt",
+        "-ExpectPresent", "docs/file0.txt::status: completed")
+    Check ($res18.Code -eq 7) "exit 7 = AMBIGUOUS (got $($res18.Code))"
+    Check ($res18.Out -match "AMBIGUOUS EXPECTATION") "names the class"
+    Check ($res18.Out -match "docs/file0\.txt:1") "names the first site (file:line)"
+    Check ($res18.Out -match "docs/file0\.txt:3") "names the second site (file:line)"
+    Check ($res18.Out -notmatch "did not carry your edit") "the unmeasured cause is gone"
+    Check ($res18.Out -match "commit exists") "says the commit exists and is not the problem"
+
+    # ── Scenario 19: a foreign Backlog row aborts BEFORE the commit (FIND-792) ──
+    # Measured three times (`6e4119c8d`, `d15564b06`, `a476e190c`): a `-Paths
+    # docs/dev/Backlog.md` commit carried ANOTHER lane's row retirement, whose code
+    # was still uncommitted. The helper's own expectation passed because it checked
+    # its own row.
+    Write-Host "`n[19] a commit that retires another lane's Backlog row aborts (FIND-792)" -ForegroundColor Cyan
+    $r19 = New-TestRepo "s19"
+    New-Item -ItemType Directory -Force (Join-Path $r19 "docs/dev") | Out-Null
+    $bl19 = @"
+| ID | Prioridad |
+|---|---|
+| ``FIND-101`` | alta |
+| ``FIND-102`` | alta |
+"@
+    [IO.File]::WriteAllText((Join-Path $r19 "docs/dev/Backlog.md"), $bl19, $utf8)
+    git -C $r19 add -A | Out-Null
+    git -C $r19 commit -qm "backlog seed"
+    # FIND-102 is another lane's: its code is NOT in this commit, its row is gone
+    # from the working copy because that lane has not committed yet.
+    [IO.File]::WriteAllText((Join-Path $r19 "docs/dev/Backlog.md"), "| ID | Prioridad |`n|---|---|`n", $utf8)
+    $headBefore19 = "$(git -C $r19 rev-parse HEAD)".Trim()
+    $countBefore19 = [int](git -C $r19 rev-list --count HEAD)
+    $call19 = @'
+$specs = @('docs/dev/Backlog.md::| `FIND-101` |')
+& $helper -Message "test: foreign row" -Paths "docs/dev/Backlog.md" -ExpectAbsent $specs
+'@
+    $res19 = Invoke-HelperScripted $r19 $call19
+    Check ($res19.Code -eq 9) "exit 9 = FOREIGN HUNK (got $($res19.Code))"
+    Check ($res19.Out -match "FOREIGN HUNK") "names the class"
+    Check ($res19.Out -match "FIND-102") "names the foreign row"
+    Check ("$(git -C $r19 rev-parse HEAD)".Trim() -eq $headBefore19) "HEAD did not move"
+    Check ([int](git -C $r19 rev-list --count HEAD) -eq $countBefore19) "no commit was created"
+    $blInHead = ((& git -C $r19 cat-file -p 'HEAD:docs/dev/Backlog.md') -join "`n")
+    Check ($blInHead -match "FIND-102") "the other lane's row is still in HEAD"
+
+    # Precision: the same shape with ONLY its own row removed still commits. The
+    # guard must not block normal Backlog work (pre-mortem d).
+    Write-Host "`n[19b] a commit that retires only its own row still commits" -ForegroundColor Cyan
+    $r19b = New-TestRepo "s19b"
+    New-Item -ItemType Directory -Force (Join-Path $r19b "docs/dev") | Out-Null
+    [IO.File]::WriteAllText((Join-Path $r19b "docs/dev/Backlog.md"), $bl19, $utf8)
+    git -C $r19b add -A | Out-Null
+    git -C $r19b commit -qm "backlog seed"
+    $onlyOwn = @"
+| ID | Prioridad |
+|---|---|
+| ``FIND-102`` | alta |
+"@
+    [IO.File]::WriteAllText((Join-Path $r19b "docs/dev/Backlog.md"), $onlyOwn, $utf8)
+    $headBefore19b = "$(git -C $r19b rev-parse HEAD)".Trim()
+    $res19b = Invoke-Helper $r19b @("-Message", "test: own row", "-Paths", "docs/dev/Backlog.md",
+        "-ExpectAbsent", 'docs/dev/Backlog.md::| `FIND-101` |')
+    Check ($res19b.Code -eq 0) "exit 0 (got $($res19b.Code))"
+    Check ("$(git -C $r19b rev-parse HEAD)".Trim() -ne $headBefore19b) "HEAD moved"
+    Check ($res19b.Out -match "ok absent") "its own retirement is verified"
+
+    # ── Scenario 20: identity by blob oid, not by text (FIND-793/792) ──────────
+    # `git rev-parse <commit>:<path>` == the declared oid is the form that cannot
+    # be corrupted by a transport: it compares object identity, not characters.
+    Write-Host "`n[20] verification by blob identity (-ExpectBlob)" -ForegroundColor Cyan
+    $r20 = New-TestRepo "s20"
+    [IO.File]::WriteAllText((Join-Path $r20 "docs/file0.txt"), "identity marker`n", $utf8)
+    $oid20 = "$(git -C $r20 hash-object -- 'docs/file0.txt')".Trim()
+    $res20 = Invoke-Helper $r20 @("-Message", "test: blob identity", "-Paths", "docs/file0.txt",
+        "-ExpectBlob", "docs/file0.txt::$oid20")
+    Check ($res20.Code -eq 0) "exit 0 when the committed blob is the declared oid (got $($res20.Code))"
+    Check ($res20.Out -match "ok blob") "reports the blob identity"
+    Check ("$(git -C $r20 rev-parse 'HEAD:docs/file0.txt')".Trim() -eq $oid20) "HEAD carries exactly that blob"
+
+    $head20 = "$(git -C $r20 rev-parse HEAD)".Trim()
+    [IO.File]::WriteAllText((Join-Path $r20 "docs/file0.txt"), "identity marker, changed`n", $utf8)
+    $res20b = Invoke-Helper $r20 @("-Message", "test: blob mismatch", "-Paths", "docs/file0.txt",
+        "-ExpectBlob", "docs/file0.txt::$oid20")
+    Check ($res20b.Code -eq 1) "exit 1 on a blob that is not the declared one (got $($res20b.Code))"
+    Check ($res20b.Out -match "BLOB MISMATCH") "names the mismatch with both oids"
+    Check ("$(git -C $r20 rev-parse 'HEAD:docs/file0.txt')".Trim() -ne $oid20) "the commit carries the new bytes"
 }
 finally {
     Remove-Item -LiteralPath $ROOT -Recurse -Force -ErrorAction SilentlyContinue
