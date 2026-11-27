@@ -1,7 +1,7 @@
 ---
 title: "FIND-789: el gate de artefactos no fallaba por los artefactos, sino por cómo los pedía"
 kind: task
-status: completed
+status: active
 description: "Los dos jobs rojos fallaban por su invocación, no por artefactos ausentes: `@('-Smoke')` se enlazaba posicionalmente a `[string]$Tag` (`FAIL invalid tag '-Smoke'`) y el job del tarball llamaba `gh release list` sin checkout (`fatal: not a git repository`). Arreglado con splatting por nombre y `-R`; sobre v0.9.0 el gate da ALL GREEN."
 ---
 
@@ -14,7 +14,7 @@ description: "Los dos jobs rojos fallaban por su invocación, no por artefactos 
 - **Prioridad:** 🔴 Alta
 - **Tipo:** GitHub Actions (`.github/workflows/release-verify.yml`)
 - **Creado:** 2026-11-26
-- **Estado:** ✅ COMPLETED — review P2-01 ronda 1 `changes-required`, hallazgos aplicados en este commit, sin segunda ronda (ver §Review)
+- **Estado:** 🟡 IMPLEMENTADO, VERIFICADO Y COMMITEADO — **no cerrado**. La revisión vigente es `changes-required` (rondas 1 y 2), así que no se marca `completed`: espera **ronda 3** o **aceptación explícita del owner**. Implementación en `6e4119c8d` + `d15564b06`; la fila `FIND-788` que mi commit arrastró fue restaurada en `43b8a7006` (por el orquestador). Ver §Review.
 - **Archivo tocado en producción:** `.github/workflows/release-verify.yml` (exclusivo de este carril)
 
 ## Impacto mapeado (Regla 0)
@@ -132,13 +132,13 @@ Sin `continue-on-error`, sin `|| true`, sin borrar ningún job, sin tocar el umb
 | YAML | `actionlint 1.7.12` (con y sin `-shellcheck=`) | `exit=0` en ambos modos |
 | Delta vs `main` | `git diff origin/main -- …/release-verify.yml` | trigger + comentarios + los 2 arreglos, nada más |
 
-**No verificado, declarado:** el workflow **no se ejecutó en CI**. El bloqueo real no es la rama: es que el cambio está sin commitear/sin pushear y el push es del owner (Regla 7). **Prueba de campo asignada:** tras el merge `develop → main`, `gh workflow run release-verify.yml -f tag=v0.9.0` (o el step post-release de `docs/dev/workflow/PUBLISH.md`) debe salir verde con los dos jobs; lo dispara quien haga el merge, no este carril. Hasta entonces el rojo de los lunes seguirá viniendo de la copia de `main`, idéntica salvo estos dos arreglos.
+**No verificado, declarado:** el workflow **no se ejecutó en CI**. El bloqueo real no es la rama: el cambio **ya está commiteado** (`6e4119c8d` + `d15564b06`) y sólo falta el **push**, que es del owner (Regla 7). **Prueba de campo asignada:** tras el merge `develop → main`, `gh workflow run release-verify.yml -f tag=v0.9.0` (o el step post-release de `docs/dev/workflow/PUBLISH.md`) debe salir verde con los dos jobs; lo dispara quien haga el merge, no este carril. Hasta entonces el rojo de los lunes seguirá viniendo de la copia de `main`, idéntica salvo estos dos arreglos.
 
 ## Review
 
-**P2-01 · `vanta-review`, contexto fresco, una ronda (2026-11-26).** El revisor no participó en el cambio.
+**P2-01 · `vanta-review`, contexto fresco — ronda 1 y ronda 2 (2026-11-26).** El revisor no participó en el cambio.
 
-**Veredicto de la ronda 1: 🔴 `changes-required`** — el cambio **técnico** aprueba, el **cierre** no. Los hallazgos se aplicaron en este mismo commit; **no hubo segunda ronda** (el contrato de la fila es una ronda), así que acá queda el dictamen tal como salió, con lo aplicado al lado. Lo que sigue es del revisor, no del autor.
+**Veredicto de la ronda 1: 🔴 `changes-required`** — el cambio **técnico** aprueba, el **cierre** no. **Veredicto de la ronda 2: 🔴 `changes-required`** — 8 de 9 hallazgos cerrados, **H1 abierto por culpa de mi commit** (abajo). Lo que sigue es del revisor, no del autor; este fichero **no se marca `completed`**: espera **ronda 3** o **aceptación explícita del owner**.
 
 **Enfoque:** correcto. Los dos rojos son de invocación (splatting posicional y `gh` sin repositorio), no de artefactos; el arreglo es código y no relaja el gate.
 
@@ -157,7 +157,7 @@ Sin `continue-on-error`, sin `|| true`, sin borrar ningún job, sin tocar el umb
 **Hallazgos de la ronda 1 y qué se hizo:**
 
 - **C1 (crítico) — el veredicto estaba escrito antes de que hubiera revisor.** Esta sección afirmaba `approve` y el fichero ya decía `status: completed`; el revisor es el primero de este cambio y no existía registro que lo sostuviera. Es el modo de fallo de `FIND-118`: un gate pre-satisfecho por aserción. **Aplicado:** reemplazada por este dictamen real; metadata corregida.
-- **H1 (alto) — la fila del Backlog resucitó.** El carril de `FIND-782` reescribió `Backlog.md` completo a las 23:10:35 con una copia previa y revirtió el retiro de mi fila (el mismo choque de `RULES.md` §11 / `FIND-753`). **Aplicado:** retiro re-hecho justo antes del commit y verificado por `-ExpectAbsent`.
+- **H1 (alto) — la fila del Backlog resucitó.** El carril de `FIND-782` reescribió `Backlog.md` completo a las 23:10:35 con una copia previa y revirtió el retiro de mi fila (el mismo choque de `RULES.md` §11 / `FIND-753`). **Ronda 1: aplicado** (retiro re-hecho y verificado con `-ExpectAbsent`). **Ronda 2: sigue abierto, y la causa es mi commit `d15564b06`** — ver abajo.
 - **M1 (medio) — el doc decía un arreglo que el código no usa:** `-R "${{ github.repository }}"` vs el real `-R "$GITHUB_REPOSITORY"`. **Aplicado** (aquí y en `ci-cd.md`).
 - **M2 (medio) — "12 assets" era falso: son 14.** La corrida imprime 14 `OK`; `release-manifest.json` da 5 binarios (4 `tar.gz` + 1 `zip`) + 5 `.sha256` + 4 wheels = 14. El desglose anterior además sumaba 18. **Aplicado** en los dos ficheros.
 - **M3 (medio) — la prueba de campo quedaba declarada sin dueño.** **Aplicado:** asignada al merge (arriba, §Verificación).
@@ -169,9 +169,27 @@ Sin `continue-on-error`, sin `|| true`, sin borrar ningún job, sin tocar el umb
 
 **No verificado, declarado:** el workflow **no se ejecutó en CI** (push owner-gated) — no se infiere verde; y el tarball de 0.9.0 se compiló en **Windows/MSVC local** con el comando exacto del job, no en el runner `ubuntu-latest`.
 
+### Ronda 2 — 🔴 `changes-required` (8 de 9 cerrados, H1 abierto)
+
+Corrida por el orquestador sobre `6e4119c8d` + `d15564b06`. **Cerrados y verificados por el revisor:** C1, M1, M2, M3, M4, L1, L2, L3. C1 explícitamente: el doc ya registra `changes-required` sin auto-aprobación. M4 re-medido en `bash`: `v1x2x3` reject, `v1a2a3` reject, `v1.2.3.4` accept — el doc dice la verdad.
+
+**H1 sigue abierto, y la causa es mía — `d15564b06`:**
+
+```
+git show d15564b06 -- docs/dev/Backlog.md   →  -| `FIND-788` | …   ← arrastró DOS filas
+git grep '| `FIND-788` |' HEAD              →  0
+```
+
+Mi commit de retiro de fila es **por path**, así que horneó también la eliminación de la fila `FIND-788` que otro carril tenía sin commitear. `FIND-788` está **vivo** (task file `completed`, `certification.yml` en `M`, listado en W10): retirarle la fila fue una reversión silenciosa de trabajo ajeno, la clase que `RULES.md` §11 y `FIND-753` existen para evitar — y la puerta que el helper **no** cierra, porque `-ExpectAbsent` sólo prueba lo que yo declaré ausente. **Reparación:** `43b8a7006`, fila restaurada **verbatim** desde `d15564b06^:docs/dev/Backlog.md` (1428 chars) por el **orquestador**. Este carril no la vuelve a tocar.
+
+**Lección de mecanismo (para el próximo carril con fichero caliente):** un commit por path en un fichero que otros carriles editan **arrastra sus hunks**. No se detecta con `-ExpectPresent`/`-ExpectAbsent` (miran sólo lo declarado): exige inspeccionar `git show <commit> -- <path>` **después** del commit y confirmar que cada `-`/`+` es propio. Es exactamente lo que se hizo acá para encontrar H1.
+
+**Estado del cierre:** implementación y verificación completas, revisión **no aprobada**. `status: active`, no `completed` — espera **ronda 3** o **aceptación explícita del owner**.
+
 ## Deuda y NOTICED BUT NOT TOUCHING
 
 - **`case "$TAG" in v[0-9]*.[0-9]*.[0-9]*)`** (job 2): `case` usa **globs, no regex**, así que los puntos ya son literales — `v1x2x3`, `v...` y `v1.2.` se rechazan (medido con `bash`: sólo `v0.9.0`, `v1x.2.3` y `v1.2.3.4` casan). La holgura real es `[0-9]*` = "un dígito y luego cualquier cosa", así que `v1x.2.3` pasa; como el probe seguiría 404 → `::warning` → build salteado, el job puede ir **verde sin haber compilado nada**. Es entrada del owner y preexiste a este ticket: se declara, no se toca.
 - **`scripts/verify-release.ps1` defaultea `-Repo ness-e/Vantadb`** hardcodeado en vez de recibir `$GITHUB_REPOSITORY`. Fuera del contrato de esta fila (el script no es mío) y hoy correcto porque es el único repo que lo usa.
 - **`docs/dev/workflow/PUBLISH.md`** sigue anunciando que el workflow "también corre semanalmente contra `releases/latest`" y "los 2 assets binarios": las dos cosas son falsas con este cambio (14 assets, dispatch-only desde `bbd380ea0`). Fuera de mi lista de escritura → queda como fila `FIND-*` para quien tenga ese fichero.
 - **El cron sigue activo en `main`** y sólo se desactiva con el merge `develop → main` (owner, Regla 7). Hasta entonces el lunes rojo es esperado y ya no es un misterio: es la copia vieja del fichero.
+- **`Ver: … FIND-789` colgante en la fila `FIND-790` (`Backlog.md`) — decisión: se queda, y se declara acá, no sólo en `ci-cd.md`.** Los dos caminos eran quitarlo o justificarlo; se justifica porque (a) `Ver:` es una relación informativa hacia un ID cerrado, no un enlace que resuelva a un fichero, así que no se rompe nada, y (b) el `Backlog.md` es justo el fichero caliente que en esta misma tarea ya horneó hunks ajenos dos veces (`6e4119c8d` arrastró el retiro de `FIND-775`, `d15564b06` el de `FIND-788`, reparado en `43b8a7006`): editarlo por un `Ver:` cosmético es exactamente el riesgo que no se justifica. **Quien cierre `FIND-790` lo actualiza en su propio commit**, que es donde la fila se toca de todos modos.
