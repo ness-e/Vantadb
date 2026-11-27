@@ -1,8 +1,10 @@
 name: 'RELEASE: Verify — Artifacts live check'
 
 # Post-release verification (DIST-05): a release is complete only when every
-# artifact is live. Weekly it checks `releases/latest`; dispatch checks any tag
-# (the checkout stays on the dispatched ref, so dispatch from `main`).
+# artifact is live. Dispatch checks `releases/latest` (empty `tag` input) or any
+# tag. The weekly cron is OFF until the next publish lands (see `on:` below);
+# until it is re-enabled the gate only speaks when someone runs:
+#   gh workflow run release-verify.yml -f tag=vX.Y.Z
 # Remediation: docs/dev/workflow/PUBLISH.md, Post-release verification.
 on:
   # PRE-PUB dispatch-only: el schedule semanal daba FAIL cronico (verifica
@@ -36,9 +38,12 @@ jobs:
           GH_TOKEN: ${{ github.token }} # avoids anonymous API rate limits
           TARGET_TAG: ${{ inputs.tag }} # passed via env (never interpolated into the script)
         run: |
-          $scriptArgs = @("-Smoke")
-          if ($env:TARGET_TAG) { $scriptArgs += @("-Tag", $env:TARGET_TAG) }
-          ./scripts/verify-release.ps1 @scriptArgs
+          # Hash splatting binds by NAME. Array splatting binds POSITIONALLY:
+          # @("-Smoke") lands on [string]$Tag and the script exits with
+          # "FAIL invalid tag '-Smoke' (expected vX.Y.Z)" (FIND-789).
+          $params = @{ Smoke = $true }
+          if ($env:TARGET_TAG) { $params['Tag'] = $env:TARGET_TAG }
+          ./scripts/verify-release.ps1 @params
 
   tarball-build:
     # FIND-342 (slice E): the crates.io tarball must not only exist — it must
@@ -56,7 +61,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET_TAG: ${{ inputs.tag }}
         run: |
-          if [ -n "$TARGET_TAG" ]; then TAG="$TARGET_TAG"; else TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName')"; fi
+          # -R: this job has no checkout, so gh cannot infer the repo from git
+          # ("failed to run git: fatal: not a git repository") (FIND-789).
+          # $GITHUB_REPOSITORY is a runner-provided default env var, so the repo
+          # reaches the script through the environment, never interpolated.
+          if [ -n "$TARGET_TAG" ]; then TAG="$TARGET_TAG"; else TAG="$(gh release list -R "$GITHUB_REPOSITORY" --limit 1 --json tagName --jq '.[0].tagName')"; fi
           case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) VER="${TAG#v}";; *) echo "FAIL invalid tag '$TAG' (expected vX.Y.Z)"; exit 1;; esac
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "ver=$VER" >> "$GITHUB_OUTPUT"
