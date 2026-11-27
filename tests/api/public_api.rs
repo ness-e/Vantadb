@@ -14,6 +14,17 @@
 //!   pwsh:  $env:VANTADB_PUBLIC_API_UPDATE="1"; cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
 //!   bash:  VANTADB_PUBLIC_API_UPDATE=1 cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
 //!
+//! FIND-191 — the cold-cache property, and why it is not a test here:
+//! only a run that still has something to compile (`cargo rustdoc` on a cold
+//! target) can kill the child compiler with `STATUS_STACK_OVERFLOW`
+//! (`0xC00000FD`, whose low byte is `253`), so the *first* run can look poisoned
+//! while the second passes. The budget is fixed by [`CHILD_STACK_BYTES`]; the
+//! property itself needs an empty target dir, so it is declared, not automated:
+//!   $env:CARGO_TARGET_DIR = "<empty dir>"; $env:RUST_MIN_STACK = "2097152"
+//!   cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
+//! Expected 1/1 PASS. Before the fix: `thread 'rustc' has overflowed its stack`
+//! and the build aborts inside the first dependency (exit code 0xC00000FD).
+//!
 //! Generation parameters (must stay in sync with the snapshot header):
 //! - toolchain: `nightly` (rustdoc JSON is nightly-only)
 //! - features: default (`vantadb` default feature set)
@@ -51,6 +62,52 @@ const HEADER: &str = "\
 /// comparing against it. An empty variable is treated as "not set" (FIND-731).
 const UPDATE_ENV: &str = "VANTADB_PUBLIC_API_UPDATE";
 
+/// Stack budget handed to the child compiler, in bytes (FIND-191).
+///
+/// `rustdoc_json` spawns `rustup run nightly cargo rustdoc`, i.e. the nightly
+/// **`rustc`**, and parts of the compiler's work run on threads sized from
+/// `RUST_MIN_STACK` (the entrypoint itself is on the main thread —
+/// `rustc_driver_impl/src/lib.rs` `pub fn main`). Below that floor the compiler
+/// dies with `STATUS_STACK_OVERFLOW` (`0xC00000FD`, low byte `253`) — and only
+/// when there is something left to compile, so it lands on the **first** run and
+/// disappears on the second:
+///
+/// ```text
+/// thread 'rustc' has overflowed its stack
+/// process didn't exit successfully: ...rustc.exe --crate-name typenum ... (exit code: 0xc00000fd, STATUS_STACK_OVERFLOW)
+/// ```
+///
+/// Measured on this crate: 2 MiB ambient → the abort above, 8 s in, on the first
+/// dependency; 32 MiB → the whole cold build passes. The recursion is inside the
+/// third-party nightly compiler, not in this crate, so it cannot be bounded
+/// here; what this test *can* stop is inheriting whatever budget the caller's
+/// shell happened to export. 32 MiB is the value the repo's own gate already
+/// uses (`dev-tools/verify.ps1:63`) — not a number invented for this file.
+const CHILD_STACK_BYTES: u32 = 32 * 1024 * 1024;
+
+/// Compile-time rail (FIND-191): lowering the floor below the measured compiler
+/// need re-opens the cold-cache overflow, so that must be a build error rather
+/// than a review note. 4 MiB is already too small; 8 MiB is the smallest value
+/// that leaves margin.
+const _: () = assert!(
+    CHILD_STACK_BYTES >= 8 * 1024 * 1024,
+    "FIND-191: the child rustc overflows below ~4 MiB on a cold cache"
+);
+
+/// The stack budget to pass to the child compiler: the ambient value when it is
+/// already at or above [`CHILD_STACK_BYTES`], otherwise the floor (FIND-191).
+///
+/// A larger operator setting is preserved (someone with 64 MiB keeps it); a
+/// smaller one, a non-numeric one, or an absent one gets the floor. Never
+/// returns the ambient value when it is below the floor — that is the bug.
+fn child_stack_budget(ambient: Option<&str>) -> String {
+    let floor = CHILD_STACK_BYTES as u64;
+    match ambient.and_then(|v| v.trim().parse::<u64>().ok()) {
+        Some(bytes) if bytes >= floor => bytes.to_string(),
+        _ => CHILD_STACK_BYTES.to_string(),
+    }
+}
+
 /// Whether the snapshot should be rewritten.
 ///
 /// The flag is ON only when the variable exists **and is not empty**. `var_os`
@@ -70,7 +127,13 @@ fn generate_public_api() -> Result<String, String> {
         .toolchain("nightly")
         .manifest_path("Cargo.toml")
         .package("vantadb")
-        .quiet(true);
+        .quiet(true)
+        // FIND-191: the child compiler must not inherit a stack budget too small
+        // to compile this crate's dependency graph (cold-cache 0xC00000FD / 253).
+        .env(
+            "RUST_MIN_STACK",
+            child_stack_budget(std::env::var("RUST_MIN_STACK").ok().as_deref()),
+        );
     if let Some(dir) = target_dir.as_deref() {
         builder = builder.target_dir(Path::new(dir));
     }
@@ -193,5 +256,56 @@ mod update_flag {
         // would still rewrite; upgrade path = parse {0,false,no,off}.
         assert!(update_requested(Some(OsString::from("0"))));
         assert!(update_requested(Some(OsString::from(" "))));
+    }
+}
+
+/// FIND-191: the child compiler's stack budget. These assertions are the
+/// regression rail — the failure they prevent needs a cold cache (measured
+/// 0xC00000FD on `rustc`, 8 s in, on the first dependency), so it cannot be
+/// reproduced by a test that owns no disk state. What *can* be pinned is the
+/// budget, which is the only input we control.
+#[cfg(test)]
+mod child_stack {
+    use super::{child_stack_budget, CHILD_STACK_BYTES};
+
+    #[test]
+    fn unset_ambient_gets_the_floor() {
+        assert_eq!(child_stack_budget(None), CHILD_STACK_BYTES.to_string());
+    }
+
+    #[test]
+    fn ambient_below_the_floor_is_raised() {
+        // 4 MiB is the value docs/user/troubleshooting.md recommends; the
+        // nightly compiler still dies with it on a cold cache (FIND-191).
+        assert_eq!(
+            child_stack_budget(Some("4194304")),
+            CHILD_STACK_BYTES.to_string()
+        );
+        assert_eq!(
+            child_stack_budget(Some("2097152")),
+            CHILD_STACK_BYTES.to_string()
+        );
+    }
+
+    #[test]
+    fn ambient_at_or_above_the_floor_is_kept() {
+        assert_eq!(
+            child_stack_budget(Some(&CHILD_STACK_BYTES.to_string())),
+            CHILD_STACK_BYTES.to_string()
+        );
+        assert_eq!(
+            child_stack_budget(Some("67108864")),
+            "67108864".to_string(),
+            "a larger operator setting must survive the fix"
+        );
+    }
+
+    #[test]
+    fn unparseable_ambient_gets_the_floor() {
+        assert_eq!(
+            child_stack_budget(Some("not-a-number")),
+            CHILD_STACK_BYTES.to_string()
+        );
+        assert_eq!(child_stack_budget(Some("")), CHILD_STACK_BYTES.to_string());
     }
 }
