@@ -1603,3 +1603,12 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Por qué no rompe carriles:** el hook se instala por clon (`git -C .opencode config core.hooksPath .githooks`) y bloquea sólo el commit **dentro de** `.opencode`; el padre tiene su propio `core.hooksPath` y no lo usa. Y el árbol ya tiene `node` en todos los carriles: lo que cambia es qué pasa el día que falte.
 - **Verificación:** el hook sigue bloqueando un fichero inválido (DOC-04) y sigue cazando violaciones del contrato; `--self-test` **89/89**. La rama de `node` ausente se verificó por lectura del `elif` y no ejecutando sin `node` (quitarlo del `PATH` en el árbol compartido no es una prueba segura).
 - **Review:** `vanta-review`, contexto fresco; el resto de la fila lo dio por `cumple` (DOC-04 byte-idéntico al del padre, `--root` correcto, `SKIP` ruidoso, config local declarada como coste).
+
+### MCP Server / Code Mode: harness entregado, corrida pendiente (`FIND-674`)
+
+- **Fecha:** 2026-11-27. Entregado `benchmarks/mcp_profile_bench.py` (sin dependencias nuevas, `ruff` limpio) que mide las tres cosas de la fila: **bytes/tokens de `tools/list` por perfil** (desde una captura, con la reducción publicada con su aritmética), **latencia JSON-RPC p50/p95/p99** de `context_assemble` / `memory_recall` / `memory_put` por stdio y HTTP, y **overhead de wire de `vanta-proxy`** desde dos capturas.
+- **Criterio fijado antes de ver números**, y queda en el JSON: dispatch por `code` **< 2×** el p50 de la llamada directa, y overhead de proxy **< 5 %** de los bytes de respuesta.
+- **Verificado:** `--self-check` **exit 0** valida la contabilidad sobre un fixture sintético (88 tools → 9495 B ≈ 2374 tok; 16 → 1719 B ⇒ reducción 81,90 %; 1 → 108 B ⇒ 98,86 %). Eso valida la **aritmética**, no el servidor: los 88 tools del fixture no son el catálogo real.
+- **Sin capturas ni servidor sale `exit 2` nombrando lo que falta.** No se publica ningún número.
+- **Por qué no hay corrida:** el catálogo y los perfiles viven en Rust (`vantadb-mcp/src/handlers/tools.rs`: `full` 88, `brain` 16, `vanta_dispatch`), así que sólo el servidor corriendo renderiza el `tools/list` de un perfil; `cargo build -p vantadb-mcp` necesita un workspace que compile y hoy falla por WIP ajeno (`E0425` en `src/storage/vfile_crypto.rs:377`, `E0382` en `src/wal.rs:920`). Medir ese árbol sería publicar el WIP de otro carril.
+- **Estado:** la fila **no se cierra** — es la misma regla que `FIND-664` defiende: un benchmark entregado sin corrida es exactamente lo que ese hallazgo documenta.
