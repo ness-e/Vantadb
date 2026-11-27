@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-593 documentation pages; it deliberately omits the 301 task files,
+593 documentation pages; it deliberately omits the 304 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -454,7 +454,7 @@ is in docs/index.md in the repository.
 - [Avance — Archivo de Exclusiones Verificadas (SKIP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/wontfix-archive.md): Los siguientes identificadores constan igualmente cerrados o absorbidos en HEAD y ya habían sido retirados de Backlog.md antes del saneamiento del 2026-11-22
 - [Avance — Bindings (SDK, Adapters, MCP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/bindings.md): fuente (#[napi(tsreturntype = \"Promise<bigint>\")], patrón existente ×12) +
 - [Avance — CI/CD & Release](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/ci-cd.md): .github/workflows/providers-ci.yml, un workflow que no existe (fue consolidado en
-- [Avance — Context Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/context-engine.md)
+- [Avance — Context Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/context-engine.md): ~/.agents/skills/progreso/ — fuera del repo, fuera de .opencode/, y
 - [Avance — Core Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/core-engine.md): slen‖ns‖keylen‖key‖ver BE) + hooks put/putbatch/delete/purgeexpired + VantaConfig.versionhistorylimit (cap 32 FIFO aprobado, snapshot del record nuevo, import sin snapshots). API getversion/ ersions. Commits e0812a4/6997e59. Doble...
 - [Avance — Desktop (Tauri)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/desktop.md): Verificación: Select-String DAUD docs/dev/Backlog.md 0 filas | \DAUD- (solo header P37 0 Cerrada + historial), pwsh scripts/check-avance-coverage.ps1 1038+9/1038+9 (o 1038/1038 sin DAUD en fuentes) 0 gaps, pwsh...
 - [Avance — Documentación de producto y gates de docs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/docs.md): Registro del trabajo completado sobre la capa de documentación: gates de docs, capa product-first y tooling del corpus
