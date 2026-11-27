@@ -102,3 +102,19 @@ Misma regla que el residual anterior: **toda fila abierta va en el plan**, o no 
 | **W15** | `FIND-794` · `FIND-797` | `.config/nextest.toml` + `dev-tools/**` + los `-E` de CI · `.github/workflows/snapshot-certification.yml` (paths) + un chequeo de divergencia |
 
 **Creadas y cerradas durante las waves (no requieren carril, quedan como registro):** `FIND-731` · `FIND-732` · `FIND-733` · `FIND-734` · `FIND-735` · `FIND-736` · `FIND-738` · `FIND-739` · `FIND-740` · `FIND-741` · `FIND-742` · `FIND-743` · `FIND-744` · `FIND-745` · `FIND-746` · `FIND-747` · `FIND-748` · `FIND-749` · `FIND-750` · `FIND-751` · `FIND-752` · `FIND-754` · `FIND-755` · `FIND-760` · `FIND-761` · `FIND-763` · `FIND-765` · `FIND-769` · `FIND-776` · `FIND-778` · `FIND-780` · `FIND-784` · `FIND-785` · `FIND-786` · `FIND-792` · `FIND-793` · `FIND-795` · `FIND-796`.
+
+### W16 - Hijos de FIND-607 (partida 2026-11-27)
+
+`FIND-607` tenía **nueve hallazgos abiertos en nueve módulos distintos** y una fila sola.
+Cerrarlo en bloque habría mentido, así que se parte: cada hijo tiene su contrato, su archivo y su prueba.
+El padre **desaparece** del Backlog; su historia queda en las nueve filas nuevas.
+
+| Wave | Filas | Zona / partición |
+|---|---|---|
+| **W16** | `FIND-798` · `FIND-799` · `FIND-800` · `FIND-801` · `FIND-802` · `FIND-803` · `FIND-804` · `FIND-805` · `FIND-806` | `src/agentic/thread.rs` (798/799/800) · `src/shred/mod.rs` (801/802) · `src/utils/confidence_metrics.rs` (803) · `src/utils/duplicate_prevention.rs` (804/805) · `src/tui/monitor.rs` (806) |
+
+**Partición:** 798/799/800 comparten fichero, así que van **en serie**. 801/802 comparten fichero: en serie.
+804/805 comparten fichero: en serie. 803 y 806 son independientes. Máximo dos carriles Rust a la vez.
+
+**Sobre `FIND-158`:** se deja **entera**. Sus cuatro ítems son decisiones sobre el mismo contrato de API
+y su propio contrato ya pide "cada ítem con decisión" — partirla crearía cuatro filas que se resuelven en un fichero.
