@@ -75,8 +75,8 @@ usa la forma de un solo spec con backticks y barras.
 - Escenario 16b (string con coma no-spec): exit 1 **sin** `ok present`; el helper
   nuevo dice `ONE literal`. El de `HEAD` imprime `ok present: … :: verificacion`
   (pasó por el fragmento) → **4 FAILED** contra el viejo.
-- Suite completa contra el helper de `HEAD`: **27 FAILED**, todos en 16-20;
-  escenarios 1-15 verdes. Suite contra el nuevo: **120/120 PASS**.
+- Suite completa contra el helper de `HEAD`: **33 FAILED**, todos en 16-20;
+  escenarios 1-15 verdes. Suite contra el nuevo: **131/131 PASS**.
 
 ## Review P2-01
 

@@ -524,13 +524,26 @@ try {
     # another lane whose code is still uncommitted: committing it closes a row
     # that has no fix in history. Silence for every other path is deliberate:
     # "hunks must match declarations" on a normal source file refuses real work.
-    if (-not $AllowForeignRows -and ($Paths -contains $BACKLOG_PATH)) {
+    #
+    # WHICH paths? The STAGED set from the private index, never the arguments
+    # (P2-01 round 1): `-Paths docs/dev` stages the Backlog and does not spell it,
+    # so a `$Paths -contains` test was a silent bypass of the whole guard — the
+    # incident it exists to stop, with `OK` at the end.
+    $stagedPaths = @(& git diff --cached --name-only 2>$null | Where-Object { $_ })
+    if (-not $AllowForeignRows -and ($stagedPaths -contains $BACKLOG_PATH)) {
         $blBase = Get-BlobText $headBefore $BACKLOG_PATH
         $blNew = Get-BlobText $treePlanned $BACKLOG_PATH
         if ($null -ne $blBase -and $null -ne $blNew) {
             $baseIds = Get-BacklogRowIds $blBase
             $newIds = Get-BacklogRowIds $blNew
             $removed = @($baseIds | Where-Object { $newIds -notcontains $_ } | Select-Object -Unique)
+            # A row whose ID is still ANYWHERE in the new blob was reformatted or
+            # MOVED, not retired. Without this, `| `FIND-102` (blocked) |` aborted
+            # the commit and accused another lane of a row nobody removed, and a
+            # pure row move (the real `FIND-787` case) was reported as a removal.
+            if ($removed.Count -gt 0) {
+                $removed = @($removed | Where-Object { -not $blNew.Contains('`' + $_ + '`') })
+            }
             if ($removed.Count -gt 0) {
                 $declared = Get-DeclaredIds (@($ExpectAbsent) + @($ExpectPresent) + @($ExpectBlob))
                 $foreign = @($removed | Where-Object { $declared -notcontains $_ })
@@ -761,14 +774,16 @@ Write-Host "shared index refreshed for: $($Paths -join ', ')"
 # behind it: never "the commit did not carry your edit" without having measured it.
 $commitSha = (& git rev-parse HEAD).Trim()
 $failCount = 0
-# Exit class, with precedence: 8 (expectation untrustworthy) > 7 (ambiguous) >
-# 1 (content). An orchestrator retries none of them blindly, but 8/7 mean "the
-# commit exists and is not wrong" — retrying would duplicate it.
+# Exit class, with precedence by RANK (a later, more specific class wins): content
+# (1) < ambiguous (7) < encoding/transport (8). Fixed order, not "last wins":
+# an ExpectPresent failure must not mask an ExpectAbsent ambiguity.
 $failExit = 0
 function Set-FailClass([int]$code) {
     if ($code -eq 0) { return }
     $script:failCount++
-    if ($script:failExit -eq 0 -or $code -eq 8) { $script:failExit = $code }
+    $rank = @{ 1 = 1; 7 = 2; 8 = 3 }
+    $current = if ($rank.ContainsKey([int]$script:failExit)) { $rank[[int]$script:failExit] } else { 0 }
+    if ($rank.ContainsKey([int]$code) -and $rank[[int]$code] -gt $current) { $script:failExit = $code }
 }
 
 function Test-Expectation([string]$spec, [bool]$mustBePresent) {
@@ -815,9 +830,17 @@ function Test-Expectation([string]$spec, [bool]$mustBePresent) {
         if ($skeletonFrag -and ($skeletonText -ne $nText) -and $skeletonFrag -ne $nFrag) {
             $sh = Find-Fragment $skeletonText $skeletonFrag
             if ($sh.Count -ge 1) {
-                Write-Host "ENCODING: '$frag' does not match byte-for-byte, but its accent-free form '$skeletonFrag' does — the non-ASCII characters differ. The blob is UTF-8; the expectation's bytes were corrupted on the command line." -ForegroundColor Red
+                # Measured: the difference between the fragment and the blob is
+                # confined to characters outside ASCII. That is COMPATIBLE with a
+                # transport that dropped or re-encoded them AND with a different
+                # spelling — the helper must not choose (P2-01 round 1). It states
+                # both and lets the operator look at the line.
+                Write-Host "ENCODING?: '$frag' does not match, but its accent-free projection ('$skeletonFrag') does — the two differ only outside ASCII." -ForegroundColor Red
                 Write-SkeletonSites $path $nText $skeletonFrag | Out-Null
-                Write-Host "  the commit EXISTS and is not wrong: do NOT re-run it (that duplicates it). Re-send the expectation from a UTF-8 source." -ForegroundColor Yellow
+                Write-Host "  measured: the blob is UTF-8, read from the object database. Two hypotheses fit and this check cannot separate them:" -ForegroundColor Yellow
+                Write-Host "    (a) the expectation's non-ASCII bytes did not survive the command line (transport);" -ForegroundColor Yellow
+                Write-Host "    (b) the blob spells those characters differently from what you typed." -ForegroundColor Yellow
+                Write-Host "  the commit EXISTS and is not wrong: do NOT re-run it (that duplicates it)." -ForegroundColor Yellow
                 return 8
             }
         }
@@ -848,26 +871,28 @@ function Test-Expectation([string]$spec, [bool]$mustBePresent) {
         return 7
     }
     $siteLine = Get-LineOf $nText $hits[0]
-    $siteLines = @($nText -split "`n")
-    $siteText = if ($siteLine -le $siteLines.Count) { $siteLines[$siteLine - 1] } else { "" }
     $parentText = if ($headBefore) { Get-BlobText $headBefore $path } else { $null }
-    $parentLines = if ($null -ne $parentText) { @((ConvertTo-Nfc $parentText) -split "`n") } else { @() }
-    $sameAsParent = [bool]($siteLine -le $parentLines.Count -and $parentLines[$siteLine - 1] -ceq $siteText)
+    # Does the FRAGMENT exist in the parent? Asking by line index was wrong
+    # (P2-01 round 1): a commit that deletes line 1 shifts every later line, so a
+    # byte-identical line looked "changed" and the helper printed `this commit
+    # CHANGED that line` about a line it never touched — the FIND-796 defect,
+    # one layer down.
+    $sameAsParent = [bool]($null -ne $parentText -and (Find-Fragment (ConvertTo-Nfc $parentText) $nFrag).Count -ge 1)
 
     Write-Host "PRESENT: '$frag' is still in $path`:$siteLine at $commitSha — that is the measured fact." -ForegroundColor Red
     Write-MatchSite $path $nText $hits[0] | Out-Null
     if ($sameAsParent) {
-        # The matched line is byte-identical in the parent. Two measured-consistent
-        # causes, and the helper cannot tell them apart — so it does not choose:
+        # The string is in the parent too. Two measured-consistent causes, and the
+        # helper cannot tell them apart — so it does not choose:
         # (a) pre-existing text (prose, another row) the fragment also matches;
         # (b) a removal that did not land (stale copy baked in, FIND-753).
-        Write-Host "  the matched line is byte-identical in the parent commit, so this commit did not write it." -ForegroundColor Yellow
+        Write-Host "  the same string exists in the PARENT commit, so this commit did not introduce it." -ForegroundColor Yellow
         Write-Host "  consistent with (a) pre-existing text your fragment also matches — the expectation lacks a structural anchor —" -ForegroundColor Yellow
         Write-Host "  or (b) a removal you declared that did not land. The commit EXISTS; no reversion is claimed here." -ForegroundColor Yellow
         return 7
     }
-    Write-Host "  this commit CHANGED that line (it differs from the parent), and the text you declared absent is in it." -ForegroundColor Red
-    Write-Host "  content failure — nothing says the commit reverted your edit: re-inspect the file." -ForegroundColor Yellow
+    Write-Host "  the string is NOT in the parent commit: this commit introduced it (or baked in a copy that did)." -ForegroundColor Red
+    Write-Host "  content failure — nothing here says the commit reverted your edit: re-inspect the file." -ForegroundColor Yellow
     return 1
 }
 
@@ -901,14 +926,22 @@ function Test-BlobIdentity([string]$spec) {
     return 0
 }
 
-foreach ($e in $ExpectAbsent) { Set-FailClass (Test-Expectation $e $false) }
-foreach ($e in $ExpectPresent) { Set-FailClass (Test-Expectation $e $true) }
-foreach ($e in $ExpectBlob) { Set-FailClass (Test-BlobIdentity $e) }
+# An uncaught I/O error inside a check would surface as a non-zero exit with the
+# commit already created — and `1` reads as "content", which invites a duplicate.
+# Measured cost of not catching it: the class was right by luck.
+try {
+    foreach ($e in $ExpectAbsent) { Set-FailClass (Test-Expectation $e $false) }
+    foreach ($e in $ExpectPresent) { Set-FailClass (Test-Expectation $e $true) }
+    foreach ($e in $ExpectBlob) { Set-FailClass (Test-BlobIdentity $e) }
+} catch {
+    Write-Host "ERROR: the verification could not run: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  the commit EXISTS ($commitSha) and no expectation was judged. Do not re-run it." -ForegroundColor Yellow
+    exit 8
+}
 
 $expectCount = $ExpectAbsent.Count + $ExpectPresent.Count + $ExpectBlob.Count
 if ($failCount -gt 0) {
-    Write-Host "FAILED: $failCount expectation(s) unmet at $commit (exit class $failExit)." -ForegroundColor Red
-    Write-Host "  Inspect the BLOB, not the console: git cat-file -p $commit`:<path>"
+    Write-Host "FAILED: $failCount expectation(s) unmet at $commit (exit class $failExit)." -ForegroundColor Red    Write-Host "  Inspect the BLOB, not the console: git cat-file -p $commit`:<path>"
     if ($failExit -eq 7) { Write-Host "  class 7 = AMBIGUOUS: the commit exists and is not wrong; the expectation matched text it does not own." -ForegroundColor Yellow }
     if ($failExit -eq 8) { Write-Host "  class 8 = EXPECTATION UNTRUSTWORTHY: the commit exists and is not wrong; do not re-run the commit." -ForegroundColor Yellow }
     exit $failExit

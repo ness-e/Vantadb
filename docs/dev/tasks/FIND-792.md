@@ -111,10 +111,7 @@ Por qué una pieza y no cuatro arreglos sueltos:
   restaurar `HEAD` si un hook lo movió): `4` para los guards de `FIND-778`,
   `9` para filas ajenas. **No se duplicó el camino de restauración.**
 
-**Precisión (pre-mortem d):** el guard solo se evalúa si `docs/dev/Backlog.md`
-está en `-Paths` **y** el árbol preparado cambia filas de ese fichero. Un commit
-de código, un `git rm` legítimo o un Backlog que solo **añade** filas no se
-tocan. Escenario 19b lo prueba: retirar la fila propia sigue commiteando.
+**Precisión (pre-mortem d):** el guard se evalúa si el **conjunto staged del índice privado** contiene `docs/dev/Backlog.md` — nunca sobre los argumentos: la ronda 1 del review midió que `-Paths docs/dev` stagea el Backlog sin deletrearlo y se saltaba el guard entero, con `OK` al final — **y** el árbol preparado retira filas de ese fichero. Una fila cuyo ID sigue apareciendo en el blob nuevo está **reformateada o movida**, no retirada: `| `FIND-102` (blocked) |` ya no acusa a nadie. Un commit de código, un `git rm` o un Backlog que solo **añade** filas no se tocan.
 
 ## Verificación
 
@@ -127,7 +124,7 @@ tocan. Escenario 19b lo prueba: retirar la fila propia sigue commiteando.
 - Escenario 19b (precisión): retirar solo `FIND-101` y declararla → **exit 0**,
   `HEAD` avanza, `ok absent`. Verifica también la forma documentada
   (`docs/dev/Backlog.md::| \`FIND-101\` |`).
-- Suite completa: **120/120 PASS** (helper nuevo) · **27 FAILED** (helper de
+- Suite completa: **131/131 PASS** (helper nuevo) · **33 FAILED** (helper de
   `HEAD`, todos en 16-20; 1-15 verdes).
 - Demostración en repositorio real (worktree temporal, no el checkout vivo):
   ver §Demostración.
@@ -139,26 +136,51 @@ tocan. Escenario 19b lo prueba: retirar la fila propia sigue commiteando.
    (`[char]0x00E9`) para que el transporte no pudiera tocarla, y comparada contra
    el blob del commit. Salida: `ok present` + `OK: <sha> verified against the
    commit's blobs`. Ver `docs/dev/avance/activo/operaciones.md` §cierre.
-2. **Commit abortado por fila ajena.** En una copia temporal del repo se retiró
-   una fila de Backlog que no pertenecía al commit y se invocó el helper con la
-   fila propia declarada: **exit 9**, `FOREIGN HUNK`, la fila ajena nombrada,
-   `HEAD` sin mover y **cero** commits creados. Salida transcripta en la entrada
-   de `operaciones.md`.
+2. **Commit abortado por fila ajena.** Ocurrió en el repo real, sin fabricarlo:
+   con la copia de trabajo tal como estaba (otro carril había movido la fila
+   `FIND-787`), un commit de `docs/dev/Backlog.md` que declaraba las cuatro filas
+   propias abortó con **exit 9**, `FOREIGN HUNK`, `Undeclared: [FIND-787]`,
+   `HEAD did not move: it is still 997c41c62…` y **cero** commits creados. El
+   escenario 19 lo reproduce en un repo desechable. La retirada de las cuatro
+   filas se cerró después con un **blob derivado de `HEAD`** (camino manual de
+   §11): 24 borrados, 0 adiciones, `FIND-787` intacta — `20a629d5b`.
 
-## Review P2-01 (una ronda, para las cuatro filas)
+## Review P2-01 (una ronda, contexto fresco, para las cuatro filas)
 
 - **Tier:** Fast (globs `dev-tools/**` y `docs/dev/**`; ningún path adversarial).
-- **Gate mecánico:** `dev-tools/git-commit-isolated.tests.ps1` **120/120** +
-  `pwsh dev-tools/ocr-review.ps1` sobre el diff + checks de docs. `dev-tools/verify.ps1`
-  completo **no** se corrió: sus pasos son `cargo fmt/clippy/nextest` y esta
-  sesión tiene prohibido compilar Rust (disco ~7,7 GB); ningún path de este diff
-  es Rust, así que esos pasos no podían cambiar el resultado. **Declarado, no
-  omitido en silencio.**
-- **Reviewer distinto del autor:** `vanta-review` (contexto fresco) sobre el diff
-  de las cuatro filas + el test. Veredicto y hallazgos aplicados: §Review de
-  `docs/dev/tasks/FIND-796.md` si la ronda cambia algo; si no, **approve** con el
-  gate mecánico como evidencia.
+- **Gate mecánico:** `dev-tools/git-commit-isolated.tests.ps1` **131/131** +
+  `node scripts/docs/check-docs.mjs` (GATING all clear) + `node scripts/docs/check-links.mjs`
+  (0 broken) + `pwsh dev-tools/ocr-review.ps1` (spec generado; sin Critical/High).
+  `dev-tools/verify.ps1` completo **no** se corrió: sus pasos son `cargo fmt/clippy/nextest`
+  y esta sesión tiene prohibido compilar Rust (disco ~7,7 GB); ningún path de este
+  diff es Rust, así que esos pasos no podían cambiar el resultado. **Declarado.**
+- **Veredicto de la ronda 1: `changes-required`** — 1 blocker, 2 high, 1 medium,
+  1 low. Los cinco se aplicaron con su medición y cada uno dejó un test que **falla
+  contra el helper revisado** (**11 FAILED** en `18b`/`19c`/`19d` + `17d`):
 
+| # | Sev | Hallazgo medido | Arreglo |
+|---|-----|-----------------|---------|
+| 1 | **blocker** | El guard se disparaba con `$Paths -contains $BACKLOG_PATH`: `-Paths docs/dev` (o `docs\dev\Backlog.md`) **stagea** el Backlog sin deletrearlo → exit 0 y el commit se llevaba la fila ajena, con `OK` al final | key sobre el **conjunto staged** del índice privado (`git diff --cached --name-only`), nunca sobre los argumentos |
+| 2 | high | El test "pre-existente" comparaba por **número de línea**: borrar una línea desplaza las demás y el helper imprimía `this commit CHANGED that line` sobre una línea que no tocó (la clase `FIND-796` otra vez) | preguntar si el **fragmento** está en el blob del padre, no si lo está en el mismo índice |
+| 3 | high | El guard reconocía solo la forma exacta de fila: un **reformateo** (`` | `FIND-102` (blocked) | ``) contaba como retirada y acusaba a otro carril de una fila que nadie retiró | descartar el ID si sigue **apareciendo en cualquier sitio** del blob nuevo (reformateo o *move*) |
+| 4 | medium | La clase `ENCODING` afirmaba "the expectation's bytes were corrupted on the command line" — causa **no medida**: un blob con cualquier otro acento en cualquier línea convertía un fallo de contenido (1) en 8 | el mensaje del esqueleto ya no elige causa: enuncia las **dos** hipótesis (transporte / otra grafía) y nombra la línea; la rama del *doble-encoding* sí afirma, porque reproduce el round-trip |
+| 5 | low | `RULES.md` §11 listaba `0,1,2,4,6,7,8,9` (faltaban 3 y 5) y la precedencia declarada en `Set-FailClass` no era la del código | 3 y 5 en la regla; precedencia por **rango** (1 < 7 < 8), no "last wins" |
+
+- **Lo que el reviewer confirmó midiendo, no leyendo:** `FIND-792` (`6e4119c8d`
+  retiró la fila `FIND-775` y el fix de `FIND-775` no está en ese commit);
+  `FIND-793` (`[Console]::OutputEncoding` = **ibm437** en esta máquina: el mismo
+  blob da 161140 chars por tubería y 163811 por fichero, y `después` está en el
+  blob y no en el pipe); `FIND-795/796` (el helper de `HEAD` partía por comas e
+  imprimía `REVERTED … did not carry your edit` sobre contenido presente).
+- **Lo que también objetó y no se cambió (con razón declarada):** `-ExpectBlob`
+  no declara IDs de fila, así que un commit de Backlog "pinned por blob" aborta
+  con exit 9 si retira su propia fila. Es deliberado: hashear la copia de trabajo
+  arrastra la escritura ajena, así que el blob **no** prueba qué filas son tuyas;
+  la declaración sigue siendo `-ExpectAbsent '<path>::| `ID` |'`. Queda escrito
+  en la cabecera de `-ExpectBlob`.
+- **Segunda ronda:** no se pidió (la tarea pedía una). El gate de cierre es el
+  mecánico + los **11 FAILED** contra el helper revisado, que es la misma prueba
+  que la ronda 1 exigía.
 ## Deuda / techo declarado
 
 - El guard cuenta **retiradas** de filas de Backlog, no cualquier hunk ajeno: una

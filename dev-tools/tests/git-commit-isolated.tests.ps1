@@ -579,6 +579,8 @@ $odd = "can" + [char]0x00E7 + "i" + [char]0x00F3 + "n"
     $res17d = Invoke-HelperScripted $r17d $call17d
     Check ($res17d.Code -eq 8) "exit 8 = ENCODING (got $($res17d.Code))"
     Check ($res17d.Out -match "docs/file0\.txt:2") "names the line where the projection matched (2, not an offset)"
+    Check ($res17d.Out -match "cannot separate them") "states BOTH hypotheses instead of inventing the cause"
+    Check ($res17d.Out -notmatch "were corrupted on the command line") "never asserts the transport corrupted the bytes"
 
     # ── Scenario 18: three states, and no invented cause (FIND-796) ────────────
     # `REVERTED: the commit did not carry your edit` was a cause the helper never
@@ -596,6 +598,25 @@ $odd = "can" + [char]0x00E7 + "i" + [char]0x00F3 + "n"
     Check ($res18.Out -match "docs/file0\.txt:3") "names the second site (file:line)"
     Check ($res18.Out -notmatch "did not carry your edit") "the unmeasured cause is gone"
     Check ($res18.Out -match "commit exists") "says the commit exists and is not the problem"
+
+    # 18b (P2-01 round 1, HIGH): the "pre-existing" test must ask whether the
+    # FRAGMENT is in the parent, not whether the same line NUMBER is. Deleting one
+    # line shifts every later line, so the index-based test printed `this commit
+    # CHANGED that line` about a line it never touched — the FIND-796 defect.
+    Write-Host "`n[18b] a pre-existing line, shifted by a deletion, is still AMBIGUOUS" -ForegroundColor Cyan
+    $r18b = New-TestRepo "s18b"
+    [IO.File]::WriteAllText((Join-Path $r18b "docs/file0.txt"),
+        "primera linea`nfrase que declaras ausente`ntercera`n", $utf8)
+    git -C $r18b add -A | Out-Null
+    git -C $r18b commit -qm "seed"
+    # This commit deletes ONLY the first line: the fragment's line number changes.
+    [IO.File]::WriteAllText((Join-Path $r18b "docs/file0.txt"),
+        "frase que declaras ausente`ntercera`n", $utf8)
+    $res18b = Invoke-Helper $r18b @("-Message", "test: shifted line", "-Paths", "docs/file0.txt",
+        "-ExpectAbsent", "docs/file0.txt::frase que declaras ausente")
+    Check ($res18b.Code -eq 7) "exit 7 = not attributable to this commit (got $($res18b.Code))"
+    Check ($res18b.Out -match "exists in the PARENT commit") "names the measurement (the fragment is in the parent)"
+    Check ($res18b.Out -notmatch "CHANGED that line") "never claims the commit changed a line it did not touch"
 
     # ── Scenario 19: a foreign Backlog row aborts BEFORE the commit (FIND-792) ──
     # Measured three times (`6e4119c8d`, `d15564b06`, `a476e190c`): a `-Paths
@@ -652,6 +673,46 @@ $specs = @('docs/dev/Backlog.md::| `FIND-101` |')
     Check ($res19b.Code -eq 0) "exit 0 (got $($res19b.Code))"
     Check ("$(git -C $r19b rev-parse HEAD)".Trim() -ne $headBefore19b) "HEAD moved"
     Check ($res19b.Out -match "ok absent") "its own retirement is verified"
+
+    # 19c (P2-01 round 1, BLOCKER): the guard must key on the STAGED set, not on
+    # the argument string. `-Paths docs` stages the Backlog without spelling it.
+    Write-Host "`n[19c] -Paths with a DIRECTORY still reaches the Backlog guard" -ForegroundColor Cyan
+    $r19c = New-TestRepo "s19c"
+    New-Item -ItemType Directory -Force (Join-Path $r19c "docs/dev") | Out-Null
+    [IO.File]::WriteAllText((Join-Path $r19c "docs/dev/Backlog.md"), $bl19, $utf8)
+    git -C $r19c add -A | Out-Null
+    git -C $r19c commit -qm "backlog seed"
+    [IO.File]::WriteAllText((Join-Path $r19c "docs/dev/Backlog.md"), "| ID | Prioridad |`n|---|---|`n", $utf8)
+    Set-Content -LiteralPath (Join-Path $r19c "docs/file0.txt") -Value "changed" -NoNewline
+    $headBefore19c = "$(git -C $r19c rev-parse HEAD)".Trim()
+    $res19c = Invoke-Helper $r19c @("-Message", "test: directory paths", "-Paths", "docs",
+        "-ExpectAbsent", 'docs/dev/Backlog.md::| `FIND-101` |')
+    Check ($res19c.Code -eq 9) "exit 9 = the guard saw the Backlog through the directory (got $($res19c.Code))"
+    Check ($res19c.Out -match "FIND-102") "names the foreign row"
+    Check ("$(git -C $r19c rev-parse HEAD)".Trim() -eq $headBefore19c) "HEAD did not move"
+
+    # 19d (P2-01 round 1, HIGH): refomatting a row is not retiring it. The old
+    # check saw `| `FIND-102` (blocked) |` as a removal and accused a lane of a row
+    # nobody removed.
+    Write-Host "`n[19d] a reformatted row is not a retirement" -ForegroundColor Cyan
+    $r19d = New-TestRepo "s19d"
+    New-Item -ItemType Directory -Force (Join-Path $r19d "docs/dev") | Out-Null
+    [IO.File]::WriteAllText((Join-Path $r19d "docs/dev/Backlog.md"), $bl19, $utf8)
+    git -C $r19d add -A | Out-Null
+    git -C $r19d commit -qm "backlog seed"
+    $reformatted = @"
+| ID | Prioridad |
+|---|---|
+| ``FIND-101`` (blocked) | alta |
+| ``FIND-102`` | alta |
+"@
+    [IO.File]::WriteAllText((Join-Path $r19d "docs/dev/Backlog.md"), $reformatted, $utf8)
+    $headBefore19d = "$(git -C $r19d rev-parse HEAD)".Trim()
+    $res19d = Invoke-Helper $r19d @("-Message", "test: reformatted row", "-Paths", "docs/dev/Backlog.md",
+        "-ExpectPresent", "docs/dev/Backlog.md::(blocked)")
+    Check ($res19d.Code -eq 0) "exit 0: no row was retired (got $($res19d.Code))"
+    Check ("$(git -C $r19d rev-parse HEAD)".Trim() -ne $headBefore19d) "HEAD moved"
+    Check ($res19d.Out -notmatch "FOREIGN HUNK") "never accuses another lane"
 
     # ── Scenario 20: identity by blob oid, not by text (FIND-793/792) ──────────
     # `git rev-parse <commit>:<path>` == the declared oid is the form that cannot

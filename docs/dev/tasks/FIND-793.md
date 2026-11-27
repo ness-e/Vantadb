@@ -80,7 +80,7 @@ ASCII sin el acento es una cadena distinta, no una corrupción medible).
 ## Verificación
 
 - Suite completa: `pwsh -NoProfile -File dev-tools/tests/git-commit-isolated.tests.ps1`
-  → **120/120 assertions PASS**, exit 0 (20 escenarios).
+  → **131/131 assertions PASS**, exit 0 (20 escenarios).
 - Escenario 17 (nuevo), contra el helper **nuevo**: NFD vs NFC → exit 0 y
   `ok present`; expectativa doble-codificada → **exit 8**, `ENCODING`,
   `do NOT re-run`, y **no** imprime `NOT COMMITTED`; fragmento realmente ausente
@@ -90,8 +90,11 @@ ASCII sin el acento es una cadena distinta, no una corrupción medible).
   **8 FAILED** (`exit 0: … got 1`, `exit 8 … got 1`, `names the encoding class`,
   `do NOT re-run`, `does NOT report missing content`, `reports it present`).
   Los escenarios 1-15 siguen verdes.
-- Commit real con acento en la expectativa: el cierre de esta tarea (ver
-  `docs/dev/tasks/FIND-795.md` §Verificación para el comando y la salida).
+- Commit real con acento en la expectativa: `c7689bcce` imprimió
+  `ok present: docs/dev/tasks/FIND-793.md:44 :: 60/60 después` (la expectativa se
+  construyó desde code points; el texto se comparó contra el blob). La corrida
+  completa salió `exit 7` por una SEGUNDA expectativa demasiado ancha — ver
+  `operaciones.md`, §"El propio cierre, medido".
 
 ## Review P2-01
 

@@ -76,7 +76,7 @@ consistentes, sin elegir por el operador.
 - Escenario 7 del banco nuevo (ausente sobre línea pre-existente, medido a mano
   durante el desarrollo): exit 7 con las dos hipótesis y `no reversion is
   claimed here`.
-- Suite completa: **120/120 PASS** con el helper nuevo; **27 FAILED** con el de
+- Suite completa: **131/131 PASS** con el helper nuevo; **33 FAILED** con el de
   `HEAD` (todos en 16-20).
 
 ## Review P2-01
