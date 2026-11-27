@@ -103,9 +103,14 @@ Dos hechos que fijan la causa:
 `verify.ps1:63` exporta `RUST_MIN_STACK=33554432` y `verify_changed.ps1:5` 16 MiB: el repo ya
 depende de este lever (`docs/user/operations/BENCHMARKS.md:926,995` lo documenta: *"sin esto rustc
 crashea al compilar"*). Pero el test **no lo fijaba**: heredaba lo que el shell del llamador tuviera.
-Correr el snapshot desde un shell limpio, o con el `4194304` que recomienda
-`docs/user/troubleshooting.md:53`, cambiaba el resultado del gate sin que nadie tocara el test.
-Medición: 2 MiB ambient → aborto del hijo; 32 MiB → build frío completo OK (53.7 s).
+Medido con `target/` vacío: **2 MiB reproduce el aborto** del hijo; **3 MiB y 4 MiB ya completan** el
+build frío. El umbral exacto no es un dato estable (se mueve con el grafo de dependencias y con cada
+nightly), así que lo que el fix fija es un **piso con margen**, no el umbral: antes el resultado del
+gate dependía de qué exportara el shell del llamador; ahora es contrato explícito del test.
+
+> Corrección tras el review P2-01: la primera versión de este documento afirmaba que 4 MiB *"ya es
+> demasiado poco"*. Falso — el revisor lo midió dos veces con `target/` vacío y pasa. La afirmación
+> correcta es la de arriba, y el comentario del código se corrigió en el commit de review.
 
 ## Fix aplicado
 
@@ -140,16 +145,43 @@ Medición: 2 MiB ambient → aborto del hijo; 32 MiB → build frío completo OK
 
 La propiedad *"cold-cache no produce exit 253"* **no se automatiza**: necesita un `target/` vacío
 (estado de disco), y ningún test de nextest puede garantizarlo. Declarado en el header del test
-(`:19-27`) con el comando exacto:
+(`:17-26`) con el comando exacto y la medición que lo sostiene:
 
 ```powershell
 $env:CARGO_TARGET_DIR = "<dir vacío>"; $env:RUST_MIN_STACK = "2097152"
 cargo nextest run -p vantadb --test public_api --run-ignored ignored-only   # esperado: 1/1 PASS
 ```
 
-Antes del fix ese comando aborta en la primera dependencia (`0xC00000FD`). Lo que **sí** es
-automatizable se automatizó: la **entrada que controlamos** (el presupuesto) tiene 4 tests unitarios
-+ rail de compilación, así que quitarlo o bajarlo pone el build en rojo.
+Antes del fix ese comando aborta en la primera dependencia (`0xC00000FD`); medido también con el
+binario de test directo, que es el seam más corto. Lo que **sí** es automatizable se automatizó: la
+**entrada que controlamos** (el presupuesto) tiene 4 tests unitarios + rail de compilación, así que
+quitarlo o bajarlo pone el build en rojo.
+
+## Review (P2-01, agente distinto)
+
+- **Revisor:** `vanta-review`, contexto fresco (sesión separada; sin acceso al razonamiento del autor).
+- **Enfoque:** falsar 5 claims (causa (iii) vs (i)/(ii); equivalencia `0xC00000FD`↔253; "no es subir
+  el stack"; honestidad de la regresión; golden intacto) + cazar enmascaramientos, agujeros en
+  `child_stack_budget` y deriva de docs.
+- **Cómo se probó:** RED y GREEN **reproducidos de forma independiente** por el revisor (target dir
+  vacío + `RUST_MIN_STACK=2097152` → `thread 'rustc' has overflowed its stack` / `typenum` /
+  `0xc00000fd`, exit 101; y con el fix → `1 passed ... 37.23s`, exit 0). Contrato re-ejecutado
+  completo (0/1/8/1), `fmt` y `clippy -D warnings` sobre el target, `git diff 87dbaf060..09dbd9a01 --
+  tests/api/public-api.txt` vacío, y `git diff --name-status` sin rutas prohibidas.
+- **Veredicto inicial:** 🔴 changes-required — **1 Medium** (este mismo archivo declaraba
+  `status: completed` sin sección `## Review`, que es el gate que la revisión implementa; se escribe
+  acá) + 3 Low: (1) **claim falso**: "4 MiB is already too small" no reproduce — la frontera medida
+  está entre 2 MiB (falla) y 3 MiB (pasa); corregido en el código y en §(c); (2) el comando del header
+  no era exactamente el seam medido (el RED se midió con el binario directo); reescrito con ambas
+  vías; (3) la referencia `:19-27` apuntaba mal (es `:17-26`). Nit opcional aceptado y documentado:
+  sin cota superior para `RUST_MIN_STACK` (un valor gigante del operador se reenvía) — es intencional.
+- **Lo que el revisor confirmó con evidencia propia:** el fix se aplica **sólo al `Command`**
+  (`rustdoc-json-0.9.10/src/builder.rs:162,459-462`), no a `std::env`, así que **no enmascara**
+  recursión nuestra (el parser de `public-api` corre en el hilo de test y sigue expuesto);
+  `child_stack_budget` no tiene agujeros (`trim`, `+`, `-1`, `""`, overflow de `u64` → piso; ≥ piso se
+  preserva); causa (iii) correcta; `(b)` intacto; los valores citados del repo (32/16/4 MiB) correctos.
+- **Estado:** Medium y los 3 Low **cerrados** en el commit de review; sin Critical/High en ningún
+  momento.
 
 ## Verificación
 

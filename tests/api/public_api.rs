@@ -19,11 +19,15 @@
 //! target) can kill the child compiler with `STATUS_STACK_OVERFLOW`
 //! (`0xC00000FD`, whose low byte is `253`), so the *first* run can look poisoned
 //! while the second passes. The budget is fixed by [`CHILD_STACK_BYTES`]; the
-//! property itself needs an empty target dir, so it is declared, not automated:
+//! property itself needs an empty target dir, so it is declared, not automated.
+//! Measured (empty `CARGO_TARGET_DIR`, Windows/MSVC, nightly 1.101.0 from
+//! 2026-10-01), both through nextest and through the test binary directly:
 //!   $env:CARGO_TARGET_DIR = "<empty dir>"; $env:RUST_MIN_STACK = "2097152"
 //!   cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
-//! Expected 1/1 PASS. Before the fix: `thread 'rustc' has overflowed its stack`
-//! and the build aborts inside the first dependency (exit code 0xC00000FD).
+//! `thread 'rustc' has overflowed its stack` → the build aborts inside the first
+//! dependency (`typenum`, ~8 s in) with exit code `0xC00000FD`; the same command
+//! is 1/1 PASS after the fix. 3 MiB and 4 MiB ambient already pass — the floor
+//! below is margin above that boundary, not the boundary itself.
 //!
 //! Generation parameters (must stay in sync with the snapshot header):
 //! - toolchain: `nightly` (rustdoc JSON is nightly-only)
@@ -66,32 +70,35 @@ const UPDATE_ENV: &str = "VANTADB_PUBLIC_API_UPDATE";
 ///
 /// `rustdoc_json` spawns `rustup run nightly cargo rustdoc`, i.e. the nightly
 /// **`rustc`**, and parts of the compiler's work run on threads sized from
-/// `RUST_MIN_STACK` (the entrypoint itself is on the main thread —
-/// `rustc_driver_impl/src/lib.rs` `pub fn main`). Below that floor the compiler
-/// dies with `STATUS_STACK_OVERFLOW` (`0xC00000FD`, low byte `253`) — and only
-/// when there is something left to compile, so it lands on the **first** run and
-/// disappears on the second:
+/// `RUST_MIN_STACK`. Below that floor the compiler dies with
+/// `STATUS_STACK_OVERFLOW` (`0xC00000FD`, low byte `253`) — and only when there
+/// is something left to compile, so it lands on the **first** run and disappears
+/// on the second:
 ///
 /// ```text
 /// thread 'rustc' has overflowed its stack
 /// process didn't exit successfully: ...rustc.exe --crate-name typenum ... (exit code: 0xc00000fd, STATUS_STACK_OVERFLOW)
 /// ```
 ///
-/// Measured on this crate: 2 MiB ambient → the abort above, 8 s in, on the first
-/// dependency; 32 MiB → the whole cold build passes. The recursion is inside the
-/// third-party nightly compiler, not in this crate, so it cannot be bounded
-/// here; what this test *can* stop is inheriting whatever budget the caller's
-/// shell happened to export. 32 MiB is the value the repo's own gate already
-/// uses (`dev-tools/verify.ps1:63`) — not a number invented for this file.
+/// Measured on this crate with an empty target dir: 2 MiB ambient reproduces the
+/// abort (8 s in, on the first dependency), while 3 MiB and 4 MiB complete the
+/// cold build. The budget below is **margin above that boundary**, not the
+/// boundary itself — the boundary moves with the crate's dependency graph and
+/// with each nightly, so tracking it here would be a number that goes stale.
+/// The recursion is inside the third-party compiler, not in this crate, so it
+/// cannot be bounded here; what this test *can* stop is inheriting whatever
+/// budget the caller's shell happened to export. 32 MiB is the value the repo's
+/// own gate already uses (`dev-tools/verify.ps1:63`) — not a number invented for
+/// this file.
 const CHILD_STACK_BYTES: u32 = 32 * 1024 * 1024;
 
-/// Compile-time rail (FIND-191): lowering the floor below the measured compiler
-/// need re-opens the cold-cache overflow, so that must be a build error rather
-/// than a review note. 4 MiB is already too small; 8 MiB is the smallest value
-/// that leaves margin.
+/// Compile-time rail (FIND-191): lowering the floor toward the measured abort
+/// re-opens the cold-cache overflow, so that must be a build error rather than a
+/// review note. 2 MiB reproduces the abort and 3 MiB passes; 8 MiB keeps margin
+/// without pretending to know where the next boundary is.
 const _: () = assert!(
     CHILD_STACK_BYTES >= 8 * 1024 * 1024,
-    "FIND-191: the child rustc overflows below ~4 MiB on a cold cache"
+    "FIND-191: 2 MiB reproduces the cold-cache abort - keep margin above it"
 );
 
 /// The stack budget to pass to the child compiler: the ambient value when it is
@@ -275,14 +282,15 @@ mod child_stack {
 
     #[test]
     fn ambient_below_the_floor_is_raised() {
-        // 4 MiB is the value docs/user/troubleshooting.md recommends; the
-        // nightly compiler still dies with it on a cold cache (FIND-191).
+        // 2 MiB reproduces the cold-cache abort (FIND-191). The value in
+        // docs/user/troubleshooting.md:53 is 4 MiB, which already passes today —
+        // both are below this floor, and the floor is margin.
         assert_eq!(
-            child_stack_budget(Some("4194304")),
+            child_stack_budget(Some("2097152")),
             CHILD_STACK_BYTES.to_string()
         );
         assert_eq!(
-            child_stack_budget(Some("2097152")),
+            child_stack_budget(Some("4194304")),
             CHILD_STACK_BYTES.to_string()
         );
     }
