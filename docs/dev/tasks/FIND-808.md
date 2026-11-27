@@ -55,9 +55,16 @@ el párrafo que las contiene es el que se reescribe.
    `cli,fjall,memmap2,fs2,encryption` (`ci-rust.yml:1128-1129` y `:1145-1146`; el comentario
    `:1119-1122` explica por qué no lleva `roaring`).
 3. `:74` remataba «11 features están ejercidas en runtime». Con nueve defaults la aritmética
-   cerraba; con cinco no. La unión real de la lane de tests es **8**
-   (`default` ∪ `cli,arrow,tls,opentelemetry`, `ci-rust.yml:469/512/562`) — el conteo se cae
-   con la tabla que lo producía.
+   cerraba; con cinco no. Y **ninguna lista cerrada cierra**: las tres lanes de tests
+   seleccionan cinco `-p` (`vantadb`, `vantadb_py`, `vanta-memory`, `vantadb-server`,
+   `vantadb-mcp`), así que por unificación la unión real es de **13**
+   (`cli, fjall, memmap2, fs2, roaring, arrow, tls, opentelemetry, advanced-tokenizer, server,
+   sysinfo, rayon, remote-inference` — `vantadb-server/Cargo.toml:21-30`,
+   `vantadb-mcp/Cargo.toml:14-23`, `vantadb-python/Cargo.toml:25`,
+   `vanta-memory/Cargo.toml:59`), no de 8. **Corrección de ronda 2:** en el primer intento
+   escribí 8 midiendo la string de `--features` e ignorando la unificación — el mismo defecto
+   que el ticket, reintroducido. La página **no** publica esa lista: nombra el mecanismo y
+   apunta a `feature-matrix.md` §4.
 4. `:45` decía que `remote-inference` «no está en features de test de CI». Medido: el job
    `Tests (embeddings features)` lo corre con `--lib` en las dos legs
    (`ci-rust.yml:676-687`, matriz `[remote-inference, embed-local]`).
@@ -131,20 +138,85 @@ cargo: cli, fjall, memmap2, fs2, roaring                 (Cargo.toml:156)
 
 ## Review P2-01
 
-Tier: **fast** — el diff toca solo `docs/**` (`docs/dev/architecture/FEATURES.md`,
-este task file, `docs/dev/avance/activo/docs.md`, fila del Backlog). Sin `docs/api/**`,
-sin `src/**`. Gate: `dev-tools/verify.ps1` fast + veredicto registrado (ver §Review abajo).
+**Tier:** fast (el diff toca solo `docs/**`: `docs/dev/architecture/FEATURES.md`, este task
+file, `docs/dev/avance/activo/docs.md`). Sin `docs/api/**`, sin `src/**`, sin planes.
+
+| Campo | Valor |
+|---|---|
+| **Revisor** | `vanta-review` (sub-agente, sesión `ses_de21e1c8fffeWM3YE8hkGrGpJq`) |
+| **Enfoque** | contexto fresco adversarial, report-only: re-midió la premisa y las 5 claims en vez de aceptar este task file; leyó `ci-rust.yml` del **blob commiteado** (el working tree arrastra un hunk ajeno) y no tocó nada |
+| **Cómo se probó** | `check-docs.mjs` / `check-links.mjs` re-ejecutados por él (0/0); `rg ci-rust-10` → 0; listas de flags comparadas contra `Cargo.toml:156`; citas de workflow resueltas una a una contra `git show HEAD:.github/workflows/ci-rust.yml`; **no** compiló Rust (otra lane construyendo) |
+| **Veredicto ronda 1** | 🔴 **changes-required** — 3 Blocking, 4 Medium, 4 Low |
+| **Veredicto ronda 1-bis** | ver §Cierre de la ronda 1-bis (abajo) |
+
+**Blocking de la ronda 1 y qué se hizo:**
+
+- **B1 — la «unión medida» era falsa: 13, no 8.** La string de `--features` es un piso;
+  `-p vantadb-server`/`-p vantadb-mcp` en las mismas lanes piden
+  `advanced-tokenizer, fjall, fs2, memmap2, rayon, roaring, server, sysinfo`
+  (`vantadb-server/Cargo.toml:21-30`, `vantadb-mcp/Cargo.toml:14-23`) y `vanta-memory`
+  añade `remote-inference` por dev-dep (`vanta-memory/Cargo.toml:59`). **Aceptado y
+  corregido**: la página ya no publica ninguna lista cerrada; nombra el mecanismo, cita las
+  cuatro declaraciones de features y delega la advertencia en `feature-matrix.md` §4.
+- **B2 — `advanced-tokenizer` y `sysinfo` decían «ninguna lane la corre».** Falso por
+  unificación: las tres lanes de nextest encienden ambas. **Aceptado y corregido**: las dos
+  filas pasan a `✅ ci` con la cita de las listas de server/mcp, y `rayon` corrige su
+  atribución (no es solo `vantadb-python:25`, también server/mcp).
+- **B3 — la leyenda contradecía sus propios marks.** `🟡 opt-in` exigía «ninguna lane lo
+  corre» y cuatro filas llevaban `opt-in · ✅ ci`. **Aceptado y corregido**: los ejes son
+  ortogonales — `opt-in` = no está en `Cargo.toml:156`; `✅ ci` = alguna lane (fuera de
+  `clippy --all-features`, que compila la unión) lo enciende.
+
+**Medium de la ronda 1 y qué se hizo:**
+
+- **M1 — mi +6/+8 de líneas desplazó las citas entrantes de `docs/feature-matrix.md:33,35,79`
+  (`FEATURES.md:32/:51/:48`).** **Aceptado y corregido sin tocar la matriz**: el bloque de
+  cabecera se comprimió a exactamente las mismas 6 líneas que tenía, y el puntero a la matriz
+  se movió a §Cross-References. Verificado: `:32` es la fila `default`, `:48` es `server`,
+  `:51` es `python_sdk` — los tres destinos que la matriz cita, otra vez correctos.
+- **M2 — las citas `src/lib.rs` de la tabla están podridas (15-40 líneas) y 5 filas tocadas
+  las conservan.** Cierto y **fuera de este ticket**: arreglar 9 citas es otro cambio (y en
+  este carril no hay `FIND-*` asignable, ver Deuda). Delegado, no silenciado.
+- **M3 — los números de línea nuevos a `ci-rust.yml` ya están obsoletos en el working tree**
+  porque `FIND-807` reescribe ese fichero. **Aceptado y corregido**: §Cobertura cita
+  **nombres de step** (`Run tests (Audit profile, core)`, `Clippy Lints`, `Miri Test (core -
+  unsafe patterns)`), que no rotan; `rg 'ci-rust\.yml:'` sobre la página → 0.
+- **M4 — `## Review P2-01` estaba vacío y el Step 6 se marcaba ✅ igual.** **Aceptado**:
+  esta tabla es la corrección.
+
+**Low:** L3 `encryption` sin `✅ ci` → corregido (Miri la corre). L1/L2 (matriz desactualizada
+y fila del Backlog sin retirar) siguen en §Deuda **con dueño nombrado**. L4 (3682 vs 3685
+internos) es deriva del árbol, no un defecto.
+
+## Cierre de la ronda 1-bis
+
+Pendiente del veredicto del revisor sobre el commit de la ronda 2 (ver RESULTADO).
 
 ## Deuda / NOTICED BUT NOT TOUCHING
 
-- **`docs/feature-matrix.md:31-37` queda desactualizada por este cambio** (prohibida acá):
-  describe la fila `default` de nueve flags y el `default-features=false` como *stale
-  hoy*. Tras este commit ya no lo están. Es una línea de la matriz y la toca su carril.
-  **No se crea fila `FIND-*` nueva** porque el ID siguiente (814+) está en disputa con los
-  carriles vivos (`FIND-807`/`FIND-798`); el orquestador asigna el número.
-- `docs/feature-matrix.md:79` discute `server` sin `cli` citando `FEATURES.md:48` — esa fila
-  no se tocó (no la contradice ninguna medición de este ticket).
-- Las notas `CI: default + Miri (...)`, en las filas `fjall`/`memmap2`/`fs2`, listan un
-  subconjunto de la string real de Miri (falta `encryption`). No son falsas (nombran un
-  subconjunto) y la string exacta queda una sola vez en §«Cobertura en CI».
-- `encryption` (fila `:47`) no lleva marca `✅ ci` aunque Miri lo corre: incompleto, no falso.
+> **Dueño de cada ítem, nombrado** (la ronda 1 de la review rechazó «deuda anónima»): los tres
+> primeros los asigna el **orquestador** en el próximo commit que pueda escribir
+> `docs/dev/Backlog.md` (hoy bloqueado por el hunk ajeno de `FIND-798`, ver último ítem); no se
+> inventa un número `FIND-*` acá porque el rango 814+ está en disputa con los carriles vivos.
+
+- **`docs/feature-matrix.md:31-37` quedó desactualizada por este cambio** (prohibida acá):
+  describe la fila `default` de nueve flags y el `default-features=false` como *stale* hoy.
+  Tras este commit ya no lo están. Una línea de la matriz; la toca su carril. **Las citas
+  `:32`/`:51`/`:48` que la matriz usa sí siguen apuntando a las filas correctas** (verificado).
+- **`docs/feature-matrix.md:79`** discute `server` sin `cli` citando `FEATURES.md:48` — esa
+  fila no se tocó (no la contradice ninguna medición de este ticket); sigue siendo la
+  incógnita que la matriz ya declaraba «unverified».
+- **Las 9 citas `src/lib.rs` de la tabla están podridas** (pre-existente, medido por la review
+  ronda 1): `columnar` 74→89, `llm` 98→120, `python` 112→136, `tokenizer` 127→165, `tui`
+  129→167, `wal_shipping` 138→179, `ingestion` 146→183, `transcript` 149→186, `failpoints`
+  177-194→223-239. Este commit editó 5 de esas filas sin re-medir la cita: es exactamente el
+  modo de fallo del ticket, en la columna de al lado. Merece fila propia.
+- Las notas `CI: default + Miri (...)`, en `fjall`/`memmap2`/`fs2`, listan un subconjunto de
+  la string real de Miri (falta `encryption`). No son falsas (nombran un subconjunto) y la
+  string exacta aparece una sola vez en §Cobertura en CI.
+- **La fila `FIND-808` del Backlog sigue presente** (🆕 Pendiente, con el path inexistente
+  `docs/FEATURES.md:32`): `docs/dev/Backlog.md` arrastra un hunk ajeno sin commitear (`0/1`,
+  la retirada de `FIND-798`). Commitear el fichero hornearía el cierre de un carril cuyo
+  código no está en historia — el incidente que `git-commit-isolated.ps1` rechaza con exit 9
+  (FIND-792). **Dueño: el primer carril que commitee `docs/dev/Backlog.md`**, que debe retirar
+  la fila `FIND-808` en ese mismo commit.
