@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-591 documentation pages; it deliberately omits the 293 task files,
+593 documentation pages; it deliberately omits the 294 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -98,6 +98,7 @@ is in docs/index.md in the repository.
 - [Blog Series Completion Plan](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/BLOG_SERIES_PLAN.md): The blog series is 4 of 5 posts complete as drafts in docs/user/blog/, but the production site exposes 4 posts (one of them, introducing-vantadb, has no source draft in docs/user/blog/). Every live post has metadata drift between the...
 - [Cargo Feature Registry — per-feature status](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEATURES.md): Inventario honesto de las features declaradas en Cargo.toml [features]
 - [Checklist de cambio](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/contributor/change-checklist.md): Qué actualizar junto a un cambio según su tipo: snapshots, matrices, OpenAPI, índices generados y ADRs.
+- [Compile feature matrix — the combinations the project promises, and what CI covers](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/feature-matrix.md): Which Cargo feature combinations VantaDB promises to build, which gate compiles or tests each one, and the measured runner cost of the gates
 - [Constraints — VantaDB Quality Bar](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/CONSTRAINTS.md): VantaDB quality bar: always enforced floors and quantified rules
 - [Contratos del proyecto](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/developer/contracts.md): Qué es contrato estable y dónde se verifica mecánicamente: API pública, wire formats, paridad, namespaces y versionado.
 - [Contribuir: primeros pasos](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/contributor/getting-started.md): Cómo empezar a contribuir al repo: guía canónica, áreas por crate y convenciones que debes conocer antes del primer cambio.
@@ -318,6 +319,7 @@ is in docs/index.md in the repository.
 - [Fase 2 — Arquitectura, riesgos y deuda técnica](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reports/2026-11-06-analisis-integral/fase2-tecnico.md): Auditoría estática por áreas con FMEA cualitativo, evidencia de código y comprobaciones pendientes.
 - [Fase 3 — Mercado y escenarios de adopción](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reports/2026-11-06-analisis-integral/fase3-adopcion.md): Fuentes primarias fechadas, proxies de demanda y modelo condicional de adopción a 12 y 24 meses.
 - [Fase 4 — Costes, monetización y equilibrio](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reports/2026-11-06-analisis-integral/fase4-financiero.md): Modelo financiero en USD a 24 meses, coste de reposición y equilibrio operativo separados del gasto histórico no conocido.
+- [Lo que sigue aplicando — consolidado de docs/dev/reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reports/APLICA-CONSOLIDADO.md): Destilado de los 8 reportes de la carpeta: solo lo vigente/útil para VantaDB a 2026-11-26, con lo obsoleto condensado a una línea
 - [VantaDB — Análisis integral del worktree](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reports/2026-11-06-analisis-integral/REPORT.md): Síntesis verificable de arquitectura, estadísticas, mercado, finanzas y regeneración documental al 2026-11-06.
 
 ## Research
