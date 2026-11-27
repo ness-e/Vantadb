@@ -37,8 +37,10 @@ if ($status) {
 }
 
 Write-Host "[2/3] run the ignored e2e" -ForegroundColor Yellow
+# FIND-794: `--no-tests fail` — un `-E 'test(e2e_l0)'` que no matchea (test
+# renombrado, feature apagada) tiene que romper el step, no salir verde.
 cargo nextest run --profile audit -p vantadb-mcp `
-    -E 'test(e2e_l0)' --run-ignored ignored-only --build-jobs 2 --no-capture
+    -E 'test(e2e_l0)' --run-ignored ignored-only --no-tests fail --build-jobs 2 --no-capture
 if ($LASTEXITCODE -ne 0) { throw "MEM-73 e2e failed" }
 
 Write-Host "[3/3] ok — L0 -> L1 -> L2 -> L3 observed in one real process" -ForegroundColor Green

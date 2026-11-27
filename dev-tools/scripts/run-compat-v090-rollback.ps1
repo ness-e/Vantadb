@@ -18,6 +18,8 @@ if (-not (Test-Path $cli)) {
 & $cli --version | Out-Null
 Write-Host "== VANTADB_V090_CLI=$cli"
 $env:VANTADB_V090_CLI = $cli
-cargo nextest run --profile audit -p vantadb --features encryption --locked --build-jobs 2 -E 'test(compat_v090_rollback)'
+# FIND-794: el `-E` lleva su aserción de población — si el nombre del test cambia,
+# este runner se pone rojo en vez de no ejecutar nada y decir "passed".
+cargo nextest run --profile audit -p vantadb --features encryption --locked --build-jobs 2 -E 'test(compat_v090_rollback)' --no-tests fail
 if ($LASTEXITCODE -ne 0) { throw "rollback compat test failed ($LASTEXITCODE)" }
 Write-Host "== rollback test passed against the v0.9.0 binary"

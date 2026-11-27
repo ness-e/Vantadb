@@ -112,7 +112,10 @@ try {
     if (-not (Skip-Step "nextest")) {
         if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
             # exclusiones RESOURCE-GUARD: ver $fastGateFilter arriba + CI_POLICY §"Fast Gate Test Exclusions"
-            run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", $fastGateFilter))
+            # FIND-794: `--no-tests fail` es la aserción de población. `auto` ya
+            # devuelve 4 en una ejecución filtrada, pero depende de cómo nextest
+            # clasifique el run; el flag lo fija y el check estático lo exige.
+            run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", $fastGateFilter, "--no-tests", "fail"))
         } else {
             run "test" (("cargo", "test", "-p", "vantadb") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
         }

@@ -403,6 +403,200 @@ export function rustLaneCensus(rows) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FIND-794: a nextest `-E` that selects nothing is not a gate
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// FIND-782 declared `-E 'test(find782)'` and measured 0 tests: nextest matches
+// FUNCTION NAMES, and no test was called that. The gate was green with the fix
+// reverted. The exit code is not the contract to lean on either — measured on
+// 0.9.133, a filtered `run` returns 4, but `--no-tests pass` returns 0 with the
+// identical `0 tests run: 0 passed` summary, and `list` returns 0 with zero
+// entries (the shape FIND-768/785/788 counted as "0 of 42"). The only durable
+// assertion is a population assertion, so it is made MECHANICAL here:
+//
+//   R1  every nextest RUN that carries `-E` must carry `--no-tests fail`.
+//   R2  every positive `test(<name>)` atom in a filterset line must name a
+//       function that exists in the workspace (`fn` corpus, substring match
+//       because nextest's `test(x)` is a substring match unless `=` is used).
+//
+// Both are textual, and the ceiling is declared rather than hidden:
+//   - a selector assembled in a variable exposes no ATOMS (that is why R1 also
+//     follows `X+=(-E "$sel")` to the `run` that expands `"${X[@]}"`: without
+//     that, both CI lanes — the only places this rule claimed to cover — were
+//     invisible, measured 2026-11-27 by deleting their flag and watching the
+//     check stay green);
+//   - `test(/regex/)` cannot be verified statically — only counted;
+//   - a `test(<a::b::c>)` atom is checked by its LAST segment only: a wrong
+//     module prefix passes (a corpus of `fn` names carries no module paths);
+//   - the `fn` corpus is workspace-wide, not scoped to the package: an atom that
+//     exists in another crate satisfies R2;
+//   - `sourcesForNextest` scans `.github/workflows/*.yml`, `dev-tools/**` and the
+//     root `Justfile`. `scripts/**` and `.github/actions/**` are NOT scanned;
+//   - the auditor file is excluded whole (not by line range), so a real
+//     `nextest run` added to it would be invisible;
+//   - NEGATED atoms are deliberately ignored (`not test(x)`, `not (…)`): a dead
+//     negation leaves the population a SUPERSET, which is not the silent-off
+//     this check exists to prevent. Ignoring them is what keeps
+//     `gate-common.ps1`'s `$fastGateFilter` — three negations — from becoming a
+//     false positive.
+
+/** Join PowerShell backtick and shell backslash continuations into one command. */
+export function logicalCommands(text) {
+  const lines = text.split(/\r?\n/);
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const start = i + 1;
+    let cmd = lines[i];
+    while (/[`\\]\s*$/.test(cmd) && i + 1 < lines.length) {
+      cmd = cmd.replace(/[`\\]\s*$/, " ") + lines[++i];
+    }
+    out.push({ line: start, text: cmd });
+  }
+  return out;
+}
+
+/**
+ * Drop a trailing `#` / `//` comment. A `--no-tests fail` that only exists in a
+ * tail comment must not satisfy R1 — that is the same "text that reads green
+ * while the gate is off" the check exists to refuse. Quotes are respected so a
+ * `#` inside a filter or a string is not treated as a comment.
+ */
+export function stripTrailingComment(cmd) {
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    if (quote) {
+      if (c === quote) quote = null;
+      else if (c === "\\" && quote === '"') i++;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      quote = c === "`" ? "'" : c;
+      continue;
+    }
+    if ((c === "#" || (c === "/" && cmd[i + 1] === "/")) && (i === 0 || /\s/.test(cmd[i - 1]))) {
+      return cmd.slice(0, i);
+    }
+  }
+  return cmd;
+}
+
+/** Selector variables a file feeds into a command: `X+=(-E "$sel")`. */
+export function nextestSelectorVars(text) {
+  const vars = new Set();
+  for (const { text: raw } of logicalCommands(text)) {
+    const cmd = stripTrailingComment(raw);
+    if (/^\s*(#|\/\/)/.test(cmd)) continue;
+    const m =
+      cmd.match(/([A-Za-z_]\w*)\s*\+?=\s*\(?\s*-E\b/) ||
+      cmd.match(/([A-Za-z_]\w*)\s*\+?=\s*\([^)]*["']-E["']/);
+    if (m) vars.add(m[1]);
+  }
+  return vars;
+}
+
+/**
+ * Does this command hand a filterset to nextest? Either inline (`-E`) or through
+ * a variable the file built with `-E` (`"${run_args[@]}"`). Without the second
+ * form R1 was blind to BOTH CI lanes: `certification.yml` and
+ * `snapshot-certification.yml` append the selector to an array and never spell
+ * `-E` on the `run` — measured: deleting `--no-tests fail` from either left the
+ * check green.
+ */
+function carriesSelector(cmd, selectorVars) {
+  if (/(^|[\s,("'])-E(?=[\s,)"']|$)/.test(cmd)) return true;
+  for (const v of selectorVars) {
+    if (new RegExp(`\\$\\{?${v}(\\[@\\]|\\b)`).test(cmd)) return true;
+  }
+  return false;
+}
+
+/** A logical command that RUNS nextest (`list` only measures; `llvm-cov nextest` runs). */
+function nextestRunCommand(cmd) {
+  if (!/\bnextest\b/.test(cmd)) return false;
+  if (/\bnextest\b["',\s]{1,12}\blist\b/.test(cmd) && !/\brun\b/.test(cmd)) return false;
+  if (/\bnextest\b["',\s]{1,12}\brun\b/.test(cmd)) return true;
+  return /\bllvm-cov\b[\s\S]{0,40}?\bnextest\b/.test(cmd); // `llvm-cov nextest` implies run
+}
+
+/** R1: a nextest run with a selector must pin the population assertion. */
+export function nextestGuardViolations(file, text) {
+  const bad = [];
+  const selectorVars = nextestSelectorVars(text);
+  for (const { line, text: raw } of logicalCommands(text)) {
+    if (/^\s*(#|\/\/)/.test(raw)) continue; // prose about a command is not a command
+    const cmd = stripTrailingComment(raw);
+    if (!nextestRunCommand(cmd)) continue;
+    if (!carriesSelector(cmd, selectorVars)) continue; // no selector: no population claim
+    if (/--no-tests[=,"'\s]{1,6}fail/.test(cmd)) continue; // CLI form and argv-array form
+    bad.push(
+      `${file}:${line}: nextest run with -E but no \`--no-tests fail\` — a filter that selects 0 tests must fail the step, not pass it`,
+    );
+  }
+  return bad;
+}
+
+/** Character ranges of a line that a `not` covers (`not test(x)`, `not (… and …)`). */
+function negationRanges(line) {
+  const ranges = [];
+  const re = /\bnot\b/g;
+  let m;
+  while ((m = re.exec(line))) {
+    let i = m.index + 3;
+    while (i < line.length && /\s/.test(line[i])) i++;
+    if (line[i] === "(") {
+      let depth = 0;
+      let j = i;
+      for (; j < line.length; j++) {
+        if (line[j] === "(") depth++;
+        else if (line[j] === ")" && --depth === 0) break;
+      }
+      ranges.push([m.index, j]);
+    } else if (line.startsWith("test(", i)) {
+      const close = line.indexOf(")", i);
+      ranges.push([m.index, close < 0 ? line.length : close]);
+    }
+  }
+  return ranges;
+}
+
+/** R2: a positive `test(<name>)` atom must name something that exists. */
+export function nextestAtomViolations(file, text, corpus) {
+  const bad = [];
+  if (!/\bnextest\b/.test(text)) return bad; // not a nextest surface
+  text.split(/\r?\n/).forEach((line, i) => {
+    if (/^\s*(#|\/\/)/.test(line)) return; // prose/comment
+    // Only a filterset line: `-E <expr>` or a `run_phase`/selector argument.
+    if (!/\btest\(/.test(line) || !/(-E\b|\brun_phase\b)/.test(line)) return;
+    const negated = negationRanges(line);
+    const isNegated = (pos) => negated.some(([a, b]) => pos >= a && pos <= b);
+    let from = 0;
+    let at;
+    while ((at = line.indexOf("test(", from)) >= 0) {
+      from = at + 5;
+      if (isNegated(at)) continue; // `not (…)` covers every atom inside it
+      const close = line.indexOf(")", at);
+      if (close < 0) break;
+      const atom = line.slice(at + 5, close).trim();
+      if (!atom || (atom.startsWith("/") && atom.endsWith("/"))) continue; // regex: unverifiable
+      const exact = atom.startsWith("=");
+      const name = atom.replace(/^[=~]/, "");
+      if (!name) continue;
+      const tail = name.split("::").pop();
+      const hit = corpus.some((n) => (exact ? n === tail : n.includes(tail)));
+      if (!hit) {
+        bad.push(
+          `${file}:${
+            i + 1
+          }: test(${atom}) names no function in the workspace — this filter selects nothing, so it gates nothing`,
+        );
+      }
+    }
+  });
+  return bad;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Filesystem helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -831,6 +1025,89 @@ function checkWaveQuotas() {
   return bad;
 }
 
+/** FIND-794: every nextest `-E` in CI and in dev-tools, plus the fn corpus. */
+function sourcesForNextest() {
+  const files = [];
+  const wf = join(ROOT, ".github/workflows");
+  try {
+    for (const e of readdirSync(wf)) if (e.endsWith(".yml")) files.push(join(wf, e));
+  } catch {
+    /* no workflows: nothing to audit */
+  }
+  const scan = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e === "node_modules" || e === "reports" || e === "__pycache__") continue;
+      const p = join(dir, e);
+      if (statSync(p).isDirectory()) scan(p);
+      else if (/\.(ps1|mjs|sh)$/.test(e)) files.push(p);
+    }
+  };
+  scan(join(ROOT, "dev-tools"));
+  // The Justfile runs nextest too (`just test`); a selector added there would
+  // otherwise be invisible. Root-level only: `scripts/**` and
+  // `.github/actions/**` are declared out of scope in the ceiling above.
+  const justfile = join(ROOT, "Justfile");
+  if (exists(justfile)) files.push(justfile);
+  // The auditor is not a test surface: its own `--self-test` fixtures quote the
+  // violating shapes on purpose. Excluding it costs nothing real — this file
+  // runs no nextest — and keeps a fixture from being reported as a violation of
+  // the rule it proves. (File-level, not range-level: declared in the ceiling.)
+  return files.filter((f) => f !== fileURLToPath(import.meta.url));
+}
+
+/** Every `fn <name>` in the workspace: nextest `test(x)` is a substring match. */
+function rustFnCorpus() {
+  const names = [];
+  const SKIP = new Set(["target", "node_modules", ".git", ".opencode", ".codegraph", "dist"]);
+  const scan = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (SKIP.has(e)) continue;
+      const p = join(dir, e);
+      let st;
+      try {
+        st = statSync(p);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) scan(p);
+      else if (e.endsWith(".rs")) {
+        const re = /\bfn\s+([A-Za-z_][A-Za-z0-9_]*)/g;
+        const text = read(p);
+        let m;
+        while ((m = re.exec(text))) names.push(m[1]);
+      }
+    }
+  };
+  scan(ROOT);
+  return names;
+}
+
+function checkNextestSelect() {
+  const bad = [];
+  const files = sourcesForNextest();
+  const corpus = rustFnCorpus();
+  if (!corpus.length)
+    bad.push("no Rust `fn` names found — R2 cannot verify any selector (empty corpus)");
+  for (const f of files) {
+    const text = read(f);
+    bad.push(...nextestGuardViolations(rel(f), text));
+    bad.push(...nextestAtomViolations(rel(f), text, corpus));
+  }
+  return bad;
+}
+
 const CHECKS = [
   ["commit-path (H-03)", checkCommitPath],
   ["commit-authority (FIND-776)", checkCommitAuthority],
@@ -839,6 +1116,7 @@ const CHECKS = [
   ["medicion (H-02)", checkMedicion],
   ["premise (H-07)", checkPremise],
   ["wave-quotas (H-06)", checkWaveQuotas],
+  ["nextest-select (FIND-794)", checkNextestSelect],
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1382,6 +1660,129 @@ function runSelfTest() {
   ok(
     "authority: 'mutating solo lead' without commit passes",
     !authorityViolations("shell: allow # git solo lectura, mutating ❌ solo lead"),
+  );
+
+  // FIND-794: a nextest `-E` that selects nothing must not be able to look green.
+  // Each pair is the rule in the two directions: the violating text, then the
+  // same text with the population assertion present.
+  const FX = "x.ps1";
+  ok(
+    "nextest-select: -E without --no-tests fail fails",
+    nextestGuardViolations(FX, "cargo nextest run -p vantadb -E 'test(proxy)'").length === 1,
+  );
+  ok(
+    "nextest-select: same with --no-tests fail passes",
+    nextestGuardViolations(FX, "cargo nextest run -p vantadb -E 'test(proxy)' --no-tests fail")
+      .length === 0,
+  );
+  ok(
+    "nextest-select: llvm-cov nextest run is a run too",
+    nextestGuardViolations(FX, '$cmd = @("cargo", "llvm-cov", "nextest", "-E", $f)').length === 1,
+  );
+  ok(
+    "nextest-select: `nextest list` only measures, it does not gate",
+    nextestGuardViolations(FX, "cargo nextest list -p vantadb -E 'test(proxy)'").length === 0,
+  );
+  ok(
+    "nextest-select: a PowerShell continuation is one command",
+    nextestGuardViolations(
+      FX,
+      "cargo nextest run -p vantadb `\n    -E 'test(proxy)' --build-jobs 2",
+    ).length === 1,
+  );
+  ok(
+    "nextest-select: a prose comment about the flag is not a command",
+    nextestGuardViolations(FX, "# cargo nextest run -E 'test(x)' sin flag").length === 0,
+  );
+  const CORPUS = ["test_proxy_reelect", "compat_v090_rollback_fixture", "e2e_l0_to_l3"];
+  ok(
+    "nextest-select: test(<missing name>) is caught (FIND-782's exact shape)",
+    nextestAtomViolations(FX, "nextest run -E 'test(find782)'", CORPUS).length === 1,
+  );
+  ok(
+    "nextest-select: test(<real substring>) passes",
+    nextestAtomViolations(FX, "nextest run -E 'test(proxy)'", CORPUS).length === 0,
+  );
+  ok(
+    "nextest-select: test(=exact) demands the exact name",
+    nextestAtomViolations(FX, "nextest run -E 'test(=test_prox)'", CORPUS).length === 1,
+  );
+  ok(
+    "nextest-select: a negated atom is not the population (no false positive)",
+    nextestAtomViolations(FX, "nextest run -E 'not test(/deserialize_absurd/)'", CORPUS).length ===
+      0,
+  );
+  ok(
+    "nextest-select: a De Morgan group is not the population either",
+    nextestAtomViolations(FX, "nextest run -E 'not (test(a) and test(b))'", CORPUS).length === 0,
+  );
+  ok(
+    "nextest-select: `1 test(s)` in an echo line is not a filter",
+    nextestAtomViolations(
+      "snapshot.yml",
+      'nextest run --no-tests fail\necho "$phase executed 0 test(s)."',
+      CORPUS,
+    ).length === 0,
+  );
+  // Review P2-01 (C2): both CI lanes feed the selector through an array, so a
+  // rule that only reads `-E` on the run command was blind to the ONLY places
+  // it claimed to cover. These two fixtures are that hole.
+  const ARRAY_WF = [
+    'expect=("$@"); run_args=("$@")',
+    'run_args+=(-E "$selector")',
+    'expect+=(-E "$selector")',
+    'cargo nextest run --profile audit "${run_args[@]}"',
+  ].join("\n");
+  ok(
+    "nextest-select: array-fed selector without the flag fails (CI shape)",
+    nextestGuardViolations("cert.yml", ARRAY_WF).length === 1,
+  );
+  ok(
+    "nextest-select: array-fed selector with the flag passes",
+    nextestGuardViolations(
+      "cert.yml",
+      ARRAY_WF.replace('"${run_args[@]}"', '--no-tests fail "${run_args[@]}"'),
+    ).length === 0,
+  );
+  ok(
+    "nextest-select: a nextest run that does NOT take the selector var is not flagged",
+    nextestGuardViolations(
+      "cert.yml",
+      `${ARRAY_WF.replace(
+        '"${run_args[@]}"',
+        '--no-tests fail "${run_args[@]}"',
+      )}\ncargo nextest run -p vantadb --test security_audit`,
+    ).length === 0,
+  );
+  // Review P2-01 (R3): the flag must be in the command, not in a tail comment.
+  ok(
+    "nextest-select: `--no-tests fail` only in a tail comment fails",
+    nextestGuardViolations(FX, "cargo nextest run -E 'test(proxy)' # ver --no-tests fail")
+      .length === 1,
+  );
+  ok(
+    "nextest-select: the same real flag with a tail comment passes",
+    nextestGuardViolations(
+      FX,
+      "cargo nextest run -E 'test(proxy)' --no-tests fail # tracked in FIND-794",
+    ).length === 0,
+  );
+  // Review P2-01 (R4): `not (…)` must not hide a POSITIVE atom on the same line.
+  ok(
+    "nextest-select: a positive atom outside a `not (…)` group is still checked",
+    nextestAtomViolations(
+      FX,
+      "nextest run -E 'not (test(slow_a) or test(slow_b)) and test(NONEXISTENT_ZZZ)'",
+      CORPUS,
+    ).length === 1,
+  );
+  ok(
+    "nextest-select: the same atom inside the negation is not the population",
+    nextestAtomViolations(
+      FX,
+      "nextest run -E 'not (test(NONEXISTENT_ZZZ) or test(slow_b)) and test(proxy)'",
+      CORPUS,
+    ).length === 0,
   );
 
   let failed = 0;

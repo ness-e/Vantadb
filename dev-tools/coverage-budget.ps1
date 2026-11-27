@@ -74,7 +74,7 @@ $covJson = Join-Path $covDir "coverage-report.json"
 
 Write-Host "  coverage..." -ForegroundColor Yellow -NoNewline
 if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
-    $cmd = @("cargo", "llvm-cov", "nextest", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", $fastGateFilter, "--json", "--output-path", $covJson)
+    $cmd = @("cargo", "llvm-cov", "nextest", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", $fastGateFilter, "--json", "--output-path", $covJson, "--no-tests", "fail")
 } else {
     $cmd = @("cargo", "llvm-cov", "-p", "vantadb") + $feats + @("--json", "--output-path", $covJson, "-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large")
 }
