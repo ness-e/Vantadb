@@ -112,7 +112,7 @@ El segundo fixture es el que importa: no es sintético, es la fila que este task
 
 - `node dev-tools/check-harness-contract.mjs` → **harness contract holds (9 checks)** (eran 8).
 - `node dev-tools/check-harness-contract.mjs --self-test` → **89/89** (eran 81/81).
-- `git diff --numstat -- docs/dev/Backlog.md` → 8 inserciones / 11 borrados sobre 960 líneas (962 → 960 por las 2 retiradas y 1 retirada ajena preservada).
+- `git show --numstat b1cc847e9 -- docs/dev/Backlog.md` → **8 inserciones / 10 borrados** (8 filas reescritas + 2 retiradas), **963 → 961 líneas**. El worktree queda en `960` líneas con un diff `0/1`: la retirada de `FIND-798`, que es de otro carril, **no entró** en el commit.
 - Sin compilar Rust (medición pura): los hallazgos se midieron con `rg`/`git cat-file`/`git log`.
 - Rama `develop` sin cambios de rama. Commit local por `dev-tools/git-commit-isolated.ps1` con `-ExpectAbsent` por fila retirada.
 
