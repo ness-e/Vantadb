@@ -29,7 +29,6 @@
 //!   never carries a key. No real engine configured → the pass skips
 //!   observably (P4: nothing lost, nothing burns).
 
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -75,29 +74,16 @@ pub fn scheduler_interval_ms_from_env() -> u64 {
 
 /// Pure path resolution (testable, no env): an explicit non-empty override
 /// wins; else `<storage_path>/data/vanta-ingest.toml`.
-fn resolve_ingest_toml_path(override_path: Option<&str>, storage_path: &str) -> PathBuf {
-    match override_path.map(str::trim).filter(|p| !p.is_empty()) {
-        Some(p) => PathBuf::from(p),
-        None => Path::new(storage_path)
-            .join("data")
-            .join("vanta-ingest.toml"),
-    }
-}
-
-/// Resolve the ingest runner TOML path the way `vantadb-mcp` does:
-/// `VANTADB_INGEST_CONFIG` wins, else `<storage_path>/data/vanta-ingest.toml`
-/// (the engine's `data_dir`; see `StorageEngine::init_storage`). An absent
-/// file is not an error — defaults mean "no runner".
-pub fn ingest_toml_path(storage_path: &str) -> PathBuf {
-    resolve_ingest_toml_path(
-        std::env::var("VANTADB_INGEST_CONFIG").ok().as_deref(),
-        storage_path,
-    )
-}
+///
+/// FIND-783: the rule and its test moved to
+/// `vanta_memory::ingest::runner_config` (ADR-0063 — the host wiring lives in
+/// `vanta-memory`); this module re-exports it so `vantadb-pro` keeps the names
+/// it consumes. Do not rebuild the path here.
+pub use vanta_memory::ingest::runner_config::ingest_toml_path;
 
 /// Load the runner config from env + TOML (FIND-112 surface).
 pub fn ingest_runner_cfg(storage_path: &str) -> IngestRunnerCfg {
-    IngestRunnerCfg::from_env_toml(&ingest_toml_path(storage_path))
+    IngestRunnerCfg::from_storage_path(storage_path)
 }
 
 /// Production runner factory (built once, called once per pass — FIND-112):
@@ -148,6 +134,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn parse_interval_ms_defaults_and_validates() {
@@ -177,16 +164,19 @@ mod tests {
         );
     }
 
+    /// FIND-783 / ADR-0063 D3: the six FIND-112 names survive the move of the
+    /// TOML rule to `vanta-memory`. This is a **surface** check, not a value
+    /// check — it reads no env, and deleting a re-export stops it compiling
+    /// (`WIRE-19-impl` §4.1).
     #[test]
-    fn resolve_ingest_toml_path_prefers_override_and_falls_back_to_storage() {
-        let fallback = resolve_ingest_toml_path(None, "/tmp/vanta-x");
-        assert!(fallback.ends_with(Path::new("data").join("vanta-ingest.toml")));
-        let overridden = resolve_ingest_toml_path(Some("  /custom/ingest.toml  "), "/tmp/vanta-x");
-        assert_eq!(overridden, PathBuf::from("/custom/ingest.toml"));
-        let blank = resolve_ingest_toml_path(Some("   "), "/tmp/vanta-x");
-        assert!(
-            blank.ends_with(Path::new("data").join("vanta-ingest.toml")),
-            "blank override must fall back to the storage path"
+    fn find112_surface_survives_the_toml_rule_move() {
+        let _toml_path: fn(&str) -> PathBuf = ingest_toml_path;
+        let _cfg: fn(&str) -> IngestRunnerCfg = ingest_runner_cfg;
+        let _ = (
+            DEFAULT_INTERVAL_MS,
+            parse_interval_ms(None),
+            scheduler_interval_ms_from_env(),
+            ingest_runner_factory(IngestRunnerCfg::defaults()),
         );
     }
 }

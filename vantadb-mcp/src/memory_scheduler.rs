@@ -31,7 +31,7 @@ use std::time::Duration;
 use vanta_memory::core::abstractions::LlmRunner;
 use vanta_memory::core::conversation::backfill_unconsolidated;
 use vanta_memory::ingest::observability;
-use vanta_memory::ingest::runner_config::{build_ingest_runner, ConcreteRunner};
+use vanta_memory::ingest::runner_config::{build_ingest_runner, ConcreteRunner, IngestRunnerCfg};
 use vanta_memory::services::scheduler::{spawn_memory_scheduler, MemoryScheduler};
 use vantadb::storage::StorageEngine;
 
@@ -91,7 +91,10 @@ pub(crate) fn interval_ms_from_env() -> u64 {
 /// (P4; MEM-72 records the skip).
 pub(crate) fn start(storage: &std::sync::Arc<StorageEngine>) -> bool {
     let interval_ms = interval_ms_from_env();
-    let cfg = crate::threads::ingest_runner_cfg(storage);
+    // FIND-783: the runner config comes from the one TOML rule in
+    // `vanta-memory` — `--mcp` resolves from the declared storage root, never
+    // from the CWD (`InMemory` has no `data_dir`).
+    let cfg = IngestRunnerCfg::from_storage(storage);
     start_with(storage, interval_ms, move || {
         match build_ingest_runner(&cfg) {
             // `None` == no engine: skip the pass, leave the queue untouched.

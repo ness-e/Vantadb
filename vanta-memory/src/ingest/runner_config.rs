@@ -11,10 +11,11 @@
 //! (`LlmError::NotConfigured` per chunk → `sources_skipped`, never a hard
 //! error — contract P4 §(e)).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::Deserialize;
+use vantadb::storage::StorageEngine;
 
 use crate::adapters::standalone::llm_runner::{LlmConfig, StandaloneLlmRunner};
 use crate::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
@@ -110,6 +111,40 @@ impl LlmRunner for ConcreteRunner {
 /// to `Some(ConcreteRunner::None)` so the worker takes its existing P4 path.
 pub fn build_ingest_runner(cfg: &IngestRunnerCfg) -> Option<ConcreteRunner> {
     cfg.build_runner()
+}
+
+// ── The one TOML path rule (ADR-0063) ────────────────────────────────────
+
+/// Pure path resolution (testable, no env): an explicit non-empty override
+/// wins (trimmed); else `<storage_path>/data/vanta-ingest.toml`.
+///
+/// This is the **single** rule for the ingest TOML — it lived in three
+/// disagreeing copies (`vantadb-server/src/scheduler.rs`,
+/// `vantadb-mcp/src/wiki.rs`, `vantadb-mcp/src/threads.rs`) because `MCP-43`
+/// landed ahead of `ADR-0063` (FIND-783). Hosts call [`ingest_toml_path`] or
+/// [`IngestRunnerCfg::from_storage_path`]; nobody builds the path again.
+fn resolve_ingest_toml_path(override_path: Option<&str>, storage_path: &str) -> PathBuf {
+    match override_path.map(str::trim).filter(|p| !p.is_empty()) {
+        Some(p) => PathBuf::from(p),
+        None => Path::new(storage_path)
+            .join("data")
+            .join("vanta-ingest.toml"),
+    }
+}
+
+/// Resolve the ingest runner TOML path: `VANTADB_INGEST_CONFIG` wins (when
+/// non-blank after `trim()`), else `<storage_path>/data/vanta-ingest.toml`.
+/// An absent file is not an error — defaults mean "no runner".
+///
+/// `storage_path` is the storage **root**, not the engine's `data_dir()`
+/// (`data_dir` is already `<root>/data`, and it is empty for `InMemory` —
+/// `src/storage/engine/init.rs:425-428` — which turns a `join` on it into a
+/// CWD-relative path). This is the only env read for the variable in the tree.
+pub fn ingest_toml_path(storage_path: &str) -> PathBuf {
+    resolve_ingest_toml_path(
+        std::env::var("VANTADB_INGEST_CONFIG").ok().as_deref(),
+        storage_path,
+    )
 }
 
 impl IngestRunnerCfg {
@@ -235,6 +270,37 @@ impl IngestRunnerCfg {
         };
         cfg.apply_env(|k| std::env::var(k).ok());
         cfg
+    }
+
+    /// Full server-side load for a storage **root**: [`ingest_toml_path`] +
+    /// [`Self::from_env_toml`]. This is what a host calls — the host does not
+    /// own a path rule (ADR-0063).
+    pub fn from_storage_path(storage_path: &str) -> Self {
+        Self::from_env_toml(&ingest_toml_path(storage_path))
+    }
+
+    /// [`Self::from_storage_path`] for a live engine: the storage root is
+    /// `data_dir`'s parent when the engine has a data dir (disk backends:
+    /// `<root>/data`, `src/storage/engine/init.rs:459`), else the declared
+    /// `config.storage_path`.
+    ///
+    /// Two things this deliberately does **not** do:
+    /// - use `data_dir()` as the root (it already includes `data/`, and it is
+    ///   empty for `InMemory` ⇒ CWD-relative — the FIND-783 bug);
+    /// - use `config().storage_path` alone as the root: an engine opened with
+    ///   `StorageEngine::open(path)` keeps the **default** `storage_path`
+    ///   (config `None`, `init.rs:29`; same trap documented at
+    ///   `vantadb-mcp/src/server.rs:190-193`). `data_dir` is authoritative
+    ///   whenever it exists.
+    pub fn from_storage(storage: &StorageEngine) -> Self {
+        let data_dir = storage.data_dir();
+        let root = match data_dir.parent() {
+            Some(parent) if !data_dir.as_os_str().is_empty() => {
+                std::borrow::Cow::Owned(parent.to_string_lossy().into_owned())
+            }
+            _ => std::borrow::Cow::Borrowed(storage.config().storage_path.as_str()),
+        };
+        Self::from_storage_path(root.as_ref())
     }
 
     /// Boundary validation (api-and-interface-design §3): clamps + safe
@@ -407,6 +473,33 @@ mod tests {
     fn ingest_concrete_runner_is_send_sync_static() {
         fn assert_send_sync_static<T: Send + Sync + 'static>() {}
         assert_send_sync_static::<ConcreteRunner>();
+    }
+
+    #[test]
+    fn ingest_toml_path_prefers_override_and_falls_back_to_storage_data_dir() {
+        // Moved from `vantadb-server/src/scheduler.rs` with the rule it tests
+        // (FIND-783). Asserted by shape, not by re-joining the literal: a
+        // second construction of the path is exactly what this task deleted.
+        let fallback = resolve_ingest_toml_path(None, "/tmp/vanta-x");
+        assert!(fallback.starts_with(Path::new("/tmp/vanta-x")));
+        assert_eq!(
+            fallback.file_name().expect("file name"),
+            "vanta-ingest.toml"
+        );
+        assert_eq!(
+            fallback
+                .parent()
+                .and_then(|p| p.file_name())
+                .expect("parent"),
+            "data"
+        );
+        let overridden = resolve_ingest_toml_path(Some("  /custom/ingest.toml  "), "/tmp/vanta-x");
+        assert_eq!(overridden, PathBuf::from("/custom/ingest.toml"));
+        let blank = resolve_ingest_toml_path(Some("   "), "/tmp/vanta-x");
+        assert_eq!(
+            blank, fallback,
+            "blank override must fall back to the storage path"
+        );
     }
 
     #[test]

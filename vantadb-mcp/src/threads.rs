@@ -350,22 +350,9 @@ fn note_runner_state_once(storage: &Arc<StorageEngine>) {
         return;
     }
     // Side effect is the point (`build_runner` notes the runner); the value is
-    // not used — the scheduler builds its own per pass (MCP-43).
-    let _ = ingest_runner_cfg(storage).build_runner();
-}
-
-/// Server-side ingest config, same sources as the wiki path
-/// (`wiki.rs::ingest_toml_path`): `VANTADB_INGEST_CONFIG` wins, else
-/// `<data_dir>/vanta-ingest.toml`. Duplicated because that helper is private;
-/// both must stay in sync (same host config, one meaning). `pub(crate)` since
-/// MCP-43: the scheduler's per-pass runner factory resolves it here.
-pub(crate) fn ingest_runner_cfg(storage: &Arc<StorageEngine>) -> IngestRunnerCfg {
-    let path = std::env::var("VANTADB_INGEST_CONFIG")
-        .ok()
-        .filter(|p| !p.trim().is_empty())
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| storage.data_dir().join("vanta-ingest.toml"));
-    IngestRunnerCfg::from_env_toml(&path)
+    // not used — the scheduler builds its own per pass (MCP-43). One rule for
+    // the TOML, shared with the wiki tool and the scheduler (FIND-783).
+    let _ = IngestRunnerCfg::from_storage(storage).build_runner();
 }
 
 /// Feed the MEM-72 surface when this process already knows there is no runner:
@@ -632,6 +619,62 @@ mod memory_feed_tests {
             hits.iter()
                 .any(|h| h["content"].as_str().unwrap_or_default().contains("fjall")),
             "recall must return the previous turn: {recalled}"
+        );
+    }
+}
+
+/// FIND-783 — the `--mcp` TOML resolution must come from the **declared**
+/// storage root, never from the process CWD.
+#[cfg(test)]
+mod ingest_toml_tests {
+    use super::*;
+    use vantadb::config::Config;
+    use vantadb::storage::BackendKind;
+
+    /// The operator declares ONE `vanta-ingest.toml` under the storage root.
+    /// With `BackendKind::InMemory` the engine keeps no `data_dir`
+    /// (`src/storage/engine/init.rs:425-428`), so a `data_dir().join(...)`
+    /// resolution collapses to a **CWD-relative** path and silently reads
+    /// nothing. This asserts the property, not the shape of the fix: the
+    /// declared file wins.
+    ///
+    /// `chunk_target_chars` is the probe because it has **no env override** in
+    /// `apply_env`, so the process environment cannot satisfy the assertion.
+    #[test]
+    fn ingest_config_resolves_from_the_declared_storage_root_with_inmemory() {
+        // Named once: a second literal construction of the path is what this
+        // task deleted (the path is built in exactly one place now).
+        const OPERATOR_FILE: &str = "vanta-ingest.toml";
+        let root = tempfile::tempdir().expect("tempdir");
+        let storage_path = root.path().to_str().expect("utf8").to_string();
+        let data_dir = root.path().join("data");
+        std::fs::create_dir_all(&data_dir).expect("create data dir");
+        std::fs::write(
+            data_dir.join(OPERATOR_FILE),
+            "[ingest.pipeline]\nchunk_target_chars = 1234\n",
+        )
+        .expect("write the operator TOML");
+
+        let config = Config {
+            storage_path: storage_path.clone(),
+            backend_kind: BackendKind::InMemory,
+            ..Config::default()
+        };
+        let storage = Arc::new(
+            StorageEngine::open_with_config(&storage_path, Some(config))
+                .expect("open in-memory storage"),
+        );
+        assert!(
+            storage.data_dir().as_os_str().is_empty(),
+            "precondition: InMemory has no data dir"
+        );
+
+        let cfg = IngestRunnerCfg::from_storage(&storage);
+        assert_eq!(
+            cfg.pipeline_config().chunk_target_chars,
+            1234,
+            "the declared <storage>/data/vanta-ingest.toml must be the one read; \
+             a CWD-relative resolution reads nothing and falls back to defaults"
         );
     }
 }
