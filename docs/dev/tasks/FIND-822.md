@@ -102,7 +102,7 @@ node dev-tools/check-harness-contract.mjs --self-test          → 89/89
 
 ## Context Save Point
 
-- **Hecho y commiteado:** `dev-tools/check-closure.ps1` (la resta de supervivientes + 2 fixtures e2e), este task file y la entrada de `docs/dev/avance/activo/operaciones.md` (`5e5ab1a40`, `c0c7db576`). La fila del Backlog se retira en su propio commit.
+- **Hecho y commiteado:** `dev-tools/check-closure.ps1` (la resta de supervivientes + 2 fixtures e2e), este task file y la entrada de `docs/dev/avance/activo/operaciones.md` (`5e5ab1a40`, `c0c7db576`). La fila del Backlog se retira en su propio commit `1ae84c86d` (§11: blob derivado de `HEAD`, `0` adiciones / `1` borrado, con el lote del otro carril intacto y sin commitear).
 - **Verificado:** `-SelfTest` 9/9 + 7/7 exit 0; con la guarda revertida **5/7 exit 1** (fixtures RED); rewrite → exit 0 y retirada real → exit 1 en el mismo repo; `check-harness-contract --self-test` 89/89.
 - **No hacer:** commitear `docs/dev/Backlog.md` desde una copia de trabajo sucia — con otro carril escribiéndolo, eso hornea su WIP o le bloquea el commit (`exit 9`).
 
