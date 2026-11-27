@@ -12,7 +12,7 @@ description: "El detector de retiradas de `check-closure` lee toda línea `-` de
 - **Origen:** lote 2 del barrido de marcas (`FIND-818`, 2026-11-27) · **Ver:** `FIND-818`, `FIND-792` (por qué el detector existe)
 - **Esfuerzo:** 30-60min · **Prioridad:** 🟡 Media · **Tipo:** bug-fix de gate (`dev-tools/`, sin Rust)
 - **Creado / cerrado:** 2026-11-27
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 
 ## Blast Radius
 
@@ -51,7 +51,7 @@ Medición en el árbol real (`-Audit`, base `origin/develop`), cruzando "¿el ID
 - **Archivos leídos (completos):** `dev-tools/check-closure.ps1` (408 líneas)
 - **Archivos referenciados hacia dentro (imports/includes/dependencias):** ninguno — el script sólo usa `git` y `[System.IO.File]`; no importa módulos del repo.
 - **Archivos que referencian a los editados (referencias entrantes):** `git grep -l check-closure` → `dev-tools/check-harness-contract.mjs:23` (sólo un comentario), `docs/dev/tasks/H-02-H-07.md`, `docs/dev/tasks/FIND-818.md`, `docs/dev/tasks/FIND-779.md`, `docs/dev/tasks/FIND-792.md`, `docs/dev/tasks/FIND-777.md`, `docs/dev/reviews/2026-11-26-harness-hardening.md`, `docs/dev/avance/activo/operaciones.md`, `docs/dev/Backlog.md`. Ninguno invoca la función por nombre ni depende de su firma: **el script es el contrato** (CLI + exit codes 0/1/2).
-- **Veredicto impacto:** **bajo**. Cambia una función interna (`Get-RemovedBacklogIds`) y su call site único (`:381`); la interfaz pública del script (`-Diff/-Audit/-All/-SelfTest/-Base/-Root/-Paths` + exit codes) no se toca. Riesgo real: aflojar el gate (por eso el contrato exige probar **las dos direcciones**).
+- **Veredicto impacto:** **bajo**. Cambia una función interna (`Get-RemovedBacklogIds`) y su call site único (`:408`); la interfaz pública del script (`-Diff/-Audit/-All/-SelfTest/-Base/-Root/-Paths` + exit codes) no se toca. Riesgo real: aflojar el gate (por eso el contrato exige probar **las dos direcciones**).
 
 ## Spec
 
@@ -68,7 +68,7 @@ Medición en el árbol real (`-Audit`, base `origin/develop`), cruzando "¿el ID
 2. ✅ Arreglar `Get-RemovedBacklogIds` (restar las filas que sobreviven).
 3. ✅ Añadir 2 fixtures e2e: rewrite in-place y rewrite por reordenamiento (deben **pasar**); el de retirada real sigue fallando (ya existía).
 4. ✅ Re-verificar `-SelfTest`, `-Diff`, `-Audit` + `check-harness-contract --self-test`.
-5. ⬜ **Retirar la fila `FIND-822` del Backlog** — bloqueado: el fichero compartido lo está reescribiendo el carril de `FIND-818` **en vivo**; medido que mi retirada fue **revertida sin aviso** ~90s después (mtime 14:39:25, la fila volvió). Retirarla ahora obliga a una de dos: commitear el WIP ajeno (12 filas) o dejar a ese carril con `exit 9` de su guard (`FIND-792`). Se retira en una ventana quieta, en **su propio commit** (§11: blob derivado de `HEAD`, `0` adiciones / `1` borrado).
+5. ✅ **Retirar la fila `FIND-822` del Backlog** — hecho en su **propio** commit, en la ventana quieta: el carril de `FIND-818` commiteó su lote 3 (`1c0919cb4`) y dejó el fichero limpio. Precondición verificada (`git status --short -- docs/dev/Backlog.md` vacío), escritura UTF-8 sin BOM, y delta probado contra `HEAD`: **`0 1 docs/dev/Backlog.md`** (0 adiciones, 1 borrado, ninguna otra línea). Antes de eso, la misma retirada había sido **revertida en vivo** por ese carril sin aviso — por eso no se commiteó junto al arreglo.
 6. ⬜ `node scripts/docs/gen-index.mjs --write` — fuera de alcance por contrato (absorbe los `docs/**` pendientes de otros carriles; la deriva ya existía en `HEAD`).
 
 ## Contrato de verificación
@@ -102,10 +102,9 @@ node dev-tools/check-harness-contract.mjs --self-test          → 89/89
 
 ## Context Save Point
 
-- **Hecho y commiteado:** `dev-tools/check-closure.ps1` (la resta de supervivientes + 2 fixtures e2e), este task file y la entrada de `docs/dev/avance/activo/operaciones.md`.
+- **Hecho y commiteado:** `dev-tools/check-closure.ps1` (la resta de supervivientes + 2 fixtures e2e), este task file y la entrada de `docs/dev/avance/activo/operaciones.md` (`5e5ab1a40`, `c0c7db576`). La fila del Backlog se retira en su propio commit.
 - **Verificado:** `-SelfTest` 9/9 + 7/7 exit 0; con la guarda revertida **5/7 exit 1** (fixtures RED); rewrite → exit 0 y retirada real → exit 1 en el mismo repo; `check-harness-contract --self-test` 89/89.
-- **Pendiente (1 comando, cuando el Backlog esté quieto):** construir el blob como `HEAD` − mi fila, `git diff --numstat` debe dar **`0 1 docs/dev/Backlog.md`**, y commitearlo solo (§11). Después, `node scripts/docs/gen-index.mjs --write`.
-- **No hacer:** commitear `docs/dev/Backlog.md` desde el worktree — en este momento contiene 12 filas reescritas por otro carril y **cero** contenido de esta tarea.
+- **No hacer:** commitear `docs/dev/Backlog.md` desde una copia de trabajo sucia — con otro carril escribiéndolo, eso hornea su WIP o le bloquea el commit (`exit 9`).
 
 ## Review
 
@@ -119,6 +118,12 @@ Veredicto: `changes-required` con **1 HIGH, 1 MEDIUM, 2 LOW**. Lo que confirmó 
 | 2 | MEDIUM | "`-Audit` 7 → 2" ya no reproduce | Re-medido y corregido a **7 → 3** con su composición (un task file ajeno nuevo, sin commitear, apareció durante el cierre). |
 | 3 | LOW | `[object]$Present`: un `string` suelto haría `.Contains` = **substring** y se comería una retirada | Param **tipado** `[HashSet[string]]`: un caller equivocado falla ruidoso en vez de absolver. Re-verificado 7/7 + las dos direcciones. |
 | 4 | LOW | El comentario decía "file being committed" y lee el **worktree** | Corregido a "worktree file" (+ por qué es el par correcto de `-Diff` y de `-Audit`). |
+
+### P2-01 ronda 2 (mismo reviewer, contexto fresco) — **approve**
+
+`VERDICT: approve`. Confirmó que: los dos commits llevan **sólo** los paths esperados y ningún path ajeno (`git diff-tree -r 5e5ab1a40` / `c0c7db576`); el param tipado y el comentario del worktree están en su sitio; `-Audit` reproduce **7 → 3**; `-SelfTest` 9/9 + 7/7 y harness 89/89. Y re-confirmó el invariante: el detector **no** puede perder una retirada real (IDs únicos; fichero borrado o vaciado → `$Present` vacío → todas las `-` se marcan; fila movida de sección → silenciada; `-Paths` nunca alcanza la regla (b)), y `-Diff` en exit 1 es **sólo** el `FIND-800.md` ajeno sin `Estado` detectable.
+
+Dos LOW, ambos aplicados antes del commit de cierre: registrar este veredicto (esta sección) y corregir la cita del call site (`:381` → `:408`).
 
 ### OCR delegation (`dev-tools/ocr-review.ps1`, rule group 1 = PowerShell)
 
