@@ -91,3 +91,14 @@ El owner detectó que **15 filas abiertas no figuraban en el plan**: todas nacie
 **Partición:** un agente por wave; dentro de una wave, ficheros disjuntos. Las waves 10-13 son
 **disjuntas entre sí**, así que pueden correr en paralelo hasta el cupo de recursos
 (2 Rust compilando · 1 agente por fichero de workflow · disco).
+
+### W15 - Residual de la wave de gates (2026-11-27)
+
+Dos filas nacieron **mientras** se ejecutaba W10-W14 y se quedaron fuera del plan.
+Misma regla que el residual anterior: **toda fila abierta va en el plan**, o no se ejecuta nunca.
+
+| Wave | Filas | Zona / partición |
+|---|---|---|
+| **W15** | `FIND-794` · `FIND-797` | `.config/nextest.toml` + `dev-tools/**` + los `-E` de CI · `.github/workflows/snapshot-certification.yml` (paths) + un chequeo de divergencia |
+
+**Creadas y cerradas durante las waves (no requieren carril, quedan como registro):** `FIND-731` · `FIND-732` · `FIND-733` · `FIND-734` · `FIND-735` · `FIND-736` · `FIND-738` · `FIND-739` · `FIND-740` · `FIND-741` · `FIND-742` · `FIND-743` · `FIND-744` · `FIND-745` · `FIND-746` · `FIND-747` · `FIND-748` · `FIND-749` · `FIND-750` · `FIND-751` · `FIND-752` · `FIND-754` · `FIND-755` · `FIND-760` · `FIND-761` · `FIND-763` · `FIND-765` · `FIND-769` · `FIND-776` · `FIND-778` · `FIND-780` · `FIND-784` · `FIND-785` · `FIND-786` · `FIND-792` · `FIND-793` · `FIND-795` · `FIND-796` · `FIND-798` · `FIND-799`.
