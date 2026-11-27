@@ -23,7 +23,17 @@
 //! [`crate::ingest::observability`] and warns **once per degraded episode**
 //! when there is queued work (MEM-72), so a runner-less pipeline is never
 //! silent.
-//! Secrets stay on the host side (R-5); this module never reads env.
+//! Secrets stay on the host side (R-5): the runner config (including any key)
+//! is resolved by [`crate::ingest::runner_config`], never here.
+//!
+//! # Configuration (env, R-5)
+//!
+//! This module reads exactly **one** variable, `VANTADB_SCHEDULER_INTERVAL_MS`
+//! — the single read site in **this** crate for the pass interval
+//! ([`scheduler_interval_ms_from_env_opt`], ADR-0063). A host that needs a
+//! different fallback `unwrap_or`s its own default instead of parsing the
+//! environment a second time. (`vantadb-mcp` still carries its own parser
+//! until `WIRE-23` consumes this one.)
 //!
 //! # Single writer (ADR-0054)
 //!
@@ -45,6 +55,52 @@ use vantadb::sdk::Embedded;
 
 #[cfg(feature = "http-server")]
 use std::sync::Arc;
+
+/// Default scheduler pass interval (ms), shared by every host: mirrors the core
+/// TTL sweeper's `VANTADB_TTL_SWEEP_INTERVAL_MS` default (`src/config.rs` of the
+/// core crate). `0` disables the loop.
+pub const DEFAULT_INTERVAL_MS: u64 = 60_000;
+
+/// Parse the `VANTADB_SCHEDULER_INTERVAL_MS` value (R-5: warn + safe default,
+/// never panic). `0` is a valid value (disables the loop).
+pub fn parse_interval_ms(raw: Option<&str>) -> u64 {
+    match raw {
+        None => DEFAULT_INTERVAL_MS,
+        Some(s) => match s.trim().parse::<u64>() {
+            Ok(v) => v,
+            Err(_) => {
+                tracing::warn!(
+                    value = %s,
+                    default = DEFAULT_INTERVAL_MS,
+                    "invalid VANTADB_SCHEDULER_INTERVAL_MS, using default"
+                );
+                DEFAULT_INTERVAL_MS
+            }
+        },
+    }
+}
+
+/// Scheduler interval declared in the process environment, or `None` when
+/// `VANTADB_SCHEDULER_INTERVAL_MS` is unset — the **single** read site of that
+/// variable in this crate (R-5, ADR-0063).
+///
+/// Hosts that need a different fallback call this and `unwrap_or` their own
+/// default (the `--mcp` host's default is 5 000 ms, the HTTP host
+/// [`DEFAULT_INTERVAL_MS`]) instead of parsing the environment again. A
+/// *present but unparseable* value is not "unset": [`parse_interval_ms`] warns
+/// and resolves it to [`DEFAULT_INTERVAL_MS`].
+pub fn scheduler_interval_ms_from_env_opt() -> Option<u64> {
+    let raw = std::env::var("VANTADB_SCHEDULER_INTERVAL_MS").ok()?;
+    Some(parse_interval_ms(Some(raw.as_str())))
+}
+
+/// Scheduler interval from the process environment with [`DEFAULT_INTERVAL_MS`]
+/// as the fallback: a thin wrapper over
+/// [`scheduler_interval_ms_from_env_opt`], which is the only place that reads
+/// the environment.
+pub fn scheduler_interval_ms_from_env() -> u64 {
+    scheduler_interval_ms_from_env_opt().unwrap_or(DEFAULT_INTERVAL_MS)
+}
 
 /// L3 persona trigger cadence for scheduler passes: regenerate the persona
 /// after this many new memories (mirrors the D19 e2e full-pass cadence).
@@ -392,5 +448,60 @@ where
     MemoryScheduler {
         shutdown: shutdown_tx,
         handle: Some(handle),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The interval rule moved here from `vantadb-server` (ADR-0063 migration
+    /// row 2). The default is asserted to the byte: a move must not change what
+    /// an operator gets when nothing is configured.
+    #[test]
+    fn interval_defaults_match_the_values_the_host_shipped() {
+        assert_eq!(DEFAULT_INTERVAL_MS, 60_000, "the default must not move");
+        assert_eq!(parse_interval_ms(None), DEFAULT_INTERVAL_MS);
+        assert_eq!(parse_interval_ms(Some("0")), 0, "0 disables the loop");
+        assert_eq!(parse_interval_ms(Some(" 1500 ")), 1500, "trimmed");
+        assert_eq!(parse_interval_ms(Some(" abc ")), DEFAULT_INTERVAL_MS);
+        assert_eq!(parse_interval_ms(Some("-5")), DEFAULT_INTERVAL_MS);
+    }
+
+    /// R-5, measured: `_opt` is the primitive and `from_env` is its `unwrap_or`,
+    /// so the declared interval comes back as declared and is never re-read.
+    #[test]
+    fn interval_env_resolves_once_and_the_wrapper_only_falls_back() {
+        const VAR: &str = "VANTADB_SCHEDULER_INTERVAL_MS";
+
+        std::env::remove_var(VAR);
+        assert_eq!(
+            scheduler_interval_ms_from_env_opt(),
+            None,
+            "unset is the only None: no declared interval"
+        );
+        assert_eq!(scheduler_interval_ms_from_env(), DEFAULT_INTERVAL_MS);
+
+        std::env::set_var(VAR, " 1500 ");
+        assert_eq!(scheduler_interval_ms_from_env_opt(), Some(1500));
+        assert_eq!(scheduler_interval_ms_from_env(), 1500);
+        // Same answer on a second call: no state, nothing re-derived.
+        assert_eq!(scheduler_interval_ms_from_env_opt(), Some(1500));
+
+        std::env::set_var(VAR, "0");
+        assert_eq!(scheduler_interval_ms_from_env_opt(), Some(0));
+        assert_eq!(
+            scheduler_interval_ms_from_env(),
+            0,
+            "0 is the documented off switch"
+        );
+
+        std::env::set_var(VAR, "not-a-number");
+        assert_eq!(
+            scheduler_interval_ms_from_env_opt(),
+            Some(DEFAULT_INTERVAL_MS),
+            "present-but-unparseable is R-5 (warn + default), not 'unset'"
+        );
+        std::env::remove_var(VAR);
     }
 }

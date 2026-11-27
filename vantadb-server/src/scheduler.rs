@@ -19,7 +19,8 @@
 //!
 //! # Configuration (env, R-5)
 //!
-//! - `VANTADB_SCHEDULER_INTERVAL_MS`: scheduler pass interval in ms.
+//! - `VANTADB_SCHEDULER_INTERVAL_MS`: scheduler pass interval in ms, resolved
+//!   by its owner (`vanta_memory::services::scheduler`, re-exported below).
 //!   Default `60000` (mirrors `VANTADB_TTL_SWEEP_INTERVAL_MS`); `0` disables
 //!   the loop (the conversation bridge stays wired — captures are never
 //!   lost).
@@ -40,37 +41,17 @@ use vanta_memory::utils::{LocalStateBackend, SystemClock};
 use vantadb::cli_server::ServerHooks;
 use vantadb::sdk::Embedded;
 
-/// Default scheduler interval (ms): mirrors `VANTADB_TTL_SWEEP_INTERVAL_MS`
-/// (`src/config.rs`). `0` disables the loop.
-pub const DEFAULT_INTERVAL_MS: u64 = 60_000;
-
-/// Parse the `VANTADB_SCHEDULER_INTERVAL_MS` value (R-5: warn + safe default,
-/// never panic). `0` is a valid value (disables the loop).
-pub fn parse_interval_ms(raw: Option<&str>) -> u64 {
-    match raw {
-        None => DEFAULT_INTERVAL_MS,
-        Some(s) => match s.trim().parse::<u64>() {
-            Ok(v) => v,
-            Err(_) => {
-                tracing::warn!(
-                    value = %s,
-                    default = DEFAULT_INTERVAL_MS,
-                    "invalid VANTADB_SCHEDULER_INTERVAL_MS, using default"
-                );
-                DEFAULT_INTERVAL_MS
-            }
-        },
-    }
-}
-
-/// Scheduler interval from the process environment.
-pub fn scheduler_interval_ms_from_env() -> u64 {
-    parse_interval_ms(
-        std::env::var("VANTADB_SCHEDULER_INTERVAL_MS")
-            .ok()
-            .as_deref(),
-    )
-}
+/// Interval resolution moved to its owner crate (ADR-0063 D1): the parser, the
+/// default and the single `VANTADB_SCHEDULER_INTERVAL_MS` read site live in
+/// `vanta_memory::services::scheduler`.
+///
+/// WIRE-20: re-exported so `vantadb-pro` and this crate's own callers keep the
+/// `vantadb_server::scheduler::<name>` paths they import. Do not rebuild the
+/// rule here.
+pub use vanta_memory::services::scheduler::{
+    parse_interval_ms, scheduler_interval_ms_from_env, scheduler_interval_ms_from_env_opt,
+    DEFAULT_INTERVAL_MS,
+};
 
 /// Pure path resolution (testable, no env): an explicit non-empty override
 /// wins; else `<storage_path>/data/vanta-ingest.toml`.
