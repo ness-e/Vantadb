@@ -14,7 +14,7 @@ description: "check-harness-contract.mjs falla abierto en 5 aristas medidas: rep
 - **Origen:** `docs/dev/reviews/2026-11-26-harness-hardening.md` §B (contrato del gate)
 - **Tipo:** JS (dev-tools, gate del harness) + fixtures
 - **Zona:** `dev-tools/check-harness-contract.mjs` (exclusiva de esta tarea)
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (2026-11-27) — commit local `cc35a19d6`, sin push (Regla 7)
 
 ## Síntoma medido (las cinco aristas, re-medidas antes de tocar nada)
 
@@ -114,8 +114,10 @@ fixture **que muerda**, y el gate **sin ningún caso donde devuelva exit 0 con u
 - [x] 6. GREEN (a): `repoIntegrityViolations` clasifica por índice, nota el ambiguo, docstring sin `false-positive-safe`.
 - [x] 7. VERIFY: `--self-test` (38 → 48) · gate completo · cada fixture nuevo contra `HEAD` y contra el nuevo · 8 mutaciones.
 - [x] 8. Review P2-01 ronda 1 **REQUEST CHANGES** → F1 (merge ciego) + F2 (fixture enmascarada) + F4/F5/F8/N1/N2 corregidos, cada uno con su fixture; tabla de mutaciones regenerada (`--self-test` 48 → 54).
-- [ ] 9. Review P2-01 ronda 2 (artefacto pinneado por sha256) + `ocr-review.ps1`.
-- [ ] 10. Cierre: fila fuera del Backlog (solo mi línea), entrada en `docs/dev/avance/activo/operaciones.md`, commit local con el helper.
+- [x] 9. Review P2-01 ronda 2 (pinneada por sha256) **REQUEST CHANGES** acotado a `hasMeasure`: F8a/F8b + O1/O2/O3/O4 (tres mutaciones supervivientes) → corregidos con fixture propia, `--self-test` 54 → 60.
+- [x] 10. Review P2-01 ronda 3 (pinneada) **APPROVE** con seis residuales; R3-1/R3-4/R3-6.4 se aplicaron igual (eran fallos abiertos de la negación) → ronda 4 (pinneada) **APPROVE**, `--self-test` 62/62.
+- [x] 11. Cierre: fila fuera del Backlog (solo mi línea), entrada en `docs/dev/avance/activo/operaciones.md`, commit local `cc35a19d6` con el helper (verificado por contenido; `-ExpectAbsent` de la fila OK). El `pre-commit` abortó el primer intento porque su propio hook `prettier` refloó una expresión de `hasMeasure`; se commiteó tras re-medir sobre los bytes formateados (§Review).
+- **Pendiente declarado:** el push lo decide el owner (Regla 7). Los paths ajenos del worktree (`docs/dev/plans/**budget.json`, `docs/dev/tasks/H-02-H-07.md`, `vanta-memory/`, `vantadb-mcp/`, `vantadb-server/`, `web/`, `FIND-783.md`) quedaron **fuera** del commit.
 
 ## Verify (medido)
 
