@@ -118,3 +118,16 @@ El padre **desaparece** del Backlog; su historia queda en las nueve filas nuevas
 
 **Sobre `FIND-158`:** se deja **entera**. Sus cuatro ítems son decisiones sobre el mismo contrato de API
 y su propio contrato ya pide "cada ítem con decisión" — partirla crearía cuatro filas que se resuelven en un fichero.
+
+### W17 - Hijos de WIRE-19 (medida 2026-11-27)
+
+`WIRE-19` se re-midió contra el código real: **3 de 9 piezas** ya estaban hechas por `FIND-783` (la resolución única del TOML y el constructor que usan los tres hosts), y las restantes se parten por fichero.
+
+| Wave | Filas | Zona / partición |
+|---|---|---|
+| **W17** | `WIRE-20` | `vanta-memory/src/services/scheduler.rs` (intervalo + `_opt`) |
+| **W17** | `WIRE-21` | `vanta-memory/src/ingest/runner_config.rs` (`runner_factory`) |
+| **W17** | `WIRE-22` | `vantadb-server/src/scheduler.rs` + `main.rs` + `tests/scheduler_e2e.rs` + `CONFIGURATION.md` |
+| **W17** | `WIRE-23` | `vantadb-mcp/src/memory_scheduler.rs` |
+
+**Orden:** 20 y 21 en **paralelo**; 22 y 23 **en serie tras** ambas (y 22 y 23 en paralelo entre sí).
