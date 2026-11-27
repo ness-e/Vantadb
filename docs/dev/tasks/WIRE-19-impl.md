@@ -27,22 +27,25 @@ confirmación del owner antes del merge.
 Una sola frase falsable: **hay exactamente un sitio en el árbol que resuelve el TOML de
 ingest y una sola fábrica de runner, y los tres caminos del host la consumen.**
 
-**Hoy hay tres caminos, no dos** — este es el hallazgo que cambia la tarea:
+**Hoy hay tres caminos, no dos** — este es el hallazgo que cambia la tarea. **Estado a
+2026-11-27: la tabla describe el árbol ANTES de `FIND-783`, conservada como registro del
+hallazgo; el estado vivo está en §0.1.**
 
 | # | Camino | Resuelve el TOML | Fábrica de runner | Intervalo |
 |---|---|---|---|---|
-| 1 | `--http` (`vantadb-server/src/main.rs:88-94`) | `scheduler.rs:91-96` → `<storage_path>/data/vanta-ingest.toml` | `scheduler.rs:108-115` | `scheduler.rs:68-74`, default **60 000** |
-| 2 | `--mcp`, tool `wiki_ingest` (`vantadb-mcp/src/wiki.rs:291`) | `wiki.rs:388-395` → `data_dir()/vanta-ingest.toml` | `build_ingest_runner` inline (`:293`) | — |
-| 3 | `--mcp`, **scheduler de producción** (`vantadb-mcp/src/memory_scheduler.rs:92-101`) | `threads.rs:362-369` → `data_dir()/vanta-ingest.toml` | `build_ingest_runner` inline (`:96`) | `memory_scheduler.rs:68-83`, default **5 000** |
+| 1 | `--http` (`vantadb-server/src/main.rs:88-95`) | ~~`scheduler.rs:91-96`~~ → **hoy** `runner_config.rs:143` vía el shim `scheduler.rs:85` | ~~`scheduler.rs:108-115`~~ → **hoy** `scheduler.rs:94-101` (sigue en el server) | `scheduler.rs:67-73`, default **60 000** (`:45`) |
+| 2 | `--mcp`, tool `wiki_ingest` (`vantadb-mcp/src/wiki.rs:292`) | ~~`wiki.rs:388-395`~~ → ✅ **borrada**; `from_storage(storage)` | `build_ingest_runner` inline (`:294`) | — |
+| 3 | `--mcp`, **scheduler de producción** (`vantadb-mcp/src/memory_scheduler.rs:92-104`) | ~~`threads.rs:362-369`~~ → ✅ **borrada**; `from_storage(storage)` (`:97`) | `build_ingest_runner` inline (`:98-104`) | `memory_scheduler.rs:68-83`, default **5 000** |
 
-Los tres difieren en algo. En backend de disco los caminos 1 y 2/3 coinciden **por
+Los tres diferían en algo. En backend de disco los caminos 1 y 2/3 coincidían **por
 accidente** (`data_dir == <root>/data`, `src/storage/engine/init.rs:459`); en
 `BackendKind::InMemory` `data_dir` es `PathBuf::new()` (`init.rs:425-428`), así que los
-caminos 2 y 3 resuelven un `vanta-ingest.toml` **relativo al CWD** y el 1 el del
-storage. Y `threads.rs:357-361` lo dice por escrito:
+caminos 2 y 3 resolvían un `vanta-ingest.toml` **relativo al CWD** y el 1 el del
+storage. `FIND-783` cerró eso con un constructor (`from_storage`) que no depende de
+`data_dir` existiendo (§8.4). El comentario que lo admitía ya no existe en el árbol:
 
 > *"Duplicated because that helper is private; both must stay in sync (same host config,
-> one meaning)."*
+> one meaning)."* — `threads.rs:357-361` **en `HEAD~`**; `rg` sobre `HEAD` devuelve **0**.
 
 Es exactamente la clase de drift de `FIND-704`, documentada como intención.
 
@@ -64,15 +67,15 @@ Medido con `rg`/lectura, **sin compilar**. Este bloque es el que manda: si contr
 |---|---|---|
 | `resolve_ingest_toml_path` (privado) | ✅ **movida** | `vanta-memory/src/ingest/runner_config.rs:126` |
 | `ingest_toml_path` (`pub fn`) | ✅ **movida, 1 sola definición** | `vanta-memory/src/ingest/runner_config.rs:143`; el server la re-exporta (`vantadb-server/src/scheduler.rs:82`) |
-| `IngestRunnerCfg::from_storage_path` | ✅ **existe** | `runner_config.rs:278` — pero **ningún host la llama** (ver §8.4) |
+| `IngestRunnerCfg::from_storage_path` | ✅ **existe, y sí se usa** | `runner_config.rs:278`. Ningún host la llama **directamente**: `main.rs:89` entra por el shim `scheduler.rs:85` → `:86`. **No la borres por "muerta"** (ver §8.4) |
 | `IngestRunnerCfg::from_storage` (**no está en el ADR**) | ✅ **añadida por `FIND-783`** | `runner_config.rs:295`; la usan los 3 hosts |
 | `IngestRunnerCfg::runner_factory` | ❌ **no existe** | la lógica del P4 sigue en el `fn` libre `vantadb-server/src/scheduler.rs:94-101`, **y duplicada** en `vantadb-mcp/src/memory_scheduler.rs:98-104` |
 | `DEFAULT_INTERVAL_MS` | ❌ **no movida** | `vantadb-server/src/scheduler.rs:45` (y el default del host, `memory_scheduler.rs:44`) |
 | `parse_interval_ms` | ❌ **no movida** | `vantadb-server/src/scheduler.rs:49` |
 | `scheduler_interval_ms_from_env_opt` | ❌ **no existe en ningún sitio** | — |
 | `scheduler_interval_ms_from_env` (reescrita como wrapper de `_opt`) | ❌ **no reescrita** | `vantadb-server/src/scheduler.rs:67` |
-| Re-export de los 6 nombres | 🟡 **3/6 son re-export, 3/6 siguen definidos en el server** | `pub use`: `ingest_toml_path` (`scheduler.rs:82`); shims: `ingest_runner_cfg` (`:85`), `ingest_runner_factory` (`:94`). Los tres del intervalo no pueden re-exportarse hasta mover la pieza |
-| `wire_memory` en `run_stdio_server` + guardas | 🟡 **la composición no es `wire_memory`; las guardas sí están, el one-shot no** | el MCP compone con `memory_scheduler::start` (`vantadb-mcp/src/server.rs:1064,1120`; `proxy.rs:659,712`), no con `wire_memory` (0 usos fuera de `vantadb-server`). `read_only` ✅ (`server.rs:1063,1119`); host one-shot ❌ (`memory_scheduler.rs:69-70` ⇒ 5 000 ms con la variable **sin definir** ⇒ loop **ON**; el ADR D4 pide OFF, ver §8.0) |
+| Re-export de los 6 nombres | 🟡 **1 `pub use` + 2 shims; los 3 del intervalo siguen definidos en el server** | `pub use`: `ingest_toml_path` (`scheduler.rs:82`); shims: `ingest_runner_cfg` (`:85`), `ingest_runner_factory` (`:94`). Los tres del intervalo no pueden re-exportarse hasta mover la pieza (`WIRE-20`/`WIRE-22`) |
+| `wire_memory` en `run_stdio_server` + guardas | 🟡 **la composición no es `wire_memory`; las guardas sí están, el one-shot no** | el MCP compone con `memory_scheduler::start` (`vantadb-mcp/src/server.rs:1064,1120`; `proxy.rs:659,712`), no con `wire_memory` (0 usos fuera de `vantadb-server`). `read_only` ✅ — pero sobre el **clon pre-open** (`server.rs:1056` → guarda en `:1063,1119`), no sobre `storage.config().read_only` como literalmente pide `ADR-0063:364-365`; equivalente en la práctica porque `cfg_with_path` es el `Config` con que se abrió, pero no es la misma expresión. Host one-shot ❌ (`memory_scheduler.rs:69-70` ⇒ 5 000 ms con la variable **sin definir** ⇒ loop **ON**; el ADR D4 pide OFF, ver §8.0) |
 | Superficie `pub` añadida en `vanta-memory` | 🟡 **+3 de +7** (y una de más) | `ingest_toml_path`, `from_storage_path`, `from_storage` ⇒ el diff real de `cargo public-api` será **+8**, no +7: `from_storage` no estaba en el ADR |
 
 Métricas de cierre que ya están en verde (las mismas de §4.2/§6, re-medidas):
@@ -97,12 +100,12 @@ rg -n 'fn ingest_runner_cfg\(' --glob '*.rs'           → 1  (el shim del serve
 |---|---|---|
 | `vanta-memory/src/ingest/runner_config.rs` | **+5 items** (`resolve_ingest_toml_path` privado, `ingest_toml_path`, `IngestRunnerCfg::from_storage_path`, `IngestRunnerCfg::from_storage`, `IngestRunnerCfg::runner_factory`) + 3 tests movidos. **Hecho: los 4 primeros (`FIND-783`); falta `runner_factory`** | 1 |
 | `vanta-memory/src/services/scheduler.rs` | **+3 items** (`DEFAULT_INTERVAL_MS`, `parse_interval_ms`, `scheduler_interval_ms_from_env_opt`) y `scheduler_interval_ms_from_env` reescrita como wrapper + 1 test movido | 2 |
-| `vantadb-server/src/scheduler.rs` | **borrar** `:44-115` y `mod tests` `:148-192`; **añadir** §3.1 (2 `pub use` + 2 shims); recortar imports | 3 |
+| `vantadb-server/src/scheduler.rs` | **borrar** `:44-108` (const, parser, `_from_env`, `resolve`, el `pub use` de `:82`, el shim `ingest_runner_cfg` `:85-87` y `ingest_runner_factory` `:94-101`) y `mod tests` `:139-186` salvo los 2 tests de la fábrica; **añadir** §3.1; recortar imports. ⚠️ **Medido en `HEAD`: `wire_memory` empieza en `:110`, NO en `:117`** — un `:44-115` literal se come sus 6 primeras líneas | 3 |
 | `vantadb-server/src/main.rs` | `:88-94` → `from_storage_path` + `cfg.runner_factory()` | 4 |
-| `vantadb-mcp/src/wiki.rs` | **borrar** `ingest_toml_path` local (`:385-395`); `:291` → `from_storage_path`; ajustar imports | 5 |
-| `docs/user/operations/CONFIGURATION.md` | `:136` y `:137`: el fichero dueño de cada variable | 6, 7 |
-| `vantadb-mcp/src/memory_scheduler.rs` | **borrar el `env::var`** (`:69`) y la fábrica inline (`:94-101`); delegar en la superficie compartida | **8** |
-| `vantadb-mcp/src/threads.rs` | **borrar** `ingest_runner_cfg` (`:362-369`); actualizar `:354` | **9** |
+| `vantadb-mcp/src/wiki.rs` | ✅ **hecho** (`FIND-783`): copia local (`:385-395`) borrada; `:292` llama `from_storage(storage)` (no `from_storage_path` — §8.4) | 5 |
+| `docs/user/operations/CONFIGURATION.md` | `:136` y `:137`: el fichero dueño de cada variable — **`:137` ya es falso en `HEAD`** (el dueño es `runner_config.rs:145` desde `FIND-783`) | 6, 7 |
+| `vantadb-mcp/src/memory_scheduler.rs` | **borrar el `env::var`** (`:69`) y la fábrica inline (`:98-104`); delegar en la superficie compartida (la mitad de la fábrica ya usa `from_storage`, `:97`) | **8** |
+| `vantadb-mcp/src/threads.rs` | ✅ **hecho** (`FIND-783`): `ingest_runner_cfg` borrada (`:362-369`), `:355` usa `from_storage` | **9** |
 | `vantadb-server/tests/scheduler_e2e.rs` | **+1 test** que nombra los seis nombres viejos (§4.1) | — |
 
 **No se toca:** `vantadb-mcp/Cargo.toml` (ver §8.1), `vantadb-server/Cargo.toml`
@@ -124,7 +127,7 @@ snippet que marcó la review). Las **filas 8 y 9 no están en el ADR**: existen 
 |---|---|---|---|---|---|
 | **1** | `vantadb-server/src/scheduler.rs:76-85` (privado) · `:87-96` · `:103-115` · tests `:161-192` (3) | `vanta-memory/src/ingest/runner_config.rs`, junto a `from_env_toml` (`:227`) | `resolve_ingest_toml_path` **verbatim y privado**; `pub fn ingest_toml_path` **verbatim**; `IngestRunnerCfg::from_storage_path` (**nuevo**, delegación pura: `from_env_toml(&ingest_toml_path(p))`); `IngestRunnerCfg::runner_factory` (**nuevo**, ver §2.2) + los 3 tests | 2 h | nada de los pasos 2-5 compila |
 | **2** | `vantadb-server/src/scheduler.rs:44-46` · `:48-65` · `:67-74` · test `:152-159` | `vanta-memory/src/services/scheduler.rs`, **por encima** del primer `#[cfg(feature = "http-server")]` | `DEFAULT_INTERVAL_MS`, `parse_interval_ms` **verbatim**; `scheduler_interval_ms_from_env_opt() -> Option<u64>` (**nuevo**, único read site del env); `scheduler_interval_ms_from_env()` → `_opt().unwrap_or(DEFAULT_INTERVAL_MS)`. **Reescribir el doc de `DEFAULT_INTERVAL_MS`**: hoy cita `src/config.rs`, y desde este crate debe citar `vantadb/src/config.rs` (R-4) | 1 h | el parser de intervalo no tiene hogar sin gate; el doc cita una ruta que no existe en el crate |
-| **3** | `vantadb-server/src/scheduler.rs:44-115` + `mod tests` `:148-192` | mismo fichero, reducido | **Borrar** esos rangos; conservar el doc de módulo (L1-31, re-escrito: "el host compone; la superficie vive en `vanta_memory`") y `wire_memory` (`:117-146`); **añadir** §3.1. Imports finales — ver §2.3, **no** es la lista que parecía | 1 h | definiciones duplicadas ⇒ `cargo check` falla; un shim que falte rompe `scheduler::*` en silencio |
+| **3** | `vantadb-server/src/scheduler.rs:44-108` + `mod tests` `:139-186` | mismo fichero, reducido | **Borrar** esos rangos; conservar el doc de módulo (L1-31, re-escrito: "el host compone; la superficie vive en `vanta_memory`") y `wire_memory` (**`:110-132` en `HEAD`**); **añadir** §3.1. Imports finales — ver §2.3, **no** es la lista que parecía | 1 h | definiciones duplicadas ⇒ `cargo check` falla; un shim que falte rompe `scheduler::*` en silencio |
 | **4** | `vantadb-server/src/main.rs:88-94` | mismo fichero | `scheduler_interval_ms_from_env()` sin cambios; sustituir el par cfg+factory por `from_storage_path` + `cfg.runner_factory()` — ver §2.4 | 0.25 h | el hogar canónico queda invisible ⇒ la copia vuelve |
 | **5** | `vantadb-mcp/src/wiki.rs:385-395` · `:291` | mismo fichero | **Borrar** `fn ingest_toml_path`; `:291` → `IngestRunnerCfg::from_storage(storage)` — **no** `from_storage_path(&storage.config().storage_path)` (§8.4: ese constructor reintroduce el bug al revés). **`data_dir()` no es el parámetro**: ya es `<root>/data`, un nivel de más | 0.5 h | la divergencia `InMemory`/CWD sobrevive en el tool |
 | **6** | `docs/user/operations/CONFIGURATION.md:136` | mismo fichero | `VANTADB_SCHEDULER_INTERVAL_MS`: → `(vanta-memory/src/services/scheduler.rs)` | 0.15 h | R-4: ruta citada que ya no contiene la variable |
@@ -257,13 +260,15 @@ generaría warnings inaccionables en un crate que no podemos arreglar. Si algún
 
 - `vantadb-server` es `publish = false` ⇒ sin entrada.
 - `vanta-memory` **es publicable** (`Cargo.toml:2-3`, sin `publish = false`; DIST-01) y
-  gana **+7 items `pub`** ⇒ bajo semver 0.x, **minor**. La entrada le corresponde a
+  gana **+8 items `pub`** ⇒ bajo semver 0.x, **minor**. (El ADR y la versión previa de esta
+  fila decían `+7`; el octavo es `from_storage`, que `FIND-783` añadió por la razón medida en
+  §8.4.) La entrada le corresponde a
   `[Unreleased] ### Added` de `CHANGELOG.md` (raíz, `:14-16`) y la pone el carril de
   release cuando corte versión (release-plz en pausa por DIST-01).
 - Si se quiere adelantar es **una línea**, pero eso **amplía el write-scope** de esta
   tarea: se decide aparte.
 
-**Resumen:** `+7` aditivos en `vanta-memory`, `6/6` nombres preservados en
+**Resumen:** `+8` aditivos en `vanta-memory`, `6/6` nombres preservados en
 `vantadb-server` sin marcar, `4` privados borrados/movidos, `0` entradas de CHANGELOG.
 
 ---
@@ -339,8 +344,8 @@ R-5 prohíbe **el segundo read site**, no un default documentado por host: el `O
 | Afirmación | Cómo se verifica | Estado tras esta tarea |
 |---|---|---|
 | los tres caminos resuelven el TOML con la **misma** regla | §4.2 (una sola `ingest_toml_path`) | ✅ |
-| los tres construyen el runner con la **misma** fábrica | §4.2 + filas 4, 5, 8 usando `from_storage_path(...).runner_factory()` | ✅ |
-| `InMemory`: los tres dan `storage_path`-relativa, no CWD | test de §4.4 (**rojo antes del cambio** en el camino 2 y en el 3) | ✅ |
+| los tres construyen el runner con la **misma** fábrica | §4.2 + filas 4 (`from_storage_path(&storage_path)`, sólo `&str`) y 5/8 (`from_storage(storage)`, engine vivo) usando `.runner_factory()` — §8.4 explica por qué **no** son el mismo constructor | ⬜ falta `runner_factory` |
+| `InMemory`: los tres dan la raíz declarada, no CWD | test de §4.4 — **ya existe y está verde** (`FIND-783` lo dejó RED→GREEN; ver el avance de `vanta-memory`). Vuelve a rojo si alguien cambia `from_storage` por `from_storage_path(&config.storage_path)` | ✅ |
 | los tests de ingest del MCP siguen degradando igual (P4) | `cargo nextest run -p vantadb-mcp -E 'test(ingest_local_no_model_degrades) or test(ingest_ollama_down_degrades) or test(ingest_openai_no_key_degrades)'` | ✅ debe seguir verde |
 | el scheduler del `--mcp` sigue arrancando igual | `memory_scheduler`'s `interval_env_is_one_knob…` (`:305-328`) + el test de la ola (`:330+`) | ✅ sin cambios de comportamiento |
 | **un MCP en proxy ve la cola del writer** | — | ❌ **NO**. La cola es in-process: el proxy (`server.rs:981,1078-1109`) vive en otro proceso. Compartir la fábrica no cambia eso; la respuesta es la guarda de `MCP-43`, no esta mudanza |
@@ -379,7 +384,7 @@ de cada paso**.
 | **2** | **Aditivo**: mover a `vanta-memory/src/services/scheduler.rs` (const + `parse_interval_ms` + `_opt`), `from_env` como wrapper, mover el test. Todo **por encima** del primer `#[cfg(feature = "http-server")]` | 2 | 1 h | `cargo check -p vanta-memory --no-default-features` verde ⇒ son ungated |
 | **3** | **Borrar + shims en el server** (§3.1), imports de §2.3 | 3 | 1 h | `cargo check -p vantadb-server` verde **y** `rg -c 'fn ingest_toml_path' --glob '*.rs'` = 1 |
 | **4** | **main.rs** al API nueva (§2.4) | 4 | 0.25 h | `cargo check -p vantadb-server` verde |
-| **5** | **mcp wiki**: borrar la copia, `from_storage_path` | 5 | 0.5 h | `cargo check -p vantadb-mcp` + `rg -c 'join\("vanta-ingest.toml"\)' --glob '*.rs'` = **1** (queda `threads.rs`) |
+| **5** | ~~**mcp wiki**: borrar la copia, `from_storage_path`~~ | 5 | ✅ **0 h** | ✅ **hecho** por `FIND-783`: `wiki.rs:292` usa `from_storage`. `join("vanta-ingest.toml")` en `vantadb-mcp` = **0** |
 | **6** | **mcp scheduler de producción** (§2.2 fila 8) | 8 | 1 h | `cargo check -p vantadb-mcp`; el test `interval_env_is_one_knob…` **sigue verde sin tocarlo**; `rg -c 'env::var\("VANTADB_SCHEDULER_INTERVAL_MS"\)' --glob '*.rs'` = **1** |
 | **7** | **mcp threads** (§2.2 fila 9) | 9 | 0.5 h | `rg -c 'join\("vanta-ingest.toml"\)' --glob '*.rs'` = **0**; `rg -c 'env::var\("VANTADB_INGEST_CONFIG"\)' --glob '*.rs'` = **1** |
 | **8** | **Tests de verificación**: §4.1 + §4.4 | — | 1.5 h | ambos verdes; §4.4 **rojo si se revierte la fila 5 o la 8** |
@@ -411,7 +416,7 @@ cargo nextest run --profile audit -p vantadb-mcp
 cargo nextest run --profile audit -p vantadb-server
 cargo clippy -p vanta-memory -p vantadb-server -p vantadb-mcp --all-targets -- -D warnings
 cargo machete
-cargo public-api -p vanta-memory                          # diff: exactamente +7, 0 eliminados
+cargo public-api -p vanta-memory                          # diff: exactamente +8, 0 eliminados (§3.3)
 ```
 
 No-regresión medible (los read sites, no las menciones — §4.2):
@@ -516,13 +521,27 @@ se contradicen y el próximo lector re-litiga esto.
 interpretar la feature presente como evidencia de que `MCP-43` "ya se hizo según el ADR":
 se hizo, pero por su cuenta (§8.0).
 
-### 8.2 Las líneas del bloque a borrar están donde el ADR dice (±0)
+### 8.2 Las líneas del bloque a borrar: **estaban** donde el ADR decía, y `FIND-783` las movió
 
-`vantadb-server/src/scheduler.rs` (192 líneas): `:44-46` const+doc, `:48-65`
-`parse_interval_ms`, `:67-74` `scheduler_interval_ms_from_env`, `:76-85`
-`resolve_ingest_toml_path`, `:87-96` `ingest_toml_path`, `:98-101` `ingest_runner_cfg`,
-`:103-115` `ingest_runner_factory`, `:117-146` `wire_memory` (**se queda**), `:148-192`
-`mod tests`. Coincide con la fila 3 del ADR.
+Medido en `HEAD` (2026-11-27): `vantadb-server/src/scheduler.rs` tiene **182 líneas**, no 192 —
+`FIND-783` ya borró `resolve_ingest_toml_path` y reemplazó `ingest_toml_path` por un `pub use`.
+Mapa vivo, que es el que un implementador necesita:
+
+| Rango `HEAD` | Qué es | Destino |
+|---|---|---|
+| `:43-45` | `DEFAULT_INTERVAL_MS` + doc (cita `src/config.rs`) | → `vanta-memory/src/services/scheduler.rs` |
+| `:47-64` | `parse_interval_ms` | → idem |
+| `:66-73` | `scheduler_interval_ms_from_env` (lee el env en `:69`) | → idem, como wrapper de `_opt` |
+| `:75-82` | doc + `pub use ... ingest_toml_path` | **se queda** (es el re-export) |
+| `:84-87` | shim `ingest_runner_cfg` | **se queda**; su cuerpo pasa a `from_storage_path` → ya lo es |
+| `:89-101` | `ingest_runner_factory` | **se muda como método** (`runner_factory`); el `fn` queda como shim |
+| **`:110-132`** | `wire_memory` | **se queda** (ADR D2: composición, no configuración) |
+| `:134-182` | `mod tests` (4 tests) | 3 se mueven con su código; los 2 de la fábrica se quedan hasta que exista el método |
+
+⚠️ **Corregido por review:** el rango `:44-115` que decían §1/§2.1/§8.2 en la versión previa
+**cortaba las 6 primeras líneas de `wire_memory`** en `HEAD` (empieza en `:110`, no en `:117`).
+Era el error más caro del fichero: una instrucción de borrado que se lleva código que el ADR
+dice conservar.
 
 ### 8.3 `storage.config()` existe; `main.rs` no cambia de firma
 
@@ -588,7 +607,7 @@ que cambia el comportamiento de un host **ya enviado** y que no se decide en un 
 file. Empezar por el que no bloquea en una decisión externa es el uso correcto del tiempo.
 
 **Razón 3 — el baseline de `public-api`.** `WIRE-19` mueve la superficie publicable
-(`+7`). Conviene que ese diff se mida y se acepte **antes** de tocar los internos del
+(`+8`). Conviene que ese diff se mida y se acepte **antes** de tocar los internos del
 mismo crate, para no atribuir a `FIND-756` (que no añade ni un item `pub`) un diff raro
 de `cargo public-api`. Es el único motivo por el que `WIRE-19` preferiría ir primero — y
 no pesa más que las razones 1 y 2.
