@@ -196,7 +196,7 @@ Mi commit de retiro de fila es **por path**, así que horneó también la elimin
 
 ### Ronda 4 — ✅ `approve` (cierre)
 
-Revisor con contexto fresco, verificando **por bytes** y no por la salida de PowerShell. 6/6 puntos: la frase falsa desapareció y la cadena `43b8a7006` → `560ff7e8a` → `932f8137d` quedó auditable salto por salto; `ci-cd.md` corregido en una línea (numstat `1/1`); el `Ver:` justificado como "ID **sin fila en el Backlog**"; el commit `8dc536de7` con 3 hunks, todos propios; **0 mojibake nuevo** (la única secuencia en `ci-cd.md:481` es de `db6ad7f79a`, 8 h antes); `status: active` honesto.
+Revisor con contexto fresco, verificando **por bytes** y no por la salida de PowerShell. 6/6 puntos: la frase falsa desapareció y la cadena `43b8a7006` → `560ff7e8a` → `932f8137d` quedó auditable salto por salto; `ci-cd.md` corregido en una línea (numstat `1/1`); el `Ver:` justificado como "ID **sin fila en el Backlog**"; el commit `8dc536de7` con 3 hunks, todos propios; **0 mojibake nuevo** (la única secuencia en `ci-cd.md:481` es de `db6ad7f79a`, 8 h antes); `status: active` **en ese momento** (honesto: no se cerró hasta esta aprobación).
 
 **Nits anotados, no bloquean:** (a) las menciones están en `:892`/`:904`, no `:893`/`:905` — off-by-one de cita, no de contenido; (b) `1396 chars` son **unidades UTF-16** (en code points, 1392 — que es justamente lo que reporta PowerShell, la herramienta que la frase dice no haber usado); el número que sostiene el argumento son los **bytes: 1428 vs 1519**. **No "arreglar" 1396 a 1392**: rompería la simetría con la fila de 1428 bytes.
 
