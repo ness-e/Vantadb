@@ -1850,3 +1850,27 @@ el propio SDK ya usa— los arregla a los tres.
   El F1 del arnés **no** es comparable con el de Mem0: es overlap léxico contra el chunk, sin generador (`llm_tokens_consumed: 0`).
 - **Verificación:** `--self-test` exit 0 (con las aserciones nuevas del adaptador y del filtro); `--strict-embeddings` sin modelo → **exit 1** nombrando el modelo, sin la bandera → exit 0; 4 corridas reales exit 0 con sus JSON en `evals/results/locomo_official_fixed_*.json`.
 - **Deuda declarada:** `docs/user/operations/BENCHMARKS.md` §23.4 queda sin pegar (fuera de la zona del lote); no hay corrida completa de 1538 (≈3 h); el archivo arrastra **85 errores `ruff` en `HEAD`** y este cambio suma **0** (conteo 85 antes / 85 después).
+
+---
+
+## Lote seguridad/cifrado en reposo (2026-11-27)
+
+### FIND-586: el AAD ata el ciphertext a su fichero (formatos cifrados v4/v5)
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** `ADR-0057 D4` promete que un ciphertext movido de sitio falla la autenticacion, pero el AAD solo llevaba el `slot` (offset/ordinal intra-fichero): un nodo de `vstore_L0.vanta@X` autenticaba en `vstore_L1.vanta@X` (misma DEK, mismo epoch, mismo slot, misma longitud) => el indice HNSW resolvia el vector de otro nodo sin error; y un frame de `vanta.shard0.wal@N` autenticaba en `vanta.shard1.wal@N` (la cadena VER-01 no lo detiene: SHA-256 sin clave, y el replay no la valida).
+- **Resultado:** `AadBuilder::identifier` con la identidad del fichero en los dos artefactos con el defecto (VantaFile y WAL). El indice HNSW y el backend KV ya la llevaban (path de la imagen / partition+key) y no se tocan. Identidad: el nombre del segmento para el VantaFile y el stem antes de `.wal` para el WAL (estable a traves de la rotacion, distinta por shard). Bump de formato: VantaFile v3->v4, WAL v4->v5; los layouts previos se rechazan con `IncompatibleFormat` (nunca se leen con el binding debil) - sin migracion: los formatos cifrados no se publicaron (D2).
+- **Verificacion:** dos tests nuevos, RED medido con el identificador deshabilitado (Prove-It): `vfile_v3_node_blob_cannot_be_moved_to_another_segment` y `wal_v4_frame_cannot_be_moved_to_another_shard` - con el fix desactivado ambos fallan (el blob/frame injertado autentica), con el fix pasan. Area completa: **319/319**. `fmt`/`clippy -D warnings`/`rustdoc -D warnings` limpios.
+- **Delta declarado:** `FIND-498` (sacar el AEAD del lock del escritor) sigue abierto como fila propia: atar el nombre permite el cambio, pero es concurrencia y necesita su medicion.
+- **Ids:** `FIND-586`, `FIND-500` (misma raiz), `ADR-0057 D4`
+
+### La deriva del soak no son los tombstones: es el corpus lineal (`FIND-669`)
+
+- **Fecha:** 2026-11-27. La fila pedía decir **cuál** de tres mecanismos causaba la deriva. Se midió con **cuatro variantes del mismo workload** a 1 000 turnos, apagando uno por vez, y **ninguno de los tres** es el cuello.
+- **Las cuatro variantes** (`soak_test.py --variant`): `baseline` (sólo put) **71.7×** de p50 entre el primer y el último checkpoint · `no-supersede` 49.4× · `no-forget` 28.2× · `full` 38.5×. La variante **sin supersede ni forget** —cero tombstones, cero cadenas, cero reescrituras— deriva **más** que la completa. Con 1 000 turnos hay 50 supersessions y 10 forgets: diez eventos no sostienen una pendiente.
+- **El mecanismo real, con instrumento determinista:** `evals/search_scaling_probe.py` abre una base **nueva** por tamaño, inserta N claves, cronometra 100 búsquedas idénticas, 3 repeticiones con mediana. Resultado: **exponente log-log 1.148** y `us/clave` ×1.37 sobre un corpus 20× mayor ⇒ la búsqueda es **lineal en el corpus** y el soak gana una clave por turno. `HnswConfig::flat_threshold = Some(10000)` hace que el índice escanee plano por debajo de 10 000 nodos, y el soak nunca pasa de 1 050.
+- **Ruido declarado:** en una máquina con dos carriles Rust compilando, la varianza entre corridas idénticas es 2-3× (el `baseline` dio 27.46 ms a 1 000 claves y 21.82 ms a 2 000 en corridas sucesivas). Por eso el veredicto se apoya en la sonda de tamaño fijo, no en una sola corrida del soak.
+- **Entregado:** gate `--max-slope-factor` (default 3.0) que **falla** con `exit 1` y dice `NO-APLICA` cuando hay un solo checkpoint; `--variant` para re-atribuir sin reescribir el arnés; la sonda con exponente y veredicto automático.
+- **Dos defectos del arnés, corregidos en el acto:** `get_process_rss_mib()` devolvía **`0.0`** en cualquier fallo y el reporte lo imprimía como medición (`Final RSS: 0.0 MiB`) — en Windows usaba `psapi.dll`, ausente en algunas instalaciones; ahora intenta `psutil` → `K32GetProcessMemoryInfo` → `resource` y devuelve **`None`** (`rss_available: false`, consola `n/d`). Con `psutil` mide de verdad: **137.0 MiB, delta +100.3 MiB**. Y `Certified Forgets Verified` estaba **hardcodeado a `/10`, así que un `--turns 200` con 2 forgets imprimía `2/10`.
+- **Verificación:** 6 corridas reales; gate probado en las tres direcciones (`NO-APLICA` a 1 checkpoint, `FAILED` con factor 15.89 a 300 turnos, `PASSED` a 200 turnos con factor 2.38). `ruff`: **30 errores antes y 30 después** (sin deuda nueva).
+- **Queda y es del motor:** la fila pedía «poda/compactación incremental», pero **no hay tombstones que podar**. El arreglo es de `src/index/**`: bajar el umbral del escaneo plano, y decidir si el gate se define sobre p50 absoluto (exige búsqueda sublineal) o sobre `us/clave`, que es el invariante sano y ya está instrumentado en el reporte.

@@ -1,0 +1,63 @@
+{
+  "benchmark": "search_scaling_probe",
+  "finding": "FIND-669",
+  "timestamp": "2026-11-27T16:56:00-0400",
+  "environment": {
+    "os": "Windows",
+    "arch": "AMD64",
+    "dims": 64,
+    "vantadb_version": "0.9.0"
+  },
+  "points": [
+    {
+      "n_keys": 100,
+      "n_queries": 100,
+      "p50_ms": 3.0989,
+      "p95_ms": 3.5404,
+      "p99_ms": 3.8917,
+      "us_per_key": 30.989,
+      "runs_p50": [3.0989, 3.3053, 1.8148]
+    },
+    {
+      "n_keys": 250,
+      "n_queries": 100,
+      "p50_ms": 9.6972,
+      "p95_ms": 12.5002,
+      "p99_ms": 15.7181,
+      "us_per_key": 38.789,
+      "runs_p50": [10.6739, 9.6972, 8.4239]
+    },
+    {
+      "n_keys": 500,
+      "n_queries": 100,
+      "p50_ms": 25.4603,
+      "p95_ms": 30.9997,
+      "p99_ms": 35.6904,
+      "us_per_key": 50.921,
+      "runs_p50": [24.4051, 25.4603, 25.775]
+    },
+    {
+      "n_keys": 1000,
+      "n_queries": 100,
+      "p50_ms": 59.4466,
+      "p95_ms": 68.4109,
+      "p99_ms": 71.268,
+      "us_per_key": 59.447,
+      "runs_p50": [59.4466, 81.2325, 48.3063]
+    },
+    {
+      "n_keys": 2000,
+      "n_queries": 100,
+      "p50_ms": 85.0956,
+      "p95_ms": 117.1792,
+      "p99_ms": 127.4836,
+      "us_per_key": 42.548,
+      "runs_p50": [88.766, 80.9702, 85.0956]
+    }
+  ],
+  "growth_exponent": 1.148,
+  "us_per_key_first": 30.989,
+  "us_per_key_last": 42.548,
+  "per_key_factor": 1.373,
+  "verdict": "LINEAL EN EL CORPUS: el coste sigue al corpus y el coste por clave es plano. El 'drift' del soak es el espacio de busqueda creciendo, no una fuga."
+}
