@@ -978,7 +978,6 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `FIND-817` | 🟡 Media | **`benches/common/gen_dataset.rs` no pasa `cargo fmt --check`**, y eso **bloquea el pre-push** de cualquiera que toque un crate Rust | benches/common/gen_dataset.rs | 🟢 15-30min | 🟡 Media | 🟡 Pendiente (2026-11-27) | Medido hoy dos veces: el carril del `fail-path` tuvo que usar `--no-verify` en su rama de prueba **por este fichero**, no por su cambio; y mis propios commits necesitaron `SKIP=cargo-fmt` declarado mientras `FIND-798` tenía WIP. Un fallo de formato preexistente que bloquea el pre-push **empuja a saltarse el gate**, que es exactamente lo que no queremos: el gate deja de ser creíble y el siguiente que lo salte tendrá una excusa legítima. **Contrato:** `cargo fmt -p <crate>` sobre el fichero y el gate deja de bloquear; y si el fichero no debe formatearse (generado), se excluye **explícitamente** en `rustfmt.toml` o `.gitattributes`, no dejándolo roto. Verificación: `cargo fmt --all -- --check` exit 0 en el árbol commiteado. | Origen: mediciones del 2026-11-27 | Ver: `FIND-780` |
 
 ## Media 2026-11-27 - Quedan 29 marcas verificado sin barrer: FIND-811 bis por lote
 
