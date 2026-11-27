@@ -4179,6 +4179,20 @@ mod encryption_tests {
             matches!(err, Error::EncryptionKeyRejected { .. }),
             "a frame moved between sibling shards must not authenticate, got: {err}"
         );
+
+        // The identity survives the **rotation** (which renames the segment):
+        // it is the stem before `.wal`, not the file name, so a rotated file
+        // keeps authenticating and two shards stay distinct.
+        assert_eq!(
+            wal_identifier(Path::new("vanta.shard0.wal")),
+            wal_identifier(Path::new("vanta.shard0.wal.1730000000000")),
+            "the rotation must not change the AAD identity"
+        );
+        assert_ne!(
+            wal_identifier(Path::new("vanta.shard0.wal")),
+            wal_identifier(Path::new("vanta.shard1.wal")),
+            "two shards must not share the AAD identity"
+        );
     }
 
     /// The shipping path reads a WAL segment with a [`WalReader`]: a v4
