@@ -150,7 +150,8 @@ file, `docs/dev/avance/activo/docs.md`). Sin `docs/api/**`, sin `src/**`, sin pl
 | **Veredicto ronda 1-bis** | 🔴 **changes-required** — B1/B2/B3/M1/M3 cerrados; **1 Blocking nuevo, mío**: `Run tests (Audit profile, core)` existe solo en Linux (`ci-rust.yml:473`) y macOS (`:567`); Windows es otro step y otro perfil (`Run quick integrity tests (Windows)`, `--profile ci-windows`) → citar por un identificador que no es común a las tres reintroduce el defecto de M3. +1 Medium (Step 6 ✅ con el gate abierto) y 3 Low (omisiones de `✅ ci` en `jemalloc`/`custom-allocator`, y `embed-local` sin fila) |
 | **Veredicto ronda 2-bis** | 🔴 **changes-required** — el Blocking de la 1-bis cerrado; **1 Blocking nuevo, mío**: al acotar `✅ ci` a las lanes de `ci-rust.yml` dejé fuera la certificación pesada, que es el *único* sitio donde `failpoints` se ejerce (`0` ocurrencias en `ci-rust.yml`, `certification.yml:1115` + `nightly.yml`) — el mark quedaba desautorizado por su propia definición, la misma clase de B3. + 2 nits de redacción (`nombre de step` para un bullet que cita jobs; `release-combo` es la key, no el nombre mostrado) |
 | **Veredicto ronda 3-bis** | 🔴 **changes-required** — leyenda/`failpoints` cerrado; **1 Blocking nuevo, mío**: ampliar `✅ ci` a la certificación pesada desautorizó la frase pre-existente de `rocksdb` (`:44`, «no está en features de test de CI») — la certificación corre `cargo test --release --features rocksdb` (`certification.yml:271,281`). + 2 Low: `prometheus` y `async-ingestion` quedan autorizados y sin mark bajo la definición ampliada |
-| **Veredicto ronda 4-bis** | ver §Cierre de la ronda 4-bis (abajo) |
+| **Veredicto ronda 4-bis** | ✅ **approve** — `rocksdb`/`prometheus`/`async-ingestion` verificados con sus lanes; la enumeración de las 30 filas cierra **en ambas direcciones** (20 con `✅ ci` y lane medida; 7 sin mark y con `0` hits en los tres workflows; `wasm` cubierta por `💀 no-op`); anclas `:32`/`:48`/`:51` intactas; gates 0/0 |
+| **reviewer_context** | `vanta-review` (sub-agente P2-01, contexto fresco, report-only) — verificó por blob (`git cat-file blob <sha>:<path>`), no compiló Rust ni editó nada; `check-docs.mjs` / `check-links.mjs` re-ejecutados por el revisor (0/0); las 30 filas confrontadas una a una contra `ci-rust.yml`, `certification.yml` y `nightly.yml` (mark↔lane en ambas direcciones); citas resueltas contra `Cargo.toml:155-199`, `vantadb-python/Cargo.toml:25`, `vantadb-server/Cargo.toml:21-30/78`, `vantadb-mcp/Cargo.toml:14-23`, `vanta-memory/Cargo.toml:59`; anclas confirmadas contra `docs/feature-matrix.md:33/:79/:35` |
 
 **Ronda 2 (sobre el dictamen 1-bis):** §Cobertura cita los tres **jobs** (`Tests (Linux)` / `Tests
 (Windows)` / `Tests (macOS)`, que existen los tres) y aclara el perfil de cada uno; la leyenda
@@ -212,7 +213,17 @@ la definición y las que no la llevan tienen `0` hits en las tres lanes.
 
 ## Cierre de la ronda 4-bis
 
-Pendiente del veredicto del revisor sobre el commit de la ronda 5 (ver RESULTADO).
+**✅ `approve`** con 0 Blocking y 0 Medium abiertos. La ronda dejó además un nit **pre-existente**
+que no se toca acá: la leyenda define `⚠️ experimental` (sin uso) y **no** define `💀 removed`,
+que usa la fila `pitr`. Agregar una fila a la leyenda desplazaría `:32`/`:48`/`:51` y volvería a
+romper las citas entrantes de la matriz — tercera vez que ese desplazamiento aparece en este
+ticket, así que queda declarado en vez de arreglado de paso.
+
+**Cinco rondas, cinco defectos, todos medidos y corregidos:** (`r1`) la unión de features era 8
+cuando la unificación da 13; (`1-bis`) el step citado no existía en la lane de Windows; (`2-bis`)
+acotar `✅ ci` a `ci-rust.yml` dejó `failpoints` sin autorización; (`3-bis`) ampliarla desautorizó
+la frase de `rocksdb`, que sí corre tests en la certificación; (`4-bis`) nada abierto. Ninguna
+ronda reintrodujo un defecto anterior: cada commit se verificó por blob, no por exit code.
 
 ## Deuda / NOTICED BUT NOT TOUCHING
 
