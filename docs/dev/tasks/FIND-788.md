@@ -384,3 +384,23 @@ cerraron con medición nueva, no con una promesa, y los Medium/Low son de regist
 - **Deuda / siguiente:** fijar la versión de `nextest` en `rust-setup` (hoy sin pin, y
   `--message-format` depende de ella); los otros usos de `test-count` en el repo como si fuera
   población; y `CARGO_TERM_COLOR: always` tiñendo todo el log de la lane.
+
+## Techo de `actionlint` medido en produccion (2026-11-27)
+
+La fila decia "**+1 sentencia → >100 s sin terminar**". Eso era un **piso**, no la medida: el 2026-11-26 lance un
+`actionlint .github/workflows/snapshot-certification.yml` que agoto los 600 s del harness, paso a background,
+y **nadie lo recogio**. El 2026-11-27 lo encontre en la lista de procesos:
+
+```
+PID 16740 · pwsh · 0,8 s de CPU acumulada · arrancado 2026-11-26 17:56 · 33 h despues seguia vivo
+cmdline: "$out = actionlint '.github/workflows/snapshot-certification.yml' 2>&1; ..."
+```
+
+**0,8 s de CPU en 33 horas** significa que no esta lento: esta **bloqueado**. La diferencia importa para el contrato:
+un `run:` que gana una sentencia no tarda ">100 s", **no termina nunca**. En CI eso no es un job lento que acaba
+fallando: es un job que se come el `timeout` entero **en cada corrida**, y en local es un proceso que sobrevive
+a la sesion que lo lanzo.
+
+**Corolario operativo:** cualquier `actionlint` que se lance en background debe tener tope duro y kill —
+lo que el carril de `FIND-807` implemento en su medicion ("tope duro + kill"). Y si un `run:` de CI
+necesita crecer, la logica va **compuesta** (`case`, funcion) para no ganar sentencias.
