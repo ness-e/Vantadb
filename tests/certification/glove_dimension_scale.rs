@@ -109,6 +109,10 @@ fn run_dimension_test(
         distance_metric: DistanceMetric::Cosine,
         flat_threshold: None,
         index_type: IndexType::Hnsw,
+        // FIND-664: this struct literal was never compiled (no `[[test]]`
+        // entry), so it had drifted behind `HnswConfig::auto_tune`. Keep the
+        // default and let the scaling test measure the untuned graph.
+        auto_tune: false,
     };
 
     let index = harness.execute(&format!("Build HNSW {}-{}d", label, dim), || {
@@ -116,11 +120,18 @@ fn run_dimension_test(
         let pb =
             TerminalReporter::create_progress(dataset.len() as u64, &format!("Inserting {}d", dim));
         for (id, vec) in &dataset {
+            // FIND-664: the crate is `#[deny(unused_must_use)]`-clean elsewhere;
+            // this test has `expect_used` allowed, so fail with the id instead
+            // of discarding a rejected insert (a silent insert failure would
+            // make the recall number it publishes meaningless).
             idx.add(
                 (*id).into(),
                 FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),
                 0,
+            )
+            .expect(
+                "insert into HNSW failed — the recall number would be measured on a smaller corpus",
             );
             pb.inc(1);
         }
@@ -171,13 +182,15 @@ fn run_dimension_test(
 
 #[test]
 fn glove_dimension_scale() {
-    // Graceful skip if datasets missing
-    if !Path::new(GLOVE_100D_PATH).exists() || !Path::new(GLOVE_300D_PATH).exists() {
-        eprintln!(
-            "  {} GloVe datasets not found at data/benchmark/. Skipping.",
-            style("ℹ").blue()
-        );
-        eprintln!("    Download via: scripts/download_benchmark_datasets.ps1");
+    // FIND-664 (TBH-01): a missing dataset FAILS, naming the file. This test
+    // was never even compiled (no `[[test]]` entry in Cargo.toml) and skipped
+    // gracefully once registered — either way the certification asserted
+    // nothing about dimensional scaling.
+    if !common::require_datasets(
+        &[Path::new(GLOVE_100D_PATH), Path::new(GLOVE_300D_PATH)],
+        "GloVe-100/300",
+        "bash scripts/download_benchmark_datasets.sh",
+    ) {
         return;
     }
 

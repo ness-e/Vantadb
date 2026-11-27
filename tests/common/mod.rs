@@ -16,6 +16,44 @@ use sysinfo::System;
 
 pub mod sift_loader;
 
+/// TBH-01 fail-loud dataset precondition (FIND-664).
+///
+/// Returns `true` when every path exists. When one is missing it PANICS,
+/// naming the absent file and the exact provisioning command — a test whose
+/// input is absent must not pass. The only escape is the explicit local
+/// opt-out `VANTA_ALLOW_MISSING_DATASETS=1`, which returns `false` so the
+/// caller can `return` after printing the skip (local `cargo test` without
+/// the 500 MB datasets stays usable; CI never sets the variable).
+///
+/// Before this helper, `sift_validation`, `competitive_bench` and
+/// `glove_dimension_scale` all `return`ed green when the dataset was absent,
+/// so the two opt-in SIFT jobs in `certification.yml` reported success while
+/// validating nothing.
+pub fn require_datasets(paths: &[&std::path::Path], what: &str, provision_with: &str) -> bool {
+    let missing: Vec<String> = paths
+        .iter()
+        .filter(|p| !p.exists())
+        .map(|p| p.display().to_string())
+        .collect();
+    if missing.is_empty() {
+        return true;
+    }
+    if std::env::var("VANTA_ALLOW_MISSING_DATASETS").as_deref() == Ok("1") {
+        eprintln!(
+            "SKIP (VANTA_ALLOW_MISSING_DATASETS=1): {what} absent — {}. \
+             Unset the variable to make this a failure.",
+            missing.join(", ")
+        );
+        return false;
+    }
+    panic!(
+        "{what} dataset missing: {}. This test measures {what}; without it the run \
+         would validate nothing (TBH-01, FIND-664). Provision it with `{provision_with}`, \
+         or set VANTA_ALLOW_MISSING_DATASETS=1 to skip locally only.",
+        missing.join(", ")
+    );
+}
+
 #[cfg(feature = "cli")]
 thread_local! {
     static MULTI_PROGRESS: std::cell::RefCell<Option<MultiProgress>> = const { std::cell::RefCell::new(None) };

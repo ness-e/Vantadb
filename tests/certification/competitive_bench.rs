@@ -169,9 +169,14 @@ fn sift1m_competitive_benchmark() {
     let query_path = Path::new("datasets/sift/sift_query.fvecs");
     let gt_path = Path::new("datasets/sift/sift_groundtruth.ivecs");
 
-    if !base_path.exists() {
-        println!("SIFT dataset not found at datasets/sift/. Skipping.");
-        println!("Download from: http://corpus-texmex.irisa.fr/");
+    // FIND-664 (TBH-01): a missing dataset FAILS, naming the file. The early
+    // `return` here was the whole reason the `competitive-bench` job could be
+    // green without benchmarking anything.
+    if !common::require_datasets(
+        &[base_path, query_path, gt_path],
+        "SIFT-1M",
+        "python scripts/download_ground_truth.py --datasets sift-1m",
+    ) {
         return;
     }
 

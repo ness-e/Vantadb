@@ -14,9 +14,14 @@ fn validate_sift_dataset_integrity() {
     let query_path = Path::new("datasets/sift/sift_query.fvecs");
     let groundtruth_path = Path::new("datasets/sift/sift_groundtruth.ivecs");
 
-    // Skip if not downloaded
-    if !base_path.exists() || !query_path.exists() || !groundtruth_path.exists() {
-        println!("SIFT dataset not found. Skipping integrity check.");
+    // FIND-664 (TBH-01): a missing dataset FAILS, naming the file. This test
+    // used to `return` green, so `certification.yml`'s sift-validation job
+    // reported success while asserting nothing.
+    if !common::require_datasets(
+        &[base_path, query_path, groundtruth_path],
+        "SIFT-1M",
+        "python scripts/download_ground_truth.py --datasets sift-1m",
+    ) {
         return;
     }
 

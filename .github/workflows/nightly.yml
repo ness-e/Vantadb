@@ -538,9 +538,12 @@ jobs:
     permissions:
       contents: read
       issues: write # regression finding issue (RULES.md §4: least privilege, job-level)
-    # CATEGORY: INFORMATIONAL - numbers are published for Regla 9 decisions;
-    # regressions open issues, they never fail the PR (Q5 informativo primero).
-    continue-on-error: true # CATEGORY: INFORMATIONAL
+    # FIND-664: the job-level `continue-on-error: true` that used to sit here
+    # swallowed EVERYTHING, including the provisioning gate — which is how a
+    # missing `data/benchmark/glove-100/` produced a green run that measured
+    # nothing. The measurement steps keep their own CATEGORY: INFORMATIONAL
+    # markers (a perf regression still opens an issue, never a red PR); what is
+    # blocking now is only "can the number be produced at all".
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -575,6 +578,42 @@ jobs:
       # changed) was removed with the PR trigger it guarded - it is unreachable
       # on schedule/dispatch and would silently lie about what runs. A dispatch
       # on a perf PR means the author wants the number: run it.
+      # FIND-664(a): `canonical_p99` calls load_standard_dataset("glove-100")
+      # and `param_sweep` calls load_dataset("sift-128"); both directories are
+      # produced by scripts/download_ground_truth.py and are gitignored, and
+      # this job never provisioned them. Both steps below carried
+      # `continue-on-error`, so the panic surfaced as `::error::` between two
+      # green steps and the run published no numbers.
+      - name: Set up Python (dataset provisioning)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install dataset provisioning deps
+        run: python -m pip install --disable-pip-version-check numpy requests h5py
+
+      - name: Cache raw GloVe-100 (input for the glove-100 subset)
+        id: cache-glove
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data/benchmark/glove.6B.100d.txt
+          key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
+
+      # Blocking on purpose: if the corpora cannot be provisioned, the number
+      # cannot exist, and a green run that says otherwise is the defect this
+      # row is about. Around 1.6 GiB of cache+output on disk (sift-128 ~500 MiB
+      # HDF5 + 5 MiB subset; glove-100 100k x 100d = 40 MiB).
+      - name: Provision bench datasets (glove-100 + sift-128)
+        run: |
+          set -euo pipefail
+          if [ ! -s data/benchmark/glove.6B.100d.txt ]; then
+            bash scripts/download_benchmark_datasets.sh
+          fi
+          python scripts/download_ground_truth.py --datasets glove-100 sift-128
+
+      - name: Verify bench datasets (TBH-01, fail-loud)
+        run: python scripts/download_ground_truth.py --datasets glove-100 sift-128 --check
+
       - name: Run canonical_p99
         id: bench
         continue-on-error: true # CATEGORY: INFORMATIONAL

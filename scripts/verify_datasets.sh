@@ -23,11 +23,12 @@ fi
 
 # Dataset definitions: name | source-script | paths...
 DATASETS=(
-    "SIFT-1M|dev-tools/scripts/download_sift.py|datasets/sift/sift_base.fvecs|datasets/sift/sift_query.fvecs|datasets/sift/sift_groundtruth.ivecs"
+    "SIFT-1M|scripts/download_ground_truth.py --datasets sift-1m|datasets/sift/sift_base.fvecs|datasets/sift/sift_query.fvecs|datasets/sift/sift_groundtruth.ivecs"
     "GloVe-100|scripts/download_benchmark_datasets.sh|data/benchmark/glove.6B.100d.txt"
     "GloVe-300|scripts/download_benchmark_datasets.sh|data/benchmark/glove.6B.300d.txt"
-    "SIFT-128 euclidean subset|scripts/download_ground_truth.py|data/benchmark/sift-128/train.f32|data/benchmark/sift-128/test.f32|data/benchmark/sift-128/test_neighbors.u64|data/benchmark/sift-128/meta.json"
-    "GloVe-100 angular subset|scripts/download_ground_truth.py|data/benchmark/glove-100-angular/train.f32|data/benchmark/glove-100-angular/test.f32|data/benchmark/glove-100-angular/test_neighbors.u64|data/benchmark/glove-100-angular/meta.json"
+    "SIFT-128 euclidean subset|scripts/download_ground_truth.py --datasets sift-128|data/benchmark/sift-128/train.f32|data/benchmark/sift-128/test.f32|data/benchmark/sift-128/test_neighbors.u64|data/benchmark/sift-128/meta.json"
+    "GloVe-100 angular subset|scripts/download_ground_truth.py --datasets glove-100|data/benchmark/glove-100/train.f32|data/benchmark/glove-100/test.f32|data/benchmark/glove-100/test_neighbors.u64|data/benchmark/glove-100/meta.json"
+    "BEIR SciFact|scripts/download_ground_truth.py --datasets beir-scifact|data/benchmark/beir-scifact/corpus.jsonl|data/benchmark/beir-scifact/queries.jsonl|data/benchmark/beir-scifact/qrels.tsv|data/benchmark/beir-scifact/meta.json"
 )
 
 declare -a RESULTS_NAME RESULTS_STATUS RESULTS_ACTION

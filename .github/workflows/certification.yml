@@ -158,24 +158,56 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.include_sift == true
     needs: ci-gate
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # FIND-664: raised 45 -> 90 because the job now actually provisions the
+    # 1M x 128D corpus (~516 MiB on disk, ~500 MiB of HDF5 download) instead
+    # of returning green before it. Cost is opt-in (workflow_dispatch only).
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
+        with:
+          free-disk: true
+      - name: Set up Python (dataset provisioning)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install dataset provisioning deps
+        run: python -m pip install --disable-pip-version-check numpy requests h5py
+      # FIND-664(b): this job never downloaded SIFT, so sift_validation.rs hit
+      # its `if !exists { println!; return }` and reported success having
+      # asserted nothing. Provision the exact layout the test reads.
+      - name: Provision SIFT-1M (.fvecs layout read by the test)
+        run: python scripts/download_ground_truth.py --datasets sift-1m
+      - name: Verify SIFT-1M (TBH-01, fail-loud, names the missing file)
+        run: python scripts/download_ground_truth.py --datasets sift-1m --check
       - name: Run SIFT validation
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: cargo test --release --test sift_validation -- --nocapture --test-threads=1
   competitive-bench:
     name: "Certification: competitive_bench"
     if: github.event_name == 'workflow_dispatch' && inputs.include_competitive == true
     needs: ci-gate
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # FIND-664(b): same reason as sift-validation — the job skipped green.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 6144
+          free-disk: true
+      - name: Set up Python (dataset provisioning)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install dataset provisioning deps
+        run: python -m pip install --disable-pip-version-check numpy requests h5py
+      - name: Provision SIFT-1M (.fvecs layout read by the test)
+        run: python scripts/download_ground_truth.py --datasets sift-1m
+      - name: Verify SIFT-1M (TBH-01, fail-loud, names the missing file)
+        run: python scripts/download_ground_truth.py --datasets sift-1m --check
       - name: Run competitive benchmark
-        timeout-minutes: 30
+        timeout-minutes: 90
         run: cargo test --release --test competitive_bench -- --nocapture --test-threads=1
   failpoint-tests:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0')
@@ -571,7 +603,7 @@ jobs:
   benchmark-datasets:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0')
 
-    name: "Certification: benchmark_datasets (GloVe-100 + its consumer)"
+    name: "Certification: benchmark_datasets (GloVe-100/300 + their consumers)"
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -594,36 +626,43 @@ jobs:
           install-nextest: true
           swap-mb: 4096
           free-disk: true
-      - name: Cache benchmark dataset (GloVe 100d)
+      # FIND-664: cache BOTH dimensions. glove_dimension_scale.rs compares
+      # recall at 100d against 300d; only 100d was ever fetched, so the
+      # dimension-scaling claim had no dataset to be measured on.
+      - name: Cache benchmark dataset (GloVe 100d + 300d)
         id: cache-benchmark
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: data/benchmark/glove.6B.100d.txt
-          key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
+          path: |
+            data/benchmark/glove.6B.100d.txt
+            data/benchmark/glove.6B.300d.txt
+          key: glove-100d-300d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
       - name: Download benchmark datasets
         if: steps.cache-benchmark.outputs.cache-hit != 'true'
         run: bash scripts/download_benchmark_datasets.sh
       # TBH-01 pre-test gate — fail fast if the dataset THIS job consumes is
       # missing, so benchmark_datasets.rs cannot silently skip.
-      # FIND-328: scoped to GloVe-100 and moved AFTER the download. This job
-      # downloads only GloVe-100 (scripts/download_benchmark_datasets.sh);
-      # SIFT-1M, GloVe-300 and the ground-truth subsets belong to the opt-in
-      # jobs (sift-validation / competitive-bench). The full 5-dataset check
+      # FIND-328: scoped to GloVe and moved AFTER the download. This job
+      # downloads only the raw GloVe .txt files (scripts/download_benchmark_datasets.sh);
+      # the SIFT/BEIR subsets belong to the opt-in jobs (sift-validation /
+      # competitive-bench / light-benchmarks). The full 6-dataset check
       # (scripts/verify_datasets.sh) used to run here BEFORE any download, so
       # the job could never go green — a permanent red that looked like
       # protection. verify_datasets.sh keeps its exit 0/1 contract for local
       # and opt-in use; it is not the CI gate of this job.
-      - name: Verify required benchmark dataset (TBH-01, GloVe-100)
+      - name: Verify required benchmark datasets (TBH-01, GloVe-100 + 300)
         run: |
-          if [ ! -s data/benchmark/glove.6B.100d.txt ]; then
-            echo "::error::GloVe-100 missing — benchmark_datasets.rs would silently skip (TBH-01, FIND-328)"
-            exit 1
-          fi
-          VEC_COUNT=$(wc -l < data/benchmark/glove.6B.100d.txt)
-          if [ "$VEC_COUNT" -lt 1000 ]; then
-            echo "::error::GloVe-100 truncated: $VEC_COUNT lines (expected 400000) — same guard as scripts/download_benchmark_datasets.sh"
-            exit 1
-          fi
+          for f in data/benchmark/glove.6B.100d.txt data/benchmark/glove.6B.300d.txt; do
+            if [ ! -s "$f" ]; then
+              echo "::error::$f missing — the test below would silently skip (TBH-01, FIND-328/FIND-664)"
+              exit 1
+            fi
+            VEC_COUNT=$(wc -l < "$f")
+            if [ "$VEC_COUNT" -lt 1000 ]; then
+              echo "::error::$f truncated: $VEC_COUNT lines (expected 400000) — same guard as scripts/download_benchmark_datasets.sh"
+              exit 1
+            fi
+          done
       - name: Run benchmark_datasets (the only dataset consumer)
         # Same declared profile as the sibling job, same reason (review H2):
         # this test has never run under nextest, so inheriting `slow-timeout 180 s`
@@ -643,6 +682,21 @@ jobs:
           NEXTEST_EOF
           cargo nextest run \
             -p vantadb --features cli,arrow --test benchmark_datasets \
+            --profile audit --cargo-profile release \
+            --locked --build-jobs 2 --test-threads 1 \
+            --ignore-default-filter --no-tests fail \
+            --config-file target/nextest/benchmark-datasets/nextest.toml
+      # FIND-664(c): glove_dimension_scale.rs had NO `[[test]]` entry, so cargo
+      # never compiled it; once registered it needed a lane that has both GloVe
+      # dimensions. Same job as the dataset it consumes, same profile, same
+      # `--ignore-default-filter` (the binary is in `.config/nextest.toml`'s
+      # default-filter exclusion, like every other certification test).
+      - name: Run glove_dimension_scale (100d vs 300d recall)
+        timeout-minutes: 60
+        run: |
+          set -euo pipefail
+          cargo nextest run \
+            -p vantadb --features cli,arrow --test glove_dimension_scale \
             --profile audit --cargo-profile release \
             --locked --build-jobs 2 --test-threads 1 \
             --ignore-default-filter --no-tests fail \
@@ -795,6 +849,44 @@ jobs:
       - name: Ensure metricas landing zone (tee fails if dir is missing)
         run: mkdir -p metricas/benchmarks
 
+      # FIND-664(a) — the root cause of "the benchmarks panic and nobody sees":
+      # `canonical_p99` (load_standard_dataset("glove-100")),
+      # `hybrid_queries` and `tokenizer_bench` (data/benchmark/beir-scifact/)
+      # read the standard layout produced by scripts/download_ground_truth.py,
+      # and this job only ever ran `download_benchmark_datasets.sh`, which
+      # fetches the raw GloVe .txt. Every one of those steps therefore panicked
+      # with `missing dataset glove-100` on the first run of the job.
+      - name: Set up Python (dataset provisioning)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      # h5py is deliberately NOT installed here: `download_ground_truth.py`
+      # imports it lazily (FIND-664) and glove-100/beir-scifact do not need it.
+      - name: Install dataset provisioning deps
+        run: python -m pip install --disable-pip-version-check numpy requests
+
+      - name: Cache raw GloVe-100 (the input for the glove-100 subset)
+        id: cache-glove
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data/benchmark/glove.6B.100d.txt
+          key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
+
+      - name: Download benchmark datasets (standard layout this job consumes)
+        run: |
+          set -euo pipefail
+          if [ ! -s data/benchmark/glove.6B.100d.txt ]; then
+            bash scripts/download_benchmark_datasets.sh
+          fi
+          python scripts/download_ground_truth.py --datasets glove-100 beir-scifact
+
+      # TBH-01 fail-loud gate: exactly the datasets the steps below read, and
+      # it names the missing file. No `continue-on-error` — a missing dataset
+      # is a red run with a reason, not a green run with no numbers.
+      - name: Verify bench datasets (TBH-01, fail-loud)
+        run: python scripts/download_ground_truth.py --datasets glove-100 beir-scifact --check
+
       - name: Run HNSW benchmarks
         run: cargo bench --bench hnsw_pure -- --nocapture 2>&1 | tee metricas/benchmarks/nightly_hnsw_results.txt
 
@@ -847,6 +939,9 @@ jobs:
           path: |
             metricas/benchmarks/nightly_*_results.txt
             target/criterion/
+          # FIND-664(d): an artifact with no files is the same defect as a
+          # skipped test — the merge downstream succeeds on an empty dir.
+          if-no-files-found: error
   high-density:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *')
     name: High density
@@ -862,16 +957,24 @@ jobs:
           swap-mb: 6144
           free-disk: true
 
+      - name: Ensure metricas landing zone (tee fails if dir is missing)
+        run: mkdir -p metricas/benchmarks
+
       - name: Run high density benchmarks
         run: cargo bench --bench high_density -- --nocapture 2>&1 | tee metricas/benchmarks/nightly_density_results.txt
 
+      # FIND-664(d): the `tee` above writes metricas/benchmarks/... but this
+      # upload declared `nightly_density_results.txt` at the repo root, so
+      # upload-artifact found nothing and the `analyze` job merged an empty
+      # density artifact without a word. Path now matches what is written.
       - name: Upload density results
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: density-bench-results
           path: |
-            nightly_density_results.txt
+            metricas/benchmarks/nightly_density_results.txt
             target/criterion/
+          if-no-files-found: error
   analyze:
     # always(): corre aunque light/high-density fallen o se skipeen — los steps
     # de descarga llevan continue-on-error y el merge tolera dirs ausentes,
@@ -915,15 +1018,30 @@ jobs:
 
       - name: Merge criterion results
         run: |
-          mkdir -p target/criterion
-          if [ -d light/target/criterion ]; then
-            cp -r light/target/criterion/* target/criterion/
+          set -euo pipefail
+          mkdir -p target/criterion metricas/benchmarks
+          for side in light density; do
+            if [ -d "$side/target/criterion" ]; then
+              cp -r "$side/target/criterion/." target/criterion/
+            fi
+          done
+          # FIND-664(d): upload-artifact stores the path relative to the LEAST
+          # COMMON ANCESTOR of the declared paths. For both jobs that is the
+          # repo root, so the results arrive at
+          # `<artifact>/metricas/benchmarks/nightly_*_results.txt` — the old
+          # `cp light/nightly_*_results.txt .` matched nothing and `|| true`
+          # hid it, so the summary silently reported zero benchmarks.
+          for side in light density; do
+            if [ -d "$side/metricas/benchmarks" ]; then
+              cp "$side"/metricas/benchmarks/nightly_*_results.txt metricas/benchmarks/
+            fi
+          done
+          got=$(find metricas/benchmarks -maxdepth 1 -name 'nightly_*_results.txt' | wc -l)
+          echo "collected $got nightly result file(s)"
+          if [ "$got" -eq 0 ]; then
+            echo "::error::no nightly_*_results.txt recovered from light-bench-results or density-bench-results — the merge paths drifted from the upload paths again (FIND-664)"
+            exit 1
           fi
-          if [ -d density/target/criterion ]; then
-            cp -r density/target/criterion/* target/criterion/
-          fi
-          cp light/nightly_*_results.txt . 2>/dev/null || true
-          cp density/nightly_*_results.txt . 2>/dev/null || true
 
       - name: Extract criterion estimates
         id: extract

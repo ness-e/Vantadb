@@ -41,6 +41,7 @@ and not (package(vantadb) and binary(sift_validation)) \
 and not (package(vantadb) and binary(stress_protocol)) \
 and not (package(vantadb) and binary(multi_namespace_stress)) \
 and not (package(vantadb) and binary(competitive_bench)) \
+and not (package(vantadb) and binary(glove_dimension_scale)) \
 and not (package(vantadb) and binary(hardware_profiles)) \
 and not (package(vantadb) and binary(basic_node)) \
 and not (package(vantadb) and binary(vector_scale_check)) \

@@ -24,9 +24,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-import h5py
 import numpy as np
-import requests
 
 BENCH_DIR = Path("data/benchmark")
 
@@ -53,13 +51,19 @@ DATASETS = {
         "n_queries": 200,
     },
     "sift-1m": {
-        "kind": "fvecs",
-        "base": "datasets/sift/sift_base.fvecs",
-        "query": "datasets/sift/sift_query.fvecs",
-        "groundtruth": "datasets/sift/sift_groundtruth.ivecs",
+        # FIND-664: the `.fvecs` layout that
+        # `tests/certification/{sift_validation,competitive_bench}.rs` read,
+        # produced from the ann-benchmarks HDF5. It used to descend from
+        # `dev-tools/scripts/download_sift.py` (an FTP pull from
+        # corpus-texmex that is dead, that swallowed its own errors and exited
+        # 0) — so the two opt-in SIFT jobs in certification.yml could never
+        # provision anything and skipped green instead.
+        "kind": "hdf5-fvecs",
+        "url": "http://ann-benchmarks.com/sift-128-euclidean.hdf5",
+        "dir": "datasets/sift",
         "metric": "euclidean",
-        "n_train": 100_000,
-        "n_queries": 1_000,
+        "n_train": 1_000_000,
+        "n_queries": 10_000,
     },
     "glove-100-ann": {
         "kind": "hdf5",
@@ -88,19 +92,38 @@ def sha256_of(path: Path) -> str:
     return h.hexdigest()
 
 
+def _count_lines(path: Path) -> int:
+    with open(path, encoding="utf-8") as f:
+        return sum(1 for _ in f)
+
+
+def dataset_dir(name: str, info: dict) -> Path:
+    """Where a dataset lands: `data/benchmark/<name>/` unless it overrides."""
+    return Path(info["dir"]) if "dir" in info else BENCH_DIR / name
+
+
 def expected_files(name: str, info: dict) -> list[str]:
     if info["kind"] == "beir-zip":
         return ["corpus.jsonl", "queries.jsonl", "qrels.tsv", "meta.json"]
+    if info["kind"] == "hdf5-fvecs":
+        return ["sift_base.fvecs", "sift_query.fvecs", "sift_groundtruth.ivecs"]
     return ["train.f32", "test.f32", "test_neighbors.u64", "meta.json"]
 
 
+def missing_files(name: str, info: dict) -> list[str]:
+    """Relative names of the expected files that are absent (empty = ready)."""
+    out = dataset_dir(name, info)
+    return [f for f in expected_files(name, info) if not (out / f).exists()]
+
+
 def is_ready(name: str, info: dict) -> bool:
-    out = BENCH_DIR / name
-    return all((out / f).exists() for f in expected_files(name, info))
+    return not missing_files(name, info)
 
 
 def download_hdf5(url: str, dest: Path) -> Path:
     """Download HDF5 if not cached."""
+    import requests  # lazy: --check must work without the network stack installed
+
     cache = BENCH_DIR / "cache" / url.rpartition("/")[2]
     if cache.exists():
         print(f"  Found cached {cache}")
@@ -117,13 +140,15 @@ def download_hdf5(url: str, dest: Path) -> Path:
             downloaded += len(chunk)
             if total:
                 pct = downloaded * 100 // total
-                print(f"\r    {pct}% ({downloaded // (1<<20)} MiB)", end="")
+                print(f"\r    {pct}% ({downloaded // (1 << 20)} MiB)", end="")
     print()
     return cache
 
 
 def extract_dataset(name: str, hdf5_path: Path, info: dict):
     """Extract HDF5 → raw binaries for Rust benchmarks."""
+    import h5py  # lazy: GloVe/BEIR provisioning must not require h5py (FIND-664)
+
     out = BENCH_DIR / name
     out.mkdir(parents=True, exist_ok=True)
     n_train_cfg = info.get("n_train", N_TRAIN)
@@ -160,51 +185,65 @@ def extract_dataset(name: str, hdf5_path: Path, info: dict):
     with open(out / "meta.json", "w") as f:
         json.dump(meta, f, indent=2)
 
-    print(f"  {name}: {n_train} train × {dims}d = {train.nbytes // (1<<20)} MiB")
+    print(f"  {name}: {n_train} train × {dims}d = {train.nbytes // (1 << 20)} MiB")
     print(f"           {n_test} queries, ground truth k={K_GROUND_TRUTH}")
     print(f"           metric: {metric}")
 
 
-def read_fvecs(path: Path) -> np.ndarray:
-    """Read .fvecs/.ivecs (int32 dim + dim × f32/int32 per row)."""
-    raw = np.fromfile(str(path), dtype=np.int32)
-    if raw.size == 0:
-        raise ValueError(f"empty file: {path}")
-    dim = int(raw[0])
-    row_ints = dim + 1
-    if raw.size % row_ints != 0:
-        raise ValueError(f"truncated file: {path}")
-    data = raw.reshape(-1, row_ints)[:, 1:]
-    if "fvecs" in path.name:
-        return data.view(np.float32)
-    return data
+def write_vecs(path: Path, rows, dtype) -> None:
+    """Write a `.fvecs`/`.ivecs` file: int32 dim prefix, then `dim` values."""
+    import struct
+
+    dim = int(rows.shape[1])
+    with open(path, "wb") as f:
+        for row in rows:
+            f.write(struct.pack("<i", dim))
+            f.write(row.astype(dtype).tobytes())
 
 
-def extract_fvecs(name: str, info: dict):
-    """Convert local SIFT .fvecs/.ivecs → standard layout (subset)."""
-    out = BENCH_DIR / name
+def extract_hdf5_fvecs(name: str, hdf5_path: Path, info: dict):
+    """HDF5 → the `.fvecs`/`.ivecs` layout `tests/certification/sift_*.rs` read.
+
+    JOIN of the two formats in this repo: `sift_validation` and
+    `competitive_bench` read `datasets/sift/sift_{base,query}.fvecs` +
+    `sift_groundtruth.ivecs`; the only live source for SIFT-1M is the
+    ann-benchmarks HDF5 that every other dataset here already downloads.
+    """
+    import h5py  # lazy (FIND-664)
+
+    out = dataset_dir(name, info)
     out.mkdir(parents=True, exist_ok=True)
-    base = read_fvecs(Path(info["base"])).astype(np.float32)
-    query = read_fvecs(Path(info["query"])).astype(np.float32)
-    gt = read_fvecs(Path(info["groundtruth"])).astype(np.uint64)
-    n_train = min(info["n_train"], base.shape[0])
-    n_queries = min(info["n_queries"], query.shape[0])
-    dims = base.shape[1]
-    base[:n_train].tofile(out / "train.f32")
-    query[:n_queries].tofile(out / "test.f32")
-    gt[:n_queries, :K_GROUND_TRUTH].tofile(out / "test_neighbors.u64")
-    meta = {"dims": dims, "n_train": n_train, "n_test": n_queries,
-            "k_ground_truth": K_GROUND_TRUTH, "metric": info["metric"],
-            "source": f"{info['base']} (subset)"}
-    with open(out / "meta.json", "w") as f:
-        json.dump(meta, f, indent=2)
-    print(f"  {name}: {n_train} train × {dims}d, {n_queries} queries (subset of SIFT-1M)")
+    n_train = info["n_train"]
+    n_queries = info["n_queries"]
+
+    with h5py.File(hdf5_path, "r") as f:
+        train = f["train"][:n_train].astype(np.float32)
+        test = f["test"][:n_queries].astype(np.float32)
+        gt = f["neighbors"][:n_queries, : info.get("k", 100)].astype(np.int32)
+
+    if train.shape[0] != n_train or test.shape[0] != n_queries:
+        raise ValueError(
+            f"{name}: HDF5 has train={train.shape[0]} test={test.shape[0]}, "
+            f"expected {n_train}/{n_queries}"
+        )
+
+    write_vecs(out / "sift_base.fvecs", train, np.float32)
+    write_vecs(out / "sift_query.fvecs", test, np.float32)
+    write_vecs(out / "sift_groundtruth.ivecs", gt, np.int32)
+    print(
+        f"  {name}: {n_train} base x {train.shape[1]}d, {n_queries} queries, "
+        f"ground truth k={gt.shape[1]} -> {out}"
+    )
+    print(
+        f"           disk: {(train.nbytes + test.nbytes + gt.nbytes) // (1 << 20)} MiB"
+    )
 
 
 def extract_glove_txt(name: str, info: dict):
     """Convert local GloVe txt (word + floats per line) → standard layout.
     Queries are sampled uniformly from the corpus (documented in meta)."""
     import random
+
     out = BENCH_DIR / name
     out.mkdir(parents=True, exist_ok=True)
     vecs: list = []
@@ -220,8 +259,8 @@ def extract_glove_txt(name: str, info: dict):
     rng = random.Random(42)
     idx = list(range(arr.shape[0]))
     rng.shuffle(idx)
-    train = arr[idx[:info["n_train"]]]
-    test = arr[idx[info["n_train"]:info["n_train"] + info["n_queries"]]]
+    train = arr[idx[: info["n_train"]]]
+    test = arr[idx[info["n_train"] : info["n_train"] + info["n_queries"]]]
     train = train / np.maximum(np.linalg.norm(train, axis=1, keepdims=True), 1e-12)
     test = test / np.maximum(np.linalg.norm(test, axis=1, keepdims=True), 1e-12)
     train = train.astype(np.float32)
@@ -232,17 +271,26 @@ def extract_glove_txt(name: str, info: dict):
     train.tofile(out / "train.f32")
     test.tofile(out / "test.f32")
     test_neighbors.tofile(out / "test_neighbors.u64")
-    meta = {"dims": int(dims), "n_train": train.shape[0], "n_test": test.shape[0],
-            "k_ground_truth": K_GROUND_TRUTH, "metric": info["metric"],
-            "queries": "uniform sample of corpus (no held-out split upstream)",
-            "source": info["local"]}
+    meta = {
+        "dims": int(dims),
+        "n_train": train.shape[0],
+        "n_test": test.shape[0],
+        "k_ground_truth": K_GROUND_TRUTH,
+        "metric": info["metric"],
+        "queries": "uniform sample of corpus (no held-out split upstream)",
+        "source": info["local"],
+    }
     with open(out / "meta.json", "w") as f:
         json.dump(meta, f, indent=2)
-    print(f"  {name}: {train.shape[0]} train × {dims}d (normalized), {test.shape[0]} queries + exact ground truth")
+    print(
+        f"  {name}: {train.shape[0]} train × {dims}d (normalized), {test.shape[0]} queries + exact ground truth"
+    )
 
 
 def extract_beir_zip(name: str, info: dict):
     """Download + extract BEIR SciFact (corpus/queries/qrels) for text benches."""
+    import requests  # lazy: --check must work without the network stack installed
+
     out = BENCH_DIR / name
     out.mkdir(parents=True, exist_ok=True)
     cache = BENCH_DIR / "cache" / info["url"].rpartition("/")[2]
@@ -252,8 +300,7 @@ def extract_beir_zip(name: str, info: dict):
         r = requests.get(info["url"], stream=True, timeout=300)
         r.raise_for_status()
         with open(cache, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1 << 20):
-                f.write(chunk)
+            f.writelines(r.iter_content(chunk_size=1 << 20))
     else:
         print(f"  Found cached {cache}")
     with zipfile.ZipFile(cache) as z:
@@ -269,16 +316,24 @@ def extract_beir_zip(name: str, info: dict):
         corpus = pick("corpus.jsonl")
         queries = pick("queries.jsonl")
         qrels = pick("qrels/test.tsv", "qrels.tsv", "test.tsv")
-        for src, dst in [(corpus, "corpus.jsonl"), (queries, "queries.jsonl"), (qrels, "qrels.tsv")]:
+        for src, dst in [
+            (corpus, "corpus.jsonl"),
+            (queries, "queries.jsonl"),
+            (qrels, "qrels.tsv"),
+        ]:
             data = z.read(src)
             if (out / dst).exists():
                 (out / dst).unlink()
             # Zip members carry subdirs (scifact/corpus.jsonl); flatten.
             (out / dst).write_bytes(data)
-    n_corpus = sum(1 for _ in open(out / "corpus.jsonl", encoding="utf-8"))
-    n_queries = sum(1 for _ in open(out / "queries.jsonl", encoding="utf-8"))
-    meta = {"n_corpus": n_corpus, "n_queries": n_queries, "metric": "text",
-            "source": info["url"]}
+    n_corpus = _count_lines(out / "corpus.jsonl")
+    n_queries = _count_lines(out / "queries.jsonl")
+    meta = {
+        "n_corpus": n_corpus,
+        "n_queries": n_queries,
+        "metric": "text",
+        "source": info["url"],
+    }
     with open(out / "meta.json", "w") as f:
         json.dump(meta, f, indent=2)
     print(f"  {name}: {n_corpus} docs, {n_queries} queries")
@@ -288,7 +343,7 @@ def write_manifest(names: list):
     manifest = {"datasets": {}}
     for name in names:
         info = DATASETS[name]
-        out = BENCH_DIR / name
+        out = dataset_dir(name, info)
         files = {}
         for f in expected_files(name, info):
             p = out / f
@@ -301,7 +356,9 @@ def write_manifest(names: list):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download ANN benchmark datasets (idempotent)")
+    parser = argparse.ArgumentParser(
+        description="Download ANN benchmark datasets (idempotent)"
+    )
     parser.add_argument(
         "--datasets",
         nargs="+",
@@ -317,19 +374,34 @@ def main():
     args = parser.parse_args()
 
     if args.check:
-        missing = [n for n in args.datasets if not is_ready(n, DATASETS[n])]
-        if missing:
-            print(f"MISSING datasets: {missing}", file=sys.stderr)
+        # FIND-664: name the absent FILE, not just the dataset — this is the
+        # TBH-01 gate CI runs before a bench, and "MISSING sift-1m" does not
+        # tell anyone what to do.
+        absent = [(n, missing_files(n, DATASETS[n])) for n in args.datasets]
+        absent = [(n, f) for n, f in absent if f]
+        if absent:
+            for n, files in absent:
+                out = dataset_dir(n, DATASETS[n])
+                print(
+                    f"MISSING {n}: {', '.join(str(out / f) for f in files)}",
+                    file=sys.stderr,
+                )
+            print(
+                "Provision with: python scripts/download_ground_truth.py --datasets "
+                + " ".join(n for n, _ in absent),
+                file=sys.stderr,
+            )
             sys.exit(1)
         print(f"All {len(args.datasets)} datasets ready in {BENCH_DIR.resolve()}")
         return
 
     done = []
+    failed = []
     for name in args.datasets:
         info = DATASETS[name]
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Dataset: {name}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         if is_ready(name, info):
             print("  Already ready — skipped.")
             done.append(name)
@@ -339,8 +411,9 @@ def main():
             if kind == "hdf5":
                 hdf5_path = download_hdf5(info["url"], BENCH_DIR)
                 extract_dataset(name, hdf5_path, info)
-            elif kind == "fvecs":
-                extract_fvecs(name, info)
+            elif kind == "hdf5-fvecs":
+                hdf5_path = download_hdf5(info["url"], BENCH_DIR)
+                extract_hdf5_fvecs(name, hdf5_path, info)
             elif kind == "glove-txt":
                 extract_glove_txt(name, info)
             elif kind == "beir-zip":
@@ -348,10 +421,22 @@ def main():
             else:
                 raise ValueError(f"unknown kind: {kind}")
             done.append(name)
-        except Exception as e:
+        # Broad by design: one dataset failing must not stop the others, and
+        # every failure is now surfaced as exit 1 at the end (FIND-664).
+        except Exception as e:  # noqa: BLE001
             print(f"  FAILED: {e}", file=sys.stderr)
+            failed.append(name)
 
     write_manifest(done)
+    # FIND-664: a per-dataset failure used to be printed and swallowed, so the
+    # caller saw exit 0 and the bench downstream panicked 40 minutes later.
+    if failed:
+        print(
+            f"\n{len(failed)} dataset(s) FAILED: {failed} — exit 1 "
+            f"(see the FAILED lines above for the cause)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     print(f"\nDone. Files in {BENCH_DIR.resolve()}")
 
 
