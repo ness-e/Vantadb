@@ -1929,3 +1929,12 @@ el propio SDK ya usa— los arregla a los tres.
 - **Verificacion:** `cargo nextest run --profile audit -p vantadb --test certified_delete -E 'test(physical_erasure)' --no-tests fail` -> **1 passed**. Sin cambios de codigo.
 - **Deuda declarada (fuera de la fila):** crypto-shredding del ciphertext de un registro borrado (rotacion de DEK, `src/crypto/**`) y el reciclado del journal Fjall viejo (lo hace Fjall, no el motor).
 - **Ids:** `FIND-343`, `EGO-14`, `EGO-16`, `VER-01`
+
+### Ciclo cognitivo: la intrusión de hechos obsoletos es 0 % — con control (`FIND-676`)
+
+- **Fecha:** 2026-11-27. Entregado `benchmarks/cognitive_cycle_bench.py` (0.1 min, sin dependencias nuevas) y **la aserción de la fila pasa**: **0,00 %** de intrusión de hechos obsoletos en `top_k=10` sobre 30 escenarios de contradicción `v1→v2` con `supersede`.
+- **El control es el resultado:** los **mismos** 30 escenarios con la misma consulta y `exclude_superseded` **apagado** devuelven **125 hits obsoletos**. Sin ese número, un `0` sería indistinguible de un arnés roto — el defecto que `FIND-664` documenta en otra capa.
+- **Aislamiento entre namespaces:** misma clave y mismo payload en `agent-a/b/c` ⇒ **0** hits cruzados, **0** namespaces vacíos, y un namespace compartido explícito sigue devolviendo. El 0 no se logra devolviendo nada.
+- **L0→L1 informativo, no aserción:** `memory_capture` acepta la sesión (`recorded_count: 1`) y `memory_recall(text, session_id)` devuelve `None` tras 5 intentos. El docstring documenta `None` como «nada que inyectar» y `memory_capture` devuelve `cursor_ms`, así que el ingest puede ser asíncrono: **se reporta inconcluso**, no como bug. Convertir una carrera en defecto sería el error que esta fila persigue.
+- **Lo que no se puede medir, con la prueba:** `dir(vantadb.Client)` no exporta `context_assemble`, `vanta_scene` (L2), `vanta_dream` (L3) ni `thread_send` — son herramientas MCP de `vantadb-mcp`. La ganancia de compresión/precisión de L2/L3 sobre L1 crudo **no se certifica**: se declara bloqueada por falta de superficie, y el arnés que la desbloquea es `FIND-674`.
+- **Verificación:** `exit 0` con la aserción PASS, `ruff check` + `ruff format --check` limpios.

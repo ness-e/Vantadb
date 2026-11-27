@@ -1,0 +1,44 @@
+{
+  "benchmark": "cognitive_cycle_bench",
+  "finding": "FIND-676",
+  "timestamp": "2026-11-27T17:15:19-0400",
+  "environment": {
+    "os": "Windows",
+    "arch": "AMD64",
+    "dims": 64,
+    "vantadb_version": "0.9.0"
+  },
+  "stale_intrusion": {
+    "scenarios": 30,
+    "top_k": 10,
+    "queries": 60,
+    "stale_hits_with_exclude_superseded": 0,
+    "stale_hits_without_flag": 125,
+    "stale_intrusion_rate": 0.0
+  },
+  "stale_intrusion_assertion": "PASS",
+  "namespace_isolation": {
+    "namespaces": ["agent-a", "agent-b", "agent-c"],
+    "cross_namespace_hits": 0,
+    "namespaces_returning_nothing": 0,
+    "shared_namespace_hits": 1,
+    "isolation_ok": true
+  },
+  "capture_recall": {
+    "captured_bytes": 116,
+    "recalled_bytes": 4,
+    "recalled_contains_fact": false,
+    "capture_ms": 13.385,
+    "recall_ms": 0.204,
+    "recall_attempts": 5,
+    "verdict": "inconclusive (memory_capture returns cursor_ms: ingest may be asynchronous; report, do not assert)",
+    "compression_ratio": 0.034
+  },
+  "not_measurable_from_sdk": [
+    "context_assemble",
+    "vanta_scene (L2)",
+    "vanta_dream (L3)",
+    "thread_send"
+  ],
+  "not_measurable_reason": "measured 2026-11-27: not exported by the installed Python `Client`; they are MCP tools (vantadb-mcp). Chrome: pending a binding or an MCP round-trip harness."
+}
