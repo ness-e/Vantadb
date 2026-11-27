@@ -87,14 +87,27 @@ pub const VFILE_VERSION: u16 = 2;
 /// * The marker lives in the **existing cleartext header**
 ///   (`Header.format_version`), so a reader decides by the bytes on disk,
 ///   never by configuration (ADR-0057 D1).
-/// * A v2 segment is read exactly as before; a v3 segment without a key is
+/// * A v2 segment is read exactly as before; a v3+ segment without a key is
 ///   an explicit `EncryptionKeyRequired`, never "corrupt" (ADR-0057 D7).
-pub const VFILE_ENCRYPTED_VERSION: u16 = 3;
+///
+/// v4 (FIND-586): the AAD carries the **segment identity** (the file name)
+/// besides the byte offset, so a node grafted into a sibling segment at the
+/// same offset no longer authenticates. v3 (the same envelope without the file
+/// identity) is refused on open: it was never published, so there is nothing
+/// to migrate.
+pub const VFILE_ENCRYPTED_VERSION: u16 = 4;
+
+/// The encrypted layout **before** FIND-586 (AAD without the segment
+/// identity).
+///
+/// Still recognised so the reader can refuse it with an explicit
+/// `IncompatibleFormat` instead of reading it as plaintext. Never written.
+pub const VFILE_LEGACY_ENCRYPTED_VERSION: u16 = 3;
 
 /// The highest VantaFile format version this build can read.
 ///
-/// v3 (the encrypted format) is only readable with the `encryption` feature:
-/// a build without it refuses a v3 segment with an explicit message.
+/// v4 (the encrypted format) is only readable with the `encryption` feature:
+/// a build without it refuses a v4 segment with an explicit message.
 pub const VFILE_MAX_READABLE_VERSION: u16 = if cfg!(feature = "encryption") {
     VFILE_ENCRYPTED_VERSION
 } else {
@@ -755,7 +768,8 @@ impl File {
         // An encrypted segment in a build without the `encryption` feature:
         // say so explicitly — an encrypted database must never be reported as
         // "corrupt" (ADR-0057 D7).
-        if header.format_version >= VFILE_ENCRYPTED_VERSION && !cfg!(feature = "encryption") {
+        if header.format_version >= VFILE_LEGACY_ENCRYPTED_VERSION && !cfg!(feature = "encryption")
+        {
             return Err(Error::IncompatibleFormat {
                 expected_magic: *b"VFLE",
                 expected_version: VFILE_MAX_READABLE_VERSION,
@@ -768,7 +782,7 @@ impl File {
         }
         // An encrypted segment without a key: the operator has to supply one.
         // Never "corrupt" (ADR-0057 D7).
-        if header.format_version >= VFILE_ENCRYPTED_VERSION && crypto.is_none() {
+        if header.format_version >= VFILE_LEGACY_ENCRYPTED_VERSION && crypto.is_none() {
             #[cfg(feature = "encryption")]
             return Err(Error::EncryptionKeyRequired {
                 artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
@@ -780,6 +794,22 @@ impl File {
                 found_magic: header.magic,
                 found_version: header.format_version,
                 hint: "File is encrypted (format v3 or newer) but no encryption key resolved"
+                    .to_string(),
+            });
+        }
+        // FIND-586: an encrypted segment written before the AAD carried the
+        // segment identity cannot be read with the current binding; refuse it
+        // explicitly instead of reporting a key rejection on every node.
+        if header.format_version == VFILE_LEGACY_ENCRYPTED_VERSION {
+            return Err(Error::IncompatibleFormat {
+                expected_magic: *b"VFLE",
+                expected_version: VFILE_MAX_READABLE_VERSION,
+                found_magic: header.magic,
+                found_version: header.format_version,
+                hint: "File is encrypted with format v3, which binds every record to \
+                       its offset but not to its segment (FIND-586). Rewrite the \
+                       database with this build (no migration path: the layout was \
+                       never released)"
                     .to_string(),
             });
         }
@@ -950,7 +980,7 @@ impl File {
     /// The answer comes from the **bytes on disk** (the cleartext header),
     /// never from the configuration (ADR-0057 D1).
     pub fn is_encrypted(&self) -> bool {
-        self.format_version >= VFILE_ENCRYPTED_VERSION
+        self.format_version >= VFILE_LEGACY_ENCRYPTED_VERSION
     }
 
     /// The distance between two consecutive node records.
@@ -1276,8 +1306,10 @@ impl File {
 
     /// Seal a node record into its AEAD envelope.
     ///
-    /// The AAD binds the record to `offset` (the **slot**), so a record moved
-    /// to another offset no longer authenticates (ADR-0057 D4).
+    /// The AAD binds the record to this **segment** (its file name) and to
+    /// `offset` (the **slot**), so a record moved to another offset — or
+    /// grafted into a sibling segment at the same offset — no longer
+    /// authenticates (ADR-0057 D4, FIND-586).
     pub(crate) fn seal_node(
         &self,
         offset: u64,
@@ -1296,7 +1328,8 @@ impl File {
         let mut plaintext = Vec::with_capacity(ENCRYPTED_PAYLOAD_OFFSET as usize + payload.len());
         plaintext.extend_from_slice(header.as_bytes());
         plaintext.extend_from_slice(payload);
-        crypto.seal_node(offset, &plaintext)
+        let segment = crate::storage::vfile_crypto::segment_identifier(&self.path);
+        crypto.seal_node(segment, offset, &plaintext)
     }
 
     /// Decrypt the node record at `offset`.
@@ -1320,7 +1353,8 @@ impl File {
         };
         // The ciphertext is read **in place** out of the mapping: no copy.
         let record = self.read_record_bytes(offset)?;
-        let plaintext = crypto.open_node(offset, record)?;
+        let segment = crate::storage::vfile_crypto::segment_identifier(&self.path);
+        let plaintext = crypto.open_node(segment, offset, record)?;
         // The AEAD writes the plaintext into a fresh buffer: 1 copy.
         count_copy(plaintext.len());
         // The plaintext is copied into the 8-byte aligned buffer: 1 copy.
@@ -2101,7 +2135,11 @@ mod encryption_tests {
             .ok_or_else(|| Error::EncryptionKeyRequired {
                 artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
             })?;
-        let plaintext = crypto.open_node(offset, &record)?;
+        let plaintext = crypto.open_node(
+            crate::storage::vfile_crypto::segment_identifier(&file.path),
+            offset,
+            &record,
+        )?;
         count_copy(plaintext.len());
         // 3) the plaintext is copied into the aligned buffer.
         let blob = AlignedBlob::from_bytes(&plaintext);

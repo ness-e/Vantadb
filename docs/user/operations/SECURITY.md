@@ -44,10 +44,20 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
 
 With the `encryption` cargo feature (**not** in `default`) **and** a master key
 configured, the four independent on-disk write paths of the core are encrypted
-with per-artefact AES-256-GCM envelopes: the **WAL** (format v4), the
-**VantaFile** segments (format v3), the **HNSW index image** (format v9) and
+with per-artefact AES-256-GCM envelopes: the **WAL** (format v5), the
+**VantaFile** segments (format v4), the **HNSW index image** (format v9) and
 the **backend key-value store** (per value) — and, by transit, the text index
 and the snapshots.
+
+The AAD of every envelope binds the ciphertext to **its file as well as its
+slot** (FIND-586): the frame/record carries the segment or shard identity, so a
+blob moved between sibling files (`vstore_L0.vanta` → `vstore_L1.vanta`, or
+`vanta.shard0.wal` → `vanta.shard1.wal`) at the same offset no longer
+authenticates. Formats v4/v5 are the first layouts with that binding: the
+earlier encrypted layouts (VantaFile v3, WAL v4) are refused with
+`IncompatibleFormat` instead of being read with a weaker binding — they were
+never published, so the database has to be rewritten (re-index from canonical
+data), not migrated.
 
 It is **off by default twice**: the feature is not in `default`, and without a
 master key the bytes on disk are byte-identical to a build without the
@@ -58,6 +68,35 @@ feature. An existing plaintext database is **never** migrated implicitly.
 - **Lo que NO se cifra**: las claves del backend y los tokens del indice de
   texto, el tamano de los valores, la estructura (conteos, orden, timestamps),
   y la master key vive en la memoria del proceso.
+
+### Text index keys (FIND-513): the vocabulary and the document ids leak
+
+The encrypted at-rest layout protects the **payload** and the **posting value**
+(tf, positions, node id), not the **posting key**, which is
+`namespace ‖ 0x00 ‖ token ‖ 0x00 ‖ record_key` (`src/text_index.rs`,
+`posting_key`). Concretely, with a master key configured an operator with disk
+access can still read:
+
+- **Which words are indexed** — the token is a word of the payload, in clear.
+- **Which document holds them** — the record key is in clear, and it
+  correlates with the document ids of the encrypted payload.
+- **How many** postings a term has and **in which order** they were written
+  (the KV sorts the keys).
+- The **length** of every value: `ciphertext = plaintext + 28` (nonce + tag).
+
+Accepted, not accidental: the AAD of the backend binds each value to its key
+(moving a value to another key fails to authenticate) and the ADR documents
+that "the KV keys are not encrypted". Encrypting the posting key is a
+**different key layout**, so an index already written would return *zero*
+results in silence — it needs a version marker plus a full rebuild of the text
+index (derived from canonical data). Design and delta:
+`docs/dev/tasks/FIND-513.md`; a test pins the leak and this section
+(`text_index::tests::posting_key_leak_is_declared_in_the_security_guide`).
+
+- **WAL shipping does not replicate an encrypted database** (`FIND-496`): a
+  replica would need the master key, and sending key material over the network
+  is out of scope. `WalShipper::ship_once` refuses **before** shipping
+  anything.
 - **Perder `data/encryption.registry` pierde la base**: las DEKs viven solo ahi.
 - **Runbook completo** (guardar la key, rotarla, deshacer la rotacion,
   cifrar una base existente): [`security/KEY_RUNBOOK.md`](security/KEY_RUNBOOK.md).

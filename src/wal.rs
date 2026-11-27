@@ -42,12 +42,25 @@ pub const WAL_FORMAT_VERSION: u16 = 3;
 /// * The version bump happens **only in the encrypted format**: a v3 file
 ///   keeps its exact byte layout, and a WAL written without a key is
 ///   byte-identical to the one written before this change.
-pub const WAL_ENCRYPTED_FORMAT_VERSION: u16 = 4;
+///
+/// v5 (FIND-586): the AAD carries the **identity of the segment** (the file
+/// stem before `.wal`, stable across rotation) besides the frame ordinal, so a
+/// frame moved between sibling shards no longer authenticates. v4 (the same
+/// layout without the file identity) is refused on open — it was never
+/// published, so there is nothing to migrate: the database is rewritten.
+pub const WAL_ENCRYPTED_FORMAT_VERSION: u16 = 5;
+
+/// The encrypted layout **before** FIND-586 (AAD without the file identity).
+///
+/// Still recognised so the reader can refuse it with an explicit
+/// `IncompatibleFormat` instead of reading it as plaintext (which would
+/// produce garbage payloads). Never written.
+pub const WAL_LEGACY_ENCRYPTED_FORMAT_VERSION: u16 = 4;
 
 /// The highest WAL format version this build can read.
 ///
-/// v4 (the encrypted format) is only readable with the `encryption` feature:
-/// a build without it refuses a v4 file with an explicit message.
+/// v5 (the encrypted format) is only readable with the `encryption` feature:
+/// a build without it refuses a v5 file with an explicit message.
 pub const WAL_MAX_READABLE_VERSION: u16 = if cfg!(feature = "encryption") {
     WAL_ENCRYPTED_FORMAT_VERSION
 } else {
@@ -99,10 +112,56 @@ pub(crate) fn is_chained(format_version: u16) -> bool {
     format_version >= WAL_CHAIN_VERSION
 }
 
-/// True when `format_version` uses the **encrypted** (v4) frame layout.
+/// True when `format_version` uses the **encrypted** frame layout (v4, and the
+/// v5 layout that adds the file identity to the AAD — the frame layout itself
+/// did not change between them).
 #[inline]
 pub(crate) fn is_encrypted(format_version: u16) -> bool {
-    format_version >= WAL_ENCRYPTED_FORMAT_VERSION
+    format_version >= WAL_LEGACY_ENCRYPTED_FORMAT_VERSION
+}
+
+/// The AAD **identifier** of a WAL segment: the file stem before `.wal`.
+///
+/// The identity has to survive the rotation, which **renames** the active file
+/// (`vanta.shard0.wal` → `vanta.shard0.wal.<millis>`); `file_name()` would
+/// break every rotated segment. The stem is stable across the rename and
+/// distinct per shard, which is exactly the granularity FIND-586 needs (a
+/// frame moved between sibling shards at the same ordinal).
+///
+/// The same rule is used by [`scratch_path`] to name the redaction scratch file
+/// without the `.wal.` infix.
+pub(crate) fn wal_identifier(path: &Path) -> Vec<u8> {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "wal".to_string());
+    let stem = match name.find(".wal") {
+        Some(idx) => &name[..idx],
+        None => &name[..],
+    };
+    stem.as_bytes().to_vec()
+}
+
+/// Refuse an encrypted layout written before FIND-586 (WAL v4).
+///
+/// Its AAD has no file identity, so the ciphertext is bound to its offset
+/// only. Reading it would silently keep the weaker binding (and, if the AAD
+/// were rebuilt the new way, every frame would fail to authenticate with a
+/// confusing "wrong key"). The layout was never published: refuse explicitly.
+fn refuse_legacy_encrypted_layout(found_version: u16) -> Result<()> {
+    if found_version == WAL_LEGACY_ENCRYPTED_FORMAT_VERSION {
+        return Err(Error::IncompatibleFormat {
+            expected_magic: *b"VWAL",
+            expected_version: WAL_MAX_READABLE_VERSION,
+            found_magic: *b"VWAL",
+            found_version,
+            hint: "WAL is encrypted with format v4, which binds every frame to its \
+                   ordinal but not to its file (FIND-586). Rewrite the database with \
+                   this build (no migration path: the layout was never released)"
+                .to_string(),
+        });
+    }
+    Ok(())
 }
 
 /// Per-record framing overhead for a given format version (0 pre-chain,
@@ -266,7 +325,7 @@ impl WalHeader {
             });
         }
 
-        // A v4 WAL is encrypted: this build can only read it with the
+        // A v4/v5 WAL is encrypted: this build can only read it with the
         // `encryption` feature compiled in. Say so explicitly — an encrypted
         // database must never be reported as "corrupt" (ADR-0057 D7).
         if is_encrypted(base.format_version) && !cfg!(feature = "encryption") {
@@ -472,8 +531,12 @@ impl WalCrypto {
     ///
     /// Layout: `[u32 ct_len][u32 crc32c(ct)][12B nonce][ct ‖ 16B tag]
     /// [32B prev_hash][32B record_hash]`.
+    ///
+    /// `identifier` is the segment identity (`wal_identifier`), part of the
+    /// AAD — FIND-586.
     fn frame(
         &mut self,
+        identifier: &[u8],
         payload: &[u8],
         slot: u64,
         prev: &[u8; CHAIN_HASH_SIZE],
@@ -483,6 +546,7 @@ impl WalCrypto {
             .epoch(nonce.epoch())
             .slot(slot)
             .plaintext_len(payload.len())
+            .identifier(identifier)
             .build();
         // `ct` is the AEAD blob: `ciphertext ‖ 16-byte tag`.
         let ct = self
@@ -612,7 +676,7 @@ fn chain_hash_v4(
 
 /// The format version written to a **new** segment.
 ///
-/// A writer holding an encryption context writes the encrypted format (v4);
+/// A writer holding an encryption context writes the encrypted format (v5);
 /// every other writer keeps the plaintext format (v3), whose bytes are
 /// unchanged by this feature.
 fn segment_version_for(encrypted: bool) -> u16 {
@@ -671,6 +735,11 @@ pub struct WalWriter {
     /// `encryption` feature the slot holds the real context; without it the
     /// slot is uninhabited and every WAL is plaintext.
     crypto: Option<WalCryptoSlot>,
+    /// The AAD identity of this segment (`wal_identifier`): the stem before
+    /// `.wal`, stable across rotation (FIND-586). Unused without the
+    /// `encryption` feature: a plaintext WAL has no AAD.
+    #[cfg_attr(not(feature = "encryption"), allow(dead_code))]
+    identifier: Vec<u8>,
 }
 
 impl WalWriter {
@@ -721,7 +790,7 @@ impl WalWriter {
     /// The format version written to a **new** segment.
     ///
     /// A writer holding an encryption context writes the encrypted format
-    /// (v4); every other writer keeps the plaintext format (v3), whose bytes
+    /// (v5); every other writer keeps the plaintext format (v3), whose bytes
     /// are unchanged by this feature.
     fn segment_version(&self) -> u16 {
         segment_version_for(self.crypto.is_some())
@@ -770,6 +839,10 @@ impl WalWriter {
             file.read_exact(&mut header_bytes)?;
             let header = WalHeader::deserialize(&header_bytes)?;
             let version = header.base.format_version;
+
+            // FIND-586: a WAL written with the pre-file-identity AAD is refused
+            // explicitly — it cannot be read with the current binding.
+            refuse_legacy_encrypted_layout(version)?;
 
             // An encrypted WAL needs the key: without one the open fails with
             // an explicit error, never with "corrupt" (ADR-0057 D7).
@@ -833,6 +906,7 @@ impl WalWriter {
         };
 
         let buffer_size = buffer_size.clamp(KIB, 32 * 1024 * KIB);
+        let identifier = wal_identifier(&path);
 
         Ok(Self {
             writer: BufWriter::with_capacity(buffer_size, file),
@@ -846,6 +920,7 @@ impl WalWriter {
             format_version,
             chain_head,
             crypto,
+            identifier,
         })
     }
 
@@ -868,7 +943,7 @@ impl WalWriter {
             // frames already written to it (ADR-0057 D4).
             let slot = self.record_count;
             let prev = self.chain_head;
-            let (frame, record_hash) = crypto.frame(&payload, slot, &prev)?;
+            let (frame, record_hash) = crypto.frame(&self.identifier, &payload, slot, &prev)?;
             self.writer.write_all(&frame)?;
             self.chain_head = record_hash;
             self.bytes_written += frame.len() as u64;
@@ -980,7 +1055,7 @@ impl WalWriter {
             for record in records {
                 payload.clear();
                 postcard::to_io(record, &mut payload).map_err(Error::serialization)?;
-                let (frame, record_hash) = crypto.frame(&payload, slot, &prev)?;
+                let (frame, record_hash) = crypto.frame(&self.identifier, &payload, slot, &prev)?;
                 buf.extend_from_slice(&frame);
                 prev = record_hash;
                 slot += 1;
@@ -1210,7 +1285,11 @@ pub(crate) fn scratch_path(path: &Path) -> PathBuf {
 }
 
 /// Read the on-disk format version of a WAL segment (0 when unreadable).
-fn segment_version(path: &Path) -> u16 {
+///
+/// Reads the cleartext header only, so it works **without the key** — the
+/// shipper uses it to refuse an encrypted segment before shipping anything
+/// (FIND-496).
+pub(crate) fn segment_version(path: &Path) -> u16 {
     let Ok(mut file) = File::open(path) else {
         return 0;
     };
@@ -1609,6 +1688,7 @@ fn read_encrypted_frame<R: Read + Seek>(
     pos: u64,
     file_len: u64,
     key: &WalKey,
+    identifier: &[u8],
     slot: u64,
 ) -> Result<(EncryptedFrameStatus, u64, Vec<u8>)> {
     if reader.seek(SeekFrom::Start(pos)).is_err() {
@@ -1652,6 +1732,7 @@ fn read_encrypted_frame<R: Read + Seek>(
         .epoch(nonce.epoch())
         .slot(slot)
         .plaintext_len((ct_len - V4_MIN_BLOB) as usize)
+        .identifier(identifier)
         .build();
     let plaintext = match key.cipher.decrypt_with_nonce(nonce.as_bytes(), &ct, &aad) {
         Ok(plaintext) => plaintext,
@@ -1684,12 +1765,13 @@ fn read_encrypted_frame<R: Read + Seek>(
 #[cfg(feature = "encryption")]
 fn recover_valid_records_v4(path: &Path, file_len: u64, key: &WalKey) -> Result<(u64, usize)> {
     let mut file = File::open(path)?;
+    let identifier = wal_identifier(path);
     let mut offset = WalHeader::SIZE as u64;
     let mut count = 0usize;
 
     while offset < file_len {
         let (status, frame_len, _) =
-            read_encrypted_frame(&mut file, offset, file_len, key, count as u64)?;
+            read_encrypted_frame(&mut file, offset, file_len, key, &identifier, count as u64)?;
         match status {
             EncryptedFrameStatus::Valid => {
                 count += 1;
@@ -2107,6 +2189,10 @@ pub struct WalReader {
     /// The ordinal of the next frame — the AAD slot (v4 only).
     #[cfg(feature = "encryption")]
     frame_slot: u64,
+    /// The AAD identity of this segment (`wal_identifier`), which binds every
+    /// frame to its file (FIND-586). Unused without the `encryption` feature.
+    #[cfg_attr(not(feature = "encryption"), allow(dead_code))]
+    identifier: Vec<u8>,
 }
 
 impl WalReader {
@@ -2127,6 +2213,7 @@ impl WalReader {
 
     #[cfg_attr(not(feature = "encryption"), allow(unused_variables))]
     fn open_impl(path: impl AsRef<Path>, key: Option<WalKeySlot>) -> Result<Self> {
+        let path = path.as_ref();
         let mut file = File::open(path)?;
         let file_len = file.metadata()?.len();
 
@@ -2140,6 +2227,9 @@ impl WalReader {
         let mut header_bytes = [0u8; WalHeader::SIZE];
         file.read_exact(&mut header_bytes)?;
         let header = WalHeader::deserialize(&header_bytes)?;
+        // FIND-586: the pre-file-identity encrypted layout is refused, never
+        // read with the weaker binding.
+        refuse_legacy_encrypted_layout(header.base.format_version)?;
         let encrypted = is_encrypted(header.base.format_version);
 
         // An encrypted WAL needs the key: refuse explicitly, never "corrupt".
@@ -2159,6 +2249,7 @@ impl WalReader {
             key,
             #[cfg(feature = "encryption")]
             frame_slot: 0,
+            identifier: wal_identifier(path),
         })
     }
 
@@ -2298,6 +2389,7 @@ impl WalReader {
             current_pos,
             file_len,
             key,
+            &self.identifier,
             self.frame_slot,
         )?;
         match status {
@@ -4036,6 +4128,57 @@ mod encryption_tests {
         // The WAL still replays the frames that were written.
         let key = WalKey::open(dir.path(), &master(0x62)).unwrap();
         assert_eq!(replay_bytes(&path, Some(&key)).len(), 1);
+    }
+
+    /// FIND-586: two shards share one DEK **and one epoch** (the allocator is
+    /// shared), so a frame moved from `vanta.shard0.wal@0` to
+    /// `vanta.shard1.wal@0` used to build an identical AAD and the tag still
+    /// authenticated — the hash chain does not stop it (SHA-256 without a key,
+    /// recomputable) and the replay does not validate it.
+    #[test]
+    fn wal_v4_frame_cannot_be_moved_to_another_shard() {
+        let dir = tempfile::tempdir().unwrap();
+        let crypto = WalCrypto::open(dir.path(), &master(0x81)).unwrap();
+        let p0 = dir.path().join("vanta.shard0.wal");
+        let p1 = dir.path().join("vanta.shard1.wal");
+
+        let mut w0 =
+            WalWriter::open_encrypted(&p0, crate::config::SyncMode::Periodic, crypto.clone())
+                .unwrap();
+        w0.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+        w0.sync().unwrap();
+        let mut w1 =
+            WalWriter::open_encrypted(&p1, crate::config::SyncMode::Periodic, crypto.clone())
+                .unwrap();
+        w1.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+        w1.sync().unwrap();
+        drop(w0);
+        drop(w1);
+
+        let b0 = std::fs::read(&p0).unwrap();
+        let b1 = std::fs::read(&p1).unwrap();
+        let f0 = v4_frames(&b0);
+        let f1 = v4_frames(&b1);
+        assert_eq!(f0.len(), 1);
+        assert_eq!(f1.len(), 1);
+        assert_eq!(
+            f0[0].1 - f0[0].0,
+            f1[0].1 - f1[0].0,
+            "same-length records → the same ordinal and length"
+        );
+
+        // Graft shard0's frame over shard1's only frame.
+        let mut moved = b1[..f1[0].0].to_vec();
+        moved.extend_from_slice(&b0[f0[0].0..f0[0].1]);
+        moved.extend_from_slice(&b1[f1[0].1..]);
+        std::fs::write(&p1, &moved).unwrap();
+
+        let mut reader = WalReader::open_with_key(&p1, crypto.key()).unwrap();
+        let err = reader.next_record().unwrap_err();
+        assert!(
+            matches!(err, Error::EncryptionKeyRejected { .. }),
+            "a frame moved between sibling shards must not authenticate, got: {err}"
+        );
     }
 
     /// The shipping path reads a WAL segment with a [`WalReader`]: a v4

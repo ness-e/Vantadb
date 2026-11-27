@@ -15,8 +15,10 @@
 //! ```
 //!
 //! * `blob_len` is the length of the AEAD blob (`ciphertext ‖ tag`).
-//! * The **AAD** binds the blob to its **byte offset** (`slot = off`), so a
-//!   node moved to another offset fails to authenticate (ADR-0057 D4).
+//! * The **AAD** binds the blob to its segment (`identifier` = the segment
+//!   file name) **and** to its byte offset (`slot = off`), so a node moved to
+//!   another offset — or grafted into a sibling segment at the same offset —
+//!   fails to authenticate (ADR-0057 D4, FIND-586).
 //! * The nonce is `epoch ‖ counter` and the epoch is persisted **before**
 //!   the first encryption under it (ADR-0057 D3).
 //!
@@ -159,15 +161,22 @@ impl VFileCrypto {
 
     /// Seal a node record: `[u32 blob_len][12B nonce][ct ‖ 16B tag]`.
     ///
-    /// `offset` is the byte offset the record will live at — it is the
-    /// **slot** of the AAD, so a record moved to another offset no longer
-    /// authenticates (ADR-0057 D4).
+    /// `segment` is the identity of the segment the record belongs to (its
+    /// file name) and `offset` the byte offset it will live at: both are part
+    /// of the AAD, so a record moved to another offset — or grafted into a
+    /// sibling segment at the same offset — no longer authenticates
+    /// (ADR-0057 D4, FIND-586).
     ///
     /// # Errors
     ///
     /// [`Error::EncryptionKeyRequired`] when the context is read-only and
     /// [`Error::EncryptionCorrupt`] when the registry cannot be written.
-    pub(crate) fn seal_node(&self, offset: u64, plaintext: &[u8]) -> Result<Vec<u8>> {
+    pub(crate) fn seal_node(
+        &self,
+        segment: &[u8],
+        offset: u64,
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>> {
         let nonce = self.next_nonce()?;
         let aad = AadBuilder::new(
             Artifact::VantaFile,
@@ -176,6 +185,7 @@ impl VFileCrypto {
         .epoch(nonce.epoch())
         .slot(offset)
         .plaintext_len(plaintext.len())
+        .identifier(segment)
         .build();
         // `ct` is the AEAD blob: `ciphertext ‖ 16-byte tag`.
         let ct = self
@@ -202,7 +212,12 @@ impl VFileCrypto {
     /// (truncated, impossible length) and [`Error::EncryptionKeyRejected`]
     /// when the AEAD tag does not authenticate (wrong key **or** tampered
     /// ciphertext — a single tag cannot tell them apart).
-    pub(crate) fn open_node(&self, offset: u64, record: &[u8]) -> Result<Zeroizing<Vec<u8>>> {
+    pub(crate) fn open_node(
+        &self,
+        segment: &[u8],
+        offset: u64,
+        record: &[u8],
+    ) -> Result<Zeroizing<Vec<u8>>> {
         if record.len() < RECORD_PREFIX_LEN + TAG_LEN {
             return Err(corrupt(format!(
                 "node record at offset {offset} is truncated ({} bytes)",
@@ -225,6 +240,7 @@ impl VFileCrypto {
         .epoch(Nonce::from_bytes(nonce).epoch())
         .slot(offset)
         .plaintext_len(blob_len - TAG_LEN)
+        .identifier(segment)
         .build();
         self.cipher
             .decrypt_with_nonce(&nonce, ct, &aad)
@@ -348,9 +364,24 @@ fn corrupt(detail: String) -> Error {
     }
 }
 
+/// The AAD identity of a segment: its **file name** (FIND-586).
+///
+/// The segments of a database live in one directory and share the `vfile`
+/// DEK, so the file name is the granularity the inter-file attack needs:
+/// `vstore_L0.vanta` and `vstore_L1.vanta` produce different AADs. The name is
+/// part of the AAD, so **renaming a segment invalidates its ciphertext** — the
+/// engine never renames them (rotation/compaction rewrite in place).
+///
+/// An in-memory segment has no path: it gets a fixed placeholder, which is
+/// unambiguous because a `File` is the only writer of its own in-memory image.
+#[cfg(feature = "encryption")]
+pub(crate) fn segment_identifier(path: &Path) -> &[u8] {
+    path.file_name()
+        .map_or(b"<memory>".as_slice(), |name| name.as_encoded_bytes())
+}
+
 /// Length of the AEAD nonce (ADR-0057 D3).
 pub(crate) const NONCE_LEN: usize = 12;
-
 /// Length of the AEAD tag.
 pub(crate) const TAG_LEN: usize = 16;
 
@@ -753,12 +784,12 @@ mod tests {
             guard.set_counter_for_test(u32::MAX - 2);
         }
         // Two nonces fit in the old epoch…
-        let a = crypto.seal_node(64, b"a").expect("seal");
-        let b = crypto.seal_node(128, b"b").expect("seal");
+        let a = crypto.seal_node(b"vanta-test", 64, b"a").expect("seal");
+        let b = crypto.seal_node(b"vanta-test", 128, b"b").expect("seal");
         assert_eq!(&a[4..12], &b[4..12], "both use the same epoch");
         assert_ne!(&a[12..16], &b[12..16], "the counter advances");
         // …the third exhausts the counter: a new epoch is rolled.
-        let c = crypto.seal_node(192, b"c").expect("seal");
+        let c = crypto.seal_node(b"vanta-test", 192, b"c").expect("seal");
         assert_ne!(
             &c[4..12],
             &a[4..12],
@@ -818,6 +849,53 @@ mod tests {
         );
     }
 
+    /// FIND-586: the AAD binds the record to its **segment**, not only to its
+    /// offset. L0..L3 share one `VFileCrypto` (one DEK, one nonce space), so a
+    /// blob copied from `vstore_L0.vanta@X` into `vstore_L1.vanta@X` used to
+    /// produce an identical AAD (same epoch, slot and length) and the tag still
+    /// authenticated — the HNSW, which stores `(segment, offset)`, would then
+    /// resolve the vector of another node with no error.
+    #[test]
+    fn vfile_v3_node_blob_cannot_be_moved_to_another_segment() {
+        let dir = tempfile::tempdir().unwrap();
+        // One context for every segment: the engine layout (`init.rs`).
+        let crypto = Arc::new(VFileCrypto::open(dir.path(), &material(0x11)).expect("registry"));
+        let mut l0 = File::open_with_crypto(
+            dir.path().join("vstore_L0.vanta"),
+            64 * 1024,
+            false,
+            Some(crypto.clone()),
+        )
+        .expect("L0");
+        let mut l1 = File::open_with_crypto(
+            dir.path().join("vstore_L1.vanta"),
+            64 * 1024,
+            false,
+            Some(crypto),
+        )
+        .expect("L1");
+
+        // Same vector length → same record length → same offset.
+        let offset = write_node_to_vstore(&mut l0, &node(5, vec![4.0, 5.0])).unwrap();
+        let same = write_node_to_vstore(&mut l1, &node(6, vec![7.0, 8.0])).unwrap();
+        assert_eq!(offset, same, "the two records must land on the same slot");
+        let record_len = l0.write_cursor - offset;
+
+        // Copy L0's record over L1's slot.
+        let record = l0.mmap_bytes()[offset as usize..(offset + record_len) as usize].to_vec();
+        l1.mmap_bytes_mut().unwrap()[offset as usize..(offset + record_len) as usize]
+            .copy_from_slice(&record);
+
+        // The original still authenticates…
+        assert!(l0.read_node(offset).unwrap().is_some());
+        // …and the grafted copy does not.
+        let err = l1.read_node(offset).unwrap_err();
+        assert!(
+            matches!(err, Error::EncryptionKeyRejected { .. }),
+            "a record moved between sibling segments must not authenticate, got: {err}"
+        );
+    }
+
     /// FIND-618: `open_node` returns `Zeroizing<Vec<u8>>` so that AEAD-decrypted
     /// plaintext is safely wiped upon drop.
     #[test]
@@ -825,10 +903,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let crypto = VFileCrypto::open(dir.path(), &material(0x42)).expect("crypto");
         let payload = b"critical_plaintext_data_must_be_zeroized";
-        let record = crypto.seal_node(64, payload).expect("seal");
+        let record = crypto.seal_node(b"vanta-test", 64, payload).expect("seal");
 
-        let opened: crate::crypto::Zeroizing<Vec<u8>> =
-            crypto.open_node(64, &record).expect("open_node");
+        let opened: crate::crypto::Zeroizing<Vec<u8>> = crypto
+            .open_node(b"vanta-test", 64, &record)
+            .expect("open_node");
         assert_eq!(&*opened, payload);
         assert_eq!(opened.len(), payload.len());
 
