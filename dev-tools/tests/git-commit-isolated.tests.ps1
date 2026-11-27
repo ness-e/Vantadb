@@ -3,6 +3,18 @@
 # leave HEAD on the previous SHA, the worktree intact, and no private index
 # behind.
 #
+# FIND-780 adds the structural property, and it is the reason this file exists:
+# KILLING the process that commits must not move HEAD. Scenario 10 starts the
+# helper with Start-Process, waits until the pre-commit hook is running, then
+# `Stop-Process -Force` on the helper itself (not on a subprocess — a killed
+# parent leaves the `git commit` CHILD alive on Windows, and that child is what
+# baked the empty tree three times: 72643d9df, 290df23d0, 5766654ee). With the
+# plumbing (`commit-tree` + `update-ref`) there is no child holding commit
+# authority, so the kill leaves HEAD where it was.
+#
+# Scenario 10 FAILS against the pre-FIND-780 helper. Reproduce that on purpose:
+#   $env:FIND780_HELPER = '<copy of the old script>'; pwsh -File <this file>
+#
 # Self-contained: every scenario builds a throwaway git repo under $env:TEMP and
 # points the child's TEMP at it, so the private index never lands in the real
 # %TEMP%\opencode and the real checkout is never touched.
@@ -11,7 +23,8 @@
 
 $ErrorActionPreference = "Stop"
 
-$SCRIPT = (Resolve-Path (Join-Path $PSScriptRoot ".." "git-commit-isolated.ps1")).Path
+$SCRIPT = if ($env:FIND780_HELPER) { $env:FIND780_HELPER }
+else { (Resolve-Path (Join-Path $PSScriptRoot ".." "git-commit-isolated.ps1")).Path }
 $EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 $ROOT = Join-Path $env:TEMP ("f778-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
 
@@ -145,6 +158,8 @@ exit 1
 
     $res3 = Invoke-Helper $r3 @("-Message", "test: aborted", "-Paths", "docs/file0.txt")
     Check ($res3.Code -eq 2) "exit code is 2 = commit not created (got $($res3.Code))"
+    Check ($res3.Out -match "pre-commit hook FAILED") "output names the failing gate (FIND-780)"
+    Check ($res3.Out -notmatch "OK:") "never prints OK"
     Check ("$(git -C $r3 rev-parse HEAD)".Trim() -eq $headBefore3) "HEAD did not move"
     Check ((Get-LeftoverIndexes $r3).Count -eq 0) "no private index left behind"
 
@@ -221,6 +236,132 @@ exit 1
     Check ("$(git -C $r7 rev-parse HEAD)".Trim() -eq $headBefore7) "HEAD restored despite the commit not being ours"
     Check ($res7.Out -match "restored anyway") "output explains the empty-tree exception"
     Check ((Get-WorktreeFileCount $r7) -eq 60) "worktree intact (60 files)"
+
+    # ── Scenario 8: the GATE still runs, and sees the paths being committed ──
+    # FIND-780 replaced `git commit` (which ran the hook) with plumbing (which does
+    # not). The hook is now invoked explicitly; this proves it ran AND that its
+    # `git diff --staged` resolves to the PRIVATE index — the same file set git
+    # would have handed it. Without this the fix would trade a data-loss bug for a
+    # silent loss of every gate.
+    Write-Host "`n[8] the pre-commit gate runs and sees the private index" -ForegroundColor Cyan
+    $r8 = New-TestRepo "s8"
+    $r8u = $r8 -replace '\\', '/'
+    Write-Hook $r8 @"
+git diff --cached --name-only > "$r8u/.hook-sees"
+echo ran > "$r8u/.hookran"
+exit 0
+"@
+    Set-Content -LiteralPath (Join-Path $r8 "docs/file0.txt") -Value "MARKER-780 changed" -NoNewline
+    $headBefore8 = "$(git -C $r8 rev-parse HEAD)".Trim()
+
+    $res8 = Invoke-Helper $r8 @("-Message", "test: gate ran", "-Paths", "docs/file0.txt", "-ExpectPresent", "docs/file0.txt::MARKER-780")
+    Check ($res8.Code -eq 0) "exit code is 0 (got $($res8.Code))"
+    Check (Test-Path (Join-Path $r8 ".hookran")) "the pre-commit hook EXECUTED (its own side effect, not our log line)"
+    $hookSees = (Get-Content (Join-Path $r8 ".hook-sees") -ErrorAction SilentlyContinue) -join "`n"
+    Check ($hookSees -match "docs/file0\.txt") "the hook's 'git diff --staged' resolved to the private index"
+    Check ($hookSees -notmatch "file1\.txt") "the hook did not see paths outside the commit"
+    Check ("$(git -C $r8 rev-parse HEAD)".Trim() -ne $headBefore8) "HEAD moved"
+    Check ("$(git -C $r8 log -1 --pretty=%s)".Trim() -eq "test: gate ran") "commit message correct"
+    Check ($res8.Out -match "pre-commit hook passed") "the helper reports the gate result"
+    Check ((Get-LeftoverIndexes $r8).Count -eq 0) "no private index left behind"
+
+    # ── Scenario 9: a peer commits WHILE the hooks run -> compare-and-swap ──
+    # The hook passes (exit 0) but moves HEAD to another lane's commit. Our tree was
+    # built on the OLD HEAD: attaching it would revert their work. update-ref's
+    # expected-old makes that impossible instead of merely unlikely.
+    Write-Host "`n[9] HEAD moves while the hooks run: CAS refuses, peer commit kept" -ForegroundColor Cyan
+    $r9 = New-TestRepo "s9"
+    $r9u = $r9 -replace '\\', '/'
+    Write-Hook $r9 @"
+export GIT_INDEX_FILE="`$(git rev-parse --git-dir)/peer-index"
+git read-tree HEAD
+echo peer > docs/peer.txt
+git add docs/peer.txt
+peer_tree=`$(git write-tree)
+peer=`$(git commit-tree "`$peer_tree" -p HEAD -m "peer during hooks")
+git update-ref HEAD "`$peer"
+echo "`$peer" > "$r9u/.peer-sha"
+exit 0
+"@
+    Set-Content -LiteralPath (Join-Path $r9 "docs/file0.txt") -Value "MARKER-780 mine" -NoNewline
+    $headBefore9 = "$(git -C $r9 rev-parse HEAD)".Trim()
+
+    $res9 = Invoke-Helper $r9 @("-Message", "test: should not land", "-Paths", "docs/file0.txt")
+    $peerSha = ((Get-Content (Join-Path $r9 ".peer-sha") -ErrorAction SilentlyContinue) -join "").Trim()
+    $headAfter9 = "$(git -C $r9 rev-parse HEAD)".Trim()
+    Check ($res9.Code -eq 6) "exit code is 6 = nothing of yours, HEAD not clobbered (got $($res9.Code))"
+    Check ($peerSha.Length -eq 40) "the peer commit exists ($peerSha)"
+    Check ($headAfter9 -eq $peerSha) "the peer's commit is STILL on HEAD (never reverted)"
+    Check ($res9.Out -match "no longer") "output says HEAD was no longer the seeded commit"
+    Check ($res9.Out -notmatch "OK:") "never prints OK"
+    Check ("$(git -C $r9 log -1 --pretty=%s)".Trim() -eq "peer during hooks") "the message on HEAD is the peer's"
+    Check (((Get-Content (Join-Path $r9 "docs/file0.txt") -Raw) -match "MARKER-780 mine")) "our edit is still in the worktree, uncommitted"
+    Check ((Get-LeftoverIndexes $r9).Count -eq 0) "no private index left behind"
+
+    # ── Scenario 10: KILL the process that commits (FIND-780) ───────────────
+    # The incident, reproduced: the hook empties the private index (the payload),
+    # signals, and sleeps. The test kills the HELPER — the process that commits —
+    # with Stop-Process -Force while the commit is in flight. Pre-FIND-780 the
+    # `git commit` CHILD survived the kill, read the emptied index and committed
+    # the canonical empty tree (measured: 60/60 paths deleted, HEAD moved). With
+    # `commit-tree` + `update-ref` the only step that moves HEAD is executed by the
+    # killed process itself, and it never got there.
+    Write-Host "`n[10] kill the committing process mid-flight: HEAD must not move" -ForegroundColor Cyan
+    $r10 = New-TestRepo "s10"
+    $r10u = $r10 -replace '\\', '/'
+    Write-Hook $r10 @"
+git read-tree --empty
+echo ready > "$r10u/.sentinel"
+sleep 3
+exit 0
+"@
+    Set-Content -LiteralPath (Join-Path $r10 "docs/file0.txt") -Value "MARKER-780 killed" -NoNewline
+    $headBefore10 = "$(git -C $r10 rev-parse HEAD)".Trim()
+    $treeBefore10 = "$(git -C $r10 rev-parse 'HEAD^{tree}')".Trim()
+    $countBefore10 = [int](git -C $r10 rev-list --count HEAD)
+    $sentinel10 = Join-Path $r10 ".sentinel"
+    $log10 = Join-Path $r10 ".helper.out"
+
+    $savedTemp = $env:TEMP
+    $savedTmp = $env:TMP
+    $proc = $null
+    try {
+        $env:TEMP = Join-Path $r10 "tmp"
+        $env:TMP = $env:TEMP
+        New-Item -ItemType Directory -Force $env:TEMP | Out-Null
+        # Start-Process joins -ArgumentList with spaces and does NOT quote: the
+        # script path contains "VantaDB Proyect", so it must be quoted here or pwsh
+        # prints its usage help and no commit is ever attempted.
+        $proc = Start-Process pwsh -PassThru -NoNewWindow -WorkingDirectory $r10 `
+            -ArgumentList @("-NoProfile", "-File", "`"$SCRIPT`"", "-Message", "killtest", "-Paths", "docs/file0.txt") `
+            -RedirectStandardOutput $log10 -RedirectStandardError ($log10 + ".err")
+    } finally {
+        $env:TEMP = $savedTemp
+        $env:TMP = $savedTmp
+    }
+
+    $deadline = (Get-Date).AddSeconds(90)
+    while (-not (Test-Path $sentinel10) -and (Get-Date) -lt $deadline -and -not $proc.HasExited) {
+        Start-Sleep -Milliseconds 100
+    }
+    Check (Test-Path $sentinel10) "the commit reached the hook (kill lands mid-flight)"
+    if (Test-Path $sentinel10) {
+        Stop-Process -Id $proc.Id -Force
+        # A killed parent leaves its native children alive on Windows. Wait long
+        # enough that a surviving `git commit` would have finished its work, so
+        # "nothing was created" is MEASURED, not assumed.
+        Start-Sleep -Seconds 8
+    }
+    Get-Content $log10 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    | $_" }
+
+    $headAfter10 = "$(git -C $r10 rev-parse HEAD)".Trim()
+    $treeAfter10 = "$(git -C $r10 rev-parse 'HEAD^{tree}')".Trim()
+    Check ($headAfter10 -eq $headBefore10) "HEAD did not move (kill left the previous SHA: $($headBefore10.Substring(0,8)))"
+    Check ($treeAfter10 -ne $EMPTY_TREE) "HEAD tree is NOT the empty tree (4b825dc...)"
+    Check ($treeAfter10 -eq $treeBefore10) "HEAD tree is unchanged"
+    Check ([int](git -C $r10 rev-list --count HEAD) -eq $countBefore10) "no commit was created at all"
+    Check ((@(git -C $r10 ls-tree -r --name-only HEAD)).Count -eq 60) "HEAD still lists 60 paths"
+    Check ((Get-WorktreeFileCount $r10) -eq 60) "worktree intact (60 files)"
 }
 finally {
     Remove-Item -LiteralPath $ROOT -Recurse -Force -ErrorAction SilentlyContinue

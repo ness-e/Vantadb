@@ -46,6 +46,29 @@
   script exits 4. The private index is removed on every path, including errors.
   History is never rewritten: the guards only refuse to LEAVE HEAD there.
 
+  FIND-780 — THE COMMIT IS CREATED BY PLUMBING, NOT BY `git commit`. The three
+  empty-tree commits (`72643d9df`, `290df23d0`, `5766654ee`) were made by
+  `git commit` reading a private index that THIS SCRIPT's own `finally` had just
+  deleted: a caller piped the helper into `Select-Object -First N`, the pipeline
+  stop unwound the script, the index was removed while the `git commit` CHILD was
+  still running, and git committed the canonical empty tree — with the guards
+  never reached, because the process that runs them was already gone. The guards
+  were not the wrong idea; they were in the wrong place. Now:
+    1. the gate runs FIRST and EXPLICITLY: `git hook run pre-commit` with
+       GIT_INDEX_FILE already on the private index, i.e. the same script, the
+       same arguments and the same staged list git itself would have used. A
+       non-zero hook aborts before any commit object exists;
+    2. the tree is written from the private index AFTER the hooks, as git does
+       (a hook may legitimately rewrite the index);
+    3. the commit is `git commit-tree <tree> -p HEAD` — it reads OBJECTS, never
+       the index — followed by a compare-and-swap `git update-ref HEAD <new> <old>`.
+  A kill at any point therefore leaves HEAD at the old SHA or at the finished
+  commit: after write-tree no step reads the index, and update-ref is atomic. The
+  empty tree is not detected and undone, it is never created. Cost, stated: hooks
+  that `git commit` would run implicitly (`commit-msg`, `post-commit`) do not run.
+  This repo defines only `pre-commit` and `pre-push`; a new commit-time hook must
+  be wired here too, and the missing-hook warning below is the tripwire.
+
   If the commit on HEAD is provably ANOTHER lane's — my `git commit` failed while
   they committed in the same window — it is never restored: that would revert
   their work. Identity is proved by CONTENT (the tree we staged, or every named
@@ -88,8 +111,9 @@
 .NOTES
   Exit codes: 0 ok · 1 content expectation unmet · 2 commit not created ·
   3 commit ok but the SHARED index refresh failed · 4 commit REFUSED by the
-  FIND-778 result guards (HEAD restored) · 5 restore itself failed ·
-  6 REFUSED but HEAD is another lane's commit (kept, not restored).
+  FIND-778 result guards (nothing was created, or HEAD was restored) · 5 restore
+  itself failed · 6 REFUSED but HEAD is another lane's commit — or HEAD moved
+  while the hooks ran (kept, never clobbered).
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Message,
@@ -156,9 +180,9 @@ $headBefore = (& git rev-parse --verify --quiet HEAD 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $headBefore) { $headBefore = $null } else { $headBefore = "$headBefore".Trim() }
 $entriesBefore = if ($headBefore) { Get-TreeEntryCount $headBefore } else { 0 }
 
-$treePlanned = $null      # tree we staged in the private index
-$commitExit = $null       # exit code of `git commit` (null = never ran)
-$preCommitError = $null   # failure before the commit (read-tree/add/guards)
+$treeSeeded = $null      # tree of the private index BEFORE the hooks
+$treePlanned = $null      # tree this commit must carry (the one we create)
+$preCommitError = $null   # failure before a commit object exists
 
 $saved = $env:GIT_INDEX_FILE
 try {
@@ -183,11 +207,80 @@ try {
 
     # Freeze what we are about to commit. The guards compare the committed tree
     # against this, not against a guess.
-    $treePlanned = "$(& git write-tree)" -replace '\s', ''
-    if ($LASTEXITCODE -ne 0 -or -not $treePlanned) { throw "git write-tree failed on the private index" }
+    $treeSeeded = "$(& git write-tree)" -replace '\s', ''
+    if ($LASTEXITCODE -ne 0 -or -not $treeSeeded) { throw "git write-tree failed on the private index" }
+    # On the hook-failure path this is what the guards must judge identity against
+    # (the tree we staged), exactly as before FIND-780.
+    $treePlanned = $treeSeeded
 
-    & git commit -m $Message
-    $commitExit = $LASTEXITCODE
+    # ══ THE GATE, RUN EXPLICITLY (FIND-780) ══════════════════════════════════
+    # `git commit` was what ran .githooks/pre-commit, and `git commit` is what this
+    # script no longer calls (see the plumbing below). The gate must not be lost,
+    # so it runs here through the SAME entry point git uses: `git hook run`
+    # resolves core.hooksPath, and GIT_INDEX_FILE is already the private index, so
+    # the hook's `git diff --staged` sees exactly the paths this commit carries.
+    #
+    # Running the HOOK — not `pre-commit run --config ... --files` — is the whole
+    # point: the shim also enforces DOC-04 junk files, the FIND-726 unmerged and
+    # unstaged-config guards, verify_staged.ps1 and actionlint. Re-listing its
+    # gates here would drop them silently the day the shim changes.
+    $hookDir = "$(& git rev-parse --git-path hooks)".Trim()
+    $hookPresent = [bool]($hookDir -and (Test-Path -LiteralPath (Join-Path $hookDir "pre-commit")))
+    if (-not $hookPresent) {
+        Write-Host "WARNING: no pre-commit hook under '$hookDir' — committing WITHOUT the gate." -ForegroundColor Yellow
+    }
+    & git hook run --ignore-missing pre-commit
+    $hookExit = $LASTEXITCODE
+    if ($hookExit -ne 0) { throw "pre-commit hook FAILED (exit $hookExit): commit blocked, nothing was created" }
+    if ($hookPresent) { Write-Host "pre-commit hook passed." }
+
+    # Written AFTER the hooks, as `git commit` does: a hook may rewrite the index.
+    $treePlanned = "$(& git write-tree)" -replace '\s', ''
+    if ($LASTEXITCODE -ne 0 -or -not $treePlanned) { throw "git write-tree failed after the pre-commit hook" }
+    if ($treePlanned -ne $treeSeeded) {
+        Write-Host "NOTE: the pre-commit hook changed the private index ($($treeSeeded.Substring(0, 8)) -> $($treePlanned.Substring(0, 8)))." -ForegroundColor Yellow
+    }
+
+    # Refuse the catastrophe BEFORE it is a commit. The result guards below still
+    # run (a hook can move HEAD itself), but the empty tree is never created by us.
+    if ($treePlanned -eq $EMPTY_TREE) {
+        Write-Host ""
+        Write-Host "REFUSED (FIND-780): the private index is EMPTY after the hooks." -ForegroundColor Red
+        Write-Host "  - CATASTROPHIC: the tree staged for this commit is the canonical EMPTY tree ($EMPTY_TREE)" -ForegroundColor Red
+        Write-Host "    — committing it would delete every tracked path. A hook emptied the index," -ForegroundColor Red
+        Write-Host "    or it vanished; the commit was NOT created and HEAD did not move." -ForegroundColor Red
+        Write-Host "  re-run without piping this script, and check the hook output above." -ForegroundColor Yellow
+        exit 4
+    }
+    $plannedEntries = Get-TreeEntryCount $treePlanned
+    if ($plannedEntries -lt 0 -or $plannedEntries -lt ($entriesBefore - $MAX_ENTRY_DROP)) {
+        Write-Host ""
+        Write-Host "REFUSED (FIND-780): the staged tree lost too many paths, refusing to create the commit." -ForegroundColor Red
+        Write-Host "  - tree $treePlanned has $plannedEntries entries; HEAD had $entriesBefore (largest legitimate drop measured: 43)" -ForegroundColor Red
+        Write-Host "  HEAD did not move. For a deliberate bulk delete of more than $MAX_ENTRY_DROP tracked files use plain 'git commit'." -ForegroundColor Red
+        exit 4
+    }
+
+    if (-not $headBefore) { throw "HEAD could not be resolved; refusing to create a parentless commit" }
+
+    # ══ CREATE THE COMMIT WITH PLUMBING (FIND-780) ═══════════════════════════
+    # `git commit-tree` reads the TREE OBJECT, not the index: from here on the
+    # private index may be deleted by anything (a kill unwinding this script's
+    # `finally`, a temp cleaner) and the commit is unaffected.
+    $newCommit = "$(& git commit-tree $treePlanned -p $headBefore -m $Message)" -replace '\s', ''
+    if ($LASTEXITCODE -ne 0 -or -not $newCommit) { throw "git commit-tree failed; no commit object was created" }
+
+    # Compare-and-swap: only move HEAD if it is still the commit we seeded from.
+    # A peer that committed while the hooks ran is NEVER clobbered or reverted.
+    & git update-ref -m $Message HEAD $newCommit $headBefore
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ""
+        Write-Host "REFUSED (FIND-780): HEAD is no longer $headBefore — another lane committed while the hooks ran." -ForegroundColor Red
+        Write-Host "  Your commit object was built against the old HEAD and would have reverted their work," -ForegroundColor Red
+        Write-Host "  so it was NOT attached to HEAD: $newCommit" -ForegroundColor Yellow
+        Write-Host "  Nothing of yours was committed; your work is still in the worktree. Re-run the commit." -ForegroundColor Yellow
+        exit 6
+    }
 } catch {
     $preCommitError = $_.Exception.Message
 } finally {
@@ -200,8 +293,10 @@ try {
 }
 
 # ══ RESULT VALIDATION — RUNS ON BOTH PATHS (FIND-778) ═══════════════════════
-# Not an `if success` block: `git commit` exiting non-zero does NOT mean nothing
-# was created. Both of today's empty-tree commits were reported as failures.
+# Not an `if success` block: a hook moving HEAD, or a step exiting non-zero, does
+# NOT mean nothing was created. Both of today's empty-tree commits were reported
+# as failures. The commit step itself is now plumbing that cannot half-exist
+# (FIND-780), but the hook still runs arbitrary code on HEAD — so this stays.
 $headAfter = (& git rev-parse --verify --quiet HEAD 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $headAfter) { $headAfter = $null } else { $headAfter = "$headAfter".Trim() }
 $moved = [bool]($headBefore -and $headAfter -and ($headAfter -ne $headBefore))
@@ -210,17 +305,14 @@ $reasons = New-Object System.Collections.Generic.List[string]
 $isOurs = $false
 $treeAfter = $null
 
-if ($commitExit -eq 0 -and -not $moved) {
-    $reasons.Add("git commit exited 0 but HEAD did not move ($headBefore): nothing was committed")
-}
-
 if ($moved) {
     $headAfterTree = & git rev-parse "$headAfter^{tree}"
     $treeAfter = "$headAfterTree".Trim()
     $entriesAfter = Get-TreeEntryCount $headAfter
 
-    # Whose commit is on HEAD? If MY `git commit` failed and ANOTHER lane committed
-    # in the same window, these guards would be judging THEIR commit — and
+    # Whose commit is on HEAD? If MY commit step failed (a hook rejecting it, a lost
+    # compare-and-swap) and ANOTHER lane committed in the same window, these guards
+    # would be judging THEIR commit — and
     # restoring it would revert their work. Identity is proved by CONTENT only: the
     # exact tree we staged, or every path we named landing byte-identical. The
     # commit SUBJECT is not identity: two lanes using the same conventional message
@@ -309,7 +401,6 @@ if ($reasons.Count -gt 0) {
 if (-not $moved) {
     # Nothing was created — report the original failure, nothing to restore.
     if ($preCommitError) { Write-Host "ERROR: $preCommitError" -ForegroundColor Red }
-    elseif ($null -ne $commitExit) { Write-Host "ERROR: git commit failed (exit $commitExit); HEAD did not move." -ForegroundColor Red }
     else { Write-Host "ERROR: the commit was not created." -ForegroundColor Red }
     exit 2
 }
@@ -330,8 +421,11 @@ if (-not $isOurs) {
 }
 
 $commit = (& git rev-parse --short HEAD).Trim()
-if ($null -ne $commitExit -and $commitExit -ne 0) {
-    Write-Host "NOTE: git commit reported exit $commitExit but HEAD moved to $commit and the result is provably ours." -ForegroundColor Yellow
+if ($preCommitError) {
+    # Only reachable when a hook moved HEAD to a commit that IS provably ours and
+    # then failed the commit. The work landed, so report it — but never as green.
+    Write-Host "NOTE: $preCommitError" -ForegroundColor Yellow
+    Write-Host "NOTE: HEAD moved to $commit and the result is provably ours, but the GATE FAILED. Do not treat this as a green commit." -ForegroundColor Yellow
 }
 
 # ── Refresh the SHARED index for these paths ────────────────────────────────
