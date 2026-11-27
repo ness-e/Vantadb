@@ -93,6 +93,80 @@ mediana de 3**, no en el soak.
    - `Certified Forgets Verified: 10/10` estaba **hardcodeado** (`/10`), así que
      un `--turns 200` con 2 forgets imprimía `2/10`. Ahora es `/{total_purged}`.
 
+## El gate a 10 000 turnos (la escala que pide la fila)
+
+Corrida real, sin muestreo, `--variant full`:
+
+```
+$ python evals/soak_test.py --turns 10000 --variant full --max-slope-factor 3.0
+10000 | Checkpoint 100 | 132877.4 KiB | 370.90 MiB | 40.096 | 379.709 | 0 | 100 | 10500
+
+   Certified Forgets Verified: 100/100
+   Write Latency p50: 9.263 ms | p99: 100.305 ms
+   Search Latency p50: 66.968 ms | p99: 307.721 ms
+   Final RSS: 371.04 MiB (Delta: 334.44 MiB)
+   Drift [full]: p50 0.455 -> 163.131 ms (factor 358.53, gate <= 3.0) = FAILED;
+   keys 105 -> 10500, us/key 0.004333 -> 0.015536 (factor 3.586)          exit 1
+```
+
+Tres lecturas, todas medidas:
+
+1. **El gate falla a la escala que pedía la fila**: p50 ×358.53 contra un techo
+   de ×3.00, `exit 1`.
+2. **Pero el factor 358 no es una fuga**: el corpus creció **100×** (105 → 10 500
+   claves) y el coste por clave sólo **3.59×**. El exponente implícito es
+   `log(358.53)/log(100) = **1.277**`, que coincide con el **1.283** que da la
+   sonda entre 100 y 1 000 claves y está muy lejos del 2.0 cuadrático. Es el mismo
+   resultado, por otra vía, y confirma que **no hay acumulación**.
+3. **Lo que sí creció de más es el RSS:** 371.04 MiB (delta **+334.44 MiB**) para
+   10 500 vectores de 64d, que en crudo son **2.7 MiB**. Es ~124× el volumen de
+   vectores: eso **no** lo explica el corpus. Queda como deuda medida de esta fila
+   (`memory_and_storage` en el JSON), no como claim: no se atribuyó a un mecanismo.
+
+**Coste de la corrida:** 10 000 turnos tardaron **~2 h** en esta máquina. Con el
+exponente medido, el gate a 10 000 turnos **se puede correr** (no se cuelga), pero
+no entra en un CI de 60 min: si va a ser gate de CI, la escala razonable es
+1 000 turnos con `us/clave` como invariante.
+
+Artefacto: `evals/results/soak_10000t_full.json`.
+
+## El gate a 10 000 turnos (la escala que pide la fila)
+
+Corrida real, sin muestreo, `--variant full`:
+
+```
+$ python evals/soak_test.py --turns 10000 --variant full --max-slope-factor 3.0
+10000 | Checkpoint 100 | 132877.4 KiB | 370.90 MiB | 40.096 | 379.709 | 0 | 100 | 10500
+
+   Certified Forgets Verified: 100/100
+   Write Latency p50: 9.263 ms | p99: 100.305 ms
+   Search Latency p50: 66.968 ms | p99: 307.721 ms
+   Final RSS: 371.04 MiB (Delta: 334.44 MiB)
+   Drift [full]: p50 0.455 -> 163.131 ms (factor 358.53, gate <= 3.0) = FAILED;
+   keys 105 -> 10500, us/key 0.004333 -> 0.015536 (factor 3.586)          exit 1
+```
+
+Tres lecturas, todas medidas:
+
+1. **El gate falla a la escala que pedía la fila**: p50 ×358.53 contra un techo
+   de ×3.00, `exit 1`.
+2. **Pero el factor 358 no es una fuga**: el corpus creció **100×** (105 → 10 500
+   claves) y el coste por clave sólo **3.59×**. El exponente implícito es
+   `log(358.53)/log(100) = **1.277**`, que coincide con el **1.283** que da la
+   sonda entre 100 y 1 000 claves y está muy lejos del 2.0 cuadrático. Es el mismo
+   resultado, por otra vía, y confirma que **no hay acumulación**.
+3. **Lo que sí creció de más es el RSS:** 371.04 MiB (delta **+334.44 MiB**) para
+   10 500 vectores de 64d, que en crudo son **2.7 MiB**. Es ~124× el volumen de
+   vectores: eso **no** lo explica el corpus. Queda como deuda medida de esta fila
+   (`memory_and_storage` en el JSON), no como claim: no se atribuyó a un mecanismo.
+
+**Coste de la corrida:** 10 000 turnos tardaron **~2 h** en esta máquina. Con el
+exponente medido, el gate a 10 000 turnos **se puede correr** (no se cuelga), pero
+no entra en un CI de 60 min: si va a ser gate de CI, la escala razonable es
+1 000 turnos con `us/clave` como invariante.
+
+Artefacto: `evals/results/soak_10000t_full.json`.
+
 ## Verificación
 
 ```
