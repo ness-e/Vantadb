@@ -569,6 +569,87 @@ jobs:
           path: junit.xml
           if-no-files-found: warn
 
+  tests-guard:
+    # FIND-787 (2026-11-26): un job que se salta reporta `skipped`, y GitHub
+    # cuenta `skipped` como required check SATISFECHO. Textual, en
+    # docs.github.com/en/pull-requests/reference/status-checks: "A job that is
+    # skipped will report its status as 'Success'. It will not prevent a pull
+    # request from merging, even if it is a required check." Medido en el
+    # push `43e41f055`: `Secret Scan` en rojo -> los tres `Tests
+    # (Linux/Windows/macOS)` quedaron `skipped` (`steps: []`, `runner` vacio,
+    # `started_at` 21:29:32Z POSTERIOR a `completed_at` 21:29:31Z: nunca
+    # vieron un runner) y el
+    # candado de `develop` se cerro con la suite SIN ejecutar un solo test.
+    # `Secret Scan` no esta entre los 14 contexts required de 23692587, asi
+    # que nada mas bloqueaba: el unico efecto del rojo fue apagar tres gates.
+    #
+    # Este job es la mitad que faltaba. `needs` + `if: always()` lo hacen
+    # correr SIEMPRE, incluso cuando los tres se saltaron, y convierte el
+    # `skipped` en ROJO nombrando el job. No reemplaza a los tres (ellos
+    # siguen siendo los required): agrega el unico veredicto que ellos no
+    # pueden dar -"se ejecuto?"- sin exigir que corran cuando `rust-scope` ya
+    # midio que no hay nada que medir.
+    #
+    # Por que NO un check que solo se publique cuando la suite ejecuta
+    # (la otra opcion de la fila): un context required ausente queda
+    # `Pending` para siempre -el deadlock de `FIND-765`, y la forma de
+    # `FIND-791`-. Un required TIENE que reportar en cada run; lo unico
+    # elegible es que el reporte de "no ejecuto" sea rojo. Eso es este job.
+    #
+    # Inerte hasta que el owner lo agregue al ruleset (decision suya, ver
+    # docs/dev/tasks/FIND-787.md "Cambio de ruleset propuesto"). No es el
+    # deadlock de FIND-765 justamente porque reporta siempre: `ci-rust.yml`
+    # no lleva `paths:` en `pull_request:` (FIND-770) y `if: always()` no
+    # depende del evento ni del actor.
+    name: Tests Executed (guard)
+    needs: [rust-scope, test, test-windows, test-macos]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Mismo bloque que el resto de jobs del fichero, por el mismo motivo que
+    # documenta el `concurrency:` de workflow: hoy es inerte (el grupo de
+    # workflow serializa el ref), pero un cambio futuro de ese grupo no debe
+    # resucitar la clase en un check required.
+    concurrency:
+      group: tests-guard-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - name: Fail when a required test check was skipped instead of executed
+        env:
+          SCOPE: ${{ needs.rust-scope.outputs.rust }}
+          SCOPE_RESULT: ${{ needs.rust-scope.result }}
+          LINUX: ${{ needs.test.result }}
+          WINDOWS: ${{ needs.test-windows.result }}
+          MACOS: ${{ needs.test-macos.result }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+
+          # Unico `skipped` legitimo: `rust-scope` MIDIO el diff del PR y no
+          # hay nada que el build Rust lea. No es una omision, es una decision
+          # con evidencia; el job la registra y pasa. Fail-closed en el resto:
+          # scope roto o sin valor -> se exige ejecucion.
+          if [ "${SCOPE:-}" = "false" ] && [ "${SCOPE_RESULT:-}" = "success" ]; then
+            echo "rust-scope measured the diff: not a Rust change -> the test suites are out of scope"
+            exit 0
+          fi
+
+          failed=""
+          for entry in "Tests (Linux)=${LINUX:-unknown}" "Tests (Windows)=${WINDOWS:-unknown}" "Tests (macOS)=${MACOS:-unknown}"; do
+            job="${entry%=*}"
+            case "${entry##*=}" in
+              success|failure) echo "  ${job} -> ${entry##*=} (executed)" ;;
+              *) failed="${failed}${job} (${entry##*=}); "
+                 echo "::error::${job} reported '${entry##*=}' (actor ${ACTOR:-unknown}) - a required check satisfied by a skip measured nothing (FIND-787)" ;;
+            esac
+          done
+
+          if [ -n "$failed" ]; then
+            echo "::error::The required test suite did not execute: ${failed}fix the upstream cause and re-run - do not merge on a skip"
+            exit 1
+          fi
+          echo "All three required test suites executed"
+
   test-embedding-features:
     name: Tests (embeddings features)
     # FIND-489: el gate NO corria los tests del lib con `remote-inference` ni con
