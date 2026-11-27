@@ -1938,3 +1938,13 @@ el propio SDK ya usa— los arregla a los tres.
 - **L0→L1 informativo, no aserción:** `memory_capture` acepta la sesión (`recorded_count: 1`) y `memory_recall(text, session_id)` devuelve `None` tras 5 intentos. El docstring documenta `None` como «nada que inyectar» y `memory_capture` devuelve `cursor_ms`, así que el ingest puede ser asíncrono: **se reporta inconcluso**, no como bug. Convertir una carrera en defecto sería el error que esta fila persigue.
 - **Lo que no se puede medir, con la prueba:** `dir(vantadb.Client)` no exporta `context_assemble`, `vanta_scene` (L2), `vanta_dream` (L3) ni `thread_send` — son herramientas MCP de `vantadb-mcp`. La ganancia de compresión/precisión de L2/L3 sobre L1 crudo **no se certifica**: se declara bloqueada por falta de superficie, y el arnés que la desbloquea es `FIND-674`.
 - **Verificación:** `exit 0` con la aserción PASS, `ruff check` + `ruff format --check` limpios.
+
+### FIND-513: la fuga del indice de texto queda declarada y disenada (implementacion abierta)
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** la clave de un posting es `namespace 0x00 token 0x00 record_key`: el token (una palabra del payload) y la clave del registro quedan legibles en disco aunque el valor vaya cifrado, y el orden de las claves expone cardinalidad, orden de insercion y tamano del valor (plaintext + 28).
+- **Resultado (parcial, por decision del contrato):** (1) el limite queda **declarado** en `docs/user/operations/SECURITY.md` § Encryption at Rest con su magnitud medida, y (2) el **diseno** de la clave ciega queda decidido y escrito en `docs/dev/tasks/FIND-513.md` (blindex determinista por HMAC sobre `token` y `(token,record_key)`, namespace en claro para conservar los escaneos, marcador `vanta_text_v4` + rebuild del indice derivado en el primer open). **La implementacion no entra en este lote** (D4: no cabe; la fila queda abierta con el delta escrito).
+- **Verificacion:** `posting_key_leak_is_declared_in_the_security_guide` - RED medido con el doc sin la seccion (fallaba el assert del doc); pincha ademas el layout de la clave para que un cambio de formato sin actualizar el doc rompa el test.
+- **Deuda declarada:** cifrar la clave del posting (bump del marcador + rebuild obligatorio del indice de texto: es un cambio de formato en disco, permitido por D2 pero de media wave, no de un fix).
+- **Ids:** `FIND-513`, `FIND-515` (scan solo-claves, relacionada)
+

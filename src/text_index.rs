@@ -871,6 +871,40 @@ mod tests {
         assert_eq!(key, b"agent/main\0memory\0item-1".to_vec());
     }
 
+    /// FIND-513: the posting key is **not** encrypted, so the token and the
+    /// record key travel in clear — the leak is pinned here and the operator
+    /// has to find it declared in the security guide.
+    ///
+    /// The limit is accepted, not accidental: the ADR says "the KV keys are not
+    /// encrypted" and the backend AEAD binds the value to its key (moving it
+    /// fails), so confidentiality of the payload holds and what leaks is the
+    /// vocabulary, the document ids, the cardinality and the value size.
+    /// Encrypting the key changes the on-disk layout of an index already
+    /// written (the lookups would silently return nothing), so it needs the
+    /// version marker + a full rebuild — see `docs/dev/tasks/FIND-513.md`.
+    #[test]
+    fn posting_key_leak_is_declared_in_the_security_guide() {
+        let key = posting_key("agent/main", "memory", "item-1");
+        assert!(
+            key.windows(b"memory".len()).any(|w| w == b"memory"),
+            "the token is readable in the posting key"
+        );
+        assert!(
+            key.windows(b"item-1".len()).any(|w| w == b"item-1"),
+            "the record key is readable in the posting key"
+        );
+
+        let guide = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/user/operations/SECURITY.md");
+        let doc = std::fs::read_to_string(&guide)
+            .unwrap_or_else(|e| panic!("cannot read {}: {e}", guide.display()));
+        assert!(
+            doc.contains("FIND-513"),
+            "the text-index key leak must be declared in {} § Encryption at Rest",
+            guide.display()
+        );
+    }
+
     #[test]
     fn token_counts_preserve_tf_and_unique_count() {
         let counts = token_counts("Alpha alpha beta");
