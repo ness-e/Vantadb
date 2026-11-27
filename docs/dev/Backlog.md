@@ -15,7 +15,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/dev/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
 > **Formato:** esquema canónico de 10 columnas (`.opencode/references/backlog-format.md`; migrado 2026-09-30). Filas completadas: **eliminadas** de las tablas (registro en `docs/dev/avance/`); sin tachados ni ✅ en tablas activas.
-> **Total open items:** recalculado el 2026-11-27 contra `HEAD`: **275 filas en tablas** (**238 `🟡 Pendiente`**, **11 `🟡 Parcial`**, **24 diferidas/bloqueadas/pausadas**, **1 `🔵 Futuro`**). **Este numero envejece con cada commit**: se recalcula, no se arrastra (294 era del 23-nov). Dueño de automatizarlo: `FIND-811`; hoy lo recalculo el orquestador al cerrar cada wave.
+> **Total open items:** recalculado el 2026-11-27 contra `HEAD`: **279 filas** (**263 `🟡 Pendiente`**, **11 `🟡 Parcial`**, **4 bloqueadas por terceros**, **0 diferidas**, **1 `🔵 Futuro`**). **Cero diferidas a `v0.11.0`**: el owner levantó las 23 (4 dias hasta el 01-dic). ⚠️ **Cuidado con el censo**: un patron `[A-Z]+-[A-Z0-9]+` **pierde** los IDs con digito en el prefijo (`H3-05`, `JS-01`): este recuento usa `[A-Z][A-Z0-9]*-[A-Z0-9]+` y da **279**, siete mas que el patron viejo.
 ---
 
 ## Exec Summary
