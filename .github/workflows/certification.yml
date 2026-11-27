@@ -384,6 +384,51 @@ jobs:
       # prose is inside `run:`; the same code with the prose here is clean.
       # Measured 2026-11-26: 136 script lines with comments -> crash, 101 without
       # -> exit 0. Keep the prose in YAML.
+      #
+      # FIND-788 - this step carried the same counter FIND-785 fixed in
+      # snapshot-certification.yml: `grep -oE '^[^[:space:]]+::[^[:space:]]+ '`
+      # over the rendered `nextest list`. `nextest list` prints
+      # `vantadb accumulator::tests::test_x` (package, space, test - not
+      # `pkg::mod::`), this workflow sets CARGO_TERM_COLOR: always so every token
+      # arrives ANSI-wrapped, and `-T auto` picks `oneline` under a pipe and
+      # `human` on a TTY: a count over that text measures how it was PRINTED, not
+      # what was selected. Measured on the twin lane: 42 real lines, 0 counted.
+      # So the population is read from `--message-format json` (the same data
+      # without the presentation): every test whose `filter-match` is `matches`,
+      # which already has the phase's -E applied and lands an ignored test as a
+      # mismatch. `test-count` is NOT the population - it includes skipped and
+      # ignored. `.listed.json` stays the raw source of truth on the artifact and
+      # `.listed.txt` is derived from it, so the artifact is still readable.
+      #
+      # FIND-788 - a broken counter must not switch certification off, and the
+      # three ways of not having a number stay distinguishable: `nextest list`
+      # exit != 0 aborts (there is nothing to measure), 0 counted from an exit-0
+      # list is `measurement=suspect` (a real measurement of zero), and a JSON jq
+      # cannot read is `measurement=unmeasured` (the counter broke). The last two
+      # are a `::warning` and the phase continues, because the failure this guard
+      # must never produce is the one FIND-785 produced - all five phases dead
+      # before a single test ran. `jq` missing aborts up front: the alternative is
+      # counting 0 in all five phases and calling it a measurement. listed > 0
+      # keeps the FIND-768 assertion untouched (a run that executes a different
+      # number than it listed is red), and a non-`counted` state is still red when
+      # the run executes 0 tests. What `suspect`/`unmeasured` do give up is the
+      # listed/executed comparison ITSELF - with no usable population there is
+      # nothing to compare against - so read the assertion as "untouched while
+      # measurement=counted". The `::warning` is a run-summary annotation, not a
+      # silent log line, and the fifth field of listed-vs-executed.txt says which
+      # of the two regimes applied.
+      #
+      # FIND-788 - statement budget, measured rather than argued: the
+      # `set +e` / PIPESTATUS / `set -e` dance is gone (one `|| status=$?` under
+      # `set -o pipefail` records a pipeline or a tee failure, exactly as before),
+      # which paid for 8 of the 13 statements the four-state count needs. The
+      # block ends at 63 statements / 107 script lines, i.e. +5 statements and
+      # +6 lines over the 58 / 101 it had, so the FIND-766 ceiling was NOT taken
+      # for granted: the PINNED actionlint v1.7.7 (docs-gates.yml:725, same
+      # tarball + sha256) returns exit 0 on this file in 1.9 s with shellcheck and
+      # 0.7 s without it, and 1.7.12 - the local binary - in 0.8-1.4 s / 0.1-0.5 s.
+      # If it ever stops returning, retire statements - never the assertion, and
+      # never the prose: it lives up here for that reason.
       - name: Run the dataset-free heavy tests (listed == executed)
         # Cold release compile of the vantadb test binaries + the server and mcp
         # targets (~60 min) plus the tests themselves (~18 min, measured by the
@@ -394,6 +439,8 @@ jobs:
           out=target/nextest/other-heavy
           report=target/nextest/audit/junit.xml
           mkdir -p "$out"
+
+          command -v jq > /dev/null || { echo "jq not found: cannot measure the population." >&2; exit 1; }
 
           cat > "$out/nextest.toml" <<'NEXTEST_EOF'
           [profile.audit]
@@ -407,8 +454,8 @@ jobs:
           run_phase() {
             local phase="$1" coverage="$2" selector="$3"
             shift 3
-            local status listed list_status executed
-            local -a pipeline_status run_args expect
+            local status=0 listed list_status=0 executed measurement
+            local -a run_args expect
             if [[ -f "$report" ]]; then
               mv "$report" "$out/$phase.prior-report.txt"
             fi
@@ -422,42 +469,47 @@ jobs:
               fi
             fi
 
-            set +e
             cargo nextest list \
               --profile audit --cargo-profile release \
               --locked --build-jobs 2 \
               --ignore-default-filter \
+              --message-format json \
               "${cfg[@]}" \
-              "${expect[@]}" > "$out/$phase.listed.txt" 2> "$out/$phase.list.stderr.txt"
-            list_status=$?
-            set -e
-            listed=$(grep -oE '^[^[:space:]]+::[^[:space:]]+ ' "$out/$phase.listed.txt" | wc -l || true)
-            if [[ "$list_status" -ne 0 || "$listed" -eq 0 ]]; then
-              echo "$phase: nextest list exited $list_status selecting $listed test(s) with a full selector." >&2
+              "${expect[@]}" > "$out/$phase.listed.json" 2> "$out/$phase.list.stderr.txt" || list_status=$?
+            listed=$(jq -r '[ ."rust-suites"[] | .testcases[] | select(."filter-match".status == "matches") ] | length' "$out/$phase.listed.json" 2>/dev/null || true)
+            jq -r '."rust-suites" | to_entries[] as $s | $s.value.testcases | to_entries[] | select(.value."filter-match".status == "matches") | "\($s.key) \(.key)"' "$out/$phase.listed.json" > "$out/$phase.listed.txt" 2>/dev/null || true
+            case "$listed" in
+              '' | *[!0-9]*) measurement=unmeasured; listed=0 ;;
+              0) measurement=suspect ;;
+              *) measurement=counted ;;
+            esac
+            if [[ "$list_status" -ne 0 ]]; then
+              echo "$phase: nextest list exited $list_status; the population could not be measured." >&2
               return 1
             fi
+            if [[ "$measurement" != "counted" ]]; then
+              echo "::warning title=Population not measured::$phase measurement=$measurement; continuing without the listed/executed check."
+            fi
 
-            set +e
             cargo nextest run \
               --profile audit --cargo-profile release \
               --locked --build-jobs 2 --test-threads 1 \
               --ignore-default-filter --no-tests fail \
               "${cfg[@]}" \
-              "${run_args[@]}" 2>&1 | tee "$out/$phase.txt"
-            pipeline_status=("${PIPESTATUS[@]}")
-            set -e
-            status="${pipeline_status[0]}"
-            if [[ "${pipeline_status[1]}" -ne 0 ]]; then
-              status=1
-            fi
+              "${run_args[@]}" 2>&1 | tee "$out/$phase.txt" || status=$?
 
             if [[ -f "$report" ]]; then
               cp "$report" "$out/$phase.junit.xml"
               executed=$(grep -o '<testcase' "$out/$phase.junit.xml" | wc -l || true)
-              printf '%s listed=%s executed=%s coverage=%s\n' \
-                "$phase" "$listed" "$executed" "$coverage" \
+              printf '%s listed=%s executed=%s coverage=%s measurement=%s\n' \
+                "$phase" "$listed" "$executed" "$coverage" "$measurement" \
                 | tee -a "$out/listed-vs-executed.txt"
-              if [[ "$executed" -ne "$listed" ]]; then
+              if [[ "$measurement" != "counted" ]]; then
+                if [[ "$executed" -eq 0 ]]; then
+                  echo "$phase: no usable population count ($measurement) and the run executed 0 test(s)." >&2
+                  status=1
+                fi
+              elif [[ "$executed" -ne "$listed" ]]; then
                 echo "$phase: population is $listed test(s) but $executed executed." >&2
                 status=1
               fi
@@ -496,8 +548,15 @@ jobs:
         with:
           name: other-heavy-listed-vs-executed
           # `listed-vs-executed.txt` is the authoritative per-phase count: one
-          # line per phase, written by the run that measured it. Any number
-          # quoted in CI_POLICY or in the task file is the source count, not this.
+          # line per phase, written by the run that measured it, with a fifth
+          # field naming HOW the population was measured (FIND-788): `counted`,
+          # `suspect` (0 selected from an exit-0 list) or `unmeasured` (the JSON
+          # could not be read). The last two also carry a `::warning` in the log -
+          # they do not fail the phase, but a line that says `suspect` never
+          # proves the population. `$phase.listed.json` is the raw nextest list
+          # the count comes from; `$phase.listed.txt` is derived from it. Any
+          # number quoted in CI_POLICY or in the task file is the source count,
+          # not this.
           path: target/nextest/other-heavy/
           if-no-files-found: warn
           retention-days: 30
