@@ -19,6 +19,20 @@ function run($name, [string[]]$cmd) {
     if ($LASTEXITCODE -eq 0) { Write-Host " ok"; $Script:pass++ }
     else { Write-Host " FAIL"; $Script:fail++; Write-Host $out; throw "step failed" }
 }
+# FIND-823: el gate de clippy compila el WORKTREE, no el indice privado. Con otro
+# carril a medias en src/**, cualquier commit de cualquier carril falla por codigo
+# que no esta commiteando, y antes de esto no habia escape: SKIP no se leia aqui.
+# Se honra SKIP con los mismos tokens que el resto del gate (cargo-clippy/clippy).
+function isSkipped([string]$token) {
+    if (-not $env:SKIP) { return $false }
+    $tokens = $env:SKIP -split ',' | ForEach-Object { $_.Trim().ToLower() }
+    return ($tokens -contains $token.ToLower()) -or ($tokens -contains 'cargo-clippy') -or ($tokens -contains 'clippy')
+}
+function foreignSrcWip {
+    # .rs bajo src/ modificados y NO staged: el clippy va a compilarlos igual.
+    $dirty = @(git diff --name-only -- 'src/**' '*.rs' 2>$null | Where-Object { $_ -match '^src/' })
+    return $dirty
+}
 function filesIn($revRange) {
     if ($revRange) { return @(git diff --name-only $revRange 2>$null) }
     return @(git diff --cached --name-only --diff-filter=ACMR 2>$null)
@@ -43,7 +57,15 @@ try {
     foreach ($k in $members) {
         if ($rs | Where-Object { $_ -match "^${k}/" }) {
             $pkg = if ($k -eq 'vantadb-python') { 'vantadb_py' } else { $k }
-            run "clippy -p $pkg" ("cargo", "clippy", "-p", $pkg, "-j", "2", "--", "-D", "warnings")
+            if (isSkipped 'cargo-clippy') {
+                Write-Host "  clippy -p $pkg... SKIPPED on request (SKIP declares cargo-clippy) - NOT verified." -ForegroundColor DarkYellow
+            } else {
+                $wip = foreignSrcWip
+                if ($wip.Count -gt 0) {
+                    Write-Host "  clippy -p $pkg... WARNING: $($wip.Count) .rs bajo src/ sin commitear; clippy compila el WORKTREE, no tu commit (FIND-823)." -ForegroundColor DarkYellow
+                }
+                run "clippy -p $pkg" ("cargo", "clippy", "-p", $pkg, "-j", "2", "--", "-D", "warnings")
+            }
         }
     }
     if ($rs | Where-Object { $_ -match '^src/' }) { Write-Host "  core src/ touched: yaml clippy -p vantadb covers it." }
