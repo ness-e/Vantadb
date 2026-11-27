@@ -1,0 +1,127 @@
+{
+  "benchmark": "certified_unlearning_bench",
+  "finding": "FIND-675",
+  "reference": "arXiv:2606.18497 (Ghost Vectors, 2026); GDPR Art. 17",
+  "timestamp": "2026-11-27T17:10:31-0400",
+  "environment": {
+    "os": "Windows",
+    "arch": "AMD64",
+    "dims": 64,
+    "vantadb_version": "0.9.0"
+  },
+  "forensic": [
+    {
+      "mode": "soft",
+      "forgotten_count": 1,
+      "keys": ["subject-0001"],
+      "certificates": 0,
+      "files_scanned": 55,
+      "payload_recovered_in": [
+        "0.jnl (9x)",
+        "data\\vanta.shard0.wal (2x)",
+        "data\\vanta.shard2.wal (2x)"
+      ],
+      "vector_bytes_recovered_in": [
+        "0.jnl (1x)",
+        "data\\vanta.shard0.wal (1x)",
+        "data\\vanta.shard2.wal (1x)",
+        "data\\vector_index.bin (1x)",
+        "data\\vstore_L0.vanta (2x)"
+      ],
+      "witness_survived": true,
+      "payload_recovery_rate": 1.0,
+      "after_compaction": {
+        "payload_recovered_in": [
+          "0.jnl (7x)",
+          "data\\vanta.shard0.wal (2x)",
+          "data\\vanta.shard2.wal (2x)"
+        ],
+        "vector_bytes_recovered_in": [
+          "0.jnl (1x)",
+          "data\\vanta.shard0.wal (1x)",
+          "data\\vanta.shard2.wal (1x)",
+          "data\\vector_index.bin (1x)",
+          "data\\vstore_L0.vanta (1x)"
+        ],
+        "witness_survived": true
+      }
+    },
+    {
+      "mode": "hard",
+      "forgotten_count": 1,
+      "keys": ["subject-0001"],
+      "certificates": 0,
+      "files_scanned": 55,
+      "payload_recovered_in": ["0.jnl (10x)", "data\\vanta.shard0.wal (2x)"],
+      "vector_bytes_recovered_in": [
+        "0.jnl (1x)",
+        "data\\vanta.shard0.wal (1x)",
+        "data\\vstore_L0.vanta (1x)"
+      ],
+      "witness_survived": true,
+      "payload_recovery_rate": 1.0,
+      "after_compaction": {
+        "payload_recovered_in": [],
+        "vector_bytes_recovered_in": [],
+        "witness_survived": true
+      }
+    },
+    {
+      "mode": "certified",
+      "forgotten_count": 1,
+      "keys": ["subject-0001"],
+      "certificates": 1,
+      "files_scanned": 55,
+      "payload_recovered_in": ["0.jnl (10x)", "data\\vanta.shard0.wal (2x)"],
+      "vector_bytes_recovered_in": [
+        "0.jnl (1x)",
+        "data\\vanta.shard0.wal (1x)",
+        "data\\vstore_L0.vanta (1x)"
+      ],
+      "witness_survived": true,
+      "payload_recovery_rate": 1.0,
+      "after_compaction": {
+        "payload_recovered_in": [],
+        "vector_bytes_recovered_in": [],
+        "witness_survived": true
+      }
+    }
+  ],
+  "certified_recovery_rate": 1.0,
+  "certified_assertion": "FAIL",
+  "churn": [
+    {
+      "deleted_fraction": 0.1,
+      "deleted": 100,
+      "reinserted": 100,
+      "corpus": 1000,
+      "search_p50_ms": 0.972,
+      "search_p99_ms": 1.239,
+      "qps": 1004.89,
+      "queries": 20,
+      "nonempty_result_rate": 1.0
+    },
+    {
+      "deleted_fraction": 0.3,
+      "deleted": 300,
+      "reinserted": 300,
+      "corpus": 1000,
+      "search_p50_ms": 1.425,
+      "search_p99_ms": 1.673,
+      "qps": 733.59,
+      "queries": 20,
+      "nonempty_result_rate": 1.0
+    },
+    {
+      "deleted_fraction": 0.5,
+      "deleted": 500,
+      "reinserted": 500,
+      "corpus": 1000,
+      "search_p50_ms": 1.488,
+      "search_p99_ms": 1.676,
+      "qps": 669.21,
+      "queries": 20,
+      "nonempty_result_rate": 1.0
+    }
+  ]
+}
