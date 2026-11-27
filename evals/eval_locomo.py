@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import datetime
 import hashlib
 import json
 import math
@@ -43,6 +44,7 @@ import os
 import pathlib
 import platform
 import random
+import re
 import statistics
 import sys
 import time
@@ -128,9 +130,14 @@ def percentile(vals: List[float], p: float) -> float:
 
 # ------------------------------------------------------------------ Metrics
 def compute_f1_overlap(gold: str, pred: str) -> float:
-    """Compute token-level lexical F1 score between gold answer and prediction."""
-    g_toks = gold.lower().split()
-    p_toks = pred.lower().split()
+    """Compute token-level lexical F1 score between gold answer and prediction.
+
+    FIND-667: both sides are coerced with `str()` because the official LoCoMo
+    file stores 6 gold answers as JSON numbers (`2022`, `2`, `3`) and a
+    non-string payload would otherwise raise `AttributeError` mid-run.
+    """
+    g_toks = str(gold).lower().split()
+    p_toks = str(pred).lower().split()
     if not g_toks or not p_toks:
         return 0.0
     common = sum((collections.Counter(g_toks) & collections.Counter(p_toks)).values())
@@ -175,6 +182,12 @@ EMBED_DIMS = 384
 _EMBED_CACHE: Dict[str, List[float]] = {}
 _EMBEDDER = None
 _FASTEMBED_CHECKED = False
+# FIND-667: with --strict-embeddings a missing model (or a failed query
+# embedding) is an ERROR, not a silent downgrade to the lexical fallback. A
+# benchmark report that says "embedder: lexical-bm25-fallback" while the caller
+# believed it measured BGE is the same class of defect as FIND-664: a number
+# published for a configuration that never ran.
+_STRICT_EMBEDDINGS = False
 
 
 def _get_embedder():
@@ -230,6 +243,32 @@ def embed_one(text: str) -> List[float]:
     if res and res[0] is not None:
         return res[0]
     return []
+
+
+def embed_query_one(text: str) -> list[float]:
+    """Embed a QUERY with the BGE retrieval instruction (asymmetric retrieval).
+
+    FIND-667(c): documents go through `embed()` (passage semantics), queries
+    must go through `query_embed()` so the model prepends the instruction it
+    was trained with. Using `embed()` for both costs recall on a benchmark
+    whose entire claim is recall. Mirrors `eval_longmemeval.py:294-312`.
+    """
+    embedder = _get_embedder()
+    if embedder is None:
+        if _STRICT_EMBEDDINGS:
+            raise RuntimeError(
+                "embedder unavailable under --strict-embeddings; refusing to "
+                "measure LoCoMo with query vectors disabled"
+            )
+        return []
+    try:
+        return [float(x) for x in next(iter(embedder.query_embed([text])))]
+    except Exception as e:
+        if _STRICT_EMBEDDINGS:
+            raise RuntimeError(
+                f"query embedding failed under --strict-embeddings ({e})"
+            ) from e
+        return []
 
 
 def chunk_session_turns(turns: List[Dict[str, Any]], target_words: int = 250) -> List[str]:
@@ -322,7 +361,7 @@ class VantaLocomoStore:
         valid_window: Optional[Dict[str, int]] = None,
     ) -> List[Dict[str, Any]]:
         """Hybrid RRF search + bitemporal filter + FastGate session-level deduplication."""
-        q_vec = embed_one(query)
+        q_vec = embed_query_one(query)
         candidate_k = max(top_k * 6, 25)
 
         # Call vantadb hybrid search with bitemporal parameters
@@ -434,6 +473,215 @@ class FakeLocomoStore:
 
     def close(self) -> None:
         pass
+
+
+# ------------------------------------------------------------------ Official LoCoMo Adapter (FIND-667)
+# Schema of `snap-research/LoCoMo` `data/locomo10.json` (measured 2026-11-27 against
+# the upstream file, 1986 QA over 10 samples):
+#
+#   [ { "sample_id": "conv-26",
+#       "conversation": { "speaker_a": ..., "speaker_b": ...,
+#                         "session_1": [ {"speaker","dia_id","text"}, ... ],
+#                         "session_1_date_time": "1:56 pm on 8 May, 2023", ... },
+#       "qa": [ {"question","answer","evidence":["D1:3"],"category":1..5}, ... ],
+#       "event_summary", "observation", "session_summary" } ]
+#
+# Note: `session_N` keys may be absent while `session_N_date_time` is present
+# (sample 0 has content for 1..19 but date-time keys up to 35). Sessions are
+# therefore discovered from the CONTENT keys, never from the date-time keys.
+LOCOMO_CATEGORIES = {
+    1: "multi_hop",           # 282 QA upstream
+    2: "temporal_reasoning",  # 321
+    3: "open_domain",         # 96
+    4: "single_hop",          # 841
+    5: "adversarial",         # 446
+}
+
+_SESSION_KEY_RE = re.compile(r"^session_(\d+)$")
+
+
+def _parse_locomo_datetime(text: str) -> int | None:
+    """`"1:56 pm on 8 May, 2023"` → epoch ms (UTC), or None if unparseable."""
+    if not text:
+        return None
+    cleaned = text.strip().replace(",", "")
+    for fmt in ("%I:%M %p on %d %B %Y", "%I:%M %p on %d %b %Y", "%d %B %Y", "%d %b %Y"):
+        try:
+            return int(
+                datetime.datetime.strptime(cleaned, fmt)
+                .replace(tzinfo=datetime.UTC)
+                .timestamp()
+                * 1000
+            )
+        except ValueError:
+            continue
+    return None
+
+
+def _locomo_sessions(conversation: dict[str, Any]) -> list[tuple[int, str, list[dict[str, Any]]]]:
+    """Content sessions of one sample, ordered by their index in the file name."""
+    found: list[tuple[int, str, list[dict[str, Any]]]] = []
+    for key, value in conversation.items():
+        m = _SESSION_KEY_RE.match(key)
+        if not m or not isinstance(value, list):
+            continue
+        found.append((int(m.group(1)), key, value))
+    found.sort(key=lambda t: t[0])
+    return found
+
+
+def _evidence_to_sessions(evidence: Any, valid_sessions: set[int]) -> list[str]:
+    """`["D8:6","D9:17"]` → `["session_8","session_9"]`, dropping unresolvable ids.
+
+    A `dia_id` of the form `D<n>:<k>` addresses turn `k` of session `n`; the
+    harness scores at session granularity, so the turn index is not needed.
+    Ids pointing at a session the conversation does not contain are DROPPED and
+    reported by `--locomo-fixed`, never silently kept as a false negative.
+    """
+    out: list[str] = []
+    if not isinstance(evidence, list):
+        return out
+    for ev in evidence:
+        m = re.match(r"^D(\d+):", str(ev))
+        if not m:
+            continue
+        n = int(m.group(1))
+        if n in valid_sessions:
+            sid = f"session_{n}"
+            if sid not in out:
+                out.append(sid)
+    return out
+
+
+def adapt_official_locomo(raw: Any) -> list[dict[str, Any]]:
+    """Adapt `locomo10.json` (snap-research/LoCoMo) to this harness's schema.
+
+    The harness's schema is flat and per-question:
+    `{question_id, category, question, answer, haystack_sessions, answer_session_ids}`.
+    The official one is nested and per-sample. This adapter is the only place
+    that knows both, so a schema change upstream breaks one function with a
+    clear error instead of a `KeyError` deep inside the runner.
+    """
+    if isinstance(raw, dict):
+        # Tolerate the HF/VantaDB wrapper shapes: {"data": [...]} / {"questions": [...]}
+        for key in ("data", "questions", "samples"):
+            if isinstance(raw.get(key), list):
+                raw = raw[key]
+                break
+    if not isinstance(raw, list) or not raw:
+        raise ValueError(
+            "official LoCoMo must be a non-empty JSON array of samples "
+            f"(got {type(raw).__name__})"
+        )
+    if "conversation" not in raw[0] or "qa" not in raw[0]:
+        raise ValueError(
+            "not the official LoCoMo schema: each sample must have `conversation` "
+            f"and `qa`; found keys {sorted(raw[0].keys())!r}. Pass "
+            "--dataset-format locomo-internal for this harness's own flat format."
+        )
+
+    items: list[dict[str, Any]] = []
+    for sample_idx, sample in enumerate(raw):
+        sample_id = str(sample.get("sample_id") or f"sample_{sample_idx}")
+        conversation = sample["conversation"]
+        sessions = _locomo_sessions(conversation)
+        if not sessions:
+            continue
+        valid_sessions = {n for n, _, _ in sessions}
+        speaker_a = conversation.get("speaker_a")
+
+        haystack: list[dict[str, Any]] = []
+        for n, key, turns in sessions:
+            ts = _parse_locomo_datetime(conversation.get(f"{key}_date_time", ""))
+            haystack.append(
+                {
+                    "session_id": f"session_{n}",
+                    "turns": [
+                        {
+                            # The harness renders `<role>: <content>`; using the
+                            # two speaker names keeps the dialogue readable and
+                            # is what the upstream file gives us.
+                            "role": "user" if t.get("speaker") == speaker_a else "assistant",
+                            "speaker": t.get("speaker", ""),
+                            "dia_id": t.get("dia_id", ""),
+                            "content": t.get("text", ""),
+                        }
+                        for t in turns
+                        if isinstance(t, dict)
+                    ],
+                    "timestamp_ms": ts,
+                }
+            )
+
+        for q_idx, qa in enumerate(sample.get("qa") or []):
+            if not isinstance(qa, dict):
+                continue
+            cat_num = qa.get("category")
+            cat = LOCOMO_CATEGORIES.get(cat_num, f"category_{cat_num}")
+            evidence = qa.get("evidence")
+            # FIND-667 (new, measured 2026-11-27): in `locomo10.json` 444 QA have
+            # NO `answer` key at all (all of them adversarial) and 6 carry an
+            # INTEGER answer (`2022`, `2`, `3`). `item["answer"]` on that shape is
+            # a KeyError, and `int.lower()` is an AttributeError one layer later.
+            # Normalise once, here, so nothing downstream has to guess the type.
+            raw_answer = qa.get("answer")
+            answer = "" if raw_answer is None else str(raw_answer)
+            items.append(
+                {
+                    "question_id": f"{sample_id}-q{q_idx:04d}",
+                    "sample_id": sample_id,
+                    "category": cat,
+                    "category_num": cat_num,
+                    "question": str(qa.get("question", "")),
+                    "answer": answer,
+                    "haystack_sessions": haystack,
+                    "answer_session_ids": _evidence_to_sessions(evidence, valid_sessions),
+                    "_evidence_raw": evidence,
+                }
+            )
+    return items
+
+
+def apply_locomo_fixed(items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """`locomo-fixed` clean filter (AMB 2026): drop QA whose ground truth is absent
+    or contradictory, so a retrieval miss cannot be confused with a broken label.
+
+    Drops, counting each reason:
+      * `no_evidence`  — the QA has no `evidence` id at all;
+      * `unresolvable` — every `evidence` id points at a session/turn the
+                         conversation does not contain;
+      * `no_answer`    — the gold answer is empty or the "not enough info" marker.
+
+    Measured on the upstream `locomo10.json` (2026-11-27): 1986 → 1538 kept,
+    dropping 444 `no_answer` + 4 `no_evidence`. **444 of the 446 adversarial QA
+    carry no `answer` key at all**, so the answer rule drops them — not their
+    category. The 2 adversarial QA that do have an answer survive, which is the
+    behaviour we want: dropping the whole category would inflate every recall.
+    """
+    kept: list[dict[str, Any]] = []
+    dropped = {"no_evidence": 0, "unresolvable": 0, "no_answer": 0}
+    for item in items:
+        raw_ev = item.get("_evidence_raw")
+        if not raw_ev:
+            dropped["no_evidence"] += 1
+            continue
+        if not item.get("answer_session_ids"):
+            dropped["unresolvable"] += 1
+            continue
+        answer = str(item.get("answer", "")).strip()
+        if not answer or answer.lower() in {"not enough information", "not mentioned"}:
+            dropped["no_answer"] += 1
+            continue
+        kept.append(item)
+    return kept, dropped
+
+
+def detect_dataset_format(raw: Any) -> str:
+    """`locomo-official` | `locomo-internal` — decided by shape, not by flag."""
+    first = raw[0] if isinstance(raw, list) and raw else None
+    if isinstance(first, dict) and "conversation" in first and "qa" in first:
+        return "locomo-official"
+    return "locomo-internal"
 
 
 # ------------------------------------------------------------------ Synthetic Dataset Generator
@@ -723,21 +971,37 @@ def format_markdown_table(report: Dict[str, Any]) -> str:
         ("multi_hop", "Multi-Hop"),
         ("temporal_reasoning", "Temporal Reasoning"),
         ("open_domain", "Open-Domain"),
+        # FIND-667: the official file has 5 categories (1..5); leaving
+        # `adversarial` out of the table silently hid 446 of the 1986 QA.
+        ("adversarial", "Adversarial"),
     ]
 
     by_cat = report["metrics_by_category"]
     for cat_key, cat_label in cats:
         c_res = by_cat.get(cat_key, {})
         m0_cat = MEM0_PUBLISHED.get(cat_key, {})
+        n_vanta = c_res.get("n", 0)
+
+        # A published row without `n` is not a measurement (Regla 11). Small-n
+        # rows are flagged rather than presented as comparable to Mem0's full run.
+        n_note = f" (n={n_vanta})" if n_vanta else " (sin datos)"
+        if not m0_cat:
+            lines.append(
+                f"| **{cat_label}** | F1 / Recall@5 | — (no publicada por Mem0) | "
+                f"**F1: {c_res.get('f1', 0.0):.2f}** · **Rec@5: {c_res.get('recall_at_5', 0.0):.3f}**{n_note} | — |"
+            )
+            continue
 
         f1_vanta = c_res.get("f1", 0.0)
         f1_mem0 = m0_cat.get("f1", 0.0)
         rec5_vanta = c_res.get("recall_at_5", 0.0)
         rec5_mem0 = m0_cat.get("recall_at_5", 0.0)
 
-        delta_f1 = f"{f1_vanta - f1_mem0:+.2f}"
+        # No measurement, no delta: `-28.64` against a category this run did not
+        # evaluate (`--category`) is a number for something that never ran.
+        delta_f1 = f"{f1_vanta - f1_mem0:+.2f}" if n_vanta else "—"
         lines.append(
-            f"| **{cat_label}** | F1 / Recall@5 | F1: {f1_mem0:.2f} · Rec@5: {rec5_mem0:.3f} | **F1: {f1_vanta:.2f}** · **Rec@5: {rec5_vanta:.3f}** | Δ F1: {delta_f1} |"
+            f"| **{cat_label}** | F1 / Recall@5 | F1: {f1_mem0:.2f} · Rec@5: {rec5_mem0:.3f} | **F1: {f1_vanta:.2f}** · **Rec@5: {rec5_vanta:.3f}**{n_note} | Δ F1: {delta_f1} |"
         )
 
     # Overall row
@@ -745,7 +1009,7 @@ def format_markdown_table(report: Dict[str, Any]) -> str:
     m0_ov = MEM0_PUBLISHED["overall"]
     lines.append(
         f"| **OVERALL** | F1 / Recall@5 / NDCG@5 | F1: {m0_ov['f1']:.2f} · Rec@5: {m0_ov['recall_at_5']:.3f} · NDCG: {m0_ov['ndcg_at_5']:.3f} | "
-        f"**F1: {ov['f1']:.2f}** · **Rec@5: {ov['recall_at_5']:.3f}** · **NDCG: {ov['ndcg_at_5']:.3f}** | "
+        f"**F1: {ov['f1']:.2f}** · **Rec@5: {ov['recall_at_5']:.3f}** · **NDCG: {ov['ndcg_at_5']:.3f}** (n={ov.get('n', 0)}) | "
         f"**Δ F1: {ov['f1'] - m0_ov['f1']:+.2f}** |"
     )
 
@@ -760,7 +1024,14 @@ def format_markdown_table(report: Dict[str, Any]) -> str:
     lines.append(f"| **Throughput de Búsqueda (QPS)** | ~2-3 QPS | **{perf['search_qps']:.1f} QPS** | **~{perf['search_qps'] / 2.5:.0f}x mayor** |")
     lines.append(f"| **Consumo Tokens LLM** | ~{m0_ov['llm_tokens_per_query']} tokens / consulta | **0 tokens** (Determinista FastGate) | **100% Ahorro de Tokens** |")
     lines.append(f"| **Costo Estimado (USD / 1k queries)** | ~${m0_ov['est_cost_per_1k_usd']:.2f} | **$0.00** | **$0.00** (Cero dependencias LLM) |")
-    lines.append(f"| **Memoria RAM RSS Pico** | ~350 MB | **{perf['peak_rss_mb']:.1f} MB** | **{350.0 / max(perf['peak_rss_mb'], 1.0):.1f}x menor consumo** |")
+    # FIND-667: `get_peak_rss_mb()` returns 0.0 where the platform has no
+    # /proc self-stats (measured on Windows). Printing "350.0x menor consumo"
+    # off a 0 is an invented advantage, so an unmeasured RSS says so.
+    rss = perf["peak_rss_mb"]
+    if rss > 0:
+        lines.append(f"| **Memoria RAM RSS Pico** | ~350 MB | **{rss:.1f} MB** | **{350.0 / rss:.1f}x menor consumo** |")
+    else:
+        lines.append("| **Memoria RAM RSS Pico** | ~350 MB | **n/d** (no medido en esta plataforma) | — |")
 
     return "\n".join(lines)
 
@@ -803,40 +1074,171 @@ def run_self_test() -> int:
     assert "Temporal Reasoning" in md
     assert "Open-Domain" in md
 
+    # FIND-667: the official-schema adapter, exercised offline on a fixture with
+    # the same shape as `locomo10.json` (a KeyError here is the bug the row
+    # measured; this assertion is what keeps it closed).
+    sample = [
+        {
+            "sample_id": "conv-test",
+            "conversation": {
+                "speaker_a": "Ana",
+                "speaker_b": "Beto",
+                "session_1": [
+                    {"speaker": "Ana", "dia_id": "D1:1", "text": "I moved to Oslo."},
+                    {"speaker": "Beto", "dia_id": "D1:2", "text": "How cold is it?"},
+                ],
+                "session_1_date_time": "1:56 pm on 8 May, 2023",
+                "session_2": [
+                    {"speaker": "Ana", "dia_id": "D2:1", "text": "The fjord is frozen."},
+                ],
+                "session_2_date_time": "9:10 am on 3 June, 2023",
+                # Date-time without content, as in the real file (sessions 20+).
+                "session_3_date_time": "10:00 am on 4 July, 2023",
+            },
+            "qa": [
+                {"question": "Where did Ana move?", "answer": "Oslo", "evidence": ["D1:1"], "category": 4},
+                {"question": "When did she move?", "answer": "May 2023", "evidence": ["D1:1", "D9:9"], "category": 2},
+                {"question": "Why?", "answer": "Work", "evidence": ["D2:1"], "category": 1},
+                {"question": "What is the capital of Norway?", "answer": "Oslo", "evidence": ["D1:1"], "category": 3},
+                {"question": "Did Ana hate it?", "answer": "No", "evidence": ["D2:1"], "category": 5},
+            ],
+        }
+    ]
+    assert detect_dataset_format(sample) == "locomo-official"
+    assert detect_dataset_format(generate_synthetic_locomo(seed=1)) == "locomo-internal"
+    adapted = adapt_official_locomo(sample)
+    assert len(adapted) == 5, adapted
+    assert {q["category"] for q in adapted} == {
+        "single_hop",
+        "temporal_reasoning",
+        "multi_hop",
+        "open_domain",
+        "adversarial",
+    }
+    first = adapted[0]
+    assert first["haystack_sessions"][0]["session_id"] == "session_1"
+    assert first["haystack_sessions"][0]["turns"][0]["role"] == "user"
+    assert first["haystack_sessions"][0]["turns"][1]["role"] == "assistant"
+    assert _parse_locomo_datetime("1:56 pm on 8 May, 2023") == 1683554160000
+    # Only the two CONTENT sessions are ingested; `session_3_date_time` has no content.
+    assert len(first["haystack_sessions"]) == 2
+    # Evidence pointing at a session that does not exist is dropped, the rest kept.
+    assert adapted[1]["answer_session_ids"] == ["session_1"]
+
+    fixed, dropped = apply_locomo_fixed(adapted)
+    assert len(fixed) == 5, fixed
+    assert sum(dropped.values()) == 0
+    broken, dropped2 = apply_locomo_fixed(
+        [
+            {"answer": "x", "_evidence_raw": None, "answer_session_ids": ["session_1"]},
+            {"answer": "x", "_evidence_raw": ["D9:1"], "answer_session_ids": []},
+            {"answer": "  ", "_evidence_raw": ["D1:1"], "answer_session_ids": ["session_1"]},
+            {"answer": "ok", "_evidence_raw": ["D1:1"], "answer_session_ids": ["session_1"]},
+        ]
+    )
+    assert len(broken) == 1 and broken[0]["answer"] == "ok"
+    assert dropped2 == {"no_evidence": 1, "unresolvable": 1, "no_answer": 1}
+
     print("[eval_locomo] Self-test: OK (todas las aserciones de métricas y flujo validadas)")
     return 0
 
 
 # ------------------------------------------------------------------ Main CLI
 def main() -> int:
+    global _STRICT_EMBEDDINGS
     parser = argparse.ArgumentParser(description="Arnés de benchmark reproducible LOCOMO (MEM0-05) para VantaDB.")
     parser.add_argument("--dataset-path", default="", help="Ruta a archivo JSON del dataset LoCoMo local.")
+    parser.add_argument(
+        "--dataset-format",
+        choices=["auto", "locomo-official", "locomo-internal"],
+        default="auto",
+        help=(
+            "Esquema del JSON de --dataset-path. `locomo-official` es el de "
+            "snap-research/LoCoMo (locomo10.json: `conversation` + `qa` con "
+            "`category` 1..5); `locomo-internal` es el plano propio que produce "
+            "generate_synthetic_locomo. `auto` decide por forma (FIND-667)."
+        ),
+    )
+    parser.add_argument(
+        "--locomo-fixed",
+        action="store_true",
+        help=(
+            "Aplica el filtro limpio `locomo-fixed` (estándar AMB 2026): excluye "
+            "QA con ground-truth ausente o irresoluble. Reporta cuántas se "
+            "excluyeron y por qué."
+        ),
+    )
+    parser.add_argument(
+        "--strict-embeddings",
+        action="store_true",
+        help=(
+            "Falla si el modelo de embeddings no está disponible o si falla un "
+            "embedding de query, en vez de degradar en silencio al fallback "
+            "léxico o a FakeLocomoStore (FIND-667)."
+        ),
+    )
     parser.add_argument("--smoke", action="store_true", help="Genera corrida de validación sintética determinista (seed 42).")
     parser.add_argument("--self-test", action="store_true", help="Ejecuta pruebas unitarias internas offline sin vantadb.")
-    parser.add_argument("--category", choices=["all", "single_hop", "multi_hop", "temporal_reasoning", "open_domain"], default="all")
+    parser.add_argument("--category", choices=["all", "single_hop", "multi_hop", "temporal_reasoning", "open_domain", "adversarial"], default="all")
     parser.add_argument("--limit", type=int, default=0, help="Límite máximo de preguntas a evaluar (0 = todas).")
     parser.add_argument("--top-k", type=int, default=10, help="Profundidad de recuperación top_k.")
     parser.add_argument("--backend", default="memory", help="Backend de VantaDB (memory, fjall, etc.).")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Ruta del reporte JSON generado.")
     args = parser.parse_args()
 
+    _STRICT_EMBEDDINGS = args.strict_embeddings
+
     if args.self_test:
         return run_self_test()
 
     # Load or generate dataset
+    dataset_meta: dict[str, Any] = {}
     if args.dataset_path:
         p = pathlib.Path(args.dataset_path)
         if not p.is_file():
             print(f"[eval_locomo] Error: dataset no encontrado en {p}", file=sys.stderr)
             return 1
         raw_data = json.loads(p.read_text(encoding="utf-8"))
-        dataset = raw_data if isinstance(raw_data, list) else raw_data.get("questions", [])
+        fmt = args.dataset_format
+        if fmt == "auto":
+            fmt = detect_dataset_format(raw_data)
+        if fmt == "locomo-official":
+            try:
+                dataset = adapt_official_locomo(raw_data)
+            except ValueError as e:
+                print(f"[eval_locomo] Error: {e}", file=sys.stderr)
+                return 1
+            dataset_meta["dataset_format"] = "locomo-official"
+            dataset_meta["samples"] = len(raw_data) if isinstance(raw_data, list) else 0
+        else:
+            dataset = raw_data if isinstance(raw_data, list) else raw_data.get("questions", [])
+            dataset_meta["dataset_format"] = "locomo-internal"
+        print(
+            f"[eval_locomo] dataset={fmt} → {len(dataset)} preguntas "
+            f"(categorías: {sorted({q.get('category') for q in dataset})})"
+        )
     elif args.smoke:
         print("[eval_locomo] Modo --smoke activado: generando suite sintética determinista LoCoMo (seed 42)...")
         dataset = generate_synthetic_locomo(seed=42)
+        dataset_meta["dataset_format"] = "synthetic"
     else:
         print("[eval_locomo] Aviso: no se especificó --dataset-path ni --smoke. Usando generador sintético por defecto.")
         dataset = generate_synthetic_locomo(seed=42)
+        dataset_meta["dataset_format"] = "synthetic"
+
+    if args.locomo_fixed:
+        before = len(dataset)
+        dataset, dropped = apply_locomo_fixed(dataset)
+        dataset_meta["locomo_fixed"] = {
+            "applied": True,
+            "input": before,
+            "kept": len(dataset),
+            "dropped": dropped,
+        }
+        print(
+            f"[eval_locomo] --locomo-fixed: {before} → {len(dataset)} QA "
+            f"(excluidas: {dropped})"
+        )
 
     if args.category != "all":
         dataset = [q for q in dataset if q.get("category") == args.category]
@@ -848,15 +1250,34 @@ def main() -> int:
         print("[eval_locomo] Error: no hay preguntas para evaluar tras aplicar los filtros.", file=sys.stderr)
         return 1
 
+    # FIND-667(c): under --strict-embeddings a missing model must abort, not
+    # silently measure the lexical fallback and label the report "BGE".
+    if _STRICT_EMBEDDINGS and not has_fastembed():
+        print(
+            f"[eval_locomo] Error: --strict-embeddings y el modelo {EMBED_MODEL} no "
+            "está disponible. Instalá fastembed (pip install fastembed) o quitá "
+            "la bandera para medir el fallback léxico a sabiendas.",
+            file=sys.stderr,
+        )
+        return 1
+
     # Initialize store
     try:
         store = VantaLocomoStore(backend=args.backend)
     except Exception as e:
+        if _STRICT_EMBEDDINGS:
+            print(
+                f"[eval_locomo] Error: --strict-embeddings y vantadb no disponible "
+                f"({e}); me niego a medir con FakeLocomoStore.",
+                file=sys.stderr,
+            )
+            return 1
         print(f"[eval_locomo] vantadb no disponible ({e}) → fallback a FakeLocomoStore", file=sys.stderr)
         store = FakeLocomoStore()
 
     print(f"[eval_locomo] Evaluando {len(dataset)} preguntas sobre store {store.name}...")
     report = run_locomo_evaluation(store, dataset, top_k=args.top_k)
+    report.setdefault("meta", {}).update(dataset_meta)
     store.close()
 
     # Export report JSON
