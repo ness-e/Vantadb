@@ -1,0 +1,82 @@
+{
+  "benchmark": "node_abi_search_probe",
+  "finding": "FIND-668",
+  "timestamp": "2026-11-27T21:00:40.579Z",
+  "environment": {
+    "node": "v26.8.1",
+    "platform": "win32",
+    "arch": "x64",
+    "dim": 64,
+    "top_k": 10,
+    "searches": 20,
+    "addon": "vantadb-node/index.cjs (prebuilt napi addon)"
+  },
+  "results": [
+    {
+      "records": 500,
+      "dim": 64,
+      "top_k": 10,
+      "searches": 20,
+      "insert_ms": 512.65,
+      "search_vector": {
+        "n": 20,
+        "p50": 1.192,
+        "p95": 1.342,
+        "p99": 2.821,
+        "mean": 1.238
+      },
+      "search_hybrid": {
+        "n": 20,
+        "p50": 21.097,
+        "p95": 28.005,
+        "p99": 31.125,
+        "mean": 22.299
+      },
+      "hybrid_over_vector_p50": 17.7
+    },
+    {
+      "records": 2000,
+      "dim": 64,
+      "top_k": 10,
+      "searches": 20,
+      "insert_ms": 4324.48,
+      "search_vector": {
+        "n": 20,
+        "p50": 2.057,
+        "p95": 2.467,
+        "p99": 2.964,
+        "mean": 2.092
+      },
+      "search_hybrid": {
+        "n": 20,
+        "p50": 144.83,
+        "p95": 189.801,
+        "p99": 295.094,
+        "mean": 157.959
+      },
+      "hybrid_over_vector_p50": 70.41
+    },
+    {
+      "records": 10000,
+      "dim": 64,
+      "top_k": 10,
+      "searches": 20,
+      "insert_ms": 31285.15,
+      "search_vector": {
+        "n": 20,
+        "p50": 3.404,
+        "p95": 4.116,
+        "p99": 4.446,
+        "mean": 3.459
+      },
+      "search_hybrid": {
+        "n": 20,
+        "p50": 2386.437,
+        "p95": 3061.508,
+        "p99": 6459.033,
+        "mean": 2679.388
+      },
+      "hybrid_over_vector_p50": 701.07
+    }
+  ]
+}
