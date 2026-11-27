@@ -15,7 +15,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/dev/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
 > **Formato:** esquema canónico de 10 columnas (`.opencode/references/backlog-format.md`; migrado 2026-09-30). Filas completadas: **eliminadas** de las tablas (registro en `docs/dev/avance/`); sin tachados ni ✅ en tablas activas.
-> **Total open items:** recalculado el 2026-11-27 contra `HEAD`: **272 filas en tablas** (**235 `🟡 Pendiente`**, **11 `🟡 Parcial`**, **24 diferidas/bloqueadas/pausadas**, **1 `🔵 Futuro`**). El conteo anterior (294) era del 2026-11-23 y envejeció con los cierres de esta sesión: **el número se recalcula, no se arrastra** (`FIND-811`: una cifra sin comando reproducible es una afirmación sin evidencia).
+> **Total open items:** recalculado el 2026-11-27 contra `HEAD`: **276 filas en tablas** (**239 `🟡 Pendiente`**, **11 `🟡 Parcial`**, **24 diferidas/bloqueadas/pausadas**, **1 `🔵 Futuro`**). **Este numero envejece con cada commit**: se recalcula, no se arrastra (el anterior, 294, era del 2026-11-23). Dueño de hacerlo automático: `FIND-811`/`gen-index` — una cifra escrita a mano en un fichero que cambia 20 veces al día no es una medición, es una promesa.
 ---
 
 ## Exec Summary
