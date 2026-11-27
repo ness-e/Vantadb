@@ -941,7 +941,8 @@ try {
 
 $expectCount = $ExpectAbsent.Count + $ExpectPresent.Count + $ExpectBlob.Count
 if ($failCount -gt 0) {
-    Write-Host "FAILED: $failCount expectation(s) unmet at $commit (exit class $failExit)." -ForegroundColor Red    Write-Host "  Inspect the BLOB, not the console: git cat-file -p $commit`:<path>"
+    Write-Host "FAILED: $failCount expectation(s) unmet at $commit (exit class $failExit)." -ForegroundColor Red
+    Write-Host "  Inspect the BLOB, not the console: git cat-file -p $commit`:<path>"
     if ($failExit -eq 7) { Write-Host "  class 7 = AMBIGUOUS: the commit exists and is not wrong; the expectation matched text it does not own." -ForegroundColor Yellow }
     if ($failExit -eq 8) { Write-Host "  class 8 = EXPECTATION UNTRUSTWORTHY: the commit exists and is not wrong; do not re-run the commit." -ForegroundColor Yellow }
     exit $failExit
