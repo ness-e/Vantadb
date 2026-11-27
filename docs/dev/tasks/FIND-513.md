@@ -12,7 +12,7 @@ description: "La clave de un posting es namespace/token/record_key: el token y l
 - **Origen:** auditoría profunda v0.9.0 (2026-10-20), wave W4 (backend KV) · **Dep:** `FIND-407`
 - **Esfuerzo:** 2-3 días (la fila completa) · **Prioridad:** 🟠 Alta
 - **Creado / cerrado:** 2026-11-27
-- **Estado:** ✅ COMPLETED (mitad 1 + diseño de la mitad 2; mitad 2 **no** implementada, ver §Deuda)
+- **Estado:** 🟡 IN PROGRESS (mitad 1 entregada: límite declarado + diseño decidido; la implementación de la clave ciega queda abierta — ver §Deuda)
 
 ## Premisa (medida)
 

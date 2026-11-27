@@ -12,7 +12,9 @@ description: "La fila daba la mitad LSM por imposible. Medido en HEAD: el canari
 - **Origen:** auditoría EGO-16 (2026-10-16) · **Dep:** EGO-14, EGO-16, VER-01, VER-02
 - **Esfuerzo:** 3-5 días (estimado en la fila) · **Prioridad:** 🟠 Alta
 - **Creado / cerrado:** 2026-11-27
-- **Estado:** ✅ COMPLETED (por medición: el trabajo ya estaba en el árbol)
+- **Estado:** ✅ COMPLETED
+
+> **Cómo se cerró:** por **medición**, no por implementación nueva — el mecanismo ya estaba en el árbol y el test del canario corre y pasa (§Premisa).
 
 ## Premisa (re-medida, no re-derivada)
 
