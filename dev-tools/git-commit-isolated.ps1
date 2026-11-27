@@ -65,9 +65,12 @@
   A kill at any point therefore leaves HEAD at the old SHA or at the finished
   commit: after write-tree no step reads the index, and update-ref is atomic. The
   empty tree is not detected and undone, it is never created. Cost, stated: hooks
-  that `git commit` would run implicitly (`commit-msg`, `post-commit`) do not run.
-  This repo defines only `pre-commit` and `pre-push`; a new commit-time hook must
-  be wired here too, and the missing-hook warning below is the tripwire.
+  that `git commit` would run implicitly do not run — `pre-commit` is run here
+  explicitly, and `prepare-commit-msg`, `commit-msg` and `post-commit` are NOT
+  (the script warns if any of them exists). `commit-tree` also does not write
+  `.git/COMMIT_EDITMSG`, does not honour `commit.gpgsign`, does not clean `-m`
+  messages the way `git commit` does, and writes the reflog entry with the raw
+  subject instead of git's "commit: " prefix — none of which this repo relies on.
 
   If the commit on HEAD is provably ANOTHER lane's — my `git commit` failed while
   they committed in the same window — it is never restored: that would revert
@@ -183,6 +186,11 @@ $entriesBefore = if ($headBefore) { Get-TreeEntryCount $headBefore } else { 0 }
 $treeSeeded = $null      # tree of the private index BEFORE the hooks
 $treePlanned = $null      # tree this commit must carry (the one we create)
 $preCommitError = $null   # failure before a commit object exists
+# Set when we refuse BEFORE creating a commit. Never `exit` from inside the try
+# to report it: `exit` terminates the script, so the FIND-778 restore policy below
+# never runs — and a hook that moved HEAD to the empty tree would be left there
+# (P2-01 FIND-780 HIGH-1, reproduced).
+$preCommitRefusal = $null
 
 $saved = $env:GIT_INDEX_FILE
 try {
@@ -229,6 +237,15 @@ try {
     if (-not $hookPresent) {
         Write-Host "WARNING: no pre-commit hook under '$hookDir' — committing WITHOUT the gate." -ForegroundColor Yellow
     }
+    # `git commit` would also run these; plumbing does not. A warning is the only
+    # honest tripwire that can exist for a hook someone adds later (P2-01 M2):
+    # their absence today is what makes the omission safe.
+    $skippedHooks = @(@("prepare-commit-msg", "commit-msg", "post-commit") |
+        Where-Object { $hookDir -and (Test-Path -LiteralPath (Join-Path $hookDir $_)) })
+    if ($skippedHooks.Count -gt 0) {
+        Write-Host "WARNING: this script does NOT run: $($skippedHooks -join ', ') — 'git commit' would." -ForegroundColor Yellow
+        Write-Host "  Wire them into dev-tools/git-commit-isolated.ps1 before relying on them." -ForegroundColor Yellow
+    }
     & git hook run --ignore-missing pre-commit
     $hookExit = $LASTEXITCODE
     if ($hookExit -ne 0) { throw "pre-commit hook FAILED (exit $hookExit): commit blocked, nothing was created" }
@@ -243,22 +260,16 @@ try {
 
     # Refuse the catastrophe BEFORE it is a commit. The result guards below still
     # run (a hook can move HEAD itself), but the empty tree is never created by us.
+    # Do NOT exit here: the refusal is REPORTED through the validation block, which
+    # is the only code that restores HEAD when a hook moved it (HIGH-1).
     if ($treePlanned -eq $EMPTY_TREE) {
-        Write-Host ""
-        Write-Host "REFUSED (FIND-780): the private index is EMPTY after the hooks." -ForegroundColor Red
-        Write-Host "  - CATASTROPHIC: the tree staged for this commit is the canonical EMPTY tree ($EMPTY_TREE)" -ForegroundColor Red
-        Write-Host "    — committing it would delete every tracked path. A hook emptied the index," -ForegroundColor Red
-        Write-Host "    or it vanished; the commit was NOT created and HEAD did not move." -ForegroundColor Red
-        Write-Host "  re-run without piping this script, and check the hook output above." -ForegroundColor Yellow
-        exit 4
+        $preCommitRefusal = "CATASTROPHIC: the tree staged for this commit is the canonical EMPTY tree ($EMPTY_TREE) — committing it would delete every tracked path. A hook emptied the private index, or it vanished."
+        throw "REFUSED (FIND-780): the private index is EMPTY after the hooks; no commit was created"
     }
     $plannedEntries = Get-TreeEntryCount $treePlanned
     if ($plannedEntries -lt 0 -or $plannedEntries -lt ($entriesBefore - $MAX_ENTRY_DROP)) {
-        Write-Host ""
-        Write-Host "REFUSED (FIND-780): the staged tree lost too many paths, refusing to create the commit." -ForegroundColor Red
-        Write-Host "  - tree $treePlanned has $plannedEntries entries; HEAD had $entriesBefore (largest legitimate drop measured: 43)" -ForegroundColor Red
-        Write-Host "  HEAD did not move. For a deliberate bulk delete of more than $MAX_ENTRY_DROP tracked files use plain 'git commit'." -ForegroundColor Red
-        exit 4
+        $preCommitRefusal = "SUSPICIOUS: the staged tree has $plannedEntries entries; HEAD had $entriesBefore (largest legitimate drop measured: 43, allowed: $MAX_ENTRY_DROP). For a deliberate bulk delete use plain 'git commit'."
+        throw "REFUSED (FIND-780): the staged tree lost too many paths; no commit was created"
     }
 
     if (-not $headBefore) { throw "HEAD could not be resolved; refusing to create a parentless commit" }
@@ -272,14 +283,16 @@ try {
 
     # Compare-and-swap: only move HEAD if it is still the commit we seeded from.
     # A peer that committed while the hooks ran is NEVER clobbered or reverted.
+    # (git 2.51 checks this inside `git commit` too — measured — so this is not a
+    # new guarantee, it is the same one made explicit and independent of git's
+    # internals, with a message that names which of the two causes fired.)
     & git update-ref -m $Message HEAD $newCommit $headBefore
     if ($LASTEXITCODE -ne 0) {
-        Write-Host ""
-        Write-Host "REFUSED (FIND-780): HEAD is no longer $headBefore — another lane committed while the hooks ran." -ForegroundColor Red
-        Write-Host "  Your commit object was built against the old HEAD and would have reverted their work," -ForegroundColor Red
-        Write-Host "  so it was NOT attached to HEAD: $newCommit" -ForegroundColor Yellow
-        Write-Host "  Nothing of yours was committed; your work is still in the worktree. Re-run the commit." -ForegroundColor Yellow
-        exit 6
+        $headNow = "$(& git rev-parse --verify --quiet HEAD 2>$null)".Trim()
+        if ($headNow -and $headNow -ne $headBefore) {
+            throw "REFUSED (FIND-780): another lane moved HEAD to $headNow while the hooks ran; our commit $newCommit was NOT attached (it would have reverted their work)"
+        }
+        throw "REFUSED (FIND-780): git update-ref could not lock HEAD (a peer's lock or an I/O error); our commit $newCommit was NOT attached"
     }
 } catch {
     $preCommitError = $_.Exception.Message
@@ -373,6 +386,7 @@ if ($reasons.Count -gt 0) {
     # H1: an EMPTY tree deletes the entire repository. There is no work of anyone's
     # to preserve, so restoring is always right even when the commit is not ours.
     if ($moved -and -not $isOurs -and ($treeAfter -ne $EMPTY_TREE)) {
+        if ($preCommitError) { Write-Host "  $preCommitError" -ForegroundColor Yellow }
         Write-Host "  HEAD was moved by ANOTHER lane to $headAfter and none of the content is yours." -ForegroundColor Yellow
         Write-Host "  NOT restoring it: that would revert their commit. Nothing of yours was committed." -ForegroundColor Yellow
         Write-Host "  the commit on HEAD is KEPT as-is: $headAfter" -ForegroundColor Yellow
@@ -400,6 +414,22 @@ if ($reasons.Count -gt 0) {
 
 if (-not $moved) {
     # Nothing was created — report the original failure, nothing to restore.
+    if ($preCommitRefusal) {
+        # A refusal that PREVENTED the commit (empty/tiny tree). Exit 4: the
+        # FIND-778 family, "refused", and no commit was created by this script.
+        Write-Host ""
+        Write-Host "REFUSED (FIND-780): no commit was created." -ForegroundColor Red
+        Write-Host "  - $preCommitRefusal" -ForegroundColor Red
+        if ($headAfter -and $headAfter -eq $headBefore) {
+            Write-Host "  HEAD did not move: it is still $headBefore." -ForegroundColor Yellow
+        } else {
+            # `$moved` is false here, so HEAD is either unchanged or gone (a hook
+            # may delete the ref). Claiming "still <sha>" would be a lie (P2-01 LOW-B).
+            Write-Host "  HEAD is no longer resolvable — a hook deleted the ref; check the hook output above." -ForegroundColor Yellow
+        }
+        Write-Host "  this script created no commit; check the hook output above." -ForegroundColor Yellow
+        exit 4
+    }
     if ($preCommitError) { Write-Host "ERROR: $preCommitError" -ForegroundColor Red }
     else { Write-Host "ERROR: the commit was not created." -ForegroundColor Red }
     exit 2

@@ -23,7 +23,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$SCRIPT = if ($env:FIND780_HELPER) { $env:FIND780_HELPER }
+$SCRIPT = if ($env:FIND780_HELPER) { (Resolve-Path $env:FIND780_HELPER).Path }
 else { (Resolve-Path (Join-Path $PSScriptRoot ".." "git-commit-isolated.ps1")).Path }
 $EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 $ROOT = Join-Path $env:TEMP ("f778-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
@@ -292,7 +292,7 @@ exit 0
     Check ($res9.Code -eq 6) "exit code is 6 = nothing of yours, HEAD not clobbered (got $($res9.Code))"
     Check ($peerSha.Length -eq 40) "the peer commit exists ($peerSha)"
     Check ($headAfter9 -eq $peerSha) "the peer's commit is STILL on HEAD (never reverted)"
-    Check ($res9.Out -match "no longer") "output says HEAD was no longer the seeded commit"
+    Check ($res9.Out -match "another lane moved HEAD") "output says another lane moved HEAD"
     Check ($res9.Out -notmatch "OK:") "never prints OK"
     Check ("$(git -C $r9 log -1 --pretty=%s)".Trim() -eq "peer during hooks") "the message on HEAD is the peer's"
     Check (((Get-Content (Join-Path $r9 "docs/file0.txt") -Raw) -match "MARKER-780 mine")) "our edit is still in the worktree, uncommitted"
@@ -362,6 +362,89 @@ exit 0
     Check ([int](git -C $r10 rev-list --count HEAD) -eq $countBefore10) "no commit was created at all"
     Check ((@(git -C $r10 ls-tree -r --name-only HEAD)).Count -eq 60) "HEAD still lists 60 paths"
     Check ((Get-WorktreeFileCount $r10) -eq 60) "worktree intact (60 files)"
+
+    # ── Scenario 11: the helper must not contain a `git commit` invocation ──
+    # Scenario 10 kills while the hook runs, which is BEFORE any `git commit` child
+    # could exist. A hybrid regression — explicit `git hook run` back in place AND
+    # `& git commit` restored — would keep passing it. This is the cheap static
+    # guard that closes that hole (P2-01 LOW-1).
+    Write-Host "`n[11] the helper commits with plumbing only (no `git commit` call)" -ForegroundColor Cyan
+    $src = Get-Content -LiteralPath $SCRIPT -Raw
+    Check ($src -match '&\s*git\s+commit-tree\s') "the commit is created with 'git commit-tree'"
+    Check ($src -match '&\s*git\s+update-ref\s') "HEAD is moved with 'git update-ref' (compare-and-swap)"
+    Check ($src -notmatch '&\s*git\s+commit\s') "no invocation of 'git commit' (the kill window cannot come back)"
+
+    # ── Scenarios 12/13: a hook that commits the EMPTY tree and PASSES the gate ──
+    # P2-01 HIGH-1: an `exit` inside the try would terminate the script before the
+    # FIND-778 restore policy, leaving the hook's empty-tree commit on HEAD while the
+    # message claimed "HEAD did not move". The refusal must go THROUGH the block.
+    Write-Host "`n[12] hook commits the empty tree and exits 0 (index intact): restored" -ForegroundColor Cyan
+    $r12 = New-TestRepo "s12"
+    Write-Hook $r12 @"
+old=`$(git write-tree)
+git read-tree --empty
+bad=`$(git commit-tree "`$(git write-tree)" -p HEAD -m "hook: empty tree, index intact")
+git update-ref HEAD "`$bad"
+git read-tree "`$old"
+exit 0
+"@
+    Set-Content -LiteralPath (Join-Path $r12 "docs/file0.txt") -Value "changed" -NoNewline
+    $headBefore12 = "$(git -C $r12 rev-parse HEAD)".Trim()
+    $res12 = Invoke-Helper $r12 @("-Message", "test: hook empty tree", "-Paths", "docs/file0.txt")
+    Check ($res12.Code -eq 4) "exit code is 4 (got $($res12.Code))"
+    Check ("$(git -C $r12 rev-parse HEAD)".Trim() -eq $headBefore12) "HEAD restored to the previous SHA"
+    Check ("$(git -C $r12 rev-parse 'HEAD^{tree}')".Trim() -ne $EMPTY_TREE) "HEAD is NOT the empty tree"
+    Check ($res12.Out -match "restored") "output says it restored"
+    Check ((Get-LeftoverIndexes $r12).Count -eq 0) "no private index left behind"
+
+    Write-Host "`n[13] hook empties the index AND commits the empty tree: restored" -ForegroundColor Cyan
+    $r13 = New-TestRepo "s13"
+    Write-Hook $r13 @"
+git read-tree --empty
+bad=`$(git commit-tree "`$(git write-tree)" -p HEAD -m "hook: empty tree, index emptied")
+git update-ref HEAD "`$bad"
+exit 0
+"@
+    Set-Content -LiteralPath (Join-Path $r13 "docs/file0.txt") -Value "changed" -NoNewline
+    $headBefore13 = "$(git -C $r13 rev-parse HEAD)".Trim()
+    $res13 = Invoke-Helper $r13 @("-Message", "test: hook empty tree and index", "-Paths", "docs/file0.txt")
+    Check ($res13.Code -eq 4) "exit code is 4 (got $($res13.Code))"
+    Check ("$(git -C $r13 rev-parse HEAD)".Trim() -eq $headBefore13) "HEAD restored to the previous SHA"
+    Check ("$(git -C $r13 rev-parse 'HEAD^{tree}')".Trim() -ne $EMPTY_TREE) "HEAD is NOT the empty tree"
+    Check ($res13.Out -match "REFUSED") "output says REFUSED"
+    Check ((Get-WorktreeFileCount $r13) -eq 60) "worktree intact (60 files)"
+
+    # ── Scenario 14: the hooks that do NOT run are named (P2-01 M2) ─────────
+    Write-Host "`n[14] skipped commit-time hooks are named in a warning" -ForegroundColor Cyan
+    $r14 = New-TestRepo "s14"
+    $hooks14 = Join-Path $r14 ".githooks-test"
+    New-Item -ItemType Directory -Force $hooks14 | Out-Null
+    foreach ($h in @("pre-commit", "commit-msg")) {
+        [IO.File]::WriteAllText((Join-Path $hooks14 $h), "#!/bin/sh`nexit 0`n")
+    }
+    git -C $r14 config core.hooksPath ".githooks-test"
+    Set-Content -LiteralPath (Join-Path $r14 "docs/file0.txt") -Value "MARKER-780 hook" -NoNewline
+    $res14 = Invoke-Helper $r14 @("-Message", "test: skipped hook warning", "-Paths", "docs/file0.txt")
+    Check ($res14.Code -eq 0) "exit code is 0 (got $($res14.Code))"
+    Check ($res14.Out -match "does NOT run: commit-msg") "the warning NAMES the hook git would have run"
+    Check ($res14.Out -match "pre-commit hook passed") "the gate that does exist still ran"
+
+    # ── Scenario 15: the ref cannot be locked -> exit 2, nothing created ────
+    # `update-ref` failing with HEAD unchanged used to be reported as "another lane
+    # committed"; the helper now re-reads HEAD and names the real cause.
+    Write-Host "`n[15] a held ref lock: exit 2, nothing created, honest message" -ForegroundColor Cyan
+    $r15 = New-TestRepo "s15"
+    Set-Content -LiteralPath (Join-Path $r15 "docs/file0.txt") -Value "changed" -NoNewline
+    $headBefore15 = "$(git -C $r15 rev-parse HEAD)".Trim()
+    $branch15 = "$(git -C $r15 symbolic-ref --short HEAD)".Trim()
+    $lock15 = Join-Path $r15 ".git" "refs" "heads" "$branch15.lock"
+    New-Item -ItemType File -Force -Path $lock15 | Out-Null
+    $res15 = Invoke-Helper $r15 @("-Message", "test: locked ref", "-Paths", "docs/file0.txt")
+    Remove-Item -LiteralPath $lock15 -Force -ErrorAction SilentlyContinue
+    Check ($res15.Code -eq 2) "exit code is 2 = nothing created (got $($res15.Code))"
+    Check ("$(git -C $r15 rev-parse HEAD)".Trim() -eq $headBefore15) "HEAD did not move"
+    Check ($res15.Out -match "could not lock HEAD") "the message names the LOCK, not a phantom peer"
+    Check ((Get-LeftoverIndexes $r15).Count -eq 0) "no private index left behind"
 }
 finally {
     Remove-Item -LiteralPath $ROOT -Recurse -Force -ErrorAction SilentlyContinue
