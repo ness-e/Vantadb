@@ -28,13 +28,13 @@ policy — that is [CI_POLICY.md](./dev/operations/CI_POLICY.md).
 | `vantadb-mcp` | `vantadb-mcp/Cargo.toml:40-43` | 2 |
 | `vantadb-python`, `vantadb-node`, `vantadb-ffi-core` | — | none (fixed feature sets) |
 
-**`default` is five flags, not nine:** `cli`, `fjall`, `memmap2`, `fs2`, `roaring`
-(`Cargo.toml:156`). `arrow`, `advanced-tokenizer`, `sysinfo` and `rayon` are **not**
-default, despite the stale aggregate row in `FEATURES.md:32` (it also cites a
-`ci-rust-10.yml` that no longer exists; the live workflow is `ci-rust.yml`). Same class of
-drift at `FEATURES.md:51`: `vantadb-python/Cargo.toml:25` does **not** pass
-`default-features = false`, so the wheel is built with the defaults **on** plus
-`fjall, memmap2, rayon` — net effect `default + rayon`.
+**`default` is five flags:** `cli`, `fjall`, `memmap2`, `fs2`, `roaring` (`Cargo.toml:156`); every
+other flag is opt-in. The wheel does not disable defaults either:
+`vantadb-python/Cargo.toml:25` passes `features = ["fjall","memmap2","rayon"]` without
+`default-features = false`, so its net feature set is `default + rayon` (§2 row 7).
+Workflows are cited by the **filename that exists** in `.github/workflows/` (`ci-rust.yml`),
+never a renamed basename: a basename outlives every line number, and a renamed one is the
+citation that fails silently where a stale line number at least points near the truth.
 
 27 binary flags is 2²⁷ combinations. That is not a number to cover; it is a reason to
 publish the short list of combinations somebody actually promises.
