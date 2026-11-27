@@ -56,7 +56,9 @@ publicó (`gh api .../commits/<sha>/check-runs`):
 Los 11 ausentes son siempre los mismos: `Format Check`, `Clippy Lints`, `Tests (Linux)`, `Tests
 (Windows)`, `Tests (macOS)`, `MSRV Check (1.95.0)`, `Experimental Crates Check`, `Security Audit`,
 `Miri (UB Detection)`, `Dependency Policy Check`, `Tests Executed (guard)`. Los 4 presentes son de
-`docs-gates.yml`, que no filtra el push.
+`docs-gates.yml`, **cuyo filtro de push sí incluye `docs/**`** (`docs-gates.yml:21-26`): reportan porque
+su filtro los deja pasar, no porque no filtren. (La primera versión de este task file decía "que no filtra
+el push" y era falso — ver Review R1, y la fila nueva que sale de ahí.)
 
 **El control es la pieza que cierra el diagnóstico:** `0ef9160de` es un commit de docs y sin embargo
 reporta 15/15. Su **rango de push** incluía un commit de CI (`3c97b7608 ci(cert)`), así que el filtro de
@@ -79,7 +81,7 @@ también (c), la que la propia fila no listaba y es la más barata de todas.
 | **(a)** guard en workflow propio, juicio por API | El guard arranca **a la vez** que `ci-rust`: cuando mira `check-runs` del SHA todavía no existen, así que para distinguir `skipped` de `ausente` tiene que **esperar** a que las tres suites terminen (hasta 90 min, `timeout` de `Tests (Windows)`). Un job de 5 s pasa a ser un job de hasta 90 min con polling, más `checks: read`/`actions: read` y una superficie nueva de falso rojo (un 5xx de la API en un check required). Y **no cierra el agujero**: arregla 1 de los 11 contexts; los otros 10 siguen ausentes y un no-admin sigue sin poder pushear docs. | **Descartada: insuficiente por construcción** |
 | **(b)** el ruleset deja de exigir lo que un push docs-only no produce | Un ruleset **no tiene scope por evento**: quitar los 10 contexts de `ci-rust.yml` los quita también de los PRs, o sea que el candado de `develop` pierde fmt/clippy/las 3 suites **en PR**, que es donde hoy sí miden. Regresión grande para arreglar un caso de borde. | **Descartada + propuesta al owner, no aplicada** |
 | **(d)** aceptar y corregir el comentario | 0 riesgo, 0 coste… y el push docs-only de un no-admin sigue bloqueado por 11 contexts que nadie va a reportar. | **Insuficiente sola** |
-| **(c) elegida** — `paths` fuera de `push` y el filtro **dentro**, en `rust-scope` | **~570 s de runner** por push docs-only (`FIND-770` lo midió para el mismo conjunto de jobs en PR: 16 jobs, residual barato), frente a 5670 s de las 3 suites si no hubiera scope. La suite **no** corre: `rust-scope` mide el rango del push y `clippy` + los 9 jobs de su `needs` caen en cascada como `skipped`. | **Elegida** |
+| **(c) elegida** - `paths` fuera de `push` y el filtro **dentro**, en `rust-scope` | **~570 s de runner** por push docs-only, cifra que `FIND-770` midió para el mismo conjunto de jobs en PR (16 jobs, residual barato) y que **no re-medí acá**; sumando su propia tabla de duraciones para los 11 jobs que ahora corren con `rust=false` da **~437 s** (fmt 23 + secret 25 + msrv 114 + minimal 111 + machete 70 + audit 36 + deny 32 + osv 9 + wasm-scope 7 + scope 5 + guard 5), así que 570 s **sobrestima**. Frente a 5670 s de las 3 suites si no hubiera scope. La suite **no** corre: `rust-scope` mide el rango del push y `clippy` + los 10 jobs de su `needs` caen en cascada como `skipped`. | **Elegida** |
 
 **Por qué (c) y no (a):** el agujero no es "el guard no juzga", es "11 contexts no nacen". Sólo (c) hace
 nacer los 11, y lo hace con el mecanismo que el repo **ya tiene probado** (`wasm-scope` resuelve el rango
@@ -168,6 +170,16 @@ kill:
 
 Sin cuelgue, sin sentencia nueva (11 → 11). El delta de 0,21 s es el `case`.
 
+**Las cifras de arriba se midieron con el equipo en reposo; el árbol no lo estaba.** Con las correcciones
+del review ya aplicadas y el equipo al **93 % de carga con 10 procesos `cargo`/`rustc`/`link` vivos**
+(`FIND-798` compilando), el mismo fichero tardó **3,73 s** y llegó a **4,43 s sin shellcheck** — cuatro
+veces más, y con el resultado *invertido* (apagar shellcheck no puede hacerlo más lento). Eso no es el
+fichero: es la máquina. La comparación que decide se hizo **alternada y bajo la misma carga**, `HEAD`
+(`1c6cee680`) contra el worktree, tres veces cada uno: **1,69 / 1,49 / 1,69 s** frente a **1,67 / 2,14 /
+1,24 s** — indistinguibles, exit 0 en las seis. Se dejan los números bajo carga a la vista porque el
+carril de `FIND-785` lee estos tiempos para decidir si un `run:` está a punto de colgarse: sin la
+comparación alternada, esos 4,43 s parecerían el síntoma y mandarían a buscar un culpable que no existe.
+
 ### No verificado, declarado
 
 - **El ruleset no se ejercita.** No apliqué nada: `gh api` sólo leyó. Que GitHub evalúe los 15 contexts
@@ -175,7 +187,11 @@ Sin cuelgue, sin sentencia nueva (11 → 11). El delta de 0,21 s es el `case`.
 - **El push docs-only real no se corre.** El primer ejercicio verdadero es el push de este cambio — y no
   sirve como prueba: lleva `ci-rust.yml` en el rango, o sea que `rust-scope` dará `true` y correrá la
   suite entera. La prueba de campo es el **siguiente** push que sólo toque `docs/`: debe mostrar los 15
-  contexts (4 + 7 `success` + 4 `skipped`) y el guard en verde con "rust-scope measured the diff".
+  contexts — **9 `success` + 6 `skipped`**: los 4 de `docs-gates.yml` más 5 de `ci-rust` (`Format Check`,
+  `MSRV Check`, `Security Audit`, `Dependency Policy Check`, el guard), y los 6 que caen en cascada
+  (`Clippy Lints`, los tres `Tests (*)`, `Miri`, `Experimental Crates Check`) — y el guard en verde con
+  "rust-scope measured the diff". Si salen 7 `success` / 4 `skipped`, hay un `needs` que no cascada: eso
+  sí sería un fallo del cambio.
 - **Que `skipped` siga contando como satisfecho** se apoya en la cita verbatim de `FIND-787`
   (`docs.github.com/en/pull-requests/reference/status-checks`), no en una medición de este carril.
 
@@ -187,6 +203,22 @@ Sin cuelgue, sin sentencia nueva (11 → 11). El delta de 0,21 s es el `case`.
   fichero está fuera de la lista de escritura de este carril: **deuda declarada, con el reemplazo exacto**
   — `paths` fuera de los **dos** eventos, `on.push` sin patrones, **15** contexts, y una línea que remita
   a este task file. No lo toco para no hornear un hunk en un fichero que otro carril puede estar leyendo.
+- **`docs-gates.yml` tiene el MISMO agujero, y es la fila que sale de este review (R1).** Su `push` filtra
+  por 21 patrones (`docs-gates.yml:21-26`) y de ahí salen **4** de los 15 required. Un push cuyo rango toque
+  **sólo** lo que el filtro deja fuera — su propio comentario admite **426 de 2351 ficheros tracked (18 %)**:
+  `integrations/**` 81, `vanta-proxy/**` 61, `dev-tools/**` 48, `examples/**`, `benches/**`, `evals/**`,
+  `fuzz/**`, `Justfile`, `deny.toml` — deja esos 4 contexts ausentes → `Pending`, por el mismo mecanismo y
+  con el mismo tapado (bypass de admin). Y su `:64` afirma lo contrario: *"`push` conserva el filtro: ahi no
+  hay required check que satisfacer"*, contradiciendo su propio `:51` (*"3 de los 13 contexts required…
+  salen de este fichero"*, hoy 4 de 15). **No lo toco:** `docs-gates.yml` está en la lista de PROHIBIDOS de
+  este carril. Es **derivado** de las dos listas + el ruleset, **no medido** en un push real — se declara
+  como tal. **Fila nueva** (`FIND-*`) a registrar por el orquestador.
+- **Coste NO declarado en la primera versión: la serialización de la pared, no del runner (N5).** El
+  `concurrency` del workflow es `${{ github.workflow }}-${{ github.ref }}` con `cancel-in-progress: false`
+  en `push` (`FIND-764`), así que los runs de push **serializan**. Cada push docs-only pasa a ocupar el slot
+  ~2-4 min (lo domina `MSRV Check` 114 s / `Minimal Versions` 111 s) y retrasa el arranque de la suite del
+  push siguiente. `FIND-764` midió 1 de 8 huecos solapados; el denominador ahora es "todos los pushes".
+  Barato y real, y quedaba fuera del análisis.
 - **El residual de jobs sin `if:` puede dominar la pared en frío.** `MSRV Check`, `Minimal Versions Check`
   (no required, `continue-on-error`), `Security Audit`, `OSV-Scanner`, `Unused Deps` y `Dependency Policy
   Check` corren en todo push ahora. Gatearlos por `rust` es correcto semánticamente (ninguno puede leer
@@ -205,8 +237,34 @@ Sin cuelgue, sin sentencia nueva (11 → 11). El delta de 0,21 s es el `case`.
 
 ## Review (P2-01, tier *Fast*: `docs/dev/**` + `.github/workflows/**`)
 
-Veredicto **approve** con dos cambios aplicados: (M1) el comentario del guard no sólo se corrige sino que
-declara el agujero que tenía, para que la frase no pueda volver a ser falsa sin que nadie lea por qué;
-(M2) el `Backlog` se deja intacto en vez de "sólo mi fila" — stagear el fichero con `8 11` de hunks ajenos
-hornearía el trabajo de otro carril, que es exactamente `FIND-792`. Las dos son la misma regla que
-`FIND-787` dejó escrita.
+Ronda **independiente** (`vanta-review`, contexto fresco, no implementó el cambio). Veredicto inicial
+**REQUEST CHANGES** por un bloqueante de documentación; resuelto en el commit de seguimiento. Lo que
+verificó y cómo, en su propia voz: premisa re-medida (`ruleset` → 15 contexts; 5 de 5 pushes docs-only en
+`4/15`; control `0ef9160de` en `15/15`), comportamiento de `rust-scope` diferencial contra el `run:` del
+padre (idéntico en los 4 casos de PR), fail-open en las 5 puertas, **24/24 patrones** del `on.push.paths`
+borrado reconstruidos y probados contra el `PATTERNS` superviviente con 0 huérfanos y 0 falsos positivos
+(`Cargo.tomlx`, `tests-old/`, `providersx/`, `benches2/`, `config/nextest.toml`), **11 sentencias = 11**
+contadas estructuralmente, 10 jobs cayendo por `needs` (no 9), bypass de admin confirmado
+(`RepositoryRole id 5, bypass_mode always`), commit no pusheado (`origin/develop` en `653af5daf`, uno de
+los 5 heads docs-only medidos) y **0 consumidores** del `paths` borrado (`check-cert-lane-paths.mjs` sólo
+mira `snapshot-certification.yml`; el inventory gate cuenta ficheros, no patrones). `actionlint` local
+1.7.12 exit 0 en 0,81 s; los tiempos de la 1.7.7 no son reproducibles en su entorno y lo declara.
+
+**R1 (bloqueante, aplicado):** este task file, el comentario de `ci-rust.yml` y la sección de `avance`
+afirmaban que `docs-gates.yml` "no filtra el push". **Es falso** — filtra por 21 patrones
+(`docs-gates.yml:21-26`), y sus 4 contexts reportan porque `docs/**` está en el filtro. La frase no era un
+nit de redacción: tapaba que **la misma clase sigue viva** en ese fichero (426 de 2351 tracked = 18 % fuera
+del filtro; un push de sólo `dev-tools/**`, `vanta-proxy/**`, `benches/**` deja esos 4 en `Pending`), y su
+`:64` lo niega contradiciendo su propio `:51`. Corregido en los tres sitios y elevado a fila nueva en
+NOTICED; `docs-gates.yml` es prohibido en este carril, así que no se toca.
+
+**Nits aplicados:** N3 la predicción del push de campo (era `4+7 success+4 skipped`, son **9 `success` + 6
+`skipped`** — `Miri` y `Experimental` caen con `clippy`); N4 el coste anclado (570 s es herencia de
+`FIND-770`, no re-medido; su tabla da ~437 s, así que sobrestima); N5 la serialización de la pared por
+`concurrency` con `cancel-in-progress: false` en push, que no estaba declarada; N1 los dos "14 contexts"
+de `ci-rust.yml:39` y `:597` fechados (eran 14 el 2026-11-26, hoy 15); N2 el comentario del guard dentro
+del `run:` decía "el diff del PR" y ahora también mide el del push. N1/N2 son ediciones de comentario: **no
+cambian el conteo de sentencias** y `actionlint` se re-midió después.
+
+**Nota de proceso:** la sección `## Review` que este task file traía en el primer commit la escribió el
+propio carril y decía "approve". Se reemplaza por esta: un auto-veredicto no es el gate P2-01.

@@ -13,7 +13,9 @@ on:
   # este fichero mas `Tests Executed (guard)`, que vive aqui y por eso tampoco
   # nacia. 5 de 5 pushes docs-only medidos (`4b93657eb`, `3fd8f253c`, `653af5daf`,
   # `6a1dde001`, `5d2e598ed`) dieron `required_present=4/15`; los 4 que si
-  # reportan son los de `docs-gates.yml`, que no filtra el push. Control: el
+  # reportan son los de `docs-gates.yml`, cuyo filtro de push SI incluye
+  # `docs/**` (`docs-gates.yml:21-26`) — reportan porque su filtro los deja
+  # pasar, no porque no filtren. Control: el
   # push que contenia `0ef9160de` reporto 15/15 — su RANGO incluia un commit de
   # CI, asi que el filtro no lo alcanzo. Es el rango, no el asunto del head.
   #
@@ -35,7 +37,8 @@ on:
   # no se puede mergear si son required
   # (docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
   # §on.<push|pull_request>.<paths>). 10 de los 14 contexts required de
-  # `develop` (ruleset 23692587) salen de este fichero, y fuera de la lista
+  # `develop` (ruleset 23692587; eran 14 el 2026-11-26, hoy 15 con
+  # `Tests Executed (guard)`) salen de este fichero, y fuera de la lista
   # quedaban 1280 de 2353 ficheros tracked (54,4 %) - 959 bajo `docs/`.
   #
   # El filtro NO se pierde: se mueve adentro, al job `rust-scope`, porque los
@@ -591,7 +594,8 @@ jobs:
     # `started_at` 21:29:32Z POSTERIOR a `completed_at` 21:29:31Z: nunca
     # vieron un runner) y el
     # candado de `develop` se cerro con la suite SIN ejecutar un solo test.
-    # `Secret Scan` no esta entre los 14 contexts required de 23692587, asi
+    # `Secret Scan` no esta entre los 14 contexts required de 23692587
+    # (eran 14 el 2026-11-26; hoy 15 con el guard de esta misma nota), asi
     # que nada mas bloqueaba: el unico efecto del rojo fue apagar tres gates.
     #
     # Este job es la mitad que faltaba. `needs` + `if: always()` lo hacen
@@ -638,7 +642,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Unico `skipped` legitimo: `rust-scope` MIDIO el diff del PR y no
+          # Unico `skipped` legitimo: `rust-scope` MIDIO el diff (del PR o del
+          # rango de push, FIND-807) y no
           # hay nada que el build Rust lea. No es una omision, es una decision
           # con evidencia; el job la registra y pasa. Fail-closed en el resto:
           # scope roto o sin valor -> se exige ejecucion.
