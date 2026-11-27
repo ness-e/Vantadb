@@ -135,9 +135,15 @@ pub struct ProxyHandle {
 
 impl ProxyHandle {
     /// Build a ProxyHandle from ServerInfo, probing health within
-    /// [`REQUEST_TIMEOUT_MS`]. Returns None if PID dead, health non-healthy, or
+    /// `REQUEST_TIMEOUT_MS`. Returns None if PID dead, health non-healthy, or
     /// timeout (including a connect that never completes: the probe gives the
-    /// TCP handshake only [`HEALTH_CONNECT_TIMEOUT_MS`]).
+    /// TCP handshake only `HEALTH_CONNECT_TIMEOUT_MS`).
+    ///
+    /// Both are **private** consts of this module on purpose; they are named
+    /// here as plain code spans, not intra-doc links — a `pub` item cannot link
+    /// to a private one, and `rustdoc -D warnings` (required check "Generate API
+    /// reference") rejects it. Regression introduced with the probe deadline
+    /// (`FIND-782`), caught by the required check on push `66404bedc`.
     ///
     /// Two clients, deliberately, and the split is load-bearing (FIND-782):
     /// - `probe` bounds the **connect** phase, so a closed port fails in
