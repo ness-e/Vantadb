@@ -301,6 +301,65 @@ export function claimViolations(addedRowLines, fileText = (f) => read(join(ROOT,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FIND-811: "re-verificado" is not verified
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A row that CLAIMS a re-verification: `re-verificado` or `verificado <fecha>`.
+ * The dated form is the one that rotted: 4 of the 9 rows FIND-607 produced
+ * described code deleted 24-27 days before the mark was written, and one of
+ * them headed the implementation queue. A date alone proves nothing — the
+ * claim has to name what was run (`Medición:` does the same for numbers).
+ */
+const REVERIFY_CLAIM = /\b(re-)?verificad[oa]s?\b[^|]{0,40}?\b\d{4}-\d{2}-\d{2}\b/i;
+// Evidence: a commit sha (letters required, so a bare 8-digit date is not one)
+// or a backticked command. `archivo.rs:146` is NOT evidence — that is the
+// citation that rots, not the check that caught it rotting.
+const COMMIT_SHA = /\b(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/i;
+const EVIDENCE_CMD =
+  /`[^`]*\b(rg|grep|git (?:log|show|cat-file|blame|ls-files)|cargo (?:check|nextest|clippy|test)|node|pwsh|Select-String|Get-ChildItem|pytest)\b[^`]*`/i;
+
+export function hasReverifyEvidence(cell) {
+  const s = String(cell || "");
+  return COMMIT_SHA.test(s) || EVIDENCE_CMD.test(s);
+}
+
+/**
+ * Same surface as the H-02 gate (rows ADDED to the diff). Judged cell by cell
+ * and NOT only on the claim columns: the old stamps live in the `Relaciones`
+ * column too (`… · verificado 2026-10-04 | — |`), which is where 4 of the 9
+ * false rows carried theirs. The evidence must sit in the SAME cell as the
+ * claim, so a commit quoted in a neighbouring column cannot absolve it.
+ */
+export function reverifyViolations(addedRowLines, fileText = (f) => read(join(ROOT, f))) {
+  const out = [];
+  const cache = new Map();
+  for (const { file, line, text } of addedRowLines) {
+    if (!/^\s*\|/.test(text)) continue;
+    if (!cache.has(file)) {
+      try {
+        cache.set(file, fileText(file));
+      } catch {
+        cache.set(file, null);
+      }
+    }
+    const body = cache.get(file);
+    if (body === null) continue;
+    if (!governingHeader(body, line)) continue; // not in a table
+    for (const cell of splitCells(text)) {
+      if (REVERIFY_CLAIM.test(cell) && !hasReverifyEvidence(cell)) {
+        out.push(
+          `${file}:${line}: "re-verificado" without a command or a commit — ${cell
+            .trim()
+            .slice(0, 90)}`,
+        );
+      }
+    }
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Plan table parsing (H-06 wave conflicts)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -966,6 +1025,10 @@ function checkMedicion() {
   return bad;
 }
 
+function checkReverify() {
+  return reverifyViolations(addedDiffRows());
+}
+
 function checkPremise() {
   const bad = [];
   const taskPrompt = join(OPENCODE, "task-system/prompts/task.md");
@@ -1114,6 +1177,7 @@ const CHECKS = [
   ["repo-integrity (incidente 72643d9df)", checkRepoIntegrity],
   ["plan-lote (H-05)", checkPlanLote],
   ["medicion (H-02)", checkMedicion],
+  ["reverify (FIND-811)", checkReverify],
   ["premise (H-07)", checkPremise],
   ["wave-quotas (H-06)", checkWaveQuotas],
   ["nextest-select (FIND-794)", checkNextestSelect],
@@ -1785,6 +1849,37 @@ function runSelfTest() {
     ).length === 0,
   );
 
+  // FIND-811: the mark that meant nothing. The second fixture is the row this
+  // task RETIRED, verbatim from HEAD: proof that the rule can fail on real
+  // content, not only on a synthetic one.
+  const rv = (row) =>
+    reverifyViolations(
+      [{ file: "docs/dev/Backlog.md", line: 3, text: row }],
+      () => `${HEADER10}\n${row}\n`,
+    );
+  const FIND271_HEAD =
+    "| `FIND-271` | 🟢 Baja | **`CRASH_MODEL.md:75` stale (referencia a WAL browser que no aplica)** | `docs/dev/architecture/CRASH_MODEL.md:75` | 🟢 30min | 🟢 Nice-to-have | 🆕 Pendiente | Detectado por TS-13 (2026-10-04). | Origen: TS-13 (master-plan 0.9.0) · verificado 2026-10-04 | — |";
+  ok(
+    'reverify: a bare "re-verificado <fecha>" with no command fails',
+    rv(swap("<descripción: qué se encontró + acción propuesta>", "(re-verificado 2026-11-22)"))
+      .length === 1,
+  );
+  ok("reverify: the row retired by FIND-811 (verbatim HEAD) fails", rv(FIND271_HEAD).length === 1);
+  ok(
+    "reverify: the same row with the command that caught it passes",
+    rv(
+      FIND271_HEAD.replace(
+        "verificado 2026-10-04",
+        "verificado 2026-10-04 (`git cat-file -e HEAD:docs/dev/architecture/CRASH_MODEL.md` → exit 128)",
+      ),
+    ).length === 0,
+  );
+  ok(
+    "reverify: a commit sha passes",
+    rv(FIND271_HEAD.replace("verificado 2026-10-04", "verificado 2026-10-04 · commit `651d7a30d`"))
+      .length === 0,
+  );
+
   let failed = 0;
   for (const [name, pass] of cases) {
     console.log(`${pass ? "ok  " : "FAIL"}  ${name}`);
@@ -1805,17 +1900,20 @@ if (selfTest) {
 // M2: the claim rule must run when the row is CREATED, not only in /harness
 // (a row committed inside a normal task never reaches the /harness diff).
 if (rowsOnly) {
-  const bad = claimViolations(addedDiffRows());
+  const rows = addedDiffRows();
+  const bad = [...claimViolations(rows), ...reverifyViolations(rows)];
   if (bad.length) {
     for (const b of bad) console.log(`FAIL ${b}`);
     // P2-01 N1: the footer named only the missing-`Medición:` case, while `cannot
     // judge` (a table with no claim column) lands in the same list.
     console.log(
-      `\n${bad.length} claim row(s) rejected — see the FAIL lines above (H-02 / FIND-779)`,
+      `\n${bad.length} claim row(s) rejected — see the FAIL lines above (H-02 / FIND-779 / FIND-811)`,
     );
     process.exit(1);
   }
-  console.log("ok   row claims (added Backlog/plan rows carry their Medición:)");
+  console.log(
+    "ok   row claims (added Backlog/plan rows carry their Medición: and re-verified rows say what was run)",
+  );
   process.exit(0);
 }
 

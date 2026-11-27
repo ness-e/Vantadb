@@ -349,3 +349,11 @@ Filas retiradas **sin completar** porque ya no aplican (obsoletas o superadas). 
 - **UX-10** (Toggle de visibilidad de columnas) - obsoleto: Desktop congelado (`feature-freez/README.md:10`); el residual persiste en la copia congelada. Fila removida del catalogo.
 - **UX-12** (Jerarquia del bloque RESUMEN) - obsoleto: Desktop congelado (`feature-freez/README.md:10`); el residual persiste en la copia congelada. Fila removida del catalogo.
 - **UX-15** (Microcopy EN en DataExplorer) - obsoleto: Desktop congelado (`feature-freez/README.md:10`); el residual persiste en la copia congelada. Fila removida del catalogo.
+
+## Barrido de marcas "re-verificado" contra HEAD (2026-11-27, FIND-811)
+
+Filas retiradas **sin completar** porque su afirmacion no se sostiene leyendo HEAD (no porque el trabajo este hecho). Las 8 filas del mismo barrido que siguen vivas quedaron en el catalogo con su campo `Medición:` y la cita de linea corregida.
+
+- **FIND-271** (CRASH_MODEL.md:75 stale) - refutada: el path citado **nunca existio**. `git cat-file -e HEAD:docs/dev/architecture/CRASH_MODEL.md` → exit 128, y tambien falla en `b7b2b4c04` (2026-10-04, el commit del dia en que se escribio la fila). El texto real (`docs/dev/wasm/CRASH_MODEL.md:75`) ya decia "no WAL, no atomicity on OPFS writes" ese mismo dia: no habia referencia stale que corregir. Fila removida del catalogo.
+- **FIND-282** (governance.source sin consumidor) - refutada: `RecallGovernance::source` (`vanta-memory/src/core/hooks/auto_recall.rs:101`) se invoca en 4 sitios (`:479`, `:537`, `:549`, `:564`) y el resumen viaja en `RecallResult.governance` (`:246`). Introducido por `b312482da` (VER-04, 2026-09-29): **6 dias antes** de que la fila se escribiera. Fila removida del catalogo.
+
