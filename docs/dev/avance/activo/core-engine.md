@@ -1910,3 +1910,13 @@ el propio SDK ya usa— los arregla a los tres.
 - **Verificacion:** `shipper_refuses_an_encrypted_wal_before_shipping_anything`: RED medido con la guarda deshabilitada (el error era el seco `Encryption key required for wal`); con la guarda el ciclo se niega y no escribe el marker (nada se envio). Poblacion del area: 319/319.
 - **Deuda declarada:** la replicacion de bases cifradas no existe y este fix la declara imposible, no la implementa (requeriria compartir la DEK con el destino).
 - **Ids:** `FIND-496`
+
+### FIND-507: el backup declara el cifrado y el restore exige la master key
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** el backup copiaba el `data_dir` (con el registro de claves) pero el manifest no lo declaraba, y el restore copiaba y salia: el operador se encontraba un `EncryptionKeyRequired` seco en el siguiente comando, sin saber que la master key no viaja con el backup.
+- **Medicion de la fila (corregida):** de las cuatro piezas, la (1) -`encryption.registry` copiado y no hard-linkeado en el snapshot- **ya estaba hecha** en W6 (`is_mutable_after_snapshot`, `src/storage/engine/mod.rs:769-775`) y la (4) -runbook de perdida del registro- ya existe (`security/KEY_RUNBOOK.md`). Faltaban la (2) y la (3).
+- **Resultado:** `BackupEncryption { registry, master_key_included: false, runbook }` en el `MANIFEST.json` (con `serde(default)`: los backups ya escritos siguen parseando), aviso explicito en el backup y en el dry-run, y **el restore se niega** cuando el backup trae registro y no resuelve ninguna clave -nombrando las tres fuentes y el runbook- antes de tocar el destino.
+- **Verificacion:** `manifest_declares_the_encryption_registry_when_present` + `restore_of_an_encrypted_backup_without_a_key_explains_the_requirement` (RED medido con la guarda deshabilitada: restauraba sin clave). El restore con clave sigue funcionando (es una copia de ficheros).
+- **Deuda declarada:** la master key sigue sin viajar con el backup (decision, ADR-0057 D2: empaquetarla cambia el modelo de amenaza).
+- **Ids:** `FIND-507`

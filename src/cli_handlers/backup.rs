@@ -31,6 +31,94 @@ struct ManifestFile {
     crc32c: String,
 }
 
+/// The encryption facts of a backup (FIND-507).
+///
+/// A backup of an encrypted database carries the **key registry** (it lives in
+/// the data directory) but **never** the master key, which lives in the
+/// environment of the process (ADR-0057 D2). Declaring it in the manifest is
+/// what turns a later `EncryptionKeyRequired` into an explainable restore.
+#[derive(Debug, Serialize, Deserialize)]
+struct BackupEncryption {
+    /// Path of the key registry, relative to the backup root.
+    registry: String,
+    /// Always `false`: the master key does not travel with the backup.
+    master_key_included: bool,
+    /// Where the operator reads how to provide the key (and what happens if
+    /// the registry is lost).
+    runbook: String,
+}
+
+/// File name of the key registry.
+///
+/// The literal of `crypto::registry::REGISTRY_FILE_NAME` (that module is
+/// feature-gated; the backup path is not: it must recognise an encrypted
+/// backup even in a build without the `encryption` feature).
+const REGISTRY_FILE_NAME: &str = "encryption.registry";
+
+/// The runbook that explains the master key and the registry loss.
+const KEY_RUNBOOK: &str = "docs/user/operations/security/KEY_RUNBOOK.md";
+
+/// Locate the key registry inside `dir` (recursively) and describe it.
+///
+/// `None` = the backup is plaintext (no registry anywhere in the tree).
+fn encryption_block(dir: &Path) -> Option<BackupEncryption> {
+    let registry = walkdir_flat(dir)
+        .ok()?
+        .into_iter()
+        .find(|p| p.file_name().is_some_and(|n| n == REGISTRY_FILE_NAME))?;
+    let relative = registry
+        .strip_prefix(dir)
+        .unwrap_or(&registry)
+        .to_string_lossy()
+        .replace('\\', "/");
+    Some(BackupEncryption {
+        registry: relative,
+        master_key_included: false,
+        runbook: KEY_RUNBOOK.to_string(),
+    })
+}
+
+/// Refuse to restore an **encrypted** backup when no master key resolves.
+///
+/// Copying the files is not the problem: the database will simply not open
+/// afterwards, and the operator would meet a bare `EncryptionKeyRequired` in
+/// whatever command they run next. The error names the three key sources and
+/// the runbook (FIND-507).
+#[cfg(feature = "encryption")]
+fn require_master_key_for_encrypted_backup(src: &Path) -> Result<()> {
+    let Some(block) = encryption_block(src) else {
+        return Ok(());
+    };
+    let config = crate::config::Config::default();
+    let env_key = config
+        .encryption_key
+        .clone()
+        .or_else(|| std::env::var("VANTADB_ENCRYPTION_KEY").ok());
+    match crate::crypto::resolve_master_key_material(
+        env_key.as_deref(),
+        config.encryption_key_file.as_deref(),
+        config.encryption_key_cmd.as_deref(),
+    ) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(crate::error::Error::restore_error(format!(
+            "the backup '{}' is ENCRYPTED (it carries '{}') but no master key resolved. \
+             The master key never travels with a backup: provide it before restoring with \
+             VANTADB_ENCRYPTION_KEY (hex), VANTADB_ENCRYPTION_KEY_FILE or \
+             VANTADB_ENCRYPTION_KEY_CMD, or the restored database will not open. \
+             Losing the registry or the key loses the database — see {KEY_RUNBOOK}.",
+            src.display(),
+            block.registry
+        ))),
+    }
+}
+
+/// No-op without the `encryption` feature: such a build cannot open an
+/// encrypted database anyway, and the restore itself is a plain file copy.
+#[cfg(not(feature = "encryption"))]
+fn require_master_key_for_encrypted_backup(_src: &Path) -> Result<()> {
+    Ok(())
+}
+
 /// MANIFEST.json written alongside every backup.
 ///
 /// Provides enough metadata to validate backup integrity, chain incrementals
@@ -45,6 +133,10 @@ struct BackupManifest {
     vantadb_version: String,
     /// Relative path to the base backup (null for base backups).
     base_ref: Option<String>,
+    /// Encryption facts (null/absent for a plaintext database). Absent on
+    /// backups written before FIND-507, hence `serde(default)`.
+    #[serde(default)]
+    encryption: Option<BackupEncryption>,
     /// Files included in this backup with integrity data.
     files: Vec<ManifestFile>,
 }
@@ -207,6 +299,7 @@ pub fn cmd_backup(
         created_at,
         vantadb_version: env!("CARGO_PKG_VERSION").to_string(),
         base_ref: None,
+        encryption: encryption_block(&backup_dir),
         files,
     };
     // Non-fatal: log a warning but don't abort the backup on manifest failure.
@@ -221,11 +314,22 @@ pub fn cmd_backup(
             "backup_dir": backup_dir.display().to_string(),
             "files": manifest.files.len(),
             "vantadb_version": manifest.vantadb_version,
+            "encrypted": manifest.encryption.is_some(),
+            "encryption_registry": manifest.encryption.as_ref().map(|e| e.registry.clone()),
         }));
     }
 
     let _ = Term::stdout().write_line("");
     print_success(&format!("Backup created at: {}", backup_dir.display()));
+
+    if let Some(block) = &manifest.encryption {
+        print_warning(&format!(
+            "This is an ENCRYPTED database backup: it carries '{}' but NOT the master key. \
+             Keep the key separately and provide it when restoring — losing it (or the \
+             registry) loses the database. See {KEY_RUNBOOK}.",
+            block.registry
+        ));
+    }
 
     if verbose {
         print_info(&format!(
@@ -341,6 +445,20 @@ fn cmd_restore_dry_run(
 
     let dst = std::path::Path::new(db_path);
 
+    // FIND-507: an encrypted backup needs the master key at restore time; the
+    // dry-run says so before the operator commits to a target.
+    let encryption = encryption_block(src);
+    if let Some(block) = &encryption {
+        if !json_output {
+            print_warning(&format!(
+                "This backup is ENCRYPTED (registry: '{}'): restoring needs the master key \
+                 (VANTADB_ENCRYPTION_KEY / _FILE / _CMD). The key never travels with the \
+                 backup. See {KEY_RUNBOOK}.",
+                block.registry
+            ));
+        }
+    }
+
     if json_output {
         return print_json(&serde_json::json!({
             "mode": "dry_run",
@@ -351,6 +469,7 @@ fn cmd_restore_dry_run(
             "would_overwrite": dst.exists(),
             "rebuild": matches!(opts.rebuild, IndexRebuild::Yes),
             "manifest": manifest_json,
+            "encryption_registry": encryption.as_ref().map(|b| b.registry.clone()),
         }));
     }
 
@@ -423,6 +542,10 @@ pub fn cmd_restore(
         ));
     }
 
+    // FIND-507: an encrypted backup needs its master key **before** the files
+    // are put in place — restoring blind leaves a database that will not open.
+    require_master_key_for_encrypted_backup(src)?;
+
     let spinner = create_spinner("Restoring from backup...");
 
     if dst.exists() && matches!(opts.overwrite, OverwritePolicy::Overwrite) {
@@ -481,4 +604,105 @@ pub fn cmd_restore(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A backup tree that carries a key registry (the encrypted shape).
+    fn write_registry_backup(dir: &Path) {
+        std::fs::create_dir_all(dir.join("data")).unwrap();
+        std::fs::write(
+            dir.join("data").join(REGISTRY_FILE_NAME),
+            b"VANTAREG-not-a-real-registry",
+        )
+        .unwrap();
+    }
+
+    /// FIND-507: the manifest declares the encryption facts (and says that the
+    /// master key is **not** in the backup), and a plaintext backup declares
+    /// nothing at all.
+    #[test]
+    fn manifest_declares_the_encryption_registry_when_present() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let plain = dir.path().join("plain");
+        std::fs::create_dir_all(&plain).unwrap();
+        std::fs::write(plain.join("vanta.wal"), b"wal").unwrap();
+        assert!(
+            encryption_block(&plain).is_none(),
+            "a plaintext backup must declare no encryption block"
+        );
+
+        let encrypted = dir.path().join("encrypted");
+        write_registry_backup(&encrypted);
+        let block = encryption_block(&encrypted).expect("the registry must be found");
+        assert_eq!(block.registry, "data/encryption.registry");
+        assert!(
+            !block.master_key_included,
+            "the master key never travels with the backup"
+        );
+        assert_eq!(block.runbook, KEY_RUNBOOK);
+    }
+
+    /// FIND-507: restoring an encrypted backup without a master key fails
+    /// **before** touching the target, naming the key sources — not with a bare
+    /// `EncryptionKeyRequired` in whatever command runs next.
+    #[cfg(feature = "encryption")]
+    #[test]
+    fn restore_of_an_encrypted_backup_without_a_key_explains_the_requirement() {
+        const VARS: [&str; 3] = [
+            "VANTADB_ENCRYPTION_KEY",
+            "VANTADB_ENCRYPTION_KEY_FILE",
+            "VANTADB_ENCRYPTION_KEY_CMD",
+        ];
+        for var in VARS {
+            std::env::remove_var(var);
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let backup = dir.path().join("backup");
+        write_registry_backup(&backup);
+        let target = dir.path().join("restored");
+
+        let err = cmd_restore(
+            target.to_str().unwrap(),
+            backup.to_str().unwrap(),
+            RestoreOptions::default(),
+            true,
+        )
+        .err()
+        .expect("an encrypted backup without a key must not restore");
+        let message = err.to_string();
+        assert!(
+            message.contains("master key"),
+            "the error must name the missing master key, got: {message}"
+        );
+        assert!(
+            message.contains("VANTADB_ENCRYPTION_KEY_FILE"),
+            "the error must name the key sources, got: {message}"
+        );
+        assert!(
+            !target.exists(),
+            "the target must not be created without the key"
+        );
+
+        // With a key the restore proceeds: it is a file copy, the crypto
+        // happens when the restored database is opened.
+        std::env::set_var("VANTADB_ENCRYPTION_KEY", "ab".repeat(32));
+        let restored = cmd_restore(
+            target.to_str().unwrap(),
+            backup.to_str().unwrap(),
+            RestoreOptions::default(),
+            true,
+        );
+        let outcome = restored;
+        std::env::remove_var("VANTADB_ENCRYPTION_KEY");
+        outcome.expect("a restore with a key must succeed");
+        assert!(
+            target.join("data").join(REGISTRY_FILE_NAME).exists(),
+            "the registry must be restored"
+        );
+    }
 }
