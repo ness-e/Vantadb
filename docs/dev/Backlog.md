@@ -827,12 +827,6 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
 
-## Media 2026-11-26 - La skill `progreso` declina commitear y declara task files STALE por diseño (hallazgo F12 del harness)
-
-| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
-|---|---|---|---|---|---|---|---|---|---|
-| `FIND-777` | 🟡 Media | **`progreso` declina commitear y declara los task files STALE **por diseño**: el eslabón que cierra el estado queda fuera de la skill que lo cierra** | `~/.agents/skills/progreso/SKILL.md:133,149-151` | 🟢 30min | 🟡 Media | 🟡 Pendiente (2026-11-26) — **requiere decisión del owner**: vive fuera del repo | Hallazgo F12 de la auditoría. La skill que ejecuta el cierre de una tarea **no commitea** y deja los task files en `STALE`, así que el cierre depende de que el orquestador recuerde hacerlo — y hoy se olvidó **4 veces** (`status: active` en tareas cerradas). **El problema de fondo:** esa skill vive en `~/.agents/skills/`, **fuera de `.opencode/` y fuera de este repo**, así que **no está versionada con el resto del harness** y su publicación es global para todos los proyectos de la máquina. Eso convierte un arreglo de 30 minutos en una decisión de política: ¿se vendoriza la skill dentro de `.opencode/` (versionada, con el resto del harness) o se mantiene global y se asume el drift? **Contrato:** el cierre de una tarea deja el repo en un estado verificable (fila fuera + `avance` + commit + `status: completed`) **desde una sola invocación**, y un check detecta task files `active` cuya fila ya no está en el Backlog. | Origen: auditoría del harness (2026-11-26) | Ver: informe §F12, `FIND-776` |
-
 ## Critica 2026-11-26 - El helper de commit creó dos commits de arbol vacio (2.365 borrados) reportando "failed" (derivada de la ronda 3 del harness)
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |

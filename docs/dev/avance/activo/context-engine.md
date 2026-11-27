@@ -49,3 +49,52 @@ tags: [vantadb, avance, context-engine, compression, budget, recall, mmd]
 - **Escala medida:** de **126** task files en `docs/dev/tasks/`, **108** no tienen fila en el plan activo (86 %): el `Task not found` del escritor era estructuralmente falso para la mayoría de IDs, no un borde.
 - **Review P2-01:** `vanta-review` en contexto fresco → cambios requeridos y aplicados (verify_cmd ya no salta el budget en silencio, `taskId` validado contra traversal, un solo vocabulario de status, BOM, mensaje `NO_ACTIVE_PLAN` con los ficheros).
 - **Id:** `FIND-774`
+
+---
+
+## Task-system - la skill que cierra las tareas sale del catalogo global (FIND-777)
+
+### FIND-777: `progreso` vendorizada en `.opencode/skills/` (decision del owner)
+
+- **Fecha:** 2026-11-27
+- **Decision:** la skill que **cierra el estado de una tarea** vivia en
+  `~/.agents/skills/progreso/` — fuera del repo, fuera de `.opencode/`, y
+  git-ignorada (`.agents/` esta en `.git/info/exclude:9`). El owner decidio
+  **vendorizarla**, no mantenerla global: `.opencode/skills/progreso/SKILL.md`
+  (9 716 B, copia **byte-identica**, SHA-256 verificado) pasa a ser la copia
+  **canonica del repo**. La global **no se borra** — otros proyectos del owner
+  la usan; el orden de discovery (project > global) hace que la local gane
+  siempre, asi que no hay dos versiones compitiendo dentro de este repo.
+- **Rutas:** el archivo **no tenia ninguna referencia absoluta** (`~`, `C:\Users`,
+  `/home/`, `.agents` → 0 hits). Su unico defecto de ruta era **relativo**: el
+  enlace `../../references/definition-of-done.md` resolvia a
+  `~/.agents/references/`, que **no existe** (`Test-Path` → `False`). La skill
+  fue escrita para vivir en `.opencode/skills/` y se publico fuera: vendorizarla
+  **repara el enlace** (`Test-Path` → `True`) sin editar una sola linea.
+- **Registro:** `skills-index.json` regenerado con
+  `build-skills-index.mjs` → `progreso` pasa de `source:"global"` /
+  `path:"~/.agents/skills/..."` a `source:"project"` /
+  `path:".opencode/skills/progreso/SKILL.md"`; el generador reporta
+  `.opencode/skills: 4 adoptadas` y `~/.agents/skills: 4 en sombra (override)`.
+  Ademas: `skills/INDEX.md` (3 → 4 locales), `SKILLS-MANIFEST.md` (nota de
+  vendorizacion) y `references/definition-of-done.md:136` (citaba la ruta de
+  fuera como **fuente**). Ninguno de los 44 archivos que invocan
+  `skill progreso` necesito edicion: resuelven **por nombre**.
+- **Prueba mecanica:** la skill no tiene scripts propios; su Trigger 1.F invoca
+  dos del repo. Ambos corridos desde el repo: `scripts/check-avance-coverage.ps1`
+  → exit 0, **1034/1034 IDs cubiertos (100.0 %)**, y
+  `scripts/validate-docs-coverage.ps1` → exit 0, **0 gaps**.
+- **Δ medido:** referencias a `~/.agents/skills/progreso` en `.opencode/`:
+  **2 → 0** (eran `skills-index.json:9561` y `definition-of-done.md:136`).
+  Fila del Backlog eliminada. Quedan **2 menciones historicas** que no son
+  dependencia viva y se conservan a proposito: el informe de auditoria fechado
+  `docs/dev/reviews/2026-11-26-harness-hardening.md:414` (evidencia congelada —
+  reescribirlo seria falsificar el registro) y este mismo task file, que
+  documenta el antes/despues.
+- **Premisa re-medida:** la fila afirmaba "se olvido **4 veces** (`status: active`
+  en tareas cerradas)". Es una **anecdota de auditoria sin comando reproducible**.
+  El unico detector disponible —task file `status: active` sin fila en el
+  Backlog— da **8**, pero tiene falso positivo estructural conocido (`FIND-774`:
+  108 de 126 task files no tienen fila en el plan activo). La anecdota **ni se
+  confirma ni se refuta**; lo medible es la dependencia de la ruta de fuera.
+- **Id:** `FIND-777`
