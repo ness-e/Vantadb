@@ -1,0 +1,46 @@
+# VantaDB — ThreadSanitizer suppressions (job `sanitizer-tsan`, FIND-737)
+#
+# One entry per CLASS, never per report. The lane used to be retired because a
+# run produced 243 reports that no one could adjudicate (CI_POLICY § TSan lane).
+# Enumerating those 243 as lines is what this file exists to avoid: TSan prints
+# `Suppressions used:` at exit, so a class that starts matching again arrives as
+# ONE named line instead of a wall of warnings.
+#
+# HOW A LINE IS READ (measured, not assumed):
+#   - matched as a substring, with `*` implied at both ends, against FUNCTION
+#     names and FILE names of both stacks (reporting stack and, for races, the
+#     previous-access stack); `^` / `$` anchor to the whole name.
+#   - a line here is a CLAIM: "this class cannot be an engine finding".
+#
+# HARD INVARIANT — do not break it: never suppress a name containing `vantadb`
+# nor a `src/` file. The lane's only product is "no report has an engine frame";
+# an entry naming engine code makes that rule unmeasurable, which is the same
+# blindness the lane was retired for (warn #42, kernels.rs:275, carried no
+# harness and no dependency frame — a real double-free in FjallInner's teardown
+# prints the same shape).
+#
+# The job warns (does not fail) when a class below starts firing: the failure
+# criterion is the engine-frame rule alone. A firing class is rot to re-reason,
+# the lesson `suppression hits: 0` taught in 24 h (FIND-714).
+#
+# With `-Zbuild-std` these classes are expected to fire ZERO times: an
+# instrumented `std` sees its own futex and atomics. That is why they are
+# active here — they are the shape of the regression to watch, not tape.
+
+# class: libtest's own event plumbing — an Arc<Mutex<Option<..>>> owned by the
+# harness. 176 of the 243 reports. The disputed accesses are inside libtest.
+race:^test::run_test
+
+# class: std::sync::Mutex, the futex path (58 + 8 of the 243 — fjall/flume
+# teardown and tokio's blocking pool). A futex is not a pthread_mutex, so the
+# libc interceptor never fires; only an instrumented std sees it.
+race:^std::sys::sync::mutex
+
+# class: std::sync::Once / OnceLock, the futex-based one-time init (report #42:
+# select_kernels() -> KERNELS.get_or_init). `core::mem::MaybeUninit::write` and
+# `OnceLock::initialize` are the frames that made it look engine-local.
+race:^std::sys::sync::once
+
+# class: `Arc` refcounts — the drop path in alloc. Shape-compatible with a real
+# double free, which is exactly why the engine-frame rule below it stays armed.
+race:^alloc::sync::Arc

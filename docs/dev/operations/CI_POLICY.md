@@ -62,6 +62,7 @@ governance semantics are excluded from the default fast lane.
 | `deny` | Dependency Policy Check (`cargo deny`) |
 | `experimental-check` | Experimental Crates Check (continue-on-error, non-blocking) |
 | `sanitizer-asan` | AddressSanitizer (nightly, continue-on-error) |
+| `sanitizer-tsan` | ThreadSanitizer with an **instrumented `std`** (`-Zbuild-std`, nightly pinned) — **dispatch only**, never on PR/push; the verdict is "no report carries an engine frame", not a warning count (FIND-737) |
 | `release-combo` | Release Combo Check — `cargo check --release` of `vanta-cli` (`server,jemalloc`) + `vantadb-server` (`jemalloc`) with `RUSTFLAGS=-D warnings`; the exact combo of `release-binaries.yml` (FIND-231) |
 
 > **Note (ERR-OBS-01):** the `test` job exercises error-observability behavior
@@ -79,13 +80,14 @@ governance semantics are excluded from the default fast lane.
 - **Fast:** Any test exceeding a few seconds must be moved to heavy certification or heavily
   optimized.
 
-#### TSan lane — retired 2026-11-25 (FIND-734; previously `sanitizer-tsan`, FIND-714)
+#### TSan lane — blind without an instrumented `std`; rebuilt 2026-11-28 (FIND-737; retired 2026-11-25 by FIND-734, previously FIND-714)
 
-**No ThreadSanitizer job runs in CI.** The job was removed from
-`.github/workflows/ci-rust.yml`, and so was its `dev-tools/tsan-suppressions.txt`. It could not
-produce a verdict about VantaDB, and the alternative — a chronic red behind `continue-on-error` —
-is the case Regla 2 forbids. This section keeps the measurement, the reason, and the recipe to
-bring the lane back.
+**A ThreadSanitizer job runs in CI again, and this time it can carry a verdict.** The lane was
+retired because, without `-Zbuild-std`, it could not adjudicate a single one of its 243 reports.
+It is back with an instrumented `std`, which is what closes that blindness. The history below is
+kept because it is the *reason* the job now looks the way it does — what was measured, why the
+instrument was blind, and why a suppression file alone could not fix it. The procedure that is
+actually implemented follows in [§ How the lane comes back](#how-the-lane-comes-back-implemented-2026-11-28).
 
 **What was measured.** Run `45668284667`, job `139404898566` (partition 1/4, `b7a5d2eab`). For the
 first time the lane ran its corpus instead of dying after four tests: `822 tests run (selected ==
@@ -120,7 +122,7 @@ recommended to combine sanitizers with recompiled and instrumented standard libr
 using cargo `-Zbuild-std` functionality"*
 ([`sanitizer`](https://doc.rust-lang.org/nightly/unstable-book/compiler-flags/sanitizer.html)).
 
-**Why a suppression file could not fix it.** The mechanism itself works: `race:` is matched against
+**Why a suppression file alone could not fix it.** The mechanism itself works: `race:` is matched against
 function *and* file names of the reporting stack and of the previous-access stack, the string being
 a substring with `*` implied (see
 [ThreadSanitizerSuppressions](https://github.com/google/sanitizers/wiki/ThreadSanitizerSuppressions)
@@ -154,24 +156,89 @@ disk. A green reachable only by naming engine and storage types is the `race:std
 FIND-227 rejected, one level down — and it has to be re-earned every time those internals move,
 which the 24-hour expiry already demonstrated.
 
-**Bringing the lane back.** The prerequisite is an instrumented `std`, not a suppression:
+That analysis is about the *fix*, not about the file. The rebuilt lane does ship a suppression
+file, but it ships one entry per class instead of one per report, and the fix it relies on is the
+instrumentation: an instrumented `std` sees its own futexes, which is why those classes are
+expected to score zero hits. A file that names engine types would still be the failure above; a
+file that names the four measured classes is a tripwire that turns a regression into one named
+line. The job's verdict does not depend on it either way — see the rule below.
+
+#### How the lane comes back (implemented 2026-11-28)
+
+The prerequisite is an instrumented `std`, not a suppression. That is what the job
+`sanitizer-tsan` in `.github/workflows/ci-rust.yml` does — one job, one leg, Linux x64 only.
+
+| Piece | What it is | Why exactly that |
+|---|---|---|
+| Trigger | `workflow_dispatch` only (`if: github.event_name == 'workflow_dispatch'`) | Heavy lane: it must never be a red check on every pull request. A dispatch of `ci-rust.yml` runs the whole gate **plus** this leg — no silent skip, so nobody can believe it measured when it did not (the `FIND-787` lesson: `skipped` counts as success) |
+| Toolchain | `nightly-2026-10-02` = `1.101.0-nightly (c36f14571)`, pinned in the `toolchain:` input of `./.github/actions/rust-setup` | `-Zsanitizer` and `-Zbuild-std` break between nightlies. This is the exact toolchain the cost above was measured on (verified: `https://static.rust-lang.org/dist/2026-10-02/channel-rust-nightly.toml`). Never `toolchain: nightly`, and never `cargo +nightly`: `rust-setup` exports `RUSTUP_TOOLCHAIN` with the pin (`FIND-701`) and `+nightly` would override it with today's channel |
+| Instrumentation | `rust-src` component + `RUSTFLAGS="-Zsanitizer=thread -Cunsafe-allow-abi-mismatch=sanitizer"` | `rust-src` is what `-Zbuild-std` compiles `std` from; the ABI flag is the documented TSan pairing |
+| Compile target | `cargo nextest run -p vantadb --profile audit --features "cli,arrow,tls,opentelemetry" -Zbuild-std --target x86_64-unknown-linux-gnu` | Build-std requires an explicit `--target`. Scoped to the engine crate: the rule below is about `src/**`. No `--locked`: build-std resolves std's own dependency set from `rust-src`, which the workspace lockfile does not pin (same reason the `miri` job omits it for the sysroot) |
+| Timeout | `120 min` | A timeout kill is not a verdict. Measured cost of instrumented `std` alone: 3.2 min / 164 MB cold; the engine graph and the suite under TSan's slowdown are the rest |
+
+**The suppressions file is `.github/tsan-suppressions.txt`, one entry per CLASS, never per
+report.** TSan matches a suppression as a substring (with `*` implied, `^`/`$` anchoring the whole
+name) against function *and* file names of the reporting stack and, for races, of the
+previous-access stack. The four entries are the four measured classes — libtest's own
+`Arc<Mutex<…>>` plumbing (176 of the 243), the `std::sync::Mutex` futex path (58 + 8), the
+`Once`/`OnceLock` futex init (1, warn #42) and `Arc` refcounts (the drop path) — each with its
+reason written in the file.
+
+Two rules make the file safe rather than tape:
+
+1. **Never suppress a name containing `vantadb` or a `src/` file.** That hides exactly the report
+   this lane exists to find, and makes the rule below unmeasurable.
+2. **A firing class is announced, not absorbed.** TSan prints `Suppressions used:` at exit; the
+   job parses it and emits a `::warning::` naming the class. With an instrumented `std` these
+   classes are expected to fire **zero** times — they are there to make a regression arrive as one
+   named line instead of a wall of warnings (the `suppression hits: 0` lesson: `FIND-714`'s
+   two-entry list expired in 24 h, and the counter is what made that visible).
+
+**The measurable rule — this is the whole contract, and it is deliberately not a warning count:**
 
 ```
-export RUSTFLAGS="-Zsanitizer=thread -Cunsafe-allow-abi-mismatch=sanitizer"
-cargo +nightly nextest run --target x86_64-unknown-linux-gnu -Zbuild-std <same partitions as before>
+after the std class is suppressed, if ANY report's stack names engine code (vantadb:: or a src/ file)
+→ the job FAILS. If none does → it passes.
 ```
 
-`rust-src` must be installed (`rustup component add rust-src --toolchain nightly`, seconds) and the
-build gets slower — measured, not estimated: on a Windows dev box at `rustc 1.101.0-nightly
-(c36f14571)`, cold cache and no sccache, compiling instrumented `std` for
-`x86_64-unknown-linux-gnu` took **3.2 min** (164 MB of artifacts) before the run stopped at the link
-step, which needs a Linux linker that host does not have. That is the *added* cost per leg over
-today's precompiled `std`, it does not include the `-p vantadb` dependency graph, and partitions 2-4
-should get it from sccache — so the 50-minute step budget is not the obstacle. Only then is
-`race reports: 0` a pass condition worth trusting, because only then does TSan see
-`std::sync::Mutex`. A returning lane ships with `-Zbuild-std` from day one, without
-`continue-on-error`, with no suppression file, and as a scheduled heavy job — never as a red check
-on every pull request. Revival tracked as `FIND-737`.
+Mechanically, the verdict step reads the TSan log line by line and keeps only the reports whose
+frames match `vantadb::` or a path token starting at `src/`:
+
+```awk
+/^WARNING: ThreadSanitizer/ { engine = 0; next }
+/^ *#[0-9]+ / { if ($0 ~ /vantadb::|(^|[[:space:]])src\//) engine = 1; next }
+/^SUMMARY: ThreadSanitizer/ { if (engine) print }
+```
+
+The `(^|[[:space:]])` prefix is the difference between a verdict and a false alarm: without it,
+`library/std/src/sync/once_lock.rs` matches `src/` and every std-internal frame becomes an "engine
+frame". The rule was dry-run offline against fixtures cut from the measured log — warn #42's exact
+shape (flagged), a std-only report (not flagged), `library/std/src/…` and `vantadb_py/src/…` (not
+flagged) — before the job ever ran.
+
+Two guards keep a green from meaning nothing: an empty log, or a log without nextest's
+`Summary … N tests run` line, fails the job with "the suite did not finish, so this run has no
+verdict". Volume itself is printed and never gates.
+
+`TSAN_OPTIONS` carries `exitcode=0` on purpose: TSan exits non-zero when it reports anything,
+which would make harness noise red before the verdict step could separate it from an engine
+finding. The exit status is not the gate; the rule above is.
+
+**Declared debt — what the first run confirms, not what this document assumes:**
+
+1. **The job has never executed.** It is designed and validated by `actionlint` (exit 0) and the
+   rule above was dry-run offline; the first dispatch is the confirmation. Four things ride on it:
+   that `-Zbuild-std` + TSan links on `ubuntu-latest` with the pinned nightly, that the wall time
+   fits 120 min, that the four classes fire zero times, and that the engine-frame count is zero.
+2. **No schedule yet.** The lane is dispatch-only. Scheduling it needs either a `schedule:` cron on
+   `ci-rust.yml` — which would drag all 20+ jobs nightly — or a dispatch step in `nightly.yml`,
+   i.e. a different workflow. Neither is in this task's zone; `FIND-737` leaves it as the next
+   step, and the dispatch exists so the lane is usable today.
+3. **Timing-bound tests under TSan slowdown** are uncurated. The `audit` profile already excludes
+   the Heavy tier; if a test's own time budget cannot hold under TSan (the ASan precedent:
+   `multi_namespace_stress`, 265 s vs its 60 s assert), the first run names it and it joins the
+   existing RESOURCE-GUARD table instead of being silently skipped.
+
 
 ### Fast Gate Test Exclusions
 

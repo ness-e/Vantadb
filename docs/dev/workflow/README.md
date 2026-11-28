@@ -24,7 +24,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 
 | Workflow | Purpose (1 line) | Triggers (short) |
 |----------|------------------|------------------|
-| `ci-rust.yml` | Main Rust gate: fmt, clippy, nextest, ADR gate | push/PR (paths core), dispatch |
+| `ci-rust.yml` | Main Rust gate: fmt, clippy, nextest, ADR gate; job `sanitizer-tsan` (data races, instrumented `std`) as a dispatch-only leg (FIND-737) | push/PR (paths core), dispatch |
 | `main-ancestry.yml` | Unfiltered ancestry gate (`origin/main` ancestor of PR head, exempting `release-plz-*`; FIND-633) | PR (`main`, no `paths:`) |
 | `ci-gate.yml` | Reusable fail-closed gate for heavy jobs | `workflow_call` only |
 | `docs-gates.yml` | Docs gates ×6: lint, links, secrets, API surface, examples, rustdoc (17 jobs) | push/PR (paths docs/src), weekly Mon 07:23, dispatch |

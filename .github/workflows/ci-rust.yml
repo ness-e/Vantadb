@@ -1347,3 +1347,132 @@ jobs:
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:halt_on_error=0"
           LSAN_OPTIONS: "suppressions=.lsan_suppressions"
+
+  sanitizer-tsan:
+    # FIND-737 (2026-11-28): ThreadSanitizer lane, reintroduced with an
+    # INSTRUMENTED `std` (`-Zbuild-std`). The lane was retired in FIND-734
+    # because its 243 reports were all one class and none was adjudicable:
+    # `std::sync::Mutex`, `Once`/`OnceLock` and `Arc` refcounts are futex and
+    # atomics INSIDE `std`, which ships precompiled — neither the libc
+    # `pthread_mutex` interceptor nor the atomics instrumentation ever fires
+    # (CI_POLICY §"TSan lane"). The Rust Unstable Book says it outright: a
+    # sanitizer without an instrumented std produces false positives.
+    #
+    # THE MEASURABLE RULE, and the only thing this job claims: after the std
+    # class is suppressed, a single report whose stack names engine code fails
+    # the job. The warning count is NOT the verdict — warn #42 reached
+    # `src/index/distance/kernels.rs:275` with no harness and no dependency
+    # frame, indistinguishable from a real double free in `FjallInner`'s
+    # teardown. A lane that counts warnings is blind; a lane that asks "is there
+    # an engine frame left?" is not.
+    #
+    # Nightly is PINNED. `-Zsanitizer` and `-Zbuild-std` break between
+    # nightlies; `nightly-2026-10-02` is `1.101.0-nightly (c36f14571)`, the
+    # exact toolchain the cost was measured on (3.2 min / 164 MB to compile
+    # instrumented std, cold cache, no sccache; verified at
+    # https://static.rust-lang.org/dist/2026-10-02/channel-rust-nightly.toml).
+    # It is deliberately NOT `toolchain: nightly`: the recipe would drift
+    # silently on the next branch bump, exactly the way libtest's suppression
+    # list expired in 24 h.
+    #
+    # Linux x64 only, by design: `-Zbuild-std` under TSan is not usable on
+    # Windows or macOS. Trigger is `workflow_dispatch` — this is a heavy lane,
+    # never a red check on every pull request (CI_POLICY two-tier rule).
+    name: TSan (data races, instrumented std)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # Cold instrumented std + engine graph + the audit suite under TSan's
+    # slowdown. Generous on purpose: a timeout kill is not a verdict.
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    concurrency:
+      group: tsan-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: nightly-2026-10-02
+          components: rust-src
+          install-nextest: true
+          install-system-deps: true
+          free-disk: true
+          swap-mb: 8192
+          shared-key: tsan-instrumented-std
+
+      - name: Run the engine suite under TSan with an instrumented std
+        # `cargo`, never `cargo +nightly`: rust-setup exports RUSTUP_TOOLCHAIN
+        # with the pin (FIND-701), and `+nightly` would override it with today's
+        # channel and defeat the pin.
+        #
+        # No `--locked`: `-Zbuild-std` resolves std's own dependency set from
+        # `rust-src`, which the workspace lockfile does not pin — same reason
+        # the `miri` job above omits it for the sysroot build.
+        #
+        # `exitcode=0`: TSan exits non-zero when it reports anything, which
+        # would turn harness noise into a red build before the verdict step can
+        # separate it from an engine finding. The exit status is not the gate;
+        # the engine-frame rule in the next step is.
+        env:
+          RUSTFLAGS: "-Zsanitizer=thread -Cunsafe-allow-abi-mismatch=sanitizer"
+          TSAN_OPTIONS: "suppressions=${{ github.workspace }}/.github/tsan-suppressions.txt:halt_on_error=0:exitcode=0:print_suppressions=1"
+        run: |
+          set -euo pipefail
+          cargo nextest run -p vantadb --profile audit \
+            --features "cli,arrow,tls,opentelemetry" \
+            -Zbuild-std --target x86_64-unknown-linux-gnu 2>&1 | tee tsan.log
+
+      - name: Verdict — a report with an engine frame blocks
+        if: always()
+        run: |
+          set -uo pipefail
+
+          if [ ! -s tsan.log ]; then
+            echo "::error::tsan.log is empty — the lane measured nothing"
+            exit 1
+          fi
+
+          sed -E 's/\x1b\[[0-9;]*m//g' tsan.log > tsan.plain
+
+          if ! grep -qE '^ *Summary .* [1-9][0-9]* tests? run' tsan.plain; then
+            echo "::error::no nextest summary in tsan.log — the suite did not finish, so this run has no verdict"
+            exit 1
+          fi
+
+          total="$(grep -c '^WARNING: ThreadSanitizer' tsan.plain || true)"
+          echo "reports in log: ${total} (volume is not the verdict)"
+
+          awk '
+            /^WARNING: ThreadSanitizer/ { engine = 0; next }
+            /^ *#[0-9]+ / { if ($0 ~ /vantadb::|(^|[[:space:]])src\//) engine = 1; next }
+            /^SUMMARY: ThreadSanitizer/ { if (engine) print }
+          ' tsan.plain > engine_reports.txt
+
+          if [ -s engine_reports.txt ]; then
+            count="$(wc -l < engine_reports.txt)"
+            echo "::error::${count} report(s) carry a vantadb frame after the std class is suppressed — that is a finding, not noise (FIND-737)"
+            sed 's/^/  /' engine_reports.txt
+            exit 1
+          fi
+
+          echo "no report carries an engine frame: the lane is alive"
+
+          fired="$(awk '/^Suppressions used:/ { seen = 1; next } seen && /^ *[-=]{5,} *$/ { seen = 0 } seen && $1 ~ /^[0-9]+$/ && $1 + 0 > 0 && $2 != "" { print }' tsan.plain)"
+          if [ -n "$fired" ]; then
+            echo "::warning::a suppressed class fired — re-reason it before trusting a green (CI_POLICY § TSan lane)"
+            printf '%s\n' "$fired"
+          else
+            echo "suppressed classes fired 0 times, as expected with an instrumented std"
+          fi
+
+      - name: Upload the TSan log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tsan-log
+          path: |
+            tsan.log
+            engine_reports.txt
+          if-no-files-found: warn

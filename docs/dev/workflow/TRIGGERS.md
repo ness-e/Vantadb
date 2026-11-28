@@ -76,3 +76,9 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
   matrix above reflects the files and triggers present now, not that snapshot.
 - Schedule slots come from the `schedule` rows above; jobs may run only on a
   subset of their workflow's events.
+- `ci-rust.yml` job `sanitizer-tsan` (FIND-737, 2026-11-28) runs on
+  **`workflow_dispatch` only** — never on `push`/`pull_request`. The lane is
+  heavy (it compiles an instrumented `std` with `-Zbuild-std`), so dispatching
+  the workflow runs the whole gate plus that leg; there is no `schedule:` slot
+  yet (procedure and debt: `docs/dev/operations/CI_POLICY.md` § "How the lane
+  comes back").
