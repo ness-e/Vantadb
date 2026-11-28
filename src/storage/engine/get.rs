@@ -64,6 +64,26 @@ impl Drop for PrefetchGuard {
     }
 }
 
+// FIND-222: deterministic interleaving point for tests.
+//
+// The bug is a two-instant race (materialize → insert) on the *same* thread, so
+// a test does not need a second thread nor luck: a hook installed here runs the
+// write-path invalidation inline, between the two instants, by construction.
+// This is what makes the regression test deterministic instead of probabilistic
+// (the FIND-826 lesson: a race test that passed on the gate profile and failed
+// at 12 threads).
+#[cfg(test)]
+thread_local! {
+    static PREFETCH_INTERLEAVE: std::cell::RefCell<Option<Box<dyn FnMut(u128)>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Install ([`Some`]) or clear ([`None`]) the `FIND-222` interleave hook.
+#[cfg(test)]
+pub(crate) fn set_prefetch_interleave(hook: Option<Box<dyn FnMut(u128)>>) {
+    PREFETCH_INTERLEAVE.with(|h| *h.borrow_mut() = hook);
+}
+
 // ─── D1a Slice 1: pure vector decoders (SLAP helpers for `get`) ───
 //
 // Each decoder takes only primitives + the raw mmap bytes, so a corrupt
@@ -623,11 +643,30 @@ impl StorageEngine {
             return;
         }
         for warm_id in to_fetch {
+            // FIND-222: the generation is sampled *before* materializing. The
+            // write path's `remove` is what frees the entry this loop then fills,
+            // so an insert that passes `Entry::Vacant` is only trustworthy if no
+            // writer invalidated the cache in between (see `CacheLayer::
+            // invalidation_generation` for why the bump is co-located with the
+            // removal, and why a false positive here only costs a cache miss).
+            let generation = self.cache.invalidation_generation();
             // Recursive call: the PrefetchGuard above stops this from cycling
             // (a nested get() → prefetch_related is a no-op). No locks are
             // held at the call site.
             if let Ok(Some(node)) = self.get(warm_id) {
+                #[cfg(test)]
+                PREFETCH_INTERLEAVE.with(|h| {
+                    if let Some(hook) = h.borrow_mut().as_mut() {
+                        hook(warm_id);
+                    }
+                });
                 let mut guard = self.cache.volatile.write();
+                // Re-validate under the same lock the write path takes to
+                // invalidate: a mismatch means the node was read before a
+                // delete/overwrite that has already dropped the entry.
+                if self.cache.invalidation_generation() != generation {
+                    continue;
+                }
                 if let std::collections::hash_map::Entry::Vacant(e) = guard.entry(warm_id) {
                     e.insert(node);
                     self.cache.warmer.record_prefetch_hit();

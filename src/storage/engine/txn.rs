@@ -375,6 +375,15 @@ impl StorageEngine {
                         }
                         self.cache.volatile.write().remove(&node.id);
                         self.apply_insert_with_txn(node, txn_id)?;
+                        // FIND-222: the KV write above is the durable mutation.
+                        // A prefetch that materialized the pre-commit payload can
+                        // only insert it while this entry is vacant, so the Cold
+                        // path needs an invalidation *after* the write (the Hot
+                        // path already left the fresh payload in the cache, and
+                        // that insert overwrites any stale one).
+                        if node.tier != crate::node::NodeTier::Hot {
+                            self.cache.invalidate(node.id);
+                        }
                         applied_ops.push((op.clone(), pre_raw));
                     }
                     BufferedWrite::Delete(id) => {
@@ -412,7 +421,7 @@ impl StorageEngine {
                                 .backend
                                 .delete(crate::backend::BackendPartition::Default, &key);
                             self.index_coordinator().remove_node(node.id);
-                            self.cache.volatile.write().remove(&node.id);
+                            self.cache.invalidate(node.id);
                             if let Some(packed) =
                                 self.index_coordinator().storage_offset_of(node.id)
                             {

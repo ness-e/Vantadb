@@ -160,7 +160,12 @@ impl StorageEngine {
 
         self.remove_hnsw_entry(id);
 
-        self.cache.volatile.write().remove(&id);
+        // FIND-222: bump + remove as one step, and *last* — the vstore tombstone
+        // above already made the old payload unreadable, so a prefetch that
+        // starts after this point materializes `None` instead of the dead node,
+        // and any insert that slipped in before it is removed by this same
+        // critical section.
+        self.cache.invalidate(id);
 
         Ok(())
     }
@@ -285,9 +290,13 @@ impl StorageEngine {
             self.backend.write_batch(kv_ops)?;
         }
 
-        // Phase 5: volatile cache removal
+        // Phase 5: volatile cache removal. FIND-222: runs after the backend
+        // batch delete (Phase 4), which is what makes it a safe "last step" — a
+        // prefetch that materialized before it is cancelled by the bump (or its
+        // entry is removed here); one that materializes after it reads `None`.
         {
             let mut guard = self.cache.volatile.write();
+            self.cache.note_invalidation();
             for &id in ids {
                 guard.remove(&id);
             }

@@ -381,6 +381,9 @@ impl StorageEngine {
             } else {
                 // FIND-190: same stale-entry invalidation as apply_insert —
                 // prefetch may have cached this Cold node's previous payload.
+                // FIND-222: bump under the guard so the (bump, remove) pair is
+                // one critical section for a concurrent prefetch.
+                self.cache.note_invalidation();
                 guard.remove(&node.id);
             }
         }
@@ -714,7 +717,10 @@ impl StorageEngine {
             // otherwise get()/get_many() (SDK list) serve the pre-overwrite
             // payload. Same invalidation the txn commit path performs before
             // apply_insert_with_txn (txn.rs).
-            self.cache.volatile.write().remove(&node.id);
+            // FIND-222: runs after the KV put above, so it is the writer's last
+            // step — a prefetch that read the old payload earlier is cancelled
+            // by the bump or loses the race and gets its entry removed here.
+            self.cache.invalidate(node.id);
         }
 
         // PERF-30: auto-flush when total node count exceeds flush_threshold.
@@ -1130,7 +1136,7 @@ impl StorageEngine {
                 } else {
                     let _ = self.backend.delete(BackendPartition::Default, &key);
                 }
-                self.cache.volatile.write().remove(&applied.id);
+                self.cache.invalidate(applied.id);
             }
 
             if let Some(ref mut vstore) = vstore_opt {

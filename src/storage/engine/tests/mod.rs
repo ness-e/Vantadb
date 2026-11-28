@@ -11,6 +11,7 @@ use crate::node::UnifiedNode;
 
 mod batch_atomicity;
 mod engine;
+mod find222_prefetch_race;
 mod incremental;
 mod init;
 mod maintenance;

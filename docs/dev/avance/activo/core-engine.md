@@ -2130,3 +2130,31 @@ el propio SDK ya usa— los arregla a los tres.
   del certificado). RED contra `HEAD` real: `found_magic: [0,0,0,0], found_version: 0`.
 - **Ids:** (sin fila propia: nació como blocker de release de `v0.10.0`, corregido y medido en el
   acto — mismo criterio de trazabilidad que `FIND-905`), `FIND-905`, `FIND-904`
+
+### `FIND-222`: el prefetch resucitaba el payload que el write path acababa de invalidar
+
+- **Fecha:** 2026-11-28
+- **Causa:** `prefetch_related` (`get.rs`) materializa el nodo, **suelta todos los locks** y después
+  inserta. La invalidación del write path (`volatile.write().remove(&id)`) es justo lo que deja la
+  entry `Vacant`, así que un prefetch que leyó el payload viejo entre T1 y T2 lo re-inserta: `get()`
+  sirve el nodo borrado (o el pre-overwrite) desde el cache, en silencio y de forma indefinida. La
+  fila añadía el mismo agujero en Hot/txn/delete: los ocho sitios de invalidación estaban afectados,
+  no solo el `delete` del ticket.
+- **Fix:** `CacheLayer::invalidation_generation` (`AtomicU64`) + `invalidate(id)` (bump y remove en
+  **un solo** critical section del `volatile.write()`) + `note_invalidation()` para los bucles que ya
+  tienen el guard. El prefetch muestrea la generación **antes** de materializar y la re-lee bajo el
+  lock: si cambió, se salta el insert. El bump va **dentro** del lock y **después** de la mutación
+  durable (tombstone del vstore / put del KV): el orden alternativo (bump fuera, antes del remove)
+  deja la ventana en la que P lee la generación nueva y el payload viejo.
+- **Por qué no `purge_lock`:** medido — es un lock **de SDK** (`Embedded`); el `delete()` del engine
+  nunca lo toma (`mod.rs:380-382`) y `get()` no puede tomarlo (lock de escritura en el hot path de
+  lectura + deadlock de `parking_lot` en la recursión `get → prefetch → get`). Las dos mitades de la
+  carrera no se encuentran en él.
+- **Tests:** `src/storage/engine/tests/find222_prefetch_race.rs` (5 casos). Deterministas por un hook
+  `#[cfg(test)]` `thread_local` que corre el writer **inline** entre T1 y T2 — sin sleeps ni hilos
+  (lección de `FIND-826`). Prove-It: con el bump desactivado los 5 caen con `left: Some("old")`, el
+  payload resucitado.
+- **Medido:** área `storage::engine` 443/443 a 12 hilos · `certified_delete` 17/17 ·
+  `nextest --profile audit -p vantadb` 3045/3045 · `vanta-memory` exit 0.
+- **Ids:** `FIND-222`, `FIND-190` (misma clase: write path que invalida), `FIND-809` (`purge_lock`,
+  el lock que se comprobó antes de añadir el contador), `FIND-826` (test de carrera no determinista)

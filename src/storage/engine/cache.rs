@@ -9,6 +9,7 @@
 //! (`try_write` fast path with `read` fallback on contention, ERR-036).
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::RwLock;
 use web_time::{SystemTime, UNIX_EPOCH};
@@ -22,6 +23,18 @@ use crate::node::UnifiedNode;
 pub(crate) struct CacheLayer {
     /// Volatile LRU cache for hot (frequently accessed) nodes.
     pub(crate) volatile: RwLock<HashMap<u128, UnifiedNode>>,
+    /// Counts write-path invalidations of [`Self::volatile`] (`FIND-222`).
+    ///
+    /// `prefetch_related` materializes a node, drops every lock, and only then
+    /// inserts it — and the write path's own `remove` is what makes that insert
+    /// land on a `Vacant` entry. The prefetch snapshots this counter before
+    /// materializing and re-reads it under the cache write lock: a bump in
+    /// between means a writer invalidated the cache after the node was read, so
+    /// the insert is skipped. Precision is deliberately coarse (one global
+    /// counter, not a per-node epoch): a skipped prefetch costs a cache miss and
+    /// never correctness. `ponytail: global counter — per-node epochs only if a
+    /// benchmark shows the false-negative rate hurts`.
+    invalidation_generation: AtomicU64,
     /// In-memory cache for BM25 term stats to avoid redundant I/O during ingestion.
     pub(crate) text_stats: RwLock<HashMap<(String, String), crate::text_index::TextTermStats>>,
     /// In-memory cache for BM25 namespace stats.
@@ -41,6 +54,7 @@ impl CacheLayer {
     pub(crate) fn new(cardinality_stats: HashMap<String, HashMap<String, usize>>) -> Self {
         Self {
             volatile: RwLock::new(HashMap::new()),
+            invalidation_generation: AtomicU64::new(0),
             text_stats: RwLock::new(HashMap::new()),
             text_ns: RwLock::new(HashMap::new()),
             cardinality_stats: RwLock::new(cardinality_stats),
@@ -71,6 +85,30 @@ impl CacheLayer {
                 None => None,
             },
         }
+    }
+
+    /// Current invalidation generation (`FIND-222`). Sampled by the prefetch
+    /// **before** it materializes a warm node and re-read under the cache write
+    /// lock before inserting it.
+    pub(crate) fn invalidation_generation(&self) -> u64 {
+        self.invalidation_generation.load(Ordering::SeqCst)
+    }
+
+    /// Record that the cache is about to lose (or did lose) an entry the write
+    /// path just changed. Callers that already hold the `volatile` write guard
+    /// call this immediately before their `remove`, so the bump and the removal
+    /// are one critical section for any concurrent prefetch.
+    pub(crate) fn note_invalidation(&self) {
+        self.invalidation_generation.fetch_add(1, Ordering::SeqCst);
+    }
+
+    /// Bump + remove in one critical section: the invalidation must be the
+    /// **last** step of the writer, after the durable mutation that makes the
+    /// old payload unreadable (`FIND-222`).
+    pub(crate) fn invalidate(&self, id: u128) {
+        let mut guard = self.volatile.write();
+        self.note_invalidation();
+        guard.remove(&id);
     }
 }
 
