@@ -1013,6 +1013,11 @@ Dedicated unfiltered workflow (`on.pull_request.branches: [main]`, no `paths:`/`
 
 Compila `vantadb-node` en 3 OSes, carga el `.node` dentro de un proceso **Electron real** (put/get/close/reopen sobre disco) y empaqueta con `electron-builder --dir` para verificar que `asarUnpack: ["**/*.node"]` deja el binario fuera de `app.asar`. Dos fallos que ni vitest ni `release-npm-node.yml` ven: ABI drift (`dlopen` falla en el cliente, no en CI) y `.node` dentro del asar. `paths:` acotado a `vantadb-node/**`; el check **no** es required, porque con filtro de paths quedaría `Pending` en todo PR que no toque el binding.
 
+Dos detalles medidos en el primer run que llegó a Electron (`5a614422e`, 1/3):
+
+- **Linux corre con el sandbox de Chromium desactivado.** Los runners de GitHub no pueden configurar el SUID sandbox (`setuid_sandbox_host.cc:172` → `chrome-sandbox … mode 4755` → `SIGTRAP`), así que los dos steps de Linux llevan `ELECTRON_DISABLE_SANDBOX: '1'`. Electron lo lee en `BasicStartupComplete()` (`shell/app/electron_main_delegate.cc`) antes de arrancar el sandbox — equivale a `--no-sandbox` — y al ser `env:` lo heredan los procesos hijos, incluido el ejecutable empaquetado que lanza el check de asar. Sólo en la ruta de test de CI: el paquete publicado y el `main` de un usuario conservan el sandbox, y aquí el proceso carga el `.node` propio en un runner efímero sin navegar contenido de terceros.
+- **El artefacto de `--dir` no tiene la misma forma en las 3.** Windows `dist/win-unpacked/`, Linux `dist/linux-unpacked/` (`linux-arm64-unpacked` si el arch es no-default), macOS `dist/mac-arm64/<Producto>.app/` — un nivel **más abajo**, con `Contents/Resources/app.asar` en vez de `resources/app.asar`. Lo resuelve una tabla declarativa en `vantadb-node/tests/electron/artifact-layout.cjs` (referencias a `app-builder-lib` en la cabecera, self-check offline con fixtures de las tres formas) que exige **exactamente una** coincidencia completa; el JSON de éxito emite `artifactShape`. Las tres aserciones de asar (`.node` en `app.asar.unpacked/`, entrada sin `offset` + `unpacked: true` con tamaño de disco, ejecutable empaquetado que arranca y lee) son idénticas en macOS.
+
 ### 9. Release Workflows
 
 | Workflow | File | Trigger |

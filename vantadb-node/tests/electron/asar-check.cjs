@@ -17,6 +17,12 @@
 // La app de prueba se genera en un temporal copiando los artefactos de
 // `npm run build` (`index.cjs`, `index.js`, `*.node`): no hay copias en git que
 // puedan quedar stale.
+//
+// Donde queda el artefacto lo resuelve `artifact-layout.cjs`: en Windows y Linux
+// es el directorio de plataforma (`win-unpacked`/`linux-unpacked`), en macOS es
+// el `.app` que cuelga un nivel mas abajo (`dist/mac-arm64/<Producto>.app`). El
+// asar y su `app.asar.unpacked/` cuelgan de `resources/` en las tres, asi que
+// las aserciones de abajo son identicas en macOS (nada se relaja).
 
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
@@ -24,28 +30,12 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const { resolveArtifact } = require("./artifact-layout.cjs");
+
 const pkgRoot = path.resolve(__dirname, "../..");
 const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgRoot, "package.json"), "utf8"));
 const electronVersion = pkgJson.devDependencies.electron;
 const PRODUCT_NAME = "VantadbElectronCheck";
-
-// Layout por plataforma del `--dir` de electron-builder.
-function layout(artifact) {
-  if (process.platform === "darwin") {
-    const contents = path.join(artifact, "Contents");
-    return {
-      resources: path.join(contents, "Resources"),
-      executable: path.join(contents, "MacOS", PRODUCT_NAME),
-    };
-  }
-  return {
-    resources: path.join(artifact, "resources"),
-    executable: path.join(
-      artifact,
-      process.platform === "win32" ? `${PRODUCT_NAME}.exe` : PRODUCT_NAME,
-    ),
-  };
-}
 
 function stageApp() {
   const nodeFiles = fs.readdirSync(pkgRoot).filter((name) => name.endsWith(".node"));
@@ -112,21 +102,12 @@ async function main() {
     },
   });
 
-  // `dir: true` no devuelve rutas de artefacto (el directorio no lo es): se
-  // busca el resultado por su forma.
+  // `dir: true` no devuelve rutas de artefacto (el directorio no lo es): la
+  // forma se reconoce con la tabla de `artifact-layout.cjs`, que cubre las tres
+  // plataformas y exige una unica coincidencia completa.
   const distDir = path.join(appDir, "dist");
-  const artifact = fs
-    .readdirSync(distDir)
-    .map((name) => path.join(distDir, name))
-    .find(
-      (candidate) =>
-        /(-unpacked|\.app)$/.test(candidate) ||
-        (fs.statSync(candidate).isDirectory() &&
-          fs.existsSync(path.join(candidate, "resources", "app.asar"))),
-    );
-  assert.ok(artifact, `electron-builder no dejo un directorio desempaquetado en ${distDir}`);
+  const { shape, resources, executable } = resolveArtifact(distDir, { productName: PRODUCT_NAME });
 
-  const { resources, executable } = layout(artifact);
   const asarPath = path.join(resources, "app.asar");
   const unpackedRoot = path.join(resources, "app.asar.unpacked");
   assert.ok(fs.existsSync(asarPath), `no existe ${asarPath}`);
@@ -204,6 +185,7 @@ async function main() {
   console.log(
     JSON.stringify({
       ok: true,
+      artifactShape: shape,
       asar: path.basename(asarPath),
       unpackedNodes,
       packedNodeEntries: packedNodes.length,

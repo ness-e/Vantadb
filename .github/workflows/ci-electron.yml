@@ -99,6 +99,14 @@ jobs:
           node scripts/patch-exports.mjs
           ls -la ./*.node
 
+      # El descubrimiento del artefacto de `electron-builder --dir` es la pieza
+      # que se rompio en macOS (el `.app` cuelga de `dist/mac-arm64/`, un nivel
+      # mas abajo que en Windows/Linux). Su self-check con fixtures corre en
+      # segundos y sin Electron, en las 3 OSes.
+      - name: Formas de artefacto --dir de las 3 plataformas (offline)
+        working-directory: vantadb-node
+        run: node tests/electron/artifact-layout.cjs
+
       # Linux sin display: Electron abre un X11 aunque no haya BrowserWindow.
       # `xvfb-run` es la ruta documentada; `--headless`/`--ozone-platform=headless`
       # NO se usan porque no estan verificados en este runner (ver DIST-21.md).
@@ -117,9 +125,21 @@ jobs:
         working-directory: vantadb-node
         run: npm run test:electron
 
+      # `ELECTRON_DISABLE_SANDBOX` es lo que Electron lee en
+      # `BasicStartupComplete()` (`shell/app/electron_main_delegate.cc`) ANTES de
+      # arrancar el sandbox, y equivale a `--no-sandbox`; tambien lo heredan los
+      # procesos hijos (el ejecutable empaquetado que lanza el check de asar).
+      # Se usa porque los runners de GitHub no pueden configurar el SUID sandbox
+      # (`chrome-sandbox ... mode 4755` -> SIGTRAP de `setuid_sandbox_host.cc`).
+      # Seguro en esta ruta y solo en esta: el proceso carga NUESTRO `.node` en un
+      # runner efimero y no navega contenido de terceros. El `main` de un usuario
+      # y el paquete publicado no cambian (el flag vive en el step, no en el
+      # script de npm ni en `main.cjs`).
       - name: Electron real carga el .node sobre disco (Linux, sin display)
         if: runner.os == 'Linux'
         working-directory: vantadb-node
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run -a npm run test:electron
 
       - name: asarUnpack deja el .node fuera de app.asar (Windows / macOS)
@@ -130,4 +150,8 @@ jobs:
       - name: asarUnpack deja el .node fuera de app.asar (Linux, sin display)
         if: runner.os == 'Linux'
         working-directory: vantadb-node
+        env:
+          # Mismo motivo que el step anterior: el paquete empaquetado que este
+          # check ejecuta tambien arranca el sandbox de Chromium.
+          ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run -a npm run test:electron:asar

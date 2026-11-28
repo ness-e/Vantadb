@@ -163,6 +163,80 @@ de versión en el resto del árbol. Verificado con el comando exacto de CI: `npx
 `moduleVersion:150`, `filesOnDisk:8`, `.node` de 8.393.728 B). El lock queda reproducible con
 **npm 10**, que es el que trae Node 22 en CI — regenerarlo con npm 11 es lo que lo rompió.
 
+### Deuda `--no-sandbox` (Linux) + artefacto macOS — cerrada 2026-11-28 (run `5a614422e`)
+
+El run `5a614422e` pasó `npm ci` en los 3 OSes y llegó a Electron por primera vez: **1/3**.
+Windows x64 quedó verde completo. Los otros dos fallaron por causas distintas y ninguna era el
+binding:
+
+| OS | Estado | Causa real |
+|---|---|---|
+| Windows x64 | ✅ | carga nativa + `asarUnpack` completos |
+| Linux x64 | ❌ | `xvfb-run` **funciona** (Electron arranca) y muere en el sandbox de Chromium: `setuid_sandbox_host.cc:172` → `chrome-sandbox … mode 4755` → `SIGTRAP` |
+| macOS arm64 | ❌ | `test:electron` **pasa** (el `.node` carga en Electron arm64 real, `connect`/`put`/`get`/`reopen` OK); falla el chequeo de asar: `electron-builder no dejo un directorio desempaquetado en …/dist` |
+
+**Fix 1 — sandbox (sólo Linux, sólo la ruta de test).** Los runners de GitHub no pueden
+configurar el SUID sandbox (el binario no cumple los permisos), así que se desactiva ahí:
+`ELECTRON_DISABLE_SANDBOX: '1'` en los **dos steps de Linux** de `ci-electron.yml`. No es un flag
+inventado: Electron lo lee en `BasicStartupComplete()`
+(`shell/app/electron_main_delegate.cc`, `if (env->HasVar(kElectronDisableSandbox))
+command_line->AppendSwitch(sandbox::policy::switches::kNoSandbox)`), es decir **antes** de
+arrancar el sandbox, y equivale a `--no-sandbox`; el string está en el binario que usa CI
+(`electron@45.5.0`, verificado en `node_modules/electron/dist/electron.exe`). Al ser entorno, lo
+heredan los procesos hijos: el ejecutable **empaquetado** que lanza `execFileSync` en el check de
+asar también arranca sin sandbox. No está en la página oficial de *environment variables* — vive
+en el código; por eso queda como deuda: **la confirmación es el primer run de CI**.
+
+*Por qué es seguro aquí:* el proceso carga **nuestro** `.node` en un runner efímero y no navega
+contenido de terceros; no hay superficie que el sandbox estuviera protegiendo. El flag vive en el
+`env:` del step — **no** en `package.json`, ni en `main.cjs`, ni en el paquete publicado: el
+`main` de un usuario conserva el sandbox por defecto. Windows y macOS no cambian (los steps que
+los corren son `runner.os != 'Linux'`, intactos).
+
+**Fix 2 — artefacto de macOS, un nivel más abajo.** `electron-builder --dir` nombra el directorio
+de plataforma (`app-builder-lib/out/platformPackager.js:96`):
+`<platform><arch?>[-unpacked]`, con `-unpacked` en todo salvo macOS. Por eso:
+
+| OS | Artefacto | Recursos |
+|---|---|---|
+| Windows | `dist/win-unpacked/` | `resources/app.asar` |
+| Linux | `dist/linux-unpacked/` | `resources/app.asar` |
+| macOS | `dist/mac-arm64/<Producto>.app/` (x64 sin sufijo: `dist/mac/`) | `Contents/Resources/app.asar` |
+
+El `find` anterior hacía **un solo** `readdir(dist)` y aceptaba `/(-unpacked|\.app)$/`: `mac-arm64`
+no termina en `.app`, así que nunca llegaba al bundle — ahí moría macOS. Ahora el descubrimiento
+es una **tabla declarativa** (`vantadb-node/tests/electron/artifact-layout.cjs`), una entrada por
+forma (`windows-unpacked`, `linux-unpacked`, `mac-app`) con sus raíces y su layout, derivada del
+código de `electron-builder` (no de un `if (darwin)`): `resolveArtifact` exige **exactamente una**
+coincidencia completa (`app.asar` + ejecutable) y, si no la hay, falla listando cada candidato con
+`asar=` / `ejecutable=`. Dos correcciones que salieron de la misma fuente y que el `--dir` de Linux
+habría cobrado después: el binario Linux es `sanitizedName.toLowerCase()`
+(`LinuxPackager.js:16`) — no conserva mayúsculas — y el `.app` se llama `<productFilename>.app`,
+no `Electron.app`.
+
+**La aserción de asar no se relajó**: las tres exigencias siguen siendo las mismas en macOS, y
+viven en `Contents/Resources/`, la misma posición relativa que `resources/` en Windows/Linux:
+
+1. el `.node` existe en `app.asar.unpacked/**`;
+2. su entrada en el índice del asar **no tiene `offset`**, lleva `unpacked: true` y su `size`
+   coincide con el fichero en disco;
+3. el ejecutable **empaquetado** arranca y lee de disco (control negativo por construcción: con el
+   binario dentro del asar, ese step no carga).
+
+El JSON de éxito ahora incluye `artifactShape` para que el log de CI diga qué forma se resolvió.
+
+**Verificación (Windows, este host):** `npm run test:electron` → exit 0 (`ok:true`,
+`moduleVersion:150`, `filesOnDisk:8`); `npm run test:electron:asar` → exit 0
+(`"artifactShape":"windows-unpacked"`, `unpackedNodes:["vantadb_native.win32-x64-msvc.node"]`,
+`packedNodeEntries:0`); `npm test` → **82/82**; `actionlint` → exit 0; `node
+tests/electron/artifact-layout.cjs` → `{"ok":true,"cases":9}` (fixtures de las tres formas, y los
+casos inválidos: `mac-arm64` sin el `.app`, `.app` sin `app.asar`, directorio desconocido, dos
+artefactos completos). La lógica vieja, corrida contra la fixture de macOS, devuelve `undefined` —
+el mismo `FAIL` que reportó CI.
+
+**Deuda:** diseñado y validado offline; Linux y macOS se confirman en el **primer run** de CI
+(mismo patrón que la deuda de `npm ci`). No medible desde este host.
+
 ## Definition of Done
 
 - [ ] `npm run test:electron` verde en Windows, con salida pegada.
