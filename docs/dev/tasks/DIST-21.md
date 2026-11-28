@@ -83,7 +83,7 @@ ninguna prueba lo carga dentro de Electron y ninguna comprueba el `asarUnpack`.
 | Base de datos | `VantaDb.connect(mkdtemp)` + reapertura | memoria | La fila exige **disco**: el fallo típico (`dlopen`) aparece antes, pero la reapertura prueba que el motor escribió de verdad. |
 | Aserción de que no es vacuo | renombrar el `.node` y ver rojo | confiar en el verde | Un test que pasa porque nunca conectó vale menos que ninguno. |
 | Empaquetado | `electron-builder --dir` con `build.asarUnpack` en la app de fixture | `@electron/asar` a mano | `--dir` produce el **mismo** `app.asar`/`app.asar.unpacked` que el instalador y honra la clave real `asarUnpack`; `@electron/asar` solo probaría el glob de la herramienta, no nuestra config. Si `--dir` no cabe, se degrada a `@electron/asar` y se declara PARCIAL. |
-| Linux sin display | `xvfb-run -a` en el workflow | `--headless` / `--ozone-platform=headless` | No medible desde este host Windows (no hay Linux local); `xvfb-run` es la ruta documentada por Electron para CI headless. Se declara **verificado en el primer run de CI**, no antes. |
+| Linux sin display | `xvfb-run -a` en el workflow | `--headless` / `--ozone-platform=headless` | **Medido**: `xvfb` está en la imagen oficial `ubuntu-latest` (`xvfb 2:21.1.12-1ubuntu1.9` en `Ubuntu2404-Readme.md` de `actions/runner-images`, image version 20261122.23.1) → `xvfb-run` funciona sin instalar nada; el step además instala defensivamente si el runner migra a 26.04 (anunciado para nov-2026). `--headless`/`--ozone-platform=headless` **no** se usan: no hay host Linux aquí y la doc de Electron no los garantiza para una app. |
 
 ## Invariantes de dominio (handoff — MUST)
 
@@ -119,8 +119,11 @@ ninguna prueba lo carga dentro de Electron y ninguna comprueba el `asarUnpack`.
 - **Electron:** `45.5.0` exacto. Corre Node 24.22.3 / NAPI 10 / MODULE_VERSION 150.
 - **3 OSes:** Windows x64 **ejecutado aquí** (verde + dos rojos). macOS y Linux: diseño en el
   workflow (misma secuencia), **no ejecutados desde este host** → el primer run de CI es su
-  verificación. Linux sin display: `xvfb-run -a` (+ instalación defensiva de `xvfb`);
-  `--headless`/`--ozone-platform=headless` quedan **sin medir** y por eso no se usan.
+  verificación. Linux sin display: `xvfb-run -a`, y el `xvfb` **medido** en la imagen oficial
+  `ubuntu-latest` (`xvfb 2:21.1.12-1ubuntu1.9` en `actions/runner-images`
+  `Ubuntu2404-Readme.md`, image version 20261122.23.1), con instalación defensiva si el label
+  migra a 26.04 (anunciado para nov-2026). `--headless`/`--ozone-platform=headless` quedan **sin
+  medir** y por eso no se usan.
 - **`asarUnpack`:** verificado de punta a punta (empaquetado + ejecución del binario empaquetado).
 - **Deuda:** (1) la ruta Linux/macOS se confirma en CI; (2) `docs/index.md` sin regenerar (fuera de
   zona, lo regenera `gen-index.mjs` desde el `title` del README); (3) el commit arrastra 2 líneas de
