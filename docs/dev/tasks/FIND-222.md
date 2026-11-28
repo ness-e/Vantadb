@@ -183,6 +183,8 @@ assertion `left == right` failed: the rolled-back payload must not be served fro
 
 Un txn con `[Insert(2 Hot), Insert(3 con 65 536 edges)]` aplica el primero (publica "new" en el cache) y falla en el segundo; el rollback restauraba el KV y **no** invalidaba → `get(2)` devolvía el payload rechazado. Mover `invalidate` fuera del `if/else` lo cierra. No necesita interleaving: es el mismo fallo de "la entry queda con lo que el store ya no tiene", en el camino de error.
 
+> Transcripción del rojo **de la primera versión de la aserción** (`assert_eq!` contra `"old"`), que es la que destapó el defecto. La aserción commiteada es más acotada (`assert!` + `payload_of != Some("new")`) porque tras el rollback el nodo queda `NotIndexed` — ver `FIND-831`; el rojo se reproduce igual con el `assert_eq!` original.
+
 ## Verificación
 
 | Comando | Resultado |
@@ -217,6 +219,7 @@ Un txn con `[Insert(2 Hot), Insert(3 con 65 536 edges)]` aplica el primero (publ
 | Nit | `SeqCst` es más de lo necesario | ⏸ sin cambio: correcto > óptimo, y el coste es un atomic por invalidación |
 
 - **Colateral destapado por R1 (no es FIND-222):** el rollback de un overwrite restaura el KV pero **no re-indexa** el nodo en HNSW (el op-loop hace `hnsw.remove_node` y la op pendiente se descarta) → `get()` responde `None` para un registro que sigue en el KV. Fila **`FIND-831`** en el Backlog.
+- **Veredicto final (delta `ce94b41ec`, cierre del gate):** ✅ **APPROVE** — 0 Critical, 0 Required, 1 Optional, 1 Nit. Verificado por el revisor: `cargo test -p vantadb --lib -- find222_prefetch_race` → 6/6 re-ejecutado (no auto-reporte) y trazado del rojo pre-fix por código (`pre_raw: Some` no invalidaba + `apply_insert_with_txn` publica el payload rechazado). R1 arreglado en `txn.rs:436-444` (`invalidate` fuera del `if/else`, último paso tras el restore durable → también cubre O2) sin invertir el orden `insert_lock → volatile`; R2 no-vacuidad en `prefetch_with`; R3 §Review + `status: completed` + índice coherente. O1 sigue declarado y justificado (consolidación sólo cambia `tier`); el gap pre-existente del rollback sin re-indexar queda filado como `FIND-831`, fuera de esta fila. No bloqueantes: el transcript del segundo rojo viene de la aserción previa (Nit) y `!contains_key(&2)` romperá el fix correcto de FIND-831 (Optional). **FIND-222 cerrada.**
 
 ## Alcance declarado (no tocado)
 

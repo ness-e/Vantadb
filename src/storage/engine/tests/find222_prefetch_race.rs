@@ -214,6 +214,11 @@ fn txn_rollback_restores_the_previous_payload() {
         !engine.cache.volatile.read().contains_key(&2),
         "the rejected payload must not stay in the cache"
     );
+    // NOTA (review, Optional): este `!contains_key` es MÁS estricto que el
+    // invariante. Un fix correcto de `FIND-831` que re-indexe el nodo y
+    // re-publique el payload restaurado ("old") en el cache hará fallar esta
+    // aserción con el comportamiento correcto: al cerrar FIND-831, relajarla a
+    // "el cache no contiene el payload rechazado".
 }
 
 /// `txn` path, delete half (`commit_transaction` → `apply_delete_inner`).
