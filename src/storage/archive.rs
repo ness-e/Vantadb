@@ -250,6 +250,18 @@ pub fn compact_layout(
         }
     }
 
+    // The tmp file starts zeroed: write the real header, so the compacted
+    // segment is a **valid** segment. Without it the file has no magic
+    // (`[0,0,0,0]`, version 0) - a writable reopen repairs that in place, a
+    // **read-only** one cannot, and `validate_compat` rejects it. Measured in CI
+    // (`Demo acceptance`, Privacy chain E2E, `certificate verify`):
+    // `expected magic [86, 70, 76, 69], version 2, found magic [0, 0, 0, 0]`.
+    // The encrypted branch below always wrote it; this one never did.
+    let header =
+        crate::binary_header::Header::new(*b"VFLE", crate::storage::vfile::VFILE_VERSION, 0);
+    tmp_mmap[0..16].copy_from_slice(&header.serialize());
+    tmp_mmap[16..24].copy_from_slice(&write_cursor.to_le_bytes());
+
     // AUDREP-04: flush final mmap writes to the OS, then sync + fsync the tmp
     // file so no unwritten garbage is renamed in as if it were a valid store.
     tmp_mmap.flush().map_err(Error::Io)?;

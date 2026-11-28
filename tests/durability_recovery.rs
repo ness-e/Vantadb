@@ -559,8 +559,76 @@ fn test_stale_index_tmp_removed_on_writable_open() {
     }
 }
 
-// ─── SUMMARY ──────────────────────────────────────────────────
+/// A **compacted** segment must be a valid segment: `compact_layout` used to
+/// write it **without its header**.
+///
+/// The tmp file is created zeroed, the records are copied from
+/// `STORAGE_ALIGNMENT` and the file is renamed — and nothing ever wrote bytes
+/// `0..16` (magic `VFLE` + version) or `16..24` (write cursor). The encrypted
+/// branch writes both; the plaintext one never did.
+///
+/// The defect is old and was masked: a **writable** reopen repairs the header in
+/// place (`vfile.rs` opens with `!read_only` and writes it when the magic is
+/// absent), so only a **read-only** reopen sees it — which is exactly what
+/// `vanta-cli certificate verify` does (`open_embedded(db, true)`). Measured in
+/// CI (`Demo acceptance`, Privacy chain E2E, `[2/4] certificate verify`):
+///
+/// ```text
+/// Incompatible binary format: expected magic [86, 70, 76, 69], version 2,
+/// found magic [0, 0, 0, 0], version 0.
+/// ```
+///
+/// It surfaced while closing `FIND-905`: a record with `vector: None` has no
+/// entry point but **is** a live record of the segment, so the compaction
+/// stopped taking the "empty segment" branch (`reset_empty_segment`, which does
+/// write a header) and started rewriting the segment the long way.
+#[test]
+fn compacted_segment_reopens_read_only() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    let config = Config {
+        backend_kind: BackendKind::Fjall,
+        mmap_hnsw: false,
+        wal_shards: 1,
+        ..Default::default()
+    };
+    let id = 0xEF01u128;
+    {
+        let engine = StorageEngine::open_with_config(path, Some(config.clone())).unwrap();
+        // No embeddings, like the demo that failed: no entry point, but a live
+        // record of the segment — the rewrite (not the empty reset) runs.
+        let mut node = UnifiedNode::new(id);
+        node.vector = vantadb::node::VectorRepresentations::None;
+        engine.insert(&node).unwrap();
+        assert!(
+            engine.compact_layout_bfs().unwrap() > 0,
+            "fixture: the segment must take the rewrite path, not the empty reset"
+        );
+        engine.flush().unwrap();
+    }
 
+    // …and the path that failed: a read-only reopen, as the certificate does.
+    let read_only = Config {
+        read_only: true,
+        ..config
+    };
+    let engine = StorageEngine::open_with_config(path, Some(read_only))
+        .expect("a compacted segment must reopen read-only (the certificate path)");
+    assert!(engine.get(id).unwrap().is_some());
+
+    // The direct instrument: the segment's own bytes on disk.
+    let segment = dir.path().join("data").join("vstore_L0.vanta");
+    let bytes = std::fs::read(&segment).unwrap();
+    assert_eq!(
+        &bytes[0..4],
+        b"VFLE",
+        "the compacted segment has no magic (found {:?}): a read-only open cannot \
+         repair it",
+        &bytes[0..8]
+    );
+}
+
+// ─── SUMMARY ──────────────────────────────────────────────────
 #[test]
 fn zzz_print_summary() {
     TerminalReporter::print_certification_summary();
