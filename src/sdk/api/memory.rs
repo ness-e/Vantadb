@@ -1256,22 +1256,22 @@ impl Embedded {
         // MEMG-03: counterpart-side cleanup (best-effort) + ensure the declared
         // derived_from lineage edges (idempotent, re-put safe).
         for (target, label) in stale_lineage {
-            let _ = self.remove_edge(node.id, target, label);
+            let _ = self.remove_edge_locked(node.id, target, label);
         }
         for parent_key in &record.derived_from {
-            self.ensure_edge(
+            self.ensure_edge_locked(
                 node.id,
                 memory_node_id(&record.namespace, parent_key),
                 LABEL_DERIVED_FROM,
             )?;
         }
         if let Some(new_key) = record.superseded_by.as_deref() {
-            let _ = self.ensure_edge(
+            let _ = self.ensure_edge_locked(
                 node.id,
                 memory_node_id(&record.namespace, new_key),
                 LABEL_SUPERSEDED_BY,
             );
-            let _ = self.ensure_edge(
+            let _ = self.ensure_edge_locked(
                 memory_node_id(&record.namespace, new_key),
                 node.id,
                 LABEL_SUPERSEDES_EDGE,
@@ -1694,10 +1694,10 @@ impl Embedded {
                 continue;
             }
             for &(target, label) in stale {
-                let _ = self.remove_edge(record.node_id, target, label);
+                let _ = self.remove_edge_locked(record.node_id, target, label);
             }
             for parent_key in &record.derived_from {
-                self.ensure_edge(
+                self.ensure_edge_locked(
                     record.node_id,
                     memory_node_id(&record.namespace, parent_key),
                     LABEL_DERIVED_FROM,
@@ -2302,22 +2302,22 @@ impl Embedded {
         // `materialize_confidence`), so lineage edges are best-effort here — a
         // dangling parent must not fail the import.
         for (target, label) in stale_lineage {
-            let _ = self.remove_edge(node.id, target, label);
+            let _ = self.remove_edge_locked(node.id, target, label);
         }
         for parent_key in &record.derived_from {
-            let _ = self.ensure_edge(
+            let _ = self.ensure_edge_locked(
                 node.id,
                 memory_node_id(&record.namespace, parent_key),
                 LABEL_DERIVED_FROM,
             );
         }
         if let Some(new_key) = record.superseded_by.as_deref() {
-            let _ = self.ensure_edge(
+            let _ = self.ensure_edge_locked(
                 node.id,
                 memory_node_id(&record.namespace, new_key),
                 LABEL_SUPERSEDED_BY,
             );
-            let _ = self.ensure_edge(
+            let _ = self.ensure_edge_locked(
                 memory_node_id(&record.namespace, new_key),
                 node.id,
                 LABEL_SUPERSEDES_EDGE,

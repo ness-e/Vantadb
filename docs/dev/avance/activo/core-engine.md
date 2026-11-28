@@ -1968,3 +1968,12 @@ el propio SDK ya usa— los arregla a los tres.
 - **Verificación:** `--test certified_delete` → **13 passed**; `dev-tools/verify.ps1` → 9 PASS / 1 SKIPPED (`clippy`, rojo de otro carril).
 - **Ids:** `FIND-826`, `FIND-675`, `FIND-343` (patrón de canario)
 
+### FIND-809: el camino de borrado de aristas cierra el hueco que FIND-773 dejó abierto
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** `remove_edge`/`ensure_edge` conservaban el read-modify-write sin serializar de la lista entera de aristas: quedaron fuera del guard de `FIND-773` porque sus llamadores ya están dentro (una segunda adquisición se bloquearía contra sí misma — `parking_lot::RwLock` no es reentrante). Medido en HEAD: **525 de 800** borrados concurrentes perdidos (el `insert` de un hilo pisa la lista que otro ya había recortado).
+- **Contrato entregado:** el split que sanciona `.opencode/rules/concurrency-async.md` §8 — `remove_edge{,_locked}` / `ensure_edge{,_locked}`: los wrappers toman `purge_lock.write()`, los 10 call sites internos (`put_one`, `put_batch_inner`, `put_record_exact`) usan la variante `_locked`, y los 4 externos (`supersede` ×3, `bulk_import_stream` ×1) se cierran solos vía el wrapper. Orden de locks intacto: `supersede_lock` → `purge_lock` (el mismo de `forget(Soft)`); ningún camino toma `purge_lock` y luego `supersede_lock`.
+- **Test RED:** `tests/graph_edge_concurrency.rs::concurrent_remove_edge_removes_every_edge` (8 hilos × 100 borrados sobre un nodo con 800 → **0** restantes y **0** mitades reverse supervivientes). HEAD es el mutante: 525/800 en ROJO → 0/800 en verde. `memory_graph_lineage` + `graphrag_test` + `graph_edge_concurrency`: **27/27**.
+- **Ids:** `FIND-809`, `FIND-773`, `FIND-756`
+
+

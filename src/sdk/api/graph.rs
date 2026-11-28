@@ -144,11 +144,9 @@ impl Embedded {
         // ordered `(min(src,dst), max(src,dst))` pair.
         //
         // Not covered here: `remove_edge`/`ensure_edge` reach the same
-        // read-modify-write but are called *from inside* the guard above
-        // (`memory.rs:1259,1262,1697,1700`), so they cannot take it again — a
-        // non-reentrant `RwLock` would deadlock. Closing those needs the
-        // locked/unlocked split this module already uses
-        // (`resolve_existing_for_write{,_locked}`) at their call sites.
+        // read-modify-write and are called *from inside* the guard above
+        // (`memory.rs`), so their public wrappers take this same guard and the
+        // internal callers use the `*_locked` variants (FIND-809).
         let _write_guard = self.purge_lock.write();
         let label_id = engine.intern_label(label);
         let w = weight.unwrap_or(1.0);
@@ -181,9 +179,28 @@ impl Embedded {
     }
 
     /// Remove all edges between two nodes with the given label (both directions).
+    ///
+    /// Serialized against every other edge write on this handle: this is a
+    /// read-modify-write of **both** nodes' whole edge lists (FIND-809, same
+    /// defect `add_edge` had in FIND-773 — measured: 525 of 800 removals lost
+    /// with 8 concurrent writers).
     #[tracing::instrument(skip(self), err)]
     pub fn remove_edge(&self, source_id: u128, target_id: u128, label: &str) -> Result<()> {
         self.check_read_only()?;
+        let _write_guard = self.purge_lock.write();
+        self.remove_edge_locked(source_id, target_id, label)
+    }
+
+    /// [`Embedded::remove_edge`] without the `purge_lock` guard: the caller
+    /// already holds the write guard (the `*_locked` convention of
+    /// `.opencode/rules/concurrency-async.md` §8). Taking it again would
+    /// deadlock — `parking_lot::RwLock` is not reentrant.
+    pub(crate) fn remove_edge_locked(
+        &self,
+        source_id: u128,
+        target_id: u128,
+        label: &str,
+    ) -> Result<()> {
         crate::metrics::record_graph_op("remove_edge");
         let engine = self.engine_handle()?;
         let label_id = engine.intern_label(label);
@@ -211,7 +228,9 @@ impl Embedded {
     /// as-is — lineage ops (`supersede`, derived `put`) are safe to re-run
     /// without duplicating edges. Returns `true` when at least one half was
     /// created, `false` when the edge already existed in full.
-    #[tracing::instrument(skip(self), err)]
+    ///
+    /// Serialized like [`Embedded::add_edge`]: the existence check and the
+    /// push are one read-modify-write of both nodes (FIND-809).
     pub(crate) fn ensure_edge(
         &self,
         source_id: u128,
@@ -219,6 +238,18 @@ impl Embedded {
         label: &str,
     ) -> Result<bool> {
         self.check_read_only()?;
+        let _write_guard = self.purge_lock.write();
+        self.ensure_edge_locked(source_id, target_id, label)
+    }
+
+    /// [`Embedded::ensure_edge`] without the `purge_lock` guard (caller already
+    /// holds the write guard — §8 `*_locked` convention).
+    pub(crate) fn ensure_edge_locked(
+        &self,
+        source_id: u128,
+        target_id: u128,
+        label: &str,
+    ) -> Result<bool> {
         crate::metrics::record_graph_op("ensure_edge");
         let engine = self.engine_handle()?;
         let label_id = engine.intern_label(label);
