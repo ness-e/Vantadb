@@ -2057,3 +2057,76 @@ el propio SDK ya usa— los arregla a los tres.
 - **FIND-903 sigue cerrado:** `cargo test -p vantadb --test certified_delete` a 12 hilos → **15/15**, incluido `certified_delete_of_the_only_record_leaves_no_vector_bytes` (0 bytes de vector con el registro único borrado) y el testigo vivo de `FIND-826`.
 - **Verificación:** `cargo test -p vanta-memory --test gdpr_cascade_forget` 0/1 → **1/1**; `cargo test -p vantadb --lib -- maintenance::compact` 3/3 y `archive::tests` 30/30.
 - **Ids:** `FIND-905`, `FIND-903`, `FIND-826`, `FIND-343`
+
+### FIND-904: el borrado certificado reescribe todos los niveles, no sólo L0
+
+- **Fecha:** 2026-11-28
+- **Objetivo:** cerrar el techo que declaró `FIND-903`/`FIND-905`. El path certificado
+  (`delete_certified` → `compact_purged` → `compact_wal` + `compact_layout`) reescribía **L0**:
+  `compact_level` (el único otro paso que reescribe un segmento) sólo lo invoca `pipeline()`. Un
+  registro que `pipeline()` hubiera promovido a `L1+` conservaba sus bytes allí, y aunque el
+  certificado ya no mentía (`vector_store_surface` mide los segmentos desde `FIND-903` y lo
+  reportaba en `residues`), el **0 no estaba garantizado**.
+- **Medición (RED, 12 hilos, HEAD):** test nuevo `certified_delete_erases_a_record_the_pipeline_promoted_to_l1`
+  — registra, fuerza `pipeline(CompactOnly)` con `l0_max_size = 8`, comprueba que el nodo está en
+  `vstore_L1.vanta`, borra con `delete_certified` y escanea los cuatro segmentos por el `node_id` y
+  por el payload `f32` almacenado → **`["vstore_L1.vanta"]`**. GREEN tras el fix: **0**.
+- **Fix (opción b del contrato):** `archive::live_records(&File)` devuelve `(id, offset local)` del
+  mismo recorrido `[STORAGE_ALIGNMENT, write_cursor)` que introdujo `FIND-905`; `compact_segment`
+  reescribe un segmento a partir de esa lista y `compact_layout` (firma pública intacta) pasa a ser
+  el adaptador que la resuelve por el índice. Lo que lo hacía imposible para `L1+`: el offset
+  empaquetado lleva el id de segmento en los 6 bits bajos (`lsm.rs:19`) y `read_header` rechaza un
+  offset no alineado a 64, así que `storage_offset_of` no es un offset de byte del fichero.
+  `compact_layout_bfs` recorre ahora los cuatro segmentos (`rewrite_segment(level)`): `L0` ordena por
+  el grafo por localidad, los tiers fríos por el orden del propio segmento. El predicado sigue
+  siendo **por segmento** (`FIND-905` intacto) y un segmento ya vacío no se reescribe.
+- **Descartado con la medición:** (a) `compact_level` por nivel no garantiza 0 — su rama honesta
+  deja el segmento intacto cuando retiene un vivo no promovido, medido en
+  `compact_level_keeps_live_records_the_graph_does_not_promote` (`reclaimed_bytes == 0`), y movería
+  todos los vivos de tier en cada borrado; (c) extender `compact_level` no toca el defecto, porque
+  el path certificado no lo llama.
+- **Verificación:** `cargo test -p vantadb --test certified_delete` a 12 hilos → **17/17** (15 + 2
+  nuevos), incluidos el registro único de `FIND-903` y el testigo vivo de `FIND-826`;
+  `cargo test -p vanta-memory -j 2` completo verde y `--test gdpr_cascade_forget` **1/1**;
+  `cargo nextest run -p vantadb --profile audit --build-jobs 2` → **3040 passed, 4 skipped**;
+  `cargo test -p vantadb --lib -- storage::archive storage::engine::tests::maintenance` →
+  **130/130**; clippy `-D warnings` y `cargo fmt --all -- --check` limpios (medidos, sin SKIP);
+  build y tests de `--features encryption` verdes (45/45 en `storage::{archive,vfile_crypto}`).
+- **Ronda P2-01 (aplicada, 1 Critical real):** la copia huérfana **sobrevivía** cuando el segmento
+  origen no se podía resetear. `compact_level` copia el registro al tier siguiente y repunta el
+  índice sin retirar la fila origen; si el segmento retiene además un vivo que no puede promover, su
+  rama honesta lo deja intacto y la reescritura, que sólo miraba cabeceras no tombstoneadas,
+  arrastraba el residuo. La misma forma existe sin pipeline: un `put` sobre la misma clave appendea
+  una copia nueva y la vieja queda sin tombstone — medido en HEAD, `status: residues`,
+  `vector_store.residues: 1`. **Fix:** `authoritative_records` — autoridad = offset del índice
+  (idéntico) o, sin entrada de índice, existencia del registro en la fila KV; una fila que el índice
+  apunta en otro sitio es copia vieja, y sin índice ni KV es basura. Tests: el del engine en disco
+  (RED `[901, 900]` sin el filtro) y `certified_delete_erases_the_previous_copy_of_an_updated_record`
+  (RED contra `HEAD` real: el id sobrevive en `vstore_L0.vanta`).
+- **Ids:** `FIND-904`, `FIND-903`, `FIND-905`, `FIND-826`
+
+### Blocker de release: `compact_layout` escribía el segmento sin cabecera
+
+- **Fecha:** 2026-11-28
+- **Rojo medido en CI** (`Demo acceptance`, Privacy chain E2E, `[2/4] certificate verify`):
+  `Incompatible binary format: expected magic [86, 70, 76, 69], version 2, found magic
+  [0, 0, 0, 0], version 0`.
+- **Causa:** la rama **plaintext** de `archive::compact_layout` creaba el tmp, copiaba los nodos desde
+  `STORAGE_ALIGNMENT` y renombraba **sin escribir nunca `0..16`** (magic `VFLE` + versión); la rama
+  cifrada sí la escribía. Defecto viejo y tapado: una reapertura **escribible** repara la cabecera en
+  sitio (`vfile.rs` la escribe cuando el magic falta y el open no es read-only), así que sólo se veía
+  en una reapertura **read-only** — el camino de `vanta-cli certificate verify`
+  (`open_embedded(db, true)`).
+- **Por qué salió ahora:** lo destapó el cierre de `FIND-905`. Un registro con `vector: None` no es
+  entry point pero **sí** es un vivo del segmento, así que la compactación dejó de tomar la rama
+  "segmento vacío" (`reset_empty_segment`, que **sí** escribe cabecera) y pasó a reescribirlo por el
+  camino largo. El demo que falla no tiene embeddings: exactamente ese estado.
+- **Fix (12 líneas, commit `2343c20a9`):** la rama plaintext escribe la cabecera en el tmp antes del
+  `flush`+`rename`, con el mismo patrón que la cifrada (`Header::new(*b"VFLE", VFILE_VERSION, 0)` +
+  cursor en `16..24`). No se toca la reparación al abrir: la red sigue, pero el archivo deja de
+  **producirse** inválido.
+- **Test que faltaba** (`tests/durability_recovery.rs::compacted_segment_reopens_read_only`):
+  compacta una base **sin embeddings**, verifica el magic en disco y **reabre read-only** (la ruta
+  del certificado). RED contra `HEAD` real: `found_magic: [0,0,0,0], found_version: 0`.
+- **Ids:** (sin fila propia: nació como blocker de release de `v0.10.0`, corregido y medido en el
+  acto — mismo criterio de trazabilidad que `FIND-905`), `FIND-905`, `FIND-904`

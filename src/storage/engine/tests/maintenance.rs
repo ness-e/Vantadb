@@ -1018,8 +1018,69 @@ fn compact_level_keeps_live_records_the_graph_does_not_promote() {
     );
 }
 
-// ─── Quantization maintenance ─────────────────────────────────
+// ─── FIND-904: only the copy the index points at is live in a segment ───
 
+/// A segment keeps **non-tombstoned leftovers** of records that no longer live
+/// there: the tier pipeline copies a record into the next tier and repoints the
+/// index without retiring the source row. When the source segment cannot be
+/// reset (it still holds a live record the pipeline would not promote), the copy
+/// path of the rewrite used to carry the leftover forward — so a record promoted
+/// to `L1` and then purged kept a copy in `L0` **forever**, `vector_store`
+/// reported the residue and no `purged` receipt was possible.
+///
+/// File-backed on purpose: the in-memory segment does not rewrite (CODE-010), so
+/// the drop is not observable there.
+#[test]
+fn compact_layout_bfs_drops_leftovers_of_records_that_live_in_another_segment() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let engine = StorageEngine::open_with_config(
+        dir.path().to_str().expect("utf8 path"),
+        Some(Config::default()),
+    )
+    .expect("open disk engine");
+
+    // A live record the graph does not know — `vector: None`, written through
+    // `insert` (so it exists: it has its KV row) and then dropped from the index,
+    // which is the state the pipeline cannot promote.
+    let mut unindexed = UnifiedNode::new(900);
+    unindexed.vector = crate::node::VectorRepresentations::None;
+    engine.insert(&unindexed).expect("insert vectorless");
+    {
+        let hnsw = engine.hnsw.load();
+        assert!(hnsw.remove_node(900), "fixture: node 900 leaves the graph");
+    }
+    engine.insert(&sample_node(901)).expect("insert indexed");
+
+    // Promote 901 into L1. L0 keeps its row (never tombstoned) and is left
+    // untouched because it still holds the live, unpromoted 900.
+    let report = engine.compact_level(0).expect("compact L0");
+    assert_eq!(report.nodes_promoted, 1, "{report:?}");
+    assert_eq!(
+        report.reclaimed_bytes, 0,
+        "the source segment still holds a live record: {report:?}"
+    );
+
+    engine.compact_layout_bfs().expect("rewrite segments");
+
+    let l0 = engine.vector_store[0].read();
+    let live = crate::storage::archive::live_record_ids(&l0);
+    assert!(
+        live.contains(&900),
+        "a live record the graph does not know must survive the rewrite (FIND-905): {live:?}"
+    );
+    assert!(
+        !live.contains(&901),
+        "the promoted record's leftover in L0 must be dropped, not copied forward: {live:?}"
+    );
+    drop(l0);
+
+    assert!(
+        engine.get(901).expect("get promoted").is_some(),
+        "the authoritative copy in L1 must be intact after the rewrite"
+    );
+}
+
+// ─── Quantization maintenance ─────────────────────────────────
 #[test]
 fn test_run_quantization_maintenance_empty() {
     let engine = in_memory_engine();

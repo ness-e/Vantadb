@@ -213,6 +213,13 @@ fn delete_op_residues(
 /// `FIND-903` fixed both (`archive::reset_empty_segment` rewrites the segment
 /// empty in either case), so the surface can now report a **measured** count.
 ///
+/// `FIND-904` closed the remaining gap: the certified path rewrote `L0` only,
+/// so a record the tier pipeline had promoted to `L1+` kept its bytes there —
+/// the measurement below reported that residue (never a false `purged`), but
+/// the count was not 0. `compact_layout_bfs` now rewrites **every** segment, so
+/// the same instrument that used to find the residue is the one that proves it
+/// gone.
+///
 /// Instrument (the one the FIND-343 / FIND-903 tests use on the directory, here
 /// applied to the mapped segments): the raw bytes of every `vstore_L*.vanta`
 /// are searched for the record's node id — the u128 header of any surviving

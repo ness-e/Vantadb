@@ -41,7 +41,7 @@ All three go through the same core builder — no duplicated logic.
 | `store` | `deleted` | Point-read of backend partition `Default` is absent |
 | `shred` | `deleted` | `InternalMetadata` key `shred::<node_id>` absent — **JSON Shredding** column store (metadata fields), not secure-delete |
 | `vector_index` | `deleted` | HNSW graph has no entry for the node |
-| `vector_store` | `scanned` (or `none-needed`, or `not-assessed` when encrypted) | **Measured**, not declared (FIND-903). The certified path rewrites the vector segments before attesting — an empty graph is rewritten to a valid empty segment instead of being skipped, and a reclaimed segment is rewritten empty instead of moving the write cursor over the dead bytes. `residues` is the number of `vstore_L*.vanta` segments whose raw bytes still hold the record's node id or its stored `f32` payload. An **encrypted** segment stays `not-assessed`: a plaintext scan would answer 0 for the wrong reason |
+| `vector_store` | `scanned` (or `none-needed`, or `not-assessed` when encrypted) | **Measured**, not declared (FIND-903). The certified path rewrites **every** vector segment before attesting (FIND-904) — an empty segment is rewritten to a valid empty one instead of being skipped, a reclaimed segment is rewritten empty instead of moving the write cursor over the dead bytes, and a record the tier pipeline promoted to `L1+` is rewritten out of that segment too (the certified path used to rewrite `L0` only). `residues` is the number of `vstore_L*.vanta` segments whose raw bytes still hold the record's node id or its stored `f32` payload. An **encrypted** segment stays `not-assessed`: a plaintext scan would answer 0 for the wrong reason |
 | `derived_index` | `deleted` | `NamespaceIndex` + `PayloadIndex` keys rebuilt from the deleted record are absent |
 | `text_index` | `deleted` | Posting keys for the record terms are absent |
 | `sparse_index` | `deleted` (or `none-needed`) | Sparse posting keys rebuilt from the deleted record are absent |
@@ -79,7 +79,7 @@ Without the flush, verification fails **safe** (reports residues), never silentl
 
 ## Scope and limits (declared, not silent)
 
-The certificate covers the **live database directory**: logical entries are removed, and the vector segments are rewritten so the purged record's payload and vector bytes are no longer in them (FIND-903). It does **not** claim secure erase. Every certificate lists:
+The certificate covers the **live database directory**: logical entries are removed, and **every** vector segment is rewritten so the purged record's payload and vector bytes are no longer in them, including the tiers a promoted record reached (FIND-903, FIND-904). It does **not** claim secure erase. Every certificate lists:
 
 - physical media: bytes may survive in storage segments, page cache, filesystem journals or SSD remap — not secure erase;
 - backups and snapshots stored outside the live database directory;

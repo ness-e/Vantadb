@@ -358,6 +358,190 @@ fn scan_bytes(dir: &std::path::Path, needle: &[u8]) -> Vec<String> {
     hits
 }
 
+/// Names of the `vstore_L*.vanta` segments (under `<db>/data`) whose raw bytes
+/// contain `needle`. The segment names matter: a residue in `L1` is a different
+/// defect from a residue in `L0`, and the fix for each lives in a different
+/// pass.
+fn segments_holding(dir: &std::path::Path, needle: &[u8]) -> Vec<String> {
+    let data = dir.join("data");
+    let mut hits = Vec::new();
+    for level in 0..4 {
+        let name = format!("vstore_L{level}.vanta");
+        let Ok(bytes) = std::fs::read(data.join(&name)) else {
+            continue;
+        };
+        if bytes.windows(needle.len()).any(|w| w == needle) {
+            hits.push(name);
+        }
+    }
+    hits
+}
+
+/// FIND-904: the certified path rewrites **L0 only**, so a record the tier
+/// pipeline promoted to `L1` keeps its bytes there after `delete_certified`.
+/// `compact_level` (multi-level, the only pass that rewrites `L1+`) is called by
+/// `pipeline()`, never by the certified path — which calls `compact_layout`
+/// (`compact_layout_bfs`, L0).
+///
+/// The measurement is a raw scan of every `vstore_L*.vanta` for the node id and
+/// for the f32 vector **as stored** — the two needles
+/// `attestation::vector_store_surface` uses, so the certificate's `residues`
+/// and this test cannot disagree about what "erased" means.
+#[test]
+fn certified_delete_erases_a_record_the_pipeline_promoted_to_l1() {
+    use vantadb::PipelineMode;
+
+    for var in [
+        "VANTADB_ENCRYPTION_KEY",
+        "VANTADB_ENCRYPTION_KEY_FILE",
+        "VANTADB_ENCRYPTION_KEY_CMD",
+    ] {
+        std::env::remove_var(var);
+    }
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    // L0 is forced past its size threshold so one `CompactOnly` pipeline pass
+    // promotes the records into L1 (whose 512 MB threshold keeps them there).
+    let mut config = Config {
+        storage_path: dir.path().to_string_lossy().to_string(),
+        read_only: false,
+        ..Default::default()
+    };
+    config.segment_optimizer.lsm.l0_max_size = 8;
+    let db = Embedded::open_with_config(config).expect("open embedded");
+
+    let mut input = certified_input("erase", "promoted");
+    input.vector = Some(vec![0.137, -0.771, 0.413]);
+    let record = db.put(input).expect("put");
+    let id_needle = record.node_id.to_le_bytes();
+    let stored = db
+        .get("erase", "promoted")
+        .expect("get")
+        .expect("record present");
+    let vector_needle: Vec<u8> = stored
+        .vector
+        .as_ref()
+        .expect("stored vector")
+        .iter()
+        .flat_map(|f| f.to_le_bytes())
+        .collect();
+
+    // A witness in L1 too: it exercises the **copy** path of the deeper tier
+    // rewrite (not only the reset-to-empty one), and it makes a "0 hits" that
+    // came from wiping the segment impossible.
+    let mut witness = certified_input("erase", "witness");
+    witness.vector = Some(vec![-0.482, 0.31, 0.819]);
+    let witness_record = db.put(witness).expect("put witness");
+
+    // Fixture: the record must really be in L1, or the measurement is vacuous.
+    let pipe = db
+        .pipeline(PipelineMode::CompactOnly)
+        .expect("compact-only pipeline");
+    assert!(pipe.success, "pipeline must succeed: {pipe:?}");
+    assert!(
+        segments_holding(dir.path(), &id_needle).contains(&"vstore_L1.vanta".to_string()),
+        "fixture: the pipeline must have promoted the record into L1, found in {:?}",
+        segments_holding(dir.path(), &id_needle)
+    );
+
+    let cert = db.delete_certified("erase", "promoted").expect("delete");
+
+    // The witness lives through the L1 rewrite with its vector intact — the
+    // rewrite moves live records within the segment, so a wrong local offset
+    // would be a data loss, not a cosmetic one.
+    let survivor = db
+        .get("erase", "witness")
+        .expect("get witness")
+        .expect("the witness record must survive the certified delete");
+    assert_eq!(survivor.node_id, witness_record.node_id);
+    assert!(
+        survivor.vector.as_ref().is_some_and(|v| v.len() == 3),
+        "the witness vector must survive the L1 rewrite: {survivor:?}"
+    );
+
+    db.flush().expect("flush");
+    db.close().expect("close");
+
+    let id_hits = segments_holding(dir.path(), &id_needle);
+    assert!(
+        id_hits.is_empty(),
+        "the promoted record's node id survived a certified delete in {id_hits:?} \
+         (FIND-904: the certified path rewrites L0 only)"
+    );
+    let vector_hits = segments_holding(dir.path(), &vector_needle);
+    assert!(
+        vector_hits.is_empty(),
+        "the promoted record's stored f32 payload survived a certified delete in \
+         {vector_hits:?} (FIND-904)"
+    );
+    assert!(
+        segments_holding(dir.path(), &witness_record.node_id.to_le_bytes())
+            .contains(&"vstore_L1.vanta".to_string()),
+        "the witness must still be in L1 after the rewrite (a wiped segment is not \
+         an erasure)"
+    );
+
+    // Only a measured zero may be attested as `purged`.
+    assert_eq!(cert.status, "purged", "all surfaces clean → purged");
+    let vector_surface = cert
+        .surfaces
+        .iter()
+        .find(|s| s.surface == "vector_store")
+        .expect("vector_store surface");
+    assert_eq!(
+        vector_surface.residues, 0,
+        "the vector_store surface must measure the same 0 the scan found: {vector_surface:?}"
+    );
+}
+
+/// An **updated** record keeps its previous copies as non-tombstoned rows: a
+/// `put` of an existing key appends a new copy and repoints the index, and the
+/// old row is left behind with its header intact. The delete retires only the
+/// indexed copy (`apply_delete_inner`), so the leftovers outlive it — and the
+/// node id is the same in every copy (it is the key's hash), so `vector_store`
+/// measures them forever: `residues: 1` and no `purged` receipt, however many
+/// times the erasure is retried.
+///
+/// Measured on HEAD before the fix: `status: residues`, `vector_store.residues:
+/// 1`, the id still in `vstore_L0.vanta`.
+#[test]
+fn certified_delete_erases_the_previous_copy_of_an_updated_record() {
+    for var in [
+        "VANTADB_ENCRYPTION_KEY",
+        "VANTADB_ENCRYPTION_KEY_FILE",
+        "VANTADB_ENCRYPTION_KEY_CMD",
+    ] {
+        std::env::remove_var(var);
+    }
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = open_temp_db(&dir);
+
+    let mut version = certified_input("erase", "updated");
+    version.vector = Some(vec![0.137, -0.771, 0.413]);
+    let first = db.put(version.clone()).expect("put v1");
+    version.vector = Some(vec![-0.482, 0.31, 0.819]);
+    let second = db.put(version).expect("put v2");
+    assert_eq!(
+        first.node_id, second.node_id,
+        "fixture: the same key is the same node"
+    );
+    let id_needle = first.node_id.to_le_bytes();
+
+    let cert = db.delete_certified("erase", "updated").expect("delete");
+    db.flush().expect("flush");
+    db.close().expect("close");
+
+    let hits = segments_holding(dir.path(), &id_needle);
+    assert!(
+        hits.is_empty(),
+        "the previous copy of an updated record survived a certified delete in \
+         {hits:?} — the node id is the same in every copy, so the certificate can \
+         never reach `purged`"
+    );
+    assert_eq!(cert.status, "purged", "{:?}", cert.surfaces);
+}
+
 /// FIND-826: `forget(mode = Certified)` must erase the **bytes**, not just the
 /// record. On HEAD the certified path is byte-identical to `hard`: the payload
 /// survives in the Fjall journal (`0.jnl`) and `data/vanta.shard0.wal`, and the

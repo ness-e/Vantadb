@@ -591,7 +591,18 @@ impl StorageEngine {
         Ok(report)
     }
 
-    /// Compacts the File by rewriting nodes in BFS order of the HNSW graph.
+    /// Rewrites every vector-store segment, keeping each segment's **live**
+    /// records and dropping the rest.
+    ///
+    /// `L0` is ordered by the HNSW graph (locality for the hot tier); deeper
+    /// tiers keep the segment's own order — a cold tier is append-ordered, and
+    /// `traverse_graph` would sweep every indexed id to order a handful.
+    ///
+    /// `FIND-904`: this used to rewrite `L0` only. `compact_level` is the other
+    /// pass that rewrites a segment, and only `pipeline()` calls it — so the
+    /// certified delete path (`compact_wal` + `compact_layout`) left a record the
+    /// pipeline had promoted to `L1+` with its bytes intact there while the
+    /// receipt said `purged`.
     pub fn compact_layout_bfs(&self) -> Result<u64> {
         self.ensure_writable()?;
 
@@ -607,54 +618,59 @@ impl StorageEngine {
 
         let started = Instant::now();
 
-        // ponytail: compact_layout_bfs compacts L0 only. Multi-level BFS
-        // compaction is handled by compact_level().
-        let mut vstore = self.vstore0()?;
-        let hnsw = self.hnsw.load();
-
-        // FIND-905: the predicate that licenses a rewrite is the **segment's**
-        // own accounting, not the graph's. "No entry point" is not "nothing to
-        // keep": a record with `vector: None` is not an HNSW entry point but is
-        // a live record here (measured — the wipe below destroyed
-        // `ep_general_002` while `scan_entries` still held it).
-        let live = crate::storage::archive::live_record_ids(&vstore);
-
-        // Graph order first (locality) when there is a graph to order by; an
-        // empty graph still has the segment's own order.
-        let graph_order = match hnsw.entry_point() {
-            // &***: Guard → Arc → Box → dyn (one deref per wrapper).
-            Some(ep) => crate::storage::archive::traverse_graph(&***hnsw, ep),
-            None => Vec::new(),
-        };
-        // Only ids that actually live in THIS segment: `traverse_graph` sweeps
-        // every indexed id (other tiers included) and their packed offsets are
-        // not a byte offset of this file.
-        let live_set: HashSet<u128> = live.iter().copied().collect();
-        let mut order: Vec<u128> = graph_order
-            .into_iter()
-            .filter(|id| live_set.contains(id))
-            .collect();
-        let mut ordered: HashSet<u128> = order.iter().copied().collect();
-        for &id in &live {
-            // The records the graph cannot order, appended verbatim.
-            if ordered.insert(id) {
-                order.push(id);
-            }
+        let mut nodes_compacted = 0u64;
+        for level in 0..self.vector_store.len() {
+            nodes_compacted += self.rewrite_segment(level as u8)?;
         }
 
-        if order.is_empty() {
+        tracing::info!(
+            nodes_compacted,
+            segments = self.vector_store.len(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "compact_layout_bfs: vector store rewritten"
+        );
+
+        Ok(nodes_compacted)
+    }
+
+    /// Rewrite one segment keeping its live records; returns how many were
+    /// rewritten (0 when the segment had none).
+    ///
+    /// The predicate that licenses the rewrite is the **segment's own
+    /// accounting**, not the graph's (`FIND-905`): "no entry point" is not
+    /// "nothing to keep". A record with `vector: None` is not an HNSW entry
+    /// point but is a live record here — measured, the graph-derived predicate
+    /// destroyed `ep_general_002` while `scan_entries` still held it.
+    ///
+    /// The offsets come from that same walk, which is what makes `L1+`
+    /// rewritable at all: a packed offset carries the segment id in its low 6
+    /// bits, so it is not a byte offset of the segment's file.
+    fn rewrite_segment(&self, level: u8) -> Result<u64> {
+        let started = Instant::now();
+        let mut vstore = match self.vector_store.get(level as usize) {
+            Some(segment) => segment.write(),
+            None => return Ok(0),
+        };
+        let records = self.authoritative_records(level, &vstore)?;
+
+        if records.is_empty() {
             // FIND-903: no live record — the segment only holds the **purged**
-            // payloads, so it is rewritten empty. `compact_layout` refuses an
-            // empty order on purpose (it cannot tell "empty segment" from
+            // payloads, so it is rewritten empty. `compact_segment` refuses an
+            // empty set on purpose (it cannot tell "empty segment" from
             // "traversal failed"); here the emptiness is measured, so the
-            // rewrite is explicit and the log names it (the caller must never
-            // read `Ok(0)` as "nothing happened").
-            drop(hnsw);
+            // rewrite is explicit and the log names it.
+            //
+            // An already-empty cursor has nothing past the header to erase: the
+            // rewrite would produce the same 4096-byte layout.
+            if vstore.write_cursor == STORAGE_ALIGNMENT {
+                return Ok(0);
+            }
             let reclaimed_bytes = crate::storage::archive::reset_empty_segment(&mut vstore)?;
             drop(vstore);
+            // No-op without a WAL (in-memory/WASM): nothing to persist.
             self.save_vector_index()?;
             tracing::info!(
-                nodes_compacted = 0u64,
+                level,
                 reclaimed_bytes,
                 elapsed_ms = started.elapsed().as_millis() as u64,
                 "compact_layout_bfs: no live record in the segment, rewritten empty"
@@ -662,45 +678,122 @@ impl StorageEngine {
             return Ok(0);
         }
 
-        // A live record the index cannot locate cannot be copied: rewriting now
-        // would drop it. Leave the segment untouched and let the caller report
-        // the residue it can measure.
-        if order.iter().any(|id| hnsw.storage_offset_of(*id).is_none()) {
-            tracing::warn!(
-                live_records = live.len(),
-                "compact_layout_bfs: a live record has no index offset; segment left untouched"
-            );
-            return Ok(0);
+        let order = self.segment_order(level, records);
+        let header_size = std::mem::size_of::<crate::node::DiskNodeHeader>() as u64;
+        let (new_offset_map, new_file_size) =
+            crate::storage::archive::compact_segment(&mut vstore, &order, header_size)?;
+        drop(vstore);
+
+        {
+            // `pack_offset(level, …)` is the index's own convention (segment id
+            // in the low 6 bits); for L0 it is the identity.
+            let hnsw = self.hnsw.load();
+            for (&node_id, &new_local_offset) in &new_offset_map {
+                hnsw.set_storage_offset(node_id, crate::lsm::pack_offset(level, new_local_offset));
+            }
         }
 
-        let header_size = std::mem::size_of::<crate::node::DiskNodeHeader>() as u64;
-
-        let (new_offset_map, new_file_size) = crate::storage::archive::compact_layout(
-            &mut vstore,
-            // &***: Guard → Arc → Box → dyn (one deref per wrapper).
-            &***hnsw,
-            &order,
-            header_size,
-        )?;
-        let nodes_compacted = new_offset_map.len() as u64;
-
-        // &***: Guard → Arc → Box → dyn (one deref per wrapper).
-        crate::storage::archive::reindex_nodes(&***hnsw, &new_offset_map);
-
-        drop(hnsw);
-
-        let elapsed_ms = started.elapsed().as_millis() as u64;
-        tracing::info!(
-            nodes_compacted = nodes_compacted,
-            new_file_size = new_file_size,
-            elapsed_ms = elapsed_ms,
-            "compact_layout_bfs: File compactado en orden BFS"
-        );
-
-        drop(vstore);
+        // The offsets just changed on every rewritten record: persist before
+        // the next segment, so a failure mid-loop never leaves the on-disk
+        // index pointing into a file that no longer holds those bytes.
         self.save_vector_index()?;
 
-        Ok(nodes_compacted)
+        tracing::info!(
+            level,
+            nodes_compacted = new_offset_map.len(),
+            new_file_size,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "compact_layout_bfs: segment rewritten"
+        );
+
+        Ok(new_offset_map.len() as u64)
+    }
+
+    /// The rows of `segment` that are the **authoritative** copy of a live
+    /// record: the segment's own walk (`archive::live_records`) filtered by what
+    /// the index points at.
+    ///
+    /// The walk alone is not enough, and the gap is measurable: a segment keeps
+    /// non-tombstoned leftovers of records that no longer live there — the tier
+    /// pipeline **copies** a record into the next tier and repoints the index
+    /// without retiring the source row, and a re-written record (`put` of an
+    /// existing key) appends a newer copy while the old row keeps its header.
+    /// Rewriting those forward makes the leftover permanent, and for a purged
+    /// record it is a residue the certificate reports forever (no `purged`
+    /// receipt is possible). The index offset is the authority:
+    ///
+    /// - points at this very row → authoritative, keep it;
+    /// - points anywhere else (another tier, or a newer row in this one) → a
+    ///   leftover, drop it;
+    /// - no entry at all → ambiguous, and the KV row decides: a purged record
+    ///   has neither (the delete removes the entry **and** the KV row), while a
+    ///   record that was never indexed (`vector: None`, `FIND-905`) still exists
+    ///   there and must not be destroyed.
+    fn authoritative_records(
+        &self,
+        level: u8,
+        vstore: &crate::storage::vfile::File,
+    ) -> Result<Vec<(u128, u64)>> {
+        let walked = crate::storage::archive::live_records(vstore);
+        let hnsw = self.hnsw.load();
+        let mut records = Vec::with_capacity(walked.len());
+        for (id, local_offset) in walked {
+            match hnsw.storage_offset_of(id) {
+                // Authoritative copy: the index points at this very row.
+                Some(packed) => {
+                    if crate::lsm::unpack_offset(packed) == (level, local_offset) {
+                        records.push((id, local_offset));
+                    }
+                }
+                // Never indexed, or purged: only the record's own existence
+                // (its KV row) can tell those apart.
+                None => {
+                    if self
+                        .backend
+                        .get(BackendPartition::Default, &id.to_le_bytes())?
+                        .is_some()
+                    {
+                        records.push((id, local_offset));
+                    }
+                }
+            }
+        }
+        Ok(records)
+    }
+
+    /// Order for one segment's rewrite: `L0` follows the graph (locality where
+    /// searches read), deeper tiers follow the segment's own order.
+    fn segment_order(&self, level: u8, records: Vec<(u128, u64)>) -> Vec<(u128, u64)> {
+        if level != 0 {
+            return records;
+        }
+        let hnsw = self.hnsw.load();
+        // Graph order first (locality) when there is a graph to order by; an
+        // empty graph still has the segment's own order.
+        let graph_order = match hnsw.entry_point() {
+            // &***: Guard → Arc → Box → dyn (one deref per wrapper).
+            Some(ep) => crate::storage::archive::traverse_graph(&***hnsw, ep),
+            None => Vec::new(),
+        };
+        let offsets: std::collections::HashMap<u128, u64> = records.iter().copied().collect();
+        let mut ordered: Vec<(u128, u64)> = Vec::with_capacity(records.len());
+        let mut seen: HashSet<u128> = HashSet::with_capacity(records.len());
+        for id in graph_order {
+            // Only records that actually live in THIS segment: `traverse_graph`
+            // sweeps every indexed id (other tiers included).
+            if let Some(&offset) = offsets.get(&id) {
+                if seen.insert(id) {
+                    ordered.push((id, offset));
+                }
+            }
+        }
+        for (id, offset) in records {
+            // The records the graph cannot order, appended verbatim.
+            if seen.insert(id) {
+                ordered.push((id, offset));
+            }
+        }
+        ordered
     }
 
     /// Create a checkpoint (live snapshot) of the backend for backup purposes.

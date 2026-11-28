@@ -983,8 +983,3 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
 
-## Alta 2026-11-28 - El path certificado solo reescribe L0
-
-| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
-|---|---|---|---|---|---|---|---|---|---|
-| `FIND-904` | 🟠 Alta | **la reescritura del vector store en el path certificado es L0-only**: un registro que vive en `L1+` conserva sus bytes tras el borrado certificado | `src/storage/engine/maintenance.rs` (`compact_layout_bfs`) · `src/storage/archive.rs` | 🟡 2-4h | 🟠 Alta | 🟡 Pendiente (2026-11-28) - medido, sin carril | Lo declaró el cierre de `FIND-903`: el path certificado sólo llama `compact_layout_bfs`, que reescribe **L0**. `compact_level` (multi-nivel) sólo lo invoca `pipeline()`, y el path certificado no lo llama. Así que un registro que viva en `L1+` tras una compactación por pipeline **conserva sus bytes allí** después de `delete_certified`. **Ya no produce un `purged` falso** — `vector_store_surface` ahora mide los segmentos y reporta el conteo real en `residues` — pero el **0 no está garantizado** para ese estado. **Contrato:** el path certificado reescribe **todos** los niveles que puedan contener el nodo (o llama `compact_level` para cada nivel vivo antes de firmar), y la superficie lo verifica. **Verificación:** un registro promovido a L1 por `pipeline()` y luego borrado con `delete_certified` da **0 segmentos con sus bytes**, y el test corre a **12 hilos** sin `#[serial]`. | Origen: `FIND-903` (2026-11-28) | Dep: `FIND-903`, `FIND-826`, `FIND-343` |

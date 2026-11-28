@@ -96,9 +96,9 @@ pub(crate) fn reset_empty_segment(vstore: &mut File) -> Result<u64> {
     Ok(reclaimed)
 }
 
-/// IDs of the **live** records a segment holds, by the segment's own accounting
-/// — a sequential walk of `[STORAGE_ALIGNMENT, write_cursor)` — and not by what
-/// the HNSW graph knows (`FIND-905`).
+/// Live records of a segment as `(id, local offset)`, by the segment's own
+/// accounting — a sequential walk of `[STORAGE_ALIGNMENT, write_cursor)` — and
+/// not by what the HNSW graph knows (`FIND-905`).
 ///
 /// "The graph has no entry point" is **not** "the segment has nothing to keep".
 /// A record written with `vector: None` lives here, is registered in
@@ -107,16 +107,19 @@ pub(crate) fn reset_empty_segment(vstore: &mut File) -> Result<u64> {
 /// GDPR cascade forget destroyed the unrelated `ep_general_002`, whose only
 /// trait was having no embedding).
 ///
-/// Order is the segment's own, so a caller with no graph to order by still
-/// rewrites deterministically.
-pub(crate) fn live_record_ids(vstore: &File) -> Vec<u128> {
+/// The offsets come from the same walk, so they are the record's **local
+/// offset inside this segment** (the low 6 bits of a packed offset are the
+/// segment id, which is why `IndexPort::storage_offset_of` cannot drive a
+/// rewrite of `L1+`). Order is the segment's own, so a caller with no graph to
+/// order by still rewrites deterministically.
+pub(crate) fn live_records(vstore: &File) -> Vec<(u128, u64)> {
     let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-    let mut ids = Vec::new();
+    let mut records = Vec::new();
     let mut cursor = STORAGE_ALIGNMENT;
     while cursor + header_size <= vstore.write_cursor {
         if let Some(header) = vstore.read_header(cursor) {
             if header.id != 0 && (header.flags & FLAG_TOMBSTONE) == 0 {
-                ids.push(header.id);
+                records.push((header.id, cursor));
             }
             let payload = payload_len_for_header(&header);
             // ADR-0057 W3: the stride depends on the format — an encrypted
@@ -126,7 +129,16 @@ pub(crate) fn live_record_ids(vstore: &File) -> Vec<u128> {
             cursor += STORAGE_ALIGNMENT;
         }
     }
-    ids
+    records
+}
+
+/// IDs of the live records a segment holds — [`live_records`] without the
+/// offsets, for callers that only need the predicate.
+pub(crate) fn live_record_ids(vstore: &File) -> Vec<u128> {
+    live_records(vstore)
+        .into_iter()
+        .map(|(id, _offset)| id)
+        .collect()
 }
 
 /// Rewrite the File with nodes in BFS order, returning the new offset map and file size.
@@ -136,16 +148,35 @@ pub fn compact_layout(
     bfs_order: &[u128],
     header_size: u64,
 ) -> Result<(HashMap<u128, u64>, u64)> {
+    // `storage_offset_of` is the graph's view (packed for `L1+`), which is only
+    // a byte offset of *this* file for `L0`. Callers rewriting a deeper tier
+    // pass the offsets the segment walk measured (`compact_segment`).
+    let records: Vec<(u128, u64)> = bfs_order
+        .iter()
+        .filter_map(|&id| hnsw.storage_offset_of(id).map(|offset| (id, offset)))
+        .collect();
+    compact_segment(vstore, &records, header_size)
+}
+
+/// Rewrite the File keeping the given `(id, local offset)` records, in the
+/// order given (locality for the caller's traversal), and return the new offset
+/// map and file size.
+///
+/// The offsets are **local to this segment**, so the same function rewrites
+/// `L0` (where the graph's packed offset equals the local one) and any deeper
+/// tier (`FIND-904`).
+pub(crate) fn compact_segment(
+    vstore: &mut File,
+    records: &[(u128, u64)],
+    header_size: u64,
+) -> Result<(HashMap<u128, u64>, u64)> {
     // In-memory File has no disk backing to compact — return a trivial
     // offset map that preserves existing offsets (CODE-010).
     if vstore.file.is_none() {
-        let offset_map: HashMap<u128, u64> = bfs_order
-            .iter()
-            .filter_map(|&id| hnsw.storage_offset_of(id).map(|off| (id, off)))
-            .collect();
+        let offset_map: HashMap<u128, u64> = records.iter().copied().collect();
         return Ok((offset_map, vstore.write_cursor));
     }
-    if bfs_order.is_empty() {
+    if records.is_empty() {
         return Err(Error::Validation {
             field: "bfs_order".into(),
             reason: "BFS order is empty — refusing to compact (would destroy the database)".into(),
@@ -156,16 +187,14 @@ pub fn compact_layout(
     // encrypted segment can never fall back to plaintext (ADR-0057 W3).
     #[cfg(feature = "encryption")]
     if vstore.is_encrypted() {
-        return compact_layout_encrypted(vstore, hnsw, bfs_order, header_size);
+        return compact_layout_encrypted(vstore, records, header_size);
     }
     let mut new_file_size: u64 = 64;
-    for &node_id in bfs_order {
-        if let Some(offset) = hnsw.storage_offset_of(node_id) {
-            if let Some(old_header) = vstore.read_header(offset) {
-                let payload = payload_len_for_header(&old_header);
-                let vec_size = (payload + 63) & !63;
-                new_file_size += header_size + vec_size;
-            }
+    for &(_node_id, offset) in records {
+        if let Some(old_header) = vstore.read_header(offset) {
+            let payload = payload_len_for_header(&old_header);
+            let vec_size = (payload + 63) & !63;
+            new_file_size += header_size + vec_size;
         }
     }
     new_file_size = (new_file_size + 4095) & !4095;
@@ -194,65 +223,63 @@ pub fn compact_layout(
     // size); the returned mmap is valid for the file's lifetime.
     let mut tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
 
-    let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(bfs_order.len());
+    let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(records.len());
     let mut write_cursor: u64 = STORAGE_ALIGNMENT;
 
-    for &node_id in bfs_order {
-        if let Some(old_offset) = hnsw.storage_offset_of(node_id) {
-            let old_header = match vstore.read_header(old_offset) {
-                Some(h) => h,
-                None => continue,
-            };
-            if (old_header.flags & FLAG_TOMBSTONE) != 0 {
-                continue;
-            }
-            let payload = payload_len_for_header(&old_header);
-            let vec_size_aligned = (payload + 63) & !63;
-            let new_node_offset = write_cursor;
-            let new_vec_offset = new_node_offset + header_size;
-            let end = new_vec_offset + vec_size_aligned;
-            if end > new_file_size {
-                tmp_mmap.flush().map_err(Error::Io)?;
-                drop(tmp_mmap);
-                tmp_file.set_len(end + 4096).map_err(Error::Io)?;
-                // `map_readwrite` carries the (memmap2-only) SAFETY contract:
-                // tmp_file was extended via set_len() before this call and the
-                // previous mmap was dropped, so there is no conflicting mapping.
-                tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
-            }
-            let old_data = vstore.mmap_bytes();
-            let src_start = old_offset as usize;
-            let copy_len = (header_size + vec_size_aligned) as usize;
-            let src_end = src_start + copy_len;
-            // AUDREP-01: a header whose vector_len claims more bytes than the
-            // file actually holds (crash mid-write) would make the destination
-            // slice longer than the source and panic copy_from_slice. Validate
-            // the source is long enough and abort the compact with an error.
-            if src_end > old_data.len() {
-                return Err(Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::UnexpectedEof,
-                    format!(
-                        "vstore truncated: node at offset {old_offset} claims {copy_len} bytes \
-                         (header {header_size} + vec {vec_size_aligned}) but file has {} — \
-                         needed {src_end}",
-                        old_data.len(),
-                    ),
-                )));
-            }
-            tmp_mmap[write_cursor as usize..(write_cursor as usize + copy_len)]
-                .copy_from_slice(&old_data[src_start..src_end]);
-            let mut new_header = old_header;
-            new_header.vector_offset = new_vec_offset;
-            tmp_mmap[write_cursor as usize..(write_cursor as usize + header_size as usize)]
-                .copy_from_slice(new_header.as_bytes());
-            new_offset_map.insert(node_id, new_node_offset);
-            write_cursor += header_size + vec_size_aligned;
+    for &(node_id, old_offset) in records {
+        let old_header = match vstore.read_header(old_offset) {
+            Some(h) => h,
+            None => continue,
+        };
+        if (old_header.flags & FLAG_TOMBSTONE) != 0 {
+            continue;
         }
+        let payload = payload_len_for_header(&old_header);
+        let vec_size_aligned = (payload + 63) & !63;
+        let new_node_offset = write_cursor;
+        let new_vec_offset = new_node_offset + header_size;
+        let end = new_vec_offset + vec_size_aligned;
+        if end > new_file_size {
+            tmp_mmap.flush().map_err(Error::Io)?;
+            drop(tmp_mmap);
+            tmp_file.set_len(end + 4096).map_err(Error::Io)?;
+            // `map_readwrite` carries the (memmap2-only) SAFETY contract:
+            // tmp_file was extended via set_len() before this call and the
+            // previous mmap was dropped, so there is no conflicting mapping.
+            tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
+        }
+        let old_data = vstore.mmap_bytes();
+        let src_start = old_offset as usize;
+        let copy_len = (header_size + vec_size_aligned) as usize;
+        let src_end = src_start + copy_len;
+        // AUDREP-01: a header whose vector_len claims more bytes than the
+        // file actually holds (crash mid-write) would make the destination
+        // slice longer than the source and panic copy_from_slice. Validate
+        // the source is long enough and abort the compact with an error.
+        if src_end > old_data.len() {
+            return Err(Error::Io(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                format!(
+                    "vstore truncated: node at offset {old_offset} claims {copy_len} bytes \
+                     (header {header_size} + vec {vec_size_aligned}) but file has {} — \
+                     needed {src_end}",
+                    old_data.len(),
+                ),
+            )));
+        }
+        tmp_mmap[write_cursor as usize..(write_cursor as usize + copy_len)]
+            .copy_from_slice(&old_data[src_start..src_end]);
+        let mut new_header = old_header;
+        new_header.vector_offset = new_vec_offset;
+        tmp_mmap[write_cursor as usize..(write_cursor as usize + header_size as usize)]
+            .copy_from_slice(new_header.as_bytes());
+        new_offset_map.insert(node_id, new_node_offset);
+        write_cursor += header_size + vec_size_aligned;
     }
 
     // The tmp file starts zeroed: write the real header, so the compacted
     // segment is a **valid** segment. Without it the file has no magic
-    // (`[0,0,0,0]`, version 0) - a writable reopen repairs that in place, a
+    // (`[0,0,0,0]`, version 0) — a writable reopen repairs that in place, a
     // **read-only** one cannot, and `validate_compat` rejects it. Measured in CI
     // (`Demo acceptance`, Privacy chain E2E, `certificate verify`):
     // `expected magic [86, 70, 76, 69], version 2, found magic [0, 0, 0, 0]`.
@@ -287,8 +314,7 @@ pub fn compact_layout(
 #[cfg(feature = "encryption")]
 fn compact_layout_encrypted(
     vstore: &mut File,
-    hnsw: &dyn IndexPort,
-    bfs_order: &[u128],
+    records: &[(u128, u64)],
     header_size: u64,
 ) -> Result<(HashMap<u128, u64>, u64)> {
     use crate::storage::vfile::VFILE_ENCRYPTED_VERSION;
@@ -302,12 +328,10 @@ fn compact_layout_encrypted(
     };
 
     let mut new_file_size: u64 = 64;
-    for &node_id in bfs_order {
-        if let Some(offset) = hnsw.storage_offset_of(node_id) {
-            if let Some(old_header) = vstore.read_header(offset) {
-                let payload = payload_len_for_header(&old_header);
-                new_file_size += record_len(payload);
-            }
+    for &(_node_id, offset) in records {
+        if let Some(old_header) = vstore.read_header(offset) {
+            let payload = payload_len_for_header(&old_header);
+            new_file_size += record_len(payload);
         }
     }
     new_file_size = (new_file_size + 4095) & !4095;
@@ -336,13 +360,10 @@ fn compact_layout_encrypted(
     // size); the returned mmap is valid for the file's lifetime.
     let mut tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
 
-    let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(bfs_order.len());
+    let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(records.len());
     let mut write_cursor: u64 = STORAGE_ALIGNMENT;
 
-    for &node_id in bfs_order {
-        let Some(old_offset) = hnsw.storage_offset_of(node_id) else {
-            continue;
-        };
+    for &(node_id, old_offset) in records {
         let Some(old_header) = vstore.read_header(old_offset) else {
             continue;
         };
