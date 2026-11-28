@@ -1958,6 +1958,17 @@ el propio SDK ya usa— los arregla a los tres.
 - **Fuera de alcance, declarado:** la hibrida del SDK (`sdk/search/mod.rs`) sigue propagando el error del brazo vectorial, pero ahi la entrada es un vector ya calculado: el unico fallo alcanzable es un error de argumento del llamador (dimension, `ERR-028`), que **debe** seguir siendo error — no se degrada input invalido. `sdk/search/hybrid.rs::hybrid_search` es codigo muerto (sin llamadores; `mod.rs` reimplementa la hibrida inline) y no se toco.
 - **Ids:** `FIND-490`, `FIND-413` (precedente)
 
+### FIND-521: la misma IQL ya no devuelve filas distintas segun la estimacion
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** el planner elegia el orden del brazo vectorial por `joint_selectivity < 0.1`: con filtros muy selectivos, `scan → filtro → refine` (exhaustivo, coseno); si no, `ANN top-k → post-filtro`. El ANN trunca a `LIMIT×4` **antes** de filtrar, asi que una fila que matchea pero rankea por debajo de una que no matchea no llega nunca al filtro: **anadir filas no relacionadas cambiaba el resultado**, porque la estimacion se mueve con la poblacion del store.
+- **Test RED:** `f521_selectivity_estimate_does_not_change_the_rows` — la misma query (`type = "doc" AND x ~ 0.5 LIMIT 4`) sobre las mismas 3 filas, con y sin 30 filas no relacionadas que rankean mas alto: `left: []` vs `right: [1, 2, 3]`. GREEN: `[1, 2, 3]` en los dos casos.
+- **Fix:** el orden lo decide la **forma** de la query, no la estimacion — con filtro relacional, exhaustivo (`else if !sorted_filters.is_empty()`); sin filtro, ANN. Se elimino la acumulacion de `joint_selectivity` (sin uso) y el doc de `HIGH_SELECTIVITY_THRESHOLD` aclara que hoy solo lo consume el `FilterStrategy` del SDK.
+- **Verificacion:** `cargo nextest run --profile audit -p vantadb --build-jobs 2 -E 'test(search) or test(hybrid) or test(rrf) or test(iql) or test(query)' --no-tests fail` ⇒ **441/441 passed**. `cargo fmt --check` y `cargo clippy --all-targets -- -D warnings` limpios. La no-regresion del area queda cubierta por `f563_intersection_holds_on_the_selective_path` (sigue tomando el orden exhaustivo) y `f313_*`.
+- **Deuda declarada:** (1) las queries vectoriales **con** filtro pierden el atajo ANN (escanean la entidad) — es el precio de que el resultado no dependa del plan; la via de upgrade queda en el codigo (`ponytail:`: bitsets de etiqueta por nodo para que los predicados viajen en `query_mask`), **sin medir** (no se vende como mejora de performance). (2) **Espacio de `min` con metrica no coseno:** el hallazgo pedia ademas documentarlo; con filtro el predicado se evalua en coseno, sin filtro en la metrica del indice (coseno por default). Con un indice Euclidean el path ANN conserva el desajuste y **no se puede pinchar con test**: `Config` no expone la metrica del indice. Declarado, no arreglado.
+- **Ids:** `FIND-521`, `FIND-313` (ventana de candidatos)
+
+
 ### FIND-826: el recibo de borrado certificado ya no se firma antes de borrar
 
 - **Fecha:** 2026-11-27

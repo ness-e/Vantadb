@@ -58,10 +58,15 @@ fn note_arm_failure(arm: &str, error: &crate::error::Error) {
 
 /// Selectivity threshold below which filters are considered highly selective.
 ///
-/// When joint selectivity falls below this value, the optimizer prefers
-/// applying filters before vector search (scan→filter→refine) over the
-/// default vector-search→filter order. A filter with selectivity 0.1 means
-/// it prunes ~90 % of rows.
+/// Consumed by the SDK's filter strategy
+/// ([`CostEstimator::select_filter_strategy`](crate::cost_estimator::CostEstimator)):
+/// below it the vector search prefilters instead of post-filtering. A filter
+/// with selectivity 0.1 means it prunes ~90 % of rows.
+///
+/// It no longer shapes the IQL physical plan: `FIND-521` showed that choosing
+/// the vector order from an estimate made the ROWS depend on the estimate, so
+/// filtered vector queries take one order (scan → filter → refine) and
+/// unfiltered ones take the other (ANN → filter).
 pub const HIGH_SELECTIVITY_THRESHOLD: f32 = 0.1;
 
 /// ANN candidate window for the IQL vector arm (FIND-313).
@@ -439,15 +444,13 @@ fn optimize_and_compile_with<'a>(
     // shape the plan (the same query with and without it must return the
     // same rows — FIND-553) and it must not be applied either (applying it
     // would drop the typeless nodes the scope admits).
-    let mut joint_selectivity = 1.0f32;
     let mut sorted_filters = Vec::with_capacity(with_sel.len());
-    for (sel, field, rel_op, value) in with_sel {
+    for (_sel, field, rel_op, value) in with_sel {
         // FIND-554 (revision P2-01, R2): the CBO **never** drops a predicate.
         // `type = <entity>` looked "implied" by the scope, but the entity can
         // also be a **namespace table** (MCP-29), whose records carry no
         // `type` at all: dropping the user's predicate there returned **more**
         // rows than the query asked for.
-        joint_selectivity *= sel;
         sorted_filters.push((field, rel_op, value));
     }
 
@@ -528,8 +531,19 @@ fn optimize_and_compile_with<'a>(
             }
             rrf_fused = true;
             fused
-        } else if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD && !sorted_filters.is_empty() {
-            // CBO: filter-before-vector vs vector-before-filter
+        } else if !sorted_filters.is_empty() {
+            // FIND-521: a relational filter forces the EXHAUSTIVE order
+            // (scan → filter → refine over the full stream). The ANN order
+            // (top-k → post-filter) starves the page whenever a matching row
+            // ranks below a non-matching one, so choosing between the two by
+            // an estimate — which moves with the store's population — made the
+            // ROWS a function of the estimate instead of the data. One order
+            // for filtered vector queries: the plan decides HOW, never WHAT.
+            //
+            // ponytail: filtered vector queries lose the ANN shortcut (they
+            // scan the entity). Ceiling + upgrade path: filtered ANN once the
+            // index carries per-node label bitsets, so the predicates ride
+            // `query_mask` instead of post-filtering.
             let mut chain: Box<dyn crate::query::PhysicalOperator + 'a> =
                 Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
             for (field, rel_op, value) in sorted_filters {
@@ -1366,6 +1380,69 @@ mod tests {
                 ids,
                 vec![1],
                 "the selective path must apply BOTH vector predicates, not just the last"
+            );
+        }
+
+        /// FIND-521: the SAME predicate over the SAME rows must return the SAME
+        /// rows, whatever the CBO's selectivity estimate decides about HOW to
+        /// fetch them (index vs scan). The estimate is derived from the
+        /// population, so a store that grew unrelated rows used to change the
+        /// answer: ANN top-k → post-filter starves the page, while the
+        /// scan → filter → refine path is exhaustive.
+        #[test]
+        fn f521_selectivity_estimate_does_not_change_the_rows() {
+            /// The three rows the query is about (cosine to `[1, 0]`: .8/.7/.6).
+            fn matching_rows() -> [(u128, Vec<f32>); 3] {
+                [
+                    (1, vec![0.8, 0.6]),
+                    (2, vec![0.7, 0.714]),
+                    (3, vec![0.6, 0.8]),
+                ]
+            }
+
+            fn run(extra_rows: usize) -> Vec<u128> {
+                let (storage, _dir) = in_memory_storage();
+                for (id, vec) in matching_rows() {
+                    let mut node = node_with_vec(id, vec);
+                    node.relational
+                        .insert("type".into(), FieldValue::String("doc".into()));
+                    storage.insert(&node).unwrap();
+                }
+                // Unrelated rows that carry NO `type` (they must not move the
+                // cardinality estimate) but DO outrank the matches in the ANN:
+                // they are the exact rows a post-filter throws away.
+                for i in 0..extra_rows as u128 {
+                    let mut node = node_with_vec(100 + i, vec![1.0, 0.0]);
+                    node.flags.set(NodeFlags::HAS_VECTOR);
+                    storage.insert(&node).unwrap();
+                }
+
+                run_with(
+                    &storage,
+                    vec![
+                        LogicalOperator::Scan { entity: "*".into() },
+                        LogicalOperator::FilterRelational {
+                            field: "type".into(),
+                            op: RelOp::Eq,
+                            value: FieldValue::String("doc".into()),
+                        },
+                        vector_sim("x", 0.5),
+                        LogicalOperator::Limit { top_k: 4 },
+                    ],
+                    text_map_embedder(),
+                )
+            }
+
+            let mut only_matches = run(0);
+            let mut crowded = run(30);
+            only_matches.sort_unstable();
+            crowded.sort_unstable();
+
+            assert_eq!(only_matches, vec![1, 2, 3], "setup: all three rows match");
+            assert_eq!(
+                crowded, only_matches,
+                "the same query over the same matching rows must not change because \
+                 unrelated rows were added (the plan chooses HOW, never WHAT)"
             );
         }
 
