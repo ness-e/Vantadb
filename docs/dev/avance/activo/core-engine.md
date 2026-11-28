@@ -2154,7 +2154,15 @@ el propio SDK ya usa— los arregla a los tres.
   `#[cfg(test)]` `thread_local` que corre el writer **inline** entre T1 y T2 — sin sleeps ni hilos
   (lección de `FIND-826`). Prove-It: con el bump desactivado los 5 caen con `left: Some("old")`, el
   payload resucitado.
-- **Medido:** área `storage::engine` 443/443 a 12 hilos · `certified_delete` 17/17 ·
-  `nextest --profile audit -p vantadb` 3045/3045 · `vanta-memory` exit 0.
+- **Medido:** área `storage::engine` 444/444 a 12 hilos · `certified_delete` 17/17 ·
+  `nextest --profile audit -p vantadb` 3046/3046 · `vanta-memory` exit 0.
+- **Review P2-01 (`vanta-review`), REQUEST CHANGES → atendido:** R1 destapó un defecto de la misma
+  clase en el rollback de `commit_transaction` (un overwrite aplicado y luego revertido dejaba el
+  payload **rechazado** en el cache, servido para siempre — determinista, sin carrera): `invalidate`
+  movido fuera del `if/else` del rollback y como último paso tras el restore durable, con test propio
+  (rojo `left: Some("new")` → verde). R2: los tests assertean ahora que el hook disparó una vez, para
+  que no puedan pasar en vacío. Al verificar R1 apareció un gap pre-existente: el rollback restaura el
+  KV pero **no re-indexa** en HNSW → `FIND-831`.
 - **Ids:** `FIND-222`, `FIND-190` (misma clase: write path que invalida), `FIND-809` (`purge_lock`,
-  el lock que se comprobó antes de añadir el contador), `FIND-826` (test de carrera no determinista)
+  el lock que se comprobó antes de añadir el contador), `FIND-826` (test de carrera no determinista),
+  `FIND-831` (rollback sin re-indexar, colateral)

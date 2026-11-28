@@ -373,6 +373,10 @@ impl StorageEngine {
                             let hnsw = self.hnsw.load();
                             hnsw.remove_node(node.id);
                         }
+                        // FIND-222: raw remove (no bump) on purpose — this runs
+                        // *before* the KV write, so the bump belongs after it
+                        // (below). Removing the later `invalidate` because this
+                        // line "looks redundant" reopens the window.
                         self.cache.volatile.write().remove(&node.id);
                         self.apply_insert_with_txn(node, txn_id)?;
                         // FIND-222: the KV write above is the durable mutation.
@@ -421,7 +425,6 @@ impl StorageEngine {
                                 .backend
                                 .delete(crate::backend::BackendPartition::Default, &key);
                             self.index_coordinator().remove_node(node.id);
-                            self.cache.invalidate(node.id);
                             if let Some(packed) =
                                 self.index_coordinator().storage_offset_of(node.id)
                             {
@@ -430,6 +433,15 @@ impl StorageEngine {
                                     .set_tombstone_at_packed_offset(packed, true);
                             }
                         }
+                        // FIND-222 (review R1): **both** branches restore a
+                        // previous durable state for this id, and
+                        // `apply_insert_with_txn` may have published the
+                        // *rejected* payload in the cache (Hot). Without this,
+                        // `get()` served the uncommitted payload forever — the
+                        // same silent-wrong-data class as the prefetch race, but
+                        // deterministic on the error path. Last step, after the
+                        // durable restore (review O2).
+                        self.cache.invalidate(node.id);
                     }
                     BufferedWrite::Delete(id) => {
                         let key = id.to_le_bytes();

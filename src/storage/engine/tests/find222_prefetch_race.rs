@@ -59,14 +59,30 @@ fn engine_with_prefetch_pair(old_mark: &str) -> Arc<StorageEngine> {
 
 /// `get(1)` (cache miss) → `prefetch_related(1)` → materialize 2 → **hook** →
 /// insert 2. The hook receives the warm id being materialized.
-fn prefetch_with<F>(engine: &Arc<StorageEngine>, writer: F)
+///
+/// Asserts the hook **fired exactly once** (review R2): if `suggest_warm_ids`
+/// ever stops returning the pair (a `min_accesses` change, a warmer refactor,
+/// a cache hit that filters it out), every case in this file would still be
+/// green with or without the guard — the regression test would silently
+/// disable itself.
+fn prefetch_with<F>(engine: &Arc<StorageEngine>, mut writer: F)
 where
     F: FnMut(u128) + 'static,
 {
-    set_prefetch_interleave(Some(Box::new(writer)));
+    let fired = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counter = Arc::clone(&fired);
+    set_prefetch_interleave(Some(Box::new(move |id| {
+        counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        writer(id);
+    })));
     let got = engine.get(1).expect("get(1) must terminate");
     set_prefetch_interleave(None);
     assert!(got.is_some(), "anchor node 1 exists");
+    assert_eq!(
+        fired.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "the prefetch of node 2 must have fired exactly once"
+    );
 }
 
 /// `delete` path (`delete.rs::apply_delete_inner`).
@@ -145,6 +161,58 @@ fn txn_insert_commit_mid_flight_does_not_cache_the_old_payload() {
         payload_of(&got),
         Some("new".to_string()),
         "the pre-commit payload must not survive in the cache"
+    );
+}
+
+/// `txn` path, rollback half: an overwrite that commits inside the buffer and
+/// then rolls back must not leave the rejected payload in the cache (review
+/// R1 — `commit_transaction` publishes a Hot payload into `volatile` before the
+/// commit marker; the rollback restores the KV but used to leave the entry).
+///
+/// The failure is induced without failpoints: the second buffered op has more
+/// edges than the `u16` header field can hold, so `write_node_to_vstore` rejects
+/// it *after* the first op was applied.
+#[test]
+fn txn_rollback_restores_the_previous_payload() {
+    let engine = in_memory_engine();
+    let mut old = node_with_payload(2, "old");
+    old.tier = crate::node::NodeTier::Hot;
+    engine.insert(&old).expect("insert 2");
+    assert!(
+        engine.cache.volatile.read().contains_key(&2),
+        "precondition: a Hot insert publishes node 2 in the cache"
+    );
+
+    let mut rejected = node_with_payload(2, "new");
+    rejected.tier = crate::node::NodeTier::Hot;
+    let mut poisoned = sample_node(3);
+    poisoned.edges = vec![crate::node::Edge::new(1, 0); u16::MAX as usize + 1];
+
+    let txn = engine.begin_transaction().expect("begin transaction");
+    engine
+        .insert_in_txn(&rejected, txn)
+        .expect("buffer the overwrite");
+    engine
+        .insert_in_txn(&poisoned, txn)
+        .expect("buffer the op that fails at apply time");
+    assert!(
+        engine.commit_transaction(txn).is_err(),
+        "commit must fail on the unrepresentable edge count"
+    );
+
+    let node = engine.get(2).expect("get(2)");
+    // FIND-222 owns one thing here: the *rejected* payload must never be served.
+    // The KV row is restored, but the rollback does not rebuild the HNSW entry
+    // (the op loop removed it before applying, and nothing re-adds the previous
+    // offset), so `get()` answers `None` instead of the restored payload — a
+    // separate pre-existing gap, filed as its own finding.
+    assert!(
+        node.as_ref().and_then(payload_of) != Some("new".to_string()),
+        "the rolled-back payload must never be served, got {node:?}"
+    );
+    assert!(
+        !engine.cache.volatile.read().contains_key(&2),
+        "the rejected payload must not stay in the cache"
     );
 }
 

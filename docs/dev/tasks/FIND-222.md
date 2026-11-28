@@ -1,7 +1,7 @@
 ---
 title: "FIND-222: el prefetch resucita el payload viejo en el cache volátil"
 kind: task
-status: in-progress
+status: completed
 description: "El prefetch materializa un nodo y lo inserta después de que el write path haya vaciado la entry: la propia invalidación crea la vacante. Fix: contador de invalidaciones (bump + remove atómicos) y el prefetch re-valida bajo el lock. Determinista, no probabilístico."
 ---
 
@@ -20,7 +20,7 @@ description: "El prefetch materializa un nodo y lo inserta después de que el wr
 | Dirección | Módulos |
 |-----------|---------|
 | Tocado | `src/storage/engine/cache.rs` (campo + 3 métodos) · `src/storage/engine/get.rs` (el guard + hook de test) · `src/storage/engine/delete.rs` (2 sitios) · `src/storage/engine/insert.rs` (3 sitios) · `src/storage/engine/txn.rs` (3 sitios) · `src/storage/engine/tests/find222_prefetch_race.rs` (nuevo) · `src/storage/engine/tests/mod.rs` · este task file · `docs/dev/Backlog.md` (fila `FIND-222`) · `docs/dev/avance/activo/core-engine.md` |
-| Inmutable | `src/storage/engine/maintenance.rs` (prohibido: la evicción no sirve datos incorrectos, ver §Alcance) · `src/storage/archive.rs` · `src/attestation.rs` · `src/text_index.rs` · `src/sdk/**` · `src/planner.rs` · `vanta-memory/**` · bindings · `.github/**` · `dev-tools/**` · `.opencode/**` · `docs/index.md` |
+| Inmutable | `src/storage/engine/maintenance.rs` (prohibido: la evicción no sirve datos incorrectos, ver §Alcance) · `src/storage/archive.rs` · `src/attestation.rs` · `src/text_index.rs` · `src/sdk/**` · `src/planner.rs` · `vanta-memory/**` · bindings · `.github/**` · `dev-tools/**` · `.opencode/**` · `docs/index.md` (sólo se **regenera**, no se edita a mano: `gen-index.mjs --write` + `--check`, y va en el mismo commit por mandato del orquestador) |
 | Fuera de alcance | `maintenance.rs:403` (evicción/consolidación): un prefetch que re-cachea el mismo payload no devuelve datos incorrectos; **no** se toca (prohibido) y se declara como deuda `ponytail:` |
 
 ## Premisa (medida, no re-derivada)
@@ -94,7 +94,9 @@ Ningún orden deja una entry vieja viva. Si el bump fuese *antes* del remove per
 1. ✅ RED determinista: hook de test entre T1 y T2 + 5 casos (delete, delete_batch, overwrite, txn insert, txn delete). Con el bump desactivado los 5 fallan — ver §Prove-It.
 2. ✅ GREEN: `CacheLayer` (campo + `invalidate`/`note_invalidation`/`invalidation_generation`), guard en `prefetch_related`, 8 call sites.
 3. ✅ Prove-It: bump desactivado en un solo punto (`note_invalidation`) → 5/5 rojos con el payload resucitado en el cache.
-4. ✅ Verificación completa (12 hilos, `vanta-memory`, nextest audit) + cierre.
+4. ✅ Review adversarial P2-01 (`vanta-review`): 3 required + 2 optional; ver §Review. R1 destapó un segundo defecto de la misma clase en el rollback de txn.
+5. ✅ RED+GREEN del rollback (`txn_rollback_restores_the_previous_payload`): rojo `left: Some("new")` → verde tras mover `invalidate` fuera del `if/else`.
+6. ✅ Verificación completa (12 hilos, `vanta-memory`, nextest audit) + cierre.
 
 ## Interleaving, antes y después
 
@@ -147,6 +149,9 @@ Casos límite, y por qué el orden elegido los cierra:
 | `overwrite_mid_flight_does_not_cache_the_old_payload` | `insert.rs::apply_insert` (el "Hot" de la fila: FIND-190) |
 | `txn_insert_commit_mid_flight_does_not_cache_the_old_payload` | `txn.rs::commit_transaction` → `apply_insert_with_txn` |
 | `txn_delete_commit_mid_flight_does_not_resurrect_the_node` | `txn.rs::commit_transaction` → `apply_delete_inner` |
+| `txn_rollback_restores_the_previous_payload` | `txn.rs` rollback de `BufferedWrite::Insert` (review R1, sin carrera: error determinista) |
+
+`prefetch_with` assertea que el hook disparó **exactamente una vez** (review R2): sin eso, si el warmer deja de sugerir el par, los 5 casos quedan verdes con y sin el guard y el test se auto-desactiva en silencio.
 
 ## Prove-It (el rojo, pegado)
 
@@ -167,23 +172,55 @@ assertion `left == right` failed: the pre-overwrite payload must not survive in 
 
 Restaurado el bump → 5/5 verdes.
 
+**Segundo rojo (review R1), sin carrera — error path determinista:**
+
+```
+---- txn_rollback_restores_the_previous_payload ----
+assertion `left == right` failed: the rolled-back payload must not be served from the cache
+  left: Some("new")     ← el payload RECHAZADO, servido para siempre
+ right: Some("old")
+```
+
+Un txn con `[Insert(2 Hot), Insert(3 con 65 536 edges)]` aplica el primero (publica "new" en el cache) y falla en el segundo; el rollback restauraba el KV y **no** invalidaba → `get(2)` devolvía el payload rechazado. Mover `invalidate` fuera del `if/else` lo cierra. No necesita interleaving: es el mismo fallo de "la entry queda con lo que el store ya no tiene", en el camino de error.
+
 ## Verificación
 
 | Comando | Resultado |
 |---|---|
 | `cargo fmt --all -- --check` | ✅ 0 (medido; el `--check` inicial marcó **mi** fichero y se corrigió con `cargo fmt --all`, que solo tocó mis 6 ficheros) |
 | `cargo clippy -p vantadb --all-targets -- -D warnings` | ✅ exit 0 |
-| `RUST_TEST_THREADS=12 cargo test -p vantadb --lib -- find222_prefetch_race` | ✅ 5/5 (población del filtro medida antes: 5) |
-| `RUST_TEST_THREADS=12 cargo test -p vantadb --lib -- storage::engine` | ✅ **443/443** (barrido del área a 12 hilos) |
+| `RUST_TEST_THREADS=12 cargo test -p vantadb --lib -- find222_prefetch_race` | ✅ **6/6** (población del filtro medida antes) |
+| `RUST_TEST_THREADS=12 cargo test -p vantadb --lib -- storage::engine` | ✅ **444/444** (barrido del área a 12 hilos) |
 | `RUST_TEST_THREADS=12 cargo test -p vantadb --test certified_delete` | ✅ **17/17** |
 | `cargo test -p vanta-memory -j 2` | ✅ exit 0 (el crate que consume) |
-| `cargo nextest run -p vantadb --profile audit --build-jobs 2` | ✅ **3045/3045**, 0 fallos |
-| `nextest … -E 'test(find222_prefetch_race)' --no-tests fail` | ✅ 5 run / 5 passed |
+| `cargo nextest run -p vantadb --profile audit --build-jobs 2` | ✅ **3046/3046**, 0 fallos |
+| `nextest … -E 'test(find222_prefetch_race)' --no-tests fail` | ✅ 5 run / 5 passed (población medida: 5; el 6.º caso se añadió después y entra en la suite completa) |
 | `node scripts/docs/gen-index.mjs --write` + `--check` | ✅ 0 stale (947 documentos) |
 | `node scripts/docs/check-docs.mjs` · `check-links.mjs` | ✅ exit 0 |
 
+## Review (GATE — agente distinto, P2-01)
+
+- **Revisor:** `vanta-review` (sub-agente, contexto distinto al autor) · **Enfoque:** adversarial sobre `c730ba8cf` + este delta.
+- **Cómo se probó:** re-ejecutó `cargo test -p vantadb --lib -- find222_prefetch_race` → 5/5; leyó los 8 sitios de invalidación uno por uno contra su mutación durable; `rg` para confirmar que no quedó ningún `remove` sin bump (9 removals, 8 bumpados, el 9.º es `maintenance.rs:404`, declarado); `cargo fmt --all -- --check` OK.
+- **Veredicto inicial:** 🔴 **REQUEST CHANGES** — 0 Critical, 3 Required, 2 Optional, 3 Nits. Texto: *"El fix central es correcto: bump+remove en un solo critical section, y la re-validación bajo el mismo lock que toma el writer cierra la ventana para los 8 sitios bumpados"*.
+- **Disposición:**
+
+| # | Hallazgo | Disposición |
+|---|---|---|
+| R1 | `txn.rs` rollback de overwrite no invalidaba (payload rechazado servido para siempre) | ✅ **arreglado** + test RED/GREEN propio (`txn_rollback_restores_the_previous_payload`) |
+| R2 | los 5 tests podían pasar en vacío si el prefetch no dispara | ✅ **arreglado**: contador en el hook + `assert_eq!(fired, 1)` en `prefetch_with` |
+| R3 | sin `## Review`, `status` contradictorio con ✅ COMPLETED | ✅ esta sección; `status: completed` (convención: 114 ficheros del árbol) |
+| O1 | `maintenance.rs:402-405` evicción sin bump | ⏸ **declarado, no tocado**: zona inmutable y el payload no cambia (sólo `tier`) → no devuelve datos incorrectos. Nota en §Alcance |
+| O2 | `invalidate` del rollback corría antes del tombstone del vstore | ✅ **arreglado**: ahora es el último paso del brazo, tras el restore durable |
+| Nit | dependencia invisible entre el `remove` crudo y el `invalidate` posterior en `txn.rs` | ✅ comentado en el call site |
+| Nit | `docs/index.md` listado como Inmutable y modificado | ✅ corregido (es generado: se regenera y va en el commit) |
+| Nit | `SeqCst` es más de lo necesario | ⏸ sin cambio: correcto > óptimo, y el coste es un atomic por invalidación |
+
+- **Colateral destapado por R1 (no es FIND-222):** el rollback de un overwrite restaura el KV pero **no re-indexa** el nodo en HNSW (el op-loop hace `hnsw.remove_node` y la op pendiente se descarta) → `get()` responde `None` para un registro que sigue en el KV. Fila **`FIND-831`** en el Backlog.
+
 ## Alcance declarado (no tocado)
 
-- `maintenance.rs:403` (evicción/consolidación): un prefetch que re-cachea el mismo payload **no devuelve datos incorrectos**; además el fichero está fuera de zona. `NOTICED BUT NOT TOUCHING` → si algún día la evicción se mide, ahí falta el mismo `note_invalidation` (coste: re-cachear un nodo recién consolidado).
-- `txn.rs` no estaba en la lista de zona, pero la fila nombra el camino `txn` y es el único sitio donde vive (3 líneas). Declarado.
+- `maintenance.rs:403` (evicción/consolidación): un prefetch que re-cachea el mismo payload **no devuelve datos incorrectos**; además el fichero está fuera de zona. `NOTICED BUT NOT TOUCHING` → si algún día la evicción se mide, ahí falta el mismo `note_invalidation` (coste: re-cachear un nodo recién consolidado y dejar `tier=Hot` en cache mientras el store dice Cold; review O1).
+- `txn.rs` no estaba en la lista de zona, pero la fila nombra el camino `txn` y es el único sitio donde vive. Declarado.
+- `FIND-831` (rollback sin re-indexar): pre-existente, fuera del alcance de esta fila; con test que lo documenta.
 
