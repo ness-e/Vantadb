@@ -1977,6 +1977,7 @@ el propio SDK ya usa— los arregla a los tres.
 - **Test RED:** `tests/certified_delete.rs::forget_certified_erases_payload_and_vector_bytes_with_witness_alive` — escaneo crudo recursivo del directorio para el marcador del payload **y** los bytes f32 del vector **tal como se almacena**, con testigo que debe sobrevivir. En HEAD falla con `["…\0.jnl", "…\data\vanta.shard0.wal"]`. GREEN: 13/13 en el binario, con el testigo vivo en todos los casos.
 - **Coste declarado:** un `forget(certified)` sobre base persistente es operación de clase mantenimiento (proporcional a la base, no al conjunto borrado). Es el precio de un recibo que aguanta un `grep` en crudo; una base en memoria no paga nada (y su test lo pina, porque WASM mapea `"certified"` a esta misma ruta).
 - **Verificación:** `--test certified_delete` → **13 passed**; `dev-tools/verify.ps1` → 9 PASS / 1 SKIPPED (`clippy`, rojo de otro carril).
+- **Review P2-01 (ronda 1, `vanta-review`, contexto fresco): changes-required** — 2 CRITICAL + 2 HIGH. Aplicado en la ronda: el fallo de compactación ya no se lee como "no se borró" (dice que el registro está borrado lógicamente y nombra el comando que completa) y el rustdoc declara el techo. **Delta abierto** (por D4 la fila queda 🟡 PARCIAL, no cerrada): **D1** `compact_wal` trata como no-fatal el fallo de compactación del backend (`src/storage/engine/maintenance.rs:176-191`) ⇒ con `cargo test` a 12 hilos 3 de 13 tests vuelven a ver el payload en su `0.jnl`; **D2** la superficie `vector_store` del certificado es un `residues: 0` hard-codeado (`src/attestation.rs:257-266`); **D3** `cascade_forget` compacta N veces (O(N·DB)).
 - **Ids:** `FIND-826`, `FIND-675`, `FIND-343` (patrón de canario)
 
 ### FIND-809: el camino de borrado de aristas cierra el hueco que FIND-773 dejó abierto
@@ -1988,3 +1989,22 @@ el propio SDK ya usa— los arregla a los tres.
 - **Ids:** `FIND-809`, `FIND-773`, `FIND-756`
 
 
+
+### FIND-513: la clave del índice de texto ya no lleva el token ni la clave del registro
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** la clave de un posting era `namespace ‖ 0x00 ‖ token ‖ 0x00 ‖ record_key`: el **valor** iba cifrado por el backend, la **clave** no, así que `strings` leía el vocabulario completo y correlacionaba cada palabra con su documento. Mitad 1 (límite declarado en `SECURITY.md` + diseño) ya estaba entregada; esta cierra la mitad 2 con la decisión del owner (`D2`: los formatos pueden cambiar, no hay datos publicados).
+- **Fix:** marcador `\xffvanta_text_v4\0` + schema 5/4 + `KEY_FORMAT` nuevo; `posting = ns ‖ 0x00 ‖ tag8(token) tag8(record_key)`, `term_stats`/`doc_stats` por tag; `tag8(x) = SHA-256("vanta:text-index:<domain>:v4\0" ‖ x)[0..8]`. `lexical.rs` resuelve el `doc_len` por el tag que la clave ya trae (`doc_stats_key_for_tag`), y el caché de term-stats pasa a keyearse por tag hex.
+- **Test RED→GREEN:** `posting_key_leak_is_declared_in_the_security_guide` da la vuelta (exige que el token y la clave **no** estén, que el tag sea determinista y que el prefijo sea exacto) + `text_index_keys_carry_the_v4_marker`; la migración la pina `f513_v3_index_rebuilds_to_the_same_search_result` (índice v3 escrito a mano → reabrir → mismo resultado de búsqueda y claves viejas fuera).
+- **Apartamientos declarados del diseño:** `doc_stats` por `tag8(record_key)` en vez de por `node_id` (los tres borrados tienen la clave y no el id; dos viven en archivos fuera de este carril) y **sin** índice inverso `record_idx` (los tres borrados ya re-tokenizan el payload — el propio diseño lo decía de `posting_prefix`).
+- **Techo declarado (`ponytail:` en el código):** el tag es **unkeyed** — cierra la fuga literal y la correlación, no el ataque de diccionario dirigido. El `HMAC(k_blind)` del diseño exige un secreto por base desde el registro de claves (mode record de `ADR-0057`), que es una fila aparte.
+- **Ids:** `FIND-513`, `FIND-407`
+
+### FIND-812: el rebuild no borra un id sin prueba positiva de ausencia
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** `materialize_uncached` fundía cuatro causas distintas en un `Ok(None)` — "no hay fila", "sin offset en el índice", "header ilegible" y "vector que no decodifica" — y `scan_nodes()` descarta esas filas. El rebuild del índice **borra la partición primero**: la fila seguía viva en el backend, desaparecía de toda lectura y, como su fila existía, ni `vacuum` (que purga solo con `Ok(None)` del backend) ni un purge posterior volvían a verla. Es el síntoma de `FIND-799` por un camino alcanzable en producción: la corrupción no necesita un fallo transitorio de I/O.
+- **Fix:** `Materialized { Node, Degraded{node,gap}, Gap(RowGap) }` + `RowGap::{Absent,Tombstoned,NotIndexed,HeaderCorrupt,VectorCorrupt,MetadataCorrupt}`; `fetch_backend_row` separa el I/O de la deserialización. El rebuild enumera el **row set del backend** (`scan_rows_for_rebuild`) en vez de `scan_nodes()`, reconstruye desde la metadata la fila cuyo vstore está roto (el payload vive en la metadata; el vector se pierde) y reporta cada id con su motivo (`tracing::warn!(node_id, reason)` + `TextIndexRebuildReport::corrupt_rows`). `expected_text_index_entries` y `ensure_indexes_current` usan el mismo row set: si no, el conteo esperado y el reconstruido discreparían y el rebuild se dispararía en cada open.
+- **Dos caras, dos tests:** `f812_rebuild_keeps_a_row_with_a_corrupt_header` (header apuntando a un slot inexistente ⇒ `corrupt_rows == 1`, `record_count == 2`, las 4 postings reconstruidas y `search` encuentra el registro) y `f812_rebuild_purges_a_row_the_backend_lost` (fila del backend borrada ⇒ `corrupt_rows == 0` y el registro sale del índice).
+- **Decisión declarada:** `get()` sigue respondiendo "no legible" para una fila degradada — un nodo sin vector en el hot path sería un fantasma indistinguible de uno real; el contrato es del rebuild, y se cumple.
+- **Ids:** `FIND-812`, `FIND-799`, `FIND-798`

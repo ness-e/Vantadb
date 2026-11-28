@@ -1944,14 +1944,24 @@ impl Embedded {
     /// surfaces and marks record-dependent ones `not-assessed` (status
     /// `not_found`) instead of claiming a clean purge.
     ///
-    /// # Scope (FIND-826)
+    /// # Physical erase (FIND-826)
     ///
-    /// This is the per-key surface: it removes the record logically and attests
-    /// the logical surfaces. The purged **bytes** stay in the WAL/backend
-    /// journal and the vector store until those files are rewritten. For a
-    /// receipt that holds up under a raw byte scan, use
-    /// [`Embedded::forget`] with [`ForgetMode::Certified`], which compacts
-    /// before emitting the certificate.
+    /// A certified delete is the GDPR Art. 17 path, so it does not stop at the
+    /// logical tombstones: after removing the record it rewrites the WAL/backend
+    /// journal (`compact_wal`) and the vector store (`compact_layout`) **before**
+    /// emitting the certificate. Measured: the payload and the vector bytes are
+    /// gone from the database directory when this returns (see
+    /// `tests/certified_delete.rs`).
+    ///
+    /// Declared ceiling (FIND-826, open below this method): the rewrite is the
+    /// engine's, and the engine treats a backend-compaction error as non-fatal
+    /// (`src/storage/engine/maintenance.rs`, `FIND-343` design). A failed rewrite
+    /// therefore makes this method **fail** rather than emit a certificate — but
+    /// a *skipped* one is invisible to the SDK. The certificate also attests the
+    /// vector surface from a constant, not from a byte scan
+    /// (`src/attestation.rs`). Byte-level certification under concurrency is the
+    /// delta carried by `FIND-826`; this method is honest about the rewrite it
+    /// performs, not a proof over media the engine owns.
     ///
     /// # Durability (cross-process verification)
     ///
@@ -1973,11 +1983,39 @@ impl Embedded {
         // is logical (KV + HNSW/vstore tombstones); the purged bytes stay in the
         // WAL/backend journal and the vector store until those files are
         // rewritten. Compact before attesting when there was something to erase.
+        //
+        // Review P2-01 (HIGH, applied): the delete has already committed when the
+        // compaction runs, so a compaction error must not look like "nothing
+        // happened" — the record IS gone and a retry returns `not_found`. The
+        // error names that state and the command that finishes the job.
         if deleted.is_some() {
-            self.compact_wal()?;
-            self.compact_layout()?;
+            self.compact_purged()?;
         }
         self.purge_certificate(namespace, key, deleted.as_ref())
+    }
+
+    /// Rewrite the on-disk surfaces that still hold a purged record's bytes
+    /// (FIND-826): WAL/backend journal + vector store.
+    ///
+    /// Fails with a message that states the record is **already erased logically**
+    /// — the physical rewrite is what failed — so the caller never reads the
+    /// error as "the erase did not happen".
+    fn compact_purged(&self) -> Result<()> {
+        self.compact_wal().map_err(|e| {
+            Error::generic_error(format!(
+                "certified erasure: the record is already erased logically, but the \
+                 physical rewrite of the WAL/backend journal failed ({e}); rerun \
+                 compact_wal() + compact_layout() to complete it"
+            ))
+        })?;
+        self.compact_layout().map_err(|e| {
+            Error::generic_error(format!(
+                "certified erasure: the record is already erased logically, but the \
+                 vector-store rewrite failed ({e}); rerun compact_wal() + compact_layout() \
+                 to complete it"
+            ))
+        })?;
+        Ok(())
     }
 
     /// Build the VER-02 purge certificate for one key from its deleted record.
@@ -2070,6 +2108,14 @@ impl Embedded {
     /// (cost proportional to the database, not to the target set): the price of
     /// a receipt that holds up under a raw byte scan (FIND-826, GDPR Art. 17).
     /// An in-memory backend has no on-disk bytes and pays nothing.
+    ///
+    /// Declared ceiling (FIND-826, still open): the rewrite belongs to the
+    /// engine, which treats a *backend-compaction* error as non-fatal — a failed
+    /// rewrite surfaces here as an error, a skipped one does not — and the
+    /// certificate's vector surface is a constant, not a byte measurement
+    /// (`src/attestation.rs`). Byte-level certification under concurrency is
+    /// the delta carried by the finding; this method attests the rewrite it
+    /// performs.
     #[tracing::instrument(skip(self), err)]
     pub fn forget(
         &self,
@@ -2177,8 +2223,7 @@ impl Embedded {
                     }
                 }
                 if !erased.is_empty() {
-                    self.compact_wal()?;
-                    self.compact_layout()?;
+                    self.compact_purged()?;
                 }
                 for (key, record) in erased {
                     certificates.push(self.purge_certificate(namespace, &key, Some(&record))?);
@@ -2239,7 +2284,10 @@ impl Embedded {
         if record.node_id != expected_node_id {
             return Err(Error::Validation {
                 field: "node_id".into(),
-                reason: format!("node_id does not match deterministic namespace/key hash for namespace='{}' key='{}'", record.namespace, record.key),
+                reason: format!(
+                    "node_id does not match deterministic namespace/key hash for namespace='{}' key='{}'",
+                    record.namespace, record.key
+                ),
             });
         }
 
