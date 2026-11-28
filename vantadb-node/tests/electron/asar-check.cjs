@@ -36,6 +36,10 @@ const pkgRoot = path.resolve(__dirname, "../..");
 const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgRoot, "package.json"), "utf8"));
 const electronVersion = pkgJson.devDependencies.electron;
 const PRODUCT_NAME = "VantadbElectronCheck";
+// El `name` del package.json de la app de prueba. En Linux el ejecutable de
+// electron-builder sale de aca (`sanitizeFileName(name).toLowerCase()`,
+// linuxPackager.js:16), no del productName.
+const PACKAGE_NAME = "vantadb-electron-asar-check";
 
 function stageApp() {
   const nodeFiles = fs.readdirSync(pkgRoot).filter((name) => name.endsWith(".node"));
@@ -51,7 +55,7 @@ function stageApp() {
     path.join(appDir, "package.json"),
     JSON.stringify(
       {
-        name: "vantadb-electron-asar-check",
+        name: PACKAGE_NAME,
         version: "0.0.0",
         private: true,
         main: "main.cjs",
@@ -104,9 +108,13 @@ async function main() {
 
   // `dir: true` no devuelve rutas de artefacto (el directorio no lo es): la
   // forma se reconoce con la tabla de `artifact-layout.cjs`, que cubre las tres
-  // plataformas y exige una unica coincidencia completa.
+  // plataformas y exige una unica coincidencia completa. `packageName` es el
+  // nombre con el que electron-builder empaqueta en Linux (no el productName).
   const distDir = path.join(appDir, "dist");
-  const { shape, resources, executable } = resolveArtifact(distDir, { productName: PRODUCT_NAME });
+  const { shape, resources, executable } = resolveArtifact(distDir, {
+    productName: PRODUCT_NAME,
+    packageName: PACKAGE_NAME,
+  });
 
   const asarPath = path.join(resources, "app.asar");
   const unpackedRoot = path.join(resources, "app.asar.unpacked");

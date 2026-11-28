@@ -211,7 +211,8 @@ código de `electron-builder` (no de un `if (darwin)`): `resolveArtifact` exige 
 coincidencia completa (`app.asar` + ejecutable) y, si no la hay, falla listando cada candidato con
 `asar=` / `ejecutable=`. Dos correcciones que salieron de la misma fuente y que el `--dir` de Linux
 habría cobrado después: el binario Linux es `sanitizedName.toLowerCase()`
-(`LinuxPackager.js:16`) — no conserva mayúsculas — y el `.app` se llama `<productFilename>.app`,
+(`LinuxPackager.js:16`) — no conserva mayúsculas, y `sanitizedName` sale del **`name` del
+package.json**, no del `productName` (ver *Fix 3*) — y el `.app` se llama `<productFilename>.app`,
 no `Electron.app`.
 
 **La aserción de asar no se relajó**: las tres exigencias siguen siendo las mismas en macOS, y
@@ -236,6 +237,60 @@ el mismo `FAIL` que reportó CI.
 
 **Deuda:** diseñado y validado offline; Linux y macOS se confirman en el **primer run** de CI
 (mismo patrón que la deuda de `npm ci`). No medible desde este host.
+
+### Fix 3 — el binario de Linux no sale del `productName`
+
+Estado medido en CI tras el Fix 1 + Fix 2: **2/3**. Windows ✅, macOS ✅ (el Fix 2 resolvió el
+`.app`), Linux ❌ en el step de asar con
+
+```
+esperaba exactamente 1 artefacto ... [visto: linux-unpacked:linux-unpacked asar=true ejecutable=false]
+```
+
+**De dónde sale el nombre**, leído en `node_modules/app-builder-lib` (v26.18.0):
+
+| Fichero | Línea | Qué dice |
+|---|---|---|
+| `out/linuxPackager.js` | 16 | `executableName = this.appInfo.sanitizedName.toLowerCase()` |
+| `out/appInfo.js` | 123 | `get sanitizedName() { return sanitizeFileName(this.name) }` |
+| `out/appInfo.js` | 115 | `get name() { return info.metadata.name }` → el `name` del package.json |
+| `out/appInfo.js` | 57 | `productFilename = sanitizeFileName(productName)` (ruta de Windows/macOS) |
+| `builder-util/out/filename.js` | — | `sanitizeFileName` = `sanitize-filename` sin opciones |
+
+Con `name: "vantadb-electron-asar-check"` / `productName: "VantadbElectronCheck"` el binario de
+Linux es **`vantadb-electron-asar-check`**. El resolver buscaba
+`productName.toLowerCase()` → `vantadbelectroncheck`: `asar=true ejecutable=false`, exactamente el
+mensaje de CI. **Windows y macOS no cambian** — usan `productFilename` (el `productName`), que es
+otra regla de electron-builder; homologarlas reintroduce el bug en el otro lado.
+
+**El fixture se autoafirmaba.** Escribía `linux-unpacked/vantadbelectroncheck` — el nombre que la
+regla vieja esperaba — así que el self-check offline pasaba con la regla equivocada dentro. Ahora el
+caso de Linux usa `name != productName` y hay dos casos que fijan la regla:
+
+- `linux x64/arm64`: el binario es `vantadb-electron-asar-check` (derivado del `name`);
+- `invalido: linux con el binario derivado del productName`: sólo existe `vantadbelectroncheck` →
+  el resolver debe **fallar**. Es el caso que la regla vieja *pasaba*.
+- `linux: sanitiza el NAME antes de bajar a minusculas`: `name: "Vanta:DB Check"` → `vantadb check`
+  (sanitize primero, `toLowerCase` después — el orden de `linuxPackager.js:16`).
+
+`sanitizeFileName` se **replica** (no se importa) con la fuente citada en el propio fichero:
+`builder-util`/`sanitize-filename` son dependencias **transitivas** de electron-builder, no
+declaradas en `vantadb-node/package.json`, y el self-check corre offline. `ponytail:` declara el
+techo (sin `truncate-utf8-bytes` a 255 B; un nombre npm no pasa de 214).
+
+**Verificación (Windows, este host):**
+
+- RED con la regla vieja (`git show HEAD:...artifact-layout.cjs`) contra la fixture nueva →
+  `hay 0 [formas: windows-unpacked, linux-unpacked, mac-app] [visto: linux-unpacked:linux-unpacked asar=true ejecutable=false]`
+  — el mismo mensaje que CI. Y contra la fixture negativa la regla vieja **acepta**
+  `vantadbelectroncheck`, o sea falla el test.
+- `node tests/electron/artifact-layout.cjs` → `{"ok":true,"cases":11}`.
+- `npm run test:electron` → exit 0; `npm run test:electron:asar` → exit 0
+  (`artifactShape: windows-unpacked`, `executable: VantadbElectronCheck.exe`).
+- `npm test` → 82/82; `prettier --check` → limpio; `node --check` → limpio.
+
+**Deuda:** Linux no se puede ejecutar en este host (no hay binario Linux ni runner local): el verde
+de Linux se confirma en el run de CI, igual que la deuda anterior.
 
 ## Definition of Done
 
