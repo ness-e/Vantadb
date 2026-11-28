@@ -138,10 +138,18 @@ impl StorageEngine {
     /// start a fresh WAL, and (FIND-343) trigger backend physical erasure
     /// if the backend implements the `Compactable` role.
     ///
-    /// The backend compaction step is **best-effort and non-fatal**: if it
-    /// fails, a warning is logged but `compact_wal` still returns `Ok(())`.
-    /// This preserves the existing durability contract while adding the
-    /// physical-erasure privacy guarantee on backends that support it (Fjall).
+    /// # Return value (FIND-826 D1)
+    ///
+    /// `Ok(true)` = no backend journal is left to rewrite: either the backend
+    /// has no `Compactable` role (in-memory — there are no on-disk bytes) or
+    /// the atomic keyspace rewrite completed. `Ok(false)` = the rewrite was
+    /// **attempted and did not happen** (the failure is logged as a warning;
+    /// the flush, the rotation and the checkpoint above already committed).
+    ///
+    /// The rewrite stays **non-fatal** for the durability contract: a plain
+    /// `flush`/`delete` caller may ignore the flag. A caller that **attests**
+    /// erasure must fail closed on `false` — a receipt signed while the bytes
+    /// are still in the journal is a lie (FIND-826).
     ///
     /// # Availability (FIND-651)
     ///
@@ -154,8 +162,9 @@ impl StorageEngine {
     /// Fjall journal rewrite can hold writers off for longer than a plain
     /// flush; callers should treat `compact_wal` as a maintenance window.
     #[tracing::instrument(skip(self), level = "info", err)]
-    pub fn compact_wal(&self) -> Result<()> {
+    pub fn compact_wal(&self) -> Result<bool> {
         self.ensure_writable()?;
+        let backend_compacted;
         {
             // FIND-651: the whole [flush → rotate → backend compact → checkpoint
             // reset] is ONE quiesce critical section. create_snapshot holds
@@ -178,17 +187,26 @@ impl StorageEngine {
             // until its own GC runs. We cannot force that GC, so we trigger an
             // atomic keyspace rewrite via the `Compactable` role which produces a
             // fresh journal containing only live data. A compaction failure does
-            // NOT abort compact_wal (privacy improvement, not a durability gate).
-            if let Some(compactable) = self.backend.as_compactable() {
-                match compactable.compact() {
-                    Ok(true) => tracing::info!("compact_wal: backend compaction complete"),
-                    Ok(false) => tracing::debug!("compact_wal: backend compaction skipped (no-op)"),
-                    Err(e) => tracing::warn!(
-                        error = %e,
-                        "compact_wal: backend compaction failed (non-fatal)"
-                    ),
-                }
-            }
+            // NOT abort compact_wal (privacy improvement, not a durability gate),
+            // but it IS reported (FIND-826 D1): the certified path must not sign
+            // a receipt for a rewrite that never ran.
+            backend_compacted = match self.backend.as_compactable() {
+                Some(compactable) => match compactable.compact() {
+                    Ok(compacted) => {
+                        tracing::info!(compacted, "compact_wal: backend compaction complete");
+                        compacted
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            error = %e,
+                            "compact_wal: backend compaction failed (non-fatal)"
+                        );
+                        false
+                    }
+                },
+                // No `Compactable` role: nothing on disk to rewrite.
+                None => true,
+            };
 
             let zero: [u8; 8] = 0u64.to_le_bytes();
             self.backend
@@ -197,9 +215,11 @@ impl StorageEngine {
         }
 
         // Preserve the previous `self.flush()` side effects (quantization
-        // maintenance + memory metric) — they run lock-free.
+        // maintenance + memory metric) — they run lock-free, and
+        // `run_quantization_maintenance` takes `insert_lock` itself (the guard
+        // is non-reentrant), so the epilogue must stay outside the section.
         self.flush_epilogue();
-        Ok(())
+        Ok(backend_compacted)
     }
 
     fn save_vector_index(&self) -> Result<()> {

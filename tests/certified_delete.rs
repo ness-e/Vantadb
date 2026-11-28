@@ -489,6 +489,50 @@ fn delete_certified_erases_payload_bytes_too() {
     );
 }
 
+/// FIND-826 D1: the receipt IS the claim that the bytes are gone, so a
+/// certified path whose physical rewrite cannot run must **fail closed** —
+/// no certificate, an error that says the record is already erased logically.
+///
+/// The failure is forced deterministically: the backend compaction temp
+/// directory is occupied by a file, so `Compactable::compact()` fails at its
+/// stale-tmp cleanup (the same class of error that used to be swallowed as a
+/// `warn!` under 12 threads).
+#[test]
+fn certified_delete_fails_closed_when_the_journal_rewrite_cannot_run() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = open_temp_db(&dir);
+    db.put(certified_input("erase", "blocked")).expect("put");
+
+    // `<parent>/.<db dir name>.fjall_compaction_tmp_<pid>` — per database since
+    // D1; a regular file there makes `remove_dir_all` fail.
+    let db_path = dir.path().to_path_buf();
+    let blocker = db_path.parent().expect("parent").join(format!(
+        ".{}.fjall_compaction_tmp_{}",
+        db_path.file_name().expect("file name").to_string_lossy(),
+        std::process::id()
+    ));
+    std::fs::write(&blocker, b"blocker").expect("write blocker");
+
+    let err = db
+        .delete_certified("erase", "blocked")
+        .expect_err("a certified delete without the physical rewrite must not sign a receipt");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("already erased logically"),
+        "the error must say the logical erase happened, got: {msg}"
+    );
+    assert!(
+        msg.contains("physical rewrite"),
+        "the error must name the physical rewrite as what failed, got: {msg}"
+    );
+    // …and it is true: the record is gone from the API even though the bytes
+    // are not provably gone from the journal.
+    assert!(db.get("erase", "blocked").expect("get").is_none());
+
+    let _ = std::fs::remove_file(&blocker);
+    db.close().expect("close");
+}
+
 /// The in-memory/WASM backend has no on-disk bytes to rewrite: a certified
 /// forget there must still succeed (the WASM binding maps `"certified"` to this
 /// same path) instead of failing on the compaction it does not need.

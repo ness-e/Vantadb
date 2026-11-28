@@ -2000,14 +2000,27 @@ impl Embedded {
     /// Fails with a message that states the record is **already erased logically**
     /// — the physical rewrite is what failed — so the caller never reads the
     /// error as "the erase did not happen".
+    ///
+    /// Fails **closed** (FIND-826 D1): `compact_wal` reports whether the backend
+    /// journal was actually rewritten, and a `false` aborts the purge instead of
+    /// signing a receipt over bytes that are still in `0.jnl`.
     fn compact_purged(&self) -> Result<()> {
-        self.compact_wal().map_err(|e| {
+        let journal_rewritten = self.engine_handle()?.compact_wal().map_err(|e| {
             Error::generic_error(format!(
                 "certified erasure: the record is already erased logically, but the \
-                 physical rewrite of the WAL/backend journal failed ({e}); rerun \
-                 compact_wal() + compact_layout() to complete it"
+                     physical rewrite of the WAL/backend journal failed ({e}); rerun \
+                     compact_wal() + compact_layout() to complete it"
             ))
         })?;
+        if !journal_rewritten {
+            return Err(Error::generic_error(
+                "certified erasure: the record is already erased logically, but the \
+                 physical rewrite of the WAL/backend journal did not happen, so no \
+                 certificate was issued; rerun compact_wal() + compact_layout() to \
+                 complete it"
+                    .to_string(),
+            ));
+        }
         self.compact_layout().map_err(|e| {
             Error::generic_error(format!(
                 "certified erasure: the record is already erased logically, but the \

@@ -127,10 +127,14 @@ impl Embedded {
     }
 
     /// Compact the WAL: flush, archive the current WAL file, and start a fresh one.
+    ///
+    /// The backend journal rewrite stays best-effort here (FIND-826 D1: the
+    /// engine reports whether it happened, this surface does not turn it into
+    /// an error). The **certified** paths fail closed instead.
     #[tracing::instrument(skip(self), err)]
     pub fn compact_wal(&self) -> Result<()> {
         self.check_read_only()?;
-        self.engine_handle()?.compact_wal()
+        self.engine_handle()?.compact_wal().map(|_| ())
     }
 
     /// Return stable runtime capabilities.

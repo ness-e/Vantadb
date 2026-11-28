@@ -475,7 +475,8 @@ impl Scannable for FjallBackend {
 /// 1. Acquire exclusive write lock — no reads or writes proceed during compaction.
 /// 2. Flush current state to durable storage (`SyncAll`).
 /// 3. Collect all live (non-tombstoned) KV pairs from every partition.
-/// 4. Open a brand-new `Database` at `.fjall_compaction_tmp` (sibling of data dir).
+/// 4. Open a brand-new `Database` at `.<db>_fjall_compaction_tmp_<pid>` (sibling
+///    of the data dir, per database — FIND-826).
 /// 5. Write all live KV pairs to the new `Database`, flush, then drop it.
 /// 6. Drop the old `Database` handle (releases all file locks — critical on Windows).
 /// 7. Delete old data directory, rename temp dir into its place.
@@ -509,6 +510,19 @@ impl Compactable for FjallBackend {
         );
 
         // ── 4. Compute temporary path ─────────────────────────────────────────
+        // FIND-826 D1: the temp directory must be **per database**, not per
+        // process. Keyed by pid alone, every database opened under the same
+        // parent (`%TEMP%/a`, `%TEMP%/b` — or N databases in one process, as
+        // the test harness does) wrote into the *same*
+        // `.fjall_compaction_tmp_<pid>`, so concurrent compactions raced each
+        // other: "remove stale tmp: Acceso denegado (os error 5)",
+        // "directorio no está vacío (os error 145)", "open tmp db: NotFound".
+        // `compact_wal` downgraded those to a `warn!`, and the purge receipt
+        // was signed with the payload still in `0.jnl` — measured: 10/13 at
+        // 12 threads, including the FIND-343 canary. Naming it after the data
+        // directory keeps it a sibling (Windows rename needs that) while making
+        // it unique; the stale-tmp cleanup below stays safe because no other
+        // database ever points at this path.
         let tmp_path: PathBuf = {
             let parent = self
                 .path
@@ -519,7 +533,15 @@ impl Compactable for FjallBackend {
                     ))
                 })?
                 .to_path_buf();
-            parent.join(format!(".fjall_compaction_tmp_{}", std::process::id()))
+            let db_name = self
+                .path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            parent.join(format!(
+                ".{db_name}.fjall_compaction_tmp_{}",
+                std::process::id()
+            ))
         };
 
         // Remove stale temp dir if present (e.g. previous failed compaction).
