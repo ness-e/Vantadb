@@ -282,6 +282,18 @@ pub async fn records_get(
 }
 
 /// Query params for `GET /api/v2/records/{ns}/{key}/versions`.
+///
+/// **No `limit`/`cursor`, and that is a decision, not a gap** (FIND-158 /
+/// API-03). The response is the *retained* history of a single key, and that
+/// history has a ceiling configured server-side: `version_history_limit`
+/// (default 32, FIFO-evicted on every write — see
+/// `src/sdk/version_history.rs::evict_overflow`). It is unbounded only when an
+/// operator explicitly disables the cap (`VANTADB_VERSION_HISTORY_LIMIT=0`).
+/// Adopting the `src/server/pagination.rs` scheme here would change the wire
+/// from an array to a page object and break every current consumer (including
+/// the MCP HTTP fallback) to guard a configuration the operator opted into.
+/// `?version=N` remains the point-read. Revisit if a deployment with the cap
+/// disabled shows histories large enough to matter.
 #[derive(Deserialize, Debug)]
 pub struct RecordsVersionsParams {
     /// When present, returns only that version instead of the full list.

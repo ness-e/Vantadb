@@ -145,7 +145,11 @@ export interface ValidWindow {
 /** Result of `list()`. */
 export interface MemoryListResult {
   records: MemoryRecord[];
-  next_cursor?: number;
+  /** Opaque next cursor. Feed it back into `MemoryListOptions.cursor`, which
+   * accepts every shape here. This native addon emits a **number**, and `null`
+   * (key present, value null) on the last page; the WASM backend emits a decimal
+   * **string** and omits the key on the last page. Never parse it. */
+  next_cursor?: number | string | null;
 }
 
 /** Request accepted by `search()` and `explainSearch()`. */

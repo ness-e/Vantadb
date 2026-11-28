@@ -194,6 +194,37 @@ describe("vantadb-node api surface", () => {
     }
   });
 
+  it("FIND-158: next_cursor is a number on the native wire and round-trips", async () => {
+    // The published contract (index.d.ts `MemoryListResult.next_cursor`) accepts
+    // both `number` and `string`: this addon emits a number, the WASM backend
+    // emits a decimal string. Pin the native side so the widened union can never
+    // lie in the other direction, and prove the emitted value is a valid cursor.
+    const db = await VantaDb.connect(tmp("cursor-type"));
+    try {
+      await db.putBatch([
+        { namespace: "page", key: "a", payload: "1" },
+        { namespace: "page", key: "b", payload: "2" },
+      ]);
+
+      const page = await db.list("page", { limit: 1 });
+      expect(typeof page.next_cursor).toBe("number");
+
+      const next = await db.list("page", { limit: 1, cursor: page.next_cursor });
+      expect(next.records.map((r) => r.key)).toEqual(["b"]);
+
+      // SDK convention (src/sdk/api/namespaces.rs): a page that came back full
+      // still emits a cursor; the loop terminates on the empty page it points at.
+      // On the native wire the last page carries `next_cursor: null` with the key
+      // PRESENT (`MemoryListPage` has no skip_serializing_if) — asserting null,
+      // not falsy, is what makes the `.d.ts` union honest.
+      const end = await db.list("page", { limit: 1, cursor: next.next_cursor });
+      expect(end.records).toEqual([]);
+      expect(end.next_cursor).toBeNull();
+    } finally {
+      await db.close();
+    }
+  });
+
   it("list honors metadata filters", async () => {
     const db = await VantaDb.connect(tmp("filter"));
     try {
@@ -441,9 +472,9 @@ describe("vantadb-node api surface", () => {
     // Mid-drain: `closing` is already set, so new ops are rejected while the
     // admitted batch keeps running to completion.
     await new Promise((resolve) => setTimeout(resolve, 30));
-    await expect(
-      db.put({ namespace: "drain", key: "late", payload: "too late" }),
-    ).rejects.toThrow(/database is closing/);
+    await expect(db.put({ namespace: "drain", key: "late", payload: "too late" })).rejects.toThrow(
+      /database is closing/,
+    );
 
     const [records] = await Promise.all([inflight, closing]);
     expect(records).toHaveLength(batch.length);

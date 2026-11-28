@@ -468,7 +468,15 @@ paths:
   /api/v2/records/{ns}/{key}/versions:
     get:
       summary: List record versions
-      description: Version history of a record.
+      description: >-
+        Version history of a record. Returns the whole **retained** history for the key as a JSON
+        array, oldest revision first. There is no `limit`/`cursor` here, by decision (FIND-158,
+        API-03): the list is bounded server-side by `version_history_limit` (default 32,
+        FIFO-evicted on every write) and only grows without bound when an operator explicitly
+        disables that cap (`VANTADB_VERSION_HISTORY_LIMIT=0`). The `limit` + `cursor` scheme used by
+        `/list` and `/search` is not applied here: it would turn this array into a page object and
+        break every current consumer, for a window that is fixed per key rather than a growing
+        collection; `?version=<n>` stays the point-read.
       operationId: listRecordVersions
       tags:
         - Records
@@ -485,7 +493,7 @@ paths:
             minimum: 1
       responses:
         "200":
-          description: Version list
+          description: Version list — every retained revision of the key, oldest first
           content:
             application/json:
               schema:
@@ -507,7 +515,13 @@ paths:
   /api/v2/list:
     get:
       summary: List records
-      description: Paginated listing of records in a namespace, with optional metadata filter ops.
+      description: >-
+        Paginated listing of records in a namespace, with optional metadata filter ops. Omit
+        `namespace` to fan out over every namespace in stable name order: `next_cursor` stays a
+        single global position over the merged window (not a composite/per-namespace cursor,
+        by decision — FIND-158), and namespaces whose own page was capped are named in
+        `truncated_namespaces`. That field **is** the contract: request those namespaces
+        individually for complete results.
       operationId: listRecords
       tags:
         - Records
@@ -697,9 +711,13 @@ paths:
   /api/v2/export:
     post:
       summary: Export records
-      description:
+      description: >-
         Export records to a JSONL file on the server, optionally filtered by namespace/metadata
-        filter.
+        filter. Verb path, by decision (FIND-158): `export` is a one-shot action on data the
+        server writes outside the resource tree, not a stored collection — a plural
+        `/exports` resource (listable + retrievable) does not exist and will not be invented
+        just to pluralize the name. Collections you can `GET` are plural; one-shot actions
+        keep the verb.
       operationId: exportRecords
       tags:
         - Records
@@ -732,9 +750,10 @@ paths:
   /api/v2/import:
     post:
       summary: Import records
-      description:
-        'Import records inline (`records`) or from a server-side file (`path`, JSONL default or
-        `.vdbdump` bulk via `format: "bulk"`).'
+      description: >-
+        Import records inline (`records`) or from a server-side file (`path`, JSONL default or
+        `.vdbdump` bulk via `format: "bulk"`). Verb path, by decision (FIND-158) — same exception
+        as `/api/v2/export`: it is a one-shot action, not a stored collection.
       operationId: importRecords
       tags:
         - Records

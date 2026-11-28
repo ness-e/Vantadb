@@ -392,8 +392,18 @@ A subsequent GET returns `record not found`.
 
 ### `GET /api/v2/records/{ns}/{key}/versions?version=<n>`
 
-Version history of a record. Returns an array of version entries; with `version`
-returns only that revision.
+Version history of a record. Returns an array of every **retained** revision,
+oldest first; with `version` returns only that revision.
+
+There is no `limit`/`cursor` here, by decision (`FIND-158`, API-03). The
+response is a per-key window with a ceiling configured server-side:
+`version_history_limit` (default **32**, FIFO-evicted on every write). It is
+unbounded only when an operator disables the cap
+(`VANTADB_VERSION_HISTORY_LIMIT=0`). Paginating would turn this array into a page
+object — the `limit` + `cursor` + `has_more` scheme that `/list` and `/search`
+use — and break every array consumer, to guard a configuration the operator
+opted into. Use `?version=<n>` for a point-read. Revisit if a deployment with
+the cap disabled shows histories large enough to matter.
 
 ### `GET /api/v2/list?namespace=<ns>&limit=100&cursor=<cursor>&filter_ops=<json>`
 
@@ -409,8 +419,9 @@ Cursor-paginated listing of records in a namespace. `cursor` is the opaque
 ```
 
 When called **without `namespace`** (all-namespaces fan-out), each namespace is
-listed with an internal per-namespace window (`NS_CAP = 10_000`) and the
-response carries one additional additive field:
+listed with an internal per-namespace window of `cursor + limit + 1` records —
+the extra record is the `has_more` probe the handler adds, exactly like the
+single-namespace path — and the response carries one additional additive field:
 
 ```json
 {
@@ -421,10 +432,14 @@ response carries one additional additive field:
 }
 ```
 
-`truncated_namespaces` lists the namespaces whose listing hit the per-namespace
-window and may hold more records than this response contains. It is empty when
-no namespace was truncated. Clients should treat a non-empty value as "request
-these namespaces individually for complete results".
+`next_cursor` remains a **single global position** over the merged window, not a
+composite cursor: a per-namespace position would have to be versioned into the
+wire and would need the namespace list to be stable across pages, to fix a case
+that is already signalled. `truncated_namespaces` lists the namespaces whose own
+page was capped and may hold more records than this response contains; it is
+empty when no namespace was truncated. That field **is** the contract — clients
+must treat a non-empty value as "request these namespaces individually for
+complete results" (`FIND-158`).
 
 ### `POST /api/v2/export`
 
@@ -436,6 +451,13 @@ Export records to a JSONL file on the server. Body: `path` (required), optional
 Import records inline (`records`) or from a server-side file (`path`). With a file, set
 `format` to `jsonl` (default) or `bulk` for `.vdbdump` bulk files. `records` and `path`
 are mutually exclusive.
+
+Both `POST /api/v2/export` and `POST /api/v2/import` keep a **verb path, by
+decision** (`FIND-158`): they are one-shot actions around data that crosses the
+server boundary (`export` writes a file, `import` reads one), not stored
+collections. The plural rule applies to collections you can `GET`; there is no
+`/exports` or `/imports` resource to list or fetch, and inventing one just to
+pluralize the path would document a resource that does not exist.
 
 ## Search
 
