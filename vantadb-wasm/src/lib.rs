@@ -49,6 +49,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, PoisonError};
 use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
+// EGO-15: `max_degree_per_node` / `min_edge_weight` are core pipeline settings.
+use vantadb::graphrag::pipeline::GraphRagPipeline;
 use vantadb::sdk::*;
 use vantadb::{BackendKind, Error, SparseVector, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
@@ -1434,11 +1436,19 @@ impl Client {
     /// [{source, target, label}], context_text, stats}`. u128 ids travel as
     /// decimal strings (API-01). At least one of `query` / `query_vector`
     /// should be provided; both may be combined (hybrid seeds).
+    ///
+    /// `max_degree_per_node` (EGO-15) caps the edges followed out of each
+    /// visited node — omitted ⇒ the core default (128), `0` ⇒ seeds only.
+    /// `min_edge_weight` skips edges below that weight — omitted ⇒ no filter.
+    /// Both carry the same name and meaning as `GraphRagPipeline`'s setters;
+    /// passing neither is byte-identical to the pre-EGO-15 call.
     pub fn graphrag_search(
         &self,
         namespace: &str,
         query: Option<String>,
         query_vector: Option<Vec<f32>>,
+        max_degree_per_node: Option<usize>,
+        min_edge_weight: Option<f32>,
     ) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
         if let Some(v) = &query_vector {
@@ -1451,10 +1461,29 @@ impl Client {
             }
             validate_vector_finitude(v).map_err(to_js_err)?;
         }
-        let result = self
-            .inner
-            .graphrag_search(namespace, query.as_deref(), query_vector.as_deref())
-            .map_err(to_js_err)?;
+        // EGO-15: opt-in knobs. With neither passed the branch below is the
+        // pre-EGO-15 call (default pipeline).
+        let pipeline = (max_degree_per_node.is_some() || min_edge_weight.is_some()).then(|| {
+            let pipeline = GraphRagPipeline::new();
+            let pipeline = match max_degree_per_node {
+                Some(max_degree_per_node) => pipeline.with_max_degree_per_node(max_degree_per_node),
+                None => pipeline,
+            };
+            pipeline.with_min_edge_weight(min_edge_weight)
+        });
+        let result = match pipeline {
+            Some(pipeline) => self.inner.graphrag_search_with_pipeline(
+                namespace,
+                query.as_deref(),
+                query_vector.as_deref(),
+                &pipeline,
+            ),
+            None => {
+                self.inner
+                    .graphrag_search(namespace, query.as_deref(), query_vector.as_deref())
+            }
+        }
+        .map_err(to_js_err)?;
         serde_wasm_bindgen::to_value(&result)
             .map_err(|e| JsValue::from_str(&format!("graphrag_search serialization error: {e}")))
     }

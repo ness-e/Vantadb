@@ -81,3 +81,74 @@ describe("vantadb-node graphragSearch (DIST-15)", () => {
     }
   });
 });
+
+// EGO-15: the pipeline knobs (`maxDegreePerNode` / `minEdgeWeight`). The seed
+// lives in the queried namespace; the reachable node lives in another one, so
+// the pipeline never seeds it — it can only enter the expansion through the
+// edge, which is what the knobs gate. `nodes_expanded` is 2 with the defaults
+// and 1 when the edge is capped or filtered.
+const KNOBS = "graphrag-knobs";
+
+async function seedHub(db: VantaDb): Promise<void> {
+  const seed = await db.put({
+    namespace: KNOBS,
+    key: "a",
+    payload: "vector database for agents",
+    vector: [0.1, 0.2, 0.3],
+  });
+  const reachable = await db.put({
+    namespace: `${KNOBS}-other`,
+    key: "b",
+    payload: "graph expansion uses edges",
+    vector: [0.9, 0.9, 0.9],
+  });
+  await db.addEdge(String(seed.node_id), String(reachable.node_id), "uses", 1.0, undefined);
+}
+
+describe("vantadb-node graphragSearch pipeline knobs (EGO-15)", () => {
+  it("honours maxDegreePerNode", async () => {
+    const db = await VantaDb.connect(":memory:");
+    try {
+      await seedHub(db);
+
+      const baseline = await db.graphragSearch(KNOBS, "vector database", undefined);
+      expect(baseline.stats.seeds_found).toBe(1);
+      expect(baseline.stats.nodes_expanded).toBe(2);
+
+      const capped = await db.graphragSearch(KNOBS, "vector database", undefined, undefined, 0);
+      expect(capped.stats.seeds_found).toBe(1);
+      expect(capped.stats.nodes_expanded).toBe(1);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("honours minEdgeWeight", async () => {
+    const db = await VantaDb.connect(":memory:");
+    try {
+      await seedHub(db);
+
+      const filtered = await db.graphragSearch(
+        KNOBS,
+        "vector database",
+        undefined,
+        undefined,
+        undefined,
+        2.0,
+      );
+      expect(filtered.stats.nodes_expanded).toBe(1);
+
+      const kept = await db.graphragSearch(
+        KNOBS,
+        "vector database",
+        undefined,
+        undefined,
+        undefined,
+        0.5,
+      );
+      expect(kept.stats.nodes_expanded).toBe(2);
+    } finally {
+      await db.close();
+    }
+  });
+});

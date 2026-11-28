@@ -1976,3 +1976,99 @@ fn test_v2_fields_and_temporal_params_on_the_wire() {
     }));
     assert!(db.list("sch07", bad).is_err(), "inverted window rejected");
 }
+
+// ── EGO-15: GraphRAG pipeline knobs (max_degree_per_node / min_edge_weight) ──
+
+/// Namespace whose single record seeds the pipeline; the reachable node lives
+/// in a *different* namespace so it can only enter through the edge.
+const KNOBS_NAMESPACE: &str = "graphrag-knobs";
+
+fn js_node_id(record: &JsValue) -> String {
+    js_sys::Reflect::get(record, &"node_id".into())
+        .expect("node_id field")
+        .as_string()
+        .expect("u128 ids travel as decimal strings")
+}
+
+/// Read a nested numeric field (`path` = [outer, inner, ...]) out of a JS object.
+fn js_number(value: &JsValue, path: &[&str]) -> f64 {
+    let mut current = value.clone();
+    for key in path {
+        current = js_sys::Reflect::get(&current, &(*key).into()).expect("field present");
+    }
+    current.as_f64().expect("number field")
+}
+
+/// EGO-15: `nodes_expanded` is 2 with the defaults (seed + the one node behind
+/// the edge) and 1 when the edge is capped or filtered out — the mechanical
+/// proof that both knobs reach the core pipeline, and that omitting them keeps
+/// the pre-EGO-15 behavior exactly.
+#[wasm_bindgen_test]
+fn test_graphrag_search_honours_the_pipeline_knobs() {
+    let db = create_db();
+    let seed = js_node_id(
+        &db.put(make_put_with_vector(
+            KNOBS_NAMESPACE,
+            "a",
+            "vector database for agents",
+            vec![0.1, 0.2, 0.3],
+        ))
+        .unwrap(),
+    );
+    let reachable = js_node_id(
+        &db.put(make_put_with_vector(
+            "graphrag-knobs-other",
+            "b",
+            "graph expansion uses edges",
+            vec![0.9, 0.9, 0.9],
+        ))
+        .unwrap(),
+    );
+    db.add_edge(&seed, &reachable, "uses", Some(1.0), None)
+        .unwrap();
+
+    let search = |max_degree: Option<usize>, min_weight: Option<f32>| {
+        db.graphrag_search(
+            KNOBS_NAMESPACE,
+            Some("vector database".to_string()),
+            None,
+            max_degree,
+            min_weight,
+        )
+        .unwrap()
+    };
+
+    let baseline = search(None, None);
+    assert_eq!(js_number(&baseline, &["stats", "seeds_found"]), 1.0);
+    assert_eq!(
+        js_number(&baseline, &["stats", "nodes_expanded"]),
+        2.0,
+        "the default cap follows the edge"
+    );
+
+    let capped = search(Some(0), None);
+    assert_eq!(
+        js_number(&capped, &["stats", "seeds_found"]),
+        1.0,
+        "the seed is still found with the cap at 0"
+    );
+    assert_eq!(
+        js_number(&capped, &["stats", "nodes_expanded"]),
+        1.0,
+        "cap 0 yields the seeds only"
+    );
+
+    let filtered = search(None, Some(2.0));
+    assert_eq!(
+        js_number(&filtered, &["stats", "nodes_expanded"]),
+        1.0,
+        "an edge under the floor is skipped"
+    );
+
+    let kept = search(None, Some(0.5));
+    assert_eq!(
+        js_number(&kept, &["stats", "nodes_expanded"]),
+        2.0,
+        "an edge over the floor is followed"
+    );
+}

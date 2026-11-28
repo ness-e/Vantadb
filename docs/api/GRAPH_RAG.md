@@ -116,10 +116,12 @@ result = db.graphrag_search("docs", query="vector database")
 print(result["context_text"])  # dict: nodes / edges / context_text / stats
 ```
 
-`graphrag_search(namespace, query=None, query_vector=None) -> dict` — GIL
-released (pure Rust compute); `query_vector` accepts a list, a NumPy array, or
-a `Vector`. A query vector above `MAX_VEC_DIM` (10 000) raises
-`ValidationError`. Smoke: `vantadb-python/tests/test_graphrag.py`.
+`graphrag_search(namespace, query=None, query_vector=None,
+max_degree_per_node=None, min_edge_weight=None) -> dict` — GIL released (pure
+Rust compute); `query_vector` accepts a list, a NumPy array, or a `Vector`. A
+query vector above `MAX_VEC_DIM` (10 000) raises `ValidationError`. The two
+last arguments are the EGO-15 pipeline knobs (see §Configuration). Smoke:
+`vantadb-python/tests/test_graphrag.py`.
 
 ## WASM / TypeScript
 
@@ -152,8 +154,10 @@ console.log(result.context_text);
 ```
 
 `graphragSearch(namespace, query?, queryVector?)` runs on a blocking thread
-(`spawn_blocking`); an oversized query vector is rejected at the boundary.
-Smoke: `vantadb-node/tests/graphrag.test.ts`.
+(`spawn_blocking`); an oversized query vector is rejected at the boundary. The
+EGO-15 knobs travel as `maxDegreePerNode` / `minEdgeWeight` at the **end** of the
+signature — after `abort` on the native backend — so existing positional calls
+keep working. Smoke: `vantadb-node/tests/graphrag.test.ts`.
 
 ## Configuration
 
@@ -163,7 +167,11 @@ Smoke: `vantadb-node/tests/graphrag.test.ts`.
 | expansion_hops | 2 | BFS depth from seeds |
 | max_expansion_nodes | 100 | Max nodes expanded |
 | retrieval_top_k | 20 | Final top-K results |
+| max_degree_per_node | 128 | Edges followed out of each visited node (`0` = seeds only) |
+| min_edge_weight | none | Edges below this weight are skipped during expansion |
 
-Custom configurations are Rust-only (`GraphRagPipeline`); the bindings expose
-the default pipeline. Cross-binding parity matrix row:
+The bindings expose `max_degree_per_node` / `min_edge_weight` (EGO-15) with the
+same name and meaning as `GraphRagPipeline`'s setters, and are opt-in: omitting
+both keeps the default pipeline byte-for-byte. The remaining parameters are
+Rust-only (`GraphRagPipeline`). Cross-binding parity matrix row:
 [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md#w1-parity-matrix-api-02--method--signature-across-the-4-bindings).

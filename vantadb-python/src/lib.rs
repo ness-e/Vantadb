@@ -19,6 +19,9 @@ use vantadb::sdk::{
     Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput, SearchProfileConfig,
     SearchProfileMode, ValidWindow,
 };
+// EGO-15: the GraphRAG knobs (`max_degree_per_node` / `min_edge_weight`) are
+// core pipeline settings — the binding only forwards them.
+use vantadb::graphrag::pipeline::GraphRagPipeline;
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{DistanceMetric, MAX_K, MAX_VEC_DIM};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
@@ -1655,6 +1658,13 @@ impl Client {
     ///     query: Optional text query for lexical (BM25) seeds.
     ///     query_vector: Optional dense vector for ANN seeds (list, NumPy
     ///         array, or ``Vector``).
+    ///     max_degree_per_node: Optional cap on the edges followed out of each
+    ///         visited node (EGO-15). Omitted ⇒ the core default (128);
+    ///         ``0`` yields the seeds only. Same name and meaning as
+    ///         `GraphRagPipeline::max_degree_per_node`.
+    ///     min_edge_weight: Optional edge-weight floor — edges below it are
+    ///         skipped during expansion. Omitted ⇒ no filter (every edge kept,
+    ///         the pre-EGO-15 behavior).
     ///
     /// Returns:
     ///     dict: ``{"nodes": [{"id", "content", "score", "hop_distance"}],
@@ -1677,13 +1687,21 @@ impl Client {
     ///     >>> result["stats"]["seeds_found"] >= 1
     ///     True
     ///     ```
-    #[pyo3(signature = (namespace, query=None, query_vector=None))]
+    #[pyo3(signature = (
+        namespace,
+        query=None,
+        query_vector=None,
+        max_degree_per_node=None,
+        min_edge_weight=None,
+    ))]
     fn graphrag_search(
         &self,
         py: Python<'_>,
         namespace: &str,
         query: Option<String>,
         query_vector: Option<&Bound<'_, PyAny>>,
+        max_degree_per_node: Option<usize>,
+        min_edge_weight: Option<f32>,
     ) -> PyResult<Py<PyAny>> {
         let _g = enter(&self.op_gate)?;
         let vector = match query_vector {
@@ -1700,9 +1718,27 @@ impl Client {
         }
         let namespace = namespace.to_string();
         let engine = self.engine.clone();
+        // EGO-15: opt-in knobs. With neither passed the call below is byte-for-
+        // byte the pre-EGO-15 `graphrag_search` (default pipeline).
+        let pipeline = (max_degree_per_node.is_some() || min_edge_weight.is_some()).then(|| {
+            let pipeline = GraphRagPipeline::new();
+            let pipeline = match max_degree_per_node {
+                Some(max_degree_per_node) => pipeline.with_max_degree_per_node(max_degree_per_node),
+                None => pipeline,
+            };
+            pipeline.with_min_edge_weight(min_edge_weight)
+        });
         // GIL RELEASED: pure Rust — seed search + graph expansion + ranking.
         let result = py
-            .detach(move || engine.graphrag_search(&namespace, query.as_deref(), vector.as_deref()))
+            .detach(move || match pipeline {
+                Some(pipeline) => engine.graphrag_search_with_pipeline(
+                    &namespace,
+                    query.as_deref(),
+                    vector.as_deref(),
+                    &pipeline,
+                ),
+                None => engine.graphrag_search(&namespace, query.as_deref(), vector.as_deref()),
+            })
             .map_err(map_vanta_error)?;
 
         let dict = PyDict::new(py);

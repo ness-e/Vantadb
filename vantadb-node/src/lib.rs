@@ -25,6 +25,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Notify;
 use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
+// EGO-15: `max_degree_per_node` / `min_edge_weight` are core pipeline settings.
+use vantadb::graphrag::pipeline::GraphRagPipeline;
 use vantadb::index::IndexType;
 use vantadb::node::DistanceMetric;
 use vantadb::sdk::{
@@ -1009,6 +1011,12 @@ impl VantaDB {
     /// [{source, target, label}], context_text, stats}`. u128 ids travel as
     /// decimal strings (API-01). At least one of `query` / `queryVector`
     /// should be provided; both may be combined (hybrid seeds).
+    ///
+    /// `maxDegreePerNode` (EGO-15) caps the edges followed out of each visited
+    /// node — omitted ⇒ the core default (128), `0` ⇒ seeds only.
+    /// `minEdgeWeight` skips edges below that weight — omitted ⇒ no filter.
+    /// Both carry the same name and meaning as the core `GraphRagPipeline`
+    /// setters; passing neither is byte-identical to the pre-EGO-15 call.
     #[napi(ts_return_type = "Promise<GraphRagResult>")]
     pub async fn graphrag_search(
         &self,
@@ -1016,6 +1024,8 @@ impl VantaDB {
         query: Option<String>,
         query_vector: Option<Vec<f64>>,
         abort: Option<&AbortHandle>,
+        max_degree_per_node: Option<u32>,
+        min_edge_weight: Option<f64>,
     ) -> napi::Result<Value> {
         let (gate, engine) = self.snapshot();
         let _g = enter(&gate)?;
@@ -1038,6 +1048,18 @@ impl VantaDB {
             }
             None => None,
         };
+        // EGO-15: opt-in knobs, same name and meaning as the core pipeline.
+        // With neither passed the call below is the pre-EGO-15 default.
+        let pipeline = (max_degree_per_node.is_some() || min_edge_weight.is_some()).then(|| {
+            let pipeline = GraphRagPipeline::new();
+            let pipeline = match max_degree_per_node {
+                Some(max_degree_per_node) => {
+                    pipeline.with_max_degree_per_node(max_degree_per_node as usize)
+                }
+                None => pipeline,
+            };
+            pipeline.with_min_edge_weight(min_edge_weight.map(|w| w as f32))
+        });
         // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
         // the await below, so the future stays `Send` (same as `search`).
         let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
@@ -1045,8 +1067,14 @@ impl VantaDB {
         // `search` — firing drops the `JoinHandle` (the blocking pipeline
         // runs on, engine untouched) and releases the `OpGuard` so
         // `close()` never blocks on a cancelled op.
-        let mut handle = tokio::task::spawn_blocking(move || {
-            engine.graphrag_search(&namespace, query.as_deref(), query_vector.as_deref())
+        let mut handle = tokio::task::spawn_blocking(move || match pipeline {
+            Some(pipeline) => engine.graphrag_search_with_pipeline(
+                &namespace,
+                query.as_deref(),
+                query_vector.as_deref(),
+                &pipeline,
+            ),
+            None => engine.graphrag_search(&namespace, query.as_deref(), query_vector.as_deref()),
         });
         let out = match abort_notify {
             Some(notify) => {
@@ -2631,6 +2659,117 @@ mod tests {
         });
     }
 
+    /// EGO-15: the GraphRAG knobs (`max_degree_per_node` / `min_edge_weight`)
+    /// reach the core pipeline from this surface. The seed lives in the queried
+    /// namespace and the reachable record in another one, so the pipeline never
+    /// seeds it — it can only enter the expansion through the edge, which is
+    /// what the knobs gate: `nodes_expanded` is 2 with the defaults and 1 when
+    /// the edge is capped at 0 or filtered by a weight floor of 2.0.
+    #[test]
+    fn graphrag_search_forwards_the_pipeline_knobs() {
+        fn node_id(record: &Value) -> String {
+            record["node_id"]
+                .as_str()
+                .map_or_else(|| record["node_id"].to_string(), ToString::to_string)
+        }
+
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            panic!("runtime builds");
+        };
+        rt.block_on(async {
+            let Ok(db) = VantaDB::connect(":memory:".to_string(), None).await else {
+                panic!("memory db connects");
+            };
+            let seed = db
+                .put(json!({
+                    "namespace": "knobs",
+                    "key": "a",
+                    "payload": "vector database for agents",
+                    "vector": [0.1, 0.2, 0.3],
+                }))
+                .await
+                .expect("seed put");
+            let reachable = db
+                .put(json!({
+                    "namespace": "knobs-other",
+                    "key": "b",
+                    "payload": "graph expansion uses edges",
+                    "vector": [0.9, 0.9, 0.9],
+                }))
+                .await
+                .expect("reachable put");
+            db.add_edge(
+                node_id(&seed),
+                node_id(&reachable),
+                "uses".to_string(),
+                Some(1.0),
+                None,
+            )
+            .await
+            .expect("edge");
+
+            let expanded = |out: &Value| out["stats"]["nodes_expanded"].as_u64().expect("count");
+
+            let baseline = db
+                .graphrag_search(
+                    "knobs".to_string(),
+                    Some("vector database".to_string()),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .await
+                .expect("baseline search");
+            assert_eq!(baseline["stats"]["seeds_found"], json!(1));
+            assert_eq!(expanded(&baseline), 2, "the default cap follows the edge");
+
+            let capped = db
+                .graphrag_search(
+                    "knobs".to_string(),
+                    Some("vector database".to_string()),
+                    None,
+                    None,
+                    Some(0),
+                    None,
+                )
+                .await
+                .expect("capped search");
+            assert_eq!(expanded(&capped), 1, "a cap of 0 yields the seeds only");
+
+            let filtered = db
+                .graphrag_search(
+                    "knobs".to_string(),
+                    Some("vector database".to_string()),
+                    None,
+                    None,
+                    None,
+                    Some(2.0),
+                )
+                .await
+                .expect("filtered search");
+            assert_eq!(expanded(&filtered), 1, "an edge under the floor is skipped");
+
+            let kept = db
+                .graphrag_search(
+                    "knobs".to_string(),
+                    Some("vector database".to_string()),
+                    None,
+                    None,
+                    None,
+                    Some(0.5),
+                )
+                .await
+                .expect("kept search");
+            assert_eq!(expanded(&kept), 2, "an edge over the floor is followed");
+
+            db.close().await.expect("db closes");
+        });
+    }
+
     #[test]
     fn query_iql_rejects_writes_on_read_only_handle() {
         let Ok(rt) = tokio::runtime::Builder::new_current_thread()
@@ -2706,6 +2845,8 @@ mod tests {
                     Some("hello".to_string()),
                     None,
                     Some(&graphrag_abort),
+                    None,
+                    None,
                 )
                 .await
             else {

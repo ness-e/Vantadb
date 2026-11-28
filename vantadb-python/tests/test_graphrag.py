@@ -84,3 +84,56 @@ def test_graphrag_search_rejects_oversized_query_vector(db: Client):
 
     with pytest.raises(ValidationError):
         db.graphrag_search("graphrag", query_vector=[0.0] * 10_001)
+
+
+# ── EGO-15: pipeline knobs (`max_degree_per_node` / `min_edge_weight`) ─────
+#
+# The seed lives in the queried namespace; the reachable node lives in another
+# one, so the pipeline never seeds it — it can only enter the expansion
+# through the edge, which is exactly what the two knobs gate. `nodes_expanded`
+# is therefore 2 with the defaults and 1 when the edge is capped or filtered.
+
+KNOBS_NAMESPACE = "graphrag-knobs"
+
+
+def _seed_hub(db: Client) -> None:
+    seed = db.put(
+        KNOBS_NAMESPACE, "a", "vector database for agents", vector=[0.1, 0.2, 0.3]
+    ).node_id
+    reachable = db.put(
+        f"{KNOBS_NAMESPACE}-other",
+        "b",
+        "graph expansion uses edges",
+        vector=[0.9, 0.9, 0.9],
+    ).node_id
+    db.add_edge(seed, reachable, "uses", weight=1.0)
+
+
+def test_graphrag_search_honours_max_degree_per_node(db: Client):
+    _seed_hub(db)
+
+    baseline = db.graphrag_search(KNOBS_NAMESPACE, query="vector database")
+    assert baseline["stats"]["seeds_found"] == 1
+    assert baseline["stats"]["nodes_expanded"] == 2, "the default cap follows the edge"
+
+    capped = db.graphrag_search(
+        KNOBS_NAMESPACE, query="vector database", max_degree_per_node=0
+    )
+    assert capped["stats"]["seeds_found"] == 1
+    assert capped["stats"]["nodes_expanded"] == 1, "cap 0 yields the seeds only"
+
+
+def test_graphrag_search_honours_min_edge_weight(db: Client):
+    _seed_hub(db)
+
+    filtered = db.graphrag_search(
+        KNOBS_NAMESPACE, query="vector database", min_edge_weight=2.0
+    )
+    assert filtered["stats"]["nodes_expanded"] == 1, (
+        "an edge under the floor is skipped"
+    )
+
+    kept = db.graphrag_search(
+        KNOBS_NAMESPACE, query="vector database", min_edge_weight=0.5
+    )
+    assert kept["stats"]["nodes_expanded"] == 2, "an edge over the floor is followed"
