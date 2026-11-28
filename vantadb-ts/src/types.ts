@@ -128,8 +128,11 @@ export interface ListOptions {
   limit?: number;
   /** Opaque page cursor: the WASM backend emits decimal strings (policy
    * string-u64) while the native backend emits numbers; both accept either
-   * form back (FIND-125 resync against `vantadb-wasm/src/lib.rs:200-229`). */
-  cursor?: string | number;
+   * form back (FIND-125 resync against `vantadb-wasm/src/lib.rs:200-229`).
+   * `null` is accepted too: `MemoryListPage.next_cursor` is `null` with the
+   * key present on the native addon, so feeding it straight back must
+   * typecheck (FIND-158). */
+  cursor?: string | number | null;
   /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
    * window contains this unix-ms instant. */
   as_of_ms?: number | null;
@@ -157,8 +160,14 @@ export interface ValidWindow {
 export interface MemoryListPage {
   records: MemoryRecord[];
   /** Opaque next cursor (decimal string from WASM, number from native);
-   * absent on the last page. Feed back into `ListOptions.cursor`. */
-  next_cursor?: string | number;
+   * `null` on the last page **with the key present** (the native addon emits
+   * `null` rather than omitting it; WASM omits it). `undefined` means the
+   * backend did not report one. Feed back into `ListOptions.cursor`.
+   *
+   * FIND-158 (2026-11-27): this type said `string | number` and the native
+   * addon emits `null`, so a client doing `=== undefined` re-fed `null` and
+   * looped on the first page. Measured against the real addon, not read. */
+  next_cursor?: string | number | null;
 }
 
 // TS-09 (breaking, 0.7.0): every multi-parameter call takes a single input
@@ -198,8 +207,8 @@ export interface ListInput extends ListOptions {
 export interface ScanInput {
   namespace: string;
   limit?: number;
-  /** Opaque page cursor, same form as `ListOptions.cursor`. */
-  cursor?: string | number;
+  /** Opaque page cursor, same form as `ListOptions.cursor` (`null` accepted). */
+  cursor?: string | number | null;
 }
 
 /** Input for `count`. */
