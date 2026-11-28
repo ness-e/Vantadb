@@ -19,6 +19,38 @@
 use crate::node::{FieldValue, UnifiedNode};
 use crate::query::RelOp;
 use crate::search_profile::SearchProfileMode;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+// ── RRF arm health (FIND-490) ─────────────────────────────────────────────
+// A hybrid query degrades — it does not fail — when ONE arm dies: the other
+// arms still answer. The degradation is never silent (a fusion missing an arm
+// returns worse results and the caller must be able to tell): every failed
+// arm logs a WARN with its name and reason, and bumps this counter.
+
+static RRF_ARM_FAILURES: AtomicU64 = AtomicU64::new(0);
+
+/// Number of hybrid arms that failed and were degraded away (FIND-490).
+///
+/// Process-wide, monotonic; [`reset_rrf_arm_failure_stats`] clears it (tests).
+pub fn rrf_arm_failure_stats() -> u64 {
+    RRF_ARM_FAILURES.load(Ordering::Relaxed)
+}
+
+/// Clear [`rrf_arm_failure_stats`] (tests).
+pub fn reset_rrf_arm_failure_stats() {
+    RRF_ARM_FAILURES.store(0, Ordering::Relaxed);
+}
+
+/// Publish one degraded arm: WARN with arm + reason, plus the counter.
+fn note_arm_failure(arm: &str, error: &crate::error::Error) {
+    RRF_ARM_FAILURES.fetch_add(1, Ordering::Relaxed);
+    tracing::warn!(
+        op = "rrf_fusion",
+        arm,
+        error = %error,
+        "hybrid arm failed; fusing the remaining arms (FIND-490)"
+    );
+}
 
 // ── Planner constants ─────────────────────────────────────────────────────
 // RRF / candidate-budget consts live in the neutral `crate::search_profile`
@@ -107,8 +139,16 @@ pub fn classify(text_query: Option<&str>, has_vector: bool) -> SearchRoute {
 /// ponytail: arms are drained eagerly into memory at `open()` (rank fusion
 /// needs complete ranked lists). Streaming fusion with bounded windows is a
 /// later optimization if profiles ever show it as a bottleneck.
+///
+/// FIND-490: an arm that fails to open (dead provider, missing index) is
+/// DEGRADED, not fatal — the remaining arms still fuse and the failure is
+/// published (WARN with arm + reason, `rrf_arm_failure_stats`). Degrading is
+/// only allowed while at least one arm survives: with every arm down the
+/// query fails with the arm's own error instead of returning a silent zero.
 struct PhysicalRrfFusion<'a> {
     arms: Vec<Box<dyn crate::query::PhysicalOperator + 'a>>,
+    /// Position-matched arm names used by the degradation log (FIND-490).
+    labels: Vec<&'static str>,
     rrf_k: f32,
     fused: Vec<UnifiedNode>,
     cursor: usize,
@@ -118,10 +158,18 @@ impl<'a> PhysicalRrfFusion<'a> {
     fn new(arms: Vec<Box<dyn crate::query::PhysicalOperator + 'a>>, rrf_k: f32) -> Self {
         Self {
             arms,
+            labels: Vec::new(),
             rrf_k,
             fused: Vec::new(),
             cursor: 0,
         }
+    }
+
+    /// Name the arms so a degraded one is identifiable in the log (FIND-490).
+    /// Unnamed positions fall back to `"arm"`.
+    fn with_arm_labels(mut self, labels: &[&'static str]) -> Self {
+        self.labels = labels.to_vec();
+        self
     }
 }
 
@@ -132,8 +180,17 @@ impl crate::query::PhysicalOperator for PhysicalRrfFusion<'_> {
         self.cursor = 0;
         let mut scores: BTreeMap<u128, f32> = BTreeMap::new();
         let mut nodes: BTreeMap<u128, UnifiedNode> = BTreeMap::new();
-        for arm in &mut self.arms {
-            arm.open()?;
+        let mut failures = 0usize;
+        let mut first_failure: Option<crate::error::Error> = None;
+        for (index, arm) in self.arms.iter_mut().enumerate() {
+            // FIND-490: one dead arm must not drop the query (nor stay
+            // silent). The error is published and the arm contributes nothing.
+            if let Err(error) = arm.open() {
+                note_arm_failure(self.labels.get(index).copied().unwrap_or("arm"), &error);
+                failures += 1;
+                first_failure.get_or_insert(error);
+                continue;
+            }
             let mut rank = 0usize;
             while let Some(node) = arm.next()? {
                 let contribution = 1.0 / (self.rrf_k + rank as f32 + 1.0);
@@ -142,6 +199,13 @@ impl crate::query::PhysicalOperator for PhysicalRrfFusion<'_> {
                 rank += 1;
             }
             arm.close()?;
+        }
+        // No surviving arm ⇒ nothing to fuse: fail with the arm's own reason
+        // rather than returning rows for a query that never ran.
+        if failures == self.arms.len() {
+            if let Some(error) = first_failure {
+                return Err(error);
+            }
         }
         let mut ids: Vec<u128> = scores.keys().copied().collect();
         ids.sort_by(|a, b| {
@@ -453,8 +517,10 @@ fn optimize_and_compile_with<'a>(
                 .and_then(|profile| profile.rrf_k)
                 .map(|k| k as f32)
                 .unwrap_or(crate::search_profile::RRF_K);
-            let mut fused: Box<dyn crate::query::PhysicalOperator + 'a> =
-                Box::new(PhysicalRrfFusion::new(vec![vector_arm, lexical_arm], rrf_k));
+            let mut fused: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(
+                PhysicalRrfFusion::new(vec![vector_arm, lexical_arm], rrf_k)
+                    .with_arm_labels(&["vector", "lexical"]),
+            );
             for (field, rel_op, value) in sorted_filters {
                 fused = Box::new(crate::physical_plan::PhysicalFilter::new(
                     fused, field, rel_op, value,
@@ -1499,6 +1565,34 @@ mod wire08_rrf_tests {
         std::sync::Arc::new(|_text: &str| -> crate::error::Result<Option<Vec<f32>>> { Ok(None) })
     }
 
+    /// Embedding seam standing in for a provider OUTAGE (FIND-490): the vector
+    /// arm cannot even open. Distinct from [`no_embedding_capability`], which
+    /// is a build-time fact and leaves the arm empty instead of failing.
+    fn failing_embedder() -> crate::physical_plan::QueryEmbedder {
+        std::sync::Arc::new(|_text: &str| -> crate::error::Result<Option<Vec<f32>>> {
+            Err(crate::error::Error::generic_error(
+                "embedding provider down (FIND-490 test)".to_string(),
+            ))
+        })
+    }
+
+    /// An arm that cannot even `open` — stands in for a dead provider/index.
+    struct FailingRrfArm;
+
+    impl crate::query::PhysicalOperator for FailingRrfArm {
+        fn open(&mut self) -> crate::error::Result<()> {
+            Err(crate::error::Error::generic_error(
+                "arm unavailable (FIND-490 test)".to_string(),
+            ))
+        }
+        fn next(&mut self) -> crate::error::Result<Option<UnifiedNode>> {
+            Ok(None)
+        }
+        fn close(&mut self) -> crate::error::Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn rrf_fusion_scores_by_rank_and_dedups_overlap() {
         // arm1 = [1, 2], arm2 = [2, 3] with rrf_k = 60:
@@ -1596,6 +1690,7 @@ mod wire08_rrf_tests {
 
         // With a Hybrid profile: RRF operator fuses the text arm (vector arm is
         // empty without embedding capability) → the text-only match survives.
+        reset_rrf_arm_failure_stats();
         let plan_profile = LogicalPlan {
             operators,
             temperature: 0.0,
@@ -1615,6 +1710,98 @@ mod wire08_rrf_tests {
         assert_eq!(row.id, 1, "lexical arm match is returned by the fusion");
         assert!(op.next().unwrap().is_none());
         op.close().unwrap();
+        assert_eq!(
+            rrf_arm_failure_stats(),
+            0,
+            "healthy arms must never be counted as degraded (FIND-490 no-regression)"
+        );
+    }
+
+    /// FIND-490: a dead vector arm must not take the hybrid query down. The
+    /// lexical arm still answers, and the degradation is published — one WARN
+    /// per failed arm plus the `rrf_arm_failure_stats` counter (a silent
+    /// degrade would be the "0 hits" lie FIND-413 removed).
+    #[test]
+    fn f490_vector_arm_failure_degrades_to_the_lexical_arm() {
+        use crate::config::Config;
+        use crate::node::{FieldValue, UnifiedNode};
+        use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = Config {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let mut alpha = UnifiedNode::new(1);
+        alpha
+            .relational
+            .insert("content".into(), FieldValue::String("alpha beta".into()));
+        storage.insert(&alpha).unwrap();
+
+        let plan = LogicalPlan {
+            operators: vec![
+                LogicalOperator::Scan { entity: "*".into() },
+                LogicalOperator::VectorSearch {
+                    field: "content".into(),
+                    query_vec: "alpha".into(),
+                    min_score: 0.0,
+                },
+                LogicalOperator::TextFilter {
+                    field: "content".into(),
+                    query: "alpha".into(),
+                },
+                LogicalOperator::Limit { top_k: 5 },
+            ],
+            temperature: 0.0,
+            enforce_role: None,
+            search_profile: Some(SearchProfileConfig {
+                mode: SearchProfileMode::Hybrid,
+                rrf_k: Some(60),
+                candidate_k: None,
+                ..Default::default()
+            }),
+        };
+
+        reset_rrf_arm_failure_stats();
+        let mut op = optimize_and_compile_with(&plan, &storage, Some(failing_embedder()))
+            .expect("compile with a dead embedding provider");
+        op.open()
+            .expect("a dead vector arm must not fail the hybrid query (FIND-490)");
+        let mut ids = drain(op.as_mut());
+        op.close().unwrap();
+        ids.sort_unstable();
+        assert_eq!(
+            ids,
+            vec![1],
+            "the lexical arm must still answer when the vector arm is down"
+        );
+        assert_eq!(
+            rrf_arm_failure_stats(),
+            1,
+            "the degraded arm must be observable (metric), not silent"
+        );
+    }
+
+    /// FIND-490: with NO surviving arm the query must fail loudly. Degrading
+    /// to an empty fusion would be the silent "0 hits" lie the finding bans.
+    #[test]
+    fn f490_all_arms_failing_stays_an_error() {
+        reset_rrf_arm_failure_stats();
+        let a: Box<dyn crate::query::PhysicalOperator> = Box::new(FailingRrfArm);
+        let b: Box<dyn crate::query::PhysicalOperator> = Box::new(FailingRrfArm);
+        let mut fused = PhysicalRrfFusion::new(vec![a, b], 60.0);
+        let error = fused
+            .open()
+            .expect_err("no surviving arm must surface an error, never zero rows");
+        assert!(
+            error.to_string().contains("arm unavailable"),
+            "the arm's own reason must reach the caller, got: {error}"
+        );
     }
 
     #[test]

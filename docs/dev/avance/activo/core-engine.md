@@ -1948,3 +1948,23 @@ el propio SDK ya usa— los arregla a los tres.
 - **Deuda declarada:** cifrar la clave del posting (bump del marcador + rebuild obligatorio del indice de texto: es un cambio de formato en disco, permitido por D2 pero de media wave, no de un fix).
 - **Ids:** `FIND-513`, `FIND-515` (scan solo-claves, relacionada)
 
+### FIND-490: la hibrida no pierde el brazo lexico si cae el vectorial
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** en la fusion RRF del planner (`PhysicalRrfFusion`, WIRE-08), un brazo vectorial que no abria (provider caido, indice ausente) propagaba el error y **tumbaba la query entera**, incluido el brazo lexico que si tenia respuesta. El precio de `FIND-413` (no mentir con un 0 hits silencioso) habia subido el radio de impacto de una caida de provider de "degrada a lexico" a "error total".
+- **Contrato entregado (degradacion explicita y observable):** un brazo fallido se **degrada**, la query sigue con los demas, y **nunca es silencioso** — `tracing::warn!` con `op="rrf_fusion"`, `arm` (los brazos se nombran: `vector`, `lexical`) y el `error` del brazo, mas el contador `planner::rrf_arm_failure_stats()`. Con **todos** los brazos caidos la query **sigue fallando** con el motivo del brazo: un fusion vacio seria la mentira que `FIND-413` elimino.
+- **Test RED:** `f490_vector_arm_failure_degrades_to_the_lexical_arm` con un embedder que devuelve `Err` — antes del cambio `open()` fallaba con `Generic(ChainedError { msg: "embedding provider down" })` (1 passed, 1 failed). GREEN: devuelve la fila `1` del brazo lexico y `rrf_arm_failure_stats() == 1`. Segundo test `f490_all_arms_failing_stays_an_error` pincha la regla de "no mentir": dos brazos caidos ⇒ `Err` con el motivo.
+- **Verificacion:** `cargo nextest run --profile audit -p vantadb --build-jobs 2 -E 'test(search) or test(hybrid) or test(rrf) or test(iql) or test(query)' --no-tests fail` ⇒ **441/441 passed** (censo previo: 439; +2 tests nuevos). `cargo fmt --check` y `cargo clippy --all-targets -- -D warnings` limpios.
+- **Fuera de alcance, declarado:** la hibrida del SDK (`sdk/search/mod.rs`) sigue propagando el error del brazo vectorial, pero ahi la entrada es un vector ya calculado: el unico fallo alcanzable es un error de argumento del llamador (dimension, `ERR-028`), que **debe** seguir siendo error — no se degrada input invalido. `sdk/search/hybrid.rs::hybrid_search` es codigo muerto (sin llamadores; `mod.rs` reimplementa la hibrida inline) y no se toco.
+- **Ids:** `FIND-490`, `FIND-413` (precedente)
+
+### FIND-826: el recibo de borrado certificado ya no se firma antes de borrar
+
+- **Fecha:** 2026-11-27
+- **Objetivo:** `forget(mode="certified")` afirmaba `purged` mientras el payload seguía en `0.jnl` (10×), `data/vanta.shard0.wal` (2×) y el vector en `vstore_L0.vanta`: **byte-idéntico a `hard`**. Solo tras `compact_wal()` + `compact_layout()` el escaneo daba 0 — es decir, el recibo criptográfico prometía un borrado que no había ocurrido. GDPR Art. 17 se juzga con un escaneo de bytes, no con un campo `status`.
+- **Contrato elegido:** **(a) ejecutar la compactación antes de emitir el recibo** (la opción (b), "declarar el borrado diferido", se descartó: convierte `certified` en `hard` con un pie de página y mueve la aserción del bench a un comando de mantenimiento). `forget`'s brazo `Certified`: `delete_inner` por clave → **una** compactación (`compact_wal` + `compact_layout`) si algo se borró → recién entonces los certificados. `delete_certified` (la puerta que usa `vanta-cli delete --attest`) compacta igual: el hueco no se mueve de puerta.
+- **Test RED:** `tests/certified_delete.rs::forget_certified_erases_payload_and_vector_bytes_with_witness_alive` — escaneo crudo recursivo del directorio para el marcador del payload **y** los bytes f32 del vector **tal como se almacena**, con testigo que debe sobrevivir. En HEAD falla con `["…\0.jnl", "…\data\vanta.shard0.wal"]`. GREEN: 13/13 en el binario, con el testigo vivo en todos los casos.
+- **Coste declarado:** un `forget(certified)` sobre base persistente es operación de clase mantenimiento (proporcional a la base, no al conjunto borrado). Es el precio de un recibo que aguanta un `grep` en crudo; una base en memoria no paga nada (y su test lo pina, porque WASM mapea `"certified"` a esta misma ruta).
+- **Verificación:** `--test certified_delete` → **13 passed**; `dev-tools/verify.ps1` → 9 PASS / 1 SKIPPED (`clippy`, rojo de otro carril).
+- **Ids:** `FIND-826`, `FIND-675`, `FIND-343` (patrón de canario)
+
