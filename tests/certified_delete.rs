@@ -489,6 +489,84 @@ fn delete_certified_erases_payload_bytes_too() {
     );
 }
 
+/// FIND-903: the same measurement, on the **only** record of the database.
+///
+/// With a witness alive the vector store is rewritten by `compact_layout_bfs`;
+/// alone, the graph empties, `hnsw.entry_point()` is `None` and the rewrite
+/// returned early ("empty index, skipping") — so the payload and the stored f32
+/// vector stayed readable in `vstore_L0.vanta` while the certificate said
+/// `purged`. An empty graph is the *most* erased state there is: the segment
+/// must be rewritten empty, not skipped.
+///
+/// This is also the measurement the `vector_store` surface needs: with the
+/// single-record residue gone, `attestation::vector_store_surface` can report
+/// the count it measures (`scanned`) instead of `not-assessed`.
+#[test]
+fn certified_delete_of_the_only_record_leaves_no_vector_bytes() {
+    const MARKER: &str = "FIND903-PROBE-single-record-certified-5e7c1b9d2a4086f3";
+
+    // P2-01 M4: a key in the environment would make "0 hits" mean "ciphertext".
+    for var in [
+        "VANTADB_ENCRYPTION_KEY",
+        "VANTADB_ENCRYPTION_KEY_FILE",
+        "VANTADB_ENCRYPTION_KEY_CMD",
+    ] {
+        std::env::remove_var(var);
+    }
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = open_temp_db(&dir);
+
+    let mut input = certified_input("erase", "lonely");
+    input.payload = format!("sole record of the database {MARKER} fin");
+    input.vector = Some(vec![0.13, -0.77, 0.41]);
+    db.put(input).expect("put");
+
+    // The needle is the vector **as stored** (normalization included).
+    let stored = db
+        .get("erase", "lonely")
+        .expect("get")
+        .expect("record present");
+    let vector_needle: Vec<u8> = stored
+        .vector
+        .as_ref()
+        .expect("stored vector")
+        .iter()
+        .flat_map(|f| f.to_le_bytes())
+        .collect();
+
+    let cert = db.delete_certified("erase", "lonely").expect("delete");
+    assert_eq!(cert.status, "purged", "all surfaces clean → purged");
+
+    db.flush().expect("flush");
+    db.close().expect("close");
+
+    let payload_hits = scan_bytes(dir.path(), MARKER.as_bytes());
+    assert!(
+        payload_hits.is_empty(),
+        "the sole record's payload survived a certified delete in {payload_hits:?} \
+         (FIND-903: the empty graph made the segment rewrite return early)"
+    );
+    let vector_hits = scan_bytes(dir.path(), &vector_needle);
+    assert!(
+        vector_hits.is_empty(),
+        "the sole record's vector bytes survived a certified delete in {vector_hits:?} \
+         (FIND-903)"
+    );
+
+    // Only after the bytes are provably gone can the surface claim a count.
+    let vector_surface = cert
+        .surfaces
+        .iter()
+        .find(|s| s.surface == "vector_store")
+        .expect("vector_store surface");
+    assert_eq!(
+        vector_surface.action, "scanned",
+        "the vector store surface must report the measured count, not a declared one: {vector_surface:?}"
+    );
+    assert_eq!(vector_surface.residues, 0, "{vector_surface:?}");
+}
+
 /// FIND-826 D1: the receipt IS the claim that the bytes are gone, so a
 /// certified path whose physical rewrite cannot run must **fail closed** —
 /// no certificate, an error that says the record is already erased logically.

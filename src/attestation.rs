@@ -197,44 +197,86 @@ fn delete_op_residues(
     Ok(residues)
 }
 
-/// The `vector_store` surface for a deleted record (FIND-826 D2).
+/// The `vector_store` surface for a deleted record (FIND-826 D2, FIND-903).
 ///
-/// This used to be `residues: 0` **written in the source**, justified by
-/// "physical bytes remain until segment compaction (declared limit)". A
-/// certificate that says "0 residues" because the number is hard-coded is worse
-/// than no certificate: it manufactures confidence. It is now declared
-/// `not-assessed`, with the reason, because the honest measurement is not
-/// available yet:
+/// This used to be `residues: 0` **written in the source**. A certificate that
+/// says "0 residues" because the number is hard-coded is worse than no
+/// certificate: it manufactures confidence. `FIND-826` replaced it with
+/// `not-assessed` because the honest measurement was not available then:
 ///
-/// - `compact_layout_bfs` **skips the rewrite when the graph is empty**
-///   (single-record database), so the tombstoned record's vector payload stays
-///   in `vstore_L0.vanta` and a byte scan finds it (measured: 1 segment);
-/// - `compact_level` reclaims a source segment by resetting `write_cursor` — it
-///   does not scrub the bytes behind the cursor;
-/// - and on an encrypted or in-memory segment a plaintext needle would report 0
-///   for the wrong reason (P2-01 M4: ciphertext is not "erased").
+/// - `compact_layout_bfs` **skipped the rewrite when the graph was empty**
+///   (single-record database), so the tombstoned record's payload stayed in
+///   `vstore_L0.vanta` (measured: 1 segment);
+/// - `compact_level` reclaimed a source segment by resetting `write_cursor`, so
+///   the dead range behind it stayed readable.
 ///
-/// So the surface states what it can prove: that it was not assessed. The
-/// measurement instrument (raw f32-payload scan of every segment, the one the
-/// FIND-343 physical-erasure test uses) and the gap it exposes are recorded in
-/// `docs/dev/tasks/FIND-826.md` §D2 and in the backlog row that closes it.
-fn vector_store_surface(record: &MemoryRecord) -> SurfaceReport {
-    if record.vector.as_deref().is_none_or(|v| v.is_empty()) {
+/// `FIND-903` fixed both (`archive::reset_empty_segment` rewrites the segment
+/// empty in either case), so the surface can now report a **measured** count.
+///
+/// Instrument (the one the FIND-343 / FIND-903 tests use on the directory, here
+/// applied to the mapped segments): the raw bytes of every `vstore_L*.vanta`
+/// are searched for the record's node id — the u128 header of any surviving
+/// copy — and for its stored `f32` payload. `residues` counts the segments that
+/// still hold one. An **encrypted** segment is still `not-assessed`: its bytes
+/// are ciphertext, and a plaintext needle would report 0 for the wrong reason
+/// (P2-01 M4).
+fn vector_store_surface(engine: &StorageEngine, record: &MemoryRecord) -> SurfaceReport {
+    let Some(vector) = record.vector.as_deref().filter(|v| !v.is_empty()) else {
         return surface(
             "vector_store",
             "none-needed",
             0,
             "the record carries no vector: nothing to erase on this surface",
         );
+    };
+
+    // Node id 0 is not a valid id (ids are hashed; `test_rebuild_zero_id_not_scanned`),
+    // and a 16-byte zero needle would match every zero-filled region of a
+    // preallocated segment. Skip it rather than report the file's padding.
+    let id_needle = (record.node_id != 0).then(|| record.node_id.to_le_bytes());
+    let payload: Vec<u8> = vector.iter().flat_map(|f| f.to_le_bytes()).collect();
+    let mut segments = 0u64;
+    let mut residues = 0u64;
+    let mut encrypted_segments = 0u64;
+    for level in 0..engine.vector_store.len() {
+        let segment = engine.vector_store_read(level);
+        segments += 1;
+        if segment.is_encrypted() {
+            encrypted_segments += 1;
+            continue;
+        }
+        let bytes = segment.mmap_bytes();
+        let holds_id = id_needle
+            .as_ref()
+            .is_some_and(|needle| bytes.windows(needle.len()).any(|w| w == needle));
+        let holds_payload =
+            payload.len() >= 4 && bytes.windows(payload.len()).any(|w| w == payload);
+        if holds_id || holds_payload {
+            residues += 1;
+        }
     }
+
+    if encrypted_segments > 0 {
+        return surface(
+            "vector_store",
+            "not-assessed",
+            0,
+            &format!(
+                "no measurement is claimed: {encrypted_segments} of {segments} vector segments \
+                 are encrypted, so a plaintext scan would answer 0 for the wrong reason \
+                 (ciphertext is not \"erased\")"
+            ),
+        );
+    }
+
     surface(
         "vector_store",
-        "not-assessed",
-        0,
-        "no measurement is claimed: the segment rewrite skips an empty graph and reclaims \
-         bytes by resetting the write cursor without scrubbing them, so a byte scan can \
-         still find the payload; an encrypted or in-memory segment would answer 0 for the \
-         wrong reason — not assessed (never reported as clean)",
+        "scanned",
+        residues,
+        &format!(
+            "raw scan of {segments} vector segments for the node id and the stored f32 payload: \
+             {residues} segment(s) still hold the record"
+        ),
     )
 }
 
@@ -295,7 +337,7 @@ fn swept_surfaces(engine: &StorageEngine, record: &MemoryRecord) -> Result<Vec<S
             vector_index_residues,
             "HNSW graph has no entry for the node",
         ),
-        vector_store_surface(record),
+        vector_store_surface(engine, record),
         surface(
             "derived_index",
             "deleted",
@@ -518,11 +560,17 @@ pub(crate) fn build_certificate(
 }
 
 /// Whether the certificate claims `surface` has zero residues.
+///
+/// A `not-assessed` surface carries `residues: 0` too — that 0 means "no claim
+/// is made", not "it is clean" (FIND-826 D2 left `vector_store` in exactly that
+/// shape). Reading it as a claim would turn a declared gap into an accusation
+/// of "the residues reappeared" the day someone adds the surface to the
+/// re-checkable list, so the action is part of the predicate.
 fn cert_claims_zero(cert: &PurgeCertificate, surface: &str) -> bool {
     cert.surfaces
         .iter()
         .find(|s| s.surface == surface)
-        .is_some_and(|s| s.residues == 0)
+        .is_some_and(|s| s.residues == 0 && s.action != "not-assessed")
 }
 
 /// Record a re-scan result for `surface`; flag it when the certificate
@@ -1090,29 +1138,56 @@ pub(crate) fn verify_write_receipt(
 mod tests {
     use super::*;
 
-    /// FIND-826 D2: the `vector_store` surface used to ship `residues: 0` with
-    /// the number written in the source (evidence: "physical bytes remain until
-    /// segment compaction (declared limit)") — an assertion dressed as a
-    /// measurement. It must now either measure or say it did not assess; what it
-    /// may never do is claim a clean surface without looking.
+    /// FIND-826 D2 / FIND-903: the `vector_store` surface used to ship
+    /// `residues: 0` with the number written in the source — an assertion
+    /// dressed as a measurement. It must report the count it **measured**
+    /// (`scanned`), and what it may never do is claim a clean surface without
+    /// looking.
     #[test]
-    fn vector_store_surface_is_never_a_hard_coded_clean() {
+    fn vector_store_surface_measures_instead_of_claiming() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().to_string_lossy().to_string();
+        let engine = StorageEngine::open_with_config(
+            &path,
+            Some(crate::config::Config {
+                storage_path: path.clone(),
+                ..Default::default()
+            }),
+        )
+        .expect("open engine");
+
         let record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
+            node_id: 0x0123_4567_89ab_cdef_0123_4567_89ab_cdef,
             vector: Some(vec![0.1, 0.2, 0.3]),
             ..Default::default()
         };
-        let report = vector_store_surface(&record);
+        let report = vector_store_surface(&engine, &record);
         assert_eq!(
-            report.action, "not-assessed",
-            "an unmeasured surface must be declared not-assessed, got {report:?}"
+            report.action, "scanned",
+            "the surface must measure, got {report:?}"
         );
-        assert_eq!(report.residues, 0, "not-assessed carries no residue claim");
+        assert_eq!(report.residues, 0, "nothing of this record was ever stored");
         assert!(
-            report.evidence.contains("write cursor"),
-            "the evidence must name the measured gap, got: {}",
+            report.evidence.contains("raw scan"),
+            "the evidence must name the instrument, got: {}",
             report.evidence
+        );
+
+        // A node id of 0 is not a valid id: a 16-byte zero needle would match
+        // the padding of every preallocated segment and invent residues.
+        let zero_id = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            node_id: 0,
+            vector: Some(vec![0.1, 0.2, 0.3]),
+            ..Default::default()
+        };
+        assert_eq!(
+            vector_store_surface(&engine, &zero_id).residues,
+            0,
+            "the zero-filled file padding is not a residue"
         );
 
         // No vector in the record → there is genuinely nothing to erase here.
@@ -1120,7 +1195,10 @@ mod tests {
             vector: None,
             ..Default::default()
         };
-        assert_eq!(vector_store_surface(&no_vector).action, "none-needed");
+        assert_eq!(
+            vector_store_surface(&engine, &no_vector).action,
+            "none-needed"
+        );
     }
 
     fn minimal_certificate() -> PurgeCertificate {
@@ -1246,6 +1324,38 @@ mod tests {
         assert!(
             finalize(cert).is_err(),
             "the producer must never emit a claimless certificate"
+        );
+    }
+
+    /// FIND-903: a `not-assessed` surface carries `residues: 0`, but that 0 is
+    /// "no claim", not "clean". Reading it as a zero claim would make the
+    /// verifier accuse a declared gap of "residues reappeared".
+    #[test]
+    fn cert_claims_zero_does_not_read_not_assessed_as_a_clean_claim() {
+        let mut cert = minimal_certificate();
+        cert.surfaces.retain(|s| s.surface != "vector_store");
+
+        cert.surfaces
+            .push(surface("vector_store", "not-assessed", 0, "no measurement"));
+        assert!(
+            !cert_claims_zero(&cert, "vector_store"),
+            "`not-assessed` must not count as a claim of zero residues"
+        );
+
+        cert.surfaces.retain(|s| s.surface != "vector_store");
+        cert.surfaces
+            .push(surface("vector_store", "scanned", 0, "measured"));
+        assert!(
+            cert_claims_zero(&cert, "vector_store"),
+            "a measured zero IS a claim"
+        );
+
+        cert.surfaces.retain(|s| s.surface != "vector_store");
+        cert.surfaces
+            .push(surface("vector_store", "scanned", 1, "measured"));
+        assert!(
+            !cert_claims_zero(&cert, "vector_store"),
+            "residues are not zero"
         );
     }
 

@@ -41,7 +41,7 @@ All three go through the same core builder — no duplicated logic.
 | `store` | `deleted` | Point-read of backend partition `Default` is absent |
 | `shred` | `deleted` | `InternalMetadata` key `shred::<node_id>` absent — **JSON Shredding** column store (metadata fields), not secure-delete |
 | `vector_index` | `deleted` | HNSW graph has no entry for the node |
-| `vector_store` | `not-assessed` (or `none-needed`) | **No measurement is claimed** (FIND-826 D2). The certified path rewrites the store before attesting, but the rewrite skips an empty graph (single-record database) and reclamation resets the write cursor without scrubbing, so a byte scan can still find dead payload bytes; an encrypted or in-memory segment would answer 0 for the wrong reason |
+| `vector_store` | `scanned` (or `none-needed`, or `not-assessed` when encrypted) | **Measured**, not declared (FIND-903). The certified path rewrites the vector segments before attesting — an empty graph is rewritten to a valid empty segment instead of being skipped, and a reclaimed segment is rewritten empty instead of moving the write cursor over the dead bytes. `residues` is the number of `vstore_L*.vanta` segments whose raw bytes still hold the record's node id or its stored `f32` payload. An **encrypted** segment stays `not-assessed`: a plaintext scan would answer 0 for the wrong reason |
 | `derived_index` | `deleted` | `NamespaceIndex` + `PayloadIndex` keys rebuilt from the deleted record are absent |
 | `text_index` | `deleted` | Posting keys for the record terms are absent |
 | `sparse_index` | `deleted` (or `none-needed`) | Sparse posting keys rebuilt from the deleted record are absent |
@@ -60,7 +60,7 @@ The file may be a raw certificate or the `delete --attest --json` envelope (`{"d
 
 1. Validates the certificate **schema** first: a known `status`, non-empty declared limits and **every canonical surface present exactly once** — a claimless or partial certificate is rejected even if its integrity hash was recomputed (verification is not claim-driven).
 2. Recomputes the `sha256` over the canonical body — an edited/corrupted certificate fails.
-3. Re-scans the surfaces that are re-checkable **without the deleted record**: `store`, `shred`, `vector_index`, `version_history` and the exact `NamespaceIndex` key. A surface the certificate claimed clean (`residues: 0`) that now holds an entry fails; live residues on the re-checked surfaces also fail the verdict unless the certificate is a `not_found` report.
+3. Re-scans the surfaces that are re-checkable **without the deleted record**: `store`, `shred`, `vector_index`, `version_history` and the exact `NamespaceIndex` key. A surface the certificate claimed clean (`residues: 0`) that now holds an entry fails — a `not-assessed` surface makes no claim, so it is never read as "clean"; live residues on the re-checked surfaces also fail the verdict unless the certificate is a `not_found` report.
 4. Exit code: `0` valid; non-zero invalid/tampered/residues present.
 
 **Integrity is not authenticity.** The hash detects edits and corruption; it does not prove *who* emitted the certificate — there is no engine key/signature. Cryptographic signing (external anchor) is a follow-up decision owned by `vanta-audit`, tracking the same upgrade path noted in [WAL integrity](./WAL_INTEGRITY.md). Record-derived surfaces (`PayloadIndex`/text/sparse key sets cannot be rebuilt after deletion) are covered by the integrity hash only — a documented limit.
@@ -79,7 +79,7 @@ Without the flush, verification fails **safe** (reports residues), never silentl
 
 ## Scope and limits (declared, not silent)
 
-The certificate covers the **live database directory**: logical entries are removed, and vector bytes are tombstoned. It does **not** claim secure erase. Every certificate lists:
+The certificate covers the **live database directory**: logical entries are removed, and the vector segments are rewritten so the purged record's payload and vector bytes are no longer in them (FIND-903). It does **not** claim secure erase. Every certificate lists:
 
 - physical media: bytes may survive in storage segments, page cache, filesystem journals or SSD remap — not secure erase;
 - backups and snapshots stored outside the live database directory;

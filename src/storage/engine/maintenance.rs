@@ -614,7 +614,26 @@ impl StorageEngine {
         let entry_point_id = match hnsw.entry_point() {
             Some(ep) => ep,
             None => {
-                tracing::info!("compact_layout_bfs: empty index, skipping");
+                // FIND-903: an empty graph is not "nothing to do". With no live
+                // node the segment still holds the **purged** records' payloads,
+                // so returning `Ok(0)` here left them readable in
+                // `vstore_L0.vanta` (measured: the certified delete of the only
+                // record of a database left 1 residue). `compact_layout` refuses
+                // an empty BFS order on purpose — it cannot tell "empty graph"
+                // from "traversal failed" — but here the emptiness is known, so
+                // the segment is rewritten empty explicitly. The count returned
+                // is 0 nodes compacted (the truth); the log names the rewrite so
+                // the caller never reads it as "nothing happened".
+                drop(hnsw);
+                let reclaimed_bytes = crate::storage::archive::reset_empty_segment(&mut vstore)?;
+                drop(vstore);
+                self.save_vector_index()?;
+                tracing::info!(
+                    nodes_compacted = 0u64,
+                    reclaimed_bytes,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "compact_layout_bfs: empty index, segment rewritten empty"
+                );
                 return Ok(0);
             }
         };
@@ -1185,12 +1204,24 @@ impl StorageEngine {
             }
         }
 
-        // Truncate source segment: reset write cursor past alignment header
+        // Truncate source segment: rewrite it to a valid empty layout.
         let reclaimed_bytes = {
             let mut src = self.vector_store[level as usize].write();
             let size_before = src.write_cursor;
-            src.write_cursor = STORAGE_ALIGNMENT;
-            src.flush()?;
+            if nodes_promoted as usize == live_ids.len() {
+                // FIND-903: resetting `write_cursor` alone reclaims the *space*
+                // but leaves `[STORAGE_ALIGNMENT, write_cursor)` readable on
+                // disk — a promoted record that is later deleted kept an orphan
+                // copy in its old segment (the certified path truncates the WAL
+                // and compacts L0, never this range). Rewrite the segment empty
+                // with the same primitive the empty-graph path uses.
+                crate::storage::archive::reset_empty_segment(&mut src)?;
+            } else {
+                // A live node could not be read: promoting truncated what it
+                // still points at. Keep the old (non-destructive) reclaim.
+                src.write_cursor = STORAGE_ALIGNMENT;
+                src.flush()?;
+            }
             size_before
         };
 

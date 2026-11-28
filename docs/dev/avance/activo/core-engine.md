@@ -1983,6 +1983,19 @@ el propio SDK ya usa— los arregla a los tres.
 - **Delta D3 sigue abierto:** `cascade_forget` compacta N veces (O(N·DB)); dueño `vanta-memory/**`.
 - **Ids:** `FIND-826`, `FIND-675`, `FIND-343` (patrón de canario), `FIND-903`
 
+### FIND-903: el borrado certificado llega a 0 también cuando el registro borrado es el único
+
+- **Fecha:** 2026-11-28
+- **Objetivo:** el borrado certificado dejaba **1 residuo** cuando el registro borrado era el único de la base: los bytes `f32` del vector seguían en `vstore_L0.vanta` (el testigo vivo daba 0, el registro único daba 1). Por eso `FIND-826` D2 quedó en `not-assessed`: medir de verdad reportaba 1 y declararlo ponía en rojo VER-02 y los demos de GDPR. La fila pide que ese 1 sea 0.
+- **Causa (verificada, no re-derivada):** `compact_layout_bfs` salía temprano con `hnsw.entry_point() == None` (`"empty index, skipping"; Ok(0)`) — con el único registro borrado el grafo queda vacío, que es el estado **más** borrado, no "nada que hacer" — y `compact_level` reclamaba el segmento origen con `write_cursor = STORAGE_ALIGNMENT`, dejando `[STORAGE_ALIGNMENT, write_cursor)` legible.
+- **Contrato elegido: las DOS, con una sola primitiva.** `compact_layout` no sirve para el caso vacío (rechaza un `bfs_order` vacío a propósito: no distingue "grafo vacío" de "traversal roto"), así que se añadió `archive::reset_empty_segment(&mut File)` — reescribe el segmento a layout vacío válido (cabecera + cursor, 4096 B) con el mismo `tmp + rename + fsync` de `compact_layout`, **conserva el formato propio** (un v3 cifrado se reescribe v3, nunca se degrada a plaintext) y en memoria borra el rango muerto in situ. La llaman los dos caminos: `compact_layout_bfs` con grafo vacío (esto convierte el 1 medido en 0) y `compact_level` al reclamar (y sólo si **todos** los vivos se promovieron; si alguno no se pudo leer, se conserva el reclamado no destructivo).
+- **Superficie `vector_store`: `not-assessed` → `scanned`.** Ahora mide: recorre los segmentos mapeados buscando el `node_id` (cabecera `u128` de cualquier copia superviviente) y el payload `f32` almacenado; `residues` = segmentos que aún lo tienen. Sigue `not-assessed` cuando hay **segmentos cifrados** (un escaneo plaintext daría 0 por la razón equivocada) — la rama de D2 no se borra.
+- **Trampa armada que se desarmó:** `cert_claims_zero` miraba sólo `residues == 0`, así que un `not-assessed` (que también lleva 0) habría contado como "afirmó limpio" el día que `vector_store` entrara en la lista re-verificable. Ahora es `residues == 0 && action != "not-assessed"`, con test unitario.
+- **Test RED→GREEN:** `tests/certified_delete.rs::certified_delete_of_the_only_record_leaves_no_vector_bytes` — el mismo instrumento de `FIND-343` (escaneo crudo del payload y de los bytes `f32` almacenados), sin testigo. HEAD: falla con `["…\data\vstore_L0.vanta"]`. GREEN: 0 ficheros y `vector_store` en `scanned`/0.
+- **Verificación:** `cargo test -p vantadb --test certified_delete` (12 hilos, runner por defecto) → **15/15** (14 previos + el nuevo); barrido `nextest --profile audit -p vantadb -E 'test(compact) or test(erasure) or test(certified) or test(maintenance) or test(vstore)'` → **148/148** (`--no-tests fail`). Ningún `#[serial]` ni `#[ignore]`.
+- **Coste declarado (`ponytail:`):** el escaneo recorre los segmentos mapeados completos por cada certificado — ruta de clase mantenimiento; si algún día se emiten certificados en lote, medir primero.
+- **Ids:** `FIND-903`, `FIND-826`, `FIND-343`
+
 ### FIND-809: el camino de borrado de aristas cierra el hueco que FIND-773 dejó abierto
 
 - **Fecha:** 2026-11-27

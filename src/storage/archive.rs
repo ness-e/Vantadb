@@ -13,6 +13,89 @@ use zerocopy::IntoBytes;
 use crate::storage::engine::{FLAG_TOMBSTONE, STORAGE_ALIGNMENT};
 const BFS_QUEUE_CAPACITY: usize = 1024;
 
+/// The size of an **empty** segment on disk: one page holding the cleartext
+/// header and the write cursor, no records.
+const EMPTY_SEGMENT_SIZE: u64 = 4096;
+
+/// Rewrite a segment to a valid **empty layout** (header + cursor, no records)
+/// and return the bytes it reclaimed (the old cursor past the header).
+///
+/// FIND-903: the two reclaim paths used to leave the purged bytes readable.
+/// `compact_layout_bfs` returned early when the graph was empty — although
+/// "no live node" is the *most* erased state, not "nothing to do" — and
+/// `compact_level` reclaimed a promoted segment by resetting `write_cursor`,
+/// which leaves `[STORAGE_ALIGNMENT, write_cursor)` intact on disk, so a byte
+/// scan still finds the record that was deleted.
+///
+/// Same tmp + rename + fsync dance as [`compact_layout`], so a crash never
+/// leaves a half-truncated segment, and the segment keeps **its own format**: a
+/// v3 (encrypted) segment is rewritten as v3, never silently downgraded to
+/// plaintext. An in-memory segment has no bytes on disk, so it is zeroed in
+/// place instead (the measurement must not be vacuous for the wrong reason).
+pub(crate) fn reset_empty_segment(vstore: &mut File) -> Result<u64> {
+    let old_cursor = vstore.write_cursor;
+    let reclaimed = old_cursor.saturating_sub(STORAGE_ALIGNMENT);
+
+    if vstore.file.is_none() {
+        // In-memory / WASM: no file to replace; wipe the dead range in RAM.
+        let start = STORAGE_ALIGNMENT as usize;
+        let len = vstore.mmap_bytes().len();
+        if start < len {
+            let end = (old_cursor as usize).min(len);
+            if end > start {
+                vstore.mmap_bytes_mut()?[start..end].fill(0);
+            }
+        }
+        vstore.write_cursor = STORAGE_ALIGNMENT;
+        return Ok(reclaimed);
+    }
+
+    let format_version = if vstore.is_encrypted() {
+        crate::storage::vfile::VFILE_ENCRYPTED_VERSION
+    } else {
+        crate::storage::vfile::VFILE_VERSION
+    };
+    let vstore_path = vstore.path.clone();
+    let tmp_filename = format!(
+        "{}.tmp",
+        vstore_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("vector_store.vanta")
+    );
+    let tmp_path = vstore_path.with_file_name(tmp_filename);
+
+    let tmp_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&tmp_path)
+        .map_err(Error::Io)?;
+    tmp_file.set_len(EMPTY_SEGMENT_SIZE).map_err(Error::Io)?;
+
+    // `map_readwrite` carries the (memmap2-only) SAFETY contract: tmp_file is a
+    // valid, open handle with set_len() called beforehand (writable, valid
+    // size); the returned mmap is valid for the file's lifetime.
+    let mut tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
+    let header = crate::binary_header::Header::new(*b"VFLE", format_version, 0);
+    tmp_mmap[0..16].copy_from_slice(&header.serialize());
+    tmp_mmap[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
+
+    tmp_mmap.flush().map_err(Error::Io)?;
+    drop(tmp_mmap);
+    tmp_file.sync_all().map_err(Error::Io)?;
+    std::fs::rename(&tmp_path, &vstore_path).map_err(Error::Io)?;
+    // AUDREP-35: a rename is not durable until its parent dir is fsync'd.
+    crate::utils::fs::sync_parent_dir(&vstore_path).map_err(Error::Io)?;
+
+    vstore.replace_backing_file(EMPTY_SEGMENT_SIZE)?;
+    vstore.write_cursor = STORAGE_ALIGNMENT;
+    vstore.save_cursor()?;
+    vstore.flush()?;
+    Ok(reclaimed)
+}
+
 /// Rewrite the File with nodes in BFS order, returning the new offset map and file size.
 pub fn compact_layout(
     vstore: &mut File,
