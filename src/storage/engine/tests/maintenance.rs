@@ -924,6 +924,100 @@ fn test_compact_layout_bfs_twice_idempotent() {
     assert!(engine.get(1).expect("get").is_some());
 }
 
+// ─── FIND-905: the rewrite is licensed by the SEGMENT, not the graph ───
+
+/// A record written with `vector: None` lives in the segment and is registered
+/// in the index, but it can never be the HNSW entry point (`validate_node`
+/// inserts it without touching the graph). `vanta-memory` writes every L1
+/// episode that way, so "the graph has no entry point" is the *normal* state of
+/// a memory database — and it used to license a full segment wipe.
+#[test]
+fn compact_layout_bfs_keeps_vectorless_records() {
+    let engine = in_memory_engine();
+    for id in [41u128, 42] {
+        let mut node = UnifiedNode::new(id);
+        node.vector = crate::node::VectorRepresentations::None;
+        engine.insert(&node).expect("insert vectorless");
+    }
+    assert_eq!(
+        engine.hnsw.load().entry_point(),
+        None,
+        "fixture: a graph of vector-less records has no entry point"
+    );
+
+    let compacted = engine.compact_layout_bfs().expect("compact");
+
+    assert_eq!(
+        compacted, 2,
+        "both live records must be rewritten in the segment's own order"
+    );
+    for id in [41u128, 42] {
+        assert!(
+            engine.get(id).expect("get").is_some(),
+            "record {id} was destroyed by the segment rewrite"
+        );
+    }
+}
+
+/// The FIND-903 shape plus a sibling: delete the only **indexed** record and
+/// the record that had no embedding must still be there afterwards.
+#[test]
+fn compact_layout_bfs_keeps_vectorless_record_after_deleting_the_indexed_one() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(1)).expect("insert indexed");
+    let mut plain = UnifiedNode::new(2);
+    plain.vector = crate::node::VectorRepresentations::None;
+    engine.insert(&plain).expect("insert vectorless");
+
+    engine.delete(1, "test").expect("delete indexed");
+    engine.compact_layout_bfs().expect("compact");
+
+    let live = crate::storage::archive::live_record_ids(&engine.vector_store[0].read());
+    assert!(
+        !live.contains(&1),
+        "the purged record must not stay live after the rewrite: {live:?}"
+    );
+    assert!(
+        live.contains(&2),
+        "the vector-less record must stay: {live:?}"
+    );
+    assert!(
+        engine.get(2).expect("get").is_some(),
+        "the vector-less record was destroyed by another record's deletion"
+    );
+}
+
+/// The same predicate in the tier-promotion path: a live record that the graph
+/// never promoted (`nodes_promoted == live_ids.len()` is vacuously true over
+/// it) must not be rewritten away with the promoted ones.
+#[test]
+fn compact_level_keeps_live_records_the_graph_does_not_promote() {
+    let engine = in_memory_tiered_engine();
+    let mut unindexed = UnifiedNode::new(900);
+    unindexed.vector = crate::node::VectorRepresentations::None;
+    let offset = {
+        let mut l0 = engine.vector_store[0].write();
+        crate::storage::ops::write_node_to_vstore(&mut l0, &unindexed).expect("write unindexed")
+    };
+    engine.insert(&sample_node(901)).expect("insert indexed");
+
+    let report = engine.compact_level(0).expect("compact L0");
+
+    let header_id = engine.vector_store[0]
+        .read()
+        .read_header(offset)
+        .map(|h| h.id);
+    assert_eq!(
+        header_id,
+        Some(900),
+        "compact_level wiped a live record it never promoted (report: {report:?})"
+    );
+    assert_eq!(
+        report.reclaimed_bytes, 0,
+        "nothing was reclaimed: the source segment still holds a live record"
+    );
+}
+
 // ─── Quantization maintenance ─────────────────────────────────
 
 #[test]

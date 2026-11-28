@@ -96,6 +96,39 @@ pub(crate) fn reset_empty_segment(vstore: &mut File) -> Result<u64> {
     Ok(reclaimed)
 }
 
+/// IDs of the **live** records a segment holds, by the segment's own accounting
+/// — a sequential walk of `[STORAGE_ALIGNMENT, write_cursor)` — and not by what
+/// the HNSW graph knows (`FIND-905`).
+///
+/// "The graph has no entry point" is **not** "the segment has nothing to keep".
+/// A record written with `vector: None` lives here, is registered in
+/// `hnsw.nodes`, and never becomes an entry point: the graph-derived predicate
+/// called the segment empty and rewrote it away (measured: `vanta-memory`'s
+/// GDPR cascade forget destroyed the unrelated `ep_general_002`, whose only
+/// trait was having no embedding).
+///
+/// Order is the segment's own, so a caller with no graph to order by still
+/// rewrites deterministically.
+pub(crate) fn live_record_ids(vstore: &File) -> Vec<u128> {
+    let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+    let mut ids = Vec::new();
+    let mut cursor = STORAGE_ALIGNMENT;
+    while cursor + header_size <= vstore.write_cursor {
+        if let Some(header) = vstore.read_header(cursor) {
+            if header.id != 0 && (header.flags & FLAG_TOMBSTONE) == 0 {
+                ids.push(header.id);
+            }
+            let payload = payload_len_for_header(&header);
+            // ADR-0057 W3: the stride depends on the format — an encrypted
+            // record is the whole envelope, not just header + payload.
+            cursor += vstore.node_stride(header_size, payload);
+        } else {
+            cursor += STORAGE_ALIGNMENT;
+        }
+    }
+    ids
+}
+
 /// Rewrite the File with nodes in BFS order, returning the new offset map and file size.
 pub fn compact_layout(
     vstore: &mut File,

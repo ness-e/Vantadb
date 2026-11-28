@@ -1,5 +1,6 @@
 //! Maintenance operations: refresh, consolidate, evict, rebuild, compact, flush, WAL.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use web_time::Instant;
 
@@ -611,43 +612,74 @@ impl StorageEngine {
         let mut vstore = self.vstore0()?;
         let hnsw = self.hnsw.load();
 
-        let entry_point_id = match hnsw.entry_point() {
-            Some(ep) => ep,
-            None => {
-                // FIND-903: an empty graph is not "nothing to do". With no live
-                // node the segment still holds the **purged** records' payloads,
-                // so returning `Ok(0)` here left them readable in
-                // `vstore_L0.vanta` (measured: the certified delete of the only
-                // record of a database left 1 residue). `compact_layout` refuses
-                // an empty BFS order on purpose — it cannot tell "empty graph"
-                // from "traversal failed" — but here the emptiness is known, so
-                // the segment is rewritten empty explicitly. The count returned
-                // is 0 nodes compacted (the truth); the log names the rewrite so
-                // the caller never reads it as "nothing happened".
-                drop(hnsw);
-                let reclaimed_bytes = crate::storage::archive::reset_empty_segment(&mut vstore)?;
-                drop(vstore);
-                self.save_vector_index()?;
-                tracing::info!(
-                    nodes_compacted = 0u64,
-                    reclaimed_bytes,
-                    elapsed_ms = started.elapsed().as_millis() as u64,
-                    "compact_layout_bfs: empty index, segment rewritten empty"
-                );
-                return Ok(0);
-            }
+        // FIND-905: the predicate that licenses a rewrite is the **segment's**
+        // own accounting, not the graph's. "No entry point" is not "nothing to
+        // keep": a record with `vector: None` is not an HNSW entry point but is
+        // a live record here (measured — the wipe below destroyed
+        // `ep_general_002` while `scan_entries` still held it).
+        let live = crate::storage::archive::live_record_ids(&vstore);
+
+        // Graph order first (locality) when there is a graph to order by; an
+        // empty graph still has the segment's own order.
+        let graph_order = match hnsw.entry_point() {
+            // &***: Guard → Arc → Box → dyn (one deref per wrapper).
+            Some(ep) => crate::storage::archive::traverse_graph(&***hnsw, ep),
+            None => Vec::new(),
         };
+        // Only ids that actually live in THIS segment: `traverse_graph` sweeps
+        // every indexed id (other tiers included) and their packed offsets are
+        // not a byte offset of this file.
+        let live_set: HashSet<u128> = live.iter().copied().collect();
+        let mut order: Vec<u128> = graph_order
+            .into_iter()
+            .filter(|id| live_set.contains(id))
+            .collect();
+        let mut ordered: HashSet<u128> = order.iter().copied().collect();
+        for &id in &live {
+            // The records the graph cannot order, appended verbatim.
+            if ordered.insert(id) {
+                order.push(id);
+            }
+        }
+
+        if order.is_empty() {
+            // FIND-903: no live record — the segment only holds the **purged**
+            // payloads, so it is rewritten empty. `compact_layout` refuses an
+            // empty order on purpose (it cannot tell "empty segment" from
+            // "traversal failed"); here the emptiness is measured, so the
+            // rewrite is explicit and the log names it (the caller must never
+            // read `Ok(0)` as "nothing happened").
+            drop(hnsw);
+            let reclaimed_bytes = crate::storage::archive::reset_empty_segment(&mut vstore)?;
+            drop(vstore);
+            self.save_vector_index()?;
+            tracing::info!(
+                nodes_compacted = 0u64,
+                reclaimed_bytes,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "compact_layout_bfs: no live record in the segment, rewritten empty"
+            );
+            return Ok(0);
+        }
+
+        // A live record the index cannot locate cannot be copied: rewriting now
+        // would drop it. Leave the segment untouched and let the caller report
+        // the residue it can measure.
+        if order.iter().any(|id| hnsw.storage_offset_of(*id).is_none()) {
+            tracing::warn!(
+                live_records = live.len(),
+                "compact_layout_bfs: a live record has no index offset; segment left untouched"
+            );
+            return Ok(0);
+        }
 
         let header_size = std::mem::size_of::<crate::node::DiskNodeHeader>() as u64;
-
-        // &***: Guard → Arc → Box → dyn (one deref per wrapper).
-        let bfs_order = crate::storage::archive::traverse_graph(&***hnsw, entry_point_id);
 
         let (new_offset_map, new_file_size) = crate::storage::archive::compact_layout(
             &mut vstore,
             // &***: Guard → Arc → Box → dyn (one deref per wrapper).
             &***hnsw,
-            &bfs_order,
+            &order,
             header_size,
         )?;
         let nodes_compacted = new_offset_map.len() as u64;
@@ -1208,7 +1240,15 @@ impl StorageEngine {
         let reclaimed_bytes = {
             let mut src = self.vector_store[level as usize].write();
             let size_before = src.write_cursor;
-            if nodes_promoted as usize == live_ids.len() {
+            // FIND-905: the wipe is licensed by the **segment's** own accounting
+            // — every live record it holds must have been promoted. Graph-derived
+            // `live_ids` cannot answer that: `nodes_promoted == live_ids.len()`
+            // is vacuously true over the records the graph does not know (never
+            // indexed, or skipped below), and those were rewritten away alive.
+            let all_promoted = crate::storage::archive::live_record_ids(&src)
+                .iter()
+                .all(|id| new_offsets.contains_key(id));
+            if nodes_promoted as usize == live_ids.len() && all_promoted {
                 // FIND-903: resetting `write_cursor` alone reclaims the *space*
                 // but leaves `[STORAGE_ALIGNMENT, write_cursor)` readable on
                 // disk — a promoted record that is later deleted kept an orphan
@@ -1216,13 +1256,19 @@ impl StorageEngine {
                 // and compacts L0, never this range). Rewrite the segment empty
                 // with the same primitive the empty-graph path uses.
                 crate::storage::archive::reset_empty_segment(&mut src)?;
+                size_before
             } else {
-                // A live node could not be read: promoting truncated what it
-                // still points at. Keep the old (non-destructive) reclaim.
-                src.write_cursor = STORAGE_ALIGNMENT;
-                src.flush()?;
+                // Something the segment holds is still live: reclaim nothing.
+                // Rewinding `write_cursor` (what this branch used to do) hands
+                // the live records' bytes to the next append — the payloads stay
+                // readable *and* get overwritten, which is the worst of both.
+                tracing::warn!(
+                    level,
+                    promoted = nodes_promoted,
+                    "compact_level: source segment still holds live records; left untouched"
+                );
+                0
             }
-            size_before
         };
 
         let elapsed_ms = started.elapsed().as_millis() as u64;

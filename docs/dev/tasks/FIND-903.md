@@ -1,8 +1,8 @@
 ---
 title: "FIND-903: el borrado certificado no alcanza 0 residuos cuando el registro borrado es el unico de la base"
 kind: task
-status: completed
-description: "Reescritura de segmento vacio (grafo vacio) y reclamacion sin rango muerto (compact_level) con una sola primitiva; la superficie vector_store pasa de not-assessed a scanned con el conteo medido. Medido: 1 residuo en vstore_L0.vanta -> 0."
+status: partial
+description: "Reescritura de segmento vacio (grafo vacio) y reclamacion sin rango muerto (compact_level) con una sola primitiva; la superficie vector_store pasa de not-assessed a scanned con el conteo medido. Medido: 1 residuo en vstore_L0.vanta -> 0. PARCIAL: el predicado que disparaba la reescritura era por grafo y borraba registros vivos sin vector; corregido por FIND-905 a predicado por segmento."
 id: FIND-903
 ---
 
@@ -13,7 +13,31 @@ id: FIND-903
 - **Fuente:** `docs/dev/Backlog.md` (fila `FIND-903`, medida por el carril de `FIND-826` D2)
 - **Origen:** `FIND-826` D2 (medición 2026-11-28) · **Ver:** `FIND-826`, `FIND-343`, `FIND-675`
 - **Esfuerzo:** 🟠 1 d · **Creado:** 2026-11-28
-- **Estado:** ✅ **CERRADA** — implementada y medida.
+- **Estado:** 🟡 **PARCIAL** — el cambio (una sola primitiva de reescritura) se conserva y está
+  medido; **el predicado que lo disparaba estaba mal** y se corrigió en `FIND-905` (abajo).
+
+## Corrección `FIND-905` (2026-11-28): el predicado es por segmento, no por grafo
+
+`reset_empty_segment` era la primitiva correcta; **la condición que lo llamaba, no**. El cierre se
+midió con **un** registro, y con una sola fila no hay hermanos que perder:
+
+| Sitio | Predicado de este cierre (malo) | Predicado actual |
+|---|---|---|
+| `compact_layout_bfs` | `hnsw.entry_point() == None` | `archive::live_record_ids(&vstore).is_empty()` |
+| `compact_level` | `nodes_promoted == live_ids.len()` | lo anterior **y** todos los vivos del segmento origen promovidos |
+
+"Grafo sin entry point" ≠ "segmento sin registros vivos": un registro escrito con `vector: None`
+vive en el segmento, **sí** está en `hnsw.nodes` (`validate_node`), y **nunca** es entry point. En
+`vanta-memory` eso es la norma (`create_l1_episode` escribe sin embedding), así que el borrado
+certificado de un episodio reescribía el segmento entero y se llevaba por delante episodios que no
+le tocaban (`ep_general_002`, medido). Regresión reproducida en los 3 OSes + Coverage por el único
+test `vanta-memory/tests/gdpr_cascade_forget.rs:261`.
+
+Además, `compact_layout_bfs` en la rama **no vacía** sólo copiaba `traverse_graph`; ahora copia el
+orden del grafo **restringido a los registros que viven en ese segmento** y **añade** los vivos que
+el grafo no puede ordenar, y se niega a reescribir si un vivo no tiene offset en el índice.
+`compact_level`, cuando el segmento retiene un vivo que no se promovió, **no reclama nada** (antes
+rebobinaba `write_cursor`, que entrega los bytes de un vivo al siguiente append).
 
 ## Premisa (re-medida en HEAD, no re-derivada)
 
@@ -59,7 +83,7 @@ Devuelve los bytes reclamados.
 | Llamador | Antes | Ahora |
 |---|---|---|
 | `compact_layout_bfs` (grafo vacío) | `Ok(0)` y el residuo se queda | `reset_empty_segment` (esto es lo que convierte el 1 medido en 0) |
-| `compact_level` (reclamar segmento origen promovido) | `write_cursor = ALIGNMENT`, bytes detrás legibles | `reset_empty_segment` cuando **todos** los vivos se promovieron; si alguno no se pudo leer, se conserva el reclamado no destructivo |
+| `compact_level` (reclamar segmento origen promovido) | `write_cursor = ALIGNMENT`, bytes detrás legibles | `reset_empty_segment` cuando **todos los vivos del segmento** se promovieron; si el segmento aún retiene un vivo, **no se reclama nada** (ver corrección `FIND-905`) |
 
 `compact_layout_bfs` sigue devolviendo `Ok(0)` — el número honesto de nodos compactados — pero
 el `tracing::info!` nombra la reescritura (`reclaimed_bytes`, `"segment rewritten empty"`) para
