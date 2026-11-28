@@ -32,7 +32,9 @@ use vanta_memory::core::abstractions::LlmRunner;
 use vanta_memory::core::conversation::backfill_unconsolidated;
 use vanta_memory::ingest::observability;
 use vanta_memory::ingest::runner_config::{build_ingest_runner, ConcreteRunner, IngestRunnerCfg};
-use vanta_memory::services::scheduler::{spawn_memory_scheduler, MemoryScheduler};
+use vanta_memory::services::scheduler::{
+    scheduler_interval_ms_from_env_opt, spawn_memory_scheduler, MemoryScheduler,
+};
 use vantadb::storage::StorageEngine;
 
 /// Default pass interval for `--mcp` (ms).
@@ -62,24 +64,18 @@ fn stopping() -> &'static AtomicBool {
 }
 
 /// Pass interval from the environment (`VANTADB_SCHEDULER_INTERVAL_MS`, the
-/// same knob the HTTP host reads — one name for one meaning). `0` disables the
-/// loop; an unparseable value warns and keeps the default (R-5: never panic on
-/// operator config).
+/// same knob the HTTP host reads — one name for one meaning).
+///
+/// WIRE-23 / R-5 / ADR-0063: this is a **pure delegation** to
+/// [`vanta_memory::services::scheduler::scheduler_interval_ms_from_env_opt`],
+/// which is the single read site of that variable. This host owns only the
+/// *fallback* (its own [`DEFAULT_INTERVAL_MS`], 5 s), never a parser: the
+/// canonical resolver already warns and resolves a *present but unparseable*
+/// value to its own default (60 s), so garbage lands on **60 000 ms** here too —
+/// "unset" is the only input that yields the 5 s host default. `0` still
+/// disables the loop.
 pub(crate) fn interval_ms_from_env() -> u64 {
-    match std::env::var("VANTADB_SCHEDULER_INTERVAL_MS") {
-        Err(_) => DEFAULT_INTERVAL_MS,
-        Ok(raw) => match raw.trim().parse::<u64>() {
-            Ok(v) => v,
-            Err(_) => {
-                tracing::warn!(
-                    value = %raw,
-                    default = DEFAULT_INTERVAL_MS,
-                    "invalid VANTADB_SCHEDULER_INTERVAL_MS, using the MCP default"
-                );
-                DEFAULT_INTERVAL_MS
-            }
-        },
-    }
+    scheduler_interval_ms_from_env_opt().unwrap_or(DEFAULT_INTERVAL_MS)
 }
 
 /// Start the process's memory scheduler over the thread capture queue.
@@ -235,6 +231,7 @@ mod tests {
     use serde_json::{json, Value};
     use std::sync::Arc;
     use vanta_memory::core::abstractions::{LlmError, LlmRunParams};
+    use vanta_memory::services::scheduler::DEFAULT_INTERVAL_MS as CANONICAL_DEFAULT_INTERVAL_MS;
     use vantadb::executor::Executor;
 
     /// L1 extraction response shape per `vanta-memory/tests/l1_extractor.rs`.
@@ -321,13 +318,48 @@ mod tests {
             "surrounding spaces are trimmed"
         );
 
+        // WIRE-23: the wrapper is a pure delegation, so a present-but-unparseable
+        // value resolves exactly where `_opt` resolves it — to the *canonical*
+        // default (60 s), not to the MCP host default (5 s). The MCP default only
+        // covers "unset" (`_opt` → `None`); see the doc comment on
+        // `interval_ms_from_env`.
         std::env::set_var("VANTADB_SCHEDULER_INTERVAL_MS", "not-a-number");
         assert_eq!(
             interval_ms_from_env(),
-            DEFAULT_INTERVAL_MS,
-            "operator config never panics (R-5): warn + default"
+            CANONICAL_DEFAULT_INTERVAL_MS,
+            "garbage is R-5 (warn + canonical default), not the host default"
         );
         std::env::remove_var("VANTADB_SCHEDULER_INTERVAL_MS");
+    }
+
+    /// WIRE-23 / R-5 / ADR-0063: the MCP's interval is the *canonical* value —
+    /// `vanta_memory::services::scheduler::scheduler_interval_ms_from_env_opt`
+    /// is the only read site of the knob, and this host only supplies its own
+    /// fallback for "unset".
+    #[test]
+    fn interval_env_takes_its_value_from_the_canonical_resolver() {
+        use vanta_memory::services::scheduler::scheduler_interval_ms_from_env_opt;
+
+        std::env::set_var("VANTADB_SCHEDULER_INTERVAL_MS", "4200");
+        assert_eq!(
+            interval_ms_from_env(),
+            4200,
+            "a declared interval is the declared interval"
+        );
+        assert_eq!(
+            interval_ms_from_env(),
+            scheduler_interval_ms_from_env_opt().expect("declared ⇒ Some"),
+            "the MCP wrapper must not derive its own value"
+        );
+
+        // Unset: the canonical resolver declines, so the host default applies.
+        std::env::remove_var("VANTADB_SCHEDULER_INTERVAL_MS");
+        assert_eq!(scheduler_interval_ms_from_env_opt(), None);
+        assert_eq!(
+            interval_ms_from_env(),
+            5_000,
+            "--mcp keeps its own default (5 s), not the HTTP host's 60 s"
+        );
     }
 
     /// The wave's real DoD: `--mcp` writer → `thread_send` → **scheduler tick**
