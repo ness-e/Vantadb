@@ -45,10 +45,15 @@
   "scripts": {
     "build": "napi build --platform --release --js index.cjs && napi build --platform --release --esm --js index.js && node scripts/patch-exports.mjs",
     "test": "vitest run",
+    "test:electron": "electron tests/electron/main.cjs",
+    "test:electron:asar": "node tests/electron/asar-check.cjs",
     "bench": "node bench/bench-abi.mjs"
   },
   "devDependencies": {
+    "@electron/asar": "^4.3.4",
     "@napi-rs/cli": "^3.8.2",
+    "electron": "45.5.0",
+    "electron-builder": "^26.18.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.11"
   },

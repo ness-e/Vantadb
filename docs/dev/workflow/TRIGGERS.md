@@ -22,6 +22,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | `main-ancestry.yml` | — | Y (`main`, unfiltered) | — | — | `release-plz-*` exempt (FIND-633) |
 | `docs-gates.yml` | Y (`main`, `develop`, paths) | Y (`main`, `develop`, paths) | Y (Mon 07:23) | Y | — |
 | `ci-fleet.yml` | Y (`main`, `develop`, paths) | Y (`main`, `develop`, paths) | Y (Sun 03:00) | Y | 5 jobs (CI-08 Step 4) |
+| `ci-electron.yml` | Y (`main`, `develop`, paths `vantadb-node/**`) | Y (`main`, `develop`, paths `vantadb-node/**`) | — | Y | Electron real ×3 OSes + `asarUnpack` (DIST-21) |
 | `platform-ops.yml` | Y (`main`, `develop`, paths) | Y (`main`, `develop`, paths) | Y (Sun 00:00) | Y | CodeQL |
 | `ci-gate.yml` | — | — | — | — | `workflow_call` |
 
@@ -63,7 +64,9 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 - FIND-228's 2026-10-02 `push: [main]` policy is historical; see the
   2026-11-16 owner amendment in RULES.md §1. `perf-bench.yml`,
   `electron-node.yml` and `release-sbom.yml` are no longer present as
-  workflow files.
+  workflow files. `ci-electron.yml` (DIST-21, 2026-11-28) is a **new** file,
+  not a restoration: it loads the `vantadb-node` binding inside a real Electron
+  process on 3 OSes and checks `asarUnpack`.
 - `ci-web.yml` row removed 2026-10-02: the file was deleted in `82317140`
   (W-05 — `web/` extracted to `ness-e/Vantadb-web`).
 - `lurkr-informational.yml` absorbed into `nightly.yml` (CI-08 Step 3,

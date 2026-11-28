@@ -1,15 +1,15 @@
 ---
-title: Workflows — Inventory (20 active)
+title: Workflows — Inventory (21 active)
 kind: index
 status: active
 description: "Per-workflow detail pages live next to this index (ci-gate.md,"
 tags: [vantadb, ci, workflows, inventory]
 ---
 
-# Workflows — Inventory (20 active)
+# Workflows — Inventory (21 active)
 
-> **Count verified mechanically on 2026-10-16: 20 files** (`Get-ChildItem .github/workflows -Filter *.yml`).
-> Post CI-08 (SRV-10): 40 → 32 (Steps 2-3) → 18 (Step 4) → 19 (+`publish-mcp-registry.yml` FIND-344) → 20 (+`electron-node.yml` DIST-19). Registry: `docs/dev/references/verified-numbers.md`.
+> **Count verified mechanically on 2026-11-28: 21 files** (`Get-ChildItem .github/workflows -Filter *.yml`).
+> Post CI-08 (SRV-10): 40 → 32 (Steps 2-3) → 18 (Step 4) → 19 (+`publish-mcp-registry.yml` FIND-344) → 20 (+`electron-node.yml` DIST-19) → 21 (+`ci-electron.yml` DIST-21). Registry: `docs/dev/references/verified-numbers.md`.
 > Pre-rename snapshot (FIND-142 pending): filenames keep the numeric suffix
 > (`ci-rust.yml`, `release-wheels.yml`, …). After renames, this index
 > must be updated. History: 28 in FIND-128; `rustdoc-70.yml` merged into
@@ -20,7 +20,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 [TRIGGERS.md](./TRIGGERS.md) for the full trigger matrix and
 [PUBLISH.md](./PUBLISH.md) for the release chain.
 
-## CI (8)
+## CI (9)
 
 | Workflow | Purpose (1 line) | Triggers (short) |
 |----------|------------------|------------------|
@@ -29,6 +29,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 | `ci-gate.yml` | Reusable fail-closed gate for heavy jobs | `workflow_call` only |
 | `docs-gates.yml` | Docs gates ×6: lint, links, secrets, API surface, examples, rustdoc (17 jobs) | push/PR (paths docs/src), weekly Mon 07:23, dispatch |
 | `ci-fleet.yml` | Fleet ×4: examples, bindings parity, adapters, providers (5 jobs) | push/PR, weekly Sun 03:00, dispatch |
+| `ci-electron.yml` | `vantadb-node` en Electron real ×3 OSes: carga del `.node` + `asarUnpack` (DIST-21) | push/PR (paths node), dispatch |
 | `demo-acceptance.yml` | Acceptance demos ×5 (F5/F6) | push/PR (union paths), dispatch |
 | `nightly.yml` | Nightly heavy-cert subset + 5 informational jobs | schedule daily 05:00, PR (paths info-only), dispatch |
 | `metrics-collector.yml` | Weekly adoption telemetry collector (`adoption.json`) | schedule Mon 06:00, dispatch |

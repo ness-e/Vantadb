@@ -1,0 +1,133 @@
+name: 'CI: Electron — native .node load + asarUnpack'
+
+# DIST-21 (P0). Dos fallos del binding nativo de `vantadb-node` son invisibles
+# para todo lo que corre hoy — ni vitest (Node) ni `release-npm-node.yml` los
+# ven, porque ninguno carga el `.node` dentro de un proceso Electron ni empaqueta
+# la app:
+#
+#   1. ABI drift: un `.node` compilado contra un Node-API/Electron distinto del
+#      que trae el usuario falla en el runtime del CLIENTE, no en CI.
+#   2. ASAR: si el `.node` queda DENTRO de `app.asar`, Electron no puede hacer
+#      `dlopen` sobre una ruta virtual y el paquete publicado no arranca.
+#
+# Este workflow compila el binding en cada OS (el mismo `npm run build` que
+# publica el release), lo carga en un Electron real, escribe y lee de disco, y
+# empaqueta con `electron-builder --dir` para comprobar que
+# `asarUnpack: ["**/*.node"]` deja el binario fuera del archivo y que la app
+# empaquetada arranca.
+#
+# `paths:` acotado a `vantadb-node/**`: el check NO es required en el ruleset
+# (si algun dia se añade, hay que quitar el filtro o el check quedaria Pending
+# para todo PR que no toque el binding — FIND-770/FIND-807 en ci-rust.yml).
+# Ningun otro path puede romper la carga nativa.
+on:
+  push:
+    branches: ['main', 'develop']
+    paths:
+      - 'vantadb-node/**'
+      - '.github/workflows/ci-electron.yml'
+  pull_request:
+    branches: ['main', 'develop']
+    paths:
+      - 'vantadb-node/**'
+      - '.github/workflows/ci-electron.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  # macOS: sin certificado no hay firma; que electron-builder no la busque.
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  electron:
+    name: Electron ${{ matrix.platform }}
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ${{ matrix.runs-on }}
+    # Build release del crate (~25 min medidos en release-npm-node.yml) + Electron.
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows x64
+            runs-on: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+          - platform: macOS arm64
+            runs-on: macos-latest
+            rust-target: aarch64-apple-darwin
+          - platform: Linux x64
+            runs-on: ubuntu-latest
+            rust-target: x86_64-unknown-linux-gnu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        with:
+          toolchain: 1.95.0
+          targets: ${{ matrix.rust-target }}
+
+      - name: Install dependencies (trae Electron, @electron/asar y electron-builder)
+        working-directory: vantadb-node
+        run: npm ci
+
+      # El MISMO build que publica `release-npm-node.yml`: el `.node` que este
+      # job valida es el artefacto real, no un mock ni un prebuilt.
+      - name: Build vantadb-node (${{ matrix.rust-target }})
+        working-directory: vantadb-node
+        shell: bash
+        env:
+          RUST_TARGET: ${{ matrix.rust-target }}
+        run: |
+          npx napi build --platform --release --target "$RUST_TARGET" --js index.cjs
+          npx napi build --platform --release --target "$RUST_TARGET" --esm --js index.js
+          node scripts/patch-exports.mjs
+          ls -la ./*.node
+
+      # Linux sin display: Electron abre un X11 aunque no haya BrowserWindow.
+      # `xvfb-run` es la ruta documentada; `--headless`/`--ozone-platform=headless`
+      # NO se usan porque no estan verificados en este runner (ver DIST-21.md).
+      - name: Prepare virtual display (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xvfb
+          fi
+          xvfb-run --help >/dev/null && echo "xvfb-run disponible"
+
+      - name: Electron real carga el .node sobre disco (Windows / macOS)
+        if: runner.os != 'Linux'
+        working-directory: vantadb-node
+        run: npm run test:electron
+
+      - name: Electron real carga el .node sobre disco (Linux, sin display)
+        if: runner.os == 'Linux'
+        working-directory: vantadb-node
+        run: xvfb-run -a npm run test:electron
+
+      - name: asarUnpack deja el .node fuera de app.asar (Windows / macOS)
+        if: runner.os != 'Linux'
+        working-directory: vantadb-node
+        run: npm run test:electron:asar
+
+      - name: asarUnpack deja el .node fuera de app.asar (Linux, sin display)
+        if: runner.os == 'Linux'
+        working-directory: vantadb-node
+        run: xvfb-run -a npm run test:electron:asar
