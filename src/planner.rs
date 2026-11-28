@@ -59,7 +59,8 @@ fn note_arm_failure(arm: &str, error: &crate::error::Error) {
 /// Selectivity threshold below which filters are considered highly selective.
 ///
 /// Consumed by the SDK's filter strategy
-/// ([`CostEstimator::select_filter_strategy`](crate::cost_estimator::CostEstimator)):
+/// (`CostEstimator::select_filter_strategy`, in the `pub(crate)` module
+/// `crate::cost_estimator`):
 /// below it the vector search prefilters instead of post-filtering. A filter
 /// with selectivity 0.1 means it prunes ~90 % of rows.
 ///
