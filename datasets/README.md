@@ -1,14 +1,14 @@
 # datasets/ — Raw SIFT-1M (texmex corpus)
 
 > **Local cache.** `/datasets/` is gitignored (see `.gitignore:75`). This README documents
-> the raw SIFT-1M download produced by `dev-tools/scripts/download_sift.py`. No binary files
+> the raw SIFT-1M download produced by `scripts/download_ground_truth.py --datasets sift-1m`. No binary files
 > in this repo — the script fetches them from IRISA's FTP at runtime.
 
 ## Datasets
 
 | Name | Source URL | License | Approx size | Download command | Destination |
 |---|---|---|---|---|---|
-| **SIFT-1M** (texmex corpus) | ftp://ftp.irisa.fr/local/texmex/corpus/sift.tar.gz | Research use (Jégou et al., INRIA) — non-commercial redistribution discouraged | ~160 MB compressed, ~1 GB uncompressed | `python dev-tools/scripts/download_sift.py` | `datasets/sift.tar.gz` + `datasets/sift_*` |
+| **SIFT-1M** (texmex corpus) | ftp://ftp.irisa.fr/local/texmex/corpus/sift.tar.gz | Research use (Jégou et al., INRIA) — non-commercial redistribution discouraged | ~160 MB compressed, ~1 GB uncompressed | `python scripts/download_ground_truth.py --datasets sift-1m` | `datasets/sift.tar.gz` + `datasets/sift_*` |
 
 > **What the tarball contains:** `sift_base.fvecs` (1M × 128 SIFT descriptors, training set),
 > `sift_query.fvecs` (10k queries), `sift_groundtruth.ivecs` (100-NN ground truth for each
@@ -56,5 +56,5 @@ prints "Extraction complete. You can now run the benchmarks!" on success.
 
 - [`data/README.md`](../data/README.md) — HDF5-derived subsets (sift-128/, glove-100/) used by Rust benches.
 - [`embeddings/README.md`](../embeddings/README.md) — local ONNX/HF embedding models (separate cache).
-- `dev-tools/scripts/download_sift.py` — this directory's downloader (FTP).
+- `scripts/download_ground_truth.py --datasets sift-1m` — this directory's downloader (FTP).
 - `scripts/download_ground_truth.py` — produces the `data/benchmark/` subsets from ann-benchmarks HDF5.

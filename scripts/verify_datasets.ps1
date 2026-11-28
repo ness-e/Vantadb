@@ -18,7 +18,7 @@ $ErrorActionPreference = "Stop"
 
 # Dataset definitions: name | source-script | paths
 $DATASETS = @(
-    @{ Name = "SIFT-1M"; Source = "dev-tools/scripts/download_sift.py"; Paths = @(
+    @{ Name = "SIFT-1M"; Source = "scripts/download_ground_truth.py --datasets sift-1m"; Paths = @(
         "datasets/sift/sift_base.fvecs",
         "datasets/sift/sift_query.fvecs",
         "datasets/sift/sift_groundtruth.ivecs"
