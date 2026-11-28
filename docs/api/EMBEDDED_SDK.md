@@ -932,7 +932,9 @@ All fallible methods return `Result<T, Error>`. `Error` is a
 > `VANTADB_TIMEOUT`, `VANTADB_BUSY`, `VANTADB_RESOURCE_LIMIT`,
 > `VANTADB_CORRUPT`, `VANTADB_INVALID_ARGUMENT`, `VANTADB_IO_ERROR`,
 > `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`), `is_retriable()` matrix,
-> `recovery_hint()` guide. Read that first.
+> `recovery_hint()` guide. Read that first. (MCP adds one **transport-level**
+> string that `code()` never returns — `VANTADB_INTERNAL_ERROR`, for a failure
+> that wraps no `Error`; see `ERROR_HANDLING.md` §6.1.)
 
 ### Stable error codes
 

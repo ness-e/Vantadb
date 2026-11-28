@@ -6115,12 +6115,41 @@ fn err_mcp_01_unmapped_codes_fall_back_to_internal() {
 
 #[test]
 fn err_mcp_01_std_factories_keep_null_data() {
-    // Compat: -32602 and friends must not emit a data field unless set.
+    // Compat: the protocol rejections (-32700/-32601/-32602) must not emit a
+    // data field — their JSON-RPC code is the whole contract. The two
+    // wrapped-failure factories are the exception (next test).
     let j = McpError::invalid_params("bad").to_json();
     assert!(
-        j["data"].is_null(),
+        j.get("data").is_none(),
         "legacy factories must not carry data: {j}"
     );
+    for m in [
+        McpError::parse_error("boom"),
+        McpError::method_not_found("nope"),
+    ] {
+        assert!(
+            m.to_json().get("data").is_none(),
+            "protocol rejection {} must not carry data",
+            m.code
+        );
+    }
+}
+
+#[test]
+fn err_mcp_01_wrapped_failures_carry_data_code() {
+    // API-04: a wrapped failure used to reach the client with nothing but the
+    // transport code (`plain()` left `data` null and `to_json` drops null), so an
+    // LLM client could not branch on the cause. Both factories now name their
+    // family with a canonical code and declare retriability.
+    let internal = McpError::internal_error("task panicked").to_json();
+    assert_eq!(internal["code"], -32603);
+    assert_eq!(internal["data"]["code"], "VANTADB_INTERNAL_ERROR");
+    assert_eq!(internal["data"]["retriable"], false);
+
+    let bad_request = McpError::invalid_request("Invalid JSON-RPC version: 1.0").to_json();
+    assert_eq!(bad_request["code"], -32600);
+    assert_eq!(bad_request["data"]["code"], "VANTADB_INVALID_ARGUMENT");
+    assert_eq!(bad_request["data"]["retriable"], false);
 }
 
 // ── EMB-18 (Q4 bloquear+guiar): dim mismatch lleva guía de regeneración ──

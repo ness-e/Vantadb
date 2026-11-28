@@ -137,11 +137,17 @@ re-election attempt.
 The VantaDB MCP server speaks [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
 over stdio. A **domain/typed** error response carries both a **JSON-RPC transport
 code** (the `error.code` field) and a **Vanta canonical code** (in
-`error.data.code`) from the 10-element contract in
-[`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md). The five **standard JSON-RPC
-factories** below are transport-level only: they omit the `data` member
-entirely (`vantadb-mcp/src/error.rs:21-27,123-129` — `plain()` sets
-`data: Value::Null`, and `to_json()` drops the key when it is null).
+`error.data.code`) from the 11-element contract in
+[`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md). Two of the **standard JSON-RPC factories** below (`internal_error` -32603 and
+`invalid_request` -32600) *also* carry `data` — `VANTADB_INTERNAL_ERROR` /
+`VANTADB_INVALID_ARGUMENT` plus `retriable: false` — because a failure that wraps
+no domain `Error` has no other way to be branchable (API-04). Of the other three, `parse_error` and
+`method_not_found` never carry `data` (`vantadb-mcp/src/error.rs` — `plain()`
+sets `data: Value::Null` and `to_json()` drops the key when it is null): their
+transport code is the whole contract. The bare `invalid_params(msg)` factory is
+the same, but the `validation()` factory is `invalid_params` **plus**
+`data.code = VANTADB_VALIDATION_ERROR`, which is what most `-32602` responses
+actually send.
 
 > **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md) §6
 > — full code table, LLM retry guidance, and the upcoming `From<Error>
@@ -153,13 +159,13 @@ Defined in [`vantadb-mcp/src/error.rs`](../../vantadb-mcp/src/error.rs) as the
 `McpError` type. These cover transport-level concerns (malformed request,
 unknown method, invalid params, internal failure):
 
-| JSON-RPC code | `McpError` factory | Meaning |
-|---------------|--------------------|---------|
-| `-32700` | `parse_error` | Invalid JSON received by the server |
-| `-32600` | `invalid_request` | JSON sent is not a valid Request object |
-| `-32601` | `method_not_found` | Method does not exist or is unavailable |
-| `-32602` | `invalid_params` | Invalid method parameter(s) |
-| `-32603` | `internal_error` | Internal JSON-RPC error |
+| JSON-RPC code | `McpError` factory | Meaning | `data.code` |
+|---------------|--------------------|---------|-------------|
+| `-32700` | `parse_error` | Invalid JSON received by the server | — (absent) |
+| `-32600` | `invalid_request` | JSON sent is not a valid Request object | `VANTADB_INVALID_ARGUMENT` |
+| `-32601` | `method_not_found` | Method does not exist or is unavailable | — (absent) |
+| `-32602` | `invalid_params` | Invalid method parameter(s) | `VANTADB_VALIDATION_ERROR` via `validation()`; absent from the bare factory |
+| `-32603` | `internal_error` | Internal JSON-RPC error (wrapped failure) | `VANTADB_INTERNAL_ERROR` |
 
 ### Vanta custom `-320xx` codes
 
@@ -180,7 +186,7 @@ JSON-RPC range:
 | `-32007` | `VANTADB_RESOURCE_LIMIT` (`ResourceLimit`, overflow variants) | `VANTADB_RESOURCE_LIMIT` | ⚠️ backoff |
 | `-32008` | `VANTADB_TIMEOUT` (`Timeout`) | `VANTADB_TIMEOUT` | ✅ |
 | `-32009` | `VANTADB_VALIDATION_ERROR` **and** `VANTADB_INVALID_ARGUMENT` | `VANTADB_VALIDATION_ERROR` / `VANTADB_INVALID_ARGUMENT` | ❌ |
-| `-32603` | unmapped codes (`VANTADB_IO_ERROR`, `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`) | as emitted | ⚠️ retry once |
+| `-32603` | unmapped codes (`VANTADB_IO_ERROR`, `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`) — or nothing at all when the failure wraps no `Error` | as emitted, or `VANTADB_INTERNAL_ERROR` from `McpError::internal_error()` | ⚠️ retry once |
 
 > **Note on `-32003` and `retriable`:** the core `code()` folds the conflict
 > variants (`ExecutionConflict`, `NodeIdCollision`, `CycleDetected`) into
@@ -197,10 +203,16 @@ domain failures expose the same fields as JSON-RPC errors. The legacy
 
 ### Response envelope
 
-Every JSON-RPC error response from VantaDB MCP carries the canonical code in
-`data.code` (the prefixed `VANTADB_*` value returned by `Error::code()`;
-`data.hint` is omitted when the error has no recovery hint), plus `retriable`
-so LLM agents can branch on a stable identifier without parsing message text:
+A JSON-RPC error response from VantaDB MCP carries the canonical code in
+`data.code` (the prefixed `VANTADB_*` value returned by `Error::code()`, or
+`VANTADB_INTERNAL_ERROR` / `VANTADB_INVALID_ARGUMENT` when the failure wraps no
+domain `Error`), plus `retriable` — and `data.hint` when the error carries a
+recovery hint — so LLM agents can branch on a stable identifier without parsing
+message text. The known exceptions, all named: `parse_error` (-32700) and
+`method_not_found` (-32601) never carry `data`; the bare `invalid_params`
+factory only carries it through `validation()`; and the hand-rolled `-32603`
+envelopes in `vantadb-mcp/src/proxy.rs` bypass `McpError` entirely (declared
+debt, API-04).
 
 ```json
 {
@@ -275,6 +287,14 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 | `full` | 84 | All listed tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence (3 listed: search/explore/index), wiki, skills & bugfix patterns, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients (pre-0.8 default; opt-in) |
 | `dev` | 38 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
 | `memory` | 22 | Core memory CRUD (put/get/delete/list/versions/supersede/reinforce) + certificate verify + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
+
+> **On these numbers** (`FIND-159`): `38` is the **`dev` profile's** listed
+> count — it is not the size of the extended tool catalog, which is where the
+> figure used to get misread. The universe is **96 defined** = `55` core
+> (`handle_tools_list()`) + `41` extended (**35 listed** + `6` `code_*`
+> absorbed by WIRE-02), of which **90** are listable across profiles; the
+> extended families and their per-family arithmetic live in
+> [§Extended Tool Families](#extended-tool-families-41-defined-35-listed).
 
 **Usage:**
 
@@ -968,7 +988,16 @@ Records written with `memory_put`'s `quarantine: true` flag (T1) enter the
 
 ## Parity
 
-Tool coverage on this page is **partially** enforced mechanically by `scripts/validate-docs-coverage.ps1`. That gate scans only the `handle_tools_list()` block in `vantadb-mcp/src/handlers/tools.rs` (all **55** core tools: 49 in `full` + 6 `brain`-exclusive in `tools/list`) and checks that each name appears on this page — it does **not** cover the 41 extended tools (35 listed + 6 absorbed `code_*`) in §Extended Tool Families, so those are maintained by hand. Last sync: **2026-11-20** (`T44 / FIND-531` + `FIND-640`: reconciled real counts — `55` core in `handle_tools_list()` + `41` extended = `96` defined / `90` unique listed across profiles; `Brain` = **16** listed including `memory_dream`; updated `memory_put_batch` contract to staged Stage A/B/C post-`FIND-640`). Prior — **2026-11-04** (Fase 2 bugfix MCP exposure: `bugfix_record` and `bugfix_query` exposed in `tools/list` under `Brain` (→16 with `memory_dream`) and `Full` (82→84 listed / 94→96 total defined); `skills.rs` 7→9 tools). Prior — **2026-10-05** (MEMG-09: `code_index` — MGR-22 slice v0: chunker por símbolo Rust + records file-per-node + edges `defines`, idempotente por content-hash; 81→82 listed / 87→88 defined; code intelligence 2→3 listed / 8→9 defined; profiles full 81→82 · openWorldHint true 2→3. Prior — 2026-10-05 (MEMG-02: `memory_reinforce` — outcome loop → refuerzo de confianza post-recall (`used`/`corrected`/`unused`; +0.05 saturado / −0.10 con piso, ventana de 5 min, stamp success-only, derived rechazado), 80→81 listed / 86→87 defined; Core 48→49, Memory CRUD 10→11; profiles agent 38→39 · full 80→81 · dev 37→38 · memory 21→22). Prior — 2026-10-04 (DIST-16: `memory_verify_certificate` — VER-02 certificate verify via the SDK `verify_purge_certificate` (CLI parity), 79→80 listed / 85→86 defined; Core 47→48, Memory CRUD 9→10; profiles agent 37→38 · full 79→80 · dev 36→37 · memory 20→21; WAL chain VER-01 cited, not duplicated → FIND-266). Prior — 2026-09-29 (SCH-07/F3.5: v2 query params — `as_of_ms`, `valid_window`, `include_quarantined`, `min_confidence` — on `memory_search`/`search_with_method`/`search_multi`/`memory_list`, plus the selective-abstention section; tool count unchanged at 79 listed). Prior — 2026-09-27 (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
+Tool coverage on this page is **partially** enforced mechanically by `scripts/validate-docs-coverage.ps1`. That gate scans only the `handle_tools_list()` block in `vantadb-mcp/src/handlers/tools.rs` (all **55** core tools: 49 in `full` + 6 `brain`-exclusive in `tools/list`) and checks that each name appears on this page — it does **not** cover the 41 extended tools (35 listed + 6 absorbed `code_*`) in §Extended Tool Families, so those are maintained by hand.
+
+Last sync: **2026-11-20** (`T44 / FIND-531` + `FIND-640`: reconciled real counts — `55` core in `handle_tools_list()` + `41` extended = `96` defined / `90` unique listed across profiles; `Brain` = **16** listed including `memory_dream`; updated `memory_put_batch` contract to staged Stage A/B/C post-`FIND-640`). Prior — **2026-11-04** (Fase 2 bugfix MCP exposure: `bugfix_record` and `bugfix_query` exposed in `tools/list` under `Brain` (→16 with `memory_dream`) and `Full` (82→84 listed / 94→96 total defined); `skills.rs` 7→9 tools). Prior — **2026-10-05** (MEMG-09: `code_index` — MGR-22 slice v0: chunker por símbolo Rust + records file-per-node + edges `defines`, idempotente por content-hash; 81→82 listed / 87→88 defined; code intelligence 2→3 listed / 8→9 defined; profiles full 81→82 · openWorldHint true 2→3. Prior — 2026-10-05 (MEMG-02: `memory_reinforce` — outcome loop → refuerzo de confianza post-recall (`used`/`corrected`/`unused`; +0.05 saturado / −0.10 con piso, ventana de 5 min, stamp success-only, derived rechazado), 80→81 listed / 86→87 defined; Core 48→49, Memory CRUD 10→11; profiles agent 38→39 · full 80→81 · dev 37→38 · memory 21→22). Prior — 2026-10-04 (DIST-16: `memory_verify_certificate` — VER-02 certificate verify via the SDK `verify_purge_certificate` (CLI parity), 79→80 listed / 85→86 defined; Core 47→48, Memory CRUD 9→10; profiles agent 37→38 · full 79→80 · dev 36→37 · memory 20→21; WAL chain VER-01 cited, not duplicated → FIND-266). Prior — 2026-09-29 (SCH-07/F3.5: v2 query params — `as_of_ms`, `valid_window`, `include_quarantined`, `min_confidence` — on `memory_search`/`search_with_method`/`search_multi`/`memory_list`, plus the selective-abstention section; tool count unchanged at 79 listed). Prior — 2026-09-27 (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
+
+> **Deferred by decision (`FIND-159`, API-04 §a):** generating those 41 extended
+> tool schemas from a single source with `schemars` is **not** happening now. It
+> needs wire structs plus typed parsing across the 7 extended families
+> (multi-week), and it buys nothing a client cannot already do through the typed
+> error envelopes above. The hand-maintained list stays the contract until a
+> family grows enough to justify the generator.
 
 ## Registry manifest
 

@@ -29,10 +29,12 @@ VantaDB follows the same standardization lesson that
 
 Applied to VantaDB:
 
-1. **Small canonical code list** — 10 codes (`VANTADB_VALIDATION_ERROR`,
+1. **Small canonical code list** — 11 codes (`VANTADB_VALIDATION_ERROR`,
    `VANTADB_NOT_FOUND`, `VANTADB_TIMEOUT`, `VANTADB_BUSY`,
    `VANTADB_RESOURCE_LIMIT`, `VANTADB_CORRUPT`, `VANTADB_INVALID_ARGUMENT`,
-   `VANTADB_IO_ERROR`, `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`) instead of
+   `VANTADB_IO_ERROR`, `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`, and
+   `VANTADB_INTERNAL_ERROR` — the last one is the MCP transport's name for a
+   wrapped failure with no core `Error::code()` behind it, §6.1) instead of
    one-per-variant proliferation.
 2. **Codes are stable; messages are not** — clients must `match` on `code`,
    never on `message` text. `Display` strings can change without a major
@@ -97,7 +99,7 @@ the `Display` strings (bindings' fallback classifiers parse them).
 
 ## 1. Error code table
 
-### 1.1 Canonical codes (10 — contract surface)
+### 1.1 Canonical codes (11 — contract surface)
 
 Every VantaDB error, regardless of source binding, normalizes to one of these
 codes. Clients should branch on `code`; the variant-specific fields are
@@ -119,6 +121,7 @@ the *code*, not the class name, is the cross-binding contract) (ERR-PY-01).
 | `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `Io` (❌), `Wal` (✅), `Backend` (✅), `Cli`, `Search`, `Runtime` | see §2 |
 | `VANTADB_WASM_ERROR` | Generic catch-all fallback (`Generic`) | `Generic` | ❌ |
 | `VANTADB_CLOSED` | Operation attempted on a closed database handle | (lifecycle, not an `Error` variant — never returned by `code()`) | ❌ |
+| `VANTADB_INTERNAL_ERROR` | Wrapped failure with no core `Error` behind it (panic, closed semaphore, cancellation, serialization) — the MCP transport's name for `-32603` | (none — transport-level; `code()` never returns it) | ❌ |
 
 > **Final mapping note (ERR-CORE-01):** the previously provisional overlap
 > between `VALIDATION_ERROR` and `INVALID_ARGUMENT` on `IqlParse` is
@@ -377,6 +380,22 @@ Defined in `vantadb-mcp/src/error.rs`:
 | `-32602` | `invalid_params` | Invalid method parameter(s) |
 | `-32603` | `internal_error` | Internal JSON-RPC error |
 
+> **`data` is not carried by every factory.** `internal_error` (-32603) and
+> `invalid_request` (-32600) emit `data.code` — `VANTADB_INTERNAL_ERROR` and
+> `VANTADB_INVALID_ARGUMENT` respectively — plus `retriable: false`, because a
+> failure that wraps no domain `Error` would otherwise reach the client with
+> nothing but the transport code and no way to branch on the cause family
+> (API-04, `vantadb-mcp/src/error.rs`). Two clarifications on the rest:
+>
+> - The bare `invalid_params(msg)` factory leaves `data` absent, but
+>   `validation()` is `invalid_params` **plus** `data.code =
+>   VANTADB_VALIDATION_ERROR`, so a `-32602` on the wire usually *does* carry it
+>   (§6.3's example is exactly that).
+> - `parse_error` (-32700) and `method_not_found` (-32601) never carry `data`:
+>   their transport code is the whole contract. The hand-rolled `-32603`
+>   envelopes in `vantadb-mcp/src/proxy.rs` also bypass `McpError` and can omit
+>   it — declared debt, not a contract.
+
 ### 6.2 Vanta custom `-320xx` codes
 
 Mapped from `Error` (Task `ERR-MCP-01`):
@@ -403,7 +422,7 @@ Mapped from `Error` (Task `ERR-MCP-01`):
     "code": -32602,
     "message": "validation failed on 'namespace': must not be empty",
     "data": {
-      "code": "VALIDATION_ERROR",
+      "code": "VANTADB_VALIDATION_ERROR",
       "retriable": false,
       "hint": "Provide a non-empty namespace identifier",
       "details": { "field": "namespace" }
@@ -420,12 +439,26 @@ transport layer.
 
 | JSON-RPC code | Vanta canonical code | Should LLM retry? |
 |---------------|----------------------|:-----------------:|
+| `-32700` | *(no `data` — parse failure)* | ❌ fix the JSON |
+| `-32600` | `INVALID_ARGUMENT` | ❌ fix the request object |
+| `-32601` | *(no `data` — unknown method)* | ❌ wrong tool name |
 | `-32602` | `VALIDATION_ERROR` | ❌ fix the input |
 | `-32001` | `BUSY` | ✅ wait + retry |
 | `-32004` | `NOT_FOUND` | ❌ resource missing |
 | `-32007` | `RESOURCE_LIMIT` | ⚠️ retry with backoff |
 | `-32008` | `TIMEOUT` | ✅ retry (or increase timeout) |
-| `-32603` | (unknown internal) | ⚠️ retry once, then escalate |
+| `-32603` | `INTERNAL_ERROR` (wrapped failure) or the core code when derived from `Error` | ⚠️ retry once, then escalate |
+
+> **`-32603` is the least specific slot, so read `data.retriable`, not the
+> table.** The factory declares `retriable: false` (a wrapped failure is not a
+> retriable condition by the core's classification), while this table's advice
+> is deliberately softer: the same slot also catches failures that *are*
+> retriable when the call site misclassifies them — `vantadb-mcp/src/server.rs`
+> maps a request timeout (`Request timed out`) to `internal_error`, so that path
+> ships `retriable: false` for what is semantically `VANTADB_TIMEOUT` (✅). That
+> misclassification is declared debt (API-04), not a contract: until those call
+> sites move to a `timeout()` factory, a client that always retried `-32603`
+> once behaves better than one that trusts the flag for timeouts.
 
 ---
 

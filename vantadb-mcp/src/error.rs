@@ -14,6 +14,10 @@ pub struct McpError {
     pub message: String,
     /// Optional structured payload (`data.code` canonical string, `retriable`,
     /// `hint`) per docs/api/ERROR_HANDLING.md §6.3. `Null` → omitted on the wire.
+    /// Only the protocol rejections (`parse_error`, `method_not_found`,
+    /// `invalid_params`) leave it null: their JSON-RPC code is the whole
+    /// contract. `internal_error` and `invalid_request` carry `data.code`, so a
+    /// wrapped failure stays branchable (API-04).
     pub data: Value,
 }
 
@@ -78,14 +82,34 @@ impl McpError {
         e
     }
 
-    /// Create an internal-error (-32603) with the given message.
+    /// Create an internal-error (-32603) carrying the canonical
+    /// `VANTADB_INTERNAL_ERROR` code in `data` (API-04). A wrapped failure
+    /// (panic, closed semaphore, cancellation, serialization) is not a domain
+    /// `Error`, so there is no `Error::code()` to forward — without this code the
+    /// client sees only the transport code and cannot branch on the cause
+    /// family. `retriable: false` mirrors the core's classification for a
+    /// generic failure (docs/api/ERROR_HANDLING.md §1.1).
     pub fn internal_error(msg: impl Into<String>) -> Self {
-        Self::plain(-32603, msg.into())
+        let mut e = Self::plain(-32603, msg.into());
+        e.data = json!({
+            "code": "VANTADB_INTERNAL_ERROR",
+            "retriable": false,
+        });
+        e
     }
 
-    /// Create an invalid-request error (-32600) with the given message.
+    /// Create an invalid-request error (-32600) carrying the canonical
+    /// `VANTADB_INVALID_ARGUMENT` code in `data` (API-04). A request that is not
+    /// a valid JSON-RPC Request object is a caller-side malformed argument, the
+    /// same family `Error::Iql` maps to for -32009, so a client can branch
+    /// instead of guessing from the transport code alone.
     pub fn invalid_request(msg: impl Into<String>) -> Self {
-        Self::plain(-32600, msg.into())
+        let mut e = Self::plain(-32600, msg.into());
+        e.data = json!({
+            "code": "VANTADB_INVALID_ARGUMENT",
+            "retriable": false,
+        });
+        e
     }
 
     /// Build the structured error from a domain error, by reference so the
