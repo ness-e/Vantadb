@@ -334,6 +334,189 @@ fn physical_erasure_no_payload_bytes_after_full_maintenance() {
     );
 }
 
+/// Raw recursive byte scan of the database directory (VER-02 / EGO-16 /
+/// FIND-343 / FIND-826): the only measurement that answers "is the payload still
+/// readable on disk".
+fn scan_bytes(dir: &std::path::Path, needle: &[u8]) -> Vec<String> {
+    fn visit(path: &std::path::Path, needle: &[u8], hits: &mut Vec<String>) {
+        let Ok(entries) = std::fs::read_dir(path) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                visit(&p, needle, hits);
+            } else if let Ok(bytes) = std::fs::read(&p) {
+                if bytes.windows(needle.len()).any(|w| w == needle) {
+                    hits.push(p.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    let mut hits = Vec::new();
+    visit(dir, needle, &mut hits);
+    hits
+}
+
+/// FIND-826: `forget(mode = Certified)` must erase the **bytes**, not just the
+/// record. On HEAD the certified path is byte-identical to `hard`: the payload
+/// survives in the Fjall journal (`0.jnl`) and `data/vanta.shard0.wal`, and the
+/// vector in `vstore_L0.vanta`, until someone runs `compact_wal` +
+/// `compact_layout` by hand — while the receipt already says `purged`.
+///
+/// The witness record must survive, so a "0 hits" cannot come from wiping the
+/// database. Cheap enough for the Fast Gate: two records, one compaction.
+#[test]
+fn forget_certified_erases_payload_and_vector_bytes_with_witness_alive() {
+    use vantadb::{ForgetMode, ForgetTarget};
+
+    // P2-01 M4 (FIND-343): a key in the environment would encrypt the database
+    // and 0 hits would mean "ciphertext", not "erased" — a vacuous measurement.
+    for var in [
+        "VANTADB_ENCRYPTION_KEY",
+        "VANTADB_ENCRYPTION_KEY_FILE",
+        "VANTADB_ENCRYPTION_KEY_CMD",
+    ] {
+        std::env::remove_var(var);
+    }
+
+    const MARKER: &str = "FIND826-PROBE-certified-erasure-9b1d7e4a2c8f0356";
+    const WITNESS: &str = "FIND826-WITNESS-must-survive-every-forget-mode";
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = open_temp_db(&dir);
+
+    let mut subject = certified_input("erase", "subject");
+    subject.payload = format!("GDPR subject record marker {MARKER} fin");
+    subject.vector = Some(vec![0.6, 0.8, 0.0]);
+    db.put(subject).expect("put subject");
+
+    let mut witness = certified_input("erase", "witness");
+    witness.payload = WITNESS.to_string();
+    // A different vector on purpose: a shared vector would make the vector-byte
+    // needle match the witness and the instrument would report its own fixture.
+    witness.vector = Some(vec![0.0, 0.28, 0.96]);
+    db.put(witness).expect("put witness");
+
+    // The needle is the vector **as stored** (normalization included), so the
+    // test measures the bytes on disk instead of the bytes it wrote.
+    let stored = db
+        .get("erase", "subject")
+        .expect("get")
+        .expect("subject present");
+    let vector_needle: Vec<u8> = stored
+        .vector
+        .as_ref()
+        .expect("stored vector")
+        .iter()
+        .flat_map(|f| f.to_le_bytes())
+        .collect();
+
+    let report = db
+        .forget(
+            "erase",
+            ForgetTarget::Key("subject".to_string()),
+            ForgetMode::Certified,
+        )
+        .expect("certified forget");
+    assert_eq!(report.forgotten_count, 1, "the subject must be forgotten");
+    assert_eq!(
+        report.certificates.len(),
+        1,
+        "one certificate per purged key"
+    );
+
+    db.flush().expect("flush");
+    db.close().expect("close");
+
+    fn scan(path: &std::path::Path, needle: &[u8]) -> Vec<String> {
+        scan_bytes(path, needle)
+    }
+
+    let payload_hits = scan(dir.path(), MARKER.as_bytes());
+    let vector_hits = scan(dir.path(), &vector_needle);
+    let witness_hits = scan(dir.path(), WITNESS.as_bytes());
+
+    assert!(
+        payload_hits.is_empty(),
+        "certified forget left the payload on disk in {payload_hits:?}: the \
+         receipt claims `purged` while the bytes are recoverable until a manual \
+         `compact_wal` + `compact_layout` (FIND-826, GDPR Art. 17)"
+    );
+    assert!(
+        vector_hits.is_empty(),
+        "certified forget left the vector bytes on disk in {vector_hits:?}: the \
+         index still holds the embedding (FIND-826)"
+    );
+    assert!(
+        !witness_hits.is_empty(),
+        "the witness record must survive a certified forget — an empty database \
+         is not an erasure"
+    );
+}
+
+/// Same assertion for the single-key surface the CLI uses (`delete --attest`
+/// wraps `delete_certified`): the receipt is what a regulator reads, so it must
+/// not be emitted before the bytes are gone.
+#[test]
+fn delete_certified_erases_payload_bytes_too() {
+    const MARKER: &str = "FIND826-PROBE-delete-certified-4d2f8a1c60e93b57";
+
+    for var in [
+        "VANTADB_ENCRYPTION_KEY",
+        "VANTADB_ENCRYPTION_KEY_FILE",
+        "VANTADB_ENCRYPTION_KEY_CMD",
+    ] {
+        std::env::remove_var(var);
+    }
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = open_temp_db(&dir);
+    let mut input = certified_input("erase", "single");
+    input.payload = format!("single-key certified delete marker {MARKER} fin");
+    db.put(input).expect("put");
+
+    let cert = db.delete_certified("erase", "single").expect("delete");
+    assert_eq!(cert.status, "purged");
+    db.flush().expect("flush");
+    db.close().expect("close");
+
+    let hits = scan_bytes(dir.path(), MARKER.as_bytes());
+    assert!(
+        hits.is_empty(),
+        "delete_certified left the payload on disk in {hits:?} while attesting \
+         `purged` (FIND-826)"
+    );
+}
+
+/// The in-memory/WASM backend has no on-disk bytes to rewrite: a certified
+/// forget there must still succeed (the WASM binding maps `"certified"` to this
+/// same path) instead of failing on the compaction it does not need.
+#[test]
+fn forget_certified_on_in_memory_backend_still_succeeds() {
+    use vantadb::{BackendKind, ForgetMode, ForgetTarget};
+
+    let db = Embedded::open_with_config(Config {
+        storage_path: ":memory:".into(),
+        backend_kind: BackendKind::InMemory,
+        ..Default::default()
+    })
+    .expect("open in-memory");
+
+    db.put(certified_input("erase", "subject")).expect("put");
+    let report = db
+        .forget(
+            "erase",
+            ForgetTarget::Key("subject".to_string()),
+            ForgetMode::Certified,
+        )
+        .expect("certified forget on an in-memory database");
+    assert_eq!(report.forgotten_count, 1);
+    assert_eq!(report.certificates.len(), 1);
+    assert!(db.get("erase", "subject").expect("get").is_none());
+    db.close().expect("close");
+}
+
 #[test]
 fn verify_rejects_claimless_certificate_even_with_recomputed_hash() {
     use sha2::{Digest, Sha256};

@@ -1944,6 +1944,15 @@ impl Embedded {
     /// surfaces and marks record-dependent ones `not-assessed` (status
     /// `not_found`) instead of claiming a clean purge.
     ///
+    /// # Scope (FIND-826)
+    ///
+    /// This is the per-key surface: it removes the record logically and attests
+    /// the logical surfaces. The purged **bytes** stay in the WAL/backend
+    /// journal and the vector store until those files are rewritten. For a
+    /// receipt that holds up under a raw byte scan, use
+    /// [`Embedded::forget`] with [`ForgetMode::Certified`], which compacts
+    /// before emitting the certificate.
+    ///
     /// # Durability (cross-process verification)
     ///
     /// The certificate reflects the state of this live engine handle. A
@@ -1960,11 +1969,34 @@ impl Embedded {
         key: &str,
     ) -> Result<crate::attestation::PurgeCertificate> {
         let deleted = self.delete_inner(namespace, key)?;
+        // FIND-826: the certificate must not outrun the erase. The delete above
+        // is logical (KV + HNSW/vstore tombstones); the purged bytes stay in the
+        // WAL/backend journal and the vector store until those files are
+        // rewritten. Compact before attesting when there was something to erase.
+        if deleted.is_some() {
+            self.compact_wal()?;
+            self.compact_layout()?;
+        }
+        self.purge_certificate(namespace, key, deleted.as_ref())
+    }
+
+    /// Build the VER-02 purge certificate for one key from its deleted record.
+    ///
+    /// Split out of [`Embedded::delete_certified`] so `forget(Certified)` can
+    /// purge a whole target set, compact **once**, and only then emit the
+    /// certificates (FIND-826) — building them before the compaction would
+    /// attest a `purged` state whose bytes are still on disk.
+    fn purge_certificate(
+        &self,
+        namespace: &str,
+        key: &str,
+        deleted: Option<&MemoryRecord>,
+    ) -> Result<crate::attestation::PurgeCertificate> {
         let engine = self.engine_handle()?;
         let node_id = memory_node_id(namespace, key);
         crate::attestation::build_certificate(
             &engine,
-            deleted.as_ref(),
+            deleted,
             namespace,
             key,
             node_id,
@@ -2027,6 +2059,17 @@ impl Embedded {
     ///
     /// Supports `Soft` (mark invalid_at_ms), `Hard` (physical delete), and
     /// `Certified` (delete with PurgeCertificate).
+    ///
+    /// # `Certified` erases bytes before attesting them
+    ///
+    /// `Hard` and `Certified` both remove the record, but only `Certified`
+    /// **rewrites the on-disk surfaces that still held the purged bytes** —
+    /// the WAL/backend journal (`compact_wal`) and the vector store
+    /// (`compact_layout`) — *before* the receipt is emitted. On a persistent
+    /// database this makes a certified forget a maintenance-class operation
+    /// (cost proportional to the database, not to the target set): the price of
+    /// a receipt that holds up under a raw byte scan (FIND-826, GDPR Art. 17).
+    /// An in-memory backend has no on-disk bytes and pays nothing.
     #[tracing::instrument(skip(self), err)]
     pub fn forget(
         &self,
@@ -2114,13 +2157,32 @@ impl Embedded {
                 }
             }
             ForgetMode::Certified => {
+                // FIND-826: `delete_certified` removes the record **logically**
+                // (KV tombstone + HNSW/vstore tombstone); the purged bytes stay
+                // on disk until the WAL/backend journal and the vector store are
+                // rewritten. Measured on HEAD: after forget + flush + close the
+                // payload marker was still in `0.jnl` and `data/vanta.shard0.wal`
+                // and the vector bytes in `vstore_L0.vanta` — byte-identical to a
+                // `hard` forget, while the receipt said `purged`.
+                //
+                // A certified erasure is the GDPR Art. 17 path, so the receipt
+                // must not outrun the erase: compact **before** emitting it, once
+                // per call (not per key — same two commands the bench uses to
+                // reach 0 bytes: `compact_wal` + `compact_layout`).
+                let mut erased: Vec<(String, MemoryRecord)> = Vec::new();
                 for key in target_keys {
-                    let cert = self.delete_certified(namespace, &key)?;
-                    if cert.status != "not_found" {
+                    if let Some(record) = self.delete_inner(namespace, &key)? {
                         forgotten_count += 1;
-                        keys.push(key);
-                        certificates.push(cert);
+                        erased.push((key, record));
                     }
+                }
+                if !erased.is_empty() {
+                    self.compact_wal()?;
+                    self.compact_layout()?;
+                }
+                for (key, record) in erased {
+                    certificates.push(self.purge_certificate(namespace, &key, Some(&record))?);
+                    keys.push(key);
                 }
             }
         }
