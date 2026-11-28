@@ -551,6 +551,87 @@ mod tests {
         }
     }
 
+    // ─── FIND-830: no clear record key in the derived/sparse keys ──
+
+    /// `FIND-830` byte scan: the record key must not appear **in clear** in any
+    /// of the three key families `FIND-513` left open — derived namespace
+    /// index, derived payload index, sparse postings. The **value** is
+    /// AEAD-sealed by the backend; the **key** is not (`ADR-0057 §5.3`), so an
+    /// `ls`/`strings` of the backend read the record key — and, through the
+    /// payload index, which payload each record holds.
+    ///
+    /// The scan is over bytes, not over the name of the builder: three
+    /// matching keys is the leak, zero is the fix. Population is asserted
+    /// first so a zero cannot be vacuous.
+    #[test]
+    fn f830_no_clear_record_key_in_derived_or_sparse_keys() {
+        const CLEAR_KEY: &str = "invoice-2026-0001";
+
+        let db = Embedded::open_with_config(crate::config::Config {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("in-memory db");
+        let mut input = crate::sdk::MemoryInput::new("ns1", CLEAR_KEY, "hello world");
+        input
+            .metadata
+            .insert("owner".into(), Value::String("eros".into()));
+        input.sparse_vector = Some(crate::node::SparseVector(std::collections::BTreeMap::from(
+            [(7u32, 0.5f32)],
+        )));
+        db.put(input).expect("put");
+
+        let engine = db.engine_handle().unwrap();
+        let partitions = [
+            BackendPartition::NamespaceIndex,
+            BackendPartition::PayloadIndex,
+            BackendPartition::SparseIndex,
+        ];
+        let mut scanned = Vec::new();
+        let mut leaks = Vec::new();
+        for partition in partitions {
+            let keys: Vec<Vec<u8>> = engine
+                .scan_partition(partition)
+                .unwrap()
+                .into_iter()
+                .map(|(key, _)| key)
+                .collect();
+            let hits = keys
+                .iter()
+                .filter(|key| {
+                    key.windows(CLEAR_KEY.len())
+                        .any(|window| window == CLEAR_KEY.as_bytes())
+                })
+                .count();
+            scanned.push((partition, keys.len(), hits));
+            if hits > 0 {
+                leaks.push(format!("{partition:?}: {hits}"));
+            }
+        }
+        assert!(
+            scanned.iter().all(|(_, entries, _)| *entries > 0),
+            "the scan must run over a populated index: {scanned:?}"
+        );
+        assert!(
+            leaks.is_empty(),
+            "the cleartext record key is in {} of {} key families: {leaks:?}",
+            leaks.len(),
+            partitions.len()
+        );
+
+        // The operator-facing declaration is pinned with the layout: change one
+        // without the other and this fails (same shape as `FIND-513`).
+        let guide = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/user/operations/SECURITY.md");
+        let doc = std::fs::read_to_string(&guide)
+            .unwrap_or_else(|e| panic!("cannot read {}: {e}", guide.display()));
+        assert!(
+            doc.contains("FIND-830"),
+            "the derived/sparse key limit must be declared in {}",
+            guide.display()
+        );
+    }
+
     // ─── derived_put_ops ───────────────────────────────────────
 
     #[test]

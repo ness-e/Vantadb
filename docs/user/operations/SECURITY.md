@@ -65,12 +65,13 @@ feature. An existing plaintext database is **never** migrated implicitly.
 
 - **Fuentes de clave** (precedencia fija): `VANTADB_ENCRYPTION_KEY` →
   `VANTADB_ENCRYPTION_KEY_FILE` → `VANTADB_ENCRYPTION_KEY_CMD`.
-- **Lo que NO se cifra**: las claves del backend y las **etiquetas ciegas** del
-  indice de texto (v4: `tag8 = SHA-256(domain ‖ valor)[0..8]`, sin clave — ver
-  la seccion de abajo), el namespace, el tamano de los valores, la estructura
+- **Lo que NO se cifra**: las claves del backend y las **etiquetas ciegas** de los
+  índices (v4: `tag8 = SHA-256(domain ‖ valor)[0..8]`, sin clave — ver las
+  secciones de abajo), el namespace, el tamano de los valores, la estructura
   (conteos, orden, timestamps), y la master key vive en la memoria del proceso.
-  Las claves del indice **derivado** (`namespace_index_key`, `payload_index_key`)
-  y los postings sparse **siguen llevando la clave del registro en claro**.
+  Los **nombres** de campo y los **valores** del índice derivado de payload
+  siguen en claro (un filtro por igualdad tiene que encontrarlos sin el
+  registro); la clave del registro **no**, desde `FIND-830`.
 
 ### Text index keys (FIND-513): blind tags, and what still leaks
 
@@ -106,10 +107,52 @@ An operator with disk access can still learn:
 What is gone **from the text index**: the cleartext token, the cleartext record
 key, and the trivially-readable term→document correlation.
 
-**Not gone elsewhere:** the **derived** namespace/payload index keys
-(`namespace_index_key`, `payload_index_key`) and the sparse postings
-(`sparse_posting_key`) still carry the record key in clear — they are separate
-keyspaces and separate findings, not covered by this change.
+### Derived index and sparse postings (FIND-830): the record key is blind too
+
+The same primitive (`tag8`, one implementation, a domain separator per family)
+now backs the two derived index keys and the sparse postings — the keyspaces
+`FIND-513` left open:
+
+```
+namespace index = namespace ‖ 0x00 ‖ tag8(record_key)
+payload index   = namespace ‖ 0x00 ‖ field ‖ 0x00 ‖ encoded_value ‖ 0x00 ‖ tag8(record_key)
+sparse posting  = "v2" ‖ 0x00 ‖ namespace ‖ 0x00 ‖ dim ‖ 0x00 ‖ tag8(record_key)
+```
+
+What stops being readable: **which record** each derived entry belongs to. That
+was not only the record key — the payload index made it a payload map ("record
+`invoice-2026-0001` has `owner = eros`"), so the association key→payload is gone
+from the file. The `sparse_posting_prefix` (the range scan in
+`src/sdk/search/sparse.rs`) and the two derived prefixes are untouched: the tag
+sits **after** the prefix, exactly like the text-index `posting_prefix`.
+
+What is **not** covered, and must not be read as covered:
+
+- **The namespace stays in clear** in all four keyspaces. It is the scan prefix
+  and the namespace purge depends on it; encrypting it would break the ordered
+  lookups (same declared limit as `ADR-0057 §5.3.1`).
+- **Field names and filter values stay in clear** in the payload index
+  (`field`, `encoded_value`). An equality filter has to find `(field, value)`
+  without knowing the record, so those two components must stay scannable; the
+  record they point at is a tag. An operator still learns *which* field/value
+  pairs a namespace indexes — never *which record* holds them.
+- **The tags are still unkeyed**, so the dictionary attack applies here too: a
+  guessed record key or payload value can be confirmed, and a short/guessable
+  record id (`k1`, `invoice-2026-0001`) is recovered by hashing candidates.
+  Measured on a real text-index partition (`FIND-829`): **40/40 indexed tokens
+  recovered (100 %) from a 200-word list**, 0 false positives. The same holds
+  for the derived and sparse tags. Closing that needs `k_blind` — a per-database
+  secret derived from the key hierarchy (`ADR-0057`) — which is **not
+  implemented** (`k_blind` appears in **0** source files); the contract and the
+  missing pieces are in [`FIND-829`](../../dev/tasks/FIND-829.md).
+
+Version marker: the derived and sparse indexes carry it in their state
+(`DERIVED_INDEX_SCHEMA_VERSION` 1→2, `SPARSE_INDEX_SCHEMA_VERSION` 1→2) plus a
+`v2` key prefix for the sparse postings, so a v1 entry is rejected and the
+partition is **rebuilt** from canonical records on the next writable open — an
+old index is never read as if it were new. Pinned by
+`impl_index::tests::f830_no_clear_record_key_in_derived_or_sparse_keys` and
+`impl_rebuild::tests::f830_clear_key_indexes_are_rejected_and_rebuilt`.
 
 The layout change is a **version marker plus a rebuild** of the text index
 (derived from canonical data): an index written by the clear-key layout reports

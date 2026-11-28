@@ -982,7 +982,6 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `FIND-830` | 🟠 Alta | **el índice derivado y los sparse postings SIGUEN llevando la clave del registro en claro**, aunque el índice de texto ya no | `src/text_index.rs` (`namespace_index_key`, `payload_index_key`, sparse postings) | 🟡 2-4h | 🟠 Alta | 🟡 Pendiente (2026-11-27) | Lo declaró el cierre de `FIND-513` como segundo hallazgo: el fix cegó la clave de los **postings de texto**, pero el **índice derivado** (`namespace_index_key`, `payload_index_key`) y los **sparse postings** conservan el `record_key` legible. Es la misma fuga que `FIND-513` con otra puerta — y la puerta que quedó abierta es la que indexa por namespace y payload, así que expone **qué namespace y qué payload tiene cada registro**, no sólo su clave. **Contrato:** la misma construcción ciega (`tag8` o `k_blind` cuando `FIND-829` entre) para esas tres familias de claves, con rebuild por marcador de versión como el que ya existe. **Verificación:** el escaneo de bytes del índice no encuentra el `record_key` en claro en **ninguna** de las tres familias; y el rebuild produce el mismo resultado de búsqueda. | Origen: cierre de `FIND-513` (2026-11-27) | Ver: `FIND-513`, `FIND-829` |
 
 ## Alta 2026-11-28 - El path certificado solo reescribe L0
 

@@ -994,6 +994,212 @@ mod tests {
         assert_eq!(before_sorted, after_sorted);
     }
 
+    // ─── FIND-830: v1 (clear-key) derived/sparse → v2 (blind key) ──
+
+    /// `FIND-830`: an index written by the clear-key layout must be **rejected**
+    /// on reopen, rebuilt from canonical data, and answer the same queries —
+    /// derive/payload/sparse state carries the layout in `schema_version`, so a
+    /// bump is the marker (same mechanism `FIND-513` used for the text index).
+    ///
+    /// Two halves, same tempdir: (1) only the state is downgraded to v1 → the
+    /// reopen must leave a current state and the same results; (2) a v1 key
+    /// with the record key in clear is present in all three partitions → the
+    /// rebuild must wipe it.
+    #[test]
+    fn f830_clear_key_indexes_are_rejected_and_rebuilt() {
+        use crate::backend::BackendPartition;
+
+        const CLEAR_KEY: &str = "invoice-0001";
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("db").to_string_lossy().to_string();
+        let open = || {
+            crate::sdk::Embedded::open_with_config(crate::config::Config {
+                storage_path: path.clone(),
+                ..Default::default()
+            })
+            .expect("open db")
+        };
+
+        let text_results = |db: &crate::sdk::Embedded| {
+            let mut keys: Vec<String> = db
+                .search(crate::sdk::types::MemorySearchRequest {
+                    namespace: "ns1".into(),
+                    text_query: Some("world".into()),
+                    top_k: 10,
+                    ..Default::default()
+                })
+                .expect("text search")
+                .into_iter()
+                .map(|hit| hit.record.key)
+                .collect();
+            keys.sort();
+            keys
+        };
+        let filtered_results = |db: &crate::sdk::Embedded| {
+            let mut keys: Vec<String> = db
+                .list(
+                    "ns1",
+                    crate::sdk::types::MemoryListOptions {
+                        filter_ops: Some(vec![crate::sdk::types::MemoryFilterItem {
+                            field: "status".into(),
+                            op: crate::sdk::types::FilterOp::Eq,
+                            value: crate::sdk::types::Value::String("ready".into()),
+                        }]),
+                        limit: 10,
+                        ..Default::default()
+                    },
+                )
+                .expect("filtered list")
+                .records
+                .into_iter()
+                .map(|record| record.key)
+                .collect();
+            keys.sort();
+            keys
+        };
+        let sparse_results = |db: &crate::sdk::Embedded| {
+            let mut keys: Vec<String> = db
+                .search(crate::sdk::types::MemorySearchRequest {
+                    namespace: "ns1".into(),
+                    query_sparse: Some(crate::node::SparseVector(
+                        std::collections::BTreeMap::from([(3u32, 1.0f32)]),
+                    )),
+                    top_k: 10,
+                    ..Default::default()
+                })
+                .expect("sparse search")
+                .into_iter()
+                .map(|hit| hit.record.key)
+                .collect();
+            keys.sort();
+            keys
+        };
+        let clear_key_hits = |engine: &crate::storage::StorageEngine| {
+            let mut hits = Vec::new();
+            for partition in [
+                BackendPartition::NamespaceIndex,
+                BackendPartition::PayloadIndex,
+                BackendPartition::SparseIndex,
+            ] {
+                let count = engine
+                    .scan_partition(partition)
+                    .unwrap()
+                    .into_iter()
+                    .filter(|(key, _)| {
+                        key.windows(CLEAR_KEY.len())
+                            .any(|window| window == CLEAR_KEY.as_bytes())
+                    })
+                    .count();
+                hits.push((
+                    partition,
+                    count,
+                    engine.scan_partition(partition).unwrap().len(),
+                ));
+            }
+            hits
+        };
+
+        let db = open();
+        let mut first = crate::sdk::MemoryInput::new("ns1", CLEAR_KEY, "hello world");
+        first.metadata.insert(
+            "status".into(),
+            crate::sdk::types::Value::String("ready".into()),
+        );
+        first.sparse_vector = Some(crate::node::SparseVector(std::collections::BTreeMap::from(
+            [(3u32, 1.0f32)],
+        )));
+        db.put(first).unwrap();
+        let mut second = crate::sdk::MemoryInput::new("ns1", "invoice-0002", "goodbye world");
+        second.metadata.insert(
+            "status".into(),
+            crate::sdk::types::Value::String("ready".into()),
+        );
+        db.put(second).unwrap();
+
+        let text_before = text_results(&db);
+        let filtered_before = filtered_results(&db);
+        let sparse_before = sparse_results(&db);
+        assert_eq!(text_before.len(), 2, "both records mention 'world'");
+        assert_eq!(filtered_before.len(), 2, "both records are 'ready'");
+        assert_eq!(sparse_before, vec![CLEAR_KEY.to_string()], "one sparse hit");
+
+        // (1) An index whose layout marker is v1 (and nothing else) is stale.
+        let engine = db.engine_handle().unwrap();
+        let mut derived = Embedded::load_derived_index_state(&engine)
+            .unwrap()
+            .expect("derived state");
+        derived.schema_version = 1;
+        Embedded::write_derived_index_state(&engine, &derived).unwrap();
+        let mut sparse = Embedded::load_sparse_index_state(&engine)
+            .unwrap()
+            .expect("sparse state");
+        sparse.schema_version = 1;
+        Embedded::write_sparse_index_state(&engine, &sparse).unwrap();
+        drop(engine);
+        drop(db);
+
+        let db = open();
+        let engine = db.engine_handle().unwrap();
+        assert_eq!(
+            Embedded::load_derived_index_state(&engine)
+                .unwrap()
+                .expect("derived state")
+                .schema_version,
+            crate::sdk::serialization::DERIVED_INDEX_SCHEMA_VERSION,
+            "the v1 derived state must be rejected, not read as current"
+        );
+        assert_eq!(
+            Embedded::load_sparse_index_state(&engine)
+                .unwrap()
+                .expect("sparse state")
+                .schema_version,
+            crate::sdk::serialization::SPARSE_INDEX_SCHEMA_VERSION,
+            "the v1 sparse state must be rejected, not read as current"
+        );
+        assert_eq!(text_results(&db), text_before);
+        assert_eq!(filtered_results(&db), filtered_before);
+        assert_eq!(sparse_results(&db), sparse_before);
+
+        // (2) A clear-key entry left behind by the v1 layout is wiped, in all
+        // three partitions, and the queries still answer the same.
+        for (partition, key) in [
+            (
+                BackendPartition::NamespaceIndex,
+                b"ns1\0invoice-0001".to_vec(),
+            ),
+            (
+                BackendPartition::PayloadIndex,
+                b"ns1\0status\0s:ready\0invoice-0001".to_vec(),
+            ),
+            (
+                BackendPartition::SparseIndex,
+                b"v1\0ns1\0\x03\0\0\0\0invoice-0001".to_vec(),
+            ),
+        ] {
+            engine
+                .put_to_partition(
+                    partition,
+                    &key,
+                    &crate::sdk::serialization::node_id_bytes(1),
+                )
+                .unwrap();
+        }
+        drop(engine);
+        drop(db);
+
+        let db = open();
+        let engine = db.engine_handle().unwrap();
+        let hits = clear_key_hits(&engine);
+        assert!(
+            hits.iter()
+                .all(|(_, hits, entries)| *hits == 0 && *entries > 0),
+            "the v1 clear keys must be gone from a populated index: {hits:?}"
+        );
+        assert_eq!(text_results(&db), text_before);
+        assert_eq!(filtered_results(&db), filtered_before);
+        assert_eq!(sparse_results(&db), sparse_before);
+    }
+
     // ─── FIND-812: a rebuild never drops a row it could not read ───
 
     /// `FIND-812`, face 1: a row whose **side storage** is unreadable (the

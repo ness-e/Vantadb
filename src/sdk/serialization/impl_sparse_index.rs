@@ -31,8 +31,15 @@ use postcard;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-/// Schema version of the sparse index key format.
-pub(crate) const SPARSE_INDEX_KEY_PREFIX: &[u8] = b"v1";
+/// Layout marker of the sparse posting keys.
+///
+/// `FIND-830`: v2 = the record key travels as a blind tag. Bumped from `v1`
+/// (clear key) so a stale entry is not even in the new keyspace, on top of the
+/// `SPARSE_INDEX_SCHEMA_VERSION` bump that forces the rebuild.
+pub(crate) const SPARSE_INDEX_KEY_PREFIX: &[u8] = b"v2";
+
+/// Domain separator of the sparse posting record tag (`FIND-830`).
+const SPARSE_RECORD_DOMAIN: &[u8] = b"vanta:sparse-index:record:v2\0";
 
 /// A posting entry linking a node ID to a sparse dim with its weight.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -46,15 +53,17 @@ pub(crate) struct SparsePosting {
 // ─── Key helpers ────────────────────────────────────────────
 
 /// Build a sparse posting key from namespace, dim, and record key.
+///
+/// `FIND-830`: `v2 \0 namespace \0 dim \0 tag8(record_key)` — the record key is
+/// a blind tag (same primitive as the text index, `FIND-513`), and it sits
+/// **after** the `(namespace, dim)` prefix so the range scan keeps working
+/// verbatim: `sparse_posting_prefix` is a true prefix of this key.
 pub(crate) fn sparse_posting_key(namespace: &str, dim: u32, key: &str) -> Vec<u8> {
-    let mut index_key = Vec::with_capacity(namespace.len() + key.len() + 10);
-    index_key.extend_from_slice(SPARSE_INDEX_KEY_PREFIX);
-    index_key.push(0);
-    index_key.extend_from_slice(namespace.as_bytes());
-    index_key.push(0);
-    index_key.extend_from_slice(&dim.to_le_bytes());
-    index_key.push(0);
-    index_key.extend_from_slice(key.as_bytes());
+    let mut index_key = sparse_posting_prefix(namespace, dim);
+    index_key.extend_from_slice(&crate::text_index::blind_tag(
+        SPARSE_RECORD_DOMAIN,
+        key.as_bytes(),
+    ));
     index_key
 }
 
@@ -365,18 +374,33 @@ mod tests {
         }
     }
 
+    /// `FIND-830`: the record key travels as a blind tag **after** the
+    /// `(namespace, dim)` prefix, so the range scan (`scan_prefix`) still finds
+    /// every posting of the dim — and the key no longer readable.
     #[test]
     fn sparse_posting_key_roundtrip() {
         let ns = "ns";
         let dim = 42;
         let key = "record-1";
         let index_key = sparse_posting_key(ns, dim, key);
-        // The key is the scan prefix for (ns, dim) followed by the record key.
+        // The key is the scan prefix for (ns, dim) followed by the record tag.
         let prefix = sparse_posting_prefix(ns, dim);
         assert!(index_key.starts_with(&prefix));
-        assert_eq!(&index_key[prefix.len()..], key.as_bytes());
+        assert_eq!(
+            &index_key[prefix.len()..],
+            &crate::text_index::blind_tag(SPARSE_RECORD_DOMAIN, key.as_bytes())
+        );
         // A key for another dim must not share the same prefix.
         assert!(!index_key.starts_with(&sparse_posting_prefix(ns, dim + 1)));
+        // No cleartext record key, and deterministic (a reopen finds it again).
+        assert!(
+            !index_key
+                .windows(key.len())
+                .any(|window| window == key.as_bytes()),
+            "the record key must not be readable in the sparse posting key: {index_key:?}"
+        );
+        assert_eq!(index_key, sparse_posting_key(ns, dim, key));
+        assert_ne!(index_key, sparse_posting_key(ns, dim, "record-2"));
     }
 
     #[test]

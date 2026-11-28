@@ -85,11 +85,20 @@ pub const EMBED_STATUS_SYNTHETIC: &str = "synthetic";
 #[cfg(not(feature = "remote-inference"))]
 pub const EMBED_STATUS_UNAVAILABLE: &str = "unavailable";
 pub(crate) const EXPORT_SCHEMA_VERSION: u32 = 2;
-pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
+/// Layout marker of the derived (namespace + payload) index keys.
+///
+/// v2 = `FIND-830`: the record key travels as a blind tag instead of in clear.
+/// A v1 index reports this version mismatch and is rebuilt (the partition is a
+/// materialization of canonical records, `STORAGE_VERSIONING.md` § derived
+/// indexes).
+pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 2;
 pub(crate) const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
 pub(crate) const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
 pub(crate) const SPARSE_INDEX_STATE_KEY: &[u8] = b"sparse_index_state";
-pub(crate) const SPARSE_INDEX_SCHEMA_VERSION: u32 = 1;
+/// Layout marker of the sparse posting keys. v2 = `FIND-830` (blind record key);
+/// the sparse keys additionally carry their own `v2` prefix, so a v1 entry is
+/// not even in the new keyspace.
+pub(crate) const SPARSE_INDEX_SCHEMA_VERSION: u32 = 2;
 
 pub(crate) mod conversions;
 pub mod graph_types;
@@ -292,11 +301,31 @@ pub(crate) fn validate_metadata(metadata: &MemoryMetadata) -> Result<()> {
     Ok(())
 }
 
+/// Domain separator of the namespace-index record tag (`FIND-830`).
+const NAMESPACE_INDEX_RECORD_DOMAIN: &[u8] = b"vanta:derived-index:namespace:v2\0";
+/// Domain separator of the payload-index record tag (`FIND-830`).
+const PAYLOAD_INDEX_RECORD_DOMAIN: &[u8] = b"vanta:derived-index:payload:v2\0";
+
+/// `FIND-830`: the derived keys carried the record key in clear — an `ls` of
+/// the backend read which record (and, through the payload index, with which
+/// payload) each entry belonged to. The record key now travels as the same
+/// 8-byte blind tag the text index uses (`crate::text_index::blind_tag`), with
+/// a per-family domain so keys cannot be joined across partitions.
+///
+/// The namespace stays in clear (it is the scan prefix and the namespace purge
+/// relies on it, exactly as in `FIND-513`), and so do the payload field and
+/// value: an equality filter must find `(field, value)` without the record, and
+/// blinding them would buy nothing while the tag has no key (`FIND-829`).
+fn derived_record_tag(domain: &[u8], key: &str) -> [u8; crate::text_index::BLIND_TAG_LEN] {
+    crate::text_index::blind_tag(domain, key.as_bytes())
+}
+
+/// Build a namespace-index key: `namespace \0 tag8(record_key)`.
 pub(crate) fn namespace_index_key(namespace: &str, key: &str) -> Vec<u8> {
-    let mut index_key = Vec::with_capacity(namespace.len() + 1 + key.len());
+    let mut index_key = Vec::with_capacity(namespace.len() + 1 + crate::text_index::BLIND_TAG_LEN);
     index_key.extend_from_slice(namespace.as_bytes());
     index_key.push(0);
-    index_key.extend_from_slice(key.as_bytes());
+    index_key.extend_from_slice(&derived_record_tag(NAMESPACE_INDEX_RECORD_DOMAIN, key));
     index_key
 }
 
@@ -370,6 +399,11 @@ pub(crate) fn payload_index_prefix(namespace: &str, field: &str, value: &Value) 
     Ok(prefix)
 }
 
+/// Build a payload-index key: `payload_index_prefix(..) ‖ tag8(record_key)`.
+///
+/// `FIND-830`: the suffix is a blind tag, so the entry no longer says **which
+/// record** holds the `(field, value)` it indexes. The prefix already keeps the
+/// `\0`-terminated value in clear, so the tag needs no separator.
 pub(crate) fn payload_index_key(
     namespace: &str,
     field: &str,
@@ -377,7 +411,7 @@ pub(crate) fn payload_index_key(
     key: &str,
 ) -> Result<Vec<u8>> {
     let mut index_key = payload_index_prefix(namespace, field, value)?;
-    index_key.extend_from_slice(key.as_bytes());
+    index_key.extend_from_slice(&derived_record_tag(PAYLOAD_INDEX_RECORD_DOMAIN, key));
     Ok(index_key)
 }
 
@@ -1169,8 +1203,25 @@ mod tests {
 
     #[test]
     fn test_namespace_index_key_format() {
+        // FIND-830: `namespace \0 tag8(record_key)` — the namespace stays in
+        // clear (it is the scan prefix), the record key does not.
         let key = namespace_index_key("myns", "mykey");
-        assert_eq!(key, b"myns\0mykey");
+        let prefix = namespace_index_prefix("myns");
+        assert!(key.starts_with(&prefix));
+        assert_eq!(
+            &key[prefix.len()..],
+            &derived_record_tag(NAMESPACE_INDEX_RECORD_DOMAIN, "mykey")
+        );
+        assert!(!key.windows(5).any(|window| window == b"mykey"));
+        // Deterministic: a reopen must compute the same key for the same record.
+        assert_eq!(key, namespace_index_key("myns", "mykey"));
+        assert_ne!(key, namespace_index_key("myns", "mykey2"));
+        // Per-family domains: the same record must not share a tag across
+        // partitions, or the two keys could be joined.
+        assert_ne!(
+            derived_record_tag(NAMESPACE_INDEX_RECORD_DOMAIN, "mykey"),
+            derived_record_tag(PAYLOAD_INDEX_RECORD_DOMAIN, "mykey")
+        );
     }
 
     #[test]
@@ -1250,8 +1301,20 @@ mod tests {
 
     #[test]
     fn test_payload_index_key() {
+        // FIND-830: the prefix (namespace + field + value) stays scannable; the
+        // record key it used to append is now a blind tag.
         let key = payload_index_key("ns", "status", &Value::String("ok".into()), "mykey").unwrap();
-        assert_eq!(key, b"ns\0status\0s:ok\0mykey");
+        let prefix = payload_index_prefix("ns", "status", &Value::String("ok".into())).unwrap();
+        assert_eq!(prefix, b"ns\0status\0s:ok\0");
+        assert!(key.starts_with(&prefix));
+        assert_eq!(
+            &key[prefix.len()..],
+            &derived_record_tag(PAYLOAD_INDEX_RECORD_DOMAIN, "mykey")
+        );
+        assert!(
+            !key.windows(5).any(|window| window == b"mykey"),
+            "the record key must not be readable in the payload index key: {key:?}"
+        );
     }
 
     // ΓöÇΓöÇΓöÇ node_id_bytes / decode_node_id ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ

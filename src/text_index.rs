@@ -51,20 +51,25 @@ const RECORD_TAG_DOMAIN: &[u8] = b"vanta:text-index:record:v4\0";
 
 /// A blind tag: the first 8 bytes of `SHA-256(domain ‖ value)`.
 ///
-/// `FIND-513`: the index keys used to carry the token and the record key in
-/// clear, so `strings` read back the vocabulary and the document ids. The tag
-/// hides both. Truncating to 64 bits bounds the collision risk at 2⁻⁶⁴ per
+/// `FIND-513`: the text-index keys used to carry the token and the record key
+/// in clear, so `strings` read back the vocabulary and the document ids. The
+/// tag hides both. Truncating to 64 bits bounds the collision risk at 2⁻⁶⁴ per
 /// pair (declared residual); the tag is deterministic, so a lookup by
 /// `(namespace, token)` still scans one contiguous prefix.
+///
+/// `FIND-830`: the same primitive backs the derived namespace/payload index and
+/// the sparse postings, so it is `pub(crate)` — one construction, four key
+/// families, and each family passes its own domain separator (a shared domain
+/// would let an attacker join keys across partitions).
 ///
 /// `ponytail:` the tag is **unkeyed** — a targeted dictionary attack can still
 /// confirm that a guessed word is indexed. Keying it needs a per-database
 /// secret plumbed from the crypto registry (`ADR-0057` owns that mode record),
-/// which is a separate slice; declared in `SECURITY.md` and `FIND-513`.
-fn blind_tag(domain: &[u8], value: &str) -> [u8; BLIND_TAG_LEN] {
+/// which is a separate slice (`FIND-829`); declared in `SECURITY.md`.
+pub(crate) fn blind_tag(domain: &[u8], value: &[u8]) -> [u8; BLIND_TAG_LEN] {
     let mut hasher = Sha256::new();
     hasher.update(domain);
-    hasher.update(value.as_bytes());
+    hasher.update(value);
     let digest = hasher.finalize();
     let mut tag = [0u8; BLIND_TAG_LEN];
     tag.copy_from_slice(&digest[..BLIND_TAG_LEN]);
@@ -565,13 +570,13 @@ fn literal_token_positions(text: &str) -> BTreeMap<String, Vec<u32>> {
 
 /// Blind tag of a token (what the posting key carries instead of the token).
 pub(crate) fn token_tag(token: &str) -> [u8; BLIND_TAG_LEN] {
-    blind_tag(TOKEN_TAG_DOMAIN, token)
+    blind_tag(TOKEN_TAG_DOMAIN, token.as_bytes())
 }
 
 /// Blind tag of a record key (what the posting/doc-stats keys carry instead
 /// of the record key).
 pub(crate) fn record_tag(key: &str) -> [u8; BLIND_TAG_LEN] {
-    blind_tag(RECORD_TAG_DOMAIN, key)
+    blind_tag(RECORD_TAG_DOMAIN, key.as_bytes())
 }
 
 /// Lowercase hex of a blind tag — the in-memory cache key of a token.

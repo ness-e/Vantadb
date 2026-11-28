@@ -104,6 +104,34 @@ by the v3 (clear-key) layout reports an incompatible state (`KEY_FORMAT` +
 `schema_version`) and is **rebuilt** on the next writable open — never read
 with the new lookups, which would return zero results in silence.
 
+### Derived namespace/payload index and sparse postings (`FIND-830`)
+
+Same versioning mechanism, same rebuild rule — these partitions are also derived
+materializations, so there is no in-place migration:
+
+| Index | Marker | v1 (clear key) → v2 (blind key) |
+|---|---|---|
+| Derived namespace index | `DERIVED_INDEX_SCHEMA_VERSION` | `namespace ‖ 0x00 ‖ tag8(record_key)` |
+| Derived payload index | `DERIVED_INDEX_SCHEMA_VERSION` | `prefix(ns, field, value)` ‖ `tag8(record_key)` |
+| Sparse postings | `SPARSE_INDEX_SCHEMA_VERSION` + key prefix `v2` | `v2 ‖ namespace ‖ 0x00 ‖ dim ‖ 0x00 ‖ tag8(record_key)` |
+
+`tag8` is the same primitive as the text index (`crate::text_index::blind_tag`),
+with a per-family domain separator so the tags of one record cannot be joined
+across partitions. The **prefixes** are untouched: `namespace_index_prefix`
+(the namespace scan and `list_namespaces`), `payload_index_prefix` (the equality
+filter scan) and `sparse_posting_prefix` (the range scan in
+`src/sdk/search/sparse.rs`) still match their own keys as prefixes — the tag sits
+after them, exactly like `posting_prefix` after `FIND-513`.
+
+A v1 index reports a schema mismatch and is rebuilt (the partition is deleted and
+re-materialized from canonical records) on the next writable open. The sparse
+keys additionally moved to a `v2` key prefix, so a stale entry is not even in the
+same keyspace. Pinned by
+`impl_index::tests::f830_no_clear_record_key_in_derived_or_sparse_keys` and
+`impl_rebuild::tests::f830_clear_key_indexes_are_rejected_and_rebuilt`. Design and
+delta: [`FIND-830`](../tasks/FIND-830.md); the keyed-tag contract that would make
+these tags non-reversible is [`FIND-829`](../tasks/FIND-829.md).
+
 ### Unified Header (`Header`)
 
 All physical formats (VantaFile, Vector Index, WAL) share a common 16-byte header defined in `src/binary_header.rs`:
