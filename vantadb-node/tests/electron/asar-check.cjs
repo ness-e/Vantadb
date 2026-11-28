@@ -197,6 +197,10 @@ async function main() {
   const line = output.split(/\r?\n/).find((row) => row.startsWith('{"ok":true'));
   assert.ok(line, `el ejecutable empaquetado no reporto ok (salida: ${output.slice(-400)})`);
 
+  // 3.5. El temporal lleva una copia completa de Electron (~250 MB): se borra
+  // solo en verde. En rojo se conserva para poder inspeccionarlo.
+  fs.rmSync(appDir, { recursive: true, force: true });
+
   console.log(
     JSON.stringify({
       ok: true,
