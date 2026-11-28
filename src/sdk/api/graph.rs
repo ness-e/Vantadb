@@ -231,6 +231,7 @@ impl Embedded {
     ///
     /// Serialized like [`Embedded::add_edge`]: the existence check and the
     /// push are one read-modify-write of both nodes (FIND-809).
+    #[tracing::instrument(skip(self), err)]
     pub(crate) fn ensure_edge(
         &self,
         source_id: u128,

@@ -103,11 +103,22 @@ desde dentro de un guard (deadlock, no error).
 
 ## Review
 
-- **Ronda P2-01:** delegada a `vanta-review` (contexto fresco) sobre el diff de esta fila +
-  `FIND-826`; veredicto pendiente al cerrar esta iteración. Regla 8 (concurrencia) aplica:
-  paths `src/sdk/**` + `parking_lot` → auditoría de deadlock/data-race en el gate de review.
+- **P2-01 ronda 1 (`vanta-review`, contexto fresco, agente distinto): APPROVE.** Sin
+  CRITICAL/HIGH. Evidencia del review: `cargo test --test graph_edge_concurrency` → 3 passed
+  en `bf5434231`; y **el test no es vacuo**: con el wrapper revertido volvió a fallar con
+  `585 of 800 edges survived`.
+- `DEADLOCK_SCAN: clean` — `supersede_lock` siempre antes de `purge_lock`, ningún camino
+  `purge_lock → supersede_lock`, e `insert_lock` (dentro de `compact_wal`) nunca espera
+  `purge_lock`.
+- `REENTRANCY_SCAN: clean` — los únicos wrappers públicos que quedan dentro del crate son
+  `supersede` (3) y `bulk_import_stream` (1), ninguno con el guard tomado; todos los sitios que
+  lo toman usan `*_locked`.
+- `LOW` (aplicado): se perdió `#[tracing::instrument]` en `ensure_edge` durante el split —
+  restituido.
+- **No verificado:** el crate `vantadb-python` (su feature set no se compila en este carril).
+  `rg` no encontró call sites, pero no se compiló: declarado.
 - **Auto-revisión mecánica:** `dev-tools/verify.ps1` → 9 PASS / 1 SKIPPED (`cargo-clippy`, rojo
-  de otro carril).
+  de otro carril: `FIND-490`).
 
 ## Deuda declarada
 
