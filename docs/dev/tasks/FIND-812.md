@@ -2,7 +2,7 @@
 title: "FIND-812: el rebuild borraba el id sin prueba de ausencia"
 kind: task
 status: complete
-description: "materialize_uncached fundia 'header/vector corrupto' con 'la fila no existe'; el rebuild, que borra el índice antes de reconstruirlo, usaba scan_nodes() — que descarta esas filas — así que una fila viva desaparecía de toda lectura y ningún purge volvía a verla. Ahora la materialización distingue el motivo, el rebuild enumera el row set del backend como verdad de base y la corrupción se cuenta y se reporta con su id."
+description: "El rebuild del indice borraba un id cuando la deserializacion fallaba, indistinguible de "no existe": la fila seguia en el backend y el registro desaparecia sin poder purgarse. Ahora enumera el conjunto real de filas del backend, conserva el id ante corrupcion, cuenta y reporta cada caso, y tombstonea las borradas por transaccion."
 ---
 
 # FIND-812: el rebuild no borra un id sin prueba positiva de ausencia
