@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-593 documentation pages; it deliberately omits the 347 task files,
+593 documentation pages; it deliberately omits the 350 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -220,7 +220,7 @@ is in docs/index.md in the repository.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
 - [VantaDB Wiki](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/wiki/index.md): Wiki documental de VantaDB: navegación por audiencia y mapa de cobertura del motor, bindings, servidor, MCP y ecosistema, basada en el código presente.
 - [VectifyAI/PageIndex - dossier de extracción](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/PageIndex/README.md): Candidatas A–D del informe PageIndex: spans de fuente versionados, publicación coherente de generaciones documentales, navegación estructurada como adapter de recall y presupuesto de ejecución del host
-- [Workflows — Inventory (20 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
+- [Workflows — Inventory (21 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
 - [Zep Cloud / Konig - extracción docs-only](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/ZepCloud-Konig/README.md): Índice del dossier Zep Cloud/Konig: informe de análisis y backlog de candidatas para VantaDB
 - [agentmemory - extracción de captura, leases e invalidación](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agentmemory/README.md): Índice del dossier agentmemory: informe completo y backlog de candidatas para VantaDB
 - [agno-agi/agno - dossier de extracción](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/extraccion/agno/README.md): Candidatas del informe agno: consolidación versionada, scope tipado, aprobaciones verificables, directorio de entidades y capacidades negociadas con recibo
