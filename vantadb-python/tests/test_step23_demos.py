@@ -141,6 +141,27 @@ def test_receipt_recursive_reorder_ok(gdpr) -> None:
     assert gdpr.verify_receipt(json.dumps(rev), "agent/users", "k1")["ok"] is True
 
 
+def test_receipt_not_assessed_surface_is_not_a_clean_claim(gdpr) -> None:
+    """FIND-903: `not-assessed` + `residues: 0` means "no claim", not "clean".
+
+    The verifier still accepts the certificate (not-assessed is an honest
+    state), but it must name the surface so nobody reads that 0 as proof.
+    """
+    c = _cert()
+    for s in c["surfaces"]:
+        if s["surface"] == "vector_store":
+            s["action"] = "not-assessed"
+            s["evidence"] = "FIND-903: the single-record case was not measured"
+    v = gdpr.verify_receipt(json.dumps(_rehash(c)), "agent/users", "k1")
+    assert v["ok"] is True
+    assert v["unassessed"] == ["vector_store"]
+
+    assert (
+        gdpr.verify_receipt(json.dumps(_cert()), "agent/users", "k1")["unassessed"]
+        == []
+    )
+
+
 def test_receipt_wrong_ns_rehash_rejected(gdpr) -> None:
     v = gdpr.verify_receipt(json.dumps(_cert(ns="other/ns")), "agent/users", "k1")
     assert v["ok"] is False and "namespace" in v["error"]

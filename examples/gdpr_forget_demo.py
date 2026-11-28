@@ -95,6 +95,7 @@ def verify_receipt(certificate: str, namespace: str, key: str) -> dict:
     if not isinstance(surfaces, list):
         return fail("surfaces must be a list")
     names = []
+    unassessed = []
     for s in surfaces:
         if not isinstance(s, dict):
             return fail("surface entries must be objects")
@@ -112,6 +113,11 @@ def verify_receipt(certificate: str, namespace: str, key: str) -> dict:
             return fail(
                 f"surface {name}: action and evidence must be non-empty strings"
             )
+        # FIND-903: a surface can honestly declare `not-assessed`, and its
+        # `residues: 0` then means "no residue claim" — not "clean". Counting
+        # that 0 as proof would be the same defect the certificate just fixed.
+        if s["action"] == "not-assessed":
+            unassessed.append(name)
         names.append(name)
     if len(names) != 9 or set(names) != _SURFACES or len(set(names)) != len(names):
         return fail("surfaces must contain each of the 9 surfaces exactly once")
@@ -180,7 +186,12 @@ def verify_receipt(certificate: str, namespace: str, key: str) -> dict:
     digest = hashlib.sha256(raw).hexdigest()
     if not hmac.compare_digest(digest, declared):
         return fail("integrity digest mismatch")
-    return {"ok": True, "error": None, "digest": digest}
+    return {
+        "ok": True,
+        "error": None,
+        "digest": digest,
+        "unassessed": unassessed,
+    }
 
 
 def run_demo(encoder=None) -> dict:
@@ -253,6 +264,11 @@ def run_demo(encoder=None) -> dict:
                         f"receipt verification failed for {k}: {v['error']}"
                     )
                 print(f"{k}: integrity=True sha256={v['digest']}")
+                if v["unassessed"]:
+                    print(
+                        f"{k}: NOT ASSESSED -> {', '.join(v['unassessed'])} "
+                        "(its residues=0 is not a claim of cleanliness)"
+                    )
             chain = json.loads(parsed[keys[0]])["chain"]
             print(
                 "Limits: hash detects unpaired modification only; not a "
