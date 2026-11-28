@@ -149,8 +149,21 @@ What is **not** covered, and must not be read as covered:
 Version marker: the derived and sparse indexes carry it in their state
 (`DERIVED_INDEX_SCHEMA_VERSION` 1→2, `SPARSE_INDEX_SCHEMA_VERSION` 1→2) plus a
 `v2` key prefix for the sparse postings, so a v1 entry is rejected and the
-partition is **rebuilt** from canonical records on the next writable open — an
-old index is never read as if it were new. Pinned by
+partition is **rebuilt** from canonical records on the **next writable open**.
+A **read-only** open never rebuilds (it cannot write), and what it answers
+differs per index — stated here so nobody reads "rebuilt" as "always correct":
+
+- **Derived namespace/payload index:** the prefixes did not change
+  (`namespace_index_prefix`, `payload_index_prefix`), so a stale v1 index still
+  answers correctly and is merely refurbished later.
+- **Sparse postings:** the prefix moved `v1`→`v2`, so a stale index would match
+  **no key at all**. The query path therefore **refuses** with
+  `Validation { field: "sparse_index_schema" }` ("reopen it writable to rebuild
+  the index") instead of returning an empty list
+  (`ensure_sparse_index_query_ready`, `src/sdk/search/sparse.rs`). Pinned by
+  `search::sparse::tests::sparse_search_on_a_read_only_open_of_an_old_index_fails_loudly`.
+
+Pinned by
 `impl_index::tests::f830_no_clear_record_key_in_derived_or_sparse_keys` and
 `impl_rebuild::tests::f830_clear_key_indexes_are_rejected_and_rebuilt`.
 

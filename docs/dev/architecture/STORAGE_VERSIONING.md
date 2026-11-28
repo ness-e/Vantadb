@@ -101,8 +101,12 @@ The text index is a derived materialization (rebuildable from canonical data) an
 `tag8(x) = SHA-256(domain ‖ x)[0..8]`, and the doc/term stats are keyed by tag
 too, so the token and the record key no longer appear in clear. An index written
 by the v3 (clear-key) layout reports an incompatible state (`KEY_FORMAT` +
-`schema_version`) and is **rebuilt** on the next writable open — never read
-with the new lookups, which would return zero results in silence.
+`schema_version`) and is **rebuilt on the next writable open**. A **read-only**
+open never rebuilds (it cannot write), so it does not silently answer zero: the
+query path refuses with `sparse_index_schema`-style validation before scanning —
+for text the same guard is `ensure_text_index_query_ready`, for sparse
+`ensure_sparse_index_query_ready`. The rule is "never read with the new lookups",
+and the rejection is what enforces it, not the rebuild.
 
 ### Derived namespace/payload index and sparse postings (`FIND-830`)
 

@@ -107,11 +107,20 @@ Mismo mecanismo que `FIND-513`/`FIND-830`, con marcadores nuevos:
 
 El rebuild ya existe y no hay que inventarlo: `ensure_indexes_current` compara
 `schema_version`/`KEY_FORMAT` y borra + re-materializa desde los registros
-canónicos. Un índice v4 sigue siendo **rechazado**, nunca leído como v5.
+canónicos. Un índice v4 sigue siendo **rechazado**, nunca leído como v5 — con una
+precisión que hay que respetar al implementarlo: el rechazo efectivo ocurre en el
+**siguiente open escribible**; un open **read-only** no reconstruye
+(`src/sdk/builder.rs:244`), así que el rechazo lo tiene que hacer el **camino de
+consulta** (guards de `ensure_text_index_query_ready` /
+`ensure_sparse_index_query_ready`), no el rebuild. Sin guard, read-only devuelve
+resultados vacíos en silencio — es el fallo `R1` de la ronda P2-01 de `FIND-830`
+(mismo modo de fallo, ya corregido para sparse; ver `FIND-830.md` §Review).
 
 `KEY_FORMAT` tiene que cambiar **en la misma entrega** que el `k_blind`: si sólo
 cambia la derivación, un índice viejo se leería con las búsquedas nuevas y
-devolvería **cero resultados en silencio**.
+devolvería **cero resultados en silencio** (o un error, si el guard está en su
+sitio; las dos cosas son mejores que el silencio, y el guard es obligatorio en
+los dos casos).
 
 #### 2.4 Qué falta exactamente (el delta)
 
