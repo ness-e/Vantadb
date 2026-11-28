@@ -2038,3 +2038,11 @@ el propio SDK ya usa— los arregla a los tres.
 - **Ids:** `FIND-830`, `FIND-513`, `FIND-829`
 
 ### FIND-829 (PARCIAL): el tag ciego es recuperable por diccionario — medido y contratado
+
+- **Fecha:** 2026-11-28
+- **Objetivo:** cerrar la fila sin cerrarla de mentira (`D4`): medir el ataque y escribir el contrato de la versión con clave, sin implementar lo que exige tocar el registro de claves.
+- **Medición (el número es el hallazgo):** contra una partición `TextIndex` **real** (etiquetas leídas de las claves en disco, la vista del atacante), 40 tokens indexados y 200 palabras de diccionario → **40/40 recuperados (100 %)**, 0 falsos positivos en las 160 ausentes. Precondición medida: `rg -c 'k_blind' src` → **0 coincidencias**. El test asserta el número de hoy **a propósito**: el día que entre la clave, falla y obliga a invertirlo.
+- **Contrato escrito** (`docs/dev/tasks/FIND-829.md` §2): `k_blind = HKDF-SHA256(IKM = DEK del artefacto, salt = db_salt, info = "vanta:text-index:blind:v1")` → `tag8k = HMAC-SHA256(k_blind, domain ‖ x)[0..8]`. Del **DEK** y no del KEK/master key porque rotar la master key re-envuelve los DEK sin cambiarlos: el índice sobrevive la rotación sin rebuild O(datos). Marcadores: texto v5/schema 6-5 + `KEY_FORMAT` nuevo, derived 3, sparse 3 + prefijo `v3`; rebuild por el camino que ya existe.
+- **Decisión abierta (owner):** qué tag cuando `encryption` está apagado (no hay DEK) → (a) sin clave y declarado, (b) secreto local por base, (c) rechazar el open. Recomendación (a) con la garantía acotada a "con cifrado activo".
+- **Falta (dueño `vanta-arch`, después carril Rust):** exponer el secreto desde el registro de `ADR-0057` a las funciones de clave, que hoy son **puras** (`text_index.rs` sin handle del motor, `derived_put_ops`/`sparse_put_ops` estáticas) → `Arc<TagKey>` en `StorageEngine` + `&TagKey` en siete constructores y ~10 call sites; y el test de que dos bases con distinto `k_blind` dan tags distintos.
+- **Ids:** `FIND-829`, `FIND-513`, `FIND-830`

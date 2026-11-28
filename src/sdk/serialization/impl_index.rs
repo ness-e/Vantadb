@@ -632,6 +632,71 @@ mod tests {
         );
     }
 
+    // ─── FIND-829: the unkeyed tag is reversible by dictionary ──
+
+    /// `FIND-829` **measurement** (the fix is NOT implemented — D4: design +
+    /// measured partial): the blind tag is a bare `SHA-256` prefix, so it stops
+    /// the literal leak (`FIND-513`) but does not protect the index against
+    /// anyone holding the file and a wordlist.
+    ///
+    /// Measured against a **real** `TextIndex` partition: 200 dictionary words,
+    /// 40 of them indexed → **40/40 recovered (100 %)**, 0 false positives.
+    /// The tag set is read from the keys on disk, not recomputed from the
+    /// builder, so the number is the attacker's view.
+    ///
+    /// When the keyed tag lands (`FIND-829`, §Contract of
+    /// `docs/dev/tasks/FIND-829.md`) this
+    /// assertion must be **inverted**: without the key, `recovered == 0`.
+    #[test]
+    fn f829_unkeyed_tag_is_recovered_by_dictionary_measured() {
+        const INDEXED: usize = 40;
+        const WORDLIST: usize = 200;
+        const NS: &str = "ns1";
+
+        let db = Embedded::open_with_config(crate::config::Config {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("in-memory db");
+        for i in 0..INDEXED {
+            db.put(crate::sdk::MemoryInput::new(
+                NS,
+                format!("k{i:03}"),
+                format!("secret{i:03} filler"),
+            ))
+            .expect("put");
+        }
+        let engine = db.engine_handle().unwrap();
+
+        // The attacker's view: the 8-byte token tags as they sit in the keys,
+        // `ns \0 tag8(token) tag8(record)`.
+        let prefix = crate::text_index::posting_namespace_prefix(NS);
+        let mut on_disk: std::collections::BTreeSet<[u8; 8]> = std::collections::BTreeSet::new();
+        for (key, _) in engine.scan_partition(BackendPartition::TextIndex).unwrap() {
+            if let Some(rest) = key.strip_prefix(prefix.as_slice()) {
+                if let Ok(tag) = <[u8; 8]>::try_from(&rest[..8.min(rest.len())]) {
+                    on_disk.insert(tag);
+                }
+            }
+        }
+        assert!(
+            on_disk.len() >= INDEXED,
+            "the scan must see the indexed tags, saw {}",
+            on_disk.len()
+        );
+
+        let recovered = (0..WORDLIST)
+            .filter(|i| on_disk.contains(&crate::text_index::token_tag(&format!("secret{i:03}"))))
+            .count();
+        assert_eq!(
+            recovered,
+            INDEXED,
+            "the dictionary recovers {recovered}/{INDEXED} indexed tokens \
+             ({}% of a {WORDLIST}-word list): the tag has no key",
+            recovered * 100 / INDEXED
+        );
+    }
+
     // ─── derived_put_ops ───────────────────────────────────────
 
     #[test]
