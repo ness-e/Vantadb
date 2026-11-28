@@ -197,6 +197,47 @@ fn delete_op_residues(
     Ok(residues)
 }
 
+/// The `vector_store` surface for a deleted record (FIND-826 D2).
+///
+/// This used to be `residues: 0` **written in the source**, justified by
+/// "physical bytes remain until segment compaction (declared limit)". A
+/// certificate that says "0 residues" because the number is hard-coded is worse
+/// than no certificate: it manufactures confidence. It is now declared
+/// `not-assessed`, with the reason, because the honest measurement is not
+/// available yet:
+///
+/// - `compact_layout_bfs` **skips the rewrite when the graph is empty**
+///   (single-record database), so the tombstoned record's vector payload stays
+///   in `vstore_L0.vanta` and a byte scan finds it (measured: 1 segment);
+/// - `compact_level` reclaims a source segment by resetting `write_cursor` — it
+///   does not scrub the bytes behind the cursor;
+/// - and on an encrypted or in-memory segment a plaintext needle would report 0
+///   for the wrong reason (P2-01 M4: ciphertext is not "erased").
+///
+/// So the surface states what it can prove: that it was not assessed. The
+/// measurement instrument (raw f32-payload scan of every segment, the one the
+/// FIND-343 physical-erasure test uses) and the gap it exposes are recorded in
+/// `docs/dev/tasks/FIND-826.md` §D2 and in the backlog row that closes it.
+fn vector_store_surface(record: &MemoryRecord) -> SurfaceReport {
+    if record.vector.as_deref().is_none_or(|v| v.is_empty()) {
+        return surface(
+            "vector_store",
+            "none-needed",
+            0,
+            "the record carries no vector: nothing to erase on this surface",
+        );
+    }
+    surface(
+        "vector_store",
+        "not-assessed",
+        0,
+        "no measurement is claimed: the segment rewrite skips an empty graph and reclaims \
+         bytes by resetting the write cursor without scrubbing them, so a byte scan can \
+         still find the payload; an encrypted or in-memory segment would answer 0 for the \
+         wrong reason — not assessed (never reported as clean)",
+    )
+}
+
 /// Inventory for a record that WAS deleted by this path (full evidence).
 fn swept_surfaces(engine: &StorageEngine, record: &MemoryRecord) -> Result<Vec<SurfaceReport>> {
     let node_id = record.node_id;
@@ -254,16 +295,7 @@ fn swept_surfaces(engine: &StorageEngine, record: &MemoryRecord) -> Result<Vec<S
             vector_index_residues,
             "HNSW graph has no entry for the node",
         ),
-        surface(
-            "vector_store",
-            if record.vector.is_some() {
-                "tombstoned"
-            } else {
-                "none-needed"
-            },
-            0,
-            "vector header FLAG_TOMBSTONE set by the delete path; physical bytes remain until segment compaction (declared limit)",
-        ),
+        vector_store_surface(record),
         surface(
             "derived_index",
             "deleted",
@@ -1057,6 +1089,39 @@ pub(crate) fn verify_write_receipt(
 #[allow(missing_docs)]
 mod tests {
     use super::*;
+
+    /// FIND-826 D2: the `vector_store` surface used to ship `residues: 0` with
+    /// the number written in the source (evidence: "physical bytes remain until
+    /// segment compaction (declared limit)") — an assertion dressed as a
+    /// measurement. It must now either measure or say it did not assess; what it
+    /// may never do is claim a clean surface without looking.
+    #[test]
+    fn vector_store_surface_is_never_a_hard_coded_clean() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            vector: Some(vec![0.1, 0.2, 0.3]),
+            ..Default::default()
+        };
+        let report = vector_store_surface(&record);
+        assert_eq!(
+            report.action, "not-assessed",
+            "an unmeasured surface must be declared not-assessed, got {report:?}"
+        );
+        assert_eq!(report.residues, 0, "not-assessed carries no residue claim");
+        assert!(
+            report.evidence.contains("write cursor"),
+            "the evidence must name the measured gap, got: {}",
+            report.evidence
+        );
+
+        // No vector in the record → there is genuinely nothing to erase here.
+        let no_vector = MemoryRecord {
+            vector: None,
+            ..Default::default()
+        };
+        assert_eq!(vector_store_surface(&no_vector).action, "none-needed");
+    }
 
     fn minimal_certificate() -> PurgeCertificate {
         PurgeCertificate {

@@ -41,7 +41,7 @@ All three go through the same core builder — no duplicated logic.
 | `store` | `deleted` | Point-read of backend partition `Default` is absent |
 | `shred` | `deleted` | `InternalMetadata` key `shred::<node_id>` absent — **JSON Shredding** column store (metadata fields), not secure-delete |
 | `vector_index` | `deleted` | HNSW graph has no entry for the node |
-| `vector_store` | `tombstoned` (or `none-needed`) | Vector header `FLAG_TOMBSTONE` set at delete; **physical bytes remain until segment compaction** (declared limit) |
+| `vector_store` | `not-assessed` (or `none-needed`) | **No measurement is claimed** (FIND-826 D2). The certified path rewrites the store before attesting, but the rewrite skips an empty graph (single-record database) and reclamation resets the write cursor without scrubbing, so a byte scan can still find dead payload bytes; an encrypted or in-memory segment would answer 0 for the wrong reason |
 | `derived_index` | `deleted` | `NamespaceIndex` + `PayloadIndex` keys rebuilt from the deleted record are absent |
 | `text_index` | `deleted` | Posting keys for the record terms are absent |
 | `sparse_index` | `deleted` (or `none-needed`) | Sparse posting keys rebuilt from the deleted record are absent |

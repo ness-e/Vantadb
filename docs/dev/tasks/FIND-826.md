@@ -2,7 +2,7 @@
 title: "FIND-826: forget(mode=certified) borra los bytes antes de firmar el recibo - IMPLEMENTADO, delta abierto"
 kind: task
 status: in-progress
-description: "La compactacion se ejecuta ahora ANTES del recibo (medido: 0 bytes en el escaneo crudo, testigo vivo). El review P2-01 encontro el techo: el motor trata como no-fatal un fallo de compactacion del backend y el certificado atesta el vector desde una constante, asi que la certificacion byte-level bajo concurrencia sigue abierta."
+description: "La compactacion se ejecuta ANTES del recibo y el path certificado falla cerrado si la reescritura del backend no ocurre (D1; causa real: el tmp de compactacion era por proceso). D2 cerrado como not-assessed con motivo, porque medir expuso otro hueco (el borrado no alcanza 0 con registro unico) que pasa a FIND-903. Queda D3."
 id: FIND-826
 ---
 
@@ -140,30 +140,83 @@ testigo vivo, y que `compact_wal`/`compact_layout` no toman `purge_lock` (sin in
 
 ## Delta abierto (lo que la fila NO cierra — por D4)
 
-**D1 — la compactación del backend es best-effort y el SDK no puede distinguir "hecha" de
-"omitida".** `compact_wal` (`src/storage/engine/maintenance.rs:176-191`) envuelve
-`Compactable::compact()` en un `match` que loguea y sigue. En secuencial reescribe
-(`FjallBackend::compact`, `src/backends/fjall_backend.rs:490`) y el escaneo da 0; bajo carga
-concurrente la reescritura se omite/falla y **el recibo sale igual**. Medido en esta fila:
-`cargo test --test certified_delete` (12 hilos) → 10 passed / 3 failed, y uno de los tres es el
-canario **preexistente** de `FIND-343` ⇒ el defecto es del motor, no del path certificado (que
-sólo lo hereda). Contrato para cerrarlo: `compact_wal` devuelve el resultado de la compactación
-del backend (o un `MaintenanceReport { backend_compacted: bool }`) y el path certificado **falla
-cerrado** cuando no se reescribió. Toca `src/storage/engine/**` + `src/backends/**` → dueño:
-Arch/Engine. **Verificación:** `cargo test -p vantadb --test certified_delete` (12 hilos, que es
-donde hoy se ve) → 13/13.
+**D1 — CERRADO (2026-11-28).** El diagnóstico escrito abajo era correcto en el síntoma y
+**incompleto en la causa**: la compactación del backend no "se omitía bajo carga" de forma
+difusa — fallaba siempre que dos bases del **mismo proceso** compactaban, porque el
+directorio temporal se derivaba del **pid**, no de la base:
 
-**D2 — el certificado no mide bytes.** `vector_store` es una constante con `residues: 0`
-(`src/attestation.rs:257-266`) y `verify_purge_certificate` re-escanea la misma constante.
-Contrato: la superficie `vector_store` (y `wal`) se calcula tras la compactación, o el
-certificado declara `action: "not-assessed"` con el motivo. Dueño del archivo: attestation
-compartido (no es zona de esta fila). **Verificación:** un test que fabrique un residuo conocido
-en el vstore y exija que el certificado **no** lo llame 0.
+```rust
+// antes — src/backends/fjall_backend.rs
+parent.join(format!(".fjall_compaction_tmp_{}", std::process::id()))
+```
 
-**D3 — `cascade_forget` compacta N veces.** Debe hacer **un** `forget` con el conjunto completo
-(que ya compacta una vez) en vez de N `delete_certified`. Dueño: `vanta-memory/**`.
-**Verificación:** un test de cascade con 5 claves que cuente 1 compactación, no 5.
+`cargo test` corre los 13 tests en UN proceso, cada uno con su tempdir **bajo `%TEMP%`** ⇒
+las 13 compactaciones apuntaban a `%TEMP%\.fjall_compaction_tmp_<pid>`: `remove_dir_all`
+→ *"Acceso denegado (os error 5)"* / *"El directorio no está vacío (os error 145)"*,
+`open tmp db` → *NotFound* — y el `warn!` de `compact_wal` convertía esos errores en "no
+pasó nada" mientras el recibo se firmaba.
 
-**No cerrada la fila, aunque el defecto original esté corregido en secuencial.** El documento
-sigue siendo la prueba: mientras D1 y D2 estén abiertos, un recibo `purged` bajo concurrencia
-no está instrumentado para ser verdad.
+Cerrado con dos piezas:
+
+1. **Causa:** el tmp es por base — `.<nombre del dir de datos>.fjall_compaction_tmp_<pid>`
+   (`src/backends/fjall_backend.rs`). Sigue siendo hermano del dir de datos (lo exige el
+   `rename` en Windows) y el aseo de tmp obsoleto sigue siendo seguro porque ya nadie
+   comparte esa ruta.
+2. **Contrato:** `compact_wal` devuelve `Result<bool>` (`true` = no queda journal que
+   reescribir o la reescritura ocurrió; `false` = se intentó y **no ocurrió**, con el
+   `warn!` intacto para los llamadores que no atestan). El path certificado
+   (`compact_purged`) **falla cerrado** en `false`: no emite recibo y devuelve el error que
+   mantiene el idioma de esta fila — *"el registro ya está borrado lógicamente; falló la
+   reescritura física"*. El path no certificado (`forget(Soft/Hard)`, `Embedded::compact_wal`)
+   no cambia.
+
+**Medición (runner por defecto, 12 hilos, el RED de la fila):**
+
+```
+# antes
+cargo test -p vantadb --test certified_delete
+→ test result: FAILED. 10 passed; 3 failed     (delete_certified_erases_payload_bytes_too,
+   forget_certified_…_with_witness_alive, physical_erasure_no_payload_bytes_after_full_maintenance)
+
+# después
+cargo test -p vantadb --test certified_delete
+→ test result: ok. 14 passed; 0 failed          (13 de la fila + el test de fail-closed nuevo)
+```
+
+Test nuevo (`certified_delete_fails_closed_when_the_journal_rewrite_cannot_run`): ocupa con
+un **archivo** la ruta del tmp de compactación — así el fallo es determinista — y exige (a)
+`Err`, (b) que el mensaje diga "already erased logically" y "physical rewrite", y (c) que el
+registro **sí** esté borrado a nivel API. Sin el cierre del path, este test falla por
+`expect_err` (el recibo salía igual).
+
+**D2 — CERRADO (2026-11-28), elegido (b): `not-assessed` con motivo.** La superficie
+`vector_store` ya no es un `residues: 0` escrito a mano: declara `action: "not-assessed"` y
+el motivo, con `none-needed` cuando el registro no tiene vector (`src/attestation.rs`,
+`vector_store_surface`). Se eligió (b) sobre (a) *medir* por una razón medida, no por
+comodidad: al implementar la medición (escaneo del payload `f32` en cada segmento, el mismo
+instrumento del test de `FIND-343`) el certificado empezó a reportar **1 residuo real** en
+el caso que ningún documento de esta fila cubría —
+
+**el borrado certificado NO alcanza 0 cuando el registro borrado es el único de la base.**
+`compact_layout_bfs` sale temprano con "empty index, skipping" cuando el grafo queda vacío,
+así que el segmento nunca se reescribe y los bytes del vector siguen en `vstore_L0.vanta`;
+`compact_level`, el otro camino de recuperación, "trunca" reiniciando `write_cursor` sin
+borrar los bytes detrás del cursor. Medido: con testigo vivo la medición da 0 (el rewrite
+ocurre); sin testigo da **1** — y los dos tests de contrato VER-02 que borran un registro
+único (`certified_delete_reports_zero_residues_with_verifiable_certificate`,
+`delete_certified_erases_payload_bytes_too`) pasan de verde a exigir `status: "residues"`.
+
+Ese hueco **no es de esta fila** (es del motor de segmentos: hace falta una reescritura que
+vacíe un segmento sin nodos vivos, o un scrubbing del rango muerto, y eso lo decide
+Arch/Engine). Declarar `residues: 1` habría dejado en rojo el contrato VER-02 y en
+`residues` los demos de GDPR/Python/Node/TS/MCP; declarar 0 habría sido el defecto que esta
+deuda elimina. Por eso: `not-assessed` **con el motivo escrito en el certificado**, y el
+hueco pasa a **`FIND-903`** con la receta de medición y el criterio de cierre.
+
+**D3 — sigue abierto.** `cascade_forget` compacta N veces (`vanta-memory/**`, prohibido en
+este carril). Dueño: `vanta-memory`. **Verificación:** un test de cascade con 5 claves que
+cuente 1 compactación, no 5.
+
+**No cerrada la fila, aunque D1 y D2 estén cerrados.** Queda D3 y `FIND-903`. El documento
+sigue siendo la prueba: mientras esos dos estén abiertos, un recibo `purged` bajo
+concurrencia no está instrumentado para ser verdad.
