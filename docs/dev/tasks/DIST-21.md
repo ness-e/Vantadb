@@ -135,6 +135,34 @@ ninguna prueba lo carga dentro de Electron y ninguna comprueba el `asarUnpack`.
 - `electron-builder` añade ~40 MB de devDeps; si `--dir` no resulta estable, se degrada a parcial
   con dueño declarado.
 
+### Deuda `npm ci` — cerrada 2026-11-28 (el lock nunca se había regenerado)
+
+`ci-electron.yml:87` fallaba en **los 3 OSes a los ~1 s**, no en el build:
+
+```
+npm error code EUSAGE
+npm error `npm ci` can only install packages when your package.json and package-lock.json ... are in sync.
+npm error Missing: @emnapi/runtime@2.0.0-alpha.3 from lock file
+```
+
+**Causa:** `vantadb-node/package-lock.json` se había generado con **npm 11.6.0** (el host) y CI
+instala con **npm 10.x** (`actions/setup-node@v4`, `node-version: 22`). `@napi-rs/cli@3.8.2`
+declara el peer **opcional** `@emnapi/runtime@2.0.0-alpha.3`; el lock traía el paquete `emnapi`
+(línea `node_modules/emnapi`) pero **no** `node_modules/@emnapi/runtime`. npm 11 lo tolera, npm 10
+lo cuenta como árbol inconsistente y `npm ci` aborta. **No** era el `.node`, ni Electron, ni el
+`paths:` del workflow.
+
+**Corrección de una creencia:** `c3448cf80` dice *"regenerate … the lockfile"* pero tocó
+`vantadb-node/Cargo.lock` (Rust) e `index.d.ts`, **no** el `package-lock.json`. El lock de npm
+nunca se regeneró hasta ahora.
+
+**Fix medido:** `npx npm@10 install` (npm **10.9.11**) → 12 líneas añadidas, sólo la entrada que
+faltaba (`node_modules/@emnapi/runtime@2.0.0-alpha.3`, `optional: true, peer: true`), cero cambios
+de versión en el resto del árbol. Verificado con el comando exacto de CI: `npx npm@10 ci` → exit 0
+(407 paquetes, 53 s); `npm test` → **82/82**; `npm run test:electron` → exit 0 (`ok:true`,
+`moduleVersion:150`, `filesOnDisk:8`, `.node` de 8.393.728 B). El lock queda reproducible con
+**npm 10**, que es el que trae Node 22 en CI — regenerarlo con npm 11 es lo que lo rompió.
+
 ## Definition of Done
 
 - [ ] `npm run test:electron` verde en Windows, con salida pegada.

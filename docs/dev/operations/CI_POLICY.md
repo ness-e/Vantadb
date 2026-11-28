@@ -13,7 +13,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **20 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
+VantaDB has **21 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -1008,6 +1008,10 @@ Runs on a weekly schedule (`0 6 * * 1`) and via `workflow_dispatch` to collect e
 ### 13. Main Ancestry Gate (`main-ancestry.yml`)
 
 Dedicated unfiltered workflow (`on.pull_request.branches: [main]`, no `paths:`/`paths-ignore:`) that checks out `github.event.pull_request.head.sha` with `fetch-depth: 0` and verifies `git merge-base --is-ancestor origin/main HEAD` on every PR targeting `main` (exempting `release-plz-*` branches), preventing `develop → main` merges from reverting hotfixes that only exist on `main` (FIND-455, FIND-633).
+
+### 14. Electron native load (`ci-electron.yml`, DIST-21)
+
+Compila `vantadb-node` en 3 OSes, carga el `.node` dentro de un proceso **Electron real** (put/get/close/reopen sobre disco) y empaqueta con `electron-builder --dir` para verificar que `asarUnpack: ["**/*.node"]` deja el binario fuera de `app.asar`. Dos fallos que ni vitest ni `release-npm-node.yml` ven: ABI drift (`dlopen` falla en el cliente, no en CI) y `.node` dentro del asar. `paths:` acotado a `vantadb-node/**`; el check **no** es required, porque con filtro de paths quedaría `Pending` en todo PR que no toque el binding.
 
 ### 9. Release Workflows
 
