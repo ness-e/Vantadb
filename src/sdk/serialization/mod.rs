@@ -972,49 +972,61 @@ mod tests {
 
     #[test]
     fn test_parse_term_stats_key_valid() {
-        let key = b"\xffvanta_text_v3\0term\0myns\0mytoken";
-        let result = Embedded::parse_term_stats_key(key);
-        assert_eq!(result, Some(("myns".into(), "mytoken".into())));
+        // FIND-513: the token is a blind tag (v4), returned as hex.
+        let key = crate::text_index::term_stats_key("myns", "mytoken");
+        let result = Embedded::parse_term_stats_key(&key);
+        assert_eq!(
+            result,
+            Some((
+                "myns".into(),
+                crate::text_index::tag_hex(&crate::text_index::token_tag("mytoken"))
+            ))
+        );
+        // The pre-v4 clear-token layout is not a v4 key (→ forces a rebuild).
+        assert_eq!(
+            Embedded::parse_term_stats_key(b"\xffvanta_text_v3\0term\0myns\0mytoken"),
+            None
+        );
     }
 
     #[test]
-    fn test_parse_term_stats_key_invalid_utf8() {
-        let key = b"\xffvanta_text_v3\0term\0myns\0\xff\xfe";
+    fn test_parse_term_stats_key_invalid_tag_length() {
+        let key = b"\xffvanta_text_v4\0term\0myns\0\xff\xfe";
         let result = Embedded::parse_term_stats_key(key);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_parse_term_stats_key_invalid_namespace_utf8() {
-        let key = b"\xffvanta_text_v3\0term\0\xff\xfe\0token";
+        let key = b"\xffvanta_text_v4\0term\0\xff\xfe\0token";
         let result = Embedded::parse_term_stats_key(key);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_parse_term_stats_key_truncated() {
-        let key = b"\xffvanta_text_v3\0term";
+        let key = b"\xffvanta_text_v4\0term";
         let result = Embedded::parse_term_stats_key(key);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_parse_namespace_stats_key_valid() {
-        let key = b"\xffvanta_text_v3\0ns\0myns";
+        let key = b"\xffvanta_text_v4\0ns\0myns";
         let result = Embedded::parse_namespace_stats_key(key);
         assert_eq!(result, Some("myns".into()));
     }
 
     #[test]
     fn test_parse_namespace_stats_key_invalid_utf8() {
-        let key = b"\xffvanta_text_v3\0ns\0\xff\xfe";
+        let key = b"\xffvanta_text_v4\0ns\0\xff\xfe";
         let result = Embedded::parse_namespace_stats_key(key);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_parse_namespace_stats_key_truncated() {
-        let key = b"\xffvanta_text_v3\0ns";
+        let key = b"\xffvanta_text_v4\0ns";
         let result = Embedded::parse_namespace_stats_key(key);
         assert_eq!(result, None);
     }

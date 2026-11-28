@@ -50,7 +50,9 @@ impl Embedded {
         };
         let mut scores: BTreeMap<u128, f32> = BTreeMap::new();
         let mut candidate_positions: BTreeMap<u128, BTreeMap<&str, Vec<u32>>> = BTreeMap::new();
-        let mut doc_stats_cache: HashMap<String, crate::text_index::TextDocStats> = HashMap::new();
+        // FIND-513: the posting key carries the blind tag of the record key,
+        // not the record key — doc-stats are looked up by that tag.
+        let mut doc_stats_cache: HashMap<Vec<u8>, crate::text_index::TextDocStats> = HashMap::new();
         let mut candidates_scored = 0u64;
 
         for token in &query_plan.terms {
@@ -74,14 +76,14 @@ impl Embedded {
                         "text_query found an unreadable posting; run rebuild_index: {err}"
                     )))
                 })?;
-                let Some(record_key) = crate::text_index::posting_record_key(&prefix, &posting_key)
+                let Some(record_tag) = crate::text_index::posting_record_tag(&prefix, &posting_key)
                 else {
                     continue;
                 };
-                let doc_len = if let Some(stats) = doc_stats_cache.get(record_key) {
+                let doc_len = if let Some(stats) = doc_stats_cache.get(record_tag) {
                     stats.doc_len
                 } else {
-                    let Some(stats) = Self::load_text_doc_stats(&engine, namespace, record_key)?
+                    let Some(stats) = Self::load_text_doc_stats(&engine, namespace, record_tag)?
                     else {
                         return Err(Error::NotFound {
                             kind: "document_stats".into(),
@@ -94,7 +96,7 @@ impl Embedded {
                         )));
                     }
                     let doc_len = stats.doc_len;
-                    doc_stats_cache.insert(record_key.to_string(), stats);
+                    doc_stats_cache.insert(record_tag.to_vec(), stats);
                     doc_len
                 };
 

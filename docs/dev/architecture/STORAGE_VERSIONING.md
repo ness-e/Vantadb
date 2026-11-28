@@ -91,10 +91,18 @@ The text index uses a feature-gated versioning scheme:
 
 | Feature | Version | Const |
 |---|---|---|
-| Basic tokenizer | `3` | `TEXT_INDEX_SCHEMA_VERSION = 3` |
-| Advanced tokenizer (`advanced-tokenizer`) | `4` | `TEXT_INDEX_SCHEMA_VERSION = 4` |
+| Basic tokenizer | `4` | `TEXT_INDEX_SCHEMA_VERSION = 4` |
+| Advanced tokenizer (`advanced-tokenizer`) | `5` | `TEXT_INDEX_SCHEMA_VERSION = 5` |
 
-The text index is a derived materialization (rebuildable from canonical data) and uses an internal prefix `b"\xffvanta_text_v3\0"` for key namespacing rather than a magic-byte header.
+The text index is a derived materialization (rebuildable from canonical data) and uses an internal prefix `b"\xffvanta_text_v4\0"` for key namespacing rather than a magic-byte header.
+
+**v4 (`FIND-513`)** is the blind-key layout: the posting key is
+`namespace ‖ 0x00 ‖ tag8(token) tag8(record_key)` with
+`tag8(x) = SHA-256(domain ‖ x)[0..8]`, and the doc/term stats are keyed by tag
+too, so the token and the record key no longer appear in clear. An index written
+by the v3 (clear-key) layout reports an incompatible state (`KEY_FORMAT` +
+`schema_version`) and is **rebuilt** on the next writable open — never read
+with the new lookups, which would return zero results in silence.
 
 ### Unified Header (`Header`)
 

@@ -65,33 +65,58 @@ feature. An existing plaintext database is **never** migrated implicitly.
 
 - **Fuentes de clave** (precedencia fija): `VANTADB_ENCRYPTION_KEY` →
   `VANTADB_ENCRYPTION_KEY_FILE` → `VANTADB_ENCRYPTION_KEY_CMD`.
-- **Lo que NO se cifra**: las claves del backend y los tokens del indice de
-  texto, el tamano de los valores, la estructura (conteos, orden, timestamps),
-  y la master key vive en la memoria del proceso.
+- **Lo que NO se cifra**: las claves del backend y las **etiquetas ciegas** del
+  indice de texto (v4: `tag8 = SHA-256(domain ‖ valor)[0..8]`, sin clave — ver
+  la seccion de abajo), el namespace, el tamano de los valores, la estructura
+  (conteos, orden, timestamps), y la master key vive en la memoria del proceso.
+  Las claves del indice **derivado** (`namespace_index_key`, `payload_index_key`)
+  y los postings sparse **siguen llevando la clave del registro en claro**.
 
-### Text index keys (FIND-513): the vocabulary and the document ids leak
+### Text index keys (FIND-513): blind tags, and what still leaks
 
 The encrypted at-rest layout protects the **payload** and the **posting value**
-(tf, positions, node id), not the **posting key**, which is
-`namespace ‖ 0x00 ‖ token ‖ 0x00 ‖ record_key` (`src/text_index.rs`,
-`posting_key`). Concretely, with a master key configured an operator with disk
-access can still read:
+(tf, positions, node id). The **key** is not encrypted (the AAD binds a value to
+its key; it never encrypts the key), so the key must not carry the data itself.
 
-- **Which words are indexed** — the token is a word of the payload, in clear.
-- **Which document holds them** — the record key is in clear, and it
-  correlates with the document ids of the encrypted payload.
+As of the **v4** layout (`src/text_index.rs`, marker `\xffvanta_text_v4\0`) it
+does not:
+
+```
+posting    = namespace ‖ 0x00 ‖ tag8(token) tag8(record_key)
+doc_stats  = v4 ‖ "doc" ‖ namespace ‖ 0x00 ‖ tag8(record_key)
+term_stats = v4 ‖ "term"‖ namespace ‖ 0x00 ‖ tag8(token)
+tag8(x)    = SHA-256(domain ‖ x)[0..8]
+```
+
+An operator with disk access can still learn:
+
 - **How many** postings a term has and **in which order** they were written
-  (the KV sorts the keys).
-- The **length** of every value: `ciphertext = plaintext + 28` (nonce + tag).
+  (the KV sorts the keys), and the **length** of every value:
+  `ciphertext = plaintext + 28` (nonce + tag).
+- **Which namespace** an entry belongs to — kept in clear on purpose, it is the
+  scan prefix and the namespace purge relies on it.
+- **The vocabulary, by dictionary.** The tag is a bare 64-bit prefix of
+  `SHA-256` with no key, no salt and no stretching, so an offline wordlist
+  recovers the indexed terms — and, since record ids are short and guessable
+  (`k1`, `item-1`), also the term→document map. The index is no longer readable
+  by `strings`; it is **not** confidential against an attacker who will hash a
+  dictionary. Closing that needs a keyed tag (`k_blind` derived from the
+  database key), tracked as its own finding.
 
-Accepted, not accidental: the AAD of the backend binds each value to its key
-(moving a value to another key fails to authenticate) and the ADR documents
-that "the KV keys are not encrypted". Encrypting the posting key is a
-**different key layout**, so an index already written would return *zero*
-results in silence — it needs a version marker plus a full rebuild of the text
-index (derived from canonical data). Design and delta:
-`docs/dev/tasks/FIND-513.md`; a test pins the leak and this section
-(`text_index::tests::posting_key_leak_is_declared_in_the_security_guide`).
+What is gone **from the text index**: the cleartext token, the cleartext record
+key, and the trivially-readable term→document correlation.
+
+**Not gone elsewhere:** the **derived** namespace/payload index keys
+(`namespace_index_key`, `payload_index_key`) and the sparse postings
+(`sparse_posting_key`) still carry the record key in clear — they are separate
+keyspaces and separate findings, not covered by this change.
+
+The layout change is a **version marker plus a rebuild** of the text index
+(derived from canonical data): an index written by the clear-key layout reports
+an incompatible state and is rebuilt on the next writable open. Design and
+delta: `docs/dev/tasks/FIND-513.md`; two tests pin it
+(`text_index::tests::posting_key_leak_is_declared_in_the_security_guide`,
+`impl_rebuild::tests::f513_v3_index_rebuilds_to_the_same_search_result`).
 
 - **WAL shipping does not replicate an encrypted database** (`FIND-496`): a
   replica would need the master key, and sending key material over the network

@@ -9,14 +9,15 @@ use crate::error::{Error, Result};
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::{tokenize_advanced, AdvancedTokenizerConfig};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Schema version with advanced tokenizer support.
 #[cfg(feature = "advanced-tokenizer")]
-pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 4;
+pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 5;
 /// Schema version with basic tokenizer support.
 #[cfg(not(feature = "advanced-tokenizer"))]
-pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 3;
+pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 4;
 /// Name of the built-in tokenizer.
 pub(crate) const TOKENIZER_NAME: &str = "lowercase-alnum";
 /// Version of the built-in tokenizer (v2: Unicode alphanumeric, EGO-04).
@@ -27,17 +28,48 @@ pub(crate) const ADVANCED_TOKENIZER_NAME: &str = "tantivy-multilingual";
 /// Version of the advanced tokenizer.
 #[cfg(feature = "advanced-tokenizer")]
 pub(crate) const ADVANCED_TOKENIZER_VERSION: u32 = 1;
-/// Storage key format description.
-pub(crate) const KEY_FORMAT: &str = "namespace\\0token\\0key";
+/// Storage key format description (the two tags are fixed-width, so there is
+/// no separator between them — `FIND-513`).
+pub(crate) const KEY_FORMAT: &str = "namespace\\0tag8(token)tag8(record_key)";
 /// BM25 k1 parameter.
 pub(crate) const BM25_K1: f32 = 1.2;
 /// BM25 b parameter.
 pub(crate) const BM25_B: f32 = 0.75;
 
-const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v3\0";
+/// Length of a blind tag in bytes.
+pub(crate) const BLIND_TAG_LEN: usize = 8;
+
+const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v4\0";
 const TERM_STATS_TAG: &[u8] = b"term\0";
 const DOC_STATS_TAG: &[u8] = b"doc\0";
 const NAMESPACE_STATS_TAG: &[u8] = b"ns\0";
+
+/// Domain separator of the token tag (`FIND-513`).
+const TOKEN_TAG_DOMAIN: &[u8] = b"vanta:text-index:token:v4\0";
+/// Domain separator of the record tag (`FIND-513`).
+const RECORD_TAG_DOMAIN: &[u8] = b"vanta:text-index:record:v4\0";
+
+/// A blind tag: the first 8 bytes of `SHA-256(domain ‖ value)`.
+///
+/// `FIND-513`: the index keys used to carry the token and the record key in
+/// clear, so `strings` read back the vocabulary and the document ids. The tag
+/// hides both. Truncating to 64 bits bounds the collision risk at 2⁻⁶⁴ per
+/// pair (declared residual); the tag is deterministic, so a lookup by
+/// `(namespace, token)` still scans one contiguous prefix.
+///
+/// `ponytail:` the tag is **unkeyed** — a targeted dictionary attack can still
+/// confirm that a guessed word is indexed. Keying it needs a per-database
+/// secret plumbed from the crypto registry (`ADR-0057` owns that mode record),
+/// which is a separate slice; declared in `SECURITY.md` and `FIND-513`.
+fn blind_tag(domain: &[u8], value: &str) -> [u8; BLIND_TAG_LEN] {
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update(value.as_bytes());
+    let digest = hasher.finalize();
+    let mut tag = [0u8; BLIND_TAG_LEN];
+    tag.copy_from_slice(&digest[..BLIND_TAG_LEN]);
+    tag
+}
 
 /// Specification for a text tokenizer implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -531,24 +563,47 @@ fn literal_token_positions(text: &str) -> BTreeMap<String, Vec<u32>> {
     positions
 }
 
+/// Blind tag of a token (what the posting key carries instead of the token).
+pub(crate) fn token_tag(token: &str) -> [u8; BLIND_TAG_LEN] {
+    blind_tag(TOKEN_TAG_DOMAIN, token)
+}
+
+/// Blind tag of a record key (what the posting/doc-stats keys carry instead
+/// of the record key).
+pub(crate) fn record_tag(key: &str) -> [u8; BLIND_TAG_LEN] {
+    blind_tag(RECORD_TAG_DOMAIN, key)
+}
+
+/// Lowercase hex of a blind tag — the in-memory cache key of a token.
+pub(crate) fn tag_hex(tag: &[u8]) -> String {
+    let mut out = String::with_capacity(tag.len() * 2);
+    for byte in tag {
+        out.push(char::from_digit(u32::from(byte >> 4), 16).unwrap_or('0'));
+        out.push(char::from_digit(u32::from(byte & 0x0f), 16).unwrap_or('0'));
+    }
+    out
+}
+
 /// Build a posting index key from namespace, token, and record key.
+///
+/// `FIND-513`: `namespace \0 tag8(token) tag8(key)` — the namespace stays in
+/// clear (range scans and namespace purges need it), the token and the record
+/// key travel only as blind tags.
 pub(crate) fn posting_key(namespace: &str, token: &str, key: &str) -> Vec<u8> {
-    let mut index_key = Vec::with_capacity(namespace.len() + token.len() + key.len() + 2);
+    let mut index_key = Vec::with_capacity(namespace.len() + 1 + BLIND_TAG_LEN * 2);
     index_key.extend_from_slice(namespace.as_bytes());
     index_key.push(0);
-    index_key.extend_from_slice(token.as_bytes());
-    index_key.push(0);
-    index_key.extend_from_slice(key.as_bytes());
+    index_key.extend_from_slice(&token_tag(token));
+    index_key.extend_from_slice(&record_tag(key));
     index_key
 }
 
 /// Build a posting prefix for scanning all entries of a namespace+token.
 pub(crate) fn posting_prefix(namespace: &str, token: &str) -> Vec<u8> {
-    let mut prefix = Vec::with_capacity(namespace.len() + token.len() + 2);
+    let mut prefix = Vec::with_capacity(namespace.len() + 1 + BLIND_TAG_LEN);
     prefix.extend_from_slice(namespace.as_bytes());
     prefix.push(0);
-    prefix.extend_from_slice(token.as_bytes());
-    prefix.push(0);
+    prefix.extend_from_slice(&token_tag(token));
     prefix
 }
 
@@ -560,11 +615,11 @@ pub(crate) fn posting_namespace_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
-/// Extract the record key from a posting key, given the already-built
+/// Extract the record tag from a posting key, given the already-built
 /// namespace+token prefix. Zero-allocation: borrows from the index key.
-pub(crate) fn posting_record_key<'a>(prefix: &[u8], index_key: &'a [u8]) -> Option<&'a str> {
-    let key_bytes = index_key.strip_prefix(prefix)?;
-    std::str::from_utf8(key_bytes).ok()
+pub(crate) fn posting_record_tag<'a>(prefix: &[u8], index_key: &'a [u8]) -> Option<&'a [u8]> {
+    let tag = index_key.strip_prefix(prefix)?;
+    (tag.len() == BLIND_TAG_LEN).then_some(tag)
 }
 
 /// Check whether a key belongs to an internal (stats) prefix.
@@ -622,28 +677,40 @@ pub(crate) fn text_index_key_belongs_to_namespace(key: &[u8], namespace: &str) -
 }
 
 /// Build a term stats key for a given namespace and token.
+///
+/// `FIND-513`: the token is a blind tag — the term-stats partition used to
+/// carry one cleartext word per entry, which is the vocabulary itself.
 pub(crate) fn term_stats_key(namespace: &str, token: &str) -> Vec<u8> {
     let mut key = Vec::with_capacity(
-        INTERNAL_PREFIX.len() + TERM_STATS_TAG.len() + namespace.len() + token.len() + 1,
+        INTERNAL_PREFIX.len() + TERM_STATS_TAG.len() + namespace.len() + 1 + BLIND_TAG_LEN,
     );
     key.extend_from_slice(INTERNAL_PREFIX);
     key.extend_from_slice(TERM_STATS_TAG);
     key.extend_from_slice(namespace.as_bytes());
     key.push(0);
-    key.extend_from_slice(token.as_bytes());
+    key.extend_from_slice(&token_tag(token));
     key
 }
 
 /// Build a doc stats key for a given namespace and record.
+///
+/// `FIND-513`: keyed by the blind tag of the record key, so BM25 resolves
+/// `doc_len` from the tag the posting already carries — the record key never
+/// leaves its own clear form.
 pub(crate) fn doc_stats_key(namespace: &str, key: &str) -> Vec<u8> {
+    doc_stats_key_for_tag(namespace, &record_tag(key))
+}
+
+/// Build a doc stats key from an already-computed record tag.
+pub(crate) fn doc_stats_key_for_tag(namespace: &str, tag: &[u8]) -> Vec<u8> {
     let mut index_key = Vec::with_capacity(
-        INTERNAL_PREFIX.len() + DOC_STATS_TAG.len() + namespace.len() + key.len() + 1,
+        INTERNAL_PREFIX.len() + DOC_STATS_TAG.len() + namespace.len() + 1 + tag.len(),
     );
     index_key.extend_from_slice(INTERNAL_PREFIX);
     index_key.extend_from_slice(DOC_STATS_TAG);
     index_key.extend_from_slice(namespace.as_bytes());
     index_key.push(0);
-    index_key.extend_from_slice(key.as_bytes());
+    index_key.extend_from_slice(tag);
     index_key
 }
 
@@ -867,32 +934,67 @@ mod tests {
 
     #[test]
     fn posting_key_preserves_namespace_token_key_boundaries() {
+        // FIND-513: `namespace \0 tag8(token) tag8(key)` — fixed width after
+        // the namespace, so the token scans stay contiguous and unambiguous.
         let key = posting_key("agent/main", "memory", "item-1");
-        assert_eq!(key, b"agent/main\0memory\0item-1".to_vec());
+        assert!(key.starts_with(b"agent/main\0"));
+        assert_eq!(key.len(), "agent/main".len() + 1 + BLIND_TAG_LEN * 2);
+        assert_eq!(
+            &key["agent/main".len() + 1..][..BLIND_TAG_LEN],
+            &token_tag("memory")
+        );
+        assert_eq!(
+            &key["agent/main".len() + 1 + BLIND_TAG_LEN..],
+            &record_tag("item-1")
+        );
     }
 
-    /// FIND-513: the posting key is **not** encrypted, so the token and the
-    /// record key travel in clear — the leak is pinned here and the operator
-    /// has to find it declared in the security guide.
+    /// FIND-513: the posting key must NOT carry the token nor the record key
+    /// in clear. The value is AEAD-sealed by the backend, but the key is not
+    /// (`ADR-0057 §5.3`), so a cleartext key leaked the vocabulary, the
+    /// document ids and the term→document relation to anyone running
+    /// `strings` over the index.
     ///
-    /// The limit is accepted, not accidental: the ADR says "the KV keys are not
-    /// encrypted" and the backend AEAD binds the value to its key (moving it
-    /// fails), so confidentiality of the payload holds and what leaks is the
-    /// vocabulary, the document ids, the cardinality and the value size.
-    /// Encrypting the key changes the on-disk layout of an index already
-    /// written (the lookups would silently return nothing), so it needs the
-    /// version marker + a full rebuild — see `docs/dev/tasks/FIND-513.md`.
+    /// The guide still has to declare the residual limit (the tag is
+    /// unkeyed: a dictionary attack can confirm a guessed word).
     #[test]
     fn posting_key_leak_is_declared_in_the_security_guide() {
         let key = posting_key("agent/main", "memory", "item-1");
+
         assert!(
-            key.windows(b"memory".len()).any(|w| w == b"memory"),
-            "the token is readable in the posting key"
+            !key.windows(b"memory".len()).any(|w| w == b"memory"),
+            "the token must not be readable in the posting key: {key:?}"
         );
         assert!(
-            key.windows(b"item-1".len()).any(|w| w == b"item-1"),
-            "the record key is readable in the posting key"
+            !key.windows(b"item-1".len()).any(|w| w == b"item-1"),
+            "the record key must not be readable in the posting key: {key:?}"
         );
+        // Deterministic (a reopen must find the same entries) and token-scoped.
+        assert_eq!(key, posting_key("agent/main", "memory", "item-1"));
+        assert_ne!(key, posting_key("agent/main", "memori", "item-1"));
+        assert_ne!(key, posting_key("agent/main", "memory", "item-2"));
+
+        // The scan prefix is exactly `key` minus the record tag.
+        let prefix = posting_prefix("agent/main", "memory");
+        assert!(key.starts_with(&prefix));
+        assert_eq!(
+            posting_record_tag(&prefix, &key),
+            Some(&record_tag("item-1")[..])
+        );
+        assert_eq!(posting_record_tag(&prefix, &key[..key.len() - 1]), None);
+
+        // The stats keys are blind too: one cleartext word per term-stats
+        // entry was the vocabulary itself.
+        for stats_key in [
+            term_stats_key("agent/main", "memory"),
+            doc_stats_key("agent/main", "item-1"),
+        ] {
+            assert!(
+                !stats_key.windows(b"memory".len()).any(|w| w == b"memory")
+                    && !stats_key.windows(b"item-1".len()).any(|w| w == b"item-1"),
+                "stats key leaks a cleartext component: {stats_key:?}"
+            );
+        }
 
         let guide = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("docs/user/operations/SECURITY.md");
@@ -900,9 +1002,24 @@ mod tests {
             .unwrap_or_else(|e| panic!("cannot read {}: {e}", guide.display()));
         assert!(
             doc.contains("FIND-513"),
-            "the text-index key leak must be declared in {} § Encryption at Rest",
+            "the text-index key limit must be declared in {} § Encryption at Rest",
             guide.display()
         );
+    }
+
+    /// FIND-513: every text-index key carries the v4 marker, so an index
+    /// written by the clear-key layout is recognisable as stale.
+    #[test]
+    fn text_index_keys_carry_the_v4_marker() {
+        const V4: &[u8] = b"\xffvanta_text_v4\0";
+        for key in [
+            term_stats_key("ns", "tok"),
+            doc_stats_key("ns", "key"),
+            namespace_stats_key("ns"),
+        ] {
+            assert!(key.starts_with(V4), "missing v4 marker: {key:?}");
+        }
+        assert!(!posting_key("ns", "tok", "key").starts_with(b"\xff"));
     }
 
     #[test]
@@ -1081,16 +1198,20 @@ mod tests {
         let spec = TextIndexSpec::default();
         #[cfg(feature = "advanced-tokenizer")]
         {
-            assert_eq!(spec.schema_version, 4);
+            assert_eq!(spec.schema_version, 5);
             assert_eq!(spec.tokenizer.name, "tantivy-multilingual");
             assert_eq!(spec.tokenizer.version, 1);
         }
         #[cfg(not(feature = "advanced-tokenizer"))]
         {
-            assert_eq!(spec.schema_version, 3);
+            assert_eq!(spec.schema_version, 4);
             assert_eq!(spec.tokenizer.name, "lowercase-alnum");
             assert_eq!(spec.tokenizer.version, 2);
         }
-        assert_eq!(spec.key_format, "namespace\\0token\\0key");
+        assert_eq!(spec.key_format, KEY_FORMAT);
+        assert_ne!(
+            spec.key_format, "namespace\\0token\\0key",
+            "the clear-key layout is v3; v4 keys are blind"
+        );
     }
 }

@@ -95,11 +95,19 @@ fn bm25_terms_for_record(
     if query_plan.terms.is_empty() {
         return Ok(Vec::new());
     }
+    // A v3 (pre-FIND-513) index cannot answer these lookups: fail loudly here
+    // too instead of explaining the query against an index the blind tags
+    // cannot address (that would return an empty explanation in silence).
+    super::text_index::ensure_text_index_query_ready(engine)?;
     let Some(namespace_stats) = Embedded::load_text_namespace_stats(engine, &record.namespace)?
     else {
         return Ok(Vec::new());
     };
-    let Some(doc_stats) = Embedded::load_text_doc_stats(engine, &record.namespace, &record.key)?
+    let Some(doc_stats) = Embedded::load_text_doc_stats(
+        engine,
+        &record.namespace,
+        &crate::text_index::record_tag(&record.key),
+    )?
     else {
         return Ok(Vec::new());
     };

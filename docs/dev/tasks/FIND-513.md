@@ -1,8 +1,8 @@
 ---
-title: "FIND-513: el indice de texto deja el token y la clave del registro en claro"
+title: "FIND-513: el indice de texto dejaba el token y la clave del registro en claro"
 kind: task
-status: in-progress
-description: "La clave de un posting es namespace/token/record_key: el token y la clave del registro quedan legibles en disco aunque el valor este cifrado. Entregado en este lote: el limite declarado en SECURITY.md con su magnitud medida y pinneado por test, mas el diseno decidido de la clave ciega (HMAC) con su plan de reindexado. La implementacion queda abierta."
+status: complete
+description: "La clave de un posting era namespace/token/record_key: el token y la clave del registro quedaban legibles en disco aunque el valor estuviera cifrado. Entregado: el limite declarado en SECURITY.md, el diseno de la clave ciega y su implementacion (marcador vanta_text_v4 + rebuild). La clave pasa a ser namespace + tag8(token) + tag8(record_key) y las stats se keyean por tag."
 ---
 
 # FIND-513: fuga del índice de texto (clave en claro)
@@ -11,8 +11,8 @@ description: "La clave de un posting es namespace/token/record_key: el token y l
 - **Fuente:** `docs/dev/Backlog.md` (fila `FIND-513`)
 - **Origen:** auditoría profunda v0.9.0 (2026-10-20), wave W4 (backend KV) · **Dep:** `FIND-407`
 - **Esfuerzo:** 2-3 días (la fila completa) · **Prioridad:** 🟠 Alta
-- **Creado / cerrado:** 2026-11-27
-- **Estado:** 🟡 IN PROGRESS (mitad 1 entregada: límite declarado + diseño decidido; la implementación de la clave ciega queda abierta — ver §Deuda)
+- **Creado / cerrado:** 2026-10-27 / 2026-11-27
+- **Estado:** ✅ COMPLETE (mitad 1: límite declarado + diseño · mitad 2: clave ciega implementada con `vanta_text_v4` + rebuild)
 
 ## Premisa (medida)
 
@@ -97,7 +97,7 @@ prefijo `ns\0` sigue en claro) y BM25 (con `doc_stats` por `node_id`).
 **Se pierde:** leer el vocabulario en claro — que es el objetivo — y la
 posibilidad de enumerar términos de un namespace (hoy tampoco hay API pública).
 
-**Migración:** marcador `\xffvanta_text_v4\0` + **rebuild del índice de texto**
+## Migración:** marcador `\xffvanta_text_v4\0` + **rebuild del índice de texto**
 en el primer open (es materialización derivada de datos canónicos,
 `STORAGE_VERSIONING.md:97`). Sin migración in-place: se descarta el prefijo
 viejo.
@@ -106,12 +106,61 @@ viejo.
 depurar); se documenta en el runbook. Y el borrado pasa a necesitar
 `record_idx` (una escritura más por documento indexado).
 
+## Implementación (mitad 2, entregada)
+
+Lo implementado, y en qué se aparta del diseño de arriba (con el porqué):
+
+```
+posting    = namespace ‖ 0x00 ‖ tag8(token) tag8(record_key)
+doc_stats  = \xffvanta_text_v4\0 "doc\0"  namespace ‖ 0x00 ‖ tag8(record_key)
+term_stats = \xffvanta_text_v4\0 "term\0" namespace ‖ 0x00 ‖ tag8(token)
+tag8(x)    = SHA-256("vanta:text-index:<domain>:v4\0" ‖ x)[0..8]
+```
+
+| Pieza | Antes | Ahora |
+|---|---|---|
+| `posting_key` | `ns\0token\0key` (claro) | `ns\0tag8(token)tag8(key)` |
+| `posting_prefix` | `ns\0token\0` | `ns\0tag8(token)` (fijo: el prefijo es el prefijo exacto de la clave) |
+| `posting_record_key` → **`posting_record_tag`** | devolvía el `record_key` leído de la clave | devuelve el **tag** de 8 bytes (el `record_key` ya no está) |
+| `doc_stats_key` | `…doc\0ns\0key` | `…doc\0ns\0tag8(key)` + `doc_stats_key_for_tag` para la lectura por tag |
+| `term_stats_key` | `…term\0ns\0token` | `…term\0ns\0tag8(token)` |
+| `lexical.rs` (BM25) | sacaba el `record_key` de la clave y pedía `doc_stats` por él | usa el tag que la clave ya trae (`load_text_doc_stats(engine, ns, tag)`) |
+| estado del índice | v3 (schema 3/4, `key_format` claro) | v5/v4 + `key_format` nuevo ⇒ `text_index_state_matches_spec` falla ⇒ **rebuild** en el próximo open escribible (`ensure_indexes_current`); `ensure_text_index_query_ready` falla ruidosamente hasta entonces, nunca devuelve cero resultados en silencio |
+
+**Apartamientos del diseño, y por qué:**
+
+1. **`doc_stats` se keyea por `tag8(record_key)`, no por `node_id`.** Los tres
+   caminos de borrado (`impl_text_index.rs`, `impl_index.rs`, `purge_expired` en
+   `src/sdk/api/memory.rs`) tienen el `record_key` y **no** el `node_id`; dos de
+   ellos viven en archivos que este carril no toca. Keyear por tag deja las
+   firmas de `doc_stats_key`/`doc_stats_delete_op` intactas y consigue lo mismo
+   que pedía el diseño: BM25 resuelve `doc_len` sin la clave en claro.
+2. **No hay índice inverso `record_idx`.** El diseño lo pedía para el borrado
+   "porque el `delete` conoce el `record_key`", pero **los tres borrados
+   re-tokenizan el payload** (`posting_delete_ops(ns, key, payload)`) — el
+   propio §Diseño ya lo dice de `posting_prefix` ("solo se usa para buscar, no
+   para borrar"). Una entrada nueva por documento para suplir algo que el
+   llamador ya tiene es coste sin función: `ponytail:` no se implementó, se
+   requiere el día que exista un borrado que solo conozca la clave.
+3. **El tag no va keyeado (sin `HMAC(k_blind)`).** `k_blind` exige un secreto
+   por base derivado del registro de claves, y el registro de claves es el
+   **mode record** de `ADR-0057` (cuatro artefactos) — plumbear un secreto
+   nuevo a `text_index.rs` (que es un módulo puro de construcción de claves, sin
+   handle del motor) es una decisión de Arch, no un fix de worker. El tag cierra
+   la fuga **literal** (`strings`) y la correlación directa; un ataque de
+   diccionario dirigido todavía puede confirmar una palabra adivinada — está
+   declarado en `SECURITY.md` y como fila propia (§Deuda).
+
 ## Steps
 
 1. ✅ Test RED `text_index_posting_key_leak_is_declared_in_the_security_guide`: pincha la fuga (token y clave legibles en la clave) **y** exige que `SECURITY.md` la declare — falla en `HEAD` porque el doc no la nombra.
 2. ✅ Sección propia en `SECURITY.md` § Encryption at Rest con la magnitud medida.
 3. ✅ Diseño de la mitad 2 en este task file (§Diseño) con la decisión de reindexado.
-4. ✅ GREEN + gates.
+4. ✅ GREEN + gates (mitad 1).
+5. ✅ **Mitad 2 RED:** el mismo pin ahora exige lo contrario (la clave **no** contiene el token ni la clave del registro; stats ciegas; prefijo exacto; determinismo) + `text_index_keys_carry_the_v4_marker`.
+6. ✅ **Mitad 2 RED (migración):** `f513_v3_index_rebuilds_to_the_same_search_result` — escribe un índice v3 (clave `ns\0world\0k1` + estado con `key_format` viejo), reabre, y exige el mismo resultado de búsqueda y que las claves viejas ya no estén.
+7. ✅ **Mitad 2 GREEN:** `blind_tag`/`token_tag`/`record_tag`/`tag_hex`, `posting_key`/`posting_prefix`/`posting_record_tag`/`doc_stats_key_for_tag`/`term_stats_key`, marcador `vanta_text_v4`, schema 5/4, `KEY_FORMAT`, `lexical.rs` por tag, `parse_term_stats_key` por tag, caché de term-stats por tag hex.
+8. ✅ Gates: clippy + fmt + nextest del filtro del contrato + `SECURITY.md` actualizado.
 
 ## Contrato de verificación
 
@@ -124,14 +173,54 @@ cargo nextest run  ... mismo filtro ... --no-tests fail
 
 ## Deuda declarada
 
-- **La mitad 2 (clave cifrada) NO está implementada.** Requiere: (a) decisión del owner sobre el reindexado obligatorio en el primer open de un índice de texto existente, (b) bump del marcador `INTERNAL_PREFIX` a `v4`, (c) derivar `k_blind` del registro (una DEK nueva o derivada de la del backend). Es media wave, no un fix. Queda con su contrato cumplido (límite declarado + diseño decidido) y **sin** cerrar la parte de implementación.
+- ~~La mitad 2 (clave cifrada) NO está implementada.~~ **Implementada** en este lote (§Implementación).
+- **El tag es unkeyed** (D3 del §Implementación): cierra la fuga literal (`strings`)
+  pero **no** el ataque de diccionario — `SHA-256` sin clave, sin sal y sin
+  estiramiento hace el vocabulario enumerable, y los `record_key` son ids cortos
+  y adivinables, así que el mapa término→documento también se recupera. Upgrade
+  path: `k_blind = HKDF-SHA256(DEK del backend, "vanta:text-index:blind:v1")` +
+  HMAC-SHA256, lo que exige un secreto por base accesible desde `text_index.rs`
+  (hoy un módulo puro sin handle del motor) y toca el *mode record* de
+  `ADR-0057`. **Fila propia pendiente de ID** (la asigna el orquestador).
+- **El índice derivado y los sparse postings siguen publicando la clave del
+  registro en claro**: `namespace_index_key` / `payload_index_key`
+  (`src/sdk/serialization/mod.rs`) y `sparse_posting_key`
+  (`impl_sparse_index.rs`). `SECURITY.md` ya lo declara; **fila propia pendiente
+  de ID** — es la mitad del mismo problema que esta fila ataca, en otra partición.
+- **`record_idx`** (índice inverso por registro) **no se implementó**: el
+  borrado ya re-tokeniza el payload en los tres call sites. Declarado arriba.
 
 ## Context Save Point
 
-- **Hecho:** `src/text_index.rs` (test de pin), `docs/user/operations/SECURITY.md`, este task file, `Backlog.md`, `avance/activo/core-engine.md`.
-- **No hacer:** cambiar `posting_key` sin el marcador `v4` y el rebuild — el índice viejo devolvería *cero* resultados en silencio (no error), que es peor que la fuga.
+- **Hecho:** `src/text_index.rs`, `src/sdk/search/lexical.rs`,
+  `src/sdk/search/debug.rs`, `src/sdk/serialization/impl_text_index.rs`,
+  `src/sdk/serialization/impl_rebuild.rs`, `src/sdk/serialization/mod.rs`,
+  `docs/user/operations/SECURITY.md`, este task file, `Backlog.md`,
+  `avance/activo/core-engine.md`.
+- **No hacer:** cambiar `posting_key` sin subir el marcador `v4` **y**
+  `KEY_FORMAT`/`schema_version` — el estado viejo volvería a "compatible" y el
+  índice viejo devolvería *cero* resultados en silencio (no error), que es peor
+  que la fuga. El test `f513_v3_index_rebuilds_to_the_same_search_result` es el
+  guardián de ese camino.
 
 ## Review
+
+### P2-01 ronda 2 (mitad 2, contexto fresco, `vanta-review`, agente distinto) — **changes-required**, aplicado
+
+La ronda 1 fue sobre la mitad doc+diseño. Esta cubre la implementación de la clave
+ciega. Verdict: **approve en la sustancia** (ninguna clave del índice de texto
+lleva el token ni la clave del registro en claro; ningún camino parsea ya un
+token o un `record_key` de la clave; la migración fuerza rebuild antes de una
+lectura con cero silencioso), **changes-required en lo declarado**:
+
+- **M2** aplicado: `SECURITY.md` acotaba mal "the cleartext record key is gone" —
+  el índice **derivado** y los sparse postings lo siguen llevando. El texto ahora
+  dice "from the text index" y declara esas particiones como filas aparte.
+- **M3** aplicado: el techo estaba subestimado ("a targeted guess can be
+  confirmed" → es **recuperable por diccionario**, el vocabulario entero). El
+  texto y el §Deuda lo dicen así.
+- **L1/L2** aplicados: `KEY_FORMAT` sin el `\0` espurio entre tags, y el mensaje
+  de `ensure_text_index_query_ready` deriva la versión de la spec (decía v3).
 
 ### P2-01 ronda 1 (contexto fresco, `vanta-review`, agente distinto) - **changes-required**, aplicado
 

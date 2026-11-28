@@ -164,13 +164,14 @@ impl Embedded {
         namespace: &str,
         token: &str,
     ) -> Result<Option<crate::text_index::TextTermStats>> {
+        // FIND-513: the key holds a blind tag, so the cache is keyed by it too
+        // (the same key `parse_term_stats_key` recovers from a written op).
+        let cache_key = (
+            namespace.to_string(),
+            crate::text_index::tag_hex(&crate::text_index::token_tag(token)),
+        );
         // Cache-aside: check in-memory cache first
-        if let Some(stats) = engine
-            .cache
-            .text_stats
-            .read()
-            .get(&(namespace.to_string(), token.to_string()))
-        {
+        if let Some(stats) = engine.cache.text_stats.read().get(&cache_key) {
             return Ok(Some(stats.clone()));
         }
         let key = crate::text_index::term_stats_key(namespace, token);
@@ -183,7 +184,7 @@ impl Embedded {
             .cache
             .text_stats
             .write()
-            .insert((namespace.to_string(), token.to_string()), stats.clone());
+            .insert(cache_key, stats.clone());
         Ok(Some(stats))
     }
 
@@ -213,9 +214,9 @@ impl Embedded {
     pub(crate) fn load_text_doc_stats(
         engine: &StorageEngine,
         namespace: &str,
-        key: &str,
+        record_tag: &[u8],
     ) -> Result<Option<crate::text_index::TextDocStats>> {
-        let dkey = crate::text_index::doc_stats_key(namespace, key);
+        let dkey = crate::text_index::doc_stats_key_for_tag(namespace, record_tag);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &dkey)? else {
             return Ok(None);
         };
@@ -375,8 +376,12 @@ impl Embedded {
         Ok((ops, report))
     }
 
+    /// Recover `(namespace, token tag)` from a term-stats key.
+    ///
+    /// FIND-513: the token component is a blind tag, so what comes back is its
+    /// hex form — the same shape `load_text_term_stats` uses as its cache key.
     pub(crate) fn parse_term_stats_key(key: &[u8]) -> Option<(String, String)> {
-        const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v3\0";
+        const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v4\0";
         const TERM_STATS_TAG: &[u8] = b"term\0";
         let remainder = key
             .strip_prefix(INTERNAL_PREFIX)?
@@ -389,18 +394,16 @@ impl Embedded {
                 return None;
             }
         };
-        let token = match String::from_utf8(remainder[pos + 1..].to_vec()) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::warn!(?e, raw = ?&remainder[pos + 1..], "Invalid UTF-8 token in term stats key");
-                return None;
-            }
-        };
-        Some((ns, token))
+        let tag = &remainder[pos + 1..];
+        if tag.len() != crate::text_index::BLIND_TAG_LEN {
+            tracing::warn!(raw = ?tag, "Malformed token tag in term stats key");
+            return None;
+        }
+        Some((ns, crate::text_index::tag_hex(tag)))
     }
 
     pub(crate) fn parse_namespace_stats_key(key: &[u8]) -> Option<String> {
-        const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v3\0";
+        const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v4\0";
         const NAMESPACE_STATS_TAG: &[u8] = b"ns\0";
         let remainder = key
             .strip_prefix(INTERNAL_PREFIX)?
@@ -542,23 +545,30 @@ mod tests {
 
     #[test]
     fn test_parse_term_stats_key_valid() {
-        let key = b"\xffvanta_text_v3\0term\0myns\0mytoken";
+        // FIND-513: the token component is the blind tag, returned as hex.
+        let key = crate::text_index::term_stats_key("myns", "mytoken");
         assert_eq!(
-            Embedded::parse_term_stats_key(key),
-            Some(("myns".into(), "mytoken".into()))
+            Embedded::parse_term_stats_key(&key),
+            Some((
+                "myns".into(),
+                crate::text_index::tag_hex(&crate::text_index::token_tag("mytoken"))
+            ))
         );
     }
 
     #[test]
-    fn test_parse_term_stats_key_invalid_utf8() {
-        let key = b"\xffvanta_text_v3\0term\0myns\0\xff\xfe";
-        assert_eq!(Embedded::parse_term_stats_key(key), None);
+    fn test_parse_term_stats_key_truncated_tag() {
+        // A tag that is not BLIND_TAG_LEN bytes is malformed, not a token.
+        assert_eq!(
+            Embedded::parse_term_stats_key(b"\xffvanta_text_v4\0term\0myns\0abc"),
+            None
+        );
     }
 
     #[test]
     fn test_parse_term_stats_key_truncated() {
         assert_eq!(
-            Embedded::parse_term_stats_key(b"\xffvanta_text_v3\0term"),
+            Embedded::parse_term_stats_key(b"\xffvanta_text_v4\0term"),
             None
         );
     }
@@ -566,6 +576,11 @@ mod tests {
     #[test]
     fn test_parse_term_stats_key_no_match() {
         assert_eq!(Embedded::parse_term_stats_key(b"not_a_text_key"), None);
+        // The pre-v4 (clear-token) layout is not a valid v4 key.
+        assert_eq!(
+            Embedded::parse_term_stats_key(b"\xffvanta_text_v3\0term\0myns\0mytoken"),
+            None
+        );
     }
 
     // ─── parse_namespace_stats_key ─────────────────────────────
@@ -573,7 +588,7 @@ mod tests {
     #[test]
     fn test_parse_namespace_stats_key_valid() {
         assert_eq!(
-            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns\0myns"),
+            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v4\0ns\0myns"),
             Some("myns".into())
         );
     }
@@ -581,7 +596,7 @@ mod tests {
     #[test]
     fn test_parse_namespace_stats_key_invalid_utf8() {
         assert_eq!(
-            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns\0\xff\xfe"),
+            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v4\0ns\0\xff\xfe"),
             None
         );
     }
@@ -589,7 +604,7 @@ mod tests {
     #[test]
     fn test_parse_namespace_stats_key_truncated() {
         assert_eq!(
-            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns"),
+            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v4\0ns"),
             None
         );
     }
