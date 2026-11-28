@@ -11,9 +11,15 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 
 # R1 (2026-11-27, auditoria de recursos): incremental fuera por defecto en este repo.
 # Medido: `target/debug/incremental` llegaba a 14,43 GB creciendo 1,64 GB cada 25 min,
-# con 843 `dep-graph.bin` y 614 perfiles — porque cada carril compila con un feature
+# con 843 `dep-graph.bin` y 614 perfiles - porque cada carril compila con un feature
 # set distinto, asi que el incremental apenas acierta y solo ocupa. Nada lo podaba.
-# Con esto, el burn rate del disco cae ~2/3. Coste: cada edicion recompila el crate.
+#
+# R1-bis (2026-11-28): ESTA SECCION NO DESACTIVA EL INCREMENTAL. Medido: el
+# directorio volvio a 17,08 GB con esta linea presente. `[env]` fija el entorno
+# de los procesos hijos (rustc, build scripts); cargo lee `incremental` del
+# PERFIL. La desactivacion real vive en `Cargo.toml` -> `[profile.dev]
+# incremental = false`. Se deja aqui por si algun build script consulta la
+# variable, pero no es lo que apaga la cache.
 [env]
 CARGO_INCREMENTAL = "0"
 

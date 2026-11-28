@@ -755,6 +755,15 @@ debug = 1
 opt-level = 1
 debug = 0
 strip = "none"
+# R1-bis (2026-11-28): incremental OFF, y esta vez de verdad.
+#
+# El 2026-11-27 se intentó con `[env] CARGO_INCREMENTAL = "0"` en
+# `.cargo/config.toml`. NO funciona: `[env]` fija el entorno de los procesos
+# hijos (rustc, build scripts), no la decisión de cargo sobre incremental.
+# Medido: `target/debug/incremental` volvió a 17,08 GB (se habían borrado
+# 14,43 GB) y crecía durante la sesión. Aquí sí lo lee cargo.
+# Coste: cada edición recompila el crate. Beneficio: el disco no se llena.
+incremental = false
 
 # CI profile: release-like but without LTO for faster CI builds.
 [profile.ci]

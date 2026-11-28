@@ -1,8 +1,8 @@
 ---
 title: "FIND-903: el borrado certificado no alcanza 0 residuos cuando el registro borrado es el unico de la base"
 kind: task
-status: partial
-description: "Reescritura de segmento vacio (grafo vacio) y reclamacion sin rango muerto (compact_level) con una sola primitiva; la superficie vector_store pasa de not-assessed a scanned con el conteo medido. Medido: 1 residuo en vstore_L0.vanta -> 0. PARCIAL: el predicado que disparaba la reescritura era por grafo y borraba registros vivos sin vector; corregido por FIND-905 a predicado por segmento."
+status: completed
+description: "Reescritura de segmento vacio y reclamacion sin rango muerto (compact_level) con una sola primitiva; vector_store pasa de not-assessed a scanned con el conteo medido: 1 residuo en vstore_L0.vanta -> 0. El predicado era por grafo y borraba vivos sin vector: corregido a predicado por segmento (seccion FIND-905). El residual L1+ es FIND-904."
 id: FIND-903
 ---
 
@@ -17,6 +17,11 @@ id: FIND-903
   medido; **el predicado que lo disparaba estaba mal** y se corrigió en `FIND-905` (abajo).
 
 ## Corrección `FIND-905` (2026-11-28): el predicado es por segmento, no por grafo
+
+> **Nota de trazabilidad (2026-11-28):** `FIND-905` **no tiene fila en el Backlog, a propósito**.
+> Nació como regresión de esta misma fila (el commit `5d9f3297f` se titula `FIND-905`), se corrigió
+> en el acto y su alcance es éste. Abrir una fila para cerrarla en el mismo commit habría sido ruido;
+> lo que no podía faltar es este rastro. El residual que **sí** tiene fila propia es `FIND-904`.
 
 `reset_empty_segment` era la primitiva correcta; **la condición que lo llamaba, no**. El cierre se
 midió con **un** registro, y con una sola fila no hay hermanos que perder:
