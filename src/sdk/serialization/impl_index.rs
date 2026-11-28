@@ -23,7 +23,11 @@ impl Embedded {
     /// (`text_query`, hybrid search, text filters) work on fresh databases.
     pub fn ensure_indexes_current(&self) -> Result<()> {
         let engine = self.engine_handle()?;
-        let nodes = engine.scan_nodes()?;
+        // FIND-812: the row set, not `scan_nodes()` — a row whose side storage
+        // is corrupt is still a row, and the counts below it decide whether a
+        // rebuild runs. Counting it as absent made `get()` and the rebuild
+        // disagree forever.
+        let nodes = engine.scan_rows_for_rebuild()?.nodes;
 
         self.ensure_derived_indexes_current_with(&engine, &nodes)?;
         self.ensure_text_index_current_with(&engine, &nodes)?;

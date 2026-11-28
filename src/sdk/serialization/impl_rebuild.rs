@@ -21,6 +21,8 @@ impl Embedded {
         let mut namespace_entries = 0u64;
         let mut payload_entries = 0u64;
 
+        let rows = engine.scan_rows_for_rebuild()?;
+        let corrupt_rows = Self::report_rebuild_gaps("derived", &rows);
         for (key, _value) in engine.scan_partition(BackendPartition::NamespaceIndex)? {
             ops.push(BackendWriteOp::Delete {
                 partition: BackendPartition::NamespaceIndex,
@@ -33,8 +35,8 @@ impl Embedded {
                 key,
             });
         }
-        for node in engine.scan_nodes()? {
-            if let Some(record) = record_from_node(&node) {
+        for node in &rows.nodes {
+            if let Some(record) = record_from_node(node) {
                 record_count += 1;
                 namespace_entries += 1;
                 payload_entries += record.metadata.len() as u64;
@@ -61,10 +63,36 @@ impl Embedded {
             record_count,
             namespace_entries,
             payload_entries,
+            corrupt_rows,
             duration_ms: started.elapsed().as_millis() as u64,
         };
         crate::metrics::record_derived_rebuild(report.duration_ms);
         Ok(report)
+    }
+
+    /// Log (and count) the rows a rebuild could not materialize in full
+    /// (`FIND-812`): the id and the reason, never a silent skip.
+    pub(crate) fn report_rebuild_gaps(
+        index: &str,
+        rows: &crate::storage::engine::get::RebuildRows,
+    ) -> u64 {
+        for (id, gap) in &rows.degraded {
+            tracing::warn!(
+                node_id = %id,
+                reason = gap.label(),
+                index,
+                "rebuild: row kept with a degraded payload (its id stays in the index)"
+            );
+        }
+        for id in &rows.unreadable {
+            tracing::warn!(
+                node_id = %id,
+                reason = "metadata_corrupt",
+                index,
+                "rebuild: row metadata does not decode; the id is reported, not silently dropped"
+            );
+        }
+        (rows.degraded.len() + rows.unreadable.len()) as u64
     }
 
     pub(crate) fn rebuild_derived_indexes(&self) -> Result<()> {
@@ -90,6 +118,13 @@ impl Embedded {
         let mut namespace_stats: BTreeMap<String, crate::text_index::TextNamespaceStats> =
             BTreeMap::new();
 
+        // `FIND-812`: the backend row set is the ground truth. Walking
+        // `scan_nodes()` dropped every row whose header/vector did not decode,
+        // and deleting the partition up front then erased those live rows from
+        // the index for good.
+        let rows = engine.scan_rows_for_rebuild()?;
+        let corrupt_rows = Self::report_rebuild_gaps("text", &rows);
+
         for (key, _value) in engine.scan_partition(BackendPartition::TextIndex)? {
             ops.push(BackendWriteOp::Delete {
                 partition: BackendPartition::TextIndex,
@@ -104,8 +139,8 @@ impl Embedded {
             &crate::tokenizer::AdvancedTokenizerConfig::default(),
         );
 
-        for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node_include_expired(&node) {
+        for node in &rows.nodes {
+            if let Some(record) = memory_record_from_node_include_expired(node) {
                 counts.record_count += 1;
                 let terms = {
                     #[cfg(feature = "advanced-tokenizer")]
@@ -173,6 +208,7 @@ impl Embedded {
             doc_stats_entries: counts.doc_stats_entries,
             term_stats_entries: counts.term_stats_entries,
             namespace_stats_entries: counts.namespace_stats_entries,
+            corrupt_rows,
             duration_ms: started.elapsed().as_millis() as u64,
         };
         crate::metrics::record_text_index_rebuild(report.duration_ms, report.posting_entries);
@@ -192,7 +228,7 @@ impl Embedded {
         let mut namespace_stats: BTreeMap<String, crate::text_index::TextNamespaceStats> =
             BTreeMap::new();
 
-        for node in engine.scan_nodes()? {
+        for node in engine.scan_rows_for_rebuild()?.nodes {
             audit.records_scanned += 1;
             if let Some(record) = memory_record_from_node_include_expired(&node) {
                 if matches!(namespace_filter, Some(namespace) if record.namespace != namespace) {
@@ -582,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_text_index_value_readable_unknown_internal_key() {
-        let key = b"\xffvanta_text_v3\0unknown\0data";
+        let key = b"\xffvanta_text_v4\0unknown\0data";
         let value = b"whatever";
         assert!(!Embedded::text_index_value_readable(key, value));
     }
@@ -857,6 +893,292 @@ mod tests {
         assert_eq!(report.doc_stats_entries, 1);
         assert_eq!(report.term_stats_entries, 2);
         assert_eq!(report.namespace_stats_entries, 1);
+    }
+
+    // ─── FIND-513: v3 (clear-key) → v4 (blind key) migration ──
+
+    /// `FIND-513`: an index written by the clear-key layout (v3) must rebuild
+    /// itself on reopen — the marker and the key format both changed, and the
+    /// old prefix is discarded — and answer the same query afterwards.
+    ///
+    /// Without the rebuild the blind lookups would return **zero** results in
+    /// silence, which is worse than the leak.
+    #[test]
+    fn f513_v3_index_rebuilds_to_the_same_search_result() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("db").to_string_lossy().to_string();
+        let open = || {
+            crate::sdk::Embedded::open_with_config(crate::config::Config {
+                storage_path: path.clone(),
+                ..Default::default()
+            })
+            .expect("open db")
+        };
+
+        let db = open();
+        db.put(crate::sdk::MemoryInput::new("ns1", "k1", "hello world"))
+            .unwrap();
+        db.put(crate::sdk::MemoryInput::new("ns1", "k2", "goodbye world"))
+            .unwrap();
+        let before: Vec<String> = db
+            .search(crate::sdk::types::MemorySearchRequest {
+                namespace: "ns1".into(),
+                text_query: Some("world".into()),
+                top_k: 10,
+                ..Default::default()
+            })
+            .expect("text search before")
+            .into_iter()
+            .map(|hit| hit.record.key)
+            .collect();
+        assert_eq!(before.len(), 2, "both records mention 'world'");
+
+        // Simulate an index left behind by the clear-key layout: the old
+        // marker prefix carrying a readable token, plus a v3 state record.
+        let engine = db.engine_handle().unwrap();
+        engine
+            .put_to_partition(
+                BackendPartition::TextIndex,
+                b"ns1\0world\0k1",
+                &crate::text_index::posting_value(1, 1, &[1]).unwrap(),
+            )
+            .unwrap();
+        let mut state = Embedded::load_text_index_state(&engine)
+            .unwrap()
+            .expect("index state");
+        state.schema_version = 3;
+        state.key_format = "namespace\\0token\\0key".into();
+        Embedded::write_text_index_state(&engine, &state).unwrap();
+        drop(engine);
+        drop(db);
+
+        // Reopen: `ensure_indexes_current` sees the incompatible state and
+        // rebuilds the text index from the canonical records.
+        let db = open();
+        let state = Embedded::load_text_index_state(&db.engine_handle().unwrap())
+            .unwrap()
+            .expect("index state");
+        assert!(
+            Embedded::text_index_state_matches_spec(&state),
+            "the reopen must leave a current text-index state"
+        );
+
+        let keys: Vec<Vec<u8>> = db
+            .engine_handle()
+            .unwrap()
+            .scan_partition(BackendPartition::TextIndex)
+            .unwrap()
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect();
+        assert!(
+            !keys.iter().any(|key| key.windows(5).any(|w| w == b"world")),
+            "the v3 clear-token keys must be gone: {keys:?}"
+        );
+
+        let after: Vec<String> = db
+            .search(crate::sdk::types::MemorySearchRequest {
+                namespace: "ns1".into(),
+                text_query: Some("world".into()),
+                top_k: 10,
+                ..Default::default()
+            })
+            .expect("text search after")
+            .into_iter()
+            .map(|hit| hit.record.key)
+            .collect();
+        let mut before_sorted = before;
+        let mut after_sorted = after;
+        before_sorted.sort();
+        after_sorted.sort();
+        assert_eq!(before_sorted, after_sorted);
+    }
+
+    // ─── FIND-812: a rebuild never drops a row it could not read ───
+
+    /// `FIND-812`, face 1: a row whose **side storage** is unreadable (the
+    /// FIND's torn header/vector) is still a row — the rebuild keeps its id in
+    /// the index, and the corruption is counted and reported with the id.
+    ///
+    /// Before the fix `materialize_uncached` mapped "header unreadable" to
+    /// `Ok(None)`, `scan_nodes()` therefore skipped the record, and the rebuild
+    /// — which deletes the partition first — erased a live row from every read.
+    #[test]
+    fn f812_rebuild_keeps_a_row_with_a_corrupt_header() {
+        use crate::node::FilterBitset;
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("in-memory db");
+        db.put(crate::sdk::MemoryInput::new("ns1", "healthy", "alpha beta"))
+            .unwrap();
+        let corrupt = db
+            .put(crate::sdk::MemoryInput::new(
+                "ns1",
+                "corrupt",
+                "gamma delta",
+            ))
+            .unwrap()
+            .node_id;
+
+        // Point the corrupt record at a header slot that does not exist: the
+        // backend row stays intact, only the vstore side is unusable.
+        let engine = db.engine_handle().unwrap();
+        let hnsw = engine.hnsw.load();
+        hnsw.remove_node(corrupt);
+        hnsw.add_node(
+            corrupt,
+            FilterBitset::new(),
+            crate::node::VectorRepresentations::None,
+            crate::lsm::pack_offset(0, 1 << 40),
+        )
+        .unwrap();
+        assert!(
+            matches!(
+                engine.materialize_uncached(corrupt).unwrap(),
+                crate::storage::engine::get::Materialized::Degraded { .. }
+            ),
+            "a corrupt header must not look like an absent row"
+        );
+
+        let report = db.rebuild_text_index_with_report().unwrap();
+        assert_eq!(report.corrupt_rows, 1, "the corruption is counted");
+        assert_eq!(report.record_count, 2, "both rows still count");
+
+        // The id stays in the index: its postings are rebuilt from the
+        // metadata row the backend still holds.
+        let engine = db.engine_handle().unwrap();
+        let mut indexed_ids: Vec<u128> = Vec::new();
+        let mut postings = 0usize;
+        for (key, value) in engine.scan_partition(BackendPartition::TextIndex).unwrap() {
+            if crate::text_index::is_internal_key(&key) {
+                continue;
+            }
+            postings += 1;
+            let posting = crate::text_index::decode_posting(&value).expect("posting decodes");
+            if !indexed_ids.contains(&posting.node_id) {
+                indexed_ids.push(posting.node_id);
+            }
+        }
+        assert_eq!(postings, 4, "both records' postings are rebuilt");
+        assert!(
+            indexed_ids.contains(&corrupt),
+            "the corrupt row's id is still indexed (FIND-812)"
+        );
+
+        // The healthy row is still served end to end.
+        let hits = db
+            .search(crate::sdk::types::MemorySearchRequest {
+                namespace: "ns1".into(),
+                text_query: Some("alpha".into()),
+                top_k: 10,
+                ..Default::default()
+            })
+            .expect("text search");
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].record.key, "healthy");
+    }
+
+    /// `FIND-812`, third face: a row **deleted inside a transaction** keeps its
+    /// metadata row on purpose (`deleted_by_txn`) and loses its index offset.
+    /// Treating that as "not indexed" and re-indexing it would resurrect a
+    /// deleted record in the text, derived and sparse indexes.
+    #[test]
+    fn f812_rebuild_purges_a_row_deleted_by_a_transaction() {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("in-memory db");
+        db.put(crate::sdk::MemoryInput::new("ns1", "kept", "alpha beta"))
+            .unwrap();
+        let doomed = db
+            .put(crate::sdk::MemoryInput::new("ns1", "doomed", "gamma delta"))
+            .unwrap()
+            .node_id;
+
+        let engine = db.engine_handle().unwrap();
+        let txn = engine.begin_transaction().unwrap();
+        engine.delete_in_txn(doomed, "test", txn).unwrap();
+        engine.commit_transaction(txn).unwrap();
+        assert!(
+            engine.lookup_index_offset(doomed).is_none(),
+            "a committed delete drops the index offset"
+        );
+        assert!(
+            matches!(
+                engine.materialize_uncached(doomed).unwrap(),
+                crate::storage::engine::get::Materialized::Gap(
+                    crate::storage::engine::get::RowGap::Tombstoned
+                )
+            ),
+            "a transactional delete must read as tombstoned, not as not-indexed"
+        );
+
+        let report = db.rebuild_text_index_with_report().unwrap();
+        assert_eq!(report.record_count, 1, "the deleted row is not re-indexed");
+        assert!(
+            db.search(crate::sdk::types::MemorySearchRequest {
+                namespace: "ns1".into(),
+                text_query: Some("gamma".into()),
+                top_k: 10,
+                ..Default::default()
+            })
+            .expect("text search")
+            .is_empty(),
+            "the deleted row does not come back into the index"
+        );
+    }
+
+    /// `FIND-812`, face 2: a row the backend really lost is purged — that is
+    /// the one case where dropping the id is right.
+    #[test]
+    fn f812_rebuild_purges_a_row_the_backend_lost() {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("in-memory db");
+        db.put(crate::sdk::MemoryInput::new("ns1", "kept", "alpha beta"))
+            .unwrap();
+        let gone = db
+            .put(crate::sdk::MemoryInput::new("ns1", "gone", "gamma delta"))
+            .unwrap()
+            .node_id;
+
+        // The backend row disappears (the only positive proof of absence).
+        db.engine_handle()
+            .unwrap()
+            .backend
+            .delete(BackendPartition::Default, &gone.to_le_bytes())
+            .unwrap();
+
+        let report = db.rebuild_text_index_with_report().unwrap();
+        assert_eq!(report.corrupt_rows, 0, "absence is not corruption");
+        assert_eq!(report.record_count, 1);
+
+        let keys: Vec<Vec<u8>> = db
+            .engine_handle()
+            .unwrap()
+            .scan_partition(BackendPartition::TextIndex)
+            .unwrap()
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect();
+        // postings + the kept row's doc stats + term stats (alpha, beta) + ns.
+        assert_eq!(keys.len(), report.posting_entries as usize + 1 + 2 + 1);
+        assert!(
+            db.search(crate::sdk::types::MemorySearchRequest {
+                namespace: "ns1".into(),
+                text_query: Some("gamma".into()),
+                top_k: 10,
+                ..Default::default()
+            })
+            .expect("text search")
+            .is_empty(),
+            "the absent row is purged from the index"
+        );
     }
 
     // ─── rebuild_derived_indexes_with_report ─────────────────

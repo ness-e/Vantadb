@@ -5,6 +5,7 @@ use super::{in_memory_engine, in_memory_read_only, sample_node};
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
 use crate::config::Config;
 use crate::node::{NodeTier, UnifiedNode};
+use crate::storage::engine::get::{Materialized, RowGap};
 
 // ─── Engine basics ────────────────────────────────────────────
 
@@ -1090,18 +1091,20 @@ fn d1a_lookup_cache_hit_hot_insert() {
 #[test]
 fn d1a_fetch_metadata_miss_absent() {
     let engine = in_memory_engine();
-    let md = engine.fetch_backend_metadata(404).expect("fetch");
-    assert!(md.is_none(), "absent id → None (caller returns Ok(None))");
+    let md = engine.fetch_backend_row(404).expect("fetch");
+    assert!(md.is_none(), "absent id → None (the proof of absence)");
 }
 
 #[test]
 fn d1a_fetch_metadata_hit_after_insert() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(22)).expect("insert");
-    let md = engine
-        .fetch_backend_metadata(22)
+    let raw = engine
+        .fetch_backend_row(22)
         .expect("fetch")
         .expect("must hit");
+    let md: crate::storage::ops::NodeMetadata =
+        crate::storage::ops::deserialize_node_payload(&raw, "node metadata").expect("decode");
     assert!(
         md.relational.is_empty(),
         "sample node has no relational fields"
@@ -1185,17 +1188,19 @@ fn d1a_decode_vector_at_bad_segment_errors() {
 fn d1a_materialize_uncached_miss_absent() {
     let engine = in_memory_engine();
     let got = engine.materialize_uncached(400).expect("materialize");
-    assert!(got.is_none(), "absent id → None at the first stage");
+    assert!(
+        matches!(got, Materialized::Gap(RowGap::Absent)),
+        "absent id → an explicit proof of absence, not a bare None (FIND-812)"
+    );
 }
 
 #[test]
 fn d1a_materialize_uncached_roundtrip() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(33)).expect("insert");
-    let node = engine
-        .materialize_uncached(33)
-        .expect("materialize")
-        .expect("node");
+    let Materialized::Node(node) = engine.materialize_uncached(33).expect("materialize") else {
+        panic!("slow path must materialize the node");
+    };
     assert_eq!(node.id, 33, "slow path must return the same node as get()");
     assert!(
         matches!(node.vector, crate::node::VectorRepresentations::Full(ref f) if *f == vec![0.1, 0.2, 0.3]),

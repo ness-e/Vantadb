@@ -236,16 +236,11 @@ impl StorageEngine {
         self.cache.lookup_volatile(id)
     }
 
-    /// KV metadata fetch. `None` = absent (caller returns `Ok(None)`).
-    pub(crate) fn fetch_backend_metadata(&self, id: u128) -> Result<Option<NodeMetadata>> {
+    /// KV metadata row (raw bytes). `None` = the backend holds no row for the
+    /// id — the **only** positive proof of absence (`FIND-812`).
+    pub(crate) fn fetch_backend_row(&self, id: u128) -> Result<Option<Vec<u8>>> {
         let key = id.to_le_bytes();
-        let Some(raw) = self.backend.get(BackendPartition::Default, &key)? else {
-            return Ok(None);
-        };
-        Ok(Some(crate::storage::ops::deserialize_node_payload(
-            &raw,
-            "node metadata",
-        )?))
+        self.backend.get(BackendPartition::Default, &key)
     }
 
     /// HNSW index → packed storage offset. `None` = not indexed.
@@ -325,27 +320,195 @@ impl StorageEngine {
 
     /// Materialize a node past the txn/cache fast paths: backend metadata →
     /// index offset → header → tombstone → decode → rescue → assemble.
-    /// `Ok(None)` = absent at any stage (same mapping as the inline code).
-    pub(crate) fn materialize_uncached(&self, id: u128) -> Result<Option<UnifiedNode>> {
-        let Some(metadata) = self.fetch_backend_metadata(id)? else {
-            return Ok(None);
+    ///
+    /// `FIND-812`: the outcome is **not** a bare `Option`. "The backend holds
+    /// no row" and "the deserialization failed" used to collapse into the same
+    /// `Ok(None)`, so a torn write was indistinguishable from a deletion — and
+    /// the index rebuild, the other half of the operation, dropped the id for
+    /// good. See [`Materialized`].
+    pub(crate) fn materialize_uncached(&self, id: u128) -> Result<Materialized> {
+        let raw = self.fetch_backend_row(id)?;
+        let Some(raw) = raw else {
+            return Ok(Materialized::Gap(RowGap::Absent));
         };
+        self.materialize_row(id, &raw)
+    }
+
+    /// The same materialization over a backend row already in hand.
+    ///
+    /// `FIND-812`: a rebuild scans the partition, so re-reading every row it
+    /// just read would double the I/O of the whole index.
+    pub(crate) fn materialize_row(&self, id: u128, raw: &[u8]) -> Result<Materialized> {
+        let metadata = match crate::storage::ops::deserialize_node_payload::<NodeMetadata>(
+            raw,
+            "node metadata",
+        ) {
+            Ok(metadata) => metadata,
+            // The row EXISTS; only its bytes are unreadable. Reporting it as
+            // absent is what let the rebuild delete a live row's index — but
+            // the read path must keep failing loudly, so the error travels.
+            Err(error) => return Ok(Materialized::Unreadable { id, error }),
+        };
+        // A transactional delete keeps the metadata row on purpose
+        // (`deleted_by_txn`) and drops the index offset: without this check the
+        // row would come back as "not indexed" and be re-indexed, resurrecting
+        // a deleted record in the text/derived/sparse indexes.
+        if metadata.deleted_by_txn.is_some() {
+            return Ok(Materialized::Gap(RowGap::Tombstoned));
+        }
         let Some(storage_offset) = self.lookup_index_offset(id) else {
-            return Ok(None);
+            return Ok(Materialized::Degraded {
+                node: node_from_metadata(id, metadata),
+                gap: RowGap::NotIndexed,
+            });
         };
         let Some(header) = self.read_header_at(id, storage_offset)? else {
-            return Ok(None);
+            return Ok(Materialized::Degraded {
+                node: node_from_metadata(id, metadata),
+                gap: RowGap::HeaderCorrupt,
+            });
         };
         if (header.flags & FLAG_TOMBSTONE) != 0 {
-            return Ok(None);
+            return Ok(Materialized::Gap(RowGap::Tombstoned));
         }
         let Some(vector) = self.decode_vector_at(storage_offset, &header)? else {
-            return Ok(None);
+            return Ok(Materialized::Degraded {
+                node: node_from_metadata(id, metadata),
+                gap: RowGap::VectorCorrupt,
+            });
         };
         let kind = crate::node::NodeFlags::vector_kind(header.flags);
         let vector = self.rescue_legacy_vector(id, kind, vector);
-        Ok(Some(assemble_node(id, &header, vector, metadata)))
+        Ok(Materialized::Node(assemble_node(
+            id, &header, vector, metadata,
+        )))
     }
+
+    /// Enumerate the **row set** for a derived-index rebuild (`FIND-812`).
+    ///
+    /// The rebuild used to walk `scan_nodes()`, which silently drops every row
+    /// whose header or vector does not decode (and every non-`Full` vector
+    /// kind). Deleting all index entries and re-adding only what `scan_nodes`
+    /// surfaces removed live rows from every read, and — because the backend
+    /// row still exists — no later purge could ever see them again.
+    ///
+    /// Here the backend row set is the ground truth: a row whose side storage
+    /// is unreadable is kept (degraded, without a vector) and counted, and a
+    /// row whose metadata does not decode is reported by its id — the rebuild
+    /// cannot reconstruct it (its payload lives in that same row), but the id
+    /// stops being dropped in silence.
+    pub(crate) fn scan_rows_for_rebuild(&self) -> Result<RebuildRows> {
+        let mut rows = RebuildRows::default();
+        for (key, value) in self.backend.scan(BackendPartition::Default)? {
+            let Ok(id_bytes) = <[u8; 16]>::try_from(key.as_slice()) else {
+                tracing::warn!(
+                    key_len = key.len(),
+                    "rebuild: backend row key is not a 16-byte node id; skipped"
+                );
+                continue;
+            };
+            let id = u128::from_le_bytes(id_bytes);
+            match self.materialize_row(id, &value)? {
+                Materialized::Node(node) => rows.nodes.push(node),
+                Materialized::Degraded { node, gap } => {
+                    rows.degraded.push((id, gap));
+                    rows.nodes.push(node);
+                }
+                Materialized::Unreadable { id, .. } => rows.unreadable.push(id),
+                Materialized::Gap(gap) => {
+                    // A tombstoned row is the normal outcome of a delete.
+                    // Anything else here means the backend holds a row the
+                    // index cannot use at all — worth a trace, never a delete.
+                    if gap != RowGap::Tombstoned {
+                        tracing::debug!(
+                            node_id = %id,
+                            reason = gap.label(),
+                            "rebuild: row has nothing to index"
+                        );
+                    }
+                }
+            }
+        }
+        Ok(rows)
+    }
+}
+
+/// Why a row could not become a full node (`FIND-812`).
+///
+/// Only [`RowGap::Absent`] is a proof of absence. Everything else means the row
+/// is there and cannot be read — which is *not* the same thing, and must never
+/// be treated as one by anything that deletes index entries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RowGap {
+    /// The backend holds no row for the id — the only positive proof of absence.
+    Absent,
+    /// The row carries a durable tombstone (or a transactional delete):
+    /// deleted, by design.
+    Tombstoned,
+    /// The row exists but the vector index has no offset for it.
+    NotIndexed,
+    /// The row exists but its vstore header cannot be read (torn write).
+    HeaderCorrupt,
+    /// The row exists but its vector payload does not decode.
+    VectorCorrupt,
+}
+
+impl RowGap {
+    /// Stable label for logs / reports.
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Absent => "absent",
+            Self::Tombstoned => "tombstoned",
+            Self::NotIndexed => "not_indexed",
+            Self::HeaderCorrupt => "header_corrupt",
+            Self::VectorCorrupt => "vector_corrupt",
+        }
+    }
+}
+
+/// Outcome of [`StorageEngine::materialize_uncached`].
+#[derive(Debug)]
+pub(crate) enum Materialized {
+    /// The row materialized in full.
+    Node(UnifiedNode),
+    /// The metadata row is intact but the side storage is not: the record can
+    /// still be indexed (it just has no vector), so the id is kept.
+    Degraded { node: UnifiedNode, gap: RowGap },
+    /// Nothing to materialize, and *why*.
+    Gap(RowGap),
+    /// The row exists but its metadata does not decode. The decode error is
+    /// carried along so the read path keeps failing **loudly**, exactly as it
+    /// did before this change (`FIND-812`).
+    Unreadable {
+        id: u128,
+        error: crate::error::Error,
+    },
+}
+
+/// The backend row set a derived-index rebuild must cover (`FIND-812`).
+#[derive(Debug, Default)]
+pub(crate) struct RebuildRows {
+    /// Rows that can be indexed (fully or degraded).
+    pub(crate) nodes: Vec<UnifiedNode>,
+    /// Rows kept with a degraded payload — counted and reported, never dropped.
+    pub(crate) degraded: Vec<(u128, RowGap)>,
+    /// Rows whose metadata does not decode: nothing can be rebuilt for them, so
+    /// the caller reports the id (the row is still in the backend, visible to a
+    /// later purge or repair).
+    pub(crate) unreadable: Vec<u128>,
+}
+
+/// Build a node from its metadata row alone (no vector).
+///
+/// `FIND-812`: a corrupt vstore header or vector does not change what the
+/// record *is* — its fields live in the backend row. Rebuilding from the
+/// metadata keeps the id visible to every later repair.
+pub(crate) fn node_from_metadata(id: u128, metadata: NodeMetadata) -> UnifiedNode {
+    let mut node = UnifiedNode::new(id);
+    node.vector = VectorRepresentations::None;
+    node.relational = metadata.relational;
+    node.edges = metadata.edges;
+    node
 }
 
 /// Prefer a legacy HNSW-resident quantized payload over an empty decode.
@@ -405,8 +568,15 @@ impl StorageEngine {
         if let Some(hit) = self.lookup_volatile(id) {
             return Ok(hit);
         }
-        let Some(node) = self.materialize_uncached(id)? else {
-            return Ok(None);
+        // `FIND-812`: only a full materialization is a node here. A degraded
+        // row (corrupt header/vector) is deliberately NOT surfaced as a
+        // vector-less ghost on the read path — the rebuild keeps its id so a
+        // repair can see it, and `get()` keeps answering "not readable".
+        // An unreadable metadata row still fails loudly, as before.
+        let node = match self.materialize_uncached(id)? {
+            Materialized::Node(node) => node,
+            Materialized::Unreadable { error, .. } => return Err(error),
+            Materialized::Degraded { .. } | Materialized::Gap(_) => return Ok(None),
         };
         // OLD-20: After a cache miss, proactively prefetch co-accessed nodes.
         // No locks are held at this point, so get() can be called recursively.

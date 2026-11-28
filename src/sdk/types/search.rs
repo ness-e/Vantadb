@@ -156,6 +156,9 @@ pub(crate) struct DerivedIndexRebuildReport {
     pub(crate) record_count: u64,
     pub(crate) namespace_entries: u64,
     pub(crate) payload_entries: u64,
+    /// Rows the rebuild could not materialize in full: degraded (kept, no
+    /// vector) plus unreadable (reported by id). `FIND-812`.
+    pub(crate) corrupt_rows: u64,
     pub(crate) duration_ms: u64,
 }
 
@@ -180,6 +183,9 @@ pub(crate) struct TextIndexRebuildReport {
     pub(crate) doc_stats_entries: u64,
     pub(crate) term_stats_entries: u64,
     pub(crate) namespace_stats_entries: u64,
+    /// Rows whose metadata did not decode: counted, reported by id, and kept
+    /// (`FIND-812`). A rebuild never drops a row it could not read.
+    pub(crate) corrupt_rows: u64,
     pub(crate) duration_ms: u64,
 }
 

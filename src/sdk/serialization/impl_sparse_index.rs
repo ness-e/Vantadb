@@ -271,8 +271,16 @@ impl Embedded {
             });
         }
 
-        for node in engine.scan_nodes()? {
-            if let Some(record) = record_from_node(&node) {
+        // FIND-812: same enumeration as the derived/text rebuilds — the backend
+        // row set, not `scan_nodes()` (which drops rows whose header/vector
+        // does not decode and every non-`Full` vector kind). With the two
+        // enumerations disagreeing, the expected count never matched the
+        // rebuilt one and the sparse partition was wiped and rewritten on
+        // every writable open.
+        let rows = engine.scan_rows_for_rebuild()?;
+        Self::report_rebuild_gaps("sparse", &rows);
+        for node in &rows.nodes {
+            if let Some(record) = record_from_node(node) {
                 counts.record_count += 1;
                 let put_ops = sparse_put_ops(&record)?;
                 counts.posting_entries += put_ops.len() as u64;
