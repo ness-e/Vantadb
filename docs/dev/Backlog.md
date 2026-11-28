@@ -974,3 +974,15 @@ Filas creadas al cerrar el run de gates v0.10.0 (commits `51c038efd`, `d0df55c2b
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
+
+## Media 2026-11-27 - El tag del indice de texto es reversible por diccionario: falta k_blind
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `FIND-829` | 🟡 Media | **el `tag8` del índice de texto es recuperable por diccionario**: sin `k_blind` del registro, un atacante con el disco puede probar tokens y confirmar cuáles están indexados | `src/text_index.rs` (`tag8`) · `ADR-0057` | 🟡 2-4h | 🟡 Media | 🟡 Pendiente (2026-11-27) | Lo declaró el cierre de `FIND-513`: la clave del posting ya no lleva el token **en claro** (`tag8(x)=SHA-256(domain‖x)[0..8]`, componentes legibles 5→0), pero un hash **sin clave** de un espacio pequeño es reversible por diccionario: basta probar los tokens candidatos y comparar 8 bytes. El índice deja de **filtrar** el contenido, pero no lo **protege** frente a quien tenga el fichero y un diccionario. **Contrato:** el tag se computa con una clave derivada del registro (`k_blind`, la que `ADR-0057` ya prevé) en vez de un hash desnudo; el rebuild desde v4 es el mismo camino que ya existe. **Verificación:** dos bases con distinto `k_blind` producen tags distintos para el mismo token; y el test de diccionario (probar N tokens y contar coincidencias) baja a 0 sin la clave. | Origen: cierre de `FIND-513` (2026-11-27) | Ver: `FIND-513`, `FIND-830` |
+
+## Alta 2026-11-27 - El indice derivado y los sparse postings siguen con la clave en claro
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `FIND-830` | 🟠 Alta | **el índice derivado y los sparse postings SIGUEN llevando la clave del registro en claro**, aunque el índice de texto ya no | `src/text_index.rs` (`namespace_index_key`, `payload_index_key`, sparse postings) | 🟡 2-4h | 🟠 Alta | 🟡 Pendiente (2026-11-27) | Lo declaró el cierre de `FIND-513` como segundo hallazgo: el fix cegó la clave de los **postings de texto**, pero el **índice derivado** (`namespace_index_key`, `payload_index_key`) y los **sparse postings** conservan el `record_key` legible. Es la misma fuga que `FIND-513` con otra puerta — y la puerta que quedó abierta es la que indexa por namespace y payload, así que expone **qué namespace y qué payload tiene cada registro**, no sólo su clave. **Contrato:** la misma construcción ciega (`tag8` o `k_blind` cuando `FIND-829` entre) para esas tres familias de claves, con rebuild por marcador de versión como el que ya existe. **Verificación:** el escaneo de bytes del índice no encuentra el `record_key` en claro en **ninguna** de las tres familias; y el rebuild produce el mismo resultado de búsqueda. | Origen: cierre de `FIND-513` (2026-11-27) | Ver: `FIND-513`, `FIND-829` |
