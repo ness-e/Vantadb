@@ -708,12 +708,20 @@ export declare class VantaDb {
    * [{source, target, label}], context_text, stats}`. u128 ids travel as
    * decimal strings (API-01). At least one of `query` / `queryVector`
    * should be provided; both may be combined (hybrid seeds).
+   *
+   * `maxDegreePerNode` (EGO-15) caps the edges followed out of each visited
+   * node — omitted ⇒ the core default (128), `0` ⇒ seeds only.
+   * `minEdgeWeight` skips edges below that weight — omitted ⇒ no filter.
+   * Both carry the same name and meaning as the core `GraphRagPipeline`
+   * setters; passing neither is byte-identical to the pre-EGO-15 call.
    */
   graphragSearch(
     namespace: string,
     query?: string | undefined | null,
     queryVector?: Array<number> | undefined | null,
     abort?: AbortHandle | undefined | null,
+    maxDegreePerNode?: number | undefined | null,
+    minEdgeWeight?: number | undefined | null,
   ): Promise<GraphRagResult>;
   /**
    * Execute an IQL query string and return the structured result
