@@ -90,8 +90,12 @@ cargo nextest run  ... mismo filtro ... --no-tests fail
 - fila del backend ausente ⇒ el id **se purga** (`corrupt_rows == 0`).
 - fila **borrada por transacción** (`deleted_by_txn` + sin offset) ⇒ se purga,
   no se re-indexa.
-- fila que el índice vectorial nunca vio ⇒ se conserva (degradada) y se cuenta;
-  **no** se sirve por `search` (decisión de abajo).
+- fila que el índice vectorial nunca vio (`NotIndexed`, el caso del `put_batch`
+  que `batch_should_insert_hnsw` deja sin entrada) ⇒ se conserva (degradada), se
+  cuenta, sus postings se reconstruyen; **no** se sirve por `search`.
+- además, la cara **C1** (sparse): la misma fila invisible a `scan_nodes` ⇒ el
+  rebuild sparse la indexa (`record_count == 1`) y un segundo `ensure` es
+  no-op (`rebuilt_at_ms` no cambia) — el pin del rebuild storm.
 
 **Invariante:** `vacuum` ya purgaba solo con `Ok(None)` del backend; ese contrato
 no cambia. `get()` conserva su comportamiento observable: `Ok(None)` para
@@ -105,6 +109,16 @@ ausente/tombstone/degradada y **`Err`** para metadata que no decodifica.
   lectura. Consecuencia declarada: el id queda indexado pero **invisible** hasta
   que una reparación lo materialice; el test lo dice explícitamente en vez de
   prometer un hit que el código no da.
+- **Una fila borrada cuyo header NO se puede leer se re-indexa.** El flag de
+  tombstone vive en el header de vstore: sin header legible no hay forma de
+  saber que la fila fue borrada (la metadata no lleva la marca salvo en el
+  borrado transaccional, que sí se consulta). Se prefiere indexar de más —
+  visible y reparable — a borrar de menos, que es el fallo que esta fila ataca.
+- **`node_from_metadata` pierde lo que sólo el header llevaba** (`bitset`,
+  `flags`, `confidence_score`, `importance`, `tier`): los tres índices no lo
+  usan (todo sale de `relational`), pero un `MemoryRecord` reconstruido desde
+  una fila degradada reporta `confidence = 0.5`. Si algún día se indexa por
+  confianza, esa fila miente: declarado.
 - **`get()` sigue fallando ruidosamente** (`Err`) cuando la **metadata** no
   decodifica: eso es lo que hacía `HEAD` (`deserialize_node_payload(...)? `) y
   tragarlo a `Ok(None)` habría convertido la corrupción en "no encontrado" — la
@@ -139,6 +153,15 @@ Aplicado en la misma ronda:
 - **L5** — claves que no son 16 bytes se saltean con `warn!` en vez de en silencio.
 
 No aplicado, declarado: **M2/M3** — `SECURITY.md` ahora acota qué se fue **del índice de texto** y declara que el índice derivado y los sparse postings **siguen** llevando la clave en claro, y que el tag sin clave es **recuperable por diccionario** (no "confirmable por conjetura"). Las dos filas de seguimiento (tag keyed con `k_blind`; claves del derivado/sparse en claro) necesitan ID del orquestador — declaradas en `FIND-513.md` §Deuda.
+
+### P2-01 ronda 3 (contexto fresco, `vanta-review`) — **changes-required**, aplicado
+
+La ronda 2 encontró dos huecos **de prueba**, no de código:
+
+- **M4 era falso:** el test que citaba (`f812_rebuild_keeps_a_row_the_index_never_saw`) no existía — la edición que lo insertaba falló y la §Review lo daba por hecho. Escrito ahora, y es la cara **más alcanzable** de las cuatro: `batch_should_insert_hnsw` deja lotes de `put_batch` sin entrada HNSW.
+- **C1 no tenía test:** la corrección CRITICAL (sparse rebuild) quedaba sin pin. `f812_sparse_rebuild_keeps_a_row_the_index_never_saw` la cubre: fila con `sparse_vector` invisible a `scan_nodes` ⇒ el rebuild sparse la indexa y un segundo `ensure` **no reescribe** la partición (`rebuilt_at_ms` estable, con 5 ms de separación para que el assert discrimine).
+
+Nits aplicados: el mensaje del ensure ya no dice "or newer" (`text_index_state_matches_spec` exige igualdad exacta); el doc de `TextIndexRebuildReport::corrupt_rows` dice que cuenta degradadas **e** ilegibles. Declarados como límites: una fila borrada cuyo header no se puede leer se re-indexa (el tombstone vive en el header), y `node_from_metadata` pierde `confidence`/`bitset`/`flags`.
 
 ## Context Save Point
 

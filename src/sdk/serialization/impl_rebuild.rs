@@ -1131,6 +1131,101 @@ mod tests {
         );
     }
 
+    /// `FIND-812`, face 4: a row the backend holds that the vector index never
+    /// saw. This is the **most reachable** of the four — `batch_should_insert_hnsw`
+    /// leaves whole `put_batch` chunks without an HNSW entry — and pre-fix
+    /// `scan_nodes()` dropped them, so a bulk import silently lost its postings.
+    #[test]
+    fn f812_rebuild_keeps_a_row_the_index_never_saw() {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("in-memory db");
+        let orphan = db
+            .put(crate::sdk::MemoryInput::new("ns1", "orphan", "gamma delta"))
+            .unwrap()
+            .node_id;
+
+        // The vector index forgets the id; the backend row stays live (no
+        // transaction marker).
+        let engine = db.engine_handle().unwrap();
+        engine.hnsw.load().remove_node(orphan);
+        assert!(
+            matches!(
+                engine.materialize_uncached(orphan).unwrap(),
+                crate::storage::engine::get::Materialized::Degraded {
+                    gap: crate::storage::engine::get::RowGap::NotIndexed,
+                    ..
+                }
+            ),
+            "a row with no index offset must read as not-indexed, not as absent"
+        );
+
+        let report = db.rebuild_text_index_with_report().unwrap();
+        assert_eq!(report.corrupt_rows, 1, "the row is counted and reported");
+        assert_eq!(report.record_count, 1, "the row is still a record");
+        assert_eq!(
+            report.posting_entries, 2,
+            "its postings are rebuilt from the metadata row"
+        );
+        assert!(
+            db.search(crate::sdk::types::MemorySearchRequest {
+                namespace: "ns1".into(),
+                text_query: Some("gamma".into()),
+                top_k: 10,
+                ..Default::default()
+            })
+            .expect("text search")
+            .is_empty(),
+            "the id is indexed but not served: `get_many` cannot materialize it \
+             (declared in the task file, not a promise of this fix)"
+        );
+    }
+
+    /// `FIND-812` / `C1`: the **sparse** rebuild enumerates the same row set, so
+    /// a row invisible to `scan_nodes()` keeps its sparse postings and a second
+    /// `ensure` is a no-op instead of wiping and rewriting the partition.
+    #[test]
+    fn f812_sparse_rebuild_keeps_a_row_the_index_never_saw() {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("in-memory db");
+        let mut input = crate::sdk::MemoryInput::new("ns1", "orphan", "gamma delta");
+        let mut sparse = crate::node::SparseVector::new();
+        sparse.insert(3, 0.5);
+        sparse.insert(7, 0.25);
+        input.sparse_vector = Some(sparse);
+        let orphan = db.put(input).unwrap().node_id;
+
+        let engine = db.engine_handle().unwrap();
+        engine.hnsw.load().remove_node(orphan);
+
+        let report = db.rebuild_sparse_index_with_report().unwrap();
+        assert_eq!(
+            report.record_count, 1,
+            "the row is in the row set even though `scan_nodes()` drops it"
+        );
+        assert_eq!(report.posting_entries, 2, "its 2 sparse postings are kept");
+
+        // A second reconcile must not rewrite the partition (the pre-fix
+        // mismatch between expected and rebuilt counts rewrote it every open).
+        let state_before = Embedded::load_sparse_index_state(&engine)
+            .unwrap()
+            .expect("sparse state");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        db.ensure_indexes_current().unwrap();
+        let state_after = Embedded::load_sparse_index_state(&engine)
+            .unwrap()
+            .expect("sparse state");
+        assert_eq!(
+            state_before.rebuilt_at_ms, state_after.rebuilt_at_ms,
+            "a second ensure must be a no-op, not a rebuild storm"
+        );
+    }
+
     /// `FIND-812`, face 2: a row the backend really lost is purged — that is
     /// the one case where dropping the id is right.
     #[test]

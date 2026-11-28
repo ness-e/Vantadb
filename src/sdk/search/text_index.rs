@@ -31,7 +31,7 @@ pub(crate) fn ensure_text_index_query_ready(engine: &StorageEngine) -> Result<Te
         return Err(Error::Validation {
             field: "text_index_schema".into(),
             reason: format!(
-                "text_query requires text_index schema v{} ({}) or newer; reopen writable or run rebuild_index",
+                "text_query requires text_index schema v{} ({}); reopen writable or run rebuild_index",
                 spec.schema_version, spec.key_format
             ),
         });

@@ -165,9 +165,14 @@ tag8(x)    = SHA-256("vanta:text-index:<domain>:v4\0" ‖ x)[0..8]
 ## Contrato de verificación
 
 ```
-cargo nextest list --profile audit -p vantadb --build-jobs 2 -E 'test(text_index) or test(posting) or test(kv_crypto)'   # > 0
+cargo nextest list --profile audit -p vantadb --build-jobs 2 -E 'test(text_index) or test(posting) or test(f513) or test(rebuild) or test(get)'   # > 0
 cargo nextest run  ... mismo filtro ... --no-tests fail
 ```
+
+Medido al cerrar: población **211**, corrida **211/211**. El filtro incluye
+`test(f513)` a propósito: el test de migración vive en `impl_rebuild.rs` y con el
+filtro anterior (`text_index|posting|kv_crypto`) **no corría** — el gate pasaba
+sin ejecutar su test cabecera.
 
 **Invariante que no se puede romper:** ningún camino de escritura/lectura del índice cambia de comportamiento en esta entrega (es doc + pin); el test que pincha el layout falla si alguien cambia la clave sin tocar el doc.
 

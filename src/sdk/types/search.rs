@@ -183,8 +183,10 @@ pub(crate) struct TextIndexRebuildReport {
     pub(crate) doc_stats_entries: u64,
     pub(crate) term_stats_entries: u64,
     pub(crate) namespace_stats_entries: u64,
-    /// Rows whose metadata did not decode: counted, reported by id, and kept
-    /// (`FIND-812`). A rebuild never drops a row it could not read.
+    /// Rows the rebuild could not materialize in full: degraded (kept, without
+    /// a vector — its postings ARE rebuilt) plus unreadable (metadata does not
+    /// decode — counted and reported by id, nothing can be rebuilt for it).
+    /// `FIND-812`.
     pub(crate) corrupt_rows: u64,
     pub(crate) duration_ms: u64,
 }
